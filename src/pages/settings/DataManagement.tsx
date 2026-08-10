@@ -3,12 +3,10 @@ import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, SearchIcon, XCircleIcon, RefreshCwIcon, type IconProps } from '../../components/icons';
-import type { WipeProgress } from '../../services/import/msMoney/msMoneyImport';
 import { LoadingState } from '../../components/loading/LoadingState';
 import { createScopedLogger } from '../../loggers/scopedLogger';
 import { parseBankingOpsUrlState, replaceBrowserSearch, withBankingOpsUrlState } from '../../utils/bankingOpsUrlState';
-import { DataService } from '../../services/api/dataService';
-import { supabase } from '../../lib/supabase';
+import { dataPort, type WipeProgress } from '../../services/port';
 
 const ArchiveManager = lazyWithRecovery(() => import('../../components/ArchiveManager'));
 
@@ -121,9 +119,15 @@ export default function DataManagementSettings() {
 
   // ACTUALLY delete everything. The store has to be wiped first — the context's
   // resetLoadedData only forgets the loaded copy, so on cloud the data all came
-  // back on the next load, which made the button a lie. The same proven wipe the
-  // MS Money migration uses runs first, then the loaded snapshot is dropped, then
-  // the app reloads to re-read the (empty) truth.
+  // back on the next load, which made the button a lie. The seam's wipe runs
+  // first, then the loaded snapshot is dropped, then the app reloads to re-read
+  // the (empty) truth.
+  //
+  // This page used to choose the engine itself, and held a Postgres client to do
+  // it with. It no longer knows there is more than one store: `dataPort` decides,
+  // and supplies whatever confirmation phrase the engine behind it demands. The
+  // dialog below is the confirmation (its button will not enable until DELETE is
+  // typed), which is where a phrase somebody types belongs.
   //
   // The local branch used to call wipeLocalData, which wrote to localStorage
   // while the app reads encrypted IndexedDB — so on a demo or local session this
@@ -140,23 +144,12 @@ export default function DataManagementSettings() {
     // nothing about a half-finished wipe.
     let sawProgress = false;
     try {
-      const databaseUserId = DataService.getUserIds().databaseId;
-      if (isUsingSupabase && supabase && databaseUserId) {
-        const { wipeCloudData } = await import('../../services/import/msMoney/msMoneyImport');
-        await wipeCloudData(supabase, databaseUserId, {
-          onProgress: (progress) => {
-            sawProgress = true;
-            setClearProgress(progress);
-          },
-        });
-      } else {
-        const { wipeLocalFinancialData, LOCAL_WIPE_CONFIRMATION } =
-          await import('../../services/localBackupService');
-        // The dialog behind this button is the confirmation (it will not enable
-        // until DELETE is typed), exactly as it is for the cloud branch above —
-        // wipeCloudData asks for no phrase either.
-        await wipeLocalFinancialData(LOCAL_WIPE_CONFIRMATION);
-      }
+      await dataPort.wipeAllFinancialData({
+        onProgress: (progress) => {
+          sawProgress = true;
+          setClearProgress(progress);
+        },
+      });
       await resetLoadedData();
       setShowDeleteConfirm(false);
       window.location.reload();

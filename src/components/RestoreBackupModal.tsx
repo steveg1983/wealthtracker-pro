@@ -13,14 +13,12 @@ import {
   preferenceCount,
   transactionDateRange,
   validateBackupBundle,
-  wipeUserFinancialData,
   type BackupBundle,
   type RestoreProgress,
 } from '../services/backupService';
 import {
   LOCAL_BACKUP_BINDINGS,
   LocalRestoreRefusedError,
-  wipeLocalFinancialData,
 } from '../services/localBackupService';
 
 /**
@@ -107,12 +105,17 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
   /**
    * WHAT THIS IS STILL FOR, now that the seam resolves its own owner.
    *
-   * Three things, all of them owned by a later step and none of them a data
-   * operation: the wipe still forks between the two engines HERE (it joins the
-   * seam with `wipeAllFinancialData`); the copy on this dialog says "login" or
-   * "device" throughout; and a signed-in session whose id has not resolved is
-   * blocked from starting at all. The reads and the restore no longer touch it
-   * — `dataPort` answers those without being told whose data it is.
+   * WORDS, and one refusal — no data operation. This dialog is now the LAST
+   * consumer of `getUserIds` in the app, and all three of the things it reads
+   * from it are questions about this edition rather than about anybody's data:
+   * whether the copy says "login" or "device" throughout, whether a restore
+   * that failed halfway warns about a partly-populated store (a chunked cloud
+   * restore can be; one IndexedDB transaction cannot), and whether a signed-in
+   * session is still connecting and must be blocked from starting at all.
+   *
+   * All three leave with `capabilities()`, and the method goes with them. The
+   * emptiness check, the wipe and the restore no longer touch it — `dataPort`
+   * answers those without being told whose data it is.
    */
   const databaseUserId = DataService.getUserIds().databaseId;
   /**
@@ -205,13 +208,13 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
     setPhase('wiping');
     setFailure(null);
     try {
-      // The typed phrase goes through untouched on both engines. Normalising it
-      // here would make the user's typing decoration rather than confirmation.
-      if (databaseUserId) {
-        await wipeUserFinancialData(wipeConfirmText, databaseUserId);
-      } else {
-        await wipeLocalFinancialData(wipeConfirmText);
-      }
+      // THE PHRASE IS THIS SCREEN'S, and it still has to be typed exactly: the
+      // button above is disabled until it is, character for character, and this
+      // dialog never wipes implicitly. What changed is that the phrase is no
+      // longer carried down to an engine — the seam's wipe supplies whatever
+      // its own store demands, which is what lets this file stop choosing
+      // between two of them (and stop holding the identity it chose with).
+      await dataPort.wipeAllFinancialData();
       // The local snapshot now describes history that no longer exists. Drop it
       // before anything reads it back and merges the dead rows in.
       await transactionCache.clear();
@@ -227,7 +230,7 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
       });
       setPhase('failed');
     }
-  }, [databaseUserId, cloudSessionPending, targetName, wipeConfirmText]);
+  }, [cloudSessionPending, targetName]);
 
   const handleRestore = useCallback(async () => {
     if (!bundle || cloudSessionPending) return;

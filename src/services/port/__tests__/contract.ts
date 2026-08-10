@@ -186,6 +186,9 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   'financialDataIsEmpty',
   'collectBackup',
   'restoreBackup',
+  'wipeAllFinancialData',
+  // Migration
+  'importMsMoney',
   // Lifecycle
   'initialize',
   'prepareCategories',
@@ -2269,7 +2272,18 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     // the ledger it came from, and anything the store cannot keep comes back
     // named instead of vanishing.
     describe('backup and restore', () => {
-      /** A ledger with something in every table this suite can seed. */
+      /**
+       * A ledger with something in every table this suite can seed.
+       *
+       * The SPLIT and the DISMISSAL are not padding. They are the two tables a
+       * partial job is most likely to miss and least likely to be noticed
+       * missing: a split hangs off a transaction rather than off the store, and
+       * a dismissal hangs off nothing at all — no account to cascade from, no
+       * screen that would look empty if it survived. Both are carried by a
+       * backup file, so both decide whether "wiped" is true enough for the
+       * restore that follows. A fixture without them lets an engine that clears
+       * the obvious five pass every assertion below.
+       */
       const aWholeLedger = (): PortFixture => ({
         accounts: threeAccounts(),
         categories: [aCategory('cat-everyday', 'Everyday spending')],
@@ -2280,10 +2294,29 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
             amount: 500,
             description: 'Payday',
             type: 'income'
+          }),
+          aTransaction('txn-3', {
+            amount: -30,
+            description: 'Weekly shop',
+            isSplit: true,
+            category: ''
           })
         ],
+        splits: [
+          { id: 'line-1', transactionId: 'txn-3', category: 'cat-everyday', amount: -10, sortOrder: 1 },
+          { id: 'line-2', transactionId: 'txn-3', category: 'cat-bills', amount: -20, sortOrder: 2 }
+        ],
         budgets: [aBudget('budget-1', 'cat-everyday', 200)],
-        goals: [aGoal('goal-1', 'New boiler', 1500)]
+        goals: [aGoal('goal-1', 'New boiler', 1500)],
+        dismissals: [
+          {
+            id: 'dismissal-1',
+            kind: 'duplicate',
+            subjectKey: 'corner-shop-10-10',
+            subjectIds: ['txn-1'],
+            dismissedAt: AT('2025-01-05')
+          }
+        ]
       });
 
       /**
@@ -2311,6 +2344,83 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
 
         const holding = await harness.create({ accounts: threeAccounts() });
         expect(await holding.port.financialDataIsEmpty()).toBe(false);
+      });
+
+      it('empties the store, and then agrees that it is empty', async () => {
+        // The two operations have to answer the same question about one store.
+        // A wipe that emptied what it felt like and an emptiness check that
+        // asked about something else would give the restore dialog two
+        // different answers about the same login — and the one it acts on is
+        // the one that unlocks the button.
+        const { port, read } = await harness.create(aWholeLedger());
+        expect(await port.financialDataIsEmpty()).toBe(false);
+
+        await port.wipeAllFinancialData();
+
+        expect(await port.financialDataIsEmpty()).toBe(true);
+        const after = await read();
+        expect(after.accounts).toEqual([]);
+        expect(after.transactions).toEqual([]);
+        expect(after.categories).toEqual([]);
+        expect(after.budgets).toEqual([]);
+        expect(after.goals).toEqual([]);
+        // The two that hang off something other than the store, and are
+        // therefore the two an incomplete wipe leaves behind in silence.
+        expect(after.splits).toEqual([]);
+        expect(after.dismissals).toEqual([]);
+      });
+
+      it('is safe to run twice, because that is the recovery when it stops', async () => {
+        // Idempotence is not tidiness here, it is the whole repair. An engine
+        // that erases in pieces cannot avoid stopping part-way (one statement
+        // over 51,000 rows is cancelled by the database's own timeout, which is
+        // why it is in pieces at all), so it makes that state SAFE instead:
+        // deleting rows that have already gone is a no-op, and the dialog's
+        // advice — run it again — has to be true rather than hopeful.
+        const { port, read } = await harness.create(aWholeLedger());
+
+        await port.wipeAllFinancialData();
+        const afterFirst = asComparable(await read());
+
+        await expect(port.wipeAllFinancialData()).resolves.toBeUndefined();
+
+        expect(asComparable(await read())).toBe(afterFirst);
+        expect(await port.financialDataIsEmpty()).toBe(true);
+      });
+
+      it('erases a store a file can then be poured straight back into', async () => {
+        // THE ROUND TRIP, closed: collect → wipe → restore → collect. Slice 9
+        // could prove the middle two against a store that started empty; this
+        // is the journey a real person makes, which always begins with a login
+        // that already holds their life.
+        //
+        // It is also what pins how much a wipe has to delete. "Empty" for the
+        // flag is three tables; a file carries fourteen. An engine that cleared
+        // the three and left one the file also holds would pass every
+        // assertion above and then fail HERE — which is exactly where it fails
+        // in real life, half-way through a restore, in front of somebody who
+        // has just deliberately erased their own login.
+        const store = await harness.create(aWholeLedger());
+        const file = await store.port.collectBackup();
+
+        await store.port.wipeAllFinancialData();
+        await store.port.restoreBackup(file);
+
+        const again = await store.port.collectBackup();
+
+        // Row for row and penny for penny, matched by name because every id is
+        // minted anew on the way in.
+        expect(again.counts).toEqual(file.counts);
+        const namesOf = (bundle: BackupBundle, entity: BackupEntity, field: string): string[] =>
+          bundle.data[entity].map(row => String(row[field])).sort();
+        expect(namesOf(again, 'accounts', 'name')).toEqual(namesOf(file, 'accounts', 'name'));
+        expect(namesOf(again, 'transactions', 'description'))
+          .toEqual(namesOf(file, 'transactions', 'description'));
+        expect(namesOf(again, 'transactions', 'amount'))
+          .toEqual(namesOf(file, 'transactions', 'amount'));
+        expect(namesOf(again, 'categories', 'name')).toEqual(namesOf(file, 'categories', 'name'));
+        expect(namesOf(again, 'budgets', 'amount')).toEqual(namesOf(file, 'budgets', 'amount'));
+        expect(namesOf(again, 'goals', 'name')).toEqual(namesOf(file, 'goals', 'name'));
       });
 
       it('pours a file into an empty store and gets the same ledger back, to the penny', async () => {

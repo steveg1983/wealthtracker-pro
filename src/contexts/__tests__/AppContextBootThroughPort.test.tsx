@@ -260,6 +260,11 @@ vi.mock('../../services/port', () => {
     financialDataIsEmpty: refuse('financialDataIsEmpty'),
     collectBackup: refuse('collectBackup'),
     restoreBackup: refuse('restoreBackup'),
+    // Nor is erasing the ledger, nor replacing it with somebody's .mny file.
+    // A boot that reached either of these would be the loudest bug in the app,
+    // so each refuses by name rather than resolving quietly.
+    wipeAllFinancialData: refuse('wipeAllFinancialData'),
+    importMsMoney: refuse('importMsMoney'),
   };
 
   return { dataPort };

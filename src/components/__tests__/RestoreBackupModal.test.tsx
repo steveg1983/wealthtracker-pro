@@ -4,14 +4,14 @@
  * The most destructive screen in the app: it erases a login or a device and
  * pours a file in over the top, and it had no test at all. So every assertion
  * here was first written against the behaviour as it stood BEFORE the seam took
- * the emptiness check and the restore, and run green against it. Only the mocks
- * changed afterwards — from the two engines this file used to choose between,
- * to the one door it knocks on now. That is what makes the suite evidence that
- * the routing changed nothing the user can see.
+ * the emptiness check, the restore and the wipe, and run green against it. Only
+ * the mocks changed afterwards — from the engines this file used to choose
+ * between, to the one door it knocks on now. That is what makes the suite
+ * evidence that the routing changed nothing the user can see.
  *
- * STILL THE PAGE'S OWN, and mocked as such: the wipe (it joins the seam with
- * slice 10) and the identity that decides whether the copy says "login" or
- * "device" (slice 11).
+ * STILL THE PAGE'S OWN, and mocked as such: only the identity that decides
+ * whether the copy says "login" or "device" (slice 11). No data operation on
+ * this screen picks an engine any more.
  */
 
 import React from 'react';
@@ -41,26 +41,11 @@ vi.mock('../../services/api/dataService', () => ({
   DataService: { getUserIds: () => userIds.value },
 }));
 
-/** The wipe is still this page's fork between two engines — slice 10 routes it. */
-const engines = vi.hoisted(() => ({
-  cloudWipe: vi.fn(async () => ({ transactions: 3 })),
-  localWipe: vi.fn(async () => ({ transactions: 3 })),
-}));
-
-vi.mock('../../services/backupService', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../services/backupService')>();
-  return { ...actual, wipeUserFinancialData: engines.cloudWipe };
-});
-
-vi.mock('../../services/localBackupService', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../services/localBackupService')>();
-  return { ...actual, wipeLocalFinancialData: engines.localWipe };
-});
-
 /** The seam. One door, whichever store is behind it. */
 const seam = vi.hoisted(() => ({
   financialDataIsEmpty: vi.fn<() => Promise<boolean>>(),
   restoreBackup: vi.fn(),
+  wipeAllFinancialData: vi.fn<() => Promise<void>>(),
 }));
 
 vi.mock('../../services/port', () => ({ dataPort: seam }));
@@ -114,6 +99,7 @@ describe('RestoreBackupModal', () => {
     appValue.isUsingSupabase = false;
     seam.financialDataIsEmpty.mockResolvedValue(true);
     seam.restoreBackup.mockResolvedValue({ ...outcome });
+    seam.wipeAllFinancialData.mockResolvedValue(undefined);
   });
 
   const open = (): void => {
@@ -180,7 +166,12 @@ describe('RestoreBackupModal', () => {
       expect(erase).toBeEnabled();
     });
 
-    it('passes the typed phrase through untouched and re-checks emptiness after erasing', async () => {
+    it('erases through the one door, and re-checks emptiness afterwards', async () => {
+      // The phrase gates the BUTTON (above) and is not carried any further: the
+      // seam supplies whatever its own store demands, which is what stopped this
+      // file from having to know there is more than one. What is asserted here
+      // is that erasing happens exactly once, without an owner, and that the
+      // dialog then asks the store again rather than assuming it worked.
       seam.financialDataIsEmpty.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
       open();
       await pickFile(bundleWith());
@@ -191,10 +182,32 @@ describe('RestoreBackupModal', () => {
       });
       fireEvent.click(screen.getByRole('button', { name: /Erase everything in this device/i }));
 
-      await waitFor(() => expect(engines.localWipe).toHaveBeenCalledWith('DELETE EVERYTHING'));
-      expect(engines.cloudWipe).not.toHaveBeenCalled();
+      await waitFor(() => expect(seam.wipeAllFinancialData).toHaveBeenCalledTimes(1));
+      expect(seam.wipeAllFinancialData).toHaveBeenCalledWith();
       await screen.findByText(/is empty, so the backup can go straight in/i);
       expect(emptinessChecks()).toBe(2);
+    });
+
+    it('keeps the store’s own sentence when erasing fails, and does not go on', async () => {
+      // A wipe that stopped is the one moment this dialog must not carry on:
+      // the restore behind it only ever writes into an empty store, and a
+      // half-erased one is neither empty nor untouched.
+      seam.financialDataIsEmpty.mockResolvedValueOnce(false);
+      seam.wipeAllFinancialData.mockRejectedValueOnce(
+        new Error('canceling statement due to statement timeout')
+      );
+      open();
+      await pickFile(bundleWith());
+      await screen.findByText(/already holds data/i);
+
+      fireEvent.change(screen.getByLabelText('Type DELETE EVERYTHING to confirm'), {
+        target: { value: 'DELETE EVERYTHING' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Erase everything in this device/i }));
+
+      await screen.findByText(/Stopped at:/);
+      expect(screen.getByText('canceling statement due to statement timeout')).toBeInTheDocument();
+      expect(restoreCalls()).toBe(0);
     });
   });
 

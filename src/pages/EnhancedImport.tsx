@@ -5,11 +5,7 @@ import { importRulesService } from '../services/importRulesService';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
 import { LoadingState } from '../components/loading/LoadingState';
-import { DataService } from '../services/api/dataService';
-import { supabase } from '../lib/supabase';
-import { STORAGE_KEYS } from '../services/storageAdapter';
-import type { MsMoneyImportResult } from '../services/import/msMoney/transform';
-import type { ImportProgress } from '../services/import/msMoney/msMoneyImport';
+import { dataPort, type ImportProgress, type MsMoneyImportResult } from '../services/port';
 import {
   UploadIcon,
   FolderIcon,
@@ -49,7 +45,7 @@ const bankFormats = [
 ];
 
 export default function EnhancedImport(): React.JSX.Element {
-  const { exportData, isUsingSupabase } = useApp();
+  const { exportData } = useApp();
 
   const [showBatchImport, setShowBatchImport] = useState(false);
   const [showRulesManager, setShowRulesManager] = useState(false);
@@ -77,21 +73,22 @@ export default function EnhancedImport(): React.JSX.Element {
     URL.revokeObjectURL(url);
   }, [exportData]);
 
-  // Run the destructive MS Money import against the right backend: Supabase for
-  // signed-in users (batched inserts under RLS), local storage otherwise. The
-  // modal owns the confirmation + backup gate; this only executes.
+  // Run the destructive MS Money import. WHICH store it lands in is no longer
+  // this page's question: it used to hold a Postgres client and read
+  // `isUsingSupabase` off the context to answer it, and a page that gets that
+  // wrong writes somebody's whole financial history into a browser their
+  // signed-in app will never read again — and says it worked. The seam resolves
+  // its own owner on the same tick as the write.
+  //
+  // The modal still owns the confirmation and the backup gate; this only
+  // executes, and lets the importer's own message through untouched so the
+  // dialog can show it.
   const executeMsMoneyImport = useCallback(async (
     result: MsMoneyImportResult,
     onProgress: (p: ImportProgress) => void
   ) => {
-    const { importToCloud, importToLocalStorage } = await import('../services/import/msMoney/msMoneyImport');
-    const databaseUserId = DataService.getUserIds().databaseId;
-    if (isUsingSupabase && supabase && databaseUserId) {
-      await importToCloud(result, supabase, databaseUserId, () => crypto.randomUUID(), { onProgress });
-    } else {
-      await importToLocalStorage(result, STORAGE_KEYS, { onProgress });
-    }
-  }, [isUsingSupabase]);
+    await dataPort.importMsMoney(result, { onProgress });
+  }, []);
 
   // A total migration replaces everything — reload so the app re-reads the new
   // dataset cleanly rather than reconciling against stale in-memory state.

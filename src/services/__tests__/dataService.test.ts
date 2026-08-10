@@ -5,6 +5,7 @@ import { TransactionService } from '../api/transactionService';
 import { createSimpleAccountService } from '../api/simpleAccountService';
 import { registerSupabaseTokenGetter } from '../../lib/supabaseToken';
 import { buildBackupBundle } from '../backupService';
+import { LOCAL_WIPE_CONFIRMATION } from '../localBackupService';
 import type { Account, Budget, Category, Goal, Transaction, TransactionSplit } from '../../types';
 import { STORAGE_KEYS } from '../storageAdapter';
 
@@ -2818,13 +2819,15 @@ describe('DataService backup and restore (which store the file comes from, and g
   const cloudEngine = () => ({
     userFinancialDataIsEmpty: vi.fn(async () => true),
     collectBackupBundle: vi.fn(async () => bundle()),
-    restoreBackupBundle: vi.fn(async () => cloudOutcome)
+    restoreBackupBundle: vi.fn(async () => cloudOutcome),
+    wipeUserFinancialData: vi.fn(async () => ({ accounts: 3, transactions: 51_000 }))
   });
 
   const deviceEngine = () => ({
     localFinancialDataIsEmpty: vi.fn(async () => true),
     collectLocalBackupBundle: vi.fn(async () => bundle()),
-    restoreLocalBackupBundle: vi.fn(async () => deviceOutcome)
+    restoreLocalBackupBundle: vi.fn(async () => deviceOutcome),
+    wipeLocalFinancialData: vi.fn(async () => ({ accounts: 3, transactions: 12 }))
   });
 
   const signedIn = {
@@ -3000,5 +3003,312 @@ describe('DataService backup and restore (which store the file comes from, and g
       expect(cloud.restoreBackupBundle).not.toHaveBeenCalled();
       expect(device.restoreLocalBackupBundle).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('DataService.wipeAllFinancialData (which store gets erased, and how much of it)', () => {
+  const logger = { error: vi.fn(), warn: vi.fn(), log: vi.fn() };
+
+  const cloudBackup = () => ({
+    userFinancialDataIsEmpty: vi.fn(async () => true),
+    collectBackupBundle: vi.fn(),
+    restoreBackupBundle: vi.fn(),
+    wipeUserFinancialData: vi.fn(async () => ({ accounts: 0, transactions: 0 }))
+  });
+
+  const deviceBackup = () => ({
+    localFinancialDataIsEmpty: vi.fn(async () => true),
+    collectLocalBackupBundle: vi.fn(),
+    restoreLocalBackupBundle: vi.fn(),
+    wipeLocalFinancialData: vi.fn(async () => ({ accounts: 3, transactions: 12 }))
+  });
+
+  const moneyEngine = () => ({
+    wipeCloudData: vi.fn(async () => {}),
+    importToCloud: vi.fn(async () => {}),
+    importToLocalStorage: vi.fn(async () => {})
+  });
+
+  const signedIn = {
+    ensureUserExists: vi.fn(),
+    getCurrentDatabaseUserId: vi.fn(() => 'db-user-1' as string | null),
+    getCurrentUserIds: vi.fn(() => ({ clerkId: 'clerk-1', databaseId: 'db-user-1' }))
+  };
+  const signedOut = {
+    ensureUserExists: vi.fn(),
+    getCurrentDatabaseUserId: vi.fn(() => null),
+    getCurrentUserIds: vi.fn(() => ({ clerkId: null, databaseId: null }))
+  };
+
+  /** A client the wipe is pointed at. Never called here — the engines are doubles. */
+  const client = { from: vi.fn() };
+
+  const service = (options: {
+    signedIn: boolean;
+    cloud: ReturnType<typeof cloudBackup>;
+    device: ReturnType<typeof deviceBackup>;
+    money: ReturnType<typeof moneyEngine>;
+    storage?: ReturnType<typeof createStorage>;
+  }) => createDataService({
+    isSupabaseConfigured: () => options.signedIn,
+    hasCloudSession: () => options.signedIn,
+    userIdService: options.signedIn ? signedIn : signedOut,
+    storageAdapter: options.storage ?? createStorage(),
+    logger,
+    uuid: () => 'generated-1',
+    cloudBackup: options.cloud,
+    deviceBackup: options.device,
+    msMoneyEngine: options.money,
+    cloudClient: client
+  });
+
+  it('signed in: erases in chunks FIRST, then sweeps the tables the chunks cannot reach', async () => {
+    // THE ORDER IS THE TEST. The chunked pass is the one with the rows in it,
+    // and it is chunked because one `DELETE FROM transactions` over 51,000 rows
+    // is cancelled by the database's own statement timeout. The RPC's deletes
+    // are one statement per table — exactly that shape — so it has to run when
+    // there is nothing large left to do. Reversed, this is the original bug.
+    //
+    // And it has to run at all: the chunked pass leaves the four tables keyed
+    // only by the user (dismissed suggestions, dashboard layouts, widget
+    // preferences, notifications), nothing cascades them away, and a backup
+    // carries every one of them — so a restore onto the survivors collides
+    // part-way through, in front of somebody who has just erased their login.
+    const order: string[] = [];
+    const cloud = cloudBackup();
+    const device = deviceBackup();
+    const money = moneyEngine();
+    money.wipeCloudData.mockImplementation(async () => { order.push('chunked'); });
+    cloud.wipeUserFinancialData.mockImplementation(async () => {
+      order.push('sweep');
+      return { accounts: 0, transactions: 0 };
+    });
+
+    await service({ signedIn: true, cloud, device, money }).wipeAllFinancialData();
+
+    expect(order).toEqual(['chunked', 'sweep']);
+    expect(device.wipeLocalFinancialData).not.toHaveBeenCalled();
+  });
+
+  it('points the chunked pass at the authenticated client and the owner it resolved itself', async () => {
+    const cloud = cloudBackup();
+    const device = deviceBackup();
+    const money = moneyEngine();
+    const onProgress = vi.fn();
+
+    await service({ signedIn: true, cloud, device, money }).wipeAllFinancialData({ onProgress });
+
+    expect(money.wipeCloudData).toHaveBeenCalledTimes(1);
+    expect(money.wipeCloudData).toHaveBeenCalledWith(client, 'db-user-1', { onProgress });
+    // The phrase is the implementation's, not the caller's: the screen holds
+    // the confirmation and will not enable its button without it.
+    expect(cloud.wipeUserFinancialData).toHaveBeenCalledWith('DELETE EVERYTHING', 'db-user-1');
+  });
+
+  it('says the phrase the database and the device engine both demand — the same one', async () => {
+    // Three copies of one string live in this codebase: the literal on this
+    // class, the SQL function's own check, and LOCAL_WIPE_CONFIRMATION. That is
+    // safe ONLY because both of the others CHECK it, so a drift refuses every
+    // wipe rather than quietly weakening one. Proved here against the constant
+    // the device engine exports, on both branches, rather than assumed.
+    const onDevice = deviceBackup();
+    const onLogin = cloudBackup();
+
+    await service({ signedIn: false, cloud: cloudBackup(), device: onDevice, money: moneyEngine() })
+      .wipeAllFinancialData();
+    await service({ signedIn: true, cloud: onLogin, device: deviceBackup(), money: moneyEngine() })
+      .wipeAllFinancialData();
+
+    expect(onDevice.wipeLocalFinancialData.mock.calls[0][0]).toBe(LOCAL_WIPE_CONFIRMATION);
+    expect(onLogin.wipeUserFinancialData.mock.calls[0][0]).toBe(LOCAL_WIPE_CONFIRMATION);
+  });
+
+  it('on a device: erases through this service\'s own store, and asks the cloud nothing', async () => {
+    // The store matters as much as the route, for the reason the bulk import
+    // sets out: the engine defaults to the app's real adapter when handed
+    // nothing, so a demo session told to use a different store must hand that
+    // store over or it erases the wrong one.
+    const cloud = cloudBackup();
+    const device = deviceBackup();
+    const money = moneyEngine();
+    const storage = createStorage();
+
+    await service({ signedIn: false, cloud, device, money, storage }).wipeAllFinancialData();
+
+    expect(money.wipeCloudData).not.toHaveBeenCalled();
+    expect(cloud.wipeUserFinancialData).not.toHaveBeenCalled();
+    expect(device.wipeLocalFinancialData).toHaveBeenCalledTimes(1);
+    const [, options] = device.wipeLocalFinancialData.mock.calls[0];
+    await options?.store?.setMany?.([{ key: 'k', value: [] }]);
+    expect(storage.setMany).toHaveBeenCalledWith([{ key: 'k', value: [] }]);
+  });
+
+  it('lets the failure through with its own sentence, so "run it again" can be offered', async () => {
+    // The dialog prints this verbatim and adds the recovery beside it. A route
+    // that wrapped it would replace the database's own words with its own.
+    const cloud = cloudBackup();
+    const device = deviceBackup();
+    const money = moneyEngine();
+    money.wipeCloudData.mockRejectedValueOnce(
+      new Error('Failed while clearing transactions: canceling statement due to statement timeout')
+    );
+
+    expect(await refusalMessage(service({ signedIn: true, cloud, device, money }).wipeAllFinancialData()))
+      .toBe('Failed while clearing transactions: canceling statement due to statement timeout');
+    // And it stopped: the sweep must not run over a half-finished chunked pass
+    // and report success.
+    expect(cloud.wipeUserFinancialData).not.toHaveBeenCalled();
+  });
+
+  it('refuses while a signed-in session is still resolving, rather than erasing the browser', async () => {
+    // Before the seam, this state fell through to the browser's store: the
+    // button reported success, the login was untouched, and the person was
+    // told their data was gone when it was not.
+    const cloud = cloudBackup();
+    const device = deviceBackup();
+    const money = moneyEngine();
+    const pending = createDataService({
+      isSupabaseConfigured: () => true,
+      hasCloudSession: () => true,
+      userIdService: pendingUserIdService(),
+      storageAdapter: createStorage(),
+      logger,
+      cloudBackup: cloud,
+      deviceBackup: device,
+      msMoneyEngine: money,
+      cloudClient: client
+    });
+
+    expect(await refusalMessage(pending.wipeAllFinancialData())).toBe(
+      'This session has no database identity yet, so there is nothing here that can safely be erased. Reload the page and try again.'
+    );
+    expect(money.wipeCloudData).not.toHaveBeenCalled();
+    expect(cloud.wipeUserFinancialData).not.toHaveBeenCalled();
+    expect(device.wipeLocalFinancialData).not.toHaveBeenCalled();
+  });
+});
+
+describe('DataService.importMsMoney (where a whole .mny file lands)', () => {
+  const logger = { error: vi.fn(), warn: vi.fn(), log: vi.fn() };
+
+  /**
+   * A parsed .mny file, invented. Nothing here is read by the routing — it is
+   * handed straight to whichever writer answers — but the real shape keeps the
+   * test honest about what crosses the seam.
+   */
+  const migration = () => ({
+    accounts: [],
+    categories: [],
+    transactions: [],
+    transactionSplits: [],
+    summary: {
+      accounts: { total: 0, open: 0, closed: 0, investmentCashPairs: 0 },
+      categories: { subs: 0, details: 0, hidden: 0 },
+      transactions: { imported: 0, standalone: 0, transfers: 0, splitTransactions: 0, splitLines: 0 },
+      simplifications: []
+    }
+  });
+
+  const moneyEngine = () => ({
+    wipeCloudData: vi.fn(async () => {}),
+    importToCloud: vi.fn(async () => {}),
+    importToLocalStorage: vi.fn(async () => {})
+  });
+
+  const signedIn = {
+    ensureUserExists: vi.fn(),
+    getCurrentDatabaseUserId: vi.fn(() => 'db-user-1' as string | null),
+    getCurrentUserIds: vi.fn(() => ({ clerkId: 'clerk-1', databaseId: 'db-user-1' }))
+  };
+  const signedOut = {
+    ensureUserExists: vi.fn(),
+    getCurrentDatabaseUserId: vi.fn(() => null),
+    getCurrentUserIds: vi.fn(() => ({ clerkId: null, databaseId: null }))
+  };
+
+  const client = { from: vi.fn() };
+
+  const service = (options: {
+    signedIn: boolean;
+    money: ReturnType<typeof moneyEngine>;
+    storage?: ReturnType<typeof createStorage>;
+  }) => createDataService({
+    isSupabaseConfigured: () => options.signedIn,
+    hasCloudSession: () => options.signedIn,
+    userIdService: options.signedIn ? signedIn : signedOut,
+    storageAdapter: options.storage ?? createStorage(),
+    logger,
+    uuid: () => 'generated-1',
+    msMoneyEngine: options.money,
+    cloudClient: client
+  });
+
+  it('signed in: writes the file into the login, with the owner it resolved itself', async () => {
+    const money = moneyEngine();
+    const file = migration();
+    const onProgress = vi.fn();
+
+    await service({ signedIn: true, money }).importMsMoney(file, { onProgress });
+
+    expect(money.importToLocalStorage).not.toHaveBeenCalled();
+    expect(money.importToCloud).toHaveBeenCalledTimes(1);
+    const [given, handedClient, userId, newId, options] = money.importToCloud.mock.calls[0];
+    expect(given).toBe(file);
+    expect(handedClient).toBe(client);
+    expect(userId).toBe('db-user-1');
+    // An id MAKER, and this service's own: the plan mints one per row, and a
+    // test that cannot hold them still cannot assert on a plan.
+    expect(newId()).toBe('generated-1');
+    expect(options).toEqual({ onProgress });
+  });
+
+  it('signed out: writes it into this browser, through this service\'s own store', async () => {
+    const money = moneyEngine();
+    const storage = createStorage();
+    const file = migration();
+
+    await service({ signedIn: false, money, storage }).importMsMoney(file);
+
+    expect(money.importToCloud).not.toHaveBeenCalled();
+    expect(money.importToLocalStorage).toHaveBeenCalledTimes(1);
+    const [given, keys, options] = money.importToLocalStorage.mock.calls[0];
+    expect(given).toBe(file);
+    // The keys the app's own readers look under. The version of this that
+    // wrote its own key names reported success and changed nothing anybody saw.
+    expect(keys).toBe(STORAGE_KEYS);
+    await options?.store?.setMany?.([{ key: 'k', value: [] }]);
+    expect(storage.setMany).toHaveBeenCalledWith([{ key: 'k', value: [] }]);
+  });
+
+  it('refuses while a signed-in session is still resolving, rather than migrating into the browser', async () => {
+    // The worst version of the wrong-store bug in the whole app: thirty years
+    // of somebody's history written where their signed-in app will never read
+    // it again, the page reloading, and nothing of it there. It said it worked.
+    const money = moneyEngine();
+    const pending = createDataService({
+      isSupabaseConfigured: () => true,
+      hasCloudSession: () => true,
+      userIdService: pendingUserIdService(),
+      storageAdapter: createStorage(),
+      logger,
+      msMoneyEngine: money,
+      cloudClient: client
+    });
+
+    expect(await refusalMessage(pending.importMsMoney(migration()))).toBe(
+      'This session has no database identity yet, so a migration cannot be written to your login. Reload the page and try again.'
+    );
+    expect(money.importToCloud).not.toHaveBeenCalled();
+    expect(money.importToLocalStorage).not.toHaveBeenCalled();
+  });
+
+  it('lets the importer\'s own failure through, because the dialog renders it', async () => {
+    const money = moneyEngine();
+    money.importToCloud.mockRejectedValueOnce(
+      new Error('Import failed while writing transactions: duplicate key value violates unique constraint')
+    );
+
+    expect(await refusalMessage(service({ signedIn: true, money }).importMsMoney(migration())))
+      .toBe('Import failed while writing transactions: duplicate key value violates unique constraint');
   });
 });

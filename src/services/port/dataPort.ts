@@ -43,10 +43,10 @@
  * This is the seam as it stands, not as it will end: the operations below are
  * exactly the ones DataService owns today, under the names it uses today.
  * Bulk import has joined it (the CSV and OFX importers write through
- * `importTransactions`), and so have the backup, the emptiness check and the
- * restore. The wipe and the capability descriptor that will retire
- * `isUsingSupabase` join as their consumers are routed through it in turn. The
- * names here are today's names
+ * `importTransactions`), and so have the backup, the emptiness check, the
+ * restore, the wipe and the Microsoft Money migration. The capability
+ * descriptor that will retire `isUsingSupabase` joins as its consumers are
+ * routed through it in turn. The names here are today's names
  * deliberately: renaming and re-routing in one step would make a rename
  * indistinguishable from a behaviour change in review.
  */
@@ -86,6 +86,25 @@ import type {
   RestoreOutcome,
   RestoreProgress
 } from '../backupService';
+/**
+ * The wipe's progress, and the migration's — imported for the same reason the
+ * backup format above is, and erased at build for the same reason too.
+ *
+ * `WipeProgress` describes a chunked, table-by-table erase: which table, how
+ * many rows have gone, how many there were, which step of how many. Nothing in
+ * that shape is about Microsoft Money or about PostgREST — it is where the one
+ * chunked wipe in the app happens to live, because the total migration is what
+ * first needed it and "Delete All Data" then shared it rather than growing a
+ * second one. Restating it here would give the dialog's progress bar a second
+ * definition free to drift from the one the engine actually reports.
+ *
+ * `MsMoneyImportResult` is a parsed .mny file, and it is emphatically NOT
+ * app state: it is the transform's output, and the transform is what a second
+ * implementation would reuse unchanged. A local edition reads the same file
+ * through the same parser and differs only in where the rows land.
+ */
+import type { ImportProgress, WipeProgress } from '../import/msMoney/msMoneyImport';
+import type { MsMoneyImportResult } from '../import/msMoney/transform';
 
 export type {
   BackupBundle,
@@ -93,7 +112,10 @@ export type {
   BackupRow,
   DanglingReference,
   ExportProgress,
-  RestoreProgress
+  ImportProgress,
+  MsMoneyImportResult,
+  RestoreProgress,
+  WipeProgress
 };
 
 /**
@@ -771,6 +793,95 @@ export interface DataPortBackupLifecycle {
       onProgress?: (progress: RestoreProgress) => void;
     }
   ): Promise<BackupRestoreOutcome>;
+  /**
+   * Erase everything this store holds.
+   *
+   * ── A WIPE IS DEFINED BY THE RESTORE THAT FOLLOWS IT ────────────────────
+   *
+   * The same sentence the backup is defined by, and it is what decides how much
+   * an implementation has to delete. Two things are promised, and neither is
+   * negotiable:
+   *
+   *   `financialDataIsEmpty()` is true afterwards — the emptiness check and the
+   *   wipe answer the same question, or the dialog that erases a login and then
+   *   asks whether it is empty gets two different answers about one store.
+   *
+   *   `restoreBackup()` of any well-formed file SUCCEEDS afterwards. A store
+   *   that emptied the three tables the emptiness check asks about, and left a
+   *   table the FILE also carries, has not wiped: the restore lands on top of
+   *   the survivors and stops halfway, in front of somebody who has just erased
+   *   their own login on purpose. So "everything" means every table a backup
+   *   carries, not the three that decide the flag.
+   *
+   * ── AND IT IS IDEMPOTENT ────────────────────────────────────────────────
+   *
+   * Running it twice is safe, and that is a working recovery rather than a
+   * tidiness rule. An engine that erases in pieces (the cloud does, because one
+   * statement over 51,000 rows is cancelled by the database's own statement
+   * timeout — the failure this chunking exists because of) leaves some rows gone
+   * and some there when it stops. It cannot avoid that state, so it makes it
+   * SAFE instead: deleting rows that have already gone is a no-op, so running it
+   * again carries on from wherever it stopped, and the dialog says exactly that
+   * rather than showing a bare error.
+   *
+   * IT TAKES NO CONFIRMATION PHRASE, and takes no owner either (rule 1). The
+   * screen in front of it holds the confirmation — both of today's callers
+   * refuse to enable the button until the phrase is typed exactly — and the
+   * implementation supplies whatever phrase its own engine demands. A
+   * confirmation that travelled through here would be a string an implementation
+   * could get wrong; the screen's is one the user typed.
+   *
+   * Progress is reported per table because a real dataset is 50k+ rows and
+   * minutes of work, and a button that says "Deleting…" for four minutes reads
+   * exactly like one that has hung. An engine that erases in one atomic write
+   * has no honest fraction and stays silent, which the callers already handle.
+   */
+  wipeAllFinancialData(options?: {
+    onProgress?: (progress: WipeProgress) => void;
+  }): Promise<void>;
+}
+
+/**
+ * Coming from another money manager.
+ *
+ * Its own group rather than a bulk write, because it is not one: `importTransactions`
+ * ADDS a statement to an account somebody chose, and this REPLACES the whole
+ * store — every account, every category, every transaction and every transfer
+ * between them, in place of whatever was there.
+ */
+export interface DataPortMigration {
+  /**
+   * Replace everything with a parsed Microsoft Money file.
+   *
+   * DESTRUCTIVE BY DEFINITION. It wipes first and writes second, and the caller
+   * that reaches it has already taken the user through a confirmation and an
+   * offer to download the current data as a file. This operation does not
+   * re-ask: a second confirmation invented down here would be one the screen
+   * above cannot word properly, and one an implementation could forget.
+   *
+   * IT TAKES NO OWNER (rule 1), and this is the operation with the most on it
+   * of anything in this seam. Getting the store wrong here does not mislay a
+   * row — it writes somebody's entire financial history, thirty years of it,
+   * into a place their app will never read again, and reports it as a success.
+   *
+   * IT REJECTS, unlike `importTransactions`. A bulk import is REPORTED because
+   * "412 of 900 landed" is an outcome a caller renders; a total migration has no
+   * such halfway answer to render, so a failure comes back as an error with the
+   * engine's own sentence on it — which is what the dialog puts on screen, and
+   * what somebody needs when a migration has stopped part-way through replacing
+   * everything they own.
+   *
+   * Progress crosses as the importer's own phases (wiping, accounts, categories,
+   * transactions, links, splits, verifying) with a fraction and a sentence,
+   * because the operation is minutes long on a real file and the wipe alone can
+   * be most of it.
+   */
+  importMsMoney(
+    result: MsMoneyImportResult,
+    options?: {
+      onProgress?: (progress: ImportProgress) => void;
+    }
+  ): Promise<void>;
 }
 
 export interface DataPortLifecycle {
@@ -831,4 +942,5 @@ export interface DataPort extends
   DataPortPlanningWrites,
   DataPortDismissalWrites,
   DataPortBackupLifecycle,
+  DataPortMigration,
   DataPortLifecycle {}
