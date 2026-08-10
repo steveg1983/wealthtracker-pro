@@ -254,6 +254,12 @@ vi.mock('../../services/port', () => {
     mergeCategories: refuse('mergeCategories'),
     dismissSuggestion: refuse('dismissSuggestion'),
     restoreSuggestion: refuse('restoreSuggestion'),
+    // Backup and restore are not a boot either — the export page and the
+    // restore dialog reach them, and a boot that read somebody's whole ledger
+    // out to build a file would be a very loud bug worth failing by name for.
+    financialDataIsEmpty: refuse('financialDataIsEmpty'),
+    collectBackup: refuse('collectBackup'),
+    restoreBackup: refuse('restoreBackup'),
   };
 
   return { dataPort };

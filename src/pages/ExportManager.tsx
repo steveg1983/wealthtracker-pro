@@ -22,9 +22,8 @@ import PageTip from '../components/PageTip';
 import PeriodPicker from '../components/PeriodPicker';
 import { LoadingState } from '../components/loading/LoadingState';
 import { createScopedLogger } from '../loggers/scopedLogger';
-import { DataService } from '../services/api/dataService';
-import { collectBackupBundle, downloadBackupBundle, type ExportProgress } from '../services/backupService';
-import { collectLocalBackupBundle } from '../services/localBackupService';
+import { dataPort } from '../services/port';
+import { downloadBackupBundle, type ExportProgress } from '../services/backupService';
 import { selectExportData, describeExportRange, type AccountsScope } from '../utils/exportSelection';
 import { generateDataExportPDF } from '../utils/pdfExport';
 import {
@@ -190,25 +189,20 @@ export default function ExportManager(): React.JSX.Element {
   // backupService resolves a Supabase client and threw without one — which is
   // an odd thing to offer a person and then refuse. Same format, same file,
   // same restore; only where the rows come from differs.
+  //
+  // WHICH of those two reads this file is no longer decided here. This page
+  // used to ask `DataService.getUserIds()`, branch on whether a database id
+  // came back, and hand the owner to the cloud collector itself — so the one
+  // question a backup must never get wrong ("whose data is in this file?") was
+  // being answered by a screen. The seam resolves its own owner now, and
+  // refuses in words when it cannot; all that is left here is the file and the
+  // sentence to show if it could not be written.
   const handleExportEverything = async (): Promise<void> => {
-    const { databaseId, clerkId } = DataService.getUserIds();
-    // Signed in but the database identity has not resolved yet. Falling through
-    // to the local path here would hand a signed-in user a file made of
-    // whatever demo or imported data their browser happens to hold.
-    if (isUsingSupabase && !databaseId) {
-      setBackupError('This session has no database identity yet, so there is nothing to read. Reload the page and try again.');
-      return;
-    }
     setBackupError('');
     setIsBackingUp(true);
     setBackupProgress(null);
     try {
-      const bundle = databaseId
-        ? await collectBackupBundle(
-            { databaseUserId: databaseId, clerkUserId: clerkId },
-            { onProgress: setBackupProgress }
-          )
-        : await collectLocalBackupBundle({ onProgress: setBackupProgress });
+      const bundle = await dataPort.collectBackup({ onProgress: setBackupProgress });
       downloadBackupBundle(bundle);
     } catch (error) {
       exportManagerLogger.error('Full backup failed', error);

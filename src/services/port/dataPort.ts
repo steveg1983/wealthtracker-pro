@@ -43,9 +43,10 @@
  * This is the seam as it stands, not as it will end: the operations below are
  * exactly the ones DataService owns today, under the names it uses today.
  * Bulk import has joined it (the CSV and OFX importers write through
- * `importTransactions`); backup/restore/wipe and the capability descriptor that
- * will retire `isUsingSupabase` join as their consumers are routed through it
- * in turn. The names here are today's names
+ * `importTransactions`), and so have the backup, the emptiness check and the
+ * restore. The wipe and the capability descriptor that will retire
+ * `isUsingSupabase` join as their consumers are routed through it in turn. The
+ * names here are today's names
  * deliberately: renaming and re-routing in one step would make a rename
  * indistinguishable from a behaviour change in review.
  */
@@ -64,6 +65,36 @@ import type {
   TransactionSplit,
   TransactionSplitInput
 } from '../../types';
+/**
+ * The backup FILE format, imported rather than restated.
+ *
+ * `import type` is erased at build, so this costs nothing and keeps the "emits
+ * nothing" promise above. It is imported rather than re-declared because these
+ * types describe a file on the user's disk, not an engine: `buildBackupBundle`,
+ * `validateBackupBundle` and `remapBackupIds` are pure functions over rows that
+ * BOTH of today's engines already share, and a second declaration of the same
+ * shape here would be free to drift from the one the file is actually written
+ * and validated against. A local edition inherits the format for the same
+ * reason it inherits the seam.
+ */
+import type {
+  BackupBundle,
+  BackupEntity,
+  BackupRow,
+  DanglingReference,
+  ExportProgress,
+  RestoreOutcome,
+  RestoreProgress
+} from '../backupService';
+
+export type {
+  BackupBundle,
+  BackupEntity,
+  BackupRow,
+  DanglingReference,
+  ExportProgress,
+  RestoreProgress
+};
 
 /**
  * An amount of money, exactly representable at two decimal places.
@@ -637,6 +668,111 @@ export interface DataPortDismissalWrites {
   restoreSuggestion(kind: DismissalKind, subjectKey: string): Promise<void>;
 }
 
+/**
+ * What a finished restore looks like, whichever engine did it.
+ *
+ * Derived from the outcome the restore already reports rather than restated, so
+ * a field added there joins the seam instead of quietly failing to.
+ */
+export interface BackupRestoreOutcome extends RestoreOutcome {
+  /**
+   * Rows the file carries that this store has nowhere to keep, named with the
+   * reason why.
+   *
+   * The one field a login never fills. A browser has no investments, no goal
+   * contributions and no repeating templates, so a file taken from a login and
+   * restored onto a device genuinely cannot keep some of what it holds — and
+   * saying so is the difference between a restore and a restore that quietly
+   * lost things. An engine that holds every table the format carries answers
+   * with an empty list, and that is a statement rather than a stub.
+   */
+  notStoredLocally: { label: string; rows: number; absence: string }[];
+}
+
+/**
+ * Getting the whole ledger out, and putting it back.
+ *
+ * The one group whose failure mode is not "a wrong number on a screen" but "the
+ * only copy of somebody's financial life". Every rule below exists because the
+ * alternative loses data silently.
+ */
+export interface DataPortBackupLifecycle {
+  /**
+   * Is there anything here at all?
+   *
+   * "Empty" means the same three tables in every implementation — accounts,
+   * categories and transactions — because it is asked for exactly one reason:
+   * a restore only ever writes into an empty store, and the dialog has to know
+   * before it offers the button. An engine that answered a broader or narrower
+   * question would refuse restores that are safe, or allow ones that are not.
+   *
+   * REJECTS rather than guessing. Unlike the boot reads, there is no honest
+   * fallback: `true` from a store that could not be reached would unlock the
+   * restore button in front of a login full of data.
+   */
+  financialDataIsEmpty(): Promise<boolean>;
+  /**
+   * Read every table whole and build the file the user downloads.
+   *
+   * WHOLE ROWS, NOT APP STATE. The file has to be restorable, and app state is
+   * a lossy picture of the store by design — it drops columns, skips tables
+   * with no screen behind them, and renames what is left. A file built from it
+   * could never be poured back in.
+   *
+   * IT DOES NOT TAKE AN OWNER (rule 1), and this is the operation where that
+   * matters most sharply: a backup taken against an unresolved identity would
+   * hand a signed-in person a file made of whatever demo or imported data their
+   * browser happens to hold, and they would find out on the day they needed it.
+   * An implementation that cannot resolve its owner refuses in words rather
+   * than reading the nearest store it can find.
+   *
+   * Progress is reported per table because a real dataset is 50k+ rows and 50+
+   * round trips, and a button that says nothing for that long reads as broken.
+   * An engine with nothing to report stays silent rather than estimating.
+   */
+  collectBackup(options?: {
+    onProgress?: (progress: ExportProgress) => void;
+  }): Promise<BackupBundle>;
+  /**
+   * Pour a file back in.
+   *
+   * ── ONLY INTO AN EMPTY STORE ────────────────────────────────────────────
+   *
+   * A restore REPLACES; it does not merge. So it is refused unless
+   * `financialDataIsEmpty()` is true, and emptying is a separate decision with
+   * its own confirmation. That is not caution, it is what makes the operation
+   * safe to attempt at all: nothing the user already has can be mixed with the
+   * file, re-dated or half-overwritten.
+   *
+   * ── EVERY ID IS REPLACED ON THE WAY IN ──────────────────────────────────
+   *
+   * Not an optimisation and not conditional on a collision being detected. The
+   * primary keys in a backup are unique across the whole store rather than per
+   * owner, so a file restored anywhere but where it came from carries ids that
+   * belong to somebody else's rows — which is the MAIN case a backup exists
+   * for ("my account is gone, I made a new one, put my file back"). Every
+   * reference to a remapped id is rewritten with it, and a reference the file
+   * does not contain is left exactly as it was and REPORTED in `danglingRefs`
+   * rather than blanked: a restore that silently detaches data is the one
+   * failure a backup must never have.
+   *
+   * ── HOW FAR A FAILURE GETS (divergence B-10) ────────────────────────────
+   *
+   * Declared rather than asserted equal. The cloud restores in chunks that each
+   * commit on their own, so a failure halfway leaves the login PARTLY
+   * POPULATED — survivable, because the login had to be empty first, but it
+   * must be said rather than smoothed over. A device write is one transaction,
+   * so it either landed or it did not. Callers render whichever is true of the
+   * engine that answered; no caller may assume one of them.
+   */
+  restoreBackup(
+    bundle: BackupBundle,
+    options?: {
+      onProgress?: (progress: RestoreProgress) => void;
+    }
+  ): Promise<BackupRestoreOutcome>;
+}
+
 export interface DataPortLifecycle {
   /**
    * Make sure the signed-in person has a store to read. A no-op for an
@@ -694,4 +830,5 @@ export interface DataPort extends
   DataPortSplitWrites,
   DataPortPlanningWrites,
   DataPortDismissalWrites,
+  DataPortBackupLifecycle,
   DataPortLifecycle {}

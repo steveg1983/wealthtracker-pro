@@ -15,12 +15,18 @@ import type { DataPort } from './dataPort';
 
 export type {
   AccountBalanceSnapshot,
+  BackupBundle,
+  BackupEntity,
+  BackupRestoreOutcome,
+  BackupRow,
   BootTransactionStats,
   BootTransactionsResult,
   BulkImportProgress,
   BulkImportResult,
+  DanglingReference,
   DataPort,
   DataPortAccountWrites,
+  DataPortBackupLifecycle,
   DataPortBulkWrites,
   DataPortDismissalWrites,
   DataPortLifecycle,
@@ -29,8 +35,10 @@ export type {
   DataPortSplitWrites,
   DataPortTransactionWrites,
   DataPortTransferWrites,
+  ExportProgress,
   ImportSourceKind,
-  MoneyNumber
+  MoneyNumber,
+  RestoreProgress
 } from './dataPort';
 
 export const dataPort: DataPort = DataService;

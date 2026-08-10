@@ -34,7 +34,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { DataPort } from '../dataPort';
+import type { BackupBundle, BackupEntity, BackupRow, DataPort } from '../dataPort';
 import type {
   Account,
   Budget,
@@ -182,6 +182,10 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   // Dismissal writes
   'dismissSuggestion',
   'restoreSuggestion',
+  // Backup lifecycle
+  'financialDataIsEmpty',
+  'collectBackup',
+  'restoreBackup',
   // Lifecycle
   'initialize',
   'prepareCategories',
@@ -356,6 +360,48 @@ const BULK_IMPORT: Record<
   supabase: { partial: 'any prefix', reportsProgress: true },
   // One store transaction, same as the browser and for the same reason.
   'local-core': { partial: 'all-or-nothing', reportsProgress: false }
+};
+
+/**
+ * B-11 — WHAT THIS ENGINE CANNOT KEEP.
+ *
+ * A backup file carries every table the format knows about, and not every
+ * engine has somewhere to put all of them: a browser has no investments, no
+ * goal contributions and no repeating templates, because local mode has no
+ * screen, no writer and no reader for any of them. Restoring a login's file
+ * onto a device therefore genuinely loses part of it.
+ *
+ * That is a fact about the product, so it is written down HERE rather than
+ * inferred from a mapping inside one engine. Two things follow from it, and
+ * both are asserted below: the rows are never dropped in silence — they come
+ * back NAMED, with a reason a person can read and act on — and an engine that
+ * holds everything says so with an empty list rather than by staying quiet.
+ *
+ * A table added to the format with nowhere to live on a device must appear in
+ * this row on the same day, or the restore that skips it will say nothing.
+ */
+const BACKUP_COVERAGE: Record<
+  DataPortEngine,
+  { notStored: readonly { entity: BackupEntity; label: string }[] }
+> = {
+  'browser-storage': {
+    notStored: [
+      { entity: 'goal_contributions', label: 'Goal contributions' },
+      { entity: 'investments', label: 'Investments' },
+      { entity: 'investment_transactions', label: 'Investment transactions' },
+      { entity: 'recurring_transactions', label: 'Recurring transactions' },
+      { entity: 'notifications', label: 'Notifications' },
+      { entity: 'dashboard_layouts', label: 'Dashboard layouts' },
+      { entity: 'widget_preferences', label: 'Widget preferences' }
+    ]
+  },
+  // Every table in the format is a table in the database — the format was read
+  // off it.
+  supabase: { notStored: [] },
+  // A claim the local edition has to meet, not a description of something that
+  // exists: it is meant to hold the whole ledger. The day it cannot hold a
+  // table, this row says which, and the restore starts saying so too.
+  'local-core': { notStored: [] }
 };
 
 /**
@@ -2213,6 +2259,174 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
             break;
         }
       });
+    });
+
+    // ── The whole ledger out, and back in ─────────────────────────────────
+    //
+    // The only operations here whose failure costs a person everything rather
+    // than one row. The rules are the same three in every engine: "empty"
+    // means the same question, a file poured into an empty store reproduces
+    // the ledger it came from, and anything the store cannot keep comes back
+    // named instead of vanishing.
+    describe('backup and restore', () => {
+      /** A ledger with something in every table this suite can seed. */
+      const aWholeLedger = (): PortFixture => ({
+        accounts: threeAccounts(),
+        categories: [aCategory('cat-everyday', 'Everyday spending')],
+        transactions: [
+          aTransaction('txn-1', { amount: -10.1, description: 'Corner shop' }),
+          aTransaction('txn-2', {
+            accountId: ACCOUNT_B,
+            amount: 500,
+            description: 'Payday',
+            type: 'income'
+          })
+        ],
+        budgets: [aBudget('budget-1', 'cat-everyday', 200)],
+        goals: [aGoal('goal-1', 'New boiler', 1500)]
+      });
+
+      /**
+       * Everything about a file except WHEN it was taken.
+       *
+       * Two backups of the same untouched ledger are the same backup; the
+       * timestamp is a note about the act of exporting, not about the data,
+       * and comparing it would only ever assert that a clock moved.
+       */
+      const contents = (bundle: BackupBundle) => ({
+        format: bundle.format,
+        schemaVersion: bundle.schemaVersion,
+        counts: bundle.counts,
+        data: bundle.data,
+        links: bundle.links,
+        preferences: bundle.preferences
+      });
+
+      it('says a fresh store is empty, and says otherwise the moment it holds anything', async () => {
+        // The question the restore dialog asks before it offers the button, so
+        // a wrong answer either refuses a restore that was safe or allows one
+        // over a login full of data.
+        const fresh = await harness.create({});
+        expect(await fresh.port.financialDataIsEmpty()).toBe(true);
+
+        const holding = await harness.create({ accounts: threeAccounts() });
+        expect(await holding.port.financialDataIsEmpty()).toBe(false);
+      });
+
+      it('pours a file into an empty store and gets the same ledger back, to the penny', async () => {
+        const source = await harness.create(aWholeLedger());
+        const file = await source.port.collectBackup();
+
+        const target = await harness.create({});
+        const outcome = await target.port.restoreBackup(file);
+
+        const before = await source.read();
+        const after = await target.read();
+
+        expect(after.accounts.map(account => account.name).sort())
+          .toEqual(before.accounts.map(account => account.name).sort());
+        expect(after.transactions.map(transaction => transaction.description).sort())
+          .toEqual(before.transactions.map(transaction => transaction.description).sort());
+        expect(after.categories.map(category => category.name).sort())
+          .toEqual(before.categories.map(category => category.name).sort());
+        expect(after.budgets.map(budget => budget.amount)).toEqual(before.budgets.map(budget => budget.amount));
+        expect(after.goals.map(goal => goal.name)).toEqual(before.goals.map(goal => goal.name));
+
+        // Money survives a trip through the file as money — matched by NAME,
+        // because every id is new (see below). -70.1 is the figure that goes
+        // wrong in float if anything on the way in or out re-adds the rows.
+        const balanceByName = (state: PortStoreState, name: string): number | undefined =>
+          state.accounts.find(account => account.name === name)?.balance;
+        expect(balanceByName(after, 'Everyday')).toBe(balanceByName(before, 'Everyday'));
+        expect(balanceByName(after, 'Rainy day')).toBe(balanceByName(before, 'Rainy day'));
+        expect(balanceByName(after, 'Everyday')).toBe(-70.1);
+
+        // Nothing the file held was left unaccounted for, and the store now
+        // answers the emptiness question the other way.
+        expect(outcome.restored.some(entry => entry.rows > 0)).toBe(true);
+        expect(await target.port.financialDataIsEmpty()).toBe(false);
+
+        // EVERY ID IS NEW. The primary keys in a backup are unique across the
+        // whole store rather than per owner, so a restore that kept them would
+        // collide with the rows of whoever exported the file — which is the
+        // main case a backup exists for.
+        const oldIds = new Set(before.accounts.map(account => account.id));
+        expect(after.accounts.every(account => !oldIds.has(account.id))).toBe(true);
+        // And the rows that pointed at those accounts followed them.
+        const byName = new Map(after.accounts.map(account => [account.name, account.id]));
+        const everyday = after.transactions.find(t => t.description === 'Corner shop');
+        expect(everyday?.accountId).toBe(byName.get('Everyday'));
+      });
+
+      it('a restored ledger exports to the same file again, and again', async () => {
+        // Generation 2 against generation 3, because generation 1 carries the
+        // ids the fixture invented and every restore mints new ones. Two
+        // restores from a store that starts fresh produce the same ids in the
+        // same order, so a conversion that lost or invented a field on the way
+        // through the file drifts between generations and shows up here.
+        const source = await harness.create(aWholeLedger());
+        const first = await source.port.collectBackup();
+
+        const secondStore = await harness.create({});
+        await secondStore.port.restoreBackup(first);
+        const second = await secondStore.port.collectBackup();
+
+        const thirdStore = await harness.create({});
+        await thirdStore.port.restoreBackup(second);
+        const third = await thirdStore.port.collectBackup();
+
+        expect(contents(third)).toEqual(contents(second));
+      });
+
+      it('refuses to restore over a store that still holds something, and changes nothing', async () => {
+        // A restore REPLACES; it does not merge. Refusing is what makes it safe
+        // to attempt at all — nothing the user already has can be mixed with
+        // the file, re-dated, or half-overwritten.
+        const source = await harness.create(aWholeLedger());
+        const file = await source.port.collectBackup();
+
+        const occupied = await harness.create({ accounts: threeAccounts() });
+        const before = asComparable(await occupied.read());
+
+        await expect(occupied.port.restoreBackup(file)).rejects.toThrow();
+        expect(asComparable(await occupied.read())).toBe(before);
+      });
+
+      it(
+        BACKUP_COVERAGE[engine].notStored.length === 0
+          ? 'holds every table the format carries, and says so'
+          : `names the ${BACKUP_COVERAGE[engine].notStored.length} tables it cannot keep instead of dropping them in silence`,
+        async () => {
+          // B-11. "3 investments were skipped" tells somebody nothing they can
+          // act on; knowing the file still holds them, and where they would
+          // come back, does. So the answer is a list of names with reasons.
+          const source = await harness.create(aWholeLedger());
+          const file = await source.port.collectBackup();
+
+          const unstorable = BACKUP_COVERAGE[engine].notStored;
+          const row: BackupRow = { id: 'row-the-file-carries', user_id: 'source-login' };
+          const carried: BackupBundle = {
+            ...file,
+            data: { ...file.data },
+            counts: { ...file.counts }
+          };
+          for (const { entity } of unstorable) {
+            carried.data[entity] = [row];
+            carried.counts[entity] = 1;
+          }
+
+          const target = await harness.create({});
+          const outcome = await target.port.restoreBackup(carried);
+
+          expect(outcome.notStoredLocally.map(entry => entry.label).sort())
+            .toEqual(unstorable.map(entry => entry.label).sort());
+          // Every one of them carries a sentence, not a count.
+          for (const entry of outcome.notStoredLocally) {
+            expect(entry.rows).toBe(1);
+            expect(entry.absence.length).toBeGreaterThan(0);
+          }
+        }
+      );
     });
   });
 }

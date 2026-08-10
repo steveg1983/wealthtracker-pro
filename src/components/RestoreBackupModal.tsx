@@ -2,27 +2,24 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useApp } from '../contexts/AppContextSupabase';
 import { DataService } from '../services/api/dataService';
+import { dataPort } from '../services/port';
+import type { BackupRestoreOutcome } from '../services/port';
 import { transactionCache } from '../services/transactionCache';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { AlertTriangleIcon, CheckCircleIcon, RefreshCwIcon, UploadIcon } from './icons';
 import {
   BACKUP_ENTITIES,
   RestoreFailedError,
-  restoreBackupBundle,
   preferenceCount,
   transactionDateRange,
-  userFinancialDataIsEmpty,
   validateBackupBundle,
   wipeUserFinancialData,
   type BackupBundle,
-  type DanglingReference,
   type RestoreProgress,
 } from '../services/backupService';
 import {
   LOCAL_BACKUP_BINDINGS,
   LocalRestoreRefusedError,
-  localFinancialDataIsEmpty,
-  restoreLocalBackupBundle,
   wipeLocalFinancialData,
 } from '../services/localBackupService';
 
@@ -86,31 +83,6 @@ const formatExportedAt = (iso: string): string => {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
 };
 
-/**
- * What a finished restore looks like, whichever engine did it.
- *
- * `notStoredLocally` is the one field the cloud never fills: a browser has no
- * investments, goal contributions or repeating templates, so a cloud-taken file
- * restored onto a device genuinely cannot keep some of what it holds. Saying so
- * is the difference between a restore and a restore that quietly lost things.
- */
-interface Outcome {
-  restored: { label: string; rows: number }[];
-  notStoredLocally: { label: string; rows: number; absence: string }[];
-  accountsRelinked: number;
-  transactionsRelinked: number;
-  /**
-   * Settings put back, and the reason if they could not be. Reported beside the
-   * row counts rather than thrown, because preferences go in AFTER every
-   * financial row: a complete ledger with default toggles is a good outcome
-   * that happens to be missing something, and calling it a failed restore would
-   * send the user to wipe and start again for no reason.
-   */
-  preferencesRestored: number;
-  preferencesFailure: string | null;
-  danglingRefs: DanglingReference[];
-}
-
 export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JSX.Element {
   const { refreshAccountsAndTransactions, refreshCategories, isUsingSupabase } = useApp();
 
@@ -121,9 +93,27 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
   const [targetIsEmpty, setTargetIsEmpty] = useState<boolean | null>(null);
   const [wipeConfirmText, setWipeConfirmText] = useState('');
   const [progress, setProgress] = useState<RestoreProgress | null>(null);
-  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  /**
+   * What a finished restore looks like is the SEAM's shape, not a description
+   * this file keeps beside it. The two were identical, and a second copy here
+   * would have been free to drift from the one both engines actually answer
+   * with — including `notStoredLocally`, the field that names what a device
+   * could not keep, which is the difference between a restore and a restore
+   * that quietly lost things.
+   */
+  const [outcome, setOutcome] = useState<BackupRestoreOutcome | null>(null);
   const [failure, setFailure] = useState<{ step: string; message: string; partiallyRestored: boolean } | null>(null);
 
+  /**
+   * WHAT THIS IS STILL FOR, now that the seam resolves its own owner.
+   *
+   * Three things, all of them owned by a later step and none of them a data
+   * operation: the wipe still forks between the two engines HERE (it joins the
+   * seam with `wipeAllFinancialData`); the copy on this dialog says "login" or
+   * "device" throughout; and a signed-in session whose id has not resolved is
+   * blocked from starting at all. The reads and the restore no longer touch it
+   * — `dataPort` answers those without being told whose data it is.
+   */
   const databaseUserId = DataService.getUserIds().databaseId;
   /**
    * Which store this restore is aimed at. A signed-in session whose database id
@@ -202,15 +192,13 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
 
     setBundle(validation.bundle);
     try {
-      setTargetIsEmpty(databaseUserId
-        ? await userFinancialDataIsEmpty(databaseUserId)
-        : await localFinancialDataIsEmpty());
+      setTargetIsEmpty(await dataPort.financialDataIsEmpty());
       setPhase('ready');
     } catch (error) {
       restoreLogger.error('Preflight emptiness check failed', error);
       setFileProblem(error instanceof Error ? error.message : `Could not check whether this ${targetName} is empty.`);
     }
-  }, [databaseUserId, cloudSessionPending, targetName]);
+  }, [cloudSessionPending, targetName]);
 
   const handleWipe = useCallback(async () => {
     if (cloudSessionPending) return;
@@ -227,9 +215,7 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
       // The local snapshot now describes history that no longer exists. Drop it
       // before anything reads it back and merges the dead rows in.
       await transactionCache.clear();
-      setTargetIsEmpty(databaseUserId
-        ? await userFinancialDataIsEmpty(databaseUserId)
-        : await localFinancialDataIsEmpty());
+      setTargetIsEmpty(await dataPort.financialDataIsEmpty());
       setWipeConfirmText('');
       setPhase('ready');
     } catch (error) {
@@ -249,9 +235,7 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
     setFailure(null);
     setProgress(null);
     try {
-      const result = databaseUserId
-        ? { ...await restoreBackupBundle(bundle, databaseUserId, { onProgress: setProgress }), notStoredLocally: [] }
-        : await restoreLocalBackupBundle(bundle, { onProgress: setProgress });
+      const result = await dataPort.restoreBackup(bundle, { onProgress: setProgress });
       await transactionCache.clear();
       await refreshAccountsAndTransactions();
       await refreshCategories();
