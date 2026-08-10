@@ -172,19 +172,21 @@ describe('transformMsMoneyExport — categories', () => {
 });
 
 describe('transformMsMoneyExport — transactions', () => {
-  it('maps standalone rows with payee as description, sign-derived type, reconciled→cleared', () => {
+  it('maps standalone rows with payee as description, sign-derived type, both mark flags', () => {
     const { transactions } = transformMsMoneyExport(build(), NOW);
     const t = transactions.find(x => x.id === 'mny-txn-1000')!;
     expect(t.description).toBe('BT');
     expect(t.amount).toBe(-42.5);
     expect(t.type).toBe('expense');
     expect(t.category).toBe('mny-cat-201');
-    expect(t.cleared).toBe(true); // cs 2
+    expect(t.cleared).toBe(true);     // cs 2 — R is marked…
+    expect(t.reconciled).toBe(true);  // …and committed
     expect(t.notes).toBe('line rental'); // memo kept as notes (distinct payee)
 
     const inc = transactions.find(x => x.id === 'mny-txn-1001')!;
     expect(inc.type).toBe('income');
-    expect(inc.cleared).toBe(false); // cs 1 is not reconciled
+    expect(inc.cleared).toBe(true);      // cs 1 — C is a mark
+    expect(inc.reconciled).toBe(false);  // …and nothing more
   });
 
   it('imports transfers as two linked transfer transactions filed under To/From categories', () => {
@@ -327,6 +329,85 @@ describe('transformMsMoneyExport — transactions', () => {
     const computed = (acct1.openingBalance ?? 0) + sum;
     // -42.50 + 2500 - 100 (transfer out) - 100 (split) - 251.99 (partial) = 2005.51
     expect(computed).toBeCloseTo(2005.51, 2);
+  });
+});
+
+/**
+ * Money's cs scale IS its reconciliation state, and the app keeps the same two
+ * flags, so all three values have to survive the crossing — on every KIND of
+ * row. `baseFields` is shared by standalone rows, transfer legs and split
+ * parents alike, which is exactly why one kind going wrong could pass unnoticed
+ * behind the other two.
+ *
+ * cs 1 is the value that used to be discarded: Money's C, a row ticked off a
+ * statement during a balance that was never finished. Arriving unmarked loses
+ * that session's work; arriving committed claims a reconciliation its owner
+ * never confirmed. It has to arrive MARKED and NOT committed, and that is the
+ * whole point of the pair.
+ */
+describe('transformMsMoneyExport — Money\'s three reconciliation states', () => {
+  /**
+   * One standalone row, one transfer leg and one split parent at each cs value.
+   *
+   * The transfer legs carry `linkAccountId` but no partner row, which Money
+   * itself produces when the other side's account was deleted — and which keeps
+   * this fixture about the flags rather than about pairing.
+   */
+  const everyState = (): MnyExport => build({
+    transactions: [
+      // standalone: cs 0, 1, 2
+      { id: 7000, accountId: 1, date: '2022-01-01', amount: '-10.00', categoryId: 201, payeeId: 50, memo: null, ref: null, clearedStatus: 0, linkAccountId: null, role: 'standalone' },
+      { id: 7001, accountId: 1, date: '2022-01-02', amount: '-11.00', categoryId: 201, payeeId: 50, memo: null, ref: null, clearedStatus: 1, linkAccountId: null, role: 'standalone' },
+      { id: 7002, accountId: 1, date: '2022-01-03', amount: '-12.00', categoryId: 201, payeeId: 50, memo: null, ref: null, clearedStatus: 2, linkAccountId: null, role: 'standalone' },
+      // transfer legs: cs 0, 1, 2
+      { id: 7010, accountId: 1, date: '2022-02-01', amount: '-20.00', categoryId: null, payeeId: null, memo: null, ref: null, clearedStatus: 0, linkAccountId: 3, role: 'transfer' },
+      { id: 7011, accountId: 1, date: '2022-02-02', amount: '-21.00', categoryId: null, payeeId: null, memo: null, ref: null, clearedStatus: 1, linkAccountId: 3, role: 'transfer' },
+      { id: 7012, accountId: 1, date: '2022-02-03', amount: '-22.00', categoryId: null, payeeId: null, memo: null, ref: null, clearedStatus: 2, linkAccountId: 3, role: 'transfer' },
+      // split parents (each with one child that covers the whole total): cs 0, 1, 2
+      { id: 7020, accountId: 1, date: '2022-03-01', amount: '-30.00', categoryId: null, payeeId: 51, memo: null, ref: null, clearedStatus: 0, linkAccountId: null, role: 'splitParent' },
+      { id: 7021, accountId: 1, date: '2022-03-01', amount: '-30.00', categoryId: 201, payeeId: null, memo: null, ref: null, clearedStatus: 0, linkAccountId: null, role: 'splitChild', splitParentId: 7020 },
+      { id: 7030, accountId: 1, date: '2022-03-02', amount: '-31.00', categoryId: null, payeeId: 51, memo: null, ref: null, clearedStatus: 1, linkAccountId: null, role: 'splitParent' },
+      { id: 7031, accountId: 1, date: '2022-03-02', amount: '-31.00', categoryId: 201, payeeId: null, memo: null, ref: null, clearedStatus: 1, linkAccountId: null, role: 'splitChild', splitParentId: 7030 },
+      { id: 7040, accountId: 1, date: '2022-03-03', amount: '-32.00', categoryId: null, payeeId: 51, memo: null, ref: null, clearedStatus: 2, linkAccountId: null, role: 'splitParent' },
+      { id: 7041, accountId: 1, date: '2022-03-03', amount: '-32.00', categoryId: 201, payeeId: null, memo: null, ref: null, clearedStatus: 2, linkAccountId: null, role: 'splitChild', splitParentId: 7040 },
+    ],
+  });
+
+  const flagsById = (): Map<string, { cleared?: boolean; reconciled?: boolean | null }> =>
+    new Map(transformMsMoneyExport(everyState(), NOW).transactions
+      .map(t => [t.id, { cleared: t.cleared, reconciled: t.reconciled }]));
+
+  it('cs 0 arrives neither marked nor committed — standalone, transfer and split alike', () => {
+    const flags = flagsById();
+    for (const id of ['mny-txn-7000', 'mny-txn-7010', 'mny-txn-7020']) {
+      expect(flags.get(id)).toEqual({ cleared: false, reconciled: false });
+    }
+  });
+
+  it("cs 1 — Money's C — arrives MARKED and not committed", () => {
+    // The row this change exists for. It was `cleared: false` before, so a
+    // half-finished balance session came back looking untouched.
+    const flags = flagsById();
+    for (const id of ['mny-txn-7001', 'mny-txn-7011', 'mny-txn-7030']) {
+      expect(flags.get(id)).toEqual({ cleared: true, reconciled: false });
+    }
+  });
+
+  it("cs 2 — Money's R — arrives marked AND committed", () => {
+    const flags = flagsById();
+    for (const id of ['mny-txn-7002', 'mny-txn-7012', 'mny-txn-7040']) {
+      expect(flags.get(id)).toEqual({ cleared: true, reconciled: true });
+    }
+  });
+
+  it('answers the committed flag on every row rather than leaving it unstated', () => {
+    // An unstated `reconciled` means "predates the split, ask `cleared`"
+    // (src/utils/transactionReconciliation.ts) — and that fallback would read
+    // every C row above as committed. This importer read Money's own answer, so
+    // it gives one on every row, the false ones included.
+    const { transactions } = transformMsMoneyExport(everyState(), NOW);
+    expect(transactions).toHaveLength(9); // split children are consumed, not emitted
+    for (const t of transactions) expect(typeof t.reconciled).toBe('boolean');
   });
 });
 

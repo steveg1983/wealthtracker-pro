@@ -53,16 +53,27 @@ function sampleResult(): MsMoneyImportResult {
 }
 
 /**
- * The sample carrying Money's own reconciliation state.
+ * The sample carrying Money's own reconciliation state, in the shape the
+ * transform now hands over: BOTH flags, stated on every row.
  *
- * `cleared` on a row out of the transform means Money's R and nothing weaker —
- * transform.ts keeps `clearedStatus === 2` only — so the rows named here are
- * the ones Money had SETTLED, and the rest are not.
+ *   mny-txn-100  Money cs 2, R — marked and committed
+ *   mny-txn-201  Money cs 1, C — marked, a balance session never finished
+ *   the rest     Money cs 0    — neither
+ *
+ * The C row is the one that matters here. It is marked, so `cleared` is true —
+ * and it must NOT reach the database committed, because nobody confirmed a
+ * statement for it. See `reconciledFromMoney` in the module under test.
  */
 function settledResult(): MsMoneyImportResult {
   const result = sampleResult();
-  const settled = new Set(['mny-txn-100', 'mny-txn-201']);
-  result.transactions = result.transactions.map(t => ({ ...t, cleared: settled.has(t.id) }));
+  const moneyState: Record<string, { cleared: boolean; reconciled: boolean }> = {
+    'mny-txn-100': { cleared: true, reconciled: true },   // R
+    'mny-txn-201': { cleared: true, reconciled: false },  // C
+  };
+  result.transactions = result.transactions.map(t => ({
+    ...t,
+    ...(moneyState[t.id] ?? { cleared: false, reconciled: false }),
+  }));
   return result;
 }
 
@@ -255,8 +266,10 @@ describe('executeCloudPlan write path', () => {
     // Every batch after it goes out reduced — the discovery is not re-probed.
     expect(sent[2].rows).toHaveLength(2);
     expect(sent[2].rows.every(r => !(RECONCILED_COLUMN in r))).toBe(true);
-    // The mark survives: marked-but-uncommitted is the degraded mode, and on a
-    // database with no committed flag it reads as reconciled anyway.
+    // The mark survives, and on a database with no committed flag the mark is
+    // all there is: the reader falls back to `cleared`, so Money's C and its R
+    // stop being distinguishable until the migration lands. Degraded, and said
+    // out loud in the warning rather than left to be discovered.
     expect(sent[1].rows.every(r => r.is_cleared === true)).toBe(true);
   });
 
@@ -437,13 +450,15 @@ describe('planCloudImport — import provenance / idempotency', () => {
 });
 
 /**
- * The committed flag on a Money migration.
+ * The two flags on a Money migration.
  *
- * Money keeps three states and the transform keeps only the strongest: a row
- * this importer writes as cleared is a row Money had RECONCILED. The column is
- * `DEFAULT false`, and an explicit false means "marked, not committed" — so
- * leaving it unnamed would land a whole settled history as outstanding
- * reconciliation work across every account in the file.
+ * Money keeps three states and the app keeps two flags that hold all three: R
+ * is marked AND committed, C is marked only, and neither is neither. The
+ * committed column is `DEFAULT false`, and an explicit false means "marked, not
+ * committed" — so leaving it unnamed would land a whole SETTLED history as
+ * outstanding reconciliation work across every account in the file, while
+ * taking it from `is_cleared` would commit every balance session Money was
+ * still holding open.
  */
 describe('planCloudImport — the committed flag', () => {
   it('records what Money had reconciled instead of letting the column default', () => {
@@ -451,22 +466,36 @@ describe('planCloudImport — the committed flag', () => {
     const plan = planCloudImport(settledResult(), 'user-abc', () => `new-${n++}`);
 
     const bySource = new Map(plan.transactions.map(t => [String(t.import_source_id), t]));
+    // R: marked and committed.
     expect(bySource.get('mny-txn-100')).toMatchObject({ is_cleared: true, is_reconciled: true });
-    expect(bySource.get('mny-txn-201')).toMatchObject({ is_cleared: true, is_reconciled: true });
+    // Neither: both flags stated false, never left to the default.
     expect(bySource.get('mny-txn-300')).toMatchObject({ is_cleared: false, is_reconciled: false });
-    // Never marked-but-uncommitted: this history was settled in Money, so the
-    // two flags agree on every row the importer writes.
-    for (const row of plan.transactions) expect(row.is_reconciled).toBe(row.is_cleared);
   });
 
-  it('carries it through the link pass, which rewrites the whole row', () => {
+  it('does NOT commit the rows Money had only marked', () => {
+    // Money's C is a working mark against a statement its owner never finished
+    // reading. Committing it here would report a reconciliation nobody
+    // performed — silently, on every such row in a fifty-thousand-row file.
     let n = 0;
     const plan = planCloudImport(settledResult(), 'user-abc', () => `new-${n++}`);
 
-    const settledLeg = plan.linkRows.find(r => r.import_source_id === 'mny-txn-201');
-    expect(settledLeg).toMatchObject({ is_cleared: true, is_reconciled: true });
-    const unsettledLeg = plan.linkRows.find(r => r.import_source_id === 'mny-txn-200');
-    expect(unsettledLeg).toMatchObject({ is_cleared: false, is_reconciled: false });
+    const marked = plan.transactions.find(t => t.import_source_id === 'mny-txn-201');
+    expect(marked).toMatchObject({ is_cleared: true, is_reconciled: false });
+    // Nothing arrives committed that Money had not reconciled: exactly one row
+    // in this sample was R, and it is the only one.
+    const committed = plan.transactions.filter(t => t.is_reconciled === true);
+    expect(committed.map(t => t.import_source_id)).toEqual(['mny-txn-100']);
+  });
+
+  it('carries both flags through the link pass, which rewrites the whole row', () => {
+    let n = 0;
+    const plan = planCloudImport(settledResult(), 'user-abc', () => `new-${n++}`);
+
+    // The C leg: marked, and still not committed after the row is rewritten.
+    const markedLeg = plan.linkRows.find(r => r.import_source_id === 'mny-txn-201');
+    expect(markedLeg).toMatchObject({ is_cleared: true, is_reconciled: false });
+    const unmarkedLeg = plan.linkRows.find(r => r.import_source_id === 'mny-txn-200');
+    expect(unmarkedLeg).toMatchObject({ is_cleared: false, is_reconciled: false });
   });
 });
 
@@ -1004,9 +1033,11 @@ describe('importToLocalStorage', () => {
       .toEqual(['Current', 'Savings', 'Broker', 'Broker (Cash)']);
   });
 
-  it('stamps the committed flag on the rows Money had reconciled', async () => {
-    // The device store holds whatever it was last written with, so the flag has
-    // to be written — the same rule the cloud path states, on the same rows.
+  it('stamps both flags, so the rows Money had only marked do not read as committed', async () => {
+    // The device store holds whatever it was last written with, so the flags
+    // have to be written — the same rule the cloud path states, on the same
+    // rows. A C row landing here with `reconciled` unstated would be read
+    // through `cleared` and counted as finished work.
     await importToLocalStorage(settledResult(), KEYS);
 
     const transactions = await stored(KEYS.TRANSACTIONS);
@@ -1014,9 +1045,9 @@ describe('importToLocalStorage', () => {
       const row = t as { id?: string; cleared?: boolean; reconciled?: boolean | null };
       return [row.id, { cleared: row.cleared, reconciled: row.reconciled }];
     }));
-    expect(flags.get('mny-txn-100')).toEqual({ cleared: true, reconciled: true });
-    expect(flags.get('mny-txn-201')).toEqual({ cleared: true, reconciled: true });
-    expect(flags.get('mny-txn-300')).toEqual({ cleared: false, reconciled: false });
+    expect(flags.get('mny-txn-100')).toEqual({ cleared: true, reconciled: true });   // R
+    expect(flags.get('mny-txn-201')).toEqual({ cleared: true, reconciled: false });  // C
+    expect(flags.get('mny-txn-300')).toEqual({ cleared: false, reconciled: false }); // neither
   });
 
   it('writes every collection as one unit, so a failure leaves the previous data intact', async () => {

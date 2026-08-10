@@ -1348,12 +1348,20 @@ database, no network, no browser — so this is a real differential and not a
 constant typed into the harness. Where the flag goes per format, and where it
 deliberately does not:
 
-| source | the flag lives in | policy |
-| --- | --- | --- |
-| `qif` | a `C` line carrying it | `file_flag` |
-| `ms_money` | `clearedStatus`, Money's own 0/1/2 | `reconciled_status` |
-| `ofx` | **nowhere** — OFX has no such tag | `never_pre_cleared` |
-| `csv` | **nowhere** — a CSV has no cleared column, which IS the policy | `no_cleared_column` |
+| source | the flag lives in | policy | states `is_reconciled`? |
+| --- | --- | --- | --- |
+| `qif` | a `C` line carrying it | `file_flag` | no |
+| `ms_money` | `clearedStatus`, Money's own 0/1/2 | `money_status_scale` | **yes, on every row** |
+| `ofx` | **nowhere** — OFX has no such tag | `never_pre_cleared` | no |
+| `csv` | **nowhere** — a CSV has no cleared column, which IS the policy | `no_cleared_column` | no |
+
+Since migration `20260810200000` the app keeps the MARK (`is_cleared`) apart
+from the COMMITMENT (`is_reconciled`), and Money's scale is the only one of the
+four that carries both: 0 neither, 1 `C` marked, 2 `R` marked *and* committed.
+So `plan_cleared_flag` answers `reconciled` for `ms_money` and **omits it
+entirely** for the other three — an unstated committed flag sends the reader
+back to the mark (`src/utils/transactionReconciliation.ts`), which is a third
+answer and must not be flattened into `false`.
 
 `bank_feed` is the fifth source and has **no TypeScript oracle**: its policy is
 enforced in SQL, and it already has a differential proof against Postgres in the

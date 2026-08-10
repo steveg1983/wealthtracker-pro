@@ -5,8 +5,10 @@
  * migrates it into the production Supabase under the user's account:
  *
  *   1. PREFLIGHT — the split-leg columns must exist (apply
- *      supabase/migrations/20260720120000_split_leg_transfers.sql first);
- *      exactly one target user must be identifiable.
+ *      supabase/migrations/20260720120000_split_leg_transfers.sql first), as
+ *      must the provenance columns and the committed flag
+ *      (20260722170000, 20260810200000); exactly one target user must be
+ *      identifiable.
  *   2. BACKUP   — every current row (accounts, categories, transactions,
  *      splits, budgets, goals, linked_accounts) is written to
  *      ~/WealthTracker-backups/ BEFORE anything is touched.
@@ -77,7 +79,12 @@ interface SeedCategory {
 }
 interface SeedTransaction {
   id: string; date: string; description: string; amount: number; type: string;
+  // Money's two states, as the transform emits them: `cleared` is C or R (the
+  // MARK), `reconciled` is R alone (the COMMITMENT). A seed produced before
+  // that split states no `reconciled` and means R by `cleared` — regenerate it
+  // with scripts/mnyLocalImport.mts rather than reading it here as either.
   category?: string; accountId: string; notes?: string; cleared?: boolean;
+  reconciled?: boolean;
   bankReference?: string; isSplit?: boolean; transferAccountId?: string;
   linkedTransferId?: string; linkedTransferSplitId?: string;
 }
@@ -149,6 +156,20 @@ const dbAccountType = (t: string): string => (t === 'current' ? 'checking' : t);
     const msg = 'import-provenance columns missing — apply ' +
       'supabase/migrations/20260722170000_transaction_import_provenance.sql first ' +
       '(without them the import is not idempotent).';
+    if (EXECUTE) fail(msg);
+    console.log(`\nPREFLIGHT (dry run continues): ${msg}`);
+  }
+  const probe4 = await sb.from('transactions').select('is_reconciled').limit(1);
+  if (probe4.error) {
+    // Without this column Money's C and its R cannot be told apart: the reader
+    // falls back to `is_cleared`, which now carries both, so every unfinished
+    // balance session would read as a completed reconciliation. The in-app
+    // importer degrades rather than stop, because a person is watching a
+    // progress bar; this script is a deliberate one-shot run by hand, so it
+    // says apply the migration first.
+    const msg = 'the committed flag is missing — apply ' +
+      'supabase/migrations/20260810200000_marking_is_not_reconciling.sql first ' +
+      "(without it Money's cleared and reconciled rows are indistinguishable).";
     if (EXECUTE) fail(msg);
     console.log(`\nPREFLIGHT (dry run continues): ${msg}`);
   }
@@ -274,7 +295,13 @@ const dbAccountType = (t: string): string => (t === 'current' ? 'checking' : t);
     date: dateOnly(t.date),
     category: t.isSplit ? '' : cat(t.category),
     notes: t.notes ?? null,
+    // Marked — Money's C as well as its R.
     is_cleared: t.cleared === true,
+    // …and committed only where Money reconciled it. Taken from the seed's own
+    // `reconciled`, never from `is_cleared`: reading the mark here would report
+    // a finished reconciliation for every balance session Money was still
+    // holding open. Same rule as src/services/import/msMoney/msMoneyImport.ts.
+    is_reconciled: t.reconciled === true,
     is_split: t.isSplit === true,
     transfer_account_id: t.transferAccountId ? acctMap.get(t.transferAccountId) : null,
     linked_transfer_id: withLink && t.linkedTransferId ? txnMap.get(t.linkedTransferId) : null,

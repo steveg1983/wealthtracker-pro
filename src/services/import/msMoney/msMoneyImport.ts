@@ -112,10 +112,18 @@ const isUnknownColumn = (error: { code?: string | null }): boolean =>
  *
  * ── THE RULE ────────────────────────────────────────────────────────────────
  * Money keeps three states against a transaction: unreconciled, C (a working
- * mark) and R (settled against a statement). The transform already keeps only
- * R — `cleared` is `clearedStatus === 2` and nothing else, see transform.ts —
- * so every row this importer writes as cleared is a row Money had RECONCILED,
- * and the committed flag has to say so.
+ * mark) and R (settled against a statement). The transform hands over BOTH of
+ * the app's flags rather than flattening them — `cleared` is C or R (marked at
+ * all), `reconciled` is R alone, see transform.ts's cs mapping. The committed
+ * flag is that `reconciled` and nothing else.
+ *
+ * ── WHY THIS MAY NOT READ `cleared` ─────────────────────────────────────────
+ * It used to, and that was right only while `cleared` meant R and nothing
+ * weaker. Now that a C row arrives MARKED, reading `cleared` here would commit
+ * every one of them: rows Money was holding for its owner's next balance
+ * session would land as finished reconciliations against statements nobody
+ * confirmed — the exact failure reconciliation exists to catch, arriving tens
+ * of thousands of rows at a time, with nothing on screen to say it happened.
  *
  * ── WHY IT IS NOT LEFT TO THE DEFAULT ───────────────────────────────────────
  * `is_reconciled` is `DEFAULT false` on insert, and
@@ -126,10 +134,17 @@ const isUnknownColumn = (error: { code?: string | null }): boolean =>
  * split, ask `cleared`" — is not available to a fresh insert, so the flag must
  * be stated.
  *
+ * ── A SEED WRITTEN BEFORE THE SPLIT ─────────────────────────────────────────
+ * A `mny-local-seed.json` from an older `scripts/mnyLocalImport.mts` run states
+ * no `reconciled` at all, and its `cleared` means R. Such a seed is wrong on
+ * BOTH flags — its C rows are missing their marks too — so the answer is to
+ * regenerate it from the export directory, not to guess here from a `cleared`
+ * whose meaning has moved.
+ *
  * One rule, read by both write paths (`transactionRow` for the cloud,
  * `importToLocalStorage` for the device), so the two cannot drift.
  */
-const reconciledFromMoney = (t: Pick<Transaction, 'cleared'>): boolean => t.cleared === true;
+const reconciledFromMoney = (t: Pick<Transaction, 'reconciled'>): boolean => t.reconciled === true;
 
 /**
  * The slice of the Supabase client `executeCloudPlan` actually uses. Narrow
@@ -217,9 +232,9 @@ export async function importToLocalStorage(
     { key: storageKeys.CATEGORIES, value: result.categories },
     // The committed flag is stamped HERE rather than left off: the device store
     // holds whatever it was last written with, and a row with no answer is read
-    // through `cleared` — which happens to be right for this importer but only
-    // by accident, and would stop being right the moment anything marked a row.
-    // See `reconciledFromMoney` for the rule itself.
+    // through `cleared` — which now carries Money's C as well, so an unstamped
+    // import would read a whole unfinished balance session as committed. See
+    // `reconciledFromMoney` for the rule itself.
     {
       key: storageKeys.TRANSACTIONS,
       value: result.transactions.map((t): Transaction => ({ ...t, reconciled: reconciledFromMoney(t) })),
@@ -688,8 +703,9 @@ export function planCloudImport(
     date: dateOnly(t.date),
     category: t.isSplit ? '' : (cat(t.category) ?? ''),
     notes: t.notes ?? null,
+    // Marked at all — Money's C as well as its R (transform.ts's cs mapping).
     is_cleared: t.cleared === true,
-    // Money's R is a finished reconciliation, so the committed flag says so
+    // …and only R is a finished reconciliation, so the committed flag says so
     // (see `reconciledFromMoney`). A database without migration 20260810200000
     // refuses this column; `executeCloudPlan` gives it up rather than failing.
     [RECONCILED_COLUMN]: reconciledFromMoney(t),
@@ -1293,12 +1309,15 @@ export async function executeCloudPlan(
    * PostgREST error in a modal. An import must never fail over a flag.
    *
    * ── WHAT THE DEGRADED OUTCOME IS ───────────────────────────────────────────
-   * Marked, not committed — and on such a database that is not a lie. Without
-   * the column there is nothing to read it from, so
-   * src/utils/transactionReconciliation.ts falls back to `cleared`, which this
-   * importer has just written from Money's own R. The history therefore reads
-   * exactly as it did before the split existed, and the flag starts telling the
-   * fuller story the moment the migration lands and the file is re-imported.
+   * Money's C and its R stop being distinguishable. Without the column there is
+   * nothing to read the committed flag from, so
+   * src/utils/transactionReconciliation.ts falls back to `cleared` — and
+   * `cleared` now carries C as well as R (transform.ts's cs mapping). The rows
+   * Money had merely MARKED therefore read as reconciled, which is the one
+   * thing this import cannot keep straight on such a database, because the
+   * database has nowhere to put the second state. It is degraded, not silent:
+   * the warning below says exactly that, and re-importing once the migration
+   * lands restores the distinction on every row.
    *
    * ── DISCOVERED ONCE ────────────────────────────────────────────────────────
    * The first refusal flips the switch for the whole run: the batch that was
@@ -1313,9 +1332,9 @@ export async function executeCloudPlan(
     reconciledUnsupported = true;
     logger.warn(
       'MS Money import: this database has no transactions.is_reconciled column '
-      + '(migration 20260810200000 is not applied). Imported rows are being written '
-      + 'marked but not committed; re-import once the migration is applied to record '
-      + "Money's reconciled state."
+      + '(migration 20260810200000 is not applied), so the rows Money had only MARKED '
+      + '(its C state) cannot be told apart from the ones it had reconciled, and will '
+      + 'read as reconciled. Apply the migration and re-import to record both states.'
     );
     return true;
   };
