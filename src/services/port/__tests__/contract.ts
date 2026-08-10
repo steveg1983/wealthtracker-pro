@@ -1035,6 +1035,33 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(state.transactions.some(t => t.accountId === ACCOUNT_A)).toBe(false);
       });
 
+      /**
+       * A file's rows arrive as NEW WORK — the Microsoft Money convention the
+       * register's bold and its "To Review" counter are built on.
+       *
+       * Pinned on the SEAM rather than in either engine because it is the only
+       * place the rule can be stated once. The cloud decides it inside
+       * import_transactions_atomic (a SQL literal) and the device decides it
+       * inside importTransactionsLocally (a TypeScript literal), so there is no
+       * shared line of code to hold to account — only this.
+       *
+       * And it is stated as "whatever the drafts said", deliberately: the
+       * engines do NOT read the flag off the row, because a per-row key is a
+       * key each of the three parsers has to remember, and a parser that
+       * forgets fails silently — rows import, nothing lights up, and the
+       * feature looks switched off rather than broken.
+       */
+      it('marks every row it writes as new work, whatever the drafts said', async () => {
+        const { port, read } = await harness.create({ accounts: threeAccounts() });
+        const rows = statement().map(row => ({ ...row, needsReview: false }));
+
+        await port.importTransactions(ACCOUNT_C, rows);
+
+        const landed = (await read()).transactions.filter(t => t.accountId === ACCOUNT_C);
+        expect(landed).toHaveLength(rows.length);
+        expect(landed.every(t => t.needsReview === true)).toBe(true);
+      });
+
       it('B-9: what it says landed is a prefix of the file, and the rest really is absent', async () => {
         // The rule both importers depend on LITERALLY: each slices the array it
         // handed in at `inserted` and shows the remainder as "these payments
@@ -2169,6 +2196,82 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
 
         expect(count).toBe(1);
         expect(transactionOf(await read(), 'txn-guessed')?.categoryConfirmed).toBe(true);
+      });
+
+      /**
+       * Agreeing with the guess ends the row's review as well.
+       *
+       * Both surfaces that reach this operation are a person looking at a row
+       * and answering the question it was asking — the register's row editor,
+       * where the whole row is on screen, and the Categorisation page's group
+       * confirm, where the rows are listed with a drill one click away. The
+       * one-click answer is still an answer, and a register that kept the row
+       * bold afterwards would be nagging about work already done, which is how
+       * people learn to ignore the bold everywhere else.
+       *
+       * It rides this operation rather than a second write for a mechanical
+       * reason too: one click must be one write, or a confirm is two audit
+       * entries and a race with itself.
+       */
+      it('ends the review of every row it confirms', async () => {
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          transactions: [
+            aTransaction('txn-guessed', { categoryConfirmed: false, needsReview: true }),
+            // Nothing to agree with here, so nothing happens to it — including
+            // its review, which is somebody else's job to end.
+            aTransaction('txn-known', { categoryConfirmed: true, needsReview: true })
+          ]
+        });
+
+        await port.confirmTransactionCategories(['txn-guessed', 'txn-known']);
+
+        const state = await read();
+        expect(transactionOf(state, 'txn-guessed')?.needsReview).toBe(false);
+        expect(transactionOf(state, 'txn-known')?.needsReview).toBe(true);
+      });
+
+      /**
+       * Filing a payee in bulk is NOT reviewing the rows it files.
+       *
+       * The pair with the test above, and the reason both are here: the two
+       * operations look alike (a list of ids, a boolean each) and mean opposite
+       * things. Confirming is a decision about a ROW the user is looking at;
+       * applying a category to a payee's blanks is a decision about a CATEGORY
+       * taken from a list of payees, where the rows' dates, amounts and
+       * accounts were never on screen. If this ever started clearing the flag,
+       * one run of the bulk tool would mark a whole imported statement as dealt
+       * with, silently.
+       */
+      it('leaves the review alone when a category is applied in bulk', async () => {
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          transactions: [aTransaction('txn-blank', { category: '', needsReview: true })]
+        });
+
+        await port.applyCategoryToUncategorized(['txn-blank'], 'cat-everyday');
+
+        expect(transactionOf(await read(), 'txn-blank')?.needsReview).toBe(true);
+      });
+
+      /**
+       * A row somebody typed is born reviewed. There is nothing to go back and
+       * look at: they were looking at it as they made it.
+       */
+      it('never marks a hand-entered transaction as new work', async () => {
+        const { port, read } = await harness.create({ accounts: threeAccounts() });
+
+        await port.createTransaction({
+          accountId: ACCOUNT_A,
+          amount: -4.5,
+          date: AT('2025-01-12'),
+          description: 'Typed in by hand',
+          category: 'cat-everyday',
+          type: 'expense'
+        });
+
+        const created = (await read()).transactions.find(t => t.description === 'Typed in by hand');
+        expect(created?.needsReview).not.toBe(true);
       });
     });
 

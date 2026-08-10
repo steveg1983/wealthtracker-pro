@@ -44,8 +44,11 @@ type Database = {
         Returns: number;
       };
       // Agree with the app's suggested category. Takes no category on purpose:
-      // it only flips category_confirmed, so it cannot move a category or a
-      // balance however it is called (20260808100000_category_provenance.sql).
+      // it only flips category_confirmed (and clears needs_review, because
+      // answering the question a row was asking IS reviewing that row), so it
+      // cannot move a category or a balance however it is called
+      // (20260808100000_category_provenance.sql, widened by
+      // 20260810090000_imported_rows_arrive_new.sql).
       confirm_transaction_categories: {
         Args: { p_ids: string[]; p_user_id: string };
         Returns: number;

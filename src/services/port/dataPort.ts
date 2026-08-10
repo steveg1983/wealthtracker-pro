@@ -353,23 +353,47 @@ export interface DataPortTransactionWrites {
   /**
    * A partial update of the fields a row's own editor owns.
    *
-   * **Divergence D-7**: only these fifteen are honoured by the cloud
+   * **Divergence D-7**: only these sixteen are honoured by the cloud
    * implementation — `description, amount, type, date, accountId, category,
-   * categoryConfirmed, notes, tags, isRecurring, cleared, transferAccountId,
-   * metadata, categoryId, merchantName`. Anything else is silently discarded
-   * there, silently applied by browser storage, and refused by name by the
-   * local core. Callers must send only those fifteen: every field outside the
-   * list has a dedicated operation on this interface, and the dedicated
-   * operation is the contract (archiving is `setTransactionArchived`, linking
-   * is the transfer group, splitting is `setTransactionSplits`).
+   * categoryConfirmed, needsReview, notes, tags, isRecurring, cleared,
+   * transferAccountId, metadata, categoryId, merchantName`. Anything else is
+   * silently discarded there, silently applied by browser storage, and refused
+   * by name by the local core. Callers must send only those sixteen: every
+   * field outside the list has a dedicated operation on this interface, and the
+   * dedicated operation is the contract (archiving is `setTransactionArchived`,
+   * linking is the transfer group, splitting is `setTransactionSplits`).
+   *
+   * `needsReview` is the only one of the sixteen that is meaningful ONLY as
+   * `false`, and it has no dedicated operation on purpose. Ending a review is
+   * not a thing a user does to a row; it is what happens when they save one, so
+   * it rides the save that caused it — one write, one audit entry, no race
+   * between a save and a separate "and I've now looked at it" call. Which is
+   * also why NO engine may infer it: a caller that does not mention the field
+   * leaves it exactly as it was, however much else it changed. The bulk
+   * categorise sweep, the payee rename and the transfer-link repair all come
+   * through here and none of them is a person reading a row.
    */
   updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction>;
   deleteTransaction(id: string): Promise<void>;
   /** Bulk reconciliation flag. Balance-neutral by definition. Returns rows touched. */
   setTransactionsCleared(ids: string[], cleared: boolean): Promise<number>;
-  /** Fill-blanks only: rows that already carry a category are left alone. */
+  /**
+   * Fill-blanks only: rows that already carry a category are left alone.
+   *
+   * Leaves `needsReview` alone too, and the contrast with
+   * `confirmTransactionCategories` is deliberate: this is a decision about a
+   * CATEGORY taken from a list of payees, not a decision about each row, so the
+   * rows it fills stay in the register's To Review list.
+   */
   applyCategoryToUncategorized(ids: string[], category: string): Promise<number>;
-  /** Agree with a suggested category; one boolean, never the category itself. */
+  /**
+   * Agree with a suggested category; one boolean, never the category itself.
+   *
+   * Also clears `needsReview` on every row it confirms. Both surfaces that call
+   * this are a person looking at a row and answering the question it was
+   * asking, and the one-click answer is still an answer — a register that kept
+   * the row bold afterwards would be nagging about work already done.
+   */
   confirmTransactionCategories(ids: string[]): Promise<number>;
   /** Soft-archive one row: hidden from the register, never deleted, reversible. */
   setTransactionArchived(id: string, archived: boolean): Promise<void>;
@@ -472,6 +496,15 @@ export interface DataPortBulkWrites {
    * The rows are drafts, exactly as a create takes them, and the account they
    * go into is the one named HERE — the destination the user chose wins over
    * whatever a parser guessed for each row.
+   *
+   * EVERY ROW IT WRITES ARRIVES `needsReview: true`, whatever the draft says.
+   * This operation IS the file-import path — a statement the user has just
+   * handed the app — so the rows are new work by definition, and the engine
+   * says so rather than trusting each parser to remember (a parser that forgets
+   * fails silently, which is indistinguishable from the feature being off).
+   * Rows that arrive some other way are not affected: `createTransaction` is a
+   * person typing and is born reviewed, and the Microsoft Money migration
+   * (`importMsMoney`) is history the user already worked through in Money.
    *
    * ── WHAT IT PROMISES ────────────────────────────────────────────────────
    *

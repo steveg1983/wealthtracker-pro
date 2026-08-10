@@ -223,6 +223,9 @@ describe('TransactionService (deterministic fallback)', () => {
       // The bank's own intra-day order. Without it the register cannot walk a
       // day the way the statement prints it — see compareChronological.
       expect(cols).toContain('statement_sequence');
+      // "Has anybody looked at this row?" Without it the register cannot print
+      // an arrival in bold and the To Review box counts nothing.
+      expect(cols).toContain('needs_review');
     });
 
     /**
@@ -293,13 +296,77 @@ describe('TransactionService (deterministic fallback)', () => {
       const pageSelects = selectArgs
         .filter(a => !(a.opts as { head?: boolean } | undefined)?.head)
         .map(a => String(a.cols));
-      // Asked with the column, was refused, asked again without it.
+      const settled = pageSelects[pageSelects.length - 1];
+      // Asked with the column, was refused, and kept descending the ladder
+      // (newest column first) until the ask was one this database can answer.
+      // The number of rungs is not asserted: it is the number of migrations
+      // this build knows how to fall back past, and it goes up whenever one is
+      // added — what matters is that the descent ends somewhere that works.
       expect(pageSelects[0]).toContain('statement_sequence');
-      expect(pageSelects[1]).not.toContain('statement_sequence');
+      expect(settled).not.toContain('statement_sequence');
       // …and every column that was already being read survives the fallback.
-      expect(pageSelects[1]).toContain('notes');
-      expect(pageSelects[1]).toContain('tags');
-      expect(pageSelects[1]).toContain('is_cleared');
+      expect(settled).toContain('notes');
+      expect(settled).toContain('tags');
+      expect(settled).toContain('is_cleared');
+    });
+
+    /**
+     * A database that predates 20260810090000_imported_rows_arrive_new but has
+     * everything before it — the state every database is in until the owner
+     * applies that migration, which is to say the state the deploy will find.
+     *
+     * It must descend EXACTLY ONE RUNG. Dropping category_confirmed as well
+     * would take the suggested-category badge off a database that supports it
+     * perfectly well, which is a working feature lost to an unrelated deploy.
+     */
+    it('gives up only the review column on a database that has everything else', async () => {
+      const selectArgs: { cols: unknown; opts: unknown }[] = [];
+      const rows = [{ id: 'db-1', account_id: 'acct-1', amount: 10, type: 'expense', date: '2025-04-01' }];
+      const from = vi.fn(() => {
+        const builder: Record<string, unknown> = {};
+        let isCount = false;
+        let asked = '';
+        builder.select = vi.fn((cols: unknown, opts: unknown) => {
+          selectArgs.push({ cols, opts });
+          asked = typeof cols === 'string' ? cols : '';
+          isCount = Boolean(opts && (opts as { head?: boolean }).head);
+          return builder;
+        });
+        builder.eq = vi.fn(() => builder);
+        builder.order = vi.fn(() => builder);
+        builder.range = vi.fn(() => builder);
+        builder.then = (resolve: (value: unknown) => unknown) => {
+          if (isCount) return resolve({ count: rows.length, error: null });
+          if (asked.includes('needs_review')) {
+            return resolve({
+              data: null,
+              error: { code: '42703', message: 'column transactions.needs_review does not exist' }
+            });
+          }
+          return resolve({ data: rows, error: null });
+        };
+        return builder;
+      });
+
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: { from } as unknown as never
+      });
+
+      const transactions = await service.getTransactions('user-1');
+      expect(transactions.map(t => t.id)).toEqual(['db-1']);
+
+      const pageSelects = selectArgs
+        .filter(a => !(a.opts as { head?: boolean } | undefined)?.head)
+        .map(a => String(a.cols));
+      expect(pageSelects).toHaveLength(2);
+      expect(pageSelects[1]).not.toContain('needs_review');
+      expect(pageSelects[1]).toContain('category_confirmed');
+      expect(pageSelects[1]).toContain('statement_sequence');
     });
 
     it('does not re-ask for the missing column on every page of a boot', async () => {
@@ -315,15 +382,19 @@ describe('TransactionService (deterministic fallback)', () => {
         supabaseClient: client as unknown as never
       });
 
+      const refusedSoFar = (): number => selectArgs.filter(
+        a => !(a.opts as { head?: boolean } | undefined)?.head && String(a.cols).includes('statement_sequence')
+      ).length;
+
       await service.getTransactions('user-1');
+      const afterFirstBoot = refusedSoFar();
       await service.getTransactions('user-1');
 
-      // One discovery for the life of the service, not one per page — a 50-page
-      // history would otherwise pay for the same refusal fifty times.
-      const refused = selectArgs.filter(
-        a => !(a.opts as { head?: boolean } | undefined)?.head && String(a.cols).includes('statement_sequence')
-      );
-      expect(refused).toHaveLength(1);
+      // One descent for the life of the service, not one per page — a 50-page
+      // history would otherwise pay for the same refusals fifty times. The
+      // second boot must add NOTHING, whatever the ladder's length is.
+      expect(afterFirstBoot).toBeGreaterThan(0);
+      expect(refusedSoFar()).toBe(afterFirstBoot);
     });
   });
 
@@ -1094,6 +1165,30 @@ describe('TransactionService (deterministic fallback)', () => {
       expect(count).toBe(2);
       const stored = storage.snapshot();
       expect(stored.map(t => t.categoryConfirmed)).toEqual([true, true, true, undefined]);
+    });
+
+    it('ends the row\'s review as well — agreeing IS reviewing', async () => {
+      // The same UPDATE confirm_transaction_categories does server-side. Both
+      // stores implement one rule, and a rule kept in only one of them drifts:
+      // signed out, the register would keep a row bold after the user had
+      // explicitly answered the question it was asking.
+      const storage = createStorage([
+        baseTransaction({ id: 'txn-1', category: 'cat-a', categoryConfirmed: false, needsReview: true }),
+        // Nothing to agree with, so nothing happens — including to its review,
+        // which is a save's job to end.
+        baseTransaction({ id: 'txn-2', category: 'cat-b', categoryConfirmed: true, needsReview: true })
+      ]);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid
+      });
+
+      await service.confirmTransactionCategories(['txn-1', 'txn-2']);
+
+      expect(storage.snapshot().map(t => t.needsReview)).toEqual([false, true]);
     });
 
     it('never changes a category — only who vouched for it', async () => {

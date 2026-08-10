@@ -48,6 +48,7 @@ import {
   isTypeAheadKey,
 } from '../utils/registerShortcuts';
 import { isConfirmableSuggestion } from '../utils/categoryProvenance';
+import { countAwaitingReview, isAwaitingReview } from '../utils/transactionReview';
 import { formatCardNumberForDisplay, isCardAccountType } from '../utils/accountNumberInput';
 import { buildAttentionItems } from '../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../utils/bankAutoSync';
@@ -416,6 +417,18 @@ export default function AccountTransactions() {
   const [showArchived, setShowArchived] = useState(
     () => new URLSearchParams(location.search).get('showArchived') === '1'
   );
+  /**
+   * Is the register narrowed to the rows that arrived and have not been dealt
+   * with — the "To Review" box in the toolbar, pressed?
+   *
+   * NOT PERSISTED, unlike every other view setting on this page (columns, the
+   * date window, the sort). Those describe how you like to read a register;
+   * this describes a job you are part-way through, and a job you finished
+   * yesterday must not still be filtering the register tomorrow. Coming back to
+   * a register showing four of its nine hundred rows, with no memory of why, is
+   * the worst kind of stale state — it looks like data loss.
+   */
+  const [reviewOnly, setReviewOnly] = useState(false);
   const viewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -680,7 +693,52 @@ export default function AccountTransactions() {
     // categoryLabel, which is memoised on exactly them (and on accounts) — so a
     // renamed category rebuilds the labeller and this list follows.
   }, [account, transactions, searchTerm, dateFrom, dateTo, typeFilter, archiveWindow, showArchived, sortField, sortDirection, categoryLabel]);
-  
+
+  /**
+   * How many rows in front of the user have arrived and not been dealt with —
+   * the figure in the toolbar's "To Review" box.
+   *
+   * COUNTED OVER THE ROWS THE REGISTER IS SHOWING, deliberately, and not over
+   * the account as a whole. The box is a button: pressing it must produce
+   * exactly this many rows, or the number is a lie the very moment it is
+   * believed. Counting the whole account would say "3" while a date window hid
+   * two of them, and clicking would then empty the register.
+   *
+   * The Accounts list counts the same predicate over the whole account, because
+   * there is no view to narrow there — one rule (isAwaitingReview), asked of
+   * whatever population the screen is actually showing.
+   *
+   * `reviewOnly` is deliberately NOT a dependency: this counts the list BEFORE
+   * the review filter, so pressing the button cannot change the number the
+   * button is showing.
+   */
+  const toReviewCount = useMemo(
+    () => countAwaitingReview(accountTransactions),
+    [accountTransactions]
+  );
+
+  /**
+   * Nothing left to review ends the filter, rather than leaving somebody
+   * looking at an empty register with the button that got them there gone (the
+   * box hides itself at zero — the house rule that a zero count renders
+   * nothing). Reviewing the last row is a success, and it should read like one.
+   *
+   * Cannot loop: toReviewCount is computed from the unfiltered list above.
+   */
+  useEffect(() => {
+    if (toReviewCount === 0) setReviewOnly(false);
+  }, [toReviewCount]);
+
+  /**
+   * The rows the table actually lists. One more filter on the end of the chain,
+   * applied here rather than inside `accountTransactions` so the count above
+   * can be taken from the list without it.
+   */
+  const visibleTransactions = useMemo<Transaction[]>(
+    () => (reviewOnly ? accountTransactions.filter(isAwaitingReview) : accountTransactions),
+    [accountTransactions, reviewOnly]
+  );
+
   // Calculate running balance
   const transactionsWithBalance = useMemo<TransactionWithBalance[]>(() => {
     if (!account) return [] as TransactionWithBalance[];
@@ -709,11 +767,11 @@ export default function AccountTransactions() {
     }
 
     // Display the filtered subset, each carrying its true running balance.
-    return accountTransactions.map(t => ({
+    return visibleTransactions.map(t => ({
       ...t,
       balance: balanceMap.get(t.id) ?? 0
     }));
-  }, [account, accountTransactions, fullAccountTransactions]);
+  }, [account, visibleTransactions, fullAccountTransactions]);
 
   // Build display rows with virtual Opening Balance as first entry
   const displayRows = useMemo<DisplayRow[]>(() => {
@@ -1821,7 +1879,17 @@ export default function AccountTransactions() {
       // registerDateColumn.
       width: `${DATE_COLUMN_WIDTH_PX}px`,
       accessor: (transaction) => (
-        <span className="text-sm text-gray-900 dark:text-white">
+        <span className={`text-sm text-gray-900 dark:text-white ${
+          // Microsoft Money's convention, and the only one this register needed:
+          // a row that has just arrived is bold until somebody saves it. Date
+          // and Description carry it and nothing else does — two cells at
+          // opposite ends of the row make the line read as bold at a glance,
+          // while bolding every cell would fight the amounts (which use weight
+          // for money in/out) and the amber suggestion badge.
+          isOpeningBalanceRow(transaction) || !isAwaitingReview(transaction)
+            ? ''
+            : 'font-semibold'
+        }`}>
           {isOpeningBalanceRow(transaction) && transaction.noDateSet
             ? <span className="italic text-gray-400">no date set</span>
             : new Date(transaction.date).toLocaleDateString('en-GB')}
@@ -1847,13 +1915,26 @@ export default function AccountTransactions() {
       key: 'description',
       header: 'Description',
       width: undefined, // flex column — uses flex:1 via className
-      accessor: (transaction) => (
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm text-gray-900 dark:text-white truncate">
-            {transaction.description}
-          </span>
-        </div>
-      ),
+      accessor: (transaction) => {
+        const awaitingReview = !isOpeningBalanceRow(transaction) && isAwaitingReview(transaction);
+        return (
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={`text-sm text-gray-900 dark:text-white truncate ${
+              awaitingReview ? 'font-semibold' : ''
+            }`}>
+              {transaction.description}
+            </span>
+            {/* WEIGHT IS A VISUAL CUE AND NOTHING ELSE (WCAG 1.4.1, and the
+                same reasoning as SuggestedCategoryBadge's sr-only clause). Bold
+                is invisible to a screen reader and to anyone reading the
+                register one row at a time in a magnifier, so the fact is also
+                stated in words — off-screen, because on-screen it would be a
+                second marker for one fact and the whole point of the bold is
+                that it costs the row no space. */}
+            {awaitingReview && <span className="sr-only">— new, not reviewed yet</span>}
+          </div>
+        );
+      },
       className: 'flex-1 min-w-0',
       headerClassName: 'flex-1 min-w-0',
       sortable: true,
@@ -2390,6 +2471,48 @@ export default function AccountTransactions() {
             </div>
           )}
         </div>
+
+        {/* To Review — how many rows have arrived and not been dealt with, and
+            the switch that narrows the register to exactly them.
+
+            NOTHING AT ZERO. Not a greyed-out button, not "To Review 0" — the
+            house rule is that a zero count renders nothing, because a permanent
+            box reading 0 is a box the eye learns to skip, and then it says
+            nothing on the day it reads 40. Its absence is the "all done", which
+            is why finishing the last row makes it disappear (and, in the effect
+            beside toReviewCount, drops the filter with it rather than leaving
+            an empty register behind).
+
+            Beside View rather than in it: this is a job, not a preference. */}
+        {toReviewCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setReviewOnly(prev => !prev)}
+            aria-pressed={reviewOnly}
+            className={`flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
+              reviewOnly
+                ? 'border-[#1a2332] dark:border-blue-500 text-[#1a2332] dark:text-blue-400 bg-gray-50 dark:bg-gray-700'
+                : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+            title={
+              reviewOnly
+                ? 'Showing only transactions that have arrived and not been dealt with. Click to show them all again.'
+                : 'Transactions that arrived from an import and have not been saved yet. Click to show only those.'
+            }
+          >
+            To Review
+            {/* Amber, the colour this app already uses for "this wants your
+                attention" (the suggested-category badge, the uncategorised
+                bar), and sized like the tag pills the register already draws so
+                a toolbar with a count in it still reads as one row of
+                controls. The number is the point, so it carries the colour
+                rather than the whole button — a fully amber button in a row of
+                grey ones reads as an error. */}
+            <span className="inline-flex items-center px-1.5 py-0 rounded-full text-xs font-semibold tabular-nums bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+              {toReviewCount}
+            </span>
+          </button>
+        )}
         </div>
         <button
           onClick={() => setTableExpanded(prev => !prev)}
@@ -2521,6 +2644,11 @@ export default function AccountTransactions() {
           transactions={transactionsWithBalance}
           accounts={[]}
           categories={categories}
+          // A phone is still looking at the REGISTER, with the same To Review
+          // box above it and the same filter, so it gets the same bold. The
+          // Transactions page renders this identical list and does not ask for
+          // it, because there is no counter and no filter there to act on.
+          markNewArrivals
           formatCurrency={(n) => formatCurrency(n, account.currency)}
           onEdit={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setIsEditModalOpen(true); }}
           onView={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setIsEditModalOpen(true); }}

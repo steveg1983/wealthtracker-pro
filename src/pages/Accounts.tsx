@@ -37,6 +37,7 @@ type AccountSortMode = 'default' | 'name' | 'balance-desc' | 'balance-asc';
 import { IconButton } from '../components/icons/IconButton';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useReconciliation } from '../hooks/useReconciliation';
+import { countAwaitingReviewByAccount } from '../utils/transactionReview';
 import { useAccountBankSync } from '../hooks/useAccountBankSync';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
@@ -133,6 +134,25 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   }, [location.pathname, location.search, navigate]);
 
   const { getUnreconciledCount, computeAccountBalance: computeLedgerBalance } = useReconciliation(accounts, transactions);
+
+  /**
+   * How much freshly-imported work is waiting in each account.
+   *
+   * The same mechanism the Unreconciled column beside it uses (useReconciliation
+   * builds one per-account map from the transaction list and answers in
+   * constant time): filtering the whole ledger inside each card would be
+   * quadratic in the number of accounts, over a fifty-thousand row list, on a
+   * page that re-renders on every sync.
+   *
+   * Not folded into useReconciliation, because it is not reconciliation. "Does
+   * this account agree with the bank?" and "has anybody looked at what arrived?"
+   * are two questions that happen to be counted the same way, and a hook that
+   * answers both would be a hook named for one of them.
+   */
+  const toReviewByAccount = useMemo(
+    () => countAwaitingReviewByAccount(transactions),
+    [transactions]
+  );
 
   // The transaction pages take seconds to arrive on a long history, and until
   // the first one lands every ledger sum is just the opening balance. The
@@ -435,17 +455,25 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                         )}
                       </div>
                       
-                      {/* Phones: a wrapping row (three stat columns plus the
-                          buttons need ~420px and the card offers ~330, so the
+                      {/* Phones: a wrapping row (the stat columns plus the
+                          buttons need ~490px and the card offers ~330, so the
                           stats take one row and the buttons the next). From sm
-                          up it is a GRID of fixed columns — three stat columns,
+                          up it is a GRID of fixed columns — four stat columns,
                           then five reserved button slots — so every figure and
                           every button lands at the same x on every card. An
                           account without a bank feed keeps an EMPTY feed cell
                           rather than letting the buttons shuffle left; muscle
-                          memory is the point. */}
+                          memory is the point.
+
+                          To Review joined as the FOURTH stat column, which is
+                          what moved the other three left: the buttons are
+                          anchored to the right-hand edge, so a new column takes
+                          its room from the space before them rather than from
+                          them. It sits after Unreconciled because the two are
+                          the same shape of question — how much is outstanding —
+                          and reading them as a pair is the point. */}
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                            <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 sm:grid sm:grid-cols-[6.5rem_7.5rem_5.5rem_repeat(5,3rem)] sm:justify-items-end sm:items-center sm:gap-x-2 sm:gap-y-0">
+                            <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 sm:grid sm:grid-cols-[6.5rem_7.5rem_5.5rem_5.5rem_repeat(5,3rem)] sm:justify-items-end sm:items-center sm:gap-x-2 sm:gap-y-0">
                               {/* Balance info columns */}
                               <div className="text-right">
                                 <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Bank Bal</p>
@@ -469,6 +497,32 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                     : 'text-blue-600 dark:text-blue-400'
                                 }`}>
                                   {getUnreconciledCount(account.id)}
+                                </p>
+                              </div>
+                              {/* To Review — freshly imported rows nobody has
+                                  dealt with, so the size of the job is visible
+                                  from the list rather than only from inside the
+                                  register.
+
+                                  A QUIET 0 RATHER THAN NOTHING, unlike the
+                                  register's own counter, and the difference is
+                                  the surface not an inconsistency: this is a
+                                  COLUMN. A column of figures with a blank in it
+                                  reads as "not known", and the eye has to stop
+                                  and work out which. Its neighbour has said 0
+                                  the same way since the page was built, and
+                                  matching it is what keeps the pair readable at
+                                  a glance. The register's box is chrome, not a
+                                  column, and there it is absence that means
+                                  "nothing to do". */}
+                              <div className="text-right">
+                                <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">To Review</p>
+                                <p className={`text-sm font-semibold tabular-nums ${
+                                  (toReviewByAccount.get(account.id) ?? 0) > 0
+                                    ? 'text-amber-600 dark:text-amber-400'
+                                    : 'text-blue-600 dark:text-blue-400'
+                                }`}>
+                                  {toReviewByAccount.get(account.id) ?? 0}
                                 </p>
                               </div>
                               <div className="flex items-center justify-end">
@@ -564,6 +618,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                     {(nestedByParent.get(account.id) ?? []).map(child => {
                       const childName = child.name === `${account.name} (Cash)` ? 'Cash' : child.name;
                       const childUnreconciled = getUnreconciledCount(child.id);
+                      const childToReview = toReviewByAccount.get(child.id) ?? 0;
                       return (
                         <div
                           key={child.id}
@@ -597,6 +652,20 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 : 'text-blue-600 dark:text-blue-400'
                             }`}>
                               {childUnreconciled}
+                            </p>
+                          </div>
+                          {/* A nested cash account is a full account with its
+                              own register, so it has its own arrivals to deal
+                              with and gets the column too. Same width as its
+                              parent's, so the two lines read down. */}
+                          <div className="text-right sm:w-[5.5rem]">
+                            <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">To Review</p>
+                            <p className={`text-sm font-semibold tabular-nums ${
+                              childToReview > 0
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-blue-600 dark:text-blue-400'
+                            }`}>
+                              {childToReview}
                             </p>
                           </div>
                           <ChevronRightIcon size={16} className="text-gray-400 flex-shrink-0" />

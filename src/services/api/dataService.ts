@@ -787,6 +787,13 @@ class DataServiceImpl implements DataPort {
         // that decision to identical rows is the decision, not a guess about
         // it — asking him to re-confirm the very rows he asked to be filed
         // would make the bulk tool slower than doing it one at a time.
+        //
+        // needsReview is deliberately NOT touched, and the difference from
+        // confirmTransactionCategories below is the whole distinction: filing a
+        // payee in bulk is a decision about a CATEGORY made from a list of
+        // payees, not a decision about each ROW. The user has not seen these
+        // rows' dates, amounts or accounts, so they stay in the register's To
+        // Review list until somebody actually looks at one.
         return { ...t, category, categoryConfirmed: true };
       }
       return t;
@@ -812,7 +819,10 @@ class DataServiceImpl implements DataPort {
     const updated = transactions.map(t => {
       if (idSet.has(t.id) && t.categoryConfirmed === false) {
         count += 1;
-        return { ...t, categoryConfirmed: true };
+        // …and the row stops being new work. Agreeing with the guess is the
+        // one-click form of the Save that would otherwise have followed, and
+        // the server RPC clears both flags in the same UPDATE.
+        return { ...t, categoryConfirmed: true, needsReview: false };
       }
       return t;
     });

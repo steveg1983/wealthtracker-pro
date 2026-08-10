@@ -127,6 +127,7 @@ const CAMEL_TO_DB: Record<string, string> = {
   bankReference: 'bank_reference',
   isImported: 'is_imported',
   categoryConfirmed: 'category_confirmed',
+  needsReview: 'needs_review',
   isSplit: 'is_split',
   goalId: 'goal_id',
   accountName: 'account_name',
@@ -172,11 +173,25 @@ const DB_TO_CAMEL: Record<string, string> = Object.fromEntries(
  * parser — a widened `string` (which `+` concatenation or `[].join` produces)
  * degrades the result to an untyped error type.
  */
-const BOOT_TRANSACTION_COLUMNS = 'id,account_id,amount,archived,category,category_confirmed,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,statement_sequence,tags,type,updated_at,transfer_account_id' as const;
+const BOOT_TRANSACTION_COLUMNS = 'id,account_id,amount,archived,category,category_confirmed,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,needs_review,notes,statement_sequence,tags,type,updated_at,transfer_account_id' as const;
 
 /**
- * The same list without `category_confirmed`, for a database that has not had
- * 20260808100000_category_provenance.sql applied yet.
+ * The same list without `needs_review`, for a database that has not had
+ * 20260810090000_imported_rows_arrive_new.sql applied yet.
+ *
+ * The newest rung of the ladder, and therefore the FIRST one dropped — see the
+ * note below about why the ladder only ever descends newest-first. Without the
+ * column every row reads as `needsReview: undefined`, which
+ * src/utils/transactionReview.ts defines as reviewed: no bold, a counter of
+ * zero, and a register that behaves exactly as it did before this feature
+ * existed. That is the correct degradation, because on a database without the
+ * column there is genuinely nothing to review.
+ */
+const BOOT_TRANSACTION_COLUMNS_NO_REVIEW = 'id,account_id,amount,archived,category,category_confirmed,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,statement_sequence,tags,type,updated_at,transfer_account_id' as const;
+
+/**
+ * Neither `needs_review` nor `category_confirmed`, for a database that has not
+ * had 20260808100000_category_provenance.sql applied yet.
  *
  * WHY THESE FALLBACKS EXIST. The list above is an EXPLICIT select, and PostgREST
  * fails the whole query on an unknown column — so shipping a column in it before
@@ -189,14 +204,16 @@ const BOOT_TRANSACTION_COLUMNS = 'id,account_id,amount,archived,category,categor
 const BOOT_TRANSACTION_COLUMNS_NO_PROVENANCE = 'id,account_id,amount,archived,category,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,statement_sequence,tags,type,updated_at,transfer_account_id' as const;
 
 /**
- * Neither `category_confirmed` nor `statement_sequence` — the oldest schema this
- * build still talks to (before 20260808090000_transaction_statement_sequence).
+ * None of `needs_review`, `category_confirmed` or `statement_sequence` — the
+ * oldest schema this build still talks to (before
+ * 20260808090000_transaction_statement_sequence).
  *
- * There is no fourth list, because there is no fourth state to be in: migrations
- * are applied in filename order, so a database holding `category_confirmed`
- * necessarily already holds the `statement_sequence` added by the migration
- * before it. The ladder therefore only ever drops columns newest-first, which is
- * also why the retry below discovers them in that order.
+ * There is no FIFTH list, because there is no fifth state to be in: migrations
+ * are applied in filename order, so a database holding `needs_review`
+ * necessarily already holds the `category_confirmed` added before it, which in
+ * turn implies `statement_sequence`. The ladder therefore only ever drops
+ * columns newest-first, which is also why the retry below discovers them in
+ * that order.
  */
 const BOOT_TRANSACTION_COLUMNS_LEGACY = 'id,account_id,amount,archived,category,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,tags,type,updated_at,transfer_account_id' as const;
 
@@ -299,6 +316,13 @@ class TransactionServiceImpl {
    * ask again.
    */
   private categoryConfirmedMissing = false;
+  /**
+   * The same, for 20260810090000_imported_rows_arrive_new.sql. Dropped FIRST of
+   * the three, because it is the newest: PostgREST names no column in the
+   * error, so the only safe reading of "some column in that list is unknown" is
+   * to give up the newest one and ask again.
+   */
+  private needsReviewMissing = false;
 
   constructor(options: TransactionServiceOptions = {}) {
     this.cache = options.transactionCache ?? transactionCache;
@@ -422,10 +446,34 @@ class TransactionServiceImpl {
         .order('id', { ascending: false }) // stable tiebreak for paging
         .range(from, to);
       if (error) {
-        // Still unknown with the newest column gone: this database predates the
-        // statement-sequence migration as well. Drop that too and ask again.
+        // Still unknown with the two newest columns gone: this database
+        // predates the statement-sequence migration as well. Drop that too and
+        // ask again.
         if (error.code === UNDEFINED_COLUMN) {
           this.statementSequenceMissing = true;
+          return this.fetchTransactionPage(userId, from, since);
+        }
+        this.logger.error('Error fetching transactions:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      return (data || []) as Record<string, unknown>[];
+    }
+
+    if (this.needsReviewMissing) {
+      const noReviewBase = client
+        .from('transactions')
+        .select(BOOT_TRANSACTION_COLUMNS_NO_REVIEW)
+        .eq('user_id', userId);
+      const noReviewScoped = since ? noReviewBase.gte('updated_at', since) : noReviewBase;
+      const { data, error } = await noReviewScoped
+        .order('date', { ascending: false })
+        .order('id', { ascending: false }) // stable tiebreak for paging
+        .range(from, to);
+      if (error) {
+        // Still unknown with the newest column gone: this database predates the
+        // provenance migration as well. Drop that too and ask again.
+        if (error.code === UNDEFINED_COLUMN) {
+          this.categoryConfirmedMissing = true;
           return this.fetchTransactionPage(userId, from, since);
         }
         this.logger.error('Error fetching transactions:', error);
@@ -445,12 +493,12 @@ class TransactionServiceImpl {
       .range(from, to);
 
     if (error) {
-      // This database predates the statement-sequence migration. Remember it
-      // (so the other 50 pages of a boot do not each pay for the discovery) and
-      // fetch again without the column: a register that cannot order a day the
-      // bank's way is a shortfall, no register at all is an outage.
+      // This database predates the review migration. Remember it (so the other
+      // 50 pages of a boot do not each pay for the discovery) and fetch again
+      // without the column: a register that cannot tell a new row from an old
+      // one is a shortfall, no register at all is an outage.
       if (error.code === UNDEFINED_COLUMN) {
-        this.statementSequenceMissing = true;
+        this.needsReviewMissing = true;
         return this.fetchTransactionPage(userId, from, since);
       }
       this.logger.error('Error fetching transactions:', error);
@@ -849,7 +897,17 @@ class TransactionServiceImpl {
       const updated = transactions.map(t => {
         if (idSet.has(t.id) && t.categoryConfirmed === false) {
           count += 1;
-          return { ...t, categoryConfirmed: true, updatedAt: this.getCurrentDate() };
+          // needsReview goes with it, exactly as confirm_transaction_categories
+          // does it server-side: answering the question a row was asking is
+          // reviewing that row. Written in both places rather than in one,
+          // because the two stores are two implementations of one rule and a
+          // rule kept in only one of them is a rule that drifts.
+          return {
+            ...t,
+            categoryConfirmed: true,
+            needsReview: false,
+            updatedAt: this.getCurrentDate()
+          };
         }
         return t;
       });

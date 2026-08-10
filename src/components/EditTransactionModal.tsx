@@ -251,7 +251,11 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
               tags: validatedData.tags,
               notes: validatedData.notes,
               cleared: data.cleared,
-              reconciledWith: data.reconciledWith.trim() || undefined
+              reconciledWith: data.reconciledWith.trim() || undefined,
+              // See REVIEW below: this write committed the field edits, so the
+              // row has been dealt with even if the transfer dialog after it is
+              // cancelled.
+              needsReview: false
             });
             suppressCloseRef.current = true; // the dialog decides when to close
             setTransferPrompt({
@@ -279,6 +283,16 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
           const signedAmount = resolvedType === 'transfer'
             ? (transaction ? parsedAmount : -Math.abs(parsedAmount))
             : signTransactionAmount(parsedAmount, resolvedType as 'income' | 'expense');
+          // REVIEW. A save button pressed on an existing row ends its review:
+          // the whole transaction was on screen, the user read it and committed
+          // it, which is exactly what the register's bold is asking for. Sent
+          // explicitly and only from the save buttons, because nothing on the
+          // server could tell this write apart from a bulk sweep coming through
+          // the same door — see the note on updateTransaction in dataPort.ts.
+          //
+          // Harmless on a CREATE (addTransaction below): a row somebody typed
+          // is born reviewed anyway, so the field agrees with the column
+          // default rather than fighting it.
           const transactionData = {
             date: new Date(validatedData.date),
             description: validatedData.description,
@@ -290,7 +304,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
             tags: validatedData.tags,
             notes: validatedData.notes,
             cleared: data.cleared,
-            reconciledWith: data.reconciledWith.trim() || undefined
+            reconciledWith: data.reconciledWith.trim() || undefined,
+            needsReview: false
           };
 
           // Await the writes so a failed RPC surfaces via the form's submit
@@ -311,7 +326,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 tags: transactionData.tags,
                 notes: transactionData.notes,
                 cleared: transactionData.cleared,
-                reconciledWith: transactionData.reconciledWith
+                reconciledWith: transactionData.reconciledWith,
+                needsReview: transactionData.needsReview
               });
               await setTransactionSplits(
                 transaction.id,

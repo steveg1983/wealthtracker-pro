@@ -141,6 +141,7 @@
     "src/utils/categoryNames.ts": {"status":"pending"},
     "src/utils/categoryNetting.ts": {"status":"pending"},
     "src/utils/categoryProvenance.ts": {"status":"pending","cited_by":["AUDIT3"]},
+    "src/utils/transactionReview.ts": {"status":"pending","note":"The review-state twin of categoryProvenance.ts beside it, and pending for the same reason: a pure predicate over one boolean whose rule is owned by supabase/migrations/20260810090000_imported_rows_arrive_new.sql, with no needs_review verb in the local core yet. Port it in the same change that ports that migration. The asymmetry IS the whole of it — needsReview === true means new; false, undefined and absent all mean reviewed — and getting it backwards prints every row of history in bold."},
     "src/utils/categoryTreeImport.ts": {"status":"pending","cited_by":["AUDIT3"]},
     "src/utils/clerkSafarifix.ts": {"status":"pending"},
     "src/utils/csvExport.ts": {"status":"pending"},
@@ -267,6 +268,7 @@
     "supabase/migrations/20260808150000_create_honours_is_cleared.sql": {"status":"ported","evidence":"the LIVE definition of create_transaction_atomic. crates/wealth-core/src/verbs/create_transaction.rs and verb-specs/create-transaction-honours-is-cleared-on-both-engines.spec.mjs, which is the tripwire for the regression this migration repairs."},
     "supabase/migrations/20260808170000_rows_cannot_name_a_foreign_account.sql": {"status":"pending"},
     "supabase/migrations/20260808180000_apply_category_skips_split_parents.sql": {"status":"ported","evidence":"the LIVE definition of apply_category_to_uncategorized, restoring the guard 20260808100000 dropped. crates/wealth-core/src/verbs/apply_category_to_uncategorized.rs and verb-specs/apply-*.spec.mjs."},
-    "supabase/migrations/20260809120000_investment_prices_below_the_penny.sql": {"status":"pending"}
+    "supabase/migrations/20260809120000_investment_prices_below_the_penny.sql": {"status":"pending"},
+    "supabase/migrations/20260810090000_imported_rows_arrive_new.sql": {"status":"pending","note":"UNAPPLIED at the time of writing — the owner applies migrations himself — so it cannot be \"ported\" against a live definition the way its neighbours are. Four functions are restated here (import_transactions_atomic, import_bank_transactions_atomic, update_transaction_atomic, confirm_transaction_categories) and the local core's verbs for all four will need the needs_review column that scripts/local-sqlite/schema.sql already carries. Three rules to port with them: both importers write it TRUE unconditionally; the updater honours it only when the caller states it and never derives it; confirming a suggested category clears it."}
   }
 }

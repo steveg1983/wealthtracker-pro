@@ -473,6 +473,12 @@ export function QuickEditRowProvider({
         await updateTransaction(transaction.id, {
           date: parsedDate,
           description: description.trim(),
+          // Reviewed, even though the transfer half of this save has not
+          // happened yet: this write COMMITTED the user's field edits, and it
+          // was a save button that made it. Cancelling the transfer dialog
+          // leaves those edits in place, so leaving the row bold afterwards
+          // would call an edit the user made and kept "not looked at".
+          needsReview: false,
         });
         advanceAfterTransferRef.current = advance;
         setTransferPrompt({
@@ -498,6 +504,17 @@ export function QuickEditRowProvider({
       await updateTransaction(transaction.id, {
         date: parsedDate,
         description: description.trim(),
+        // A SAVE IS A REVIEW. This is the whole of the Microsoft Money rule the
+        // register's bold implements: the row stops being new when a save
+        // button commits it, and not a moment before. Opening the editor and
+        // pressing Escape leaves this unsent, so the row stays bold and the
+        // counter stays where it was — reading a row is not the same as
+        // finishing with it.
+        //
+        // Sent explicitly, and only from here and the three other save buttons,
+        // because no server-side rule could tell this write apart from a bulk
+        // categorise sweep or a payee rename passing through the same door.
+        needsReview: false,
         // Saving from the row is confirmation. The user opened it, the category
         // was in front of them in the cell they are saving, and they either
         // changed it or let it stand — both are answers to "is this right?".

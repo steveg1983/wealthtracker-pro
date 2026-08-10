@@ -109,6 +109,27 @@ export interface Transaction {
    */
   categoryConfirmed?: boolean;
   categoryName?: string;
+  /**
+   * Did this row arrive from an import that nobody has looked at yet?
+   *
+   * true = it came in on a statement file or a bank feed and no save has been
+   * made against it since. The register prints it in bold, counts it in the
+   * "To Review" box beside the View menu and can filter down to it — the
+   * Microsoft Money convention, which answers "which of these have I dealt
+   * with?" in the register itself rather than in a queue somewhere else.
+   *
+   * false / undefined = reviewed, or never needed reviewing. `undefined` is
+   * what a database without migration 20260810090000 returns, and what the
+   * local/demo store holds, so "unmarked" must read as reviewed or the whole of
+   * a fifty-thousand row history lights up on the day the flag ships. See
+   * src/utils/transactionReview.ts — that asymmetry is written down once and
+   * read from there, never re-derived.
+   *
+   * Distinct from {@link categoryConfirmed}, which is a narrower question about
+   * one field: a row can carry a category its own file stated (confirmed) and
+   * still be a transaction no human has seen (needs review).
+   */
+  needsReview?: boolean;
   accountId: string;
   type: 'income' | 'expense' | 'transfer';
   tags?: string[];

@@ -1001,9 +1001,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /**
-   * "Yes, that guess was right." Writes one boolean per row and nothing else,
+   * "Yes, that guess was right." Writes two booleans per row and nothing else,
    * so a confirm can never move a balance or a category. Local state mirrors
    * the server's own rule — only rows that were actually suggested flip.
+   *
+   * needsReview clears with the confirmation: answering the question a row was
+   * asking IS reviewing that row, and leaving it bold afterwards would be the
+   * register nagging about work already done. Mirrored here as well as in the
+   * RPC so the counter and the bold drop on the click rather than on the next
+   * refresh.
    */
   const confirmTransactionCategories = useCallback(async (ids: string[]): Promise<number> => {
     if (ids.length === 0) {
@@ -1013,7 +1019,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const count = await dataPort.confirmTransactionCategories(ids);
       const idSet = new Set(ids);
       setTransactions(prev => prev.map(t =>
-        idSet.has(t.id) && t.categoryConfirmed === false ? { ...t, categoryConfirmed: true } : t
+        idSet.has(t.id) && t.categoryConfirmed === false
+          ? { ...t, categoryConfirmed: true, needsReview: false }
+          : t
       ));
       return count;
     } catch (error) {
