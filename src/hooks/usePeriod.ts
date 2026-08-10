@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { preferences, type PreferenceStorage } from '../services/preferencesService';
 
 /**
@@ -90,6 +90,17 @@ export interface UsePeriodResult {
    * made no choice of their own, and never counts as a choice itself.
    */
   applyDefaultPeriod: (key: PeriodKey) => void;
+  /**
+   * The window a DRILL-DOWN arrived asking for — the one the chart it was
+   * clicked on was read over (see utils/reportDrillLink).
+   *
+   * It outranks any surface default, because the user chose it a click ago on
+   * the card they came from, and it is deliberately NOT persisted: they were
+   * looking at something, not changing their mind about which window this page
+   * opens on. Leave the page and the stored period is exactly as they last set
+   * it; touch the picker while here and that IS a choice, persisted as usual.
+   */
+  applyArrivalPeriod: (key: PeriodKey, customStart?: string, customEnd?: string) => void;
 }
 
 /**
@@ -201,13 +212,44 @@ export function usePeriod(
     persist(key, true);
   }, [persist]);
 
+  /**
+   * Whether a drill-down brought its own window with it.
+   *
+   * A ref rather than the `explicit` flag below, because the two are read in
+   * the SAME commit: the hub asks for the report's preferred window from one
+   * effect and applies the arrival from another, and both callbacks closed over
+   * the same `explicit: false`. Whichever effect React happened to run second
+   * would win, which is a coin toss dressed as a rule. The ref is written
+   * synchronously, so the arrival wins whatever the order.
+   */
+  const arrivedRef = useRef(false);
+
   const applyDefaultPeriod = useCallback((key: PeriodKey) => {
-    // A choice the user made outranks any surface's preference, and re-applying
-    // the window already showing would only churn the reports below it.
-    if (explicit || period === key) return;
+    // A choice the user made — or one a drill-down brought with it — outranks
+    // any surface's preference, and re-applying the window already showing
+    // would only churn the reports below it.
+    if (arrivedRef.current || explicit || period === key) return;
     setSelection({ period: key, explicit: false });
     persist(key, false);
   }, [explicit, period, persist]);
+
+  const applyArrivalPeriod = useCallback((
+    key: PeriodKey,
+    arrivalStart: string = '',
+    arrivalEnd: string = ''
+  ) => {
+    arrivedRef.current = true;
+    // Explicit in memory, so no report's preferred window can undo it while the
+    // user is here — but nothing is written to storage. That asymmetry is the
+    // whole feature: the visit borrows a window, the preference keeps its own.
+    setSelection({ period: key, explicit: true });
+    // Bounds only when a custom window arrived; otherwise whatever the user had
+    // stored stays, ready if they pick Custom themselves.
+    if (key === 'custom') {
+      setCustomStart(arrivalStart);
+      setCustomEnd(arrivalEnd);
+    }
+  }, []);
 
   // Editing the bounds of a custom range is as deliberate as picking one.
   const setCustomStartPersisted = useCallback((v: string) => {
@@ -247,5 +289,6 @@ export function usePeriod(
     inRange,
     isExplicit: explicit,
     applyDefaultPeriod,
+    applyArrivalPeriod,
   };
 }

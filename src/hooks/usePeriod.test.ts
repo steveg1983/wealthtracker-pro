@@ -164,3 +164,86 @@ describe('usePeriod defaults vs the user’s own choice', () => {
     expect(result.current.period).toBe('this-month');
   });
 });
+
+/**
+ * The window a DRILL-DOWN brings with it: the one the chart it was clicked on
+ * was read over.
+ *
+ * It has to beat the destination's own preferred window (the user chose it a
+ * click ago, on the card they came from) and it must not be written down (they
+ * were looking at something, not changing their mind about which window this
+ * page opens on). Those two together are the whole feature.
+ */
+describe('usePeriod and a window that arrived with a drill-down', () => {
+  const KEY = 'arrivalPeriod';
+  const store = localStorage;
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('shows the window that arrived', () => {
+    const { result } = renderHook(() => usePeriod(KEY, 'all', store));
+
+    act(() => result.current.applyArrivalPeriod('this-month'));
+
+    expect(result.current.period).toBe('this-month');
+  });
+
+  it('writes nothing down: the stored choice is exactly as the user left it', () => {
+    const first = renderHook(() => usePeriod(KEY, 'this-month', store));
+    act(() => first.result.current.setPeriod('all'));
+
+    const visit = renderHook(() => usePeriod(KEY, 'this-month', store));
+    act(() => visit.result.current.applyArrivalPeriod('last-month'));
+    expect(visit.result.current.period).toBe('last-month');
+
+    // The next ordinary visit opens on the window the user chose, not the one
+    // a link borrowed.
+    const later = renderHook(() => usePeriod(KEY, 'this-month', store));
+    expect(later.result.current.period).toBe('all');
+    expect(store.getItem(KEY)).toBe('all');
+  });
+
+  it('outranks the destination’s preferred window, whichever runs first', () => {
+    const { result } = renderHook(() => usePeriod(KEY, 'all', store));
+
+    // The hub applies the report's preference from one effect and the arrival
+    // from another; both close over the same render's state, so the rule cannot
+    // depend on which React happens to run first.
+    act(() => {
+      result.current.applyArrivalPeriod('this-month');
+      result.current.applyDefaultPeriod('all');
+    });
+    expect(result.current.period).toBe('this-month');
+
+    const other = renderHook(() => usePeriod(KEY, 'all', store));
+    act(() => {
+      other.result.current.applyDefaultPeriod('all');
+      other.result.current.applyArrivalPeriod('this-month');
+    });
+    expect(other.result.current.period).toBe('this-month');
+  });
+
+  it('takes custom bounds only when a custom window arrived', () => {
+    const { result } = renderHook(() => usePeriod(KEY, 'all', store));
+
+    act(() => result.current.applyArrivalPeriod('custom', '2026-01-10', '2026-02-20'));
+
+    expect(result.current.period).toBe('custom');
+    expect(result.current.customStart).toBe('2026-01-10');
+    expect(result.current.range.from).toEqual(new Date('2026-01-10'));
+    // Still nothing written down.
+    expect(store.getItem(`${KEY}CustomStart`)).toBeNull();
+  });
+
+  it('hands control straight back: the next pick IS a choice, and is kept', () => {
+    const { result } = renderHook(() => usePeriod(KEY, 'all', store));
+
+    act(() => result.current.applyArrivalPeriod('this-month'));
+    act(() => result.current.setPeriod('tax-year'));
+
+    expect(store.getItem(KEY)).toBe('tax-year');
+    expect(result.current.isExplicit).toBe(true);
+  });
+});

@@ -3,9 +3,23 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { logActivity } from './useActivityTracking';
 import { formatDecimal } from '../utils/decimal-format';
 import { toDecimal } from '../utils/decimal';
+import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
 
 /**
  * Hook that automatically logs activities when app data changes
+ *
+ * WHERE A NOTIFICATION GOES is decided here, when it is raised, and travels as
+ * the `actionUrl` the bell already stores and navigates to. That URL IS the
+ * payload: a register deep link names the account and the transaction inside
+ * itself (`/accounts/<id>?txn=<id>`, see utils/transactionDeepLink), so nothing
+ * new has to be added to a record that is serialised into localStorage and read
+ * back by builds that have not shipped yet.
+ *
+ * That is also what makes the change forward-compatible for free: a
+ * notification stored by an older build carries the old `/accounts` or
+ * `/transactions` and still lands exactly where it always did, while new ones
+ * land on their subject. There is no field to be missing and nothing to
+ * migrate.
  */
 export function useActivityLogger() {
   const { transactions, accounts, goals } = useApp();
@@ -36,7 +50,15 @@ export function useActivityLogger() {
           description: t.description,
           category: t.category,
           amount: t.amount,
-          actionUrl: '/transactions'
+          // Onto the row itself, in its own account's register, selected and
+          // centred by the register's own deep-link machinery. "A new
+          // transaction arrived" used to open the whole transactions list with
+          // nothing pointed at, which on fifty thousand rows is not an answer.
+          // A row with no account is the only thing that cannot be pointed at,
+          // and falls back to the list rather than to a broken URL.
+          actionUrl: t.accountId
+            ? buildTransactionRegisterPath(t.accountId, t.id, '')
+            : '/transactions'
         });
       }
     }
@@ -57,7 +79,11 @@ export function useActivityLogger() {
             title: `${account.name} Balance Updated`,
             description: `Balance changed by £${formatDecimal(Math.abs(diff), 2)}`,
             amount: diff,
-            actionUrl: '/accounts'
+            // THIS account's register, not the list of all of them. The alert
+            // names one account and states a movement; the next question is
+            // always "which transaction did that?", and the answer is in the
+            // register it now opens.
+            actionUrl: `/accounts/${account.id}`
           });
         }
       }

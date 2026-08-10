@@ -19,6 +19,15 @@ import {
   duplicateDismissalSubjectIds,
 } from '../utils/suggestionDismissals';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
+import { currentPageProvenance, withProvenance } from '../utils/navigationProvenance';
+import { ARRIVAL_ROW_CLASS, useArrivalAction, useArrivalRowFocus } from '../hooks/useArrivalFocus';
+import {
+  DEFAULT_WINDOW_DAYS,
+  WINDOW_CHOICES,
+  type DuplicateSortKey,
+  type DuplicateSweepSession,
+  type WindowDays,
+} from '../utils/duplicateSweepSession';
 import DismissSuggestionPrompt from './sweeps/DismissSuggestionPrompt';
 import DismissedSuggestionsSection from './sweeps/DismissedSuggestionsSection';
 import GroupedAccountOptions from './common/GroupedAccountOptions';
@@ -59,32 +68,30 @@ import type { SuggestionDismissal, Transaction } from '../types';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * Where the user was when they last left this dialog for the register, handed
+   * back by Data Management. Null on an ordinary open, which starts fresh.
+   *
+   * How far apart two copies may be, in days: "within N" means the two dates
+   * are at most N days apart, inclusive — so "within 1 day" is the same day or
+   * the day either side of it, the tightest a feed-versus-import overlap ever
+   * is. 1 is the narrowest choice rather than the default: a bank feed can post
+   * a card payment two or three days after an import already carried it, and 3
+   * stays the default so the sweep's reach does not silently shrink for
+   * everyone. The window is also the yardstick the date score is measured
+   * against (see duplicateScan.dateScoreOf), so a NARROWER window is strictly
+   * stricter: at 3 days a pair one day apart still scores 83 on date, at 1 day
+   * the same pair scores 50 and its wording has to carry more of the case.
+   */
+  resume?: DuplicateSweepSession | null;
 }
 
 const CAP = 300;
 
-/**
- * How far apart two copies of the same payment are allowed to be, in days.
- *
- * "Within N" means the two dates are at most N days apart, inclusive — so
- * "within 1 day" is the same day or the day either side of it, which is the
- * tightest a feed-versus-import overlap ever is. It is the narrowest choice on
- * purpose rather than the default: a bank feed can post a card payment two or
- * three days after the import already carried it, and 3 stays the default so
- * that the sweep's reach does not silently shrink for everyone.
- *
- * The window is also the yardstick the date score is measured against (see
- * duplicateScan.dateScoreOf), so a NARROWER window is strictly stricter: at 3
- * days a pair one day apart still scores 83 on date, at 1 day the same pair
- * scores 50 and its wording has to carry more of the case.
- */
-const WINDOW_CHOICES = [1, 3, 7, 14] as const;
-type WindowDays = (typeof WINDOW_CHOICES)[number];
-
 /** "1 day", not "1 days" — the singular is the whole reason this exists. */
 const windowLabel = (days: WindowDays): string => `${days} day${days === 1 ? '' : 's'}`;
 
-type SortKey = 'date' | 'account' | 'description' | 'amount';
+type SortKey = DuplicateSortKey;
 
 /** Case-insensitive, so "TESCO" and "Tesco" sit together, not in two blocks. */
 const compareText = (a: string, b: string): number =>
@@ -124,7 +131,7 @@ const gapPhrase = (daysApart: number): string => {
   return days === 0 ? 'on the same day' : `${days} day${days === 1 ? '' : 's'} apart`;
 };
 
-export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.JSX.Element {
+export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: Props): React.JSX.Element {
   const {
     accounts, transactions, categories, deleteTransaction,
     suggestionDismissals, suggestionDismissalsStatus, refreshSuggestionDismissals,
@@ -136,8 +143,11 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [windowDays, setWindowDays] = useState<WindowDays>(3);
-  const [accountFilter, setAccountFilter] = useState('');
+  // Every control the user had set when they left starts back where they left
+  // it. Read once, in the initialiser: this dialog is mounted only while open
+  // (Data Management gates it), so "once" is once per sitting.
+  const [windowDays, setWindowDays] = useState<WindowDays>(resume?.windowDays ?? DEFAULT_WINDOW_DAYS);
+  const [accountFilter, setAccountFilter] = useState(resume?.accountFilter ?? '');
   const [reviewing, setReviewing] = useState<DuplicateCandidate | null>(null);
   /** Which copy the user has chosen to delete, inside the review. */
   const [chosenId, setChosenId] = useState<string | null>(null);
@@ -150,8 +160,11 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
   const [restoringKey, setRestoringKey] = useState<string | null>(null);
   // "Not a duplicate" answered No to the follow-up: gone for this sitting only.
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-  const [sortKey, setSortKey] = useState<SortKey>('date');
-  const [sortDir, setSortDir] = useState<1 | -1>(-1);
+  const [sortKey, setSortKey] = useState<SortKey>(resume?.sortKey ?? 'date');
+  const [sortDir, setSortDir] = useState<1 | -1>(resume?.sortDir ?? -1);
+  // The row they jumped from: highlighted and scrolled back into view, the same
+  // way the register lands on a ?txn= row.
+  const pairFocus = useArrivalRowFocus(resume?.pairKey ?? null);
 
   useEffect(() => {
     if (isOpen) void refreshSuggestionDismissals();
@@ -184,10 +197,37 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
   const categoryName = (id: string): string | null =>
     categories.find(c => c.id === id)?.name ?? null;
 
-  const live = !dismissalsChecked ? [] : candidates.filter(candidate => {
-    const key = duplicateDismissalKey(candidate.a, candidate.b);
-    return !dismissed.has(key) && !dismissedDuplicateKeys.has(key);
-  });
+  // Memoised because the return trip's "reopen the review I was in" reads it:
+  // a fresh array every render would re-fire that lookup on every render until
+  // the scan resolves. It is also the list every count and both tables come
+  // from, so recomputing it for nothing was never free.
+  const live = useMemo(
+    () => (!dismissalsChecked ? [] : candidates.filter(candidate => {
+      const key = duplicateDismissalKey(candidate.a, candidate.b);
+      return !dismissed.has(key) && !dismissedDuplicateKeys.has(key);
+    })),
+    [dismissalsChecked, candidates, dismissed, dismissedDuplicateKeys]
+  );
+
+  /**
+   * They left from inside the review of one pair, so that is where they come
+   * back to — the two evidence cards they were comparing, not the list.
+   *
+   * Retries until the scan has run and the dismissal filter has been applied,
+   * because on the first render neither has. Nothing is pre-selected on the way
+   * back in: which copy to delete is a decision, and a decision does not
+   * survive a trip to another page (see `review`).
+   */
+  const reopenReview = useCallback((pairKey: string): boolean => {
+    if (!dismissalsChecked) return false;
+    const candidate = live.find(c => duplicateDismissalKey(c.a, c.b) === pairKey);
+    if (!candidate) return false;
+    setReviewing(candidate);
+    setChosenId(null);
+    setConfirmedSame(false);
+    return true;
+  }, [dismissalsChecked, live]);
+  useArrivalAction(resume?.reviewing === true ? resume.pairKey : null, reopenReview);
 
   /** Account id → type, for the filter's banding. Closed accounts are not in
       the context list, so theirs is unknown and files under the catch-all —
@@ -249,15 +289,33 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
    * not a second one.
    *
    * The modal is closed FIRST so it is not left hanging over the register it
-   * just opened; Data Management unmounts it on close, so this sitting's
-   * account filter and window go with it and a return trip starts fresh at
-   * "All accounts" within 3 days. Nothing about the sweep is stored between
-   * sittings today, and a delete tool is not the place to invent that.
+   * just opened. It used to be a one-way trip: Data Management unmounts the
+   * dialog on close, so the sitting's window, account filter, sort order and
+   * place in a three-hundred-row list all went with it, and the browser's back
+   * button returned to a settings page with no dialog on it. Now the trip
+   * carries its own way home — the register shows "Back to Find duplicates",
+   * and these crumbs come back with the user (see utils/duplicateSweepSession).
+   *
+   * `reviewing` is asked of the CALLER, not of state: both entry points fire
+   * this, and the one in the list must not bring the reader back into a review
+   * they never opened.
    */
-  const openInRegister = useCallback((transaction: Transaction): void => {
+  const openInRegister = useCallback((transaction: Transaction, pair: DuplicateCandidate, fromReview: boolean): void => {
+    const session: DuplicateSweepSession = {
+      tool: 'find-duplicates',
+      windowDays,
+      accountFilter,
+      sortKey,
+      sortDir,
+      pairKey: duplicateDismissalKey(pair.a, pair.b),
+      reviewing: fromReview,
+    };
     onClose();
-    navigate(buildTransactionRegisterPath(transaction.accountId, transaction.id, location.search));
-  }, [navigate, location.search, onClose]);
+    navigate(
+      buildTransactionRegisterPath(transaction.accountId, transaction.id, location.search),
+      { state: withProvenance(currentPageProvenance(location, 'Back to Find duplicates', session)) }
+    );
+  }, [navigate, location, onClose, windowDays, accountFilter, sortKey, sortDir]);
 
   const review = (candidate: DuplicateCandidate): void => {
     setReviewing(candidate);
@@ -382,7 +440,7 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
    * in circles — and its way in stays live, since going and unpicking the
    * transfer or the split is exactly what that user has to do next.
    */
-  const renderCopy = (transaction: Transaction, label: string): React.JSX.Element => {
+  const renderCopy = (pair: DuplicateCandidate, transaction: Transaction, label: string): React.JSX.Element => {
     const block = deleteBlockOf(transaction);
     const category = categoryName(transaction.category);
     const isChosen = chosenId === transaction.id;
@@ -443,7 +501,7 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
             user nothing about which row they are about to open. */}
         <button
           type="button"
-          onClick={() => openInRegister(transaction)}
+          onClick={() => openInRegister(transaction, pair, true)}
           aria-label={`See the ${label.toLowerCase()} in ${accountName(transaction.accountId)}`}
           className="mt-3 inline-flex items-center gap-1.5 border-t border-gray-100 dark:border-gray-700 pt-3 w-full text-sm font-medium text-primary hover:text-secondary"
         >
@@ -491,11 +549,17 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
           {rows.map(candidate => {
             const first = earlier(candidate);
             const sameWording = candidate.a.description === candidate.b.description;
+            const pairKey = duplicateDismissalKey(candidate.a, candidate.b);
+            const landedHere = pairFocus.isFocused(pairKey);
             return (
               <tr
-                key={duplicateDismissalKey(candidate.a, candidate.b)}
+                key={pairKey}
+                ref={landedHere ? pairFocus.focusRef : undefined}
+                aria-current={landedHere ? 'true' : undefined}
                 onClick={() => review(candidate)}
-                className="border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors align-top"
+                className={`border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors align-top ${
+                  landedHere ? ARRIVAL_ROW_CLASS : ''
+                }`}
                 title="Look at both copies of this"
               >
                 <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
@@ -542,7 +606,7 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
                     </button>
                     <button
                       type="button"
-                      onClick={() => openInRegister(first)}
+                      onClick={() => openInRegister(first, candidate, false)}
                       aria-label={`See these two rows in ${accountName(candidate.a.accountId)}`}
                       className="inline-flex items-center gap-1 px-1 text-xs font-medium text-primary hover:text-secondary"
                     >
@@ -740,8 +804,8 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
             <fieldset>
               <legend className="sr-only">Choose the copy to delete</legend>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {renderCopy(reviewing.a, 'First copy')}
-                {renderCopy(reviewing.b, 'Second copy')}
+                {renderCopy(reviewing, reviewing.a, 'First copy')}
+                {renderCopy(reviewing, reviewing.b, 'Second copy')}
               </div>
             </fieldset>
 

@@ -39,6 +39,7 @@ import { computeArchiveWindow, ARCHIVE_PRESETS, type ArchiveRange } from '../uti
 import { effectiveOpeningDate, findSiblingAccount } from '../utils/openingDates';
 import { describeDeleteStranding, resolveTransferOtherSide } from '../utils/transferOtherSide';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
+import { readProvenance, returnState } from '../utils/navigationProvenance';
 import { planBulkDelete, type BulkDeletePlan } from '../utils/registerBulkDelete';
 import { DATE_COLUMN_WIDTH_PX } from '../utils/registerDateColumn';
 import {
@@ -290,6 +291,14 @@ export default function AccountTransactions() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  /**
+   * Where the user came from, when whoever sent them here said so.
+   *
+   * Absent on an ordinary visit from the accounts list, a bookmark or a
+   * refresh — and then the back button reads "Back to Accounts" exactly as it
+   * always has.
+   */
+  const backTo = readProvenance(location.state);
   const {
     accounts, transactions, categories, isLoading,
     deleteTransaction, addTransaction, updateAccount,
@@ -483,8 +492,15 @@ export default function AccountTransactions() {
       if (params.get('showArchived') === '1') setShowArchived(true);
       params.delete('showArchived');
     }
-    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
-  }, [accountId, location.pathname, location.search, navigate]);
+    // The state is carried across by hand. React Router gives a replaced entry
+    // null state unless told otherwise, and the state here is the provenance
+    // that knows the way back to whatever sent the user — the duplicate sweep,
+    // a notification. Consuming the deep link must not cost them the way home.
+    navigate(
+      { pathname: location.pathname, search: params.toString() },
+      { replace: true, state: location.state }
+    );
+  }, [accountId, location.pathname, location.search, location.state, navigate]);
 
   // location.search is a dependency for the already-mounted case: landing on
   // the register that is ALREADY open only changes the search string, and
@@ -2235,13 +2251,20 @@ export default function AccountTransactions() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Back button */}
+      {/* The way back.
+          Normally to the accounts list; but a register reached from somewhere
+          that said where it came from returns THERE instead, restored — the
+          duplicate sweep reopens on the pair the user jumped from rather than
+          leaving them on a settings page with the dialog gone. See
+          utils/navigationProvenance. */}
       <button
-        onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
+        onClick={() => (backTo
+          ? navigate(backTo.path, { state: returnState(backTo) })
+          : navigate(preserveDemoParam('/accounts', location.search)))}
         className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-3 self-start"
       >
         <ArrowLeftIcon size={16} />
-        <span className="text-sm">Back to Accounts</span>
+        <span className="text-sm">{backTo ? backTo.label : 'Back to Accounts'}</span>
       </button>
 
       {/* Compact header with inline stat boxes. flex-wrap: the three stat

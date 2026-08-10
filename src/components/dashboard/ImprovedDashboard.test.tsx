@@ -15,7 +15,7 @@ import type { ReactNode } from 'react';
 import { ImprovedDashboard } from './ImprovedDashboard';
 import type { Account, Transaction } from '../../types';
 import type { BankConnection } from '../../services/bankConnectionService';
-import type { PeriodRange } from '../../hooks/usePeriod';
+import type { PeriodRange, UsePeriodResult } from '../../hooks/usePeriod';
 
 const USER_ID = 'user_testonly_0001';
 
@@ -66,15 +66,18 @@ vi.mock('react-router-dom', async () => {
 const describeRange = (range: PeriodRange): string =>
   `${range.from ? range.from.toISOString().slice(0, 10) : 'none'}..${range.to ? range.to.toISOString().slice(0, 10) : 'none'}`;
 
+// The widgets are handed the whole picker, not just its resolved bounds: the
+// window they draw AND the window their click-through carries have to be the
+// same one, and two props saying nearly the same thing is how they drift.
 vi.mock('./reportWidgets/DashboardReportWidgets', () => ({
-  NetWorthWidget: ({ range }: { range: PeriodRange }) => (
-    <div data-testid="net-worth-widget">{describeRange(range)}</div>
+  NetWorthWidget: ({ picker }: { picker: UsePeriodResult }) => (
+    <div data-testid="net-worth-widget">{describeRange(picker.range)}</div>
   ),
-  IncomeExpenseTrendWidget: ({ range }: { range: PeriodRange }) => (
-    <div data-testid="income-expense-widget">{describeRange(range)}</div>
+  IncomeExpenseTrendWidget: ({ picker }: { picker: UsePeriodResult }) => (
+    <div data-testid="income-expense-widget">{describeRange(picker.range)}</div>
   ),
-  ExpenseCategoriesWidget: ({ range }: { range: PeriodRange }) => (
-    <div data-testid="expense-categories-widget">{describeRange(range)}</div>
+  ExpenseCategoriesWidget: ({ picker }: { picker: UsePeriodResult }) => (
+    <div data-testid="expense-categories-widget">{describeRange(picker.range)}</div>
   ),
   CustomReportWidget: () => <div data-testid="custom-report-widget" />,
 }));
@@ -290,12 +293,16 @@ describe('Your Reports — two columns, two clocks', () => {
    * The card used to be the only one of the four with no way into a full
    * report — the other three opened theirs from the title.
    */
-  it('opens the full Account Distribution report from its title', () => {
+  it('opens the full Account Distribution report from its title, saying where it came from', () => {
     render(<ImprovedDashboard />);
 
     fireEvent.click(screen.getByRole('button', { name: /Account Distribution/ }));
 
-    expect(mocks.navigate).toHaveBeenCalledWith('/reports/account-distribution');
+    // No period on the URL: this report states none of its own, and one sent
+    // anyway would move the window the NEXT report opens on.
+    expect(mocks.navigate).toHaveBeenCalledWith('/reports/account-distribution', {
+      state: { from: { path: '/dashboard', label: 'Back to Dashboard' } },
+    });
   });
 
   it('still opens an account’s transactions from its legend row', () => {

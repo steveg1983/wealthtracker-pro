@@ -751,3 +751,136 @@ describe('DuplicateSweepModal — how far apart two copies may be', () => {
     expect(screen.queryByText('Cycle Hire Ltd')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * The round trip.
+ *
+ * The jump out to the register was one-way: Data Management unmounts this
+ * dialog when it closes, so the sitting's window, account filter, sort order
+ * and place in a three-hundred-row list went with it — and the browser's back
+ * button returned to a settings page with no dialog on it at all. These cover
+ * the two halves of the fix: what the trip out CARRIES, and what a trip back
+ * RESTORES.
+ */
+describe('DuplicateSweepModal — leaving and coming back', () => {
+  /** What the router was handed, so the crumbs can be read rather than assumed. */
+  function StateProbe(): React.JSX.Element {
+    const location = useLocation();
+    return <div data-testid="state">{JSON.stringify(location.state)}</div>;
+  }
+
+  const carriedState = (): unknown => JSON.parse(screen.getByTestId('state').textContent || 'null');
+
+  const renderWithProbe = (resume?: Parameters<typeof DuplicateSweepModal>[0]['resume']): void => {
+    render(
+      <MemoryRouter initialEntries={['/settings/data']}>
+        <DuplicateSweepModal isOpen onClose={onClose} resume={resume} />
+        <LocationProbe />
+        <StateProbe />
+      </MemoryRouter>
+    );
+  };
+
+  beforeEach(() => {
+    __setAppContextValue({ transactions: [FEED, IMPORTED], categories: CATEGORIES });
+  });
+
+  it('carries the way home, and where in the list the user was', () => {
+    renderWithProbe();
+
+    fireEvent.click(screen.getByRole('button', { name: 'See these two rows in Current account' }));
+
+    expect(carriedState()).toEqual({
+      from: {
+        path: '/settings/data',
+        label: 'Back to Find duplicates',
+        resume: {
+          tool: 'find-duplicates',
+          windowDays: 3,
+          accountFilter: '',
+          sortKey: 'date',
+          sortDir: -1,
+          pairKey: duplicateDismissalKey(FEED, IMPORTED),
+          reviewing: false,
+        },
+      },
+    });
+  });
+
+  it('remembers the controls the user had set before they left', () => {
+    renderWithProbe();
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '7' } });
+    fireEvent.click(screen.getByTitle('Sort by amount size'));
+    fireEvent.click(screen.getByRole('button', { name: 'See these two rows in Current account' }));
+
+    const state = carriedState();
+    expect(state).toMatchObject({ from: { resume: { windowDays: 7, sortKey: 'amount' } } });
+  });
+
+  it('knows they left from inside the review, not from the list', () => {
+    renderWithProbe();
+    openReview();
+
+    fireEvent.click(screen.getByRole('button', { name: 'See the first copy in Current account' }));
+
+    expect(carriedState()).toMatchObject({ from: { resume: { reviewing: true } } });
+  });
+
+  it('comes back to the pair they jumped from, marked in the list', () => {
+    renderWithProbe({
+      tool: 'find-duplicates',
+      windowDays: 3,
+      accountFilter: '',
+      sortKey: 'date',
+      sortDir: -1,
+      pairKey: duplicateDismissalKey(FEED, IMPORTED),
+      reviewing: false,
+    });
+
+    const marked = screen.getByRole('row', { current: true });
+    expect(marked).toHaveTextContent('TESCO STORES 3421');
+    // The list, not the review: they left from the list.
+    expect(screen.queryByText('The same payment twice?')).not.toBeInTheDocument();
+  });
+
+  it('comes back into the review when that is where they left from', async () => {
+    renderWithProbe({
+      tool: 'find-duplicates',
+      windowDays: 3,
+      accountFilter: '',
+      sortKey: 'date',
+      sortDir: -1,
+      pairKey: duplicateDismissalKey(FEED, IMPORTED),
+      reviewing: true,
+    });
+
+    expect(await screen.findByText('The same payment twice?')).toBeInTheDocument();
+    // Nothing pre-selected: which copy to delete is a decision, and a decision
+    // does not survive a trip to another page.
+    for (const radio of screen.getAllByRole('radio')) {
+      expect(radio).not.toBeChecked();
+    }
+  });
+
+  it('comes back with the controls where they were', () => {
+    renderWithProbe({
+      tool: 'find-duplicates',
+      windowDays: 7,
+      accountFilter: '',
+      sortKey: 'amount',
+      sortDir: 1,
+      pairKey: duplicateDismissalKey(FEED, IMPORTED),
+      reviewing: false,
+    });
+
+    expect(screen.getByRole('combobox')).toHaveValue('7');
+    expect(screen.getByTitle('Sort by amount size')).toHaveTextContent('Amount ↑');
+  });
+
+  it('marks nothing when the dialog was opened the ordinary way', () => {
+    renderWithProbe();
+
+    expect(screen.queryAllByRole('row', { current: true })).toHaveLength(0);
+  });
+});

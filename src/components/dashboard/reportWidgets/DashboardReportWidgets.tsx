@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ResponsiveContainer,
   LineChart,
@@ -14,17 +13,17 @@ import {
 } from 'recharts';
 import { useApp } from '../../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../../hooks/useCurrencyDecimal';
-import { preserveDemoParam } from '../../../utils/navigation';
 import { buildMonthlyTrend } from '../../../utils/monthlyTrend';
-import { buildNetWorthSnapshots } from '../../../utils/netWorthSeries';
+import { buildNetWorthSnapshots, netWorthPointToken } from '../../../utils/netWorthSeries';
 import { computeExpenseCategoryNetTotals } from '../../../utils/categoryNetting';
 import { expandSplitTransactions } from '../../../utils/transactionSplits';
 import { formatDecimal } from '../../../utils/decimal-format';
 import { customReportService } from '../../../services/customReportService';
-import type { PeriodRange } from '../../../hooks/usePeriod';
+import type { UsePeriodResult } from '../../../hooks/usePeriod';
 import { TrendingUpIcon, PieChartIcon, BarChart3Icon, FileTextIcon } from '../../icons';
 import DashboardWidgetCard from './DashboardWidgetCard';
 import { WIDGET_CHART_HEIGHT } from './widgetChrome';
+import { useReportDrill } from './useReportDrill';
 
 /**
  * Compact, live versions of the Reports-hub reports for the Dashboard's
@@ -35,6 +34,15 @@ import { WIDGET_CHART_HEIGHT } from './widgetChrome';
  *
  * Every card clicks through to ITS report in the gallery — the ids below are
  * the report gallery's stable URL segments (see pages/reports/reportRegistry).
+ * The click carries TWO things it used to drop on the floor: the period the
+ * card was read over, so the report opens on the same window rather than on
+ * whatever it last stored; and where the user came from, so the report's
+ * back-link returns to the Dashboard (see useReportDrill).
+ *
+ * Clicking a point rather than the header carries the point as well, and the
+ * report lands on it. What "lands on it" means is the report's own business —
+ * the month-by-month table highlights the month, the net-worth line opens that
+ * day's balances — which is why the widgets pass a token and nothing else.
  *
  * Every chart area is WIDGET_CHART_HEIGHT and every card wears the same shell,
  * so the four cards in the section are one height rather than four.
@@ -53,17 +61,19 @@ const compactTick = (value: number): string => {
   return formatDecimal(value, 0);
 };
 
-export function NetWorthWidget({ range }: { range: PeriodRange }): React.JSX.Element {
+export function NetWorthWidget({ picker }: { picker: UsePeriodResult }): React.JSX.Element {
   const { accounts, transactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const openReport = useReportDrill();
 
   const snapshots = useMemo(
-    () => buildNetWorthSnapshots(accounts, transactions, range),
-    [accounts, transactions, range]
+    () => buildNetWorthSnapshots(accounts, transactions, picker.range),
+    [accounts, transactions, picker.range]
   );
   const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
+
+  const open = (focus?: string): void =>
+    openReport('net-worth-over-time', { period: picker, focus });
 
   return (
     <DashboardWidgetCard
@@ -74,11 +84,24 @@ export function NetWorthWidget({ range }: { range: PeriodRange }): React.JSX.Ele
           {latest ? formatCurrency(latest.netWorth) : '—'}
         </span>
       }
-      onOpen={() => navigate(preserveDemoParam('/reports/net-worth-over-time', location.search))}
+      onOpen={() => open()}
     >
       <div className={WIDGET_CHART_HEIGHT}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={snapshots}>
+          {/* Clicking a point opens the report on the same window with THAT
+              day's balances already showing — the report's own answer to a
+              point, reached from the card. The chart carries the click (not
+              each dot) because the line is drawn without dots: recharts hands
+              back the label under the pointer, which is enough to name the
+              snapshot. */}
+          <LineChart
+            data={snapshots}
+            style={{ cursor: 'pointer' }}
+            onClick={(state) => {
+              const snapshot = snapshots.find(s => s.label === state?.activeLabel);
+              if (snapshot) open(netWorthPointToken(snapshot.date));
+            }}
+          >
             <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 10 }} minTickGap={32} />
             <YAxis tick={{ fill: '#6B7280', fontSize: 10 }} tickFormatter={compactTick} width={44} />
             <Tooltip formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
@@ -90,11 +113,11 @@ export function NetWorthWidget({ range }: { range: PeriodRange }): React.JSX.Ele
   );
 }
 
-export function IncomeExpenseTrendWidget({ range }: { range: PeriodRange }): React.JSX.Element {
+export function IncomeExpenseTrendWidget({ picker }: { picker: UsePeriodResult }): React.JSX.Element {
   const { transactions, transactionSplits, categories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const openReport = useReportDrill();
+  const { range } = picker;
 
   const data = useMemo(() => {
     const rows = expandSplitTransactions(transactions, transactionSplits).filter(t => {
@@ -106,6 +129,9 @@ export function IncomeExpenseTrendWidget({ range }: { range: PeriodRange }): Rea
     return buildMonthlyTrend(rows, categories);
   }, [transactions, transactionSplits, categories, range]);
 
+  const open = (focus?: string): void =>
+    openReport('income-and-spending-over-time', { period: picker, focus });
+
   return (
     <DashboardWidgetCard
       title="Income vs Expenses"
@@ -115,11 +141,24 @@ export function IncomeExpenseTrendWidget({ range }: { range: PeriodRange }): Rea
           Month by month, what came in against what went out
         </span>
       }
-      onOpen={() => navigate(preserveDemoParam('/reports/income-and-spending-over-time', location.search))}
+      onOpen={() => open()}
     >
       <div className={WIDGET_CHART_HEIGHT}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
+          {/* A click lands on the report's row for THAT month, highlighted,
+              with both figures on it one click from the transactions behind
+              them. Deliberately not straight into one of those two lists: the
+              tooltip covers income and expenses together, so a click near the
+              crossing point cannot say which was meant, and guessing would open
+              the wrong one half the time. */}
+          <LineChart
+            data={data}
+            style={{ cursor: 'pointer' }}
+            onClick={(state) => {
+              const point = data.find(d => d.month === state?.activeLabel);
+              if (point) open(point.monthKey);
+            }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.2)" />
             <XAxis dataKey="month" tick={{ fill: '#6B7280', fontSize: 10 }} minTickGap={32} />
             <YAxis tick={{ fill: '#6B7280', fontSize: 10 }} tickFormatter={compactTick} width={44} />
@@ -133,11 +172,11 @@ export function IncomeExpenseTrendWidget({ range }: { range: PeriodRange }): Rea
   );
 }
 
-export function ExpenseCategoriesWidget({ range }: { range: PeriodRange }): React.JSX.Element {
+export function ExpenseCategoriesWidget({ picker }: { picker: UsePeriodResult }): React.JSX.Element {
   const { transactions, transactionSplits, categories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const openReport = useReportDrill();
+  const { range } = picker;
 
   const data = useMemo(() => {
     const rows = expandSplitTransactions(transactions, transactionSplits).filter(t => {
@@ -151,6 +190,9 @@ export function ExpenseCategoriesWidget({ range }: { range: PeriodRange }): Reac
       .map(({ key, name, value }) => ({ categoryId: key, name, value }));
   }, [transactions, transactionSplits, categories, range]);
 
+  const open = (focus?: string): void =>
+    openReport('spending-by-category', { period: picker, focus });
+
   return (
     <DashboardWidgetCard
       title="Expense Categories"
@@ -160,7 +202,7 @@ export function ExpenseCategoriesWidget({ range }: { range: PeriodRange }): Reac
           Where the money went, biggest first
         </span>
       }
-      onOpen={() => navigate(preserveDemoParam('/reports/spending-by-category', location.search))}
+      onOpen={() => open()}
     >
       {/* The empty state fills the SAME box the chart would, so a period with
           nothing in it does not shrink the card out of line with its neighbour. */}
@@ -173,7 +215,23 @@ export function ExpenseCategoriesWidget({ range }: { range: PeriodRange }): Reac
           <div className="h-full flex-1 basis-0 min-w-[120px]">
             <ResponsiveContainer width="100%" height="100%">
               <RechartsPieChart>
-                <Pie data={data} dataKey="value" nameKey="name" innerRadius="55%" outerRadius="88%" strokeWidth={0} isAnimationActive={false}>
+                {/* A slice opens the report with that category's row
+                    highlighted — the ranked table around it is the context a
+                    single slice cannot give. */}
+                <Pie
+                  data={data}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius="55%"
+                  outerRadius="88%"
+                  strokeWidth={0}
+                  isAnimationActive={false}
+                  cursor="pointer"
+                  onClick={(entry) => {
+                    const datum = ((entry as { payload?: typeof data[number] })?.payload ?? entry) as typeof data[number];
+                    if (datum?.categoryId) open(datum.categoryId);
+                  }}
+                >
                   {data.map((entry, index) => (
                     <Cell key={entry.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
                   ))}
@@ -182,11 +240,21 @@ export function ExpenseCategoriesWidget({ range }: { range: PeriodRange }): Reac
               </RechartsPieChart>
             </ResponsiveContainer>
           </div>
+          {/* The legend does the same as the slice beside it, and is the only
+              one of the two a keyboard can reach: an SVG sector is not a
+              control. Same idiom as the Account Distribution card's legend. */}
           <ul className="w-36 space-y-1">
             {data.slice(0, 5).map((d, i) => (
-              <li key={d.categoryId} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
-                <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }} />
-                <span className="truncate">{d.name}</span>
+              <li key={d.categoryId}>
+                <button
+                  type="button"
+                  onClick={() => open(d.categoryId)}
+                  title={`${d.name} — open the full report on this category`}
+                  className="w-full flex items-center gap-1.5 rounded px-1 py-0.5 text-left text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                >
+                  <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }} aria-hidden="true" />
+                  <span className="truncate">{d.name}</span>
+                </button>
               </li>
             ))}
           </ul>
@@ -196,10 +264,16 @@ export function ExpenseCategoriesWidget({ range }: { range: PeriodRange }): Reac
   );
 }
 
-/** A pinned custom report: name + description, click-through to the hub. */
+/**
+ * A pinned custom report: name + description, click-through to the hub.
+ *
+ * No period travels with this one and no point can be clicked on it — a custom
+ * report carries its own date and account filters (usesPeriod: false in the
+ * registry) and this card draws no chart. The way back still knows where it
+ * came from.
+ */
 export function CustomReportWidget({ reportId }: { reportId: string }): React.JSX.Element | null {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const openReport = useReportDrill();
   const report = useMemo(
     () => customReportService.getCustomReports().find(r => r.id === reportId) ?? null,
     [reportId]
@@ -210,7 +284,7 @@ export function CustomReportWidget({ reportId }: { reportId: string }): React.JS
     <DashboardWidgetCard
       title={report.name}
       icon={FileTextIcon}
-      onOpen={() => navigate(preserveDemoParam('/reports/custom-reports', location.search))}
+      onOpen={() => openReport('custom-reports')}
     >
       <p className="text-sm text-gray-500 dark:text-gray-400">
         {report.description || 'Custom report'}

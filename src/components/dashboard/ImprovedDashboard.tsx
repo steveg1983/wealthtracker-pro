@@ -35,6 +35,7 @@ import {
   CustomReportWidget,
 } from './reportWidgets/DashboardReportWidgets';
 import DashboardWidgetCard from './reportWidgets/DashboardWidgetCard';
+import { useReportDrill } from './reportWidgets/useReportDrill';
 import { WIDGET_CHART_HEIGHT } from './reportWidgets/widgetChrome';
 import { BUILT_IN_REPORTS, type PinnableReportId } from './reportWidgets/pinnableReports';
 import { PieChart, BarChart, ResponsiveContainer } from '../charts/DashboardCharts';
@@ -102,6 +103,10 @@ export function ImprovedDashboard() {
   // Performance keeps its OWN period (and storage key) so changing what the
   // pinned reports cover never silently rewrites the headline income figure.
   const performancePeriod = usePeriod('dashboardPerformance', 'this-month');
+  // The Account Distribution card lives here rather than in
+  // DashboardReportWidgets, so it reaches for the same click-through as its
+  // neighbours instead of growing a second one that drifts.
+  const openReport = useReportDrill();
 
   const togglePinnedReport = (id: PinnableReportId): void => {
     setPinnedReports(prev => {
@@ -491,7 +496,7 @@ export function ImprovedDashboard() {
               {assetsReports.length > 0 && (
                 <>
                   <PeriodPicker picker={assetsPeriod} label="Period for net worth reports" />
-                  {assetsReports.map(id => <NetWorthWidget key={id} range={assetsPeriod.range} />)}
+                  {assetsReports.map(id => <NetWorthWidget key={id} picker={assetsPeriod} />)}
                 </>
               )}
 
@@ -501,7 +506,12 @@ export function ImprovedDashboard() {
                   are what the accounts hold now.
 
                   The title opens the full report (every account, not five);
-                  each legend row still opens ITS account's transactions. */}
+                  each legend row still opens ITS account's transactions.
+
+                  No period travels with that click, deliberately: the report
+                  states none of its own, and sending one would move the window
+                  the NEXT report opens on from a control the destination does
+                  not even show. The way back travels — see useReportDrill. */}
               {pieData.length > 0 && (
                 <DashboardWidgetCard
                   title="Account Distribution"
@@ -516,7 +526,7 @@ export function ImprovedDashboard() {
                       </span>
                     </>
                   }
-                  onOpen={() => navigate(preserveDemoParam('/reports/account-distribution', location.search))}
+                  onOpen={() => openReport('account-distribution')}
                 >
                   {/* Chart takes a fixed column; the legend gets ALL remaining
                       width so account names show as much text as the card
@@ -574,8 +584,8 @@ export function ImprovedDashboard() {
               <PeriodPicker picker={flowsPeriod} label="Period for income and spending reports" />
               {flowsReports.map(id => (
                 id === 'income-expense-trend'
-                  ? <IncomeExpenseTrendWidget key={id} range={flowsPeriod.range} />
-                  : <ExpenseCategoriesWidget key={id} range={flowsPeriod.range} />
+                  ? <IncomeExpenseTrendWidget key={id} picker={flowsPeriod} />
+                  : <ExpenseCategoriesWidget key={id} picker={flowsPeriod} />
               ))}
             </div>
           )}

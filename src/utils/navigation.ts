@@ -33,6 +33,26 @@ export function preserveDemoParam(path: string, currentSearch: string = ''): str
 }
 
 /**
+ * Carry the demo flag onto a path, wherever the app is running.
+ *
+ * The difference from `preserveDemoParam` above is deliberate and is the whole
+ * reason this exists: that one asks `isDemoModeRuntimeAllowed` first and so
+ * drops the flag outside development, while a jump taken INSIDE a demo session
+ * has to land inside the same session or the user is bounced out of it
+ * mid-journey. Every deep link built by a drill-down uses this rule (see
+ * transactionDeepLink, reportDrillLink); page-to-page links keep the older one.
+ *
+ * Never adds a flag that was not already in `currentSearch`, so outside a demo
+ * session it returns the path untouched.
+ */
+export function carryDemoFlag(path: string, currentSearch: string): string {
+  if (new URLSearchParams(currentSearch).get('demo') !== 'true') return path;
+  if (path.includes('demo=true')) return path;
+  const separator = path.includes('?') ? '&' : '?';
+  return `${path}${separator}demo=true`;
+}
+
+/**
  * Creates a navigation handler that preserves demo mode
  * @param navigate The navigate function from react-router
  * @param location The location object from react-router
