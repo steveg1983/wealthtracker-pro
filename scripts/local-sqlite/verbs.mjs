@@ -64,12 +64,21 @@ function locateBridge() {
 // ordering: `tags` is a `text[]` in the cloud and a child table locally, and a
 // child table is a SET. Sorting both is the only comparison that is not an
 // accident, and it is a real (small) divergence, recorded in the parity notes.
+//
+// ONLY ARRAYS OF PRIMITIVES ARE SORTED, and the restriction arrived with the
+// read verbs. Their answer is an array of ROWS, whose order is the whole point
+// of the read — `list_accounts` is oldest-first and `list_suggestion_dismissals`
+// is newest-first — so sorting it would throw away the thing being compared.
+// (A bare `.sort()` on an array of objects happens to leave it alone, because
+// every element stringifies to the same thing and the sort is stable. Relying
+// on that would be relying on an accident, so the rule is spelled out.)
 function canonicalise(row) {
   if (!row) return null;
   const canonical = {};
   for (const key of Object.keys(row).sort()) {
     const value = row[key];
-    canonical[key] = Array.isArray(value) ? [...value].sort() : value;
+    const sortable = Array.isArray(value) && value.every((entry) => entry === null || typeof entry !== 'object');
+    canonical[key] = sortable ? [...value].sort() : value;
   }
   return canonical;
 }
@@ -158,7 +167,13 @@ function observedParity(spec, results) {
     const fields = new Set([...Object.keys(left), ...Object.keys(right)]);
     for (const field of fields) {
       if (declared.has(field)) continue;
-      if (JSON.stringify(left[field]) !== JSON.stringify(right[field])) {
+      // `stableJson`, not `JSON.stringify`, for the reason stated where it is
+      // defined: key order is not semantic in JSON and the two engines do not
+      // agree about it — serde emits a struct's declaration order, jsonb sorts
+      // by key length then bytes. Comparing the raw text reported every read of
+      // a whole row as a divergence whose two sides were the same object.
+      // Arrays are still compared IN ORDER, which is what a read's answer is.
+      if (stableJson(left[field]) !== stableJson(right[field])) {
         notes.push(`row.${field}: ${show(left[field])} vs ${show(right[field])}`);
       }
     }

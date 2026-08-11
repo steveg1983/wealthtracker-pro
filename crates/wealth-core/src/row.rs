@@ -28,10 +28,38 @@
 //! write outside the transaction/account pair — and the first to audit a
 //! `category`, which is why [`category`] now carries a row type as well as the
 //! two *questions* the write verbs ask about one.
+//!
+//! # Reading is the second reason a module is here
+//!
+//! [`crate::verbs::reads`] answers with rows too, and it answers with THESE —
+//! there is no second reader with a mapping of its own, which is PHASE3-PLAN
+//! D-4's second reason for putting the reads in the crate at all: *"row mappers
+//! already exist … money already leaves as decimal strings"*.
+//!
+//! What a read projects is what the CLOUD's own query projects, so that the
+//! differential harness compares two answers to one question rather than two
+//! questions. `.select('*')` means the whole row; a query that names its
+//! columns (`suggestionDismissalService.list` names five) means those columns.
+//!
+//! Where that set is the set the audit already records, there is ONE type —
+//! [`category::CategoryRow`] serves both. Where it is not, there are two, and
+//! the module says which is which and why:
+//!
+//! * [`account`] — the audit entry is a deliberate eight-field projection whose
+//!   width is load-bearing in `link_bank_account_snap`'s differential
+//!   comparison; the reader needs the whole row.
+//! * [`budget`] — the audit entry keeps `alert_threshold_bp` as stored; the
+//!   reader gets it rendered, because the alternative is a division on the far
+//!   side of the boundary.
+//!
+//! And two entities are here for the reader alone, with no audit twin, because
+//! no verb in either engine audits one: [`goal`] and [`dismissal`].
 
 pub mod account;
 pub mod budget;
 pub mod category;
+pub mod dismissal;
+pub mod goal;
 pub mod recurring;
 pub mod split;
 

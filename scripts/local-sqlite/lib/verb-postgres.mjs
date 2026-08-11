@@ -59,6 +59,178 @@ const ROW_JSON = `jsonb_build_object(
   'tags', COALESCE(to_jsonb(t.tags), '[]'::jsonb)
 )`;
 
+// ── The reads, whose oracle is a QUERY and not a function ────────────────────
+//
+// Every other verb in this file names a Postgres function. The six reads cannot:
+// the cloud reads these tables over PostgREST, so the thing being ported is the
+// query the client BUILDS — its `.eq()`s and its `.order()` — and the oracle has
+// to be that query written out. Each entry below names the TypeScript it is
+// transcribed from, and the transcription is deliberately literal: same filter,
+// same ORDER BY, same column list.
+//
+// This is the same hazard `merge_categories` above declares, and it has the same
+// answer: a query repeated in the harness can silently agree with a wrong
+// implementation, so what makes it safe is that a disagreement is LOUD. The two
+// sides are compared element by element and key by key, and the array's ORDER is
+// part of what is compared (`stableJson` sorts object keys and never arrays).
+//
+// THE TIE-BREAK IS DELIBERATELY ABSENT HERE. The Rust side orders by `…, id`
+// behind the cloud's key, states in its own module docs that the second key is
+// not a port of anything, and is proved by a single-engine spec. Copying it into
+// this oracle would make the harness agree with the port about a thing the cloud
+// never said. So these queries carry exactly the client's ORDER BY, and every
+// spec that compares them uses a fixture whose sort key is distinct.
+
+/** A numeric(_,2) column as the decimal string both engines must agree on. */
+const money = (expr) => `(${expr})::text`;
+
+/**
+ * A timestamptz as the local edition spells a timestamp.
+ *
+ * Both engines store the same instant; they render it differently (PostgREST
+ * would send `+00:00`, SQLite stores `…Z`) and the app parses either through
+ * `new Date()`. Rendering the cloud's in the local spelling keeps the comparison
+ * about the INSTANT rather than about two spellings of it — the same decision
+ * `numeric::text` makes for money.
+ */
+const stamp = (expr) => `to_char(${expr} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+
+/**
+ * One `accounts` row, in the twenty-five keys `crate::row::account::ListedAccount`
+ * serialises.
+ *
+ * THREE CLOUD COLUMNS ARE DELIBERATELY NOT PROJECTED: `plaid_account_id` and
+ * `plaid_connection_id` (a local file has no bank feed) and
+ * `last_reconciled_balance` (in the cloud since 20260810200000, not yet in
+ * scripts/local-sqlite/schema.sql). Projecting a key the local answer cannot
+ * have would report a schema gap as a per-spec divergence; the gap is recorded
+ * in the crate's `row/account.rs` where a reader of the read will meet it.
+ */
+const ACCOUNT_JSON = `jsonb_build_object(
+  'id', a.id,
+  'user_id', a.user_id,
+  'name', a.name,
+  'type', a.type,
+  'currency', a.currency,
+  'balance', ${money('a.balance')},
+  'initial_balance', ${money('a.initial_balance')},
+  'bank_balance', ${money('a.bank_balance')},
+  'bank_balance_date', a.bank_balance_date::text,
+  'last_reconciled_date', a.last_reconciled_date::text,
+  'low_balance_alert_enabled', a.low_balance_alert_enabled,
+  'low_balance_threshold', ${money('a.low_balance_threshold')},
+  'opening_balance_date', a.opening_balance_date::text,
+  'archive_through_date', a.archive_through_date::text,
+  'parent_account_id', a.parent_account_id,
+  'institution', a.institution,
+  'account_number', a.account_number,
+  'sort_code', a.sort_code,
+  'icon', a.icon,
+  'color', a.color,
+  'notes', a.notes,
+  'is_active', a.is_active,
+  'metadata', a.metadata,
+  'created_at', ${stamp('a.created_at')},
+  'updated_at', ${stamp('a.updated_at')}
+)`;
+
+/** One `categories` row, in the sixteen keys `CategoryRow` serialises. */
+const CATEGORY_JSON = `jsonb_build_object(
+  'id', c.id,
+  'user_id', c.user_id,
+  'name', c.name,
+  'type', c.type,
+  'level', c.level,
+  'parent_id', c.parent_id,
+  'account_id', c.account_id,
+  'color', c.color,
+  'icon', c.icon,
+  'is_system', c.is_system,
+  'is_transfer_category', c.is_transfer_category,
+  'is_revaluation_category', c.is_revaluation_category,
+  'is_unassigned_bucket', c.is_unassigned_bucket,
+  'is_active', c.is_active,
+  'created_at', ${stamp('c.created_at')},
+  'updated_at', ${stamp('c.updated_at')}
+)`;
+
+/**
+ * One `budgets` row, in the eighteen keys `ListedBudget` serialises.
+ *
+ * `alert_threshold` is the interesting one and it is NOT translated here: the
+ * cloud stores numeric(5,2) and casts to `"80.00"`, the local file stores 8000
+ * basis points of a percent and the crate renders `"80.00"` from it. Comparing
+ * the two texts is what proves the encoding round-trips; converting either side
+ * would be the harness agreeing with itself.
+ */
+const BUDGET_JSON = `jsonb_build_object(
+  'id', b.id,
+  'user_id', b.user_id,
+  'name', b.name,
+  'amount', ${money('b.amount')},
+  'period', b.period,
+  'category', b.category,
+  'category_id', b.category_id,
+  'start_date', b.start_date::text,
+  'end_date', b.end_date::text,
+  'spent', ${money('b.spent')},
+  'rollover', b.rollover,
+  'rollover_amount', ${money('b.rollover_amount')},
+  'alert_threshold', ${money('b.alert_threshold')},
+  'is_active', b.is_active,
+  'notes', b.notes,
+  'metadata', b.metadata,
+  'created_at', ${stamp('b.created_at')},
+  'updated_at', ${stamp('b.updated_at')}
+)`;
+
+/** One `goals` row, in the nineteen keys `GoalRow` serialises. */
+const GOAL_JSON = `jsonb_build_object(
+  'id', g.id,
+  'user_id', g.user_id,
+  'name', g.name,
+  'description', g.description,
+  'target_amount', ${money('g.target_amount')},
+  'current_amount', ${money('g.current_amount')},
+  'target_date', g.target_date::text,
+  'category', g.category,
+  'priority', g.priority,
+  'status', g.status,
+  'account_id', g.account_id,
+  'contribution_frequency', g.contribution_frequency,
+  'auto_contribute', g.auto_contribute,
+  'icon', g.icon,
+  'color', g.color,
+  'completed_at', ${stamp('g.completed_at')},
+  'metadata', g.metadata,
+  'created_at', ${stamp('g.created_at')},
+  'updated_at', ${stamp('g.updated_at')}
+)`;
+
+/**
+ * One `suggestion_dismissals` row, in the five keys `DismissalRow` serialises —
+ * which are the five `suggestionDismissalService.list` names in its own
+ * `.select()`, and `user_id` is not among them.
+ *
+ * `subject_ids` is a `uuid[]` here and a child table locally, so the array's
+ * ORDER is the whole comparison: `to_jsonb` preserves the stored order, and the
+ * local side rebuilds it from `role_order`. A port that read the child table as
+ * a set would come back in a different order and be caught here.
+ */
+const DISMISSAL_JSON = `jsonb_build_object(
+  'id', d.id,
+  'kind', d.kind,
+  'subject_key', d.subject_key,
+  'subject_ids', COALESCE(to_jsonb(d.subject_ids), '[]'::jsonb),
+  'dismissed_at', ${stamp('d.dismissed_at')}
+)`;
+
+/** A read's answer: one named key holding the list, or an empty list. */
+const listed = (key, json, from, order) =>
+  `SELECT jsonb_build_object('${key}', COALESCE(jsonb_agg(${json} ORDER BY ${order}), '[]'::jsonb))
+     INTO v_row
+     FROM ${from};`;
+
 /**
  * The RPC each verb maps onto, and how its result is projected.
  *
@@ -375,6 +547,96 @@ const VERBS = {
               COALESCE(${payloadLiteral}::jsonb->'links', '{}'::jsonb),
               NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid)
        INTO v_row;`,
+
+  // ── THE READS ──────────────────────────────────────────────────────────────
+  // Transcribed from the client query each one ports; see the block above the
+  // VERBS table for why a query is a legitimate oracle and what keeps it honest.
+
+  // accountService.getAccounts:
+  //   .from('accounts').select('*')
+  //   .eq('user_id', userId).eq('is_active', true)
+  //   .order('created_at', { ascending: true })
+  list_accounts: (payloadLiteral) =>
+    listed(
+      'accounts',
+      ACCOUNT_JSON,
+      `public.accounts a
+        WHERE a.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid
+          AND a.is_active`,
+      'a.created_at',
+    ),
+
+  // accountService.getClosedAccounts — the same query with `.eq('is_active',
+  // false)`, which is why the local edition makes it a second VERB rather than a
+  // flag: the two questions are asked from two different places in the app.
+  list_closed_accounts: (payloadLiteral) =>
+    listed(
+      'closed_accounts',
+      ACCOUNT_JSON,
+      `public.accounts a
+        WHERE a.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid
+          AND NOT a.is_active`,
+      'a.created_at',
+    ),
+
+  // planningService.ensureCategories:
+  //   .from('categories').select('*').eq('user_id', userId)
+  //   .order('level', { ascending: true }).order('name', { ascending: true })
+  //
+  // NOT `dataService.listCategories`, which reads browser storage and never
+  // touches the cloud — the signed-in boot's category list comes from here. No
+  // `is_active` filter: a hidden category still has to resolve for the rows
+  // already filed under it.
+  //
+  // `level` is a text column, so ascending means detail, sub, type. Collation
+  // could in principle differ from SQLite's BINARY; these three values are
+  // lower-case ASCII, where every collation agrees, and the harness prints a
+  // warning if the cluster is not UTF8.
+  list_categories: (payloadLiteral) =>
+    listed(
+      'categories',
+      CATEGORY_JSON,
+      `public.categories c
+        WHERE c.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
+      'c.level, c.name',
+    ),
+
+  // planningService.getBudgets:
+  //   .from('budgets').select('*').eq('user_id', userId)
+  //   .order('created_at', { ascending: true })
+  // Inactive budgets load too — the service says why in its own comment.
+  list_budgets: (payloadLiteral) =>
+    listed(
+      'budgets',
+      BUDGET_JSON,
+      `public.budgets b
+        WHERE b.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
+      'b.created_at',
+    ),
+
+  // planningService.getGoals — the same shape as budgets, same order, no status
+  // filter.
+  list_goals: (payloadLiteral) =>
+    listed(
+      'goals',
+      GOAL_JSON,
+      `public.goals g
+        WHERE g.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
+      'g.created_at',
+    ),
+
+  // suggestionDismissalService.list:
+  //   .from('suggestion_dismissals')
+  //   .select('id, kind, subject_key, subject_ids, dismissed_at')
+  //   .eq('user_id', userId).order('dismissed_at', { ascending: false })
+  list_suggestion_dismissals: (payloadLiteral) =>
+    listed(
+      'suggestion_dismissals',
+      DISMISSAL_JSON,
+      `public.suggestion_dismissals d
+        WHERE d.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
+      'd.dismissed_at DESC',
+    ),
 
   // The snap returns the whole accounts row. Projected into the same eight
   // fields crate::row::account::AccountRow serialises, money as a decimal string

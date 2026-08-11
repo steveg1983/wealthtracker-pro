@@ -2232,3 +2232,348 @@ export function fedRow(externalId, expect) {
     expect,
   };
 }
+
+// ── The reads' fixtures ────────────────────────────────────────────────────
+//
+// A read spec asserts the WHOLE row of everything it gets back, which means two
+// things every other family here could ignore:
+//
+//  1. **Every timestamp has to be pinned.** `created_at` and `updated_at`
+//     default to "now" on both engines, and the two nows are two clocks in two
+//     processes: left alone, every read spec would compare '…04:43:49.862Z'
+//     against '…04:43:50.117Z' and fail on a difference that means nothing. Pin
+//     them and the comparison is about the columns that carry meaning.
+//  2. **Every sort key has to be DISTINCT.** The Rust side breaks a tie with
+//     `id` and the Postgres oracle deliberately does not (a tie-break the cloud
+//     never stated must not be transcribed into its own oracle), so a fixture
+//     that ties is a fixture whose two answers may legitimately differ. The
+//     tie-break has its own proof in `crates/wealth-core/tests/reads.rs`.
+
+/** The instant Everyday was opened; Rainy day is a day later. */
+export const OPENED_FIRST = '2024-01-01T00:00:00.000Z';
+export const OPENED_SECOND = '2024-01-02T00:00:00.000Z';
+/** The instant every category in the fixture was named. */
+export const NAMED_AT = '2024-01-03T00:00:00.000Z';
+
+/**
+ * Fixed `created_at`/`updated_at` on the base fixture's accounts and
+ * categories.
+ *
+ * THE TWO HALVES ARE NOT SYMMETRIC, and the asymmetry is the engines':
+ *
+ * * locally, `trg_accounts_updated_at` fires only `WHEN NEW.updated_at IS
+ *   OLD.updated_at` — naming the column stands the trigger down, which is the
+ *   same mechanism every write verb relies on;
+ * * in the cloud, `update_updated_at_column` ASSIGNS `NEW.updated_at = NOW()`
+ *   unconditionally unless `app.restore_in_progress` is set, so the flag has to
+ *   be raised or the pin is silently overwritten by the trigger.
+ *
+ * Categories are pinned LAST on purpose: an UPDATE of an account fires the
+ * cloud's `sync_transfer_category_on_account_update` (no column list there, one
+ * `AFTER UPDATE` for the whole row), and anything that touches a category bumps
+ * its timestamp again.
+ */
+export const pinnedReadTimes = {
+  sqlite: `
+    UPDATE accounts SET created_at = '${OPENED_FIRST}', updated_at = '${OPENED_FIRST}'
+     WHERE id = '${EVERYDAY}';
+    UPDATE accounts SET created_at = '${OPENED_SECOND}', updated_at = '${OPENED_SECOND}'
+     WHERE id = '${RAINY_DAY}';
+    UPDATE categories SET created_at = '${NAMED_AT}', updated_at = '${NAMED_AT}'
+     WHERE user_id = '${USER}';`,
+  postgres: `
+    SELECT set_config('app.restore_in_progress', '1', true);
+    UPDATE public.accounts SET created_at = '${OPENED_FIRST}', updated_at = '${OPENED_FIRST}'
+     WHERE id = '${EVERYDAY}';
+    UPDATE public.accounts SET created_at = '${OPENED_SECOND}', updated_at = '${OPENED_SECOND}'
+     WHERE id = '${RAINY_DAY}';
+    UPDATE public.categories SET created_at = '${NAMED_AT}', updated_at = '${NAMED_AT}'
+     WHERE user_id = '${USER}';
+    SELECT set_config('app.restore_in_progress', '0', true);`,
+};
+
+/**
+ * Rainy day, closed — the Microsoft Money model: the account leaves the pickers
+ * and every transaction stays exactly where it is.
+ *
+ * Applied BEFORE [`pinnedReadTimes`], because closing an account is an UPDATE
+ * and both engines stamp `updated_at` for one.
+ */
+export const closedRainyDay = {
+  sqlite: `UPDATE accounts SET is_active = 0 WHERE id = '${RAINY_DAY}';`,
+  postgres: `UPDATE public.accounts SET is_active = false WHERE id = '${RAINY_DAY}';`,
+};
+
+/**
+ * Everyday, with every optional figure on an account filled in.
+ *
+ * Four money columns and four date columns, none of which the base fixture
+ * exercises: on a bare account they are all NULL, and NULL is the one value
+ * that cannot tell a working conversion from a missing one.
+ */
+export const accountWithEveryFigure = {
+  sqlite: `
+    UPDATE accounts SET
+      initial_balance_minor = -1000,
+      bank_balance_minor = 12345,
+      bank_balance_date = '2024-02-29',
+      last_reconciled_date = '2024-02-01',
+      low_balance_alert_enabled = 1,
+      low_balance_threshold_minor = -5000,
+      opening_balance_date = '2023-12-31',
+      archive_through_date = '2023-06-30',
+      institution = 'A Bank',
+      account_number = '12345678',
+      sort_code = '00-00-00',
+      icon = 'wallet',
+      color = '#123456',
+      notes = 'the everyday one',
+      currency = 'GBP',
+      metadata = '{"k":1}'
+     WHERE id = '${EVERYDAY}';
+    UPDATE transactions SET amount_minor = -1500 WHERE id = '${CORNER_SHOP}';`,
+  postgres: `
+    UPDATE public.accounts SET
+      initial_balance = -10.00,
+      bank_balance = 123.45,
+      bank_balance_date = '2024-02-29',
+      last_reconciled_date = '2024-02-01',
+      low_balance_alert_enabled = true,
+      low_balance_threshold = -50.00,
+      opening_balance_date = '2023-12-31',
+      archive_through_date = '2023-06-30',
+      institution = 'A Bank',
+      account_number = '12345678',
+      sort_code = '00-00-00',
+      icon = 'wallet',
+      color = '#123456',
+      notes = 'the everyday one',
+      currency = 'GBP',
+      metadata = '{"k":1}'::jsonb
+     WHERE id = '${EVERYDAY}';
+    UPDATE public.transactions SET amount = -15.00 WHERE id = '${CORNER_SHOP}';`,
+};
+
+/** Two budgets: one paused, one live, a day apart, with different thresholds. */
+export const FOOD_BUDGET = 'b0000000-0000-0000-0000-00000000b001';
+export const FUEL_BUDGET = 'b0000000-0000-0000-0000-00000000b002';
+
+export const twoBudgets = {
+  sqlite: `
+    INSERT INTO budgets (id, user_id, name, amount_minor, period, category, start_date,
+                         end_date, spent_minor, rollover, rollover_amount_minor,
+                         alert_threshold_bp, is_active, notes, created_at, updated_at) VALUES
+      ('${FOOD_BUDGET}', '${USER}', 'Food', 12345, 'monthly', '${WEEKLY_SHOP}', '2024-01-01',
+       '2024-12-31', 6789, 1, 250, 4250, 1, 'the food one', '${OPENED_FIRST}', '${OPENED_FIRST}'),
+      ('${FUEL_BUDGET}', '${USER}', 'Fuel', 5000, 'weekly', NULL, '2024-02-01',
+       NULL, 0, 0, 0, 8000, 0, NULL, '${OPENED_SECOND}', '${OPENED_SECOND}');`,
+  postgres: `
+    SELECT set_config('app.restore_in_progress', '1', true);
+    INSERT INTO public.budgets (id, user_id, name, amount, period, category, start_date,
+                                end_date, spent, rollover, rollover_amount,
+                                alert_threshold, is_active, notes, created_at, updated_at) VALUES
+      ('${FOOD_BUDGET}', '${USER}', 'Food', 123.45, 'monthly', '${WEEKLY_SHOP}', '2024-01-01',
+       '2024-12-31', 67.89, true, 2.50, 42.50, true, 'the food one', '${OPENED_FIRST}', '${OPENED_FIRST}'),
+      ('${FUEL_BUDGET}', '${USER}', 'Fuel', 50.00, 'weekly', NULL, '2024-02-01',
+       NULL, 0.00, false, 0.00, 80.00, false, NULL, '${OPENED_SECOND}', '${OPENED_SECOND}');
+    SELECT set_config('app.restore_in_progress', '0', true);`,
+};
+
+/** Two goals: one running, one finished, a day apart. */
+export const HOLIDAY_GOAL = '90000000-0000-0000-0000-000000009001';
+export const ROOF_GOAL = '90000000-0000-0000-0000-000000009002';
+
+export const twoGoals = {
+  sqlite: `
+    INSERT INTO goals (id, user_id, name, description, target_amount_minor,
+                       current_amount_minor, target_date, category, priority, status,
+                       account_id, contribution_frequency, auto_contribute, icon, color,
+                       completed_at, metadata, created_at, updated_at) VALUES
+      ('${HOLIDAY_GOAL}', '${USER}', 'Holiday', 'somewhere warm', 250000, 12345, '2025-06-01',
+       '${WEEKLY_SHOP}', 'high', 'active', '${RAINY_DAY}', 'monthly', 1, 'sun', '#ffcc00',
+       NULL, '{"type":"savings"}', '${OPENED_FIRST}', '${OPENED_FIRST}'),
+      ('${ROOF_GOAL}', '${USER}', 'New roof', NULL, 500000, 500000, NULL, NULL, NULL,
+       'completed', NULL, NULL, 0, NULL, NULL, '2024-03-04T05:06:07.000Z', '{}',
+       '${OPENED_SECOND}', '${OPENED_SECOND}');`,
+  postgres: `
+    SELECT set_config('app.restore_in_progress', '1', true);
+    INSERT INTO public.goals (id, user_id, name, description, target_amount,
+                              current_amount, target_date, category, priority, status,
+                              account_id, contribution_frequency, auto_contribute, icon, color,
+                              completed_at, metadata, created_at, updated_at) VALUES
+      ('${HOLIDAY_GOAL}', '${USER}', 'Holiday', 'somewhere warm', 2500.00, 123.45, '2025-06-01',
+       '${WEEKLY_SHOP}', 'high', 'active', '${RAINY_DAY}', 'monthly', true, 'sun', '#ffcc00',
+       NULL, '{"type":"savings"}'::jsonb, '${OPENED_FIRST}', '${OPENED_FIRST}'),
+      ('${ROOF_GOAL}', '${USER}', 'New roof', NULL, 5000.00, 5000.00, NULL, NULL, NULL,
+       'completed', NULL, NULL, false, NULL, NULL, '2024-03-04T05:06:07.000Z', '{}'::jsonb,
+       '${OPENED_SECOND}', '${OPENED_SECOND}');
+    SELECT set_config('app.restore_in_progress', '0', true);`,
+};
+
+/**
+ * Two dismissals a day apart, and a second transaction for the older one to
+ * name.
+ *
+ * The extra row is zero-amount on purpose: a dismissal's subjects are foreign
+ * keys to `transactions` locally, so the fixture has to have rows to point at,
+ * and a zero amount adds one without moving a balance B-1 is asserted on.
+ *
+ * The newer dismissal names TWO rows, in an order that is not their id order —
+ * `subject_ids` positions are ROLES (which row was the out and which the in),
+ * so a reader that came back with a set would be answering a different
+ * question.
+ */
+export const PAIR_DISMISSAL = 'd0000000-0000-0000-0000-0000000000d1';
+export const STRANDED_DISMISSAL = 'd0000000-0000-0000-0000-0000000000d2';
+export const SECOND_ROW = '70000000-0000-0000-0000-0000000000d9';
+export const DISMISSED_FIRST = '2024-04-01T09:00:00.000Z';
+export const DISMISSED_LATER = '2024-04-02T09:00:00.000Z';
+
+export const twoDismissals = {
+  sqlite: `
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date)
+      VALUES ('${SECOND_ROW}', '${USER}', '${EVERYDAY}', 'Nothing at all', 0, 'expense', '2024-03-02');
+    INSERT INTO suggestion_dismissals (id, user_id, kind, subject_key, dismissed_at) VALUES
+      ('${STRANDED_DISMISSAL}', '${USER}', 'stranded', 'the stranded one', '${DISMISSED_FIRST}'),
+      ('${PAIR_DISMISSAL}', '${USER}', 'transfer-pair', 'the pair', '${DISMISSED_LATER}');
+    INSERT INTO suggestion_dismissal_subjects (dismissal_id, transaction_id, role_order) VALUES
+      ('${STRANDED_DISMISSAL}', '${CORNER_SHOP}', 0),
+      ('${PAIR_DISMISSAL}', '${SECOND_ROW}', 0),
+      ('${PAIR_DISMISSAL}', '${CORNER_SHOP}', 1);`,
+  postgres: `
+    INSERT INTO public.transactions (id, user_id, account_id, description, amount, type, date)
+      VALUES ('${SECOND_ROW}', '${USER}', '${EVERYDAY}', 'Nothing at all', 0.00, 'expense', '2024-03-02');
+    INSERT INTO public.suggestion_dismissals (id, user_id, kind, subject_key, subject_ids, dismissed_at) VALUES
+      ('${STRANDED_DISMISSAL}', '${USER}', 'stranded', 'the stranded one',
+       ARRAY['${CORNER_SHOP}']::uuid[], '${DISMISSED_FIRST}'),
+      ('${PAIR_DISMISSAL}', '${USER}', 'transfer-pair', 'the pair',
+       ARRAY['${SECOND_ROW}','${CORNER_SHOP}']::uuid[], '${DISMISSED_LATER}');`,
+};
+
+// ── The rows a read spec expects, with the fixture's defaults filled in ─────
+//
+// A read returns whole rows, and a spec that spelled all twenty-five keys of
+// every account would bury the one field it is about. These builders carry the
+// value a bare fixture row actually has — every one of them checked against the
+// column defaults in schema.sql — so a spec states its DIFFERENCE and the
+// builder states the rest. Nothing here is derived from the crate's answer: the
+// defaults are the schema's, and a port that changed one would be caught by
+// every spec at once rather than by none.
+
+/** One account, as both engines must answer with it. */
+export function listedAccount(fields) {
+  return {
+    id: EVERYDAY,
+    user_id: USER,
+    name: 'Everyday',
+    type: 'checking',
+    currency: 'GBP',
+    balance: '0.00',
+    initial_balance: '0.00',
+    bank_balance: null,
+    bank_balance_date: null,
+    last_reconciled_date: null,
+    low_balance_alert_enabled: false,
+    low_balance_threshold: null,
+    opening_balance_date: null,
+    archive_through_date: null,
+    parent_account_id: null,
+    institution: null,
+    account_number: null,
+    sort_code: null,
+    icon: null,
+    color: null,
+    notes: null,
+    is_active: true,
+    metadata: {},
+    created_at: OPENED_FIRST,
+    updated_at: OPENED_FIRST,
+    ...fields,
+  };
+}
+
+/** One category. `level` and `name` together are the sort key. */
+export function listedCategory(fields) {
+  return {
+    id: '',
+    user_id: USER,
+    name: '',
+    type: 'expense',
+    level: 'detail',
+    parent_id: null,
+    account_id: null,
+    color: null,
+    icon: null,
+    is_system: false,
+    is_transfer_category: false,
+    is_revaluation_category: false,
+    is_unassigned_bucket: false,
+    is_active: true,
+    created_at: NAMED_AT,
+    updated_at: NAMED_AT,
+    ...fields,
+  };
+}
+
+/** One budget. `alert_threshold` is a percentage, not money — see the verb. */
+export function listedBudget(fields) {
+  return {
+    id: '',
+    user_id: USER,
+    name: '',
+    amount: '0.00',
+    period: 'monthly',
+    category: null,
+    category_id: null,
+    start_date: '2024-01-01',
+    end_date: null,
+    spent: '0.00',
+    rollover: false,
+    rollover_amount: '0.00',
+    alert_threshold: '80.00',
+    is_active: true,
+    notes: null,
+    metadata: {},
+    created_at: OPENED_FIRST,
+    updated_at: OPENED_FIRST,
+    ...fields,
+  };
+}
+
+/** One goal. */
+export function listedGoal(fields) {
+  return {
+    id: '',
+    user_id: USER,
+    name: '',
+    description: null,
+    target_amount: '0.00',
+    current_amount: '0.00',
+    target_date: null,
+    category: null,
+    priority: null,
+    status: 'active',
+    account_id: null,
+    contribution_frequency: null,
+    auto_contribute: false,
+    icon: null,
+    color: null,
+    completed_at: null,
+    metadata: {},
+    created_at: OPENED_FIRST,
+    updated_at: OPENED_FIRST,
+    ...fields,
+  };
+}
+
+/** One dismissal — five keys, because the cloud's own read names five. */
+export function listedDismissal(fields) {
+  return {
+    id: '',
+    kind: 'transfer-pair',
+    subject_key: '',
+    subject_ids: [],
+    dismissed_at: DISMISSED_LATER,
+    ...fields,
+  };
+}

@@ -186,6 +186,68 @@ pub fn read_owned(
         .optional()?)
 }
 
+/// Every category this login has, in the order the app reads them.
+///
+/// The port of `planningService.ensureCategories`' query, which is where a
+/// signed-in boot's category list actually comes from: `.eq('user_id', …)`,
+/// `.order('level')`, `.order('name')`. Three things about it are worth stating
+/// because none of them is a guess:
+///
+/// * **There is no `is_active` filter, and that is deliberate.** A hidden
+///   category still has to be in the list: it is what the register's category
+///   column resolves an old row's id through, and a closed account's To/From
+///   category is hidden by C-4 while its transactions stay exactly where they
+///   are. The pickers filter; the read does not.
+/// * **`level` sorts as TEXT**, so the order is `detail`, `sub`, `type` —
+///   alphabetical, not hierarchical. That is what PostgREST's `.order('level')`
+///   does on a text column and therefore what the app has always received; a
+///   port that "corrected" it to a hierarchy would be a different list.
+/// * **The one type serves both readers.** Unlike an account, a category's
+///   audit entry and its listed form want the same sixteen columns — the whole
+///   row — so there is one type here and not two. See [`CategoryRow`].
+///
+/// # Errors
+/// [`crate::error::CoreError`] if the read fails.
+pub fn list_all(connection: &Connection, user_id: &str) -> CoreResult<Vec<CategoryRow>> {
+    // EXPLAIN QUERY PLAN (measured against schema.sql):
+    //   SEARCH categories USING INDEX idx_categories_user (user_id=?)
+    //   USE TEMP B-TREE FOR ORDER BY
+    let mut statement = connection.prepare(
+        "SELECT id, user_id, name, type, level, parent_id, account_id, color, icon,
+                is_system, is_transfer_category, is_revaluation_category,
+                is_unassigned_bucket, is_active, created_at, updated_at
+           FROM categories
+          WHERE user_id = ?1
+          ORDER BY level, name, id",
+    )?;
+    let rows = statement.query_map(params![user_id], |record| {
+        Ok(CategoryRow {
+            id: record.get(0)?,
+            user_id: record.get(1)?,
+            name: record.get(2)?,
+            kind: record.get(3)?,
+            level: record.get(4)?,
+            parent_id: record.get(5)?,
+            account_id: record.get(6)?,
+            color: record.get(7)?,
+            icon: record.get(8)?,
+            is_system: record.get::<_, i64>(9)? != 0,
+            is_transfer_category: record.get::<_, i64>(10)? != 0,
+            is_revaluation_category: record.get::<_, i64>(11)? != 0,
+            is_unassigned_bucket: record.get::<_, i64>(12)? != 0,
+            is_active: record.get::<_, i64>(13)? != 0,
+            created_at: record.get(14)?,
+            updated_at: record.get(15)?,
+        })
+    })?;
+
+    let mut categories = Vec::new();
+    for category in rows {
+        categories.push(category?);
+    }
+    Ok(categories)
+}
+
 /// Does anything sit under this category?
 ///
 /// The port of `EXISTS (SELECT 1 FROM public.categories WHERE parent_id = …)`,

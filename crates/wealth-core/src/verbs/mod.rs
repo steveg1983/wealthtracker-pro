@@ -329,6 +329,27 @@
 //! route to one goes through a crash mid-transaction that this harness has no
 //! way to stage.
 
+//! # And then the reads, which are verbs too
+//!
+//! [`reads`] holds the first six: the accounts, the closed accounts, the
+//! categories, the budgets, the goals and the suggestion dismissals. None of
+//! them is a port of a Postgres FUNCTION — the cloud reads these tables over
+//! PostgREST — so what each one ports is a *query*, `.eq()` for `.eq()` and
+//! `.order()` for `.order()`, and its oracle in the differential harness is
+//! that query written out.
+//!
+//! They are in this crate rather than beside it because of what leaves with
+//! them: money, as the decimal string [`crate::money`] renders once. The whole
+//! argument is PHASE3-PLAN D-4 and it is restated at the head of [`reads`],
+//! along with the ordering contracts, the tie-break this crate states for
+//! itself, and the EXPLAIN QUERY PLAN line each read was measured against.
+//!
+//! That module is `pub` where every other verb module here is private, and the
+//! reason is those docs: a private module's documentation is not rendered, and
+//! the plan requires the plans to be readable — *"a plan saying SCAN is a bug
+//! report, not a merge"* is not a rule anybody can apply to a table they cannot
+//! see.
+
 mod apply_category_to_uncategorized;
 mod clear_transfer_links;
 mod confirm_transaction_categories;
@@ -343,6 +364,7 @@ mod link_bank_account_snap;
 mod link_split_line_transfer;
 mod link_transfer_pair;
 mod merge_categories;
+pub mod reads;
 mod repair_claimed_transfer;
 mod restore_user_chunk;
 mod set_transaction_splits_with_legs;
@@ -392,6 +414,14 @@ pub use link_split_line_transfer::{
 };
 pub use link_transfer_pair::{link_transfer_pair, LinkTransferPair, LinkTransferPairResult};
 pub use merge_categories::{merge_categories, MergeCategories, MergeCategoriesResult};
+// The read family. Re-exported like every other verb so a call site reads the
+// same whether it is asking or writing; the module stays `pub` as well, because
+// its documentation is where the ordering and the query plans live.
+pub use reads::{
+    list_accounts, list_budgets, list_categories, list_closed_accounts, list_goals,
+    list_suggestion_dismissals, Accounts, Answered, Budgets, Categories, ClosedAccounts, Goals,
+    OwnedRead, SuggestionDismissals,
+};
 pub use repair_claimed_transfer::{
     repair_claimed_transfer, RepairClaimedTransfer, RepairClaimedTransferResult,
 };

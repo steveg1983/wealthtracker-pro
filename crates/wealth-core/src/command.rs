@@ -81,13 +81,14 @@ use crate::verbs::{
     apply_category_to_uncategorized, clear_transfer_links, confirm_transaction_categories,
     create_transaction, create_transfer_counterpart, delete_transaction, delete_unused_categories,
     finalize_user_restore, import_bank_transactions, import_transactions, link_bank_account_snap,
-    link_split_line_transfer, link_transfer_pair, merge_categories, repair_claimed_transfer,
-    restore_user_chunk, set_transaction_splits_with_legs, update_transaction,
-    user_financial_data_is_empty, verify_integrity, wipe_user_financial_data,
+    link_split_line_transfer, link_transfer_pair, list_accounts, list_budgets, list_categories,
+    list_closed_accounts, list_goals, list_suggestion_dismissals, merge_categories,
+    repair_claimed_transfer, restore_user_chunk, set_transaction_splits_with_legs,
+    update_transaction, user_financial_data_is_empty, verify_integrity, wipe_user_financial_data,
     ApplyCategoryToUncategorized, ClearTransferLinks, ConfirmTransactionCategories,
     CreateTransaction, CreateTransferCounterpart, DeleteTransaction, DeleteUnusedCategories,
     FinalizeUserRestore, ImportBankTransactions, ImportTransactions, LinkBankAccountSnap,
-    LinkSplitLineTransfer, LinkTransferPair, MergeCategories, RepairClaimedTransfer,
+    LinkSplitLineTransfer, LinkTransferPair, MergeCategories, OwnedRead, RepairClaimedTransfer,
     RestoreUserChunk, SetTransactionSplitsWithLegs, UpdateTransaction, UserFinancialDataIsEmpty,
     VerifyIntegrity, WipeUserFinancialData,
 };
@@ -180,6 +181,34 @@ pub enum Command {
     ImportTransactions(Box<ImportTransactions>),
     /// [`crate::verbs::import_bank_transactions`].
     ImportBankTransactions(Box<ImportBankTransactions>),
+    // ── The reads ────────────────────────────────────────────────────────────
+    //
+    // Six verbs that answer and write nothing. Each is named for the question
+    // it answers rather than for a function it ports, because there is no
+    // function to port: the cloud reads these tables over PostgREST, so what is
+    // ported is a QUERY — its filter and its ORDER BY, spelled out in
+    // [`crate::verbs::reads`] alongside the plan each one was measured to use.
+    //
+    // `list_closed_accounts` is a second verb rather than a flag on the first,
+    // and that is the naming discipline rather than an accident: two questions
+    // get two names, and a payload with `{"open": false}` in it is a payload
+    // that will one day be sent by mistake.
+    //
+    // All six share ONE payload type — an owner, and nothing else. The dispatch
+    // stays exhaustive over VARIANTS, so a seventh read still has to be armed
+    // below or the crate does not compile.
+    /// [`crate::verbs::list_accounts`].
+    ListAccounts(Box<OwnedRead>),
+    /// [`crate::verbs::list_closed_accounts`].
+    ListClosedAccounts(Box<OwnedRead>),
+    /// [`crate::verbs::list_categories`].
+    ListCategories(Box<OwnedRead>),
+    /// [`crate::verbs::list_budgets`].
+    ListBudgets(Box<OwnedRead>),
+    /// [`crate::verbs::list_goals`].
+    ListGoals(Box<OwnedRead>),
+    /// [`crate::verbs::list_suggestion_dismissals`].
+    ListSuggestionDismissals(Box<OwnedRead>),
     // The only verb here that is NOT a port: the cloud has no verify_integrity,
     // no view and no equivalent, and the verb's module documentation carries the
     // trace that establishes it. Its payload is `{}` — it takes not even an
@@ -371,6 +400,25 @@ pub fn dispatch(
         // first: it writes nothing.
         Command::VerifyIntegrity(payload) => {
             verify_integrity(&*connection, *payload).and_then(as_json)
+        }
+        // The reads, and every one of them takes `&*connection` for the same
+        // reason those two do: a read opens no transaction. Six arms rather
+        // than one `Command::List…(_) => list(…)` helper, because the enum's
+        // whole property is that each variant is spelled once here — an arm
+        // that dispatched several verbs through one function would be a place
+        // for two of them to become the same answer without the compiler
+        // noticing.
+        Command::ListAccounts(payload) => list_accounts(&*connection, *payload).and_then(as_json),
+        Command::ListClosedAccounts(payload) => {
+            list_closed_accounts(&*connection, *payload).and_then(as_json)
+        }
+        Command::ListCategories(payload) => {
+            list_categories(&*connection, *payload).and_then(as_json)
+        }
+        Command::ListBudgets(payload) => list_budgets(&*connection, *payload).and_then(as_json),
+        Command::ListGoals(payload) => list_goals(&*connection, *payload).and_then(as_json),
+        Command::ListSuggestionDismissals(payload) => {
+            list_suggestion_dismissals(&*connection, *payload).and_then(as_json)
         }
         // A self-check with a name, and the same shape as the split writer's
         // `split_write_inconsistent`: [`plan`] above answers every one of these
