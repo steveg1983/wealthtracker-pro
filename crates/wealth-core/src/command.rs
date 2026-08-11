@@ -78,19 +78,20 @@ use crate::admission::{
 };
 use crate::error::CoreError;
 use crate::verbs::{
-    apply_category_to_uncategorized, clear_transfer_links, confirm_transaction_categories,
-    create_transaction, create_transfer_counterpart, delete_transaction, delete_unused_categories,
-    finalize_user_restore, import_bank_transactions, import_transactions, link_bank_account_snap,
-    link_split_line_transfer, link_transfer_pair, list_accounts, list_budgets, list_categories,
-    list_closed_accounts, list_goals, list_suggestion_dismissals, merge_categories,
-    repair_claimed_transfer, restore_user_chunk, set_transaction_splits_with_legs,
+    account_balances, apply_category_to_uncategorized, clear_transfer_links,
+    confirm_transaction_categories, create_transaction, create_transfer_counterpart,
+    delete_transaction, delete_unused_categories, finalize_user_restore, import_bank_transactions,
+    import_transactions, link_bank_account_snap, link_split_line_transfer, link_transfer_pair,
+    list_accounts, list_budgets, list_categories, list_closed_accounts, list_goals,
+    list_suggestion_dismissals, list_transaction_splits, list_transactions, merge_categories,
+    repair_claimed_transfer, restore_user_chunk, set_transaction_splits_with_legs, splits_for,
     update_transaction, user_financial_data_is_empty, verify_integrity, wipe_user_financial_data,
     ApplyCategoryToUncategorized, ClearTransferLinks, ConfirmTransactionCategories,
     CreateTransaction, CreateTransferCounterpart, DeleteTransaction, DeleteUnusedCategories,
     FinalizeUserRestore, ImportBankTransactions, ImportTransactions, LinkBankAccountSnap,
     LinkSplitLineTransfer, LinkTransferPair, MergeCategories, OwnedRead, RepairClaimedTransfer,
-    RestoreUserChunk, SetTransactionSplitsWithLegs, UpdateTransaction, UserFinancialDataIsEmpty,
-    VerifyIntegrity, WipeUserFinancialData,
+    RestoreUserChunk, SetTransactionSplitsWithLegs, SplitsFor, UpdateTransaction,
+    UserFinancialDataIsEmpty, VerifyIntegrity, WipeUserFinancialData,
 };
 
 /// A command, as a caller sends it.
@@ -183,9 +184,9 @@ pub enum Command {
     ImportBankTransactions(Box<ImportBankTransactions>),
     // ── The reads ────────────────────────────────────────────────────────────
     //
-    // Six verbs that answer and write nothing. Each is named for the question
-    // it answers rather than for a function it ports, because there is no
-    // function to port: the cloud reads these tables over PostgREST, so what is
+    // Ten verbs that answer and write nothing. Nine are named for the question
+    // they answer rather than for a function they port, because there is no
+    // function to port: the cloud reads those tables over PostgREST, so what is
     // ported is a QUERY — its filter and its ORDER BY, spelled out in
     // [`crate::verbs::reads`] alongside the plan each one was measured to use.
     //
@@ -194,9 +195,9 @@ pub enum Command {
     // get two names, and a payload with `{"open": false}` in it is a payload
     // that will one day be sent by mistake.
     //
-    // All six share ONE payload type — an owner, and nothing else. The dispatch
-    // stays exhaustive over VARIANTS, so a seventh read still has to be armed
-    // below or the crate does not compile.
+    // Nine of the ten share ONE payload type — an owner, and nothing else. The
+    // dispatch stays exhaustive over VARIANTS, so an eleventh read still has to
+    // be armed below or the crate does not compile.
     /// [`crate::verbs::list_accounts`].
     ListAccounts(Box<OwnedRead>),
     /// [`crate::verbs::list_closed_accounts`].
@@ -209,6 +210,28 @@ pub enum Command {
     ListGoals(Box<OwnedRead>),
     /// [`crate::verbs::list_suggestion_dismissals`].
     ListSuggestionDismissals(Box<OwnedRead>),
+    // The heavy four. They differ from the six above in what they run over —
+    // one person's whole history rather than a page of settings — which is why
+    // their plans are measured at 50k rows in [`crate::verbs::reads`] rather
+    // than argued from the size of a list of accounts.
+    //
+    // `account_balances` is the only read here that IS a port of a function
+    // (`20260722160000`), and the only verb in the crate that answers with money
+    // it computed rather than money it stored. Its four properties are in
+    // [`crate::row::balance`].
+    //
+    // `splits_for` is the one read with a payload of its own, because it names a
+    // PARENT. The seam spells the distinction with a suffix —
+    // `listTransactionSplits` against `listTransactionSplitsFor` — and the verb
+    // strings keep it.
+    /// [`crate::verbs::list_transactions`].
+    ListTransactions(Box<OwnedRead>),
+    /// [`crate::verbs::list_transaction_splits`].
+    ListTransactionSplits(Box<OwnedRead>),
+    /// [`crate::verbs::splits_for`].
+    SplitsFor(Box<SplitsFor>),
+    /// [`crate::verbs::account_balances`].
+    AccountBalances(Box<OwnedRead>),
     // The only verb here that is NOT a port: the cloud has no verify_integrity,
     // no view and no equivalent, and the verb's module documentation carries the
     // trace that establishes it. Its payload is `{}` — it takes not even an
@@ -402,7 +425,7 @@ pub fn dispatch(
             verify_integrity(&*connection, *payload).and_then(as_json)
         }
         // The reads, and every one of them takes `&*connection` for the same
-        // reason those two do: a read opens no transaction. Six arms rather
+        // reason those two do: a read opens no transaction. Ten arms rather
         // than one `Command::List…(_) => list(…)` helper, because the enum's
         // whole property is that each variant is spelled once here — an arm
         // that dispatched several verbs through one function would be a place
@@ -419,6 +442,16 @@ pub fn dispatch(
         Command::ListGoals(payload) => list_goals(&*connection, *payload).and_then(as_json),
         Command::ListSuggestionDismissals(payload) => {
             list_suggestion_dismissals(&*connection, *payload).and_then(as_json)
+        }
+        Command::ListTransactions(payload) => {
+            list_transactions(&*connection, *payload).and_then(as_json)
+        }
+        Command::ListTransactionSplits(payload) => {
+            list_transaction_splits(&*connection, *payload).and_then(as_json)
+        }
+        Command::SplitsFor(payload) => splits_for(&*connection, *payload).and_then(as_json),
+        Command::AccountBalances(payload) => {
+            account_balances(&*connection, *payload).and_then(as_json)
         }
         // A self-check with a name, and the same shape as the split writer's
         // `split_write_inconsistent`: [`plan`] above answers every one of these

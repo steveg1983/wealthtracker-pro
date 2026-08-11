@@ -80,6 +80,18 @@ const ROW_JSON = `jsonb_build_object(
 // this oracle would make the harness agree with the port about a thing the cloud
 // never said. So these queries carry exactly the client's ORDER BY, and every
 // spec that compares them uses a fixture whose sort key is distinct.
+//
+// ONE READ IS AN EXCEPTION AND IT IS WRITTEN IN: `list_transactions` orders by
+// `date DESC, id DESC`, and the second key is the CLOUD's — the client states it
+// and calls it, in its own comment, a "stable tiebreak for paging". Fifty-two
+// pages of an unstably-ordered query hand the same row over twice and lose
+// another, so the cloud had to settle what the other reads could leave open.
+// Leaving it out here would be the harness pretending the cloud is vaguer than
+// it is.
+//
+// AND ONE VERB IS NOT A QUERY AT ALL: `account_balances` IS a Postgres function,
+// so its oracle is that function, called for real — see its entry below for how
+// the identity it takes from a JWT is supplied.
 
 /** A numeric(_,2) column as the decimal string both engines must agree on. */
 const money = (expr) => `(${expr})::text`;
@@ -223,6 +235,74 @@ const DISMISSAL_JSON = `jsonb_build_object(
   'subject_key', d.subject_key,
   'subject_ids', COALESCE(to_jsonb(d.subject_ids), '[]'::jsonb),
   'dismissed_at', ${stamp('d.dismissed_at')}
+)`;
+
+/**
+ * One `transactions` row, in the twenty-two keys
+ * `crate::row::ListedTransaction` serialises — which are
+ * `BOOT_TRANSACTION_COLUMNS` minus one, and NOT `select('*')`.
+ *
+ * The boot's column list is explicit and measured (~38% of the payload was
+ * columns nothing reads), so the ten columns it omits are omitted here too:
+ * `user_id`, the metadata blob, `merchant_name`, `location_city`,
+ * `location_country`, `payment_channel`, `external_transaction_id`,
+ * `import_source`, `import_source_id`, and the feed's `plaid_transaction_id`.
+ *
+ * ONE CLOUD COLUMN IS IN THE BOOT LIST AND DELIBERATELY NOT PROJECTED:
+ * `is_reconciled`, added by `20260810200000_marking_is_not_reconciling.sql` and
+ * not yet in `scripts/local-sqlite/schema.sql`. Projecting a key the local
+ * answer cannot have would report a schema gap as a per-spec divergence; the gap
+ * is recorded in the crate's `row.rs`, where a reader of the read will meet it,
+ * together with what it costs (a local file cannot tell a marked row from a
+ * reconciled one — the same degradation the cloud's own fallback ladder accepts
+ * for a database that has not had the migration applied).
+ */
+const TRANSACTION_JSON = `jsonb_build_object(
+  'id', t.id,
+  'account_id', t.account_id,
+  'amount', ${money('t.amount')},
+  'archived', t.archived,
+  'category', t.category,
+  'category_confirmed', t.category_confirmed,
+  'category_id', t.category_id,
+  'created_at', ${stamp('t.created_at')},
+  'date', t.date::text,
+  'description', t.description,
+  'is_cleared', t.is_cleared,
+  'is_recurring', t.is_recurring,
+  'is_split', t.is_split,
+  'linked_transfer_id', t.linked_transfer_id,
+  'linked_transfer_split_id', t.linked_transfer_split_id,
+  'needs_review', t.needs_review,
+  'notes', t.notes,
+  'statement_sequence', t.statement_sequence,
+  'tags', COALESCE(to_jsonb(t.tags), '[]'::jsonb),
+  'type', t.type,
+  'updated_at', ${stamp('t.updated_at')},
+  'transfer_account_id', t.transfer_account_id
+)`;
+
+/**
+ * One `transaction_splits` row, in the eleven keys `ListedSplit` serialises —
+ * the whole row, because both split reads are `.select('*')`.
+ *
+ * The app's own mapper reads eight of the eleven and ignores `user_id`,
+ * `created_at` and `updated_at`. That is the app's business: what a read
+ * projects is what the query projects, and narrowing it here would be the
+ * harness deciding on the app's behalf that a column will never be wanted.
+ */
+const SPLIT_JSON = `jsonb_build_object(
+  'id', s.id,
+  'transaction_id', s.transaction_id,
+  'user_id', s.user_id,
+  'category', s.category,
+  'amount', ${money('s.amount')},
+  'memo', s.memo,
+  'sort_order', s.sort_order,
+  'transfer_account_id', s.transfer_account_id,
+  'linked_transfer_id', s.linked_transfer_id,
+  'created_at', ${stamp('s.created_at')},
+  'updated_at', ${stamp('s.updated_at')}
 )`;
 
 /** A read's answer: one named key holding the list, or an empty list. */
@@ -637,6 +717,112 @@ const VERBS = {
         WHERE d.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
       'd.dismissed_at DESC',
     ),
+
+  // ── The heavy four ─────────────────────────────────────────────────────────
+
+  // transactionService.fetchTransactionPage — the query the signed-in boot
+  // actually runs:
+  //   .from('transactions').select(BOOT_TRANSACTION_COLUMNS)
+  //   .eq('user_id', userId)
+  //   .order('date', { ascending: false })
+  //   .order('id', { ascending: false })    // stable tiebreak for paging
+  //   .range(from, to)
+  //
+  // NO ARCHIVED FILTER, and that is the query rather than an omission here: the
+  // archive is a VIEW flag, the flag rides back as a column, and the register
+  // does its hiding in memory. It is the same fact `account_balances` below
+  // states from the other end, and R-1 is what happens when one of the two
+  // forgets it.
+  //
+  // The `.range()` is not transcribed because it is not part of the question: it
+  // is PostgREST's 1,000-row response cap, which the client walks ~52 times to
+  // ask ONE thing. A file answers it once (DESIGN's "one crossing"), and a
+  // harness that paged would be comparing the transport rather than the read.
+  list_transactions: (payloadLiteral) =>
+    listed(
+      'transactions',
+      TRANSACTION_JSON,
+      `public.transactions t
+        WHERE t.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
+      't.date DESC, t.id DESC',
+    ),
+
+  // transactionService.getAllTransactionSplits:
+  //   .from('transaction_splits').select('*').eq('user_id', userId)
+  //   .order('transaction_id').order('sort_order')
+  //
+  // `user_id` here is the LINE's owner and not the parent's. The two are usually
+  // one person and the schema does not require it — `myLineOnTheirParent` in the
+  // shared fixtures exists because `merge_categories` walks parents by one and
+  // lines by the other — so filtering on the parent instead would be a different
+  // question with the same name.
+  list_transaction_splits: (payloadLiteral) =>
+    listed(
+      'transaction_splits',
+      SPLIT_JSON,
+      `public.transaction_splits s
+        WHERE s.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
+      's.transaction_id, s.sort_order',
+    ),
+
+  // transactionService.getTransactionSplits(transactionId):
+  //   .from('transaction_splits').select('*')
+  //   .eq('transaction_id', transactionId).order('sort_order')
+  //
+  // THE OWNER FILTER BELOW IS TRANSCRIBED FROM THE RLS POLICY, NOT THE CLIENT.
+  // That query names no owner at all, because it does not have to: the policy on
+  // this table is `user_id = requesting_user_id()` (20260713100000:57-60), so in
+  // production every row this returns has already been through it. The harness
+  // runs as a superuser with RLS out of the way, so leaving the filter out would
+  // make the oracle answer a question production never asks — and would report
+  // the local edition's only-gate owner check as a divergence. Both halves of
+  // the cloud's real behaviour, written down.
+  splits_for: (payloadLiteral) =>
+    listed(
+      'splits',
+      SPLIT_JSON,
+      `public.transaction_splits s
+        WHERE s.transaction_id = (${payloadLiteral}::jsonb->>'transaction_id')::uuid
+          AND s.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
+      's.sort_order',
+    ),
+
+  // account_balances() — 20260722160000:26-42, and the only read in this table
+  // whose oracle is a FUNCTION rather than a transcribed query.
+  //
+  // It takes no argument: it is SECURITY DEFINER and reads its identity from the
+  // verified JWT through requesting_user_id(), "so there is no parameter to
+  // spoof". The harness therefore supplies the identity the way production does
+  // — by setting the claim — rather than by rewriting the function's body with a
+  // parameter in it. `request.jwt.claims` is transaction-local, and the whole
+  // spec already runs inside a transaction that is rolled back.
+  //
+  // An owner the file does not know produces a claim of JSON null, which
+  // requesting_clerk_id() turns into SQL NULL and requesting_user_id() matches
+  // nothing with: no rows, which is the same answer an unauthenticated caller
+  // gets in production.
+  //
+  // THE ORDER IS THE HARNESS'S, AND HAS TO BE. The RPC states none at all —
+  // GROUP BY and nothing after it — so its answer is a SET, and two sets cannot
+  // be compared element by element without one. This is NOT the tie-break
+  // exception the block above forbids: there the cloud states a key and the
+  // crate adds one behind it, and copying that would make the oracle agree about
+  // something unsaid. Here there is no key to leave alone, and the crate's own
+  // `ORDER BY a.id` is proved separately in crates/wealth-core/tests/reads.rs.
+  account_balances: (payloadLiteral) =>
+    `PERFORM set_config('request.jwt.claims',
+               json_build_object('sub',
+                 (SELECT u.clerk_id FROM public.users u
+                   WHERE u.id = (${payloadLiteral}::jsonb->>'user_id')::uuid))::text,
+               true);
+     SELECT jsonb_build_object(
+              'account_balances',
+              COALESCE(jsonb_agg(jsonb_build_object(
+                'account_id', b.account_id,
+                'balance', ${money('b.balance')},
+                'txn_count', b.txn_count) ORDER BY b.account_id), '[]'::jsonb))
+       INTO v_row
+       FROM public.account_balances() b;`,
 
   // The snap returns the whole accounts row. Projected into the same eight
   // fields crate::row::account::AccountRow serialises, money as a decimal string

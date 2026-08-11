@@ -2577,3 +2577,312 @@ export function listedDismissal(fields) {
     ...fields,
   };
 }
+
+// ── The heavy reads' fixtures ──────────────────────────────────────────────
+//
+// Everything the six light reads needed applies here too — pinned timestamps,
+// distinct sort keys — with one addition of their own: these reads answer with
+// whole ROWS OF THE LEDGER, so their fixtures move money, and every one of them
+// still has B-1 asserted on it. A fixture that archives a row or breaks a
+// balance says which of the two it is doing.
+
+/** The instant every transaction and split line in these fixtures was made. */
+export const MADE_AT = '2024-01-04T00:00:00.000Z';
+
+/**
+ * Fixed `created_at`/`updated_at` on every one of this login's transactions and
+ * split lines.
+ *
+ * COMPOSE IT LAST. Both engines stamp `updated_at` on an UPDATE, so a fragment
+ * that touches a transaction after this one has undone it. The asymmetry
+ * between the two halves is [`pinnedReadTimes`]'s and has the same cause: naming
+ * the column stands the local trigger down, while the cloud's assigns NOW()
+ * unconditionally unless `app.restore_in_progress` is raised.
+ */
+export const pinnedLedgerTimes = {
+  sqlite: `
+    UPDATE transactions SET created_at = '${MADE_AT}', updated_at = '${MADE_AT}'
+     WHERE user_id = '${USER}';
+    UPDATE transaction_splits SET created_at = '${MADE_AT}', updated_at = '${MADE_AT}'
+     WHERE user_id = '${USER}';`,
+  postgres: `
+    SELECT set_config('app.restore_in_progress', '1', true);
+    UPDATE public.transactions SET created_at = '${MADE_AT}', updated_at = '${MADE_AT}'
+     WHERE user_id = '${USER}';
+    UPDATE public.transaction_splits SET created_at = '${MADE_AT}', updated_at = '${MADE_AT}'
+     WHERE user_id = '${USER}';
+    SELECT set_config('app.restore_in_progress', '0', true);`,
+};
+
+/** Three more rows in Everyday, two of them sharing the Corner shop's date. */
+export const SAME_DAY_EARLIER = '70000000-0000-0000-0000-0000000000f1';
+export const SAME_DAY_LATER = '70000000-0000-0000-0000-0000000000f3';
+export const A_LATER_DAY = '70000000-0000-0000-0000-0000000000f2';
+
+/**
+ * The shape that proves the ORDER: one row on a later date, and two more on the
+ * SAME date as the Corner shop row.
+ *
+ * `date DESC` alone cannot separate three rows on one day, and the cloud's own
+ * second key — `id DESC`, which it calls a stable tiebreak for paging — is what
+ * settles them. The ids are chosen so that id order and insertion order
+ * disagree: `…f3` is written second and must come out first.
+ *
+ * Each row is −1.00 and Everyday's balance moves by −3.00, so B-1 holds.
+ */
+export const rowsOnOneDay = {
+  sqlite: `
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date) VALUES
+      ('${A_LATER_DAY}',     '${USER}', '${EVERYDAY}', 'A later day', -100, 'expense', '2024-03-02'),
+      ('${SAME_DAY_LATER}',  '${USER}', '${EVERYDAY}', 'Second in',   -100, 'expense', '2024-03-01'),
+      ('${SAME_DAY_EARLIER}','${USER}', '${EVERYDAY}', 'First in',    -100, 'expense', '2024-03-01');
+    UPDATE accounts SET balance_minor = balance_minor - 300 WHERE id = '${EVERYDAY}';`,
+  postgres: `
+    INSERT INTO public.transactions (id, user_id, account_id, description, amount, type, date) VALUES
+      ('${A_LATER_DAY}',     '${USER}', '${EVERYDAY}', 'A later day', -1.00, 'expense', '2024-03-02'),
+      ('${SAME_DAY_LATER}',  '${USER}', '${EVERYDAY}', 'Second in',   -1.00, 'expense', '2024-03-01'),
+      ('${SAME_DAY_EARLIER}','${USER}', '${EVERYDAY}', 'First in',    -1.00, 'expense', '2024-03-01');
+    UPDATE public.accounts SET balance = balance - 3.00 WHERE id = '${EVERYDAY}';`,
+};
+
+/**
+ * The Corner shop row, archived.
+ *
+ * Balance-neutral by definition — that IS the rule (20260721130000: "archiving
+ * is a view flag and never moves a balance") — so B-1 still holds on Everyday at
+ * −25.00 afterwards, and `account_balances` must still answer −25.00.
+ */
+export const anArchivedRow = {
+  sqlite: `UPDATE transactions SET archived = 1 WHERE id = '${CORNER_SHOP}';`,
+  postgres: `UPDATE public.transactions SET archived = true WHERE id = '${CORNER_SHOP}';`,
+};
+
+/**
+ * The Everyday account's STORED balance, set to a figure that is not
+ * `initial_balance + Σ amounts`, with no transaction touched.
+ *
+ * The only fixture in the whole harness that plants a B-1 violation outside the
+ * `integrity-*` family, and it is planted for the same reason those are: the
+ * thing under test is what happens when it is there. R-2 says a port that read
+ * `accounts.balance` would report this drift AS MONEY; the answer must be the
+ * derived −25.00 and not the stored 999.99, on both engines.
+ *
+ * Specs using it assert `violationRows`/`integrityOk` instead of
+ * `balanceIdentityHolds`, because asserting B-1 here would be asserting that the
+ * fixture failed to do its job.
+ */
+export const aStoredBalanceThatDrifted = {
+  sqlite: `UPDATE accounts SET balance_minor = 99999 WHERE id = '${EVERYDAY}';`,
+  postgres: `UPDATE public.accounts SET balance = 999.99 WHERE id = '${EVERYDAY}';`,
+};
+
+/**
+ * Rainy day given an opening balance and left with no transactions.
+ *
+ * The LEFT JOIN's whole subject. B-1 holds trivially — an account with no rows
+ * has `balance = initial_balance` — so both are moved together.
+ */
+export const anAccountNobodyHasUsed = {
+  sqlite: `
+    UPDATE accounts SET initial_balance_minor = 4200, balance_minor = 4200
+     WHERE id = '${RAINY_DAY}';`,
+  postgres: `
+    UPDATE public.accounts SET initial_balance = 42.00, balance = 42.00
+     WHERE id = '${RAINY_DAY}';`,
+};
+
+/**
+ * The Corner shop row with every column the boot reads filled in with something
+ * that is not its default.
+ *
+ * [`enriched`] does this for the WRITE verbs and stops short of three columns
+ * the boot list carries — `needs_review`, `statement_sequence` and
+ * `linked_transfer_split_id` — because no write verb sets them. On a bare
+ * fixture each of those is a default, and a default is the one value that cannot
+ * tell a working mapping from a missing one.
+ *
+ * ONE tag, not two, and that is deliberate: a `text[]` is an ordered list and a
+ * child table is a set, so two tags is a question about ORDER rather than about
+ * carrying them. That question has its own spec, declared as the divergence it
+ * is.
+ *
+ * Nothing here moves an amount, so B-1 still holds on both accounts.
+ */
+export const everyColumnTheBootReads = {
+  sqlite: `
+    UPDATE transactions SET
+      category_id = '${WEEKLY_SHOP}',
+      notes = 'a note',
+      is_cleared = 1,
+      is_recurring = 1,
+      category_confirmed = 0,
+      needs_review = 1,
+      statement_sequence = 7,
+      transfer_account_id = '${RAINY_DAY}'
+     WHERE id = '${CORNER_SHOP}';
+    INSERT INTO transaction_tags (transaction_id, tag) VALUES ('${CORNER_SHOP}', 'zebra');`,
+  postgres: `
+    UPDATE public.transactions SET
+      category_id = '${WEEKLY_SHOP}'::uuid,
+      notes = 'a note',
+      is_cleared = true,
+      is_recurring = true,
+      category_confirmed = false,
+      needs_review = true,
+      statement_sequence = 7,
+      transfer_account_id = '${RAINY_DAY}'::uuid,
+      tags = ARRAY['zebra']
+     WHERE id = '${CORNER_SHOP}';`,
+};
+
+/**
+ * A second split parent, so the whole-store split read has more than one to put
+ * in order.
+ *
+ * Sits on [`plainSplitParent`], which makes Corner shop a split of −15.00 and
+ * −10.00. This adds a −30.00 row in Everyday with two lines of its own, and its
+ * id sorts BEFORE the Corner shop's, so a read that came back in insertion order
+ * rather than in `transaction_id` order would be caught.
+ */
+export const SECOND_PARENT = '60000000-0000-0000-0000-0000000000b1';
+export const SECOND_PARENT_FIRST_LINE = '50000000-0000-0000-0000-0000000000b1';
+export const SECOND_PARENT_SECOND_LINE = '50000000-0000-0000-0000-0000000000b2';
+
+export const aSecondSplitParent = {
+  sqlite: `
+    INSERT INTO _rpc_guard VALUES ('split');
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date,
+                              is_split, category)
+      VALUES ('${SECOND_PARENT}', '${USER}', '${EVERYDAY}', 'Big shop', -3000, 'expense',
+              '2024-03-05', 1, '');
+    UPDATE accounts SET balance_minor = balance_minor - 3000 WHERE id = '${EVERYDAY}';
+    INSERT INTO transaction_splits (id, transaction_id, user_id, category, amount_minor, memo,
+                                    sort_order) VALUES
+      ('${SECOND_PARENT_FIRST_LINE}',  '${SECOND_PARENT}', '${USER}', '${WEEKLY_SHOP}', -2000,
+       'the food half', 0),
+      ('${SECOND_PARENT_SECOND_LINE}', '${SECOND_PARENT}', '${USER}', '${OUTGOINGS}',  -1000,
+       NULL, 1);
+    DELETE FROM _rpc_guard;`,
+  postgres: `
+    SELECT set_config('app.split_rpc', '1', true);
+    INSERT INTO public.transactions (id, user_id, account_id, description, amount, type, date,
+                                     is_split, category)
+      VALUES ('${SECOND_PARENT}', '${USER}', '${EVERYDAY}', 'Big shop', -30.00, 'expense',
+              '2024-03-05', true, '');
+    UPDATE public.accounts SET balance = balance - 30.00 WHERE id = '${EVERYDAY}';
+    INSERT INTO public.transaction_splits (id, transaction_id, user_id, category, amount, memo,
+                                           sort_order) VALUES
+      ('${SECOND_PARENT_FIRST_LINE}',  '${SECOND_PARENT}', '${USER}', '${WEEKLY_SHOP}', -20.00,
+       'the food half', 0),
+      ('${SECOND_PARENT_SECOND_LINE}', '${SECOND_PARENT}', '${USER}', '${OUTGOINGS}',  -10.00,
+       NULL, 1);
+    SELECT set_config('app.split_rpc', '0', true);`,
+};
+
+/** Everything of this login's, gone — the empty-file answer, on a real file. */
+export const nothingOfMine = {
+  sqlite: `
+    DELETE FROM transaction_splits WHERE user_id = '${USER}';
+    DELETE FROM transactions WHERE user_id = '${USER}';
+    UPDATE accounts SET balance_minor = initial_balance_minor WHERE user_id = '${USER}';`,
+  postgres: `
+    DELETE FROM public.transaction_splits WHERE user_id = '${USER}';
+    DELETE FROM public.transactions WHERE user_id = '${USER}';
+    UPDATE public.accounts SET balance = initial_balance WHERE user_id = '${USER}';`,
+};
+
+// ── The rows the heavy reads expect ────────────────────────────────────────
+
+/**
+ * One transaction, as both engines must answer with it.
+ *
+ * Twenty-two keys: `BOOT_TRANSACTION_COLUMNS` minus `is_reconciled`, which the
+ * cloud has had since 20260810200000 and scripts/local-sqlite/schema.sql has
+ * not. The gap is recorded in the crate's `row.rs` and in the harness oracle;
+ * it is NOT hidden here, it is simply not a key either side can answer with.
+ *
+ * The defaults below are the Corner shop row's, checked against the column
+ * defaults in both schemas — `category_confirmed` is true by default in both
+ * (a writer that does not know about provenance produces a confirmed row) and
+ * `needs_review` false in both (one that does not know about review produces a
+ * reviewed row).
+ */
+export function listedTransaction(fields) {
+  return {
+    id: CORNER_SHOP,
+    account_id: EVERYDAY,
+    amount: '-25.00',
+    archived: false,
+    category: WEEKLY_SHOP,
+    category_confirmed: true,
+    category_id: null,
+    created_at: MADE_AT,
+    date: '2024-03-01',
+    description: 'Corner shop',
+    is_cleared: false,
+    is_recurring: false,
+    is_split: false,
+    linked_transfer_id: null,
+    linked_transfer_split_id: null,
+    needs_review: false,
+    notes: null,
+    statement_sequence: null,
+    tags: [],
+    type: 'expense',
+    updated_at: MADE_AT,
+    transfer_account_id: null,
+    ...fields,
+  };
+}
+
+/** One split line — eleven keys, because both split reads are `select('*')`. */
+export function listedSplit(fields) {
+  return {
+    id: '',
+    transaction_id: CORNER_SHOP,
+    user_id: USER,
+    category: WEEKLY_SHOP,
+    amount: '0.00',
+    memo: null,
+    sort_order: 0,
+    transfer_account_id: null,
+    linked_transfer_id: null,
+    created_at: MADE_AT,
+    updated_at: MADE_AT,
+    ...fields,
+  };
+}
+
+/**
+ * One account's derived balance — the three keys the RPC returns.
+ *
+ * Named `derivedBalance` and not `accountBalance` on purpose: `accountBalance`
+ * is already imported at the top of this file from `lib/money-sql.mjs`, and it
+ * reads `accounts.balance` — the STORED figure. Two helpers one letter apart,
+ * one reading the cache and one reading the derivation, is precisely R-2's
+ * mistake with a shorter fuse.
+ */
+export function derivedBalance(fields) {
+  return {
+    account_id: EVERYDAY,
+    balance: '0.00',
+    txn_count: 0,
+    ...fields,
+  };
+}
+
+/**
+ * Two tags on the Corner shop row, written in an order that is NOT tag order.
+ *
+ * The one shape where the two engines legitimately answer differently, and the
+ * whole point of the fixture is that the difference is visible: `text[]` in the
+ * cloud remembers that `zebra` was written first, and a child table keyed
+ * `(transaction_id, tag)` has no insertion order to remember. Written in this
+ * order so a spec asserting sorted output on both sides would fail on one.
+ */
+export const twoTagsInTheWrongOrder = {
+  sqlite: `
+    INSERT INTO transaction_tags (transaction_id, tag) VALUES
+      ('${CORNER_SHOP}', 'zebra'), ('${CORNER_SHOP}', 'apple');`,
+  postgres: `UPDATE public.transactions SET tags = ARRAY['zebra','apple'] WHERE id = '${CORNER_SHOP}';`,
+};

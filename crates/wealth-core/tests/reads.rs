@@ -1,9 +1,10 @@
-//! Integration tests for the six read verbs.
+//! Integration tests for the ten read verbs.
 //!
-//! The differential proof lives in `scripts/local-sqlite/verbs.mjs`: seventeen
+//! The differential proof lives in `scripts/local-sqlite/verbs.mjs`: thirty-eight
 //! specs, each running one payload against the query the cloud actually issues
-//! and against this crate, and comparing the two answers element by element.
-//! What is here is the half with **no cloud counterpart to compare against**:
+//! — or, for `account_balances`, against the cloud FUNCTION itself — and
+//! comparing the two answers element by element. What is here is the half with
+//! **no cloud counterpart to compare against**:
 //!
 //! 1. **The tie-break.** Every read orders by the cloud's key and then by `id`,
 //!    and the second key is this crate's own — the cloud states none, so its
@@ -16,8 +17,16 @@
 //! 3. **The refusals that happen before a connection is touched** — an unknown
 //!    field, and a missing owner. Both are serde's, and both are the reason the
 //!    owner is a `String` rather than an `Option<String>` here.
-//! 4. **An empty file**, on all six verbs at once, which is a shape assertion:
+//! 4. **An empty file**, on all ten verbs at once, which is a shape assertion:
 //!    `[]` and not `null`, under the key the app reads.
+//!
+//! Slice 16's four added a fifth thing to the first item, and it is worth
+//! naming: `account_balances` has no ORDER BY AT ALL in the cloud —
+//! `GROUP BY` and nothing after it, because the client turns the answer into a
+//! `Map` the moment it arrives. So the whole of its order, not just a tie-break,
+//! is this crate's own, and there is nothing differential to say about it.
+//! The plans and the wall times at fifty thousand rows are a separate file,
+//! `reads_at_scale.rs`.
 //!
 //! All data is invented. This repo is public: no real payee, account number or
 //! figure appears anywhere in it.
@@ -28,8 +37,9 @@ use rusqlite::Connection;
 use wealth_core::command::{parse, Command};
 use wealth_core::db;
 use wealth_core::verbs::{
-    list_accounts, list_budgets, list_categories, list_closed_accounts, list_goals,
-    list_suggestion_dismissals, OwnedRead,
+    account_balances, list_accounts, list_budgets, list_categories, list_closed_accounts,
+    list_goals, list_suggestion_dismissals, list_transaction_splits, list_transactions, splits_for,
+    OwnedRead, SplitsFor,
 };
 
 const OWNER: &str = "11111111-1111-1111-1111-111111111111";
@@ -372,4 +382,254 @@ fn the_threshold_crosses_as_a_percentage_and_the_money_beside_it_as_money() {
     assert_eq!(budget.alert_threshold, "42.50");
     assert_eq!(budget.amount.to_decimal_string(), "123.45");
     assert_eq!(budget.spent.to_decimal_string(), "67.89");
+}
+
+// ── Slice 16: the heavy four ────────────────────────────────────────────────
+
+/// Two accounts, one row each, and a split whose two lines share a `sort_order`.
+///
+/// Everything a heavy read needs that the light ones did not: money to sum, a
+/// parent to hang lines off, and a tie the cloud states no rule for.
+fn a_small_ledger(connection: &Connection) {
+    connection
+        .execute_batch(&format!(
+            "INSERT INTO accounts (id, user_id, name, type, balance_minor,
+                                   initial_balance_minor, created_at, updated_at) VALUES
+               ('{RAINY_DAY}', '{OWNER}', 'Rainy day', 'savings', 1000, 1000,
+                '{SAME_INSTANT}', '{SAME_INSTANT}'),
+               ('{EVERYDAY}',  '{OWNER}', 'Everyday', 'checking', -2500, 0,
+                '{SAME_INSTANT}', '{SAME_INSTANT}');
+             INSERT INTO transactions (id, user_id, account_id, description, amount_minor,
+                                       type, date, category, is_split)
+               VALUES ('{CORNER_SHOP}', '{OWNER}', '{EVERYDAY}', 'Corner shop', -2500,
+                       'expense', '2024-03-01', '', 1);
+             INSERT INTO transaction_splits (id, transaction_id, user_id, category,
+                                             amount_minor, sort_order) VALUES
+               ('50000000-0000-0000-0000-0000000000b2', '{CORNER_SHOP}', '{OWNER}',
+                '{TRANSFER_ROOT}', -1000, 0),
+               ('50000000-0000-0000-0000-0000000000b1', '{CORNER_SHOP}', '{OWNER}',
+                '{TRANSFER_ROOT}', -1500, 0);"
+        ))
+        .expect("ledger");
+}
+
+#[test]
+fn two_split_lines_sharing_a_sort_order_come_back_in_id_order() {
+    let connection = fixture();
+    a_small_ledger(&connection);
+
+    let answered = list_transaction_splits(&connection, owner(OWNER)).expect("read");
+    let ids: Vec<&str> = answered
+        .answer
+        .transaction_splits
+        .iter()
+        .map(|line| line.id.as_str())
+        .collect();
+
+    // `sort_order` is not unique — the pre-split fixtures in this repo start
+    // every line at 0 — so the cloud's two keys leave this pair unordered, and
+    // in Postgres the answer under a tie is whatever the executor felt like.
+    // The `id` behind them is this crate's own; the b2 line was written FIRST
+    // and must come back second.
+    assert_eq!(
+        ids,
+        vec![
+            "50000000-0000-0000-0000-0000000000b1",
+            "50000000-0000-0000-0000-0000000000b2"
+        ]
+    );
+}
+
+#[test]
+fn one_parents_lines_break_the_same_tie_the_same_way() {
+    let connection = fixture();
+    a_small_ledger(&connection);
+
+    let answered = splits_for(
+        &connection,
+        SplitsFor { user_id: OWNER.to_owned(), transaction_id: CORNER_SHOP.to_owned() },
+    )
+    .expect("read");
+    let ids: Vec<&str> = answered.answer.splits.iter().map(|line| line.id.as_str()).collect();
+
+    // The two split reads share a tie-break because they share a table and an
+    // idea of display order. A parent whose lines came back one way in the edit
+    // modal and the other way in a report would be one bug reported twice.
+    assert_eq!(
+        ids,
+        vec![
+            "50000000-0000-0000-0000-0000000000b1",
+            "50000000-0000-0000-0000-0000000000b2"
+        ]
+    );
+}
+
+#[test]
+fn the_balances_come_back_by_account_id_because_the_cloud_states_no_order_at_all() {
+    let connection = fixture();
+    a_small_ledger(&connection);
+
+    let answered = account_balances(&connection, owner(OWNER)).expect("read");
+    let ids: Vec<&str> = answered
+        .answer
+        .account_balances
+        .iter()
+        .map(|balance| balance.account_id.as_str())
+        .collect();
+
+    // Rainy day is INSERTed first and Everyday's id sorts first. The RPC has no
+    // ORDER BY whatsoever, so unlike every other read there is no cloud key with
+    // a crate tie-break behind it: the whole order is stated here, and `id`
+    // alone is enough because it is the group key.
+    assert_eq!(ids, vec![EVERYDAY, RAINY_DAY]);
+}
+
+#[test]
+fn a_second_logins_rows_are_in_the_file_and_not_in_any_of_the_heavy_answers() {
+    let connection = fixture();
+    a_small_ledger(&connection);
+    connection
+        .execute_batch(&format!(
+            "INSERT INTO users (id, email) VALUES ('{STRANGER}', 'stranger@example.test');
+             INSERT INTO accounts (id, user_id, name, type, balance_minor, initial_balance_minor)
+               VALUES ('a0000000-0000-0000-0000-0000000000f9', '{STRANGER}', 'Not yours',
+                       'checking', -100, 0);
+             INSERT INTO transactions (id, user_id, account_id, description, amount_minor,
+                                       type, date)
+               VALUES ('70000000-0000-0000-0000-0000000000f9', '{STRANGER}',
+                       'a0000000-0000-0000-0000-0000000000f9', 'Theirs', -100, 'expense',
+                       '2024-03-01');"
+        ))
+        .expect("stranger");
+
+    // There is no RLS in a file, so each of these is the whole gate. The balance
+    // read is the one that would be noticed: a stranger's account in this answer
+    // is a stranger's money in the dashboard's net worth.
+    let listed = list_transactions(&connection, owner(OWNER)).expect("read");
+    assert_eq!(listed.answer.transactions.len(), 1);
+    assert_eq!(listed.answer.transactions[0].id, CORNER_SHOP);
+
+    let balances = account_balances(&connection, owner(OWNER)).expect("read");
+    let ids: Vec<&str> = balances
+        .answer
+        .account_balances
+        .iter()
+        .map(|balance| balance.account_id.as_str())
+        .collect();
+    assert_eq!(ids, vec![EVERYDAY, RAINY_DAY]);
+}
+
+#[test]
+fn a_parent_of_mine_asked_for_by_a_stranger_answers_with_nothing() {
+    let connection = fixture();
+    a_small_ledger(&connection);
+    connection
+        .execute_batch(&format!(
+            "INSERT INTO users (id, email) VALUES ('{STRANGER}', 'stranger@example.test');"
+        ))
+        .expect("stranger");
+
+    let answered = splits_for(
+        &connection,
+        SplitsFor { user_id: STRANGER.to_owned(), transaction_id: CORNER_SHOP.to_owned() },
+    )
+    .expect("read");
+
+    // `splits_for`'s owner is a LOCAL addition — the cloud's query names no
+    // owner because RLS is underneath it. An empty answer rather than a refusal,
+    // for the reason the account reader gives: telling "no such row" from "not
+    // your row" confirms an id exists to a caller who may not see it.
+    assert!(answered.answer.splits.is_empty());
+}
+
+#[test]
+fn the_heavy_reads_of_an_empty_file_are_empty_arrays_under_their_own_keys() {
+    let connection = fixture();
+
+    // Four shapes, and the far side maps all four by name. `null` under any of
+    // them is a different bug from `[]`: one says "nothing here" and the other
+    // says "this read does not work".
+    let transactions = list_transactions(&connection, owner(OWNER)).expect("read");
+    assert_eq!(
+        serde_json::to_string(&transactions).expect("json"),
+        r#"{"answer":{"transactions":[]}}"#
+    );
+    let splits = list_transaction_splits(&connection, owner(OWNER)).expect("read");
+    assert_eq!(
+        serde_json::to_string(&splits).expect("json"),
+        r#"{"answer":{"transaction_splits":[]}}"#
+    );
+    let one = splits_for(
+        &connection,
+        SplitsFor { user_id: OWNER.to_owned(), transaction_id: CORNER_SHOP.to_owned() },
+    )
+    .expect("read");
+    assert_eq!(serde_json::to_string(&one).expect("json"), r#"{"answer":{"splits":[]}}"#);
+    let balances = account_balances(&connection, owner(OWNER)).expect("read");
+    assert_eq!(
+        serde_json::to_string(&balances).expect("json"),
+        r#"{"answer":{"account_balances":[]}}"#
+    );
+}
+
+#[test]
+fn the_heavy_reads_parse_to_their_own_variants_and_only_splits_for_takes_a_parent() {
+    let parsed = |verb: &str| {
+        parse(&format!(r#"{{"verb":"{verb}","payload":{{"user_id":"{OWNER}"}}}}"#)).expect(verb)
+    };
+    assert!(matches!(parsed("list_transactions"), Command::ListTransactions(_)));
+    assert!(matches!(parsed("list_transaction_splits"), Command::ListTransactionSplits(_)));
+    assert!(matches!(parsed("account_balances"), Command::AccountBalances(_)));
+
+    let one = parse(&format!(
+        r#"{{"verb":"splits_for","payload":{{"user_id":"{OWNER}","transaction_id":"{CORNER_SHOP}"}}}}"#
+    ))
+    .expect("splits_for");
+    assert!(matches!(one, Command::SplitsFor(_)));
+}
+
+#[test]
+fn splits_for_without_its_parent_is_refused_before_a_file_is_opened() {
+    // The seam's `…For` suffix names a parent, and the payload requires one:
+    // a `splits_for` that fell back to the whole store on a missing id would put
+    // another transaction's money in the edit modal's box.
+    let refusal =
+        parse(&format!(r#"{{"verb":"splits_for","payload":{{"user_id":"{OWNER}"}}}}"#))
+            .expect_err("refused");
+    let json = serde_json::to_string(&refusal).expect("json");
+    assert!(json.contains("missing field"), "{json}");
+    assert!(json.contains("transaction_id"), "{json}");
+}
+
+#[test]
+fn a_balance_read_carrying_a_date_filter_is_refused_by_name() {
+    // `deny_unknown_fields` on the shared payload is what makes "none of them
+    // takes a filter" a fact rather than a claim — and on THIS verb it is worth
+    // a test of its own, because "balances as at a date" is the most plausible
+    // thing anybody will one day try to send.
+    let refusal = parse(&format!(
+        r#"{{"verb":"account_balances","payload":{{"user_id":"{OWNER}","as_at":"2024-01-01"}}}}"#
+    ))
+    .expect_err("refused");
+    let json = serde_json::to_string(&refusal).expect("json");
+    assert!(json.contains("unknown_field"), "{json}");
+    assert!(json.contains("as_at"), "{json}");
+}
+
+#[test]
+fn a_balance_is_money_and_a_count_is_not() {
+    let connection = fixture();
+    a_small_ledger(&connection);
+
+    let answered = account_balances(&connection, owner(OWNER)).expect("read");
+    let json = serde_json::to_string(&answered.answer.account_balances[0]).expect("json");
+
+    // The two numbers in this answer are different KINDS of number, and the
+    // serialisation has to say so: the balance is a decimal string because it is
+    // money and money.rs is the one place minor units become text, and the count
+    // is a JSON number because it is a count. A port that rendered the count as
+    // "1" would be inventing a currency for it; one that rendered the balance as
+    // -2500 would be handing the client an integer to divide.
+    assert!(json.contains(r#""balance":"-25.00""#), "{json}");
+    assert!(json.contains(r#""txn_count":1"#), "{json}");
 }

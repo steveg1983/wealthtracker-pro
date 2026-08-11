@@ -418,9 +418,10 @@ pub use merge_categories::{merge_categories, MergeCategories, MergeCategoriesRes
 // same whether it is asking or writing; the module stays `pub` as well, because
 // its documentation is where the ordering and the query plans live.
 pub use reads::{
-    list_accounts, list_budgets, list_categories, list_closed_accounts, list_goals,
-    list_suggestion_dismissals, Accounts, Answered, Budgets, Categories, ClosedAccounts, Goals,
-    OwnedRead, SuggestionDismissals,
+    account_balances, list_accounts, list_budgets, list_categories, list_closed_accounts,
+    list_goals, list_suggestion_dismissals, list_transaction_splits, list_transactions, splits_for,
+    AccountBalances, Accounts, Answered, Budgets, Categories, ClosedAccounts, Goals, OwnedRead,
+    Splits, SplitsFor, SuggestionDismissals, TransactionSplits, Transactions,
 };
 pub use repair_claimed_transfer::{
     repair_claimed_transfer, RepairClaimedTransfer, RepairClaimedTransferResult,
