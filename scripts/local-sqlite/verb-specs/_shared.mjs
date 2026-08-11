@@ -3033,3 +3033,103 @@ export function nowhereInTheAccounts(needle, expect) {
     expect,
   };
 }
+
+// ── The category WRITES' fixtures ──────────────────────────────────────────
+//
+// The merge and prune families above start from a tree that already exists.
+// These five verbs are about making one, so what they need is the opposite: a
+// login with NOTHING in it, and a way to compare a tree whose ids the two
+// engines deliberately do not agree about.
+
+/**
+ * A login with no categories, no accounts and no rows — what `create_file`
+ * leaves behind, and the only state `seed_categories` does anything in.
+ *
+ * It has to be a SECOND login rather than the fixture's own emptied out,
+ * because the fixture's accounts hold To/From categories and C-5 refuses to let
+ * one go while its account is there. Emptying it would mean deleting the
+ * accounts, which is a different fixture with different rows in it.
+ */
+export const EMPTY_LOGIN = '33333333-3333-3333-3333-333333333333';
+
+export const emptyLogin = {
+  sqlite: `
+    INSERT INTO users (id, email) VALUES ('${EMPTY_LOGIN}', 'device@localhost');`,
+  postgres: `
+    INSERT INTO public.users (id, clerk_id, email)
+      VALUES ('${EMPTY_LOGIN}', 'clerk_local_sqlite_device', 'device@localhost');`,
+};
+
+/**
+ * One login's whole category tree, BY NAME, as one canonical string.
+ *
+ * `name:type:level:parentName:flags:active` per row, ordered by name, joined by
+ * ` | `. Nothing in it is an id, and that is the point: `seed_categories` is
+ * divergence B-4 — the cloud mints a fresh uuid for every row and the local
+ * edition keeps the slug it was given — so the ids are the one thing the two
+ * engines are guaranteed to disagree about and every other thing about the tree
+ * is guaranteed to match. A spec that compared ids would be comparing the
+ * declared divergence; this compares the tree.
+ *
+ * The parent is rendered by NAME for the same reason, which also makes the
+ * assertion say something a person can check: "Transfer In sits under
+ * Transfer".
+ */
+export function categoryTree(userId, expect) {
+  const build = (engine) => {
+    const table = engine === 'sqlite' ? 'categories' : 'public.categories';
+    const truthy = (column) => (engine === 'sqlite' ? `c.${column} = 1` : `c.${column}`);
+    const parent = `COALESCE((SELECT p.name FROM ${table} p WHERE p.id = c.parent_id), '-')`;
+    const flags = `COALESCE(NULLIF(
+        CASE WHEN ${truthy('is_system')} THEN 's' ELSE '' END ||
+        CASE WHEN ${truthy('is_transfer_category')} THEN 't' ELSE '' END ||
+        CASE WHEN ${truthy('is_revaluation_category')} THEN 'r' ELSE '' END ||
+        CASE WHEN ${truthy('is_unassigned_bucket')} THEN 'u' ELSE '' END, ''), '-')`;
+    const active = `CASE WHEN ${truthy('is_active')} THEN 'active' ELSE 'hidden' END`;
+    const row = `c.name || ':' || c.type || ':' || c.level || ':' || ${parent}
+                 || ':' || ${flags} || ':' || ${active}`;
+    return engine === 'sqlite'
+      ? `SELECT COALESCE((SELECT group_concat(line, ' | ') FROM (
+           SELECT ${row} AS line FROM ${table} c
+            WHERE c.user_id = '${userId}' ORDER BY c.name)), 'NONE')`
+      : `SELECT COALESCE(string_agg(${row}, ' | ' ORDER BY c.name), 'NONE')
+           FROM ${table} c WHERE c.user_id = '${userId}'`;
+  };
+  return {
+    name: `category_tree_of_${userId.slice(-4)}`,
+    sqlite: build('sqlite'),
+    postgres: build('postgres'),
+    expect,
+  };
+}
+
+/** How many categories one login has. Named per login, so two can be asserted. */
+export function categoriesOwnedBy(userId, expect) {
+  return {
+    name: `categories_owned_by_${userId.slice(-4)}`,
+    sqlite: `SELECT COUNT(*) FROM categories WHERE user_id = '${userId}'`,
+    postgres: `SELECT COUNT(*) FROM public.categories WHERE user_id = '${userId}'`,
+    expect,
+  };
+}
+
+/**
+ * A category's parent, BY NAME — `-` when it has none.
+ *
+ * The half of [`categoryShape`] a create-and-wire spec is actually about, said
+ * in a way that survives an engine minting its own ids.
+ */
+export function parentOf(categoryId, expect) {
+  const build = (engine) => {
+    const table = engine === 'sqlite' ? 'categories' : 'public.categories';
+    return `SELECT COALESCE((SELECT COALESCE(
+              (SELECT p.name FROM ${table} p WHERE p.id = c.parent_id), '-')
+              FROM ${table} c WHERE c.id = '${categoryId}'), 'GONE')`;
+  };
+  return {
+    name: `parent_of_${categoryId.slice(-4)}`,
+    sqlite: build('sqlite'),
+    postgres: build('postgres'),
+    expect,
+  };
+}

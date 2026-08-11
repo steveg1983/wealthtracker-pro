@@ -25,8 +25,9 @@
  * ── THE PORT IS DELIBERATELY PARTIAL, AND SAYS SO ───────────────────────────
  *
  * `LocalDataPort` implements the reads, the boot composite, the capability
- * descriptor, the two lifecycle no-ops and the sixteen writes the crate's verbs
- * serve — and NOT the twenty-five operations that are named one by one in
+ * descriptor, the lifecycle, and the writes the crate's verbs serve — the
+ * sixteen of slice 19, the account family of slice 20 and the category family
+ * of slice 21 — and NOT the seventeen operations that are named one by one in
  * `contract.ts`'s NOT_YET ratchet. The surface rule asserts that the operations
  * this port is missing are EXACTLY that list, in both directions, and every
  * rule needing one of them is skipped by name.

@@ -1035,6 +1035,237 @@ const VERBS = {
        FROM public.accounts a
       WHERE a.id = (${payloadLiteral}::jsonb->>'id')::uuid;`,
 
+  // ── THE CATEGORY FAMILY, WHOSE ORACLE IS ALSO A TYPESCRIPT WRITER ─────────
+  //
+  // Five verbs, no function behind four of them: `categories` is written
+  // directly over PostgREST too (PHASE3-PLAN D-2). So the oracle is again the
+  // WRITE the client builds — `categoryToDb` plus the query it is sent through —
+  // transcribed key for key.
+  //
+  // `categoryToDb` is a WHITELIST of eleven `if (c.k !== undefined)` lines, so a
+  // key it has no line for never reaches the table. That is why the local verbs
+  // FILTER a create and a patch rather than passing them through whole (the
+  // account pair does the opposite, because `mapAccountToDb` sends an unknown
+  // field under its own name and lets PostgREST refuse it). `mappers/writes.ts`
+  // carries the same distinction on the TypeScript side.
+  //
+  // TWO OF ITS ELEVEN LINES ARE FALSY RATHER THAN NULLISH —
+  // `row.parent_id = c.parentId || null` and the same for `account_id` — so an
+  // EMPTY STRING clears the column instead of being stored. Transcribed with
+  // NULLIF below, on both the insert and the update, because a category whose
+  // parent is `''` is a category under a parent that cannot exist.
+  //
+  // Every unstated column falls to its own DEFAULT, and the two engines' defaults
+  // are the same five values (`is_system` false, the three semantic flags false,
+  // `is_active` true), so the COALESCEs below are the column defaults written out
+  // rather than a decision this oracle is taking.
+  create_category: (payloadLiteral) =>
+    `INSERT INTO public.categories (
+       id, user_id, name, type, level, parent_id, account_id, color, icon,
+       is_system, is_transfer_category, is_revaluation_category,
+       is_unassigned_bucket, is_active
+     ) VALUES (
+       COALESCE(NULLIF(${payloadLiteral}::jsonb->>'id','')::uuid, gen_random_uuid()),
+       (${payloadLiteral}::jsonb->>'user_id')::uuid,
+       ${payloadLiteral}::jsonb->>'name',
+       ${payloadLiteral}::jsonb->>'type',
+       ${payloadLiteral}::jsonb->>'level',
+       NULLIF(${payloadLiteral}::jsonb->>'parent_id','')::uuid,
+       NULLIF(${payloadLiteral}::jsonb->>'account_id','')::uuid,
+       ${payloadLiteral}::jsonb->>'color',
+       ${payloadLiteral}::jsonb->>'icon',
+       COALESCE((${payloadLiteral}::jsonb->>'is_system')::boolean, false),
+       COALESCE((${payloadLiteral}::jsonb->>'is_transfer_category')::boolean, false),
+       COALESCE((${payloadLiteral}::jsonb->>'is_revaluation_category')::boolean, false),
+       COALESCE((${payloadLiteral}::jsonb->>'is_unassigned_bucket')::boolean, false),
+       COALESCE((${payloadLiteral}::jsonb->>'is_active')::boolean, true)
+     );
+     SELECT ${CATEGORY_JSON} INTO v_row
+       FROM public.categories c
+      WHERE c.id = (${payloadLiteral}::jsonb->>'id')::uuid;`,
+
+  // The same insert with a list in front of it — literally `.insert(rows)`, one
+  // statement, which is why a row the table refuses loses the whole call on both
+  // engines.
+  //
+  // TWO PASSES, and the second is the local port's shape rather than the cloud's:
+  // `parent_id` is nullable here and IMMEDIATE there, so a child listed before
+  // its parent needs the link deferred locally. Writing the same two passes in
+  // this oracle keeps the comparison about what LANDED rather than about which
+  // engine can insert a list in one go.
+  //
+  // The answer is ordered by id on both sides. Insertion order is not something
+  // PostgREST promises and the seam says callers match answers to requests BY
+  // NAME, so an order had to be chosen for the comparison and this is the one the
+  // verb states too.
+  create_categories: (payloadLiteral) => {
+    const rows = `jsonb_array_elements(COALESCE(${payloadLiteral}::jsonb->'categories','[]'::jsonb))`;
+    return `INSERT INTO public.categories (
+       id, user_id, name, type, level, parent_id, account_id, color, icon,
+       is_system, is_transfer_category, is_revaluation_category,
+       is_unassigned_bucket, is_active
+     )
+     SELECT
+       COALESCE(NULLIF(r->>'id','')::uuid, gen_random_uuid()),
+       (${payloadLiteral}::jsonb->>'user_id')::uuid,
+       r->>'name', r->>'type', r->>'level',
+       NULL,
+       NULLIF(r->>'account_id','')::uuid,
+       r->>'color', r->>'icon',
+       COALESCE((r->>'is_system')::boolean, false),
+       COALESCE((r->>'is_transfer_category')::boolean, false),
+       COALESCE((r->>'is_revaluation_category')::boolean, false),
+       COALESCE((r->>'is_unassigned_bucket')::boolean, false),
+       COALESCE((r->>'is_active')::boolean, true)
+     FROM ${rows} AS r;
+     UPDATE public.categories c
+        SET parent_id = NULLIF(r->>'parent_id','')::uuid
+       FROM ${rows} AS r
+      WHERE c.id = NULLIF(r->>'id','')::uuid
+        AND NULLIF(r->>'parent_id','') IS NOT NULL;
+     SELECT jsonb_build_object('categories',
+              COALESCE(jsonb_agg(${CATEGORY_JSON} ORDER BY c.id), '[]'::jsonb))
+       INTO v_row
+       FROM public.categories c
+      WHERE c.id IN (SELECT NULLIF(r->>'id','')::uuid FROM ${rows} AS r);`;
+  },
+
+  // `categoryToDb(updates)` sent as `.update(…).eq('id',…).eq('user_id',…)
+  // .select().single()`. Its whole presence rule is `patch ? 'k'` — the key being
+  // there is the whole test — so every column is one CASE and there is no second
+  // class, exactly as `update_account` above.
+  //
+  // THE `.single()` IS TRANSCRIBED, and it is the only part of any entry in this
+  // table that comes from PostgREST rather than from Postgres. It is still the
+  // query the client sends: `.single()` makes a request that matched no row into
+  // an ERROR (PGRST116, *"JSON object requested, multiple (or no) rows
+  // returned"*), which `handleSupabaseError` puts on screen — so an oracle
+  // without it would answer "fine, nothing happened" for a case the cloud
+  // refuses, and the local verb's own `category_not_found` would read as a
+  // divergence it is not. The DELETE below deliberately has no such clause,
+  // because that query has no `.single()` either, and the difference between the
+  // two verbs is exactly that one word.
+  update_category: (payloadLiteral) => {
+    const patch = `COALESCE(${payloadLiteral}::jsonb->'patch', '{}'::jsonb)`;
+    const has = (key) => `${patch} ? '${key}'`;
+    const text = (key) => `${patch}->>'${key}'`;
+    const set = (column, value, key = column) =>
+      `${column} = CASE WHEN ${has(key)} THEN ${value} ELSE ${column} END`;
+    const flag = (column) => set(column, `(${text(column)})::boolean`);
+    return `UPDATE public.categories c SET
+       ${set('name', text('name'))},
+       ${set('type', text('type'))},
+       ${set('level', text('level'))},
+       ${set('parent_id', `NULLIF(${text('parent_id')},'')::uuid`)},
+       ${set('account_id', `NULLIF(${text('account_id')},'')::uuid`)},
+       ${set('color', text('color'))},
+       ${set('icon', text('icon'))},
+       ${flag('is_system')},
+       ${flag('is_transfer_category')},
+       ${flag('is_revaluation_category')},
+       ${flag('is_unassigned_bucket')},
+       ${flag('is_active')}
+     WHERE c.id = (${payloadLiteral}::jsonb->>'id')::uuid
+       AND (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
+            OR c.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid);
+     IF NOT FOUND THEN
+       RAISE EXCEPTION 'PGRST116: JSON object requested, multiple (or no) rows returned';
+     END IF;
+     SELECT ${CATEGORY_JSON} INTO v_row
+       FROM public.categories c
+      WHERE c.id = (${payloadLiteral}::jsonb->>'id')::uuid;`;
+  },
+
+  // `.delete().eq('id',…).eq('user_id',…)`, and the cascade the client's own
+  // comment names: "parent_id FK is ON DELETE CASCADE — children go with the
+  // parent". No `.single()`, so an id naming nothing is a successful nothing.
+  //
+  // The count is built to match the LOCAL verb's, which walks the subtree and
+  // counts every row it removed rather than only the one named. Postgres's
+  // ROW_COUNT here would say 1 for a group of three, so the subtree is counted
+  // FIRST — a recursive CTE, bounded, because `parent_id` has no constraint
+  // against a loop on either engine.
+  delete_category: (payloadLiteral) =>
+    `WITH RECURSIVE doomed(id, depth) AS (
+       SELECT c.id, 0
+         FROM public.categories c
+        WHERE c.id = (${payloadLiteral}::jsonb->>'id')::uuid
+          AND (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
+               OR c.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid)
+       UNION
+       SELECT ch.id, d.depth + 1
+         FROM public.categories ch JOIN doomed d ON ch.parent_id = d.id
+        WHERE d.depth < 32
+     )
+     SELECT COUNT(*) INTO v_count FROM doomed;
+     DELETE FROM public.categories c
+      WHERE c.id = (${payloadLiteral}::jsonb->>'id')::uuid
+        AND (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
+             OR c.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid);
+     SELECT jsonb_build_object('deleted', v_count) INTO v_row;`,
+
+  // ── seed_categories: ensureCategories' WHOLE BODY, not just the RPC ────────
+  //
+  // `planningService.ensureCategories:426-487` is three steps and this is the
+  // same three: read the login's categories; if there are any, answer with them
+  // and write nothing; otherwise run `migrate_categories_atomic` with the list
+  // the client is holding and answer with what it returned.
+  //
+  // Transcribing the METHOD rather than the RPC is what makes the comparison
+  // honest. The verb is one crossing where the client makes two — a device has no
+  // second session to race, and a port may not branch on a refusal code
+  // (PHASE3-PLAN D-3) — so an oracle that only ran the RPC would report
+  // `categories_already_migrated` for a case the cloud's caller never reaches.
+  //
+  // What it does NOT transcribe is `ensureCategories`' offline fallback (a failed
+  // read serves the browser's cached copy). That is a decision about a NETWORK,
+  // and a local file has none.
+  //
+  // THE IDS DIVERGE BY DESIGN. Pass 1 of the RPC mints a fresh uuid for every
+  // incoming id and pass 4 remaps `transactions.category` and `budgets.category`
+  // through the map; the local verb keeps the ids it was given and has nothing to
+  // remap, because there is one id space in a file (B-4, PHASE3-PLAN D-5). The
+  // specs declare `categories` as a row divergence for exactly that reason and
+  // compare the TREE — names, levels, parents by name — through `state` instead.
+  //
+  // ONE MORE TRANSLATION, AND IT IS THE CLIENT'S OWN. The RPC's items are the
+  // FRONTEND's shape — `parentId`, `isSystem`, `isTransferCategory` — because
+  // `categoryToRpcPayload` hands it `Category` objects, while every other write
+  // in this family sends COLUMN names. The wire payload a spec writes is
+  // snake_case like the rest of the crate, so the camelCase item is rebuilt here,
+  // which is the same thing the account family's entry does when it maps one
+  // money key onto the writer's two figures: transcribe what the client actually
+  // sends.
+  seed_categories: (payloadLiteral) => {
+    const rows = `jsonb_array_elements(COALESCE(${payloadLiteral}::jsonb->'categories','[]'::jsonb))`;
+    const asFrontendShape = `(SELECT jsonb_agg(jsonb_build_object(
+         'id', r->>'id',
+         'name', r->>'name',
+         'type', r->>'type',
+         'level', r->>'level',
+         'parentId', r->>'parent_id',
+         'color', r->>'color',
+         'icon', r->>'icon',
+         'isSystem', r->>'is_system',
+         'isTransferCategory', r->>'is_transfer_category',
+         'isRevaluationCategory', r->>'is_revaluation_category',
+         'isUnassignedBucket', r->>'is_unassigned_bucket',
+         'accountId', r->>'account_id',
+         'isActive', r->>'is_active'))
+       FROM ${rows} AS r)`;
+    return `IF NOT EXISTS (SELECT 1 FROM public.categories
+                     WHERE user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid) THEN
+       PERFORM public.migrate_categories_atomic(
+                 (${payloadLiteral}::jsonb->>'user_id')::uuid,
+                 ${asFrontendShape});
+     END IF;
+     SELECT jsonb_build_object('categories',
+              COALESCE(jsonb_agg(${CATEGORY_JSON} ORDER BY c.level, c.name, c.id), '[]'::jsonb))
+       INTO v_row
+       FROM public.categories c
+      WHERE c.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid;`;
+  },
+
   // The snap returns the whole accounts row. Projected into the same eight
   // fields crate::row::account::AccountRow serialises, money as a decimal string
   // on both sides — numeric::text is exact and involves no rounding function.
@@ -1065,6 +1296,21 @@ const VERBS = {
  * savepoint undoes the RPC's partial effects exactly as a rolled-back request
  * would, so what the assertions then see is the same state a refused call leaves
  * behind in production.
+ *
+ * `WHEN assert_failure OR OTHERS` rather than `WHEN OTHERS`, and it took a
+ * harness error to find out why. **`WHEN OTHERS` does not catch
+ * `assert_failure`** — one of the two conditions Postgres documents as outside
+ * it (the other is `query_canceled`) — and `assert_failure` IS `ERRCODE P0004`,
+ * which is what `migrate_categories_atomic` raises BOTH of its named refusals
+ * with (`20260724100000:69`, `:76`): `categories_payload_empty` and
+ * `category_missing_id`. MEASURED here, 2026-08-11: the exception walked
+ * straight past a `WHEN OTHERS` handler and aborted the script.
+ *
+ * That is a fact about the live RPC and not about this harness. Nothing in the
+ * app wraps it in a handler today, so the app is unaffected — PostgREST reports
+ * an error either way — but any Postgres function that ever calls it and expects
+ * to be able to recover would abort instead, silently, on the two cases most
+ * worth recovering from. Recorded here because this is the file that found it.
  */
 function guarded(call) {
   return `
@@ -1076,10 +1322,14 @@ DECLARE v_row jsonb;
         -- because a per-verb DECLARE list would be a second place to keep in
         -- step with the first.
         v_first uuid;
+        -- delete_category has to count the subtree BEFORE the cascade removes
+        -- it, for the reason its own entry gives: ROW_COUNT here would say 1 for
+        -- a group of three, and the local verb counts every row that went.
+        v_count bigint;
 BEGIN
   ${call}
   INSERT INTO _wt_verb_out VALUES (v_row, NULL);
-EXCEPTION WHEN OTHERS THEN
+EXCEPTION WHEN assert_failure OR OTHERS THEN
   INSERT INTO _wt_verb_out VALUES (NULL, SQLERRM);
 END
 $wtblock$;`;
