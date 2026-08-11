@@ -332,7 +332,11 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
   if (data?.type === 'budget-alert') {
     url = '/budget';
   } else if (data?.type === 'bill-reminder') {
-    url = `/transactions?filter=bills&date=${data.date}`;
+    // That day, in Find. It used to say `/transactions?filter=bills&date=…`
+    // and no page ever read either parameter — the global list honoured
+    // `?account=` and nothing else, so the reminder landed on the whole
+    // ledger. Find reads a date range, so the day survives the trip.
+    url = `/find?dateFrom=${data.date}&dateTo=${data.date}`;
   } else if (data?.type === 'goal-achieved') {
     url = `/goals/${data.goalId}`;
   } else if (data?.type === 'investment-alert') {

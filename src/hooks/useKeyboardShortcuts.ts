@@ -70,7 +70,10 @@ export function useGlobalKeyboardShortcuts(onHelpOpen?: () => void): UseGlobalKe
         case 'h': navigate('/'); break;
         case 'd': navigate('/dashboard'); break;
         case 'a': navigate('/accounts'); break;
-        case 't': navigate('/transactions'); break;
+        // 't' still means transactions — it goes to Find, which is where you
+        // ask about them now. The register you actually work in is reached
+        // through the account that owns it ('g a').
+        case 't': navigate('/find'); break;
         case 'i': navigate('/investments'); break;
         case 'b': navigate('/budget'); break;
         case 'c': navigate('/calendar'); break;
@@ -81,7 +84,10 @@ export function useGlobalKeyboardShortcuts(onHelpOpen?: () => void): UseGlobalKe
     } else if (firstKey === 'n') {
       // New shortcuts
       switch (secondKey) {
-        case 't': navigate('/transactions?action=add'); break;
+        // The add-transaction modal is Layout's, opened by an app-wide
+        // parameter on any page; `add-transaction` rather than `add` because
+        // on /accounts the shorter word already means "add an account".
+        case 't': navigate('/accounts?action=add-transaction'); break;
         case 'a': navigate('/accounts?action=add'); break;
         case 'g': navigate('/goals?action=add'); break;
         case 'b': navigate('/budget?action=add'); break;
@@ -146,8 +152,8 @@ export function useGlobalKeyboardShortcuts(onHelpOpen?: () => void): UseGlobalKe
     {
       key: 't',
       altKey: true,
-      description: 'Go to Transactions',
-      action: () => navigate('/transactions'),
+      description: 'Go to Find',
+      action: () => navigate('/find'),
       category: 'Navigation',
     },
     {
@@ -192,7 +198,7 @@ export function useGlobalKeyboardShortcuts(onHelpOpen?: () => void): UseGlobalKe
       ctrlKey: true,
       shiftKey: true,
       description: 'New Transaction',
-      action: () => navigate('/transactions?action=add'),
+      action: () => navigate('/accounts?action=add-transaction'),
       category: 'Quick Actions',
     },
     {
@@ -283,7 +289,7 @@ export function getAllShortcuts(): KeyboardShortcut[] {
     { key: 'g h', description: 'Go to Home', category: 'Navigation', action: () => {} },
     { key: 'g d', description: 'Go to Dashboard', category: 'Navigation', action: () => {} },
     { key: 'g a', description: 'Go to Accounts', category: 'Navigation', action: () => {} },
-    { key: 'g t', description: 'Go to Transactions', category: 'Navigation', action: () => {} },
+    { key: 'g t', description: 'Go to Find (transactions)', category: 'Navigation', action: () => {} },
     { key: 'g i', description: 'Go to Investments', category: 'Navigation', action: () => {} },
     { key: 'g b', description: 'Go to Budget', category: 'Navigation', action: () => {} },
     { key: 'g c', description: 'Go to Calendar', category: 'Navigation', action: () => {} },

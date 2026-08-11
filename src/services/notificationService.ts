@@ -6,6 +6,7 @@ import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
 import { calculateBudgetSpend, prepareBudgetTransactions } from '../utils/budgetSpending';
 import { getEffectiveBudgetAmount } from '../utils/budgetAmounts';
 import { calculateBudgetPercentage } from '../utils/calculations-decimal';
+import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
 
 export interface NotificationRule {
   id: string;
@@ -288,8 +289,10 @@ export class NotificationService {
               title: 'Large Transaction Detected',
               message: 'A large transaction was recorded',
               actionButton: {
-                label: 'Review Transaction',
-                action: '/transactions'
+                // A rule template, with no particular row in hand: the
+                // accounts, where the registers are.
+                label: 'Review accounts',
+                action: '/accounts'
               }
             }
           }
@@ -562,9 +565,19 @@ export class NotificationService {
         timestamp: new Date(),
         read: false,
         action: {
-          label: 'Review Transactions',
+          // Onto the suspected row itself, in its own account's register —
+          // which is both where the duplicate can be judged (its neighbours
+          // are right there) and where it can be deleted. "Review
+          // Transactions" used to open the whole global list with nothing
+          // pointed at, which on a real history is not an answer. A row with
+          // no account is the only thing that cannot be pointed at.
+          label: 'Review transaction',
           onClick: () => {
-            this.navigate?.('/transactions');
+            this.navigate?.(
+              transaction.accountId
+                ? buildTransactionRegisterPath(transaction.accountId, transaction.id, '')
+                : '/accounts'
+            );
           }
         }
       };

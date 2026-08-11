@@ -6,8 +6,13 @@ import { gotoDemo, waitForApp } from './helpers';
  *
  * Opens the add-transaction modal from the dashboard quick action, fills the
  * required fields (account, description, amount), saves, and verifies the new
- * transaction appears in the transactions list. A regression here means users
- * cannot record money — the product's reason to exist.
+ * transaction can be found. A regression here means users cannot record money —
+ * the product's reason to exist.
+ *
+ * The proof used to be "it appears on the global transactions page". That page
+ * is retired (transactions are worked on in their account's register), so the
+ * proof is Find, which searches every account at once — the same question,
+ * asked of the app that exists now.
  */
 
 test('add a transaction from the dashboard and find it in the list', async ({ page }) => {
@@ -40,8 +45,8 @@ test('add a transaction from the dashboard and find it in the list', async ({ pa
   // Modal closes on a successful save.
   await expect(dialog).toBeHidden({ timeout: 10_000 });
 
-  // The new transaction shows up on the transactions page.
-  await gotoDemo(page, '/transactions');
+  // The new transaction can be found — from any account, by its description.
+  await gotoDemo(page, `/find?q=${encodeURIComponent(uniqueDescription)}`);
   await waitForApp(page);
   await expect(page.getByText(uniqueDescription).first()).toBeVisible({ timeout: 10_000 });
 });

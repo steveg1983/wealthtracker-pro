@@ -95,9 +95,11 @@ export default function Layout(): React.JSX.Element {
   // schedule itself lives in Settings; signed-out sessions do nothing.
   useAutoBankSync();
 
-  // Simple page navigation helper
+  // Simple page navigation helper. Swipe walks the PAGES a phone browses;
+  // Find is a question you ask, not somewhere you swipe into, so it is not
+  // here (nor is the retired /transactions it replaced).
   const getNextPrevPage = (direction: 'next' | 'prev', currentPath: string): string | null => {
-    const pages = ['/dashboard', '/accounts', '/transactions', '/investments', '/reports'];
+    const pages = ['/dashboard', '/accounts', '/investments', '/reports'];
     const currentIndex = pages.indexOf(currentPath);
     
     if (currentIndex === -1) return null;
@@ -134,12 +136,29 @@ export default function Layout(): React.JSX.Element {
     setIsMobileSearchVisible(false);
   }, [location.pathname]);
 
-  // The mobile +'s "Add Transaction" deep-links /transactions?action=add.
-  // The app-wide add modal is Layout's, so Layout honours it — and consumes
-  // the param with a replace, so back or refresh cannot re-open the modal.
+  /**
+   * `?action=add-transaction`, on ANY page: open the app-wide add-transaction
+   * modal.
+   *
+   * The modal is Layout's, so Layout is what honours the parameter — and it
+   * consumes it with a replace, so back or refresh cannot re-open it. It used
+   * to insist on `/transactions`, which tied the phone's + and the keyboard's
+   * "new transaction" to a page that no longer exists; the parameter is now
+   * read wherever it lands, and both of those point at /accounts.
+   *
+   * ─ WHY NOT `?action=add` ───────────────────────────────────────────────────
+   * Because that name is taken, on the very page this now lands on: the
+   * Accounts page reads `?action=add` as "add an ACCOUNT" (see Accounts.tsx),
+   * and a Layout that also claimed it would open two modals at once for the
+   * phone's "Add Account". Two different things cannot share one parameter the
+   * moment the parameter stops belonging to one page. Old links that say
+   * `add` on `/transactions` are translated on their way through the redirect
+   * (see components/legacyTransactionsDestination), where the page they came
+   * from still says which of the two they meant.
+   */
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (location.pathname === '/transactions' && params.get('action') === 'add') {
+    if (params.get('action') === 'add-transaction') {
       setShowGlobalAddTransaction(true);
       params.delete('action');
       navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
@@ -267,9 +286,14 @@ export default function Layout(): React.JSX.Element {
               // OWN, next to the transactions that feed it. Manage is data
               // admin: categories, payees, tags, imports. Same page, same icon;
               // only the menu it hangs off changed.
+              // Find, where Transactions used to be. The global transactions
+              // page is retired: transactions are worked on in the register of
+              // the account they belong to, and the one thing that page did
+              // that a register cannot — "which account was that in?" — is
+              // what Find answers, by taking you to the row in its register.
               items={[
                 { to: '/accounts', icon: WalletIcon, label: 'All Accounts' },
-                { to: '/transactions', icon: CreditCardIcon, label: 'Transactions' },
+                { to: '/find', icon: SearchIcon, label: 'Find Transactions' },
                 { to: '/investments', icon: TrendingUpIcon, label: 'Investments' },
                 { to: '/reconciliation', icon: ArrowRightLeftIcon, label: 'Reconciliation' },
                 { to: '/categorisation', icon: TagIcon, label: 'Categorisation' },
@@ -277,7 +301,7 @@ export default function Layout(): React.JSX.Element {
               ]}
               // The highlight follows the menu: on /investments it is Accounts
               // that lights up now, not Manage.
-              activePaths={['/accounts', '/transactions', '/investments', '/reconciliation', '/categorisation', '/open-banking']}
+              activePaths={['/accounts', '/find', '/investments', '/reconciliation', '/categorisation', '/open-banking']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
@@ -369,7 +393,7 @@ export default function Layout(): React.JSX.Element {
                 const pageHelp: Record<string, string> = {
                   '/dashboard': 'Your financial overview — net worth, income and expenses for the period you choose, your pinned reports, key account balances and budget progress.',
                   '/accounts': 'Manage bank accounts, credit cards, savings, and investments. Toggle between grouping by type or institution.',
-                  '/transactions': 'View, filter, and edit all transactions. Right-click for quick actions. Click categories or amounts to edit inline.',
+                  '/find': 'Search every account at once by description or amount. Click a result to open that transaction in its own account’s register, where you can change it.',
                   '/budget': 'Set and track budgets by category. Try envelope budgeting or zero-based budgeting.',
                   '/calendar': 'See your income and expenses laid out by day on a monthly calendar.',
                   '/reports': 'A gallery of reports — net worth, account balances, spending by category or payee, period comparisons, and your own custom reports. The period you choose follows you between them.',
@@ -548,7 +572,7 @@ export default function Layout(): React.JSX.Element {
                   </Link>
                   {accountsExpanded && (
                     <div className="mt-1 space-y-1">
-                      <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/find" icon={SearchIcon} label="Find Transactions" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/categorisation" icon={TagIcon} label="Categorisation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/open-banking" icon={BankIcon} label="Bank Feeds" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />

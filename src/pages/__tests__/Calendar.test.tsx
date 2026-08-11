@@ -1,6 +1,7 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import Calendar from '../Calendar';
 
 // Mock the app context
@@ -109,5 +110,38 @@ describe('Calendar', () => {
     );
     expect(screen.queryByRole('grid')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Financial calendar')).toBeInTheDocument();
+  });
+});
+
+/**
+ * CLICKING A DAY.
+ *
+ * This link had never worked. It pointed at `/transactions?dateFrom=…&dateTo=…`
+ * and the global list read one parameter — `?account=` — so the day the user
+ * clicked was thrown away and they arrived at the whole ledger. It now goes to
+ * Find, which reads a range, shows it and offers a way to clear it.
+ */
+describe('Calendar — a day with movement in it', () => {
+  function WhereAmI(): React.JSX.Element {
+    const location = useLocation();
+    return <div data-testid="landed">{`${location.pathname}${location.search}`}</div>;
+  }
+
+  it('opens that day in Find, with the range on the URL', () => {
+    render(
+      <MemoryRouter initialEntries={['/calendar']}>
+        <Routes>
+          <Route path="/calendar" element={<Calendar />} />
+          <Route path="/find" element={<WhereAmI />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    // The suite pins the clock to 20 January 2025, and both seeded rows are
+    // dated "now" — so today is the day with movement in it.
+    fireEvent.click(screen.getByRole('button', { name: 'Day 20, 2 transactions' }));
+
+    expect(screen.getByTestId('landed'))
+      .toHaveTextContent('/find?dateFrom=2025-01-20&dateTo=2025-01-20');
   });
 });

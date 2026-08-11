@@ -41,10 +41,10 @@ export default function NotFound(): React.JSX.Element {
             Go to your dashboard
           </Link>
           <Link
-            to="/transactions"
+            to="/accounts"
             className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           >
-            Go to transactions
+            Go to your accounts
           </Link>
         </div>
       </div>

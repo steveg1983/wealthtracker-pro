@@ -9,7 +9,9 @@ import { gotoDemo, waitForApp } from './helpers';
 
 const PAGES: Array<{ route: string; expect: RegExp }> = [
   { route: '/dashboard', expect: /net worth|assets|dashboard/i },
-  { route: '/transactions', expect: /transaction|income|expense/i },
+  // Find replaced the global transactions page; with nothing typed it states
+  // what it is for, which is the content this net is looking for.
+  { route: '/find', expect: /find looks through every account/i },
   { route: '/accounts', expect: /account|balance/i },
   { route: '/budget', expect: /budget/i },
   { route: '/calendar', expect: /calendar|financial calendar/i },
@@ -42,10 +44,13 @@ test('sidebar navigation moves between pages', async ({ page }) => {
   // and wins pointer hit-testing, so even force-clicks land on it.
   // dispatchEvent fires the click directly on the anchor — the real proof
   // that activating the link triggers SPA routing.
-  const txnLink = page.getByRole('link', { name: /^transactions$/i }).first();
-  await expect(txnLink).toBeVisible();
-  await txnLink.dispatchEvent('click');
-  await expect(page).toHaveURL(/\/transactions/);
+  // Find lives in the Accounts menu, and that menu's items exist only while it
+  // is open — so the menu is opened first, which is also what a user does.
+  await page.getByRole('button', { name: /accounts menu/i }).click();
+  const findLink = page.getByRole('link', { name: /^find transactions$/i }).first();
+  await expect(findLink).toBeVisible();
+  await findLink.dispatchEvent('click');
+  await expect(page).toHaveURL(/\/find/);
 
   const acctLink = page.getByRole('link', { name: /^accounts$/i }).first();
   await expect(acctLink).toBeVisible();

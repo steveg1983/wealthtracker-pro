@@ -169,10 +169,19 @@ export default function Calendar() {
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
+  /**
+   * "What was that day made of?" — answered in Find, dated to the day.
+   *
+   * It used to point at `/transactions?dateFrom=…&dateTo=…`, and that link had
+   * never worked: the global list read one parameter, `?account=`, so the day
+   * you clicked was thrown away and you arrived at the whole ledger. Find reads
+   * the range, shows it, and offers a way to clear it — so the same click now
+   * does what it always said it did.
+   */
   const handleDayClick = (day: DayData) => {
     if (day.transactionCount > 0) {
       const dateStr = `${day.date.getFullYear()}-${String(day.date.getMonth() + 1).padStart(2, '0')}-${String(day.day).padStart(2, '0')}`;
-      navigate(preserveDemoParam(`/transactions?dateFrom=${dateStr}&dateTo=${dateStr}`, location.search));
+      navigate(preserveDemoParam(`/find?dateFrom=${dateStr}&dateTo=${dateStr}`, location.search));
     }
   };
 

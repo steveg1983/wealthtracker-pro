@@ -897,12 +897,13 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   /**
    * A closed editor owns no dialogs.
    *
-   * Callers differ: the register unmounts this component on close, while the
-   * Transactions page leaves it mounted with isOpen=false. In the second case a
-   * delete confirmation left standing outlived the editor it belonged to — and
-   * now that the confirmation traps focus, that would strand the user in a
-   * dialog about a form they can no longer see. Clearing the flag also stops a
-   * stale one springing open the next time the editor is opened.
+   * Callers differ, and a caller is free to keep this mounted with
+   * isOpen=false rather than unmounting it (the register unmounts; the retired
+   * global transactions list did not, which is how this was found). Where it
+   * stays mounted, a delete confirmation left standing outlived the editor it
+   * belonged to — and now that the confirmation traps focus, that would strand
+   * the user in a dialog about a form they can no longer see. Clearing the flag
+   * also stops a stale one springing open the next time the editor is opened.
    */
   useEffect(() => {
     if (!isOpen) {

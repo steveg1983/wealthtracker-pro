@@ -77,7 +77,9 @@ export default function PortfolioView({
         
         <div className="flex gap-4 mb-4">
           <button
-            onClick={() => navigate(`/transactions?account=${accountId}`)}
+            // The account's own register — where "view transactions" for one
+            // account has always meant, and now the only place it exists.
+            onClick={() => navigate(`/accounts/${accountId}`)}
             className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
           >
             View Transactions

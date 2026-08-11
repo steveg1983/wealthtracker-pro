@@ -17,9 +17,10 @@ import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
  *
  * That is also what makes the change forward-compatible for free: a
  * notification stored by an older build carries the old `/accounts` or
- * `/transactions` and still lands exactly where it always did, while new ones
- * land on their subject. There is no field to be missing and nothing to
- * migrate.
+ * `/transactions` and still lands somewhere sensible — the latter is now a
+ * redirect (components/legacyTransactionsDestination) rather than a page —
+ * while new ones land on their subject. There is no field to be missing and
+ * nothing to migrate.
  */
 export function useActivityLogger() {
   const { transactions, accounts, goals } = useApp();
@@ -55,10 +56,11 @@ export function useActivityLogger() {
           // transaction arrived" used to open the whole transactions list with
           // nothing pointed at, which on fifty thousand rows is not an answer.
           // A row with no account is the only thing that cannot be pointed at,
-          // and falls back to the list rather than to a broken URL.
+          // and falls back to the list of accounts rather than to a broken URL
+          // (the global transactions list it used to name is retired).
           actionUrl: t.accountId
             ? buildTransactionRegisterPath(t.accountId, t.id, '')
-            : '/transactions'
+            : '/accounts'
         });
       }
     }

@@ -976,7 +976,7 @@ describe('NotificationContext', () => {
       expect(result.current.notifications).toHaveLength(1);
     });
 
-    it('navigates to transactions page when action is clicked', () => {
+    it('navigates to the accounts page when action is clicked', () => {
       const { result } = renderHook(() => useNotifications(), { wrapper });
 
       // Enable large transaction alerts first
@@ -992,7 +992,10 @@ describe('NotificationContext', () => {
         result.current.notifications[0].action?.onClick();
       });
 
-      expect(window.location.href).toBe('/transactions');
+      // The alert is raised from an amount and a description, with no id to
+      // point at, so it offers the accounts — where the registers are. There
+      // is no global list of transactions to open any more.
+      expect(window.location.href).toBe('/accounts');
     });
   });
 

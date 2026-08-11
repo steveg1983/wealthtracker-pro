@@ -29,6 +29,10 @@ import ConsentBanner from './components/ConsentBanner';
 import { isDemoMode } from './utils/demoData';
 import { isMnyLocalImportRequested, loadMnyLocalSeed } from './utils/mnyLocalImport';
 import { DebugErrorBoundary } from './components/DebugErrorBoundary';
+// Eager, and deliberately: it is four lines of routing decision, and a lazy
+// chunk that fails to load would turn a legacy bookmark into a blank page —
+// the exact failure a redirect exists to prevent.
+import LegacyTransactionsRedirect from './components/LegacyTransactionsRedirect';
 // The only page imported eagerly. It is tiny, and lazy-loading it would give it
 // a failure mode of its own — a chunk that will not load renders nothing, which
 // is the blank page this page exists to replace.
@@ -41,7 +45,7 @@ const BankingCallback = lazyWithPreload(() => import(/* webpackChunkName: "banki
 const Welcome = lazyWithPreload(() => import(/* webpackChunkName: "welcome" */ './pages/Welcome'));
 const Dashboard = lazyWithPreload(() => import(/* webpackChunkName: "dashboard", webpackPreload: true */ './pages/Dashboard'));
 const Accounts = lazyWithPreload(() => import(/* webpackChunkName: "accounts", webpackPreload: true */ './pages/Accounts'));
-const Transactions = lazyWithPreload(() => import(/* webpackChunkName: "transactions", webpackPreload: true */ './pages/Transactions'));
+const Find = lazyWithPreload(() => import(/* webpackChunkName: "find" */ './pages/Find'));
 const Reconciliation = lazyWithPreload(() => import(/* webpackChunkName: "reconciliation" */ './pages/Reconciliation'));
 const Categorisation = lazyWithPreload(() => import(/* webpackChunkName: "categorisation" */ './pages/Categorisation'));
 const Investments = lazyWithPreload(() => import(/* webpackChunkName: "investments" */ './pages/Investments'));
@@ -120,9 +124,10 @@ function App(): React.JSX.Element {
     // with a key it immediately discarded. Real backup/restore now lives in
     // services/backupService (Manage → Export, Settings → Data Management).
 
-    // Preload commonly accessed routes when browser is idle
+    // Preload commonly accessed routes when browser is idle. Find is not among
+    // them: it is a small chunk reached deliberately (Ctrl/Cmd+K, the Accounts
+    // menu, a Calendar day), not a page users land on by habit.
     preloadWhenIdle(Dashboard);
-    preloadWhenIdle(Transactions);
     preloadWhenIdle(Accounts);
     preloadWhenIdle(Budget);
   }, []);
@@ -201,12 +206,22 @@ function App(): React.JSX.Element {
                               <AccountTransactions />
                             </ProtectedSuspense>
                           } />
-                          <Route path="transactions" element={
+                          {/* Find replaced the global transactions page: the
+                              register is where transactions are worked on, and
+                              a browsable copy of every account demanded that
+                              every register feature be built twice. Find is the
+                              one job that page really did — "where is that
+                              transaction?" — and it answers it by sending you
+                              to the row in its own register. */}
+                          <Route path="find" element={
                             <ProtectedSuspense>
-                              <Transactions />
+                              <Find />
                             </ProtectedSuspense>
                           } />
-                          <Route path="transactions-comparison" element={<RedirectWithSearch to="/transactions" />} />
+                          {/* Both retired addresses obey one rule; see
+                              components/legacyTransactionsDestination. */}
+                          <Route path="transactions" element={<LegacyTransactionsRedirect />} />
+                          <Route path="transactions-comparison" element={<LegacyTransactionsRedirect />} />
                           <Route path="reconciliation" element={
                             <ProtectedSuspense>
                               <Reconciliation />

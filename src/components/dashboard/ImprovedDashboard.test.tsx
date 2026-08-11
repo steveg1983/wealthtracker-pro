@@ -311,7 +311,10 @@ describe('Your Reports — two columns, two clocks', () => {
     const legend = screen.getByRole('list', { name: 'Account distribution legend' });
     fireEvent.click(within(legend).getByRole('button', { name: /Feed Account A/ }));
 
-    expect(mocks.navigate).toHaveBeenCalledWith('/transactions?account=acc-a');
+    // Straight into that account's register. It used to open the global list
+    // filtered to the account — the same answer one page further away, and
+    // that page is retired.
+    expect(mocks.navigate).toHaveBeenCalledWith('/accounts/acc-a');
   });
 });
 

@@ -50,48 +50,10 @@ vi.mock('../../pages/Accounts', () => {
   return { default: AccountsMock };
 });
 
-vi.mock('../../pages/Transactions', () => {
-  const TransactionsMock: React.FC = () => {
-    const [showModal, setShowModal] = React.useState(false);
-    return (
-      <div>
-        <h1>Transactions</h1>
-        <button onClick={() => setShowModal(true)}>Add Transaction</button>
-        {showModal && (
-          <div>
-            <label>
-              Amount
-              <input type="number" />
-            </label>
-            <label>
-              Type
-              <select>
-                <option value="expense">Expense</option>
-                <option value="income">Income</option>
-              </select>
-            </label>
-            <label>
-              Category
-              <select>
-                <option value="cat1">Food & Dining</option>
-                <option value="cat2">Transportation</option>
-                <option value="cat3">Shopping</option>
-                <option value="cat4">Salary</option>
-              </select>
-            </label>
-            <label>
-              Description
-              <input type="text" />
-            </label>
-            <button>Save</button>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  return { default: TransactionsMock };
-});
+// The global Transactions page was retired: transactions are worked on in the
+// register of the account that owns them (pages/AccountTransactions), which has
+// suites of its own that render the real thing. The two workflow cases here
+// stood on a hand-written stand-in for that page and went with it.
 
 vi.mock('../../pages/Budget', () => {
   type BudgetMockBudget = {
@@ -304,36 +266,6 @@ describe('User Workflow Integration Tests', () => {
       await waitFor(() => {
         expect(screen.getByText('Checking Account')).toBeInTheDocument();
         expect(screen.getByText('Savings Account')).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Daily Money Management Workflow', () => {
-    it('supports adding income transaction', async () => {
-      const Transactions = (await import('../../pages/Transactions')).default;
-      
-      const { store: _store } = renderWithProviders(<Transactions />, {
-      });
-
-      const addButton = screen.getByRole('button', { name: /add transaction/i });
-      fireEvent.click(addButton);
-
-      await waitFor(() => {
-        expect(screen.getByText('Amount')).toBeInTheDocument();
-      });
-    });
-
-    it('supports adding expense transaction', async () => {
-      const Transactions = (await import('../../pages/Transactions')).default;
-      
-      renderWithProviders(<Transactions />, {
-      });
-
-      const addButton = screen.getByRole('button', { name: /add transaction/i });
-      fireEvent.click(addButton);
-
-      await waitFor(() => {
-        expect(screen.getByText('Type')).toBeInTheDocument();
       });
     });
   });

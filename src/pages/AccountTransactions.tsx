@@ -73,8 +73,9 @@ import type { Account, Transaction } from '../types';
 import { preferences, type PreferenceStorage } from '../services/preferencesService';
 
 /**
- * The app's one full "add a transaction" editor — the component the global
- * Transactions page opens, reached here from the toolbar's Add.
+ * The app's one full "add a transaction" editor — the same component Layout
+ * opens app-wide (Alt+N, ?action=add-transaction), reached here from the
+ * toolbar's Add.
  *
  * Lazy for the reason Layout loads the same module lazily: it is not part of
  * the register's first paint, and loading it the same way means both entry
@@ -3166,22 +3167,20 @@ export default function AccountTransactions() {
       {/* Transactions Table — measured to keep the whole page in one viewport;
           the table scrolls internally. Expanded mode trades the bottom dock
           for more visible rows. */}
-      {/* Phones get the same card list as the Transactions page. The
-          register table's columns are fixed-width flex cells with visible
-          overflow — at 375px they shrink into each other and the headers
-          paint on top of one another. A register is also read differently on
-          a phone: tap a row to see or change everything. */}
+      {/* Phones get a card list rather than the table. The register table's
+          columns are fixed-width flex cells with visible overflow — at 375px
+          they shrink into each other and the headers paint on top of one
+          another. A register is also read differently on a phone: tap a row to
+          see or change everything. */}
       <div className="lg:hidden bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
         <InfiniteScrollTransactionList
           transactions={transactionsWithBalance}
           accounts={[]}
           categories={categories}
           // A phone is still looking at the REGISTER, with the same To Review
-          // box above it and the same filter, so it gets the same bold. The
-          // Transactions page renders this identical list and now asks for it
-          // too — it grew the same counter and the same filter when it was
-          // brought up to this register's manners. A list that offers neither
-          // still gets the default and still says nothing.
+          // box above it and the same filter, so it gets the same bold. A list
+          // that offers neither — a report, a Find result — gets the default
+          // and says nothing.
           markNewArrivals
           formatCurrency={(n) => formatCurrency(n, account.currency)}
           onEdit={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setIsEditModalOpen(true); }}

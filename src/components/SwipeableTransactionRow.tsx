@@ -32,11 +32,10 @@ interface SwipeableTransactionRowProps {
    * row where there is nothing to do about it as a SET is how people learn to
    * ignore the marking on the screen where it matters.
    *
-   * Two callers pass it, and both earn it: the account register, and the
-   * Transactions page — which grew the same counter and the same filter when it
-   * was brought up to the register's manners, so its rows now lead somewhere
-   * too. Anything else that lists transactions (a report, a search result, a
-   * dashboard card) still gets the default and still says nothing.
+   * The account register earns it: it carries that counter and that filter, so
+   * a row marked new there leads somewhere. Anything else that lists
+   * transactions (a report, a Find result, a dashboard card) gets the default
+   * and says nothing.
    */
   markNewArrivals?: boolean;
 }
@@ -239,10 +238,10 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
                 {' · '}
                 {categoryName ?? <span className="italic">Uncategorised</span>}
                 {/* Right beside the category it is about, because that is the
-                    only place it means anything. Tapping the card opens the row
-                    (details on the transactions page, the editor on a
-                    register); both carry the same badge, and saving an edit is
-                    what records the answer — the phone's "confirm or edit". */}
+                    only place it means anything. Tapping the card opens the
+                    row's editor, which carries the same badge — and saving an
+                    edit is what records the answer: the phone's "confirm or
+                    edit". */}
                 {isConfirmableSuggestion(transaction) && (
                   <SuggestedCategoryBadge
                     className="ml-1.5 align-middle"

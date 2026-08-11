@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { HomeIcon, WalletIcon, BarChart3Icon, CheckCircleIcon, TagIcon, PlusIcon, XIcon } from './icons';
+import { HomeIcon, WalletIcon, BarChart3Icon, CheckCircleIcon, TagIcon, PlusIcon, XIcon, SearchIcon } from './icons';
 
 interface MobileNavItem {
   to: string;
@@ -23,15 +23,20 @@ interface MobileNavItem {
  *
  * Labels are 11px with no slot padding because that is what measurement said,
  * not taste: at 375px each of five slots gives the text 63px at 12px type, and
- * "Transactions" needs 72px — it has been rendering as "Transactio…" all
- * along. At 11px with the padding removed every label fits whole. The full
+ * "Transactions" needed 72px — it rendered as "Transactio…" for as long as it
+ * was here. At 11px with the padding removed every label fits whole. The full
  * word "Categorisation" does not fit at any size tried (83px), hence the verb,
  * which also matches "Reconcile".
+ *
+ * The third slot was Transactions, the global list, which is retired: on a
+ * phone you either open the account you are looking at (Accounts) or you are
+ * hunting for one row, which is Find. Nothing browses fifty thousand rows on a
+ * phone, which is what that slot offered.
  */
 const mobileNavItems: MobileNavItem[] = [
   { to: '/dashboard', icon: HomeIcon, label: 'Home' },
   { to: '/accounts', icon: WalletIcon, label: 'Accounts' },
-  { to: '/transactions', icon: BarChart3Icon, label: 'Transactions' },
+  { to: '/find', icon: SearchIcon, label: 'Find' },
   { to: '/reconciliation', icon: CheckCircleIcon, label: 'Reconcile' },
   { to: '/categorisation', icon: TagIcon, label: 'Categorise' },
 ];
@@ -54,8 +59,12 @@ export default function MobileBottomNav(): React.JSX.Element {
           onClick={() => setShowQuickActions(false)}
         >
           <div className="absolute bottom-20 right-4 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-2 min-w-[200px]">
+            {/* The add-transaction modal is Layout's and is opened by an
+                app-wide parameter, so this points at a page that still exists
+                rather than at the retired list. `add-transaction`, not `add`:
+                on /accounts the shorter word already means "add an account". */}
             <Link
-              to="/transactions?action=add"
+              to="/accounts?action=add-transaction"
               className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               onClick={() => setShowQuickActions(false)}
             >

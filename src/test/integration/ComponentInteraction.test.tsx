@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { renderWithProviders, createTestData, mockLocalStorage } from './test-utils';
 
@@ -37,29 +37,10 @@ vi.mock('../../pages/Accounts', () => ({
   )
 }));
 
-vi.mock('../../pages/Transactions', () => ({
-  default: () => (
-    <div>
-      <h1>Transactions</h1>
-      <button>Add Transaction</button>
-      <div>Salary</div>
-      <div>Transfer</div>
-      <label htmlFor="account-filter">Account</label>
-      <select id="account-filter">
-        <option value="">All</option>
-        <option value="1">Account 1</option>
-      </select>
-      <form>
-        <label htmlFor="description">Description</label>
-        <input id="description" />
-        <label htmlFor="amount">Amount</label>
-        <input id="amount" required />
-        <button type="submit">Save</button>
-        <div>Amount is required</div>
-      </form>
-    </div>
-  )
-}));
+// The global Transactions page was retired: transactions are worked on in the
+// register of the account that owns them (pages/AccountTransactions), which has
+// suites of its own that render the real thing. The two cases here that stood
+// on a hand-written stand-in for that page went with it.
 
 vi.mock('../../pages/Budget', () => ({
   default: () => (
@@ -119,32 +100,6 @@ describe('Component Integration Tests', () => {
       // Update would happen through state management
       // For this test we just verify the component loads
       expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    });
-  });
-
-  describe('Account-Transaction Integration', () => {
-    it('shows transactions filtered by account', async () => {
-
-
-      const Transactions = (await import('../../pages/Transactions')).default;
-      renderWithProviders(<Transactions />, {
-      });
-
-      // Both transactions should be visible initially
-      await waitFor(() => {
-        expect(screen.getByText('Salary')).toBeInTheDocument();
-        expect(screen.getByText('Transfer')).toBeInTheDocument();
-      });
-
-      // Filter by account if filter functionality exists
-      const accountFilter = screen.queryByLabelText(/Account/i);
-      if (accountFilter) {
-        fireEvent.change(accountFilter, { target: { value: '1' } });
-        
-        // In the mock, both are still shown
-        expect(screen.getByText('Salary')).toBeInTheDocument();
-        expect(screen.getByText('Transfer')).toBeInTheDocument();
-      }
     });
   });
 
@@ -210,20 +165,6 @@ describe('Component Integration Tests', () => {
       expect(screen.getByText(/Required/i)).toBeInTheDocument();
     });
 
-    it('validates transaction form with account relationship', async () => {
-
-      const Transactions = (await import('../../pages/Transactions')).default;
-      renderWithProviders(<Transactions />, {
-      });
-
-      // Form elements should be present
-      await waitFor(() => {
-        expect(screen.getByText(/Add Transaction/i)).toBeInTheDocument();
-      });
-
-      // Should show validation error
-      expect(screen.getByText(/Amount is required/i)).toBeInTheDocument();
-    });
   });
 
   describe('State Synchronization', () => {

@@ -362,10 +362,11 @@ describe('EditTransactionModal — delete confirmation', () => {
   });
 
   /**
-   * The Transactions page keeps this component mounted with isOpen=false. A
-   * confirmation left standing there used to outlive the editor it belonged to;
-   * now that it traps focus, that would strand the user in a dialog about a
-   * form they can no longer see.
+   * A caller is free to keep this component mounted with isOpen=false rather
+   * than unmounting it (the retired global transactions list did, which is how
+   * this was found). A confirmation left standing there used to outlive the
+   * editor it belonged to; now that it traps focus, that would strand the user
+   * in a dialog about a form they can no longer see.
    */
   it('goes away with the editor it belongs to', () => {
     const { rerender } = render(

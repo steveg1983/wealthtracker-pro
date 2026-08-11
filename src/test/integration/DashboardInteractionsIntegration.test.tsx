@@ -102,7 +102,7 @@ describe('Dashboard Interactions Integration', () => {
 
     it('no longer shows a Recent Transactions card', async () => {
       // The dashboard used to carry a Recent Transactions list; Steve found it
-      // pointless on a dashboard (the Transactions page is one click away) so
+      // pointless on a dashboard (an account's register is one click away) so
       // the card and its data slice were removed. Wait for the dashboard body
       // to actually render before asserting absence, otherwise the check could
       // pass on a page that simply hadn't painted the card yet.
