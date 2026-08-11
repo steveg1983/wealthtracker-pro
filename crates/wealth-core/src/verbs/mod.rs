@@ -112,6 +112,19 @@
 //! | undoing a refusal | `.delete()`, never a flag — there is no UPDATE policy | a DELETE, never a flag — `trg_dismissals_no_update` would ABORT one |
 //! | the subjects on that delete | nothing to cascade: they were an array in the row | `ON DELETE CASCADE`, deliberately not walked — [`delete_goal`]'s decision, not [`delete_category`]'s |
 //!
+//! And the PREFERENCES pair's, which is the fifth — [`read_preferences`] and
+//! [`write_preferences`], whose oracle is `supabasePreferencesTransport`'s two
+//! PostgREST calls. It is the only family here that stores something this crate
+//! cannot read, and the only one whose whole table is settings rather than
+//! money:
+//!
+//! | | the cloud's direct write | the verb |
+//! | --- | --- | --- |
+//! | the row's `id` | `uuid DEFAULT gen_random_uuid()` | minted here — B-5 again, because `schema.sql`'s is `TEXT PRIMARY KEY` with no default |
+//! | `updated_at` on a replace | a `BEFORE UPDATE` trigger stamps it | written by the verb: this file ports four of the cloud's eleven such triggers and `user_preferences` is not one |
+//! | the audit log | nothing | nothing either — the dismissal pair's argument, and for the same reason: a preference holds no figure |
+//! | the document's contents | unread by either engine | unread here too, and [`preferences`] argues at length why a crate that learned a preference key would be a second registry going stale |
+//!
 //! # THE C/R SPLIT, WHICH IS THE ONE PORT THAT NEEDED A COLUMN
 //!
 //! [`set_transactions_cleared`], [`finalize_reconciliation`],
@@ -381,6 +394,8 @@
 //! | [`set_transactions_archived`] | no — `archived` and `updated_at` | no |
 //! | [`archive_transactions_before`] | no, the same two columns in bulk | no |
 //! | [`unarchive_account`] | no, likewise | no |
+//! | [`read_preferences`] | no — it opens no transaction and writes nothing | no |
+//! | [`write_preferences`] | no, and for the shortest reason in the table: `user_preferences` has no triggers at all | no |
 //!
 //! The reconciliation family is the first group where "no guard" needed a
 //! sentence about a trigger that IS consulted: the sweep is `AFTER UPDATE OF
@@ -605,6 +620,7 @@ mod link_split_line_transfer;
 mod link_transfer_pair;
 mod load_boot;
 mod merge_categories;
+mod preferences;
 pub mod reads;
 mod repair_claimed_transfer;
 mod repoint_transfer;
@@ -731,6 +747,14 @@ pub use reads::{
     list_goals, list_suggestion_dismissals, list_transaction_splits, list_transactions, splits_for,
     AccountBalances, Accounts, Answered, Budgets, Categories, ClosedAccounts, Goals, OwnedRead,
     Splits, SplitsFor, SuggestionDismissals, TransactionSplits, Transactions,
+};
+// The preferences pair — two more verbs with no RPC behind either, and the
+// fifth family whose oracle is a TypeScript writer. They are the only verbs in
+// the crate that store something the crate cannot read: the document is opaque
+// here on purpose, because a preference is a statement in the app's vocabulary.
+pub use preferences::{
+    read_preferences, write_preferences, ReadPreferences, ReadPreferencesResult, StoredPreferences,
+    WritePreferences, WritePreferencesResult,
 };
 pub use repair_claimed_transfer::{
     repair_claimed_transfer, RepairClaimedTransfer, RepairClaimedTransferResult,

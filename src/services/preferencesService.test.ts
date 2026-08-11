@@ -330,6 +330,66 @@ describe('signing out', () => {
   });
 });
 
+describe('changing which store the settings live in', () => {
+  it('sends everything after it to the new store', async () => {
+    // The desktop's whole reason for this method: the store is a property of
+    // the SESSION there — a file that was chosen, opened and can be closed —
+    // rather than of the build, and there is one service instance because every
+    // surface in the app reads it.
+    const cloud = transport({ version: 1, values: { accountsSortMode: 'name' } });
+    const file = transport({ version: 1, values: { accountsSortMode: 'balance-desc' } });
+    const service = new PreferencesService({ mirror: mirror(), transport: cloud, ...immediate });
+
+    service.useTransport(file);
+    await service.attach('11111111-1111-1111-1111-111111111111');
+    service.setItem('accountsSortMode', 'balance-asc');
+    await service.flush();
+
+    expect(cloud.reads).toEqual([]);
+    expect(cloud.writes).toEqual([]);
+    expect(file.reads).toEqual(['11111111-1111-1111-1111-111111111111']);
+    expect(file.row?.values.accountsSortMode).toBe('balance-asc');
+  });
+
+  it('does not deliver the previous store\'s queued write to the new one', async () => {
+    // `scheduleWrite` resolves the transport when the TIMER fires, not when the
+    // change was made — so without the detach inside `useTransport`, a burst of
+    // changes made a moment before opening a file would be written INTO that
+    // file, under the previous store's user id. That is the cross-account write
+    // `detach` already exists to prevent on a shared browser; changing stores is
+    // changing accounts, and is treated as one.
+    const cloud = transport({ version: 1, values: {} });
+    const file = transport(null);
+    const service = new PreferencesService({
+      mirror: mirror(),
+      transport: cloud,
+      debounceMs: 1000,
+    });
+    await service.attach('somebody-signed-in');
+    service.setItem('accountsSortMode', 'balance-desc');
+
+    service.useTransport(file);
+    await service.flush();
+
+    expect(file.writes).toEqual([]);
+    expect(service.getDocument().values).toEqual({});
+  });
+
+  it('is a no-op when the store is the one already in use', async () => {
+    // Called on every boot, and a boot that silently detached a live session
+    // would throw away whatever had been set since it started.
+    const file = transport({ version: 1, values: { accountsSortMode: 'name' } });
+    const service = new PreferencesService({ mirror: mirror(), transport: file, ...immediate });
+    await service.attach('user-1');
+    service.setItem('netWorthChartType', 'bar');
+
+    service.useTransport(file);
+
+    expect(service.getItem('netWorthChartType')).toBe('bar');
+    expect(service.getItem('accountsSortMode')).toBe('name');
+  });
+});
+
 describe('subscribers', () => {
   it('are told when a value changes and when the account\'s document lands', async () => {
     const store = transport({ version: 1, values: { accountsSortMode: 'name' } });

@@ -497,6 +497,20 @@ const listed = (key, payloadLiteral) =>
   `SELECT jsonb_build_object('${key}', ${aggregated(key, payloadLiteral)}) INTO v_row;`;
 
 /**
+ * One owner's stored preferences document, or SQL NULL when there is no row.
+ *
+ * The `.select('prefs').eq('user_id', …).maybeSingle()` half of
+ * `supabasePreferencesTransport`, as a scalar subquery — written once because
+ * BOTH preferences verbs project it and a second copy is a second answer
+ * waiting to disagree with the first. `jsonb_build_object` turns SQL NULL into
+ * JSON null, which is exactly what `maybeSingle()`'s `data === null` becomes by
+ * the time the transport has finished with it.
+ */
+const STORED_PREFERENCES = (payloadLiteral) =>
+  `(SELECT p.prefs FROM public.user_preferences p
+     WHERE p.user_id = NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid)`;
+
+/**
  * The six reads `DataServiceImpl.loadBoot` composes, in the order it makes them.
  *
  * The order is carried here for readability only: this oracle asks them in one
@@ -928,6 +942,46 @@ const VERBS = {
     `SELECT public.finalize_user_restore(
               COALESCE(${payloadLiteral}::jsonb->'links', '{}'::jsonb),
               NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid)
+       INTO v_row;`,
+
+  // ── THE PREFERENCES PAIR, WHOSE ORACLE IS A TYPESCRIPT TRANSPORT ───────────
+  //
+  // No function to port: `user_preferences` is written directly over PostgREST
+  // (PHASE3-PLAN D-2, a fifth time). The oracle is the two calls in
+  // `supabasePreferencesTransport()`, transcribed the way the account family's
+  // writer is — literally, including the habits:
+  //
+  //   read   .select('prefs').eq('user_id', …).maybeSingle()
+  //   write  .upsert({ user_id, prefs }, { onConflict: 'user_id' })
+  //
+  // `maybeSingle()` on no row answers `data = null` and the transport then
+  // answers `null`, so the read's shape is a jsonb object whose one key is
+  // JSON null — which is what `jsonb_build_object` makes of a scalar subquery
+  // that found nothing. That is the same sentence the local verb says with
+  // `preferences: None`, and it is a sentence with a caller: a null document is
+  // what makes `PreferencesService.attach` lift this machine's settings in.
+  //
+  // The upsert is spelled with the columns the CLIENT supplies and no others.
+  // `id` is left to `gen_random_uuid()` (the local column has no default and
+  // the verb mints — B-5, declared in the crate) and `updated_at` is left to
+  // `update_user_preferences_updated_at`, the BEFORE UPDATE trigger this
+  // schema has and `schema.sql` does not.
+  //
+  // Both then project the STORED document rather than the one that was sent, so
+  // the two engines are compared on what each file now holds. Key order is not
+  // compared: `serde_json` keeps insertion order and `jsonb` sorts by key length
+  // then bytes, which is why the runner canonicalises with `stableJson`.
+  read_preferences: (payloadLiteral) =>
+    `SELECT jsonb_build_object('preferences', ${STORED_PREFERENCES(payloadLiteral)})
+       INTO v_row;`,
+
+  write_preferences: (payloadLiteral) =>
+    `INSERT INTO public.user_preferences (user_id, prefs)
+          VALUES (NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid,
+                  ${payloadLiteral}::jsonb->'preferences')
+     ON CONFLICT (user_id) DO UPDATE
+        SET user_id = excluded.user_id, prefs = excluded.prefs;
+     SELECT jsonb_build_object('preferences', ${STORED_PREFERENCES(payloadLiteral)})
        INTO v_row;`,
 
   // ── THE READS ──────────────────────────────────────────────────────────────

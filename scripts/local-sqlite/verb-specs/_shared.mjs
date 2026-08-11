@@ -3693,3 +3693,59 @@ export const everydayIsAnInvestment = {
   sqlite: `UPDATE accounts SET type = 'investment' WHERE id = '${EVERYDAY}';`,
   postgres: `UPDATE public.accounts SET type = 'investment' WHERE id = '${EVERYDAY}';`,
 };
+
+// ── Preferences ─────────────────────────────────────────────────────────────
+//
+// The one table in the schema whose contents neither engine reads. Everything
+// below therefore asks about the DOCUMENT rather than about a column: how many
+// documents this file holds, and what one key inside one of them says.
+
+/** A document already in the file for the base fixture's login. */
+export function preferencesAlready(document) {
+  const json = JSON.stringify(document);
+  return {
+    sqlite: `INSERT INTO user_preferences (id, user_id, prefs)
+               VALUES ('e0000000-0000-0000-0000-000000000001', '${USER}', '${json}');`,
+    postgres: `INSERT INTO public.user_preferences (user_id, prefs)
+                 VALUES ('${USER}', '${json}'::jsonb);`,
+  };
+}
+
+/** A document belonging to the OTHER login. Needs `secondUser` in the setup. */
+export function strangerPreferences(document) {
+  const json = JSON.stringify(document);
+  return {
+    sqlite: `INSERT INTO user_preferences (id, user_id, prefs)
+               VALUES ('e0000000-0000-0000-0000-000000000002', '${STRANGER}', '${json}');`,
+    postgres: `INSERT INTO public.user_preferences (user_id, prefs)
+                 VALUES ('${STRANGER}', '${json}'::jsonb);`,
+  };
+}
+
+/** How many preference documents the whole file holds, across every login. */
+export function preferenceDocuments(expect) {
+  return {
+    name: 'preference_documents',
+    sqlite: 'SELECT COUNT(*) FROM user_preferences',
+    postgres: 'SELECT COUNT(*) FROM public.user_preferences',
+    expect,
+  };
+}
+
+/**
+ * One setting, read out of one login's stored document.
+ *
+ * `(none)` rather than NULL when the key is absent, so that "this document does
+ * not have that key" and "there is no document" stay different observations —
+ * the second comes back as the runner's own NULL.
+ */
+export function settingOf(userId, key, expect) {
+  return {
+    name: `setting_${key}_of_${userId.slice(-4)}`,
+    sqlite: `SELECT COALESCE(json_extract(prefs, '$.values.${key}'), '(none)')
+               FROM user_preferences WHERE user_id = '${userId}'`,
+    postgres: `SELECT COALESCE(prefs->'values'->>'${key}', '(none)')
+                 FROM public.user_preferences WHERE user_id = '${userId}'`,
+    expect,
+  };
+}

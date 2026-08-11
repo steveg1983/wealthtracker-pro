@@ -32,6 +32,14 @@
  * hands the rows to the app's own `buildBackupBundle`, and `restoreBackup` sends
  * the file back in ONE call that is ONE transaction.
  *
+ * SLICE 28 GAVE THAT ROUND TRIP ITS FIFTEENTH THING. A backup carries the
+ * PREFERENCES document as a top-level section rather than as one of the fourteen
+ * tables, and until this slice a file could not hold one — `collectBackup` sent
+ * `null` and `restoreBackup` reported a loss it had no way to avoid. Both now
+ * cross, as two verbs of their own: see those two methods for why the collect is
+ * allowed to reject and the restore deliberately is not, and why the settings
+ * are written AFTER the one transaction rather than inside it.
+ *
  * SLICE 26 CLOSED IT. `importMsMoney` was the last operation of the seam this
  * port did not answer, and it is the one the ratchet said would need no new rule:
  * a total migration IS a wipe and a restore, so it is written as those two and
@@ -88,13 +96,23 @@
  * The owner of a local file is a uuid minted when the FILE is created, stored in
  * its one `users` row.
  *
- * **This slice does not mint it, because nothing opens files yet.** `create_file`
- * and `open_file` are the desktop shell's (PHASE3-PLAN §5, slice 27) and the
- * identity work is slice 28. What lands here is the shape of the answer: the
- * port is CONSTRUCTED with the open document — its transport and its owner —
- * and caches that owner for the document's life, which is D-5's *"resolves
- * owner ONCE at open"* with the resolution living in the thing that opens files.
- * A port is never told an owner per call, and there is nowhere to pass one.
+ * The port is CONSTRUCTED with the open document — its transport and its owner —
+ * and caches that owner for the document's life, which is D-5's *"resolves owner
+ * ONCE at open"* with the resolution living in the thing that opens files. A
+ * port is never told an owner per call, and there is nowhere to pass one.
+ *
+ * WHERE THE UUID COMES FROM, now that all three ends exist. Slice 27's shell
+ * mints it (`document.rs`'s `create`, a v4 uuid written into the file's one
+ * `users` row) and reads it back on every open, refusing by name a file that has
+ * none and a file that has two. Slice 28 published it to the layer ABOVE this
+ * one: `services/local/deviceIdentity.ts` is what a component asks instead of
+ * `userIdService`, which is the Clerk↔database translator and reaches a Supabase
+ * client a device has no use for and cannot bundle.
+ *
+ * This port does not read that module and must not. `#owner` stays private and
+ * the identity travels the other way — from whoever opened the file, into the
+ * constructor — because a port that could look its owner up is a port whose
+ * owner could change under it between two verbs.
  *
  * The uuid shape is CHECKED at construction rather than trusted, so R-3 fails
  * here — by name, with the schema's own rule quoted — instead of as a foreign
@@ -180,6 +198,22 @@ import type {
   RemapResult,
   RestoreStep
 } from '../backup/format';
+// A MAPPER, not the format — which is why this one is imported at runtime while
+// the four above are injected, and the line between them is worth stating.
+//
+// `BackupFormat`'s members describe a FILE ON DISK: how a bundle is assembled,
+// what order it is applied in, how its ids are remapped. `parsePreferencesDocument`
+// describes an ANSWER: it turns the `unknown` a verb hands back into the shape
+// the app holds, refusing what it cannot read and keeping what it does not
+// recognise — which is exactly what `toAccount` and `toTransaction` do for their
+// rows, and those are imported. A file's preferences reach this port from
+// `read_preferences`, not out of a backup, so the reader belongs on the mapper
+// side of that line.
+//
+// It is safe to import for the reason slice 27 established: `preferences/document.ts`
+// is the lifted half, and its module scope holds no Supabase client — which
+// `deviceDocument.cloudFree.test.ts` walks this graph to prove on every run.
+import { parsePreferencesDocument, type PreferencesDocument } from '../preferences/document';
 import type { CoreTransport } from './coreTransport';
 // The ONE encoder, for the two arguments this port sends that are not part of a
 // column table's payload: a finalize's ending balance and the two cutoff days.
@@ -1614,16 +1648,34 @@ export class LocalDataPort implements DataPort {
    * paint a bar that is a description of a loop rather than of the work, which
    * is `importTransactions`'s reason for the same omission.
    *
-   * ── PREFERENCES: `null`, AND WHY THAT IS TRUE RATHER THAN LAZY ──────────
+   * ── PREFERENCES: A SECOND CROSSING, AND WHY IT IS NOT FOLDED IN ─────────
    *
-   * The file has a `user_preferences` table (schema amendment 5), and no verb
-   * writes or reads it until slice 28. So there are none to collect — not "none
-   * were looked for". `null` is the format's own word for *"this file carries
-   * none"*, and the day `read_preferences` exists this line is where it lands.
+   * It used to read *"`null`, and the day `read_preferences` exists this line is
+   * where it lands"*. Slice 28 is that day, and this is that line.
+   *
+   * They are asked for SEPARATELY rather than added to `collect_backup`'s
+   * fourteen sections, and the reason is the format's rather than this port's: a
+   * backup carries preferences as a TOP-LEVEL section, not as a table, because
+   * `user_preferences` is not one of `BACKUP_ENTITIES`' fourteen on any engine.
+   * The cloud's collector walks fourteen tables and then reads the document
+   * through the preferences transport; so does this. A fifteenth entity here
+   * would be a file the other two editions could not read.
+   *
+   * IT IS ALLOWED TO REJECT, and the cloud says why where its own transport
+   * throws: *"a backup that quietly recorded 'no preferences' for a user who has
+   * fifty is the failure this whole change exists to end."* `collectBackup` is
+   * not one of the three reads that may never reject, so it does not soften this
+   * into a `null` that reads exactly like a person who has never changed a
+   * setting.
+   *
+   * `null` is still the answer for a file that genuinely holds no document, and
+   * it is the format's own word for it — which is what keeps `restoreBackup`
+   * below from reporting a loss that did not happen.
    */
   async collectBackup(): Promise<BackupBundle> {
     const answer = await this.#ask('collect_backup');
     const data = rowOf(rowOf(answer, 'collect_backup', 'answer'), 'collect_backup', 'data');
+    const preferences = await this.#readPreferences();
 
     const sections: Record<string, BackupRow[]> = {};
     for (const entity of Object.keys(data)) {
@@ -1640,8 +1692,32 @@ export class LocalDataPort implements DataPort {
       sourceUserId: this.#owner,
       exportedAt: new Date().toISOString(),
       data: sections,
-      preferences: null
+      preferences
     });
+  }
+
+  /**
+   * This file's settings document, or `null` when it holds none.
+   *
+   * One place rather than two, because `collectBackup` and the day something
+   * else wants them must not be able to disagree about what `null` means. The
+   * distinction is load-bearing everywhere it is read: `null` is *"nothing has
+   * ever been saved here"* and `{ values: {} }` is *"everything is at its
+   * default"*, and `PreferencesService.attach` takes a different branch for each
+   * — the first is what makes it LIFT this machine's settings into the store.
+   */
+  async #readPreferences(): Promise<PreferencesDocument | null> {
+    const answer = await this.#ask('read_preferences');
+    const stored = field(rowOf(answer, 'read_preferences', 'answer'), 'preferences');
+    if (stored === null) return null;
+    if (stored === undefined) {
+      // The key missing altogether is a FAULT, not an absence. `rowsOf`'s rule,
+      // applied to the one answer where the wrong reading is silent: a backup
+      // that recorded "no settings" for somebody who has fifty is exactly what
+      // this section exists to prevent.
+      throw new Error('The ledger file did not say whether it holds any settings.');
+    }
+    return parsePreferencesDocument(stored);
   }
 
   /**
@@ -1694,12 +1770,23 @@ export class LocalDataPort implements DataPort {
    *   reported through the logger instead, which is where this port sends
    *   everything a person needs to know and the seam has no field for.
    *
-   *   `preferencesRestored` / `preferencesFailure` — 0, and a sentence when the
-   *   file actually carries settings. There is no `write_preferences` verb until
-   *   slice 28, so a file's `preferences` section cannot land; saying so is the
-   *   difference between a restore and a restore that quietly lost things. The
-   *   financial rows are all in either way, which is exactly why the seam made
-   *   this field a report rather than a throw.
+   *   `preferencesRestored` / `preferencesFailure` — the settings, put back
+   *   LAST and OUTSIDE the transaction. This used to be `0` and a sentence
+   *   apologising for it, because there was no `write_preferences` verb; slice
+   *   28 built one, and the interesting decision is not that they now land but
+   *   WHERE.
+   *
+   *   They are a second crossing, after the restore has committed, and NOT one
+   *   more chunk inside it. That is deliberate and it is the cloud's ordering
+   *   for the cloud's stated reason: *"a restore that threw away a complete,
+   *   correct ledger because a toggle could not be saved would be the wrong
+   *   trade by an enormous margin."* B-10 makes this engine's restore ONE
+   *   transaction, so folding the document in would make that trade — a
+   *   document over the 256 KiB ceiling, or one the schema's `is_object` CHECK
+   *   refuses, would roll back every account, transaction, budget and goal in
+   *   the file. The count and the sentence exist precisely so that this can be
+   *   reported instead of thrown, and they are only true if the rows are
+   *   already safe when the settings are attempted.
    */
   async restoreBackup(bundle: BackupBundle): Promise<BackupRestoreOutcome> {
     const { bundle: remapped, danglingRefs } = this.#format.remapIds(bundle);
@@ -1744,15 +1831,44 @@ export class LocalDataPort implements DataPort {
       );
     }
 
+    // Read BEFORE the settings are attempted, not in the return below: `rowsAt`
+    // throws on an answer that did not say how many rows a step restored, and
+    // that fault must not be reached after a second write has already gone out.
+    const restored = steps.map((step, index) => ({ label: step.label, rows: rowsAt(index) }));
+
+    // ── The settings, LAST ─────────────────────────────────────────────────
+    // Every financial row is committed by the time this runs. See the header
+    // for why that ordering is the whole point rather than a detail.
+    let preferencesRestored = 0;
+    let preferencesFailure: string | null = null;
+    if (remapped.preferences !== null) {
+      // The count is of the document's own settings, computed here exactly as
+      // the cloud and the browser compute it — the crate does not know that a
+      // preferences document HAS a `values` map, and this is not the place to
+      // teach it one.
+      const settings = Object.keys(remapped.preferences.values).length;
+      try {
+        await this.#ask('write_preferences', { preferences: remapped.preferences });
+        preferencesRestored = settings;
+      } catch (error) {
+        // Reported, not thrown, and the engine's own sentence is passed through
+        // for seam rule 4's reason: the screen prints it. The logger gets it too
+        // because `preferencesFailure` is rendered as one line and a support
+        // conversation needs the whole error.
+        preferencesFailure = error instanceof Error ? error.message : String(error);
+        this.#logger.error(
+          'The restore put every financial row back, and could not store the settings in the file',
+          error
+        );
+      }
+    }
+
     return {
-      restored: steps.map((step, index) => ({ label: step.label, rows: rowsAt(index) })),
+      restored,
       accountsRelinked: countOf(result, 'restore_backup', 'accounts_relinked'),
       transactionsRelinked: countOf(result, 'restore_backup', 'transactions_relinked'),
-      preferencesRestored: 0,
-      preferencesFailure:
-        remapped.preferences === null
-          ? null
-          : 'This ledger cannot store settings yet, so every account, transaction, budget and goal in the file is back and the settings in it were left behind. Keep the file: signing in and restoring it there would put them back.',
+      preferencesRestored,
+      preferencesFailure,
       danglingRefs,
       // B-11. A statement, not a stub: a file on this device holds every table
       // the format carries.
@@ -1933,10 +2049,17 @@ export class LocalDataPort implements DataPort {
         transactions: withColumns(plan.transactions, transactionLinks),
         transaction_splits: plan.splits.slice()
       },
-      // A .mny file carries no app settings, and this edition could not store
-      // them yet if it did (slice 28). `null` is the format's word for that, and
-      // it is what keeps `restoreBackup` from reporting a loss that did not
-      // happen.
+      // A .mny file carries no app settings. `null` is the format's word for
+      // that, and it is what keeps `restoreBackup` from reporting a loss that
+      // did not happen.
+      //
+      // It USED to say "and this edition could not store them yet if it did".
+      // Slice 28 removed the second half rather than the line: the edition can
+      // store them now, and this still sends `null` — because Microsoft Money
+      // has no opinion about which accounts your dashboard pins. The settings a
+      // person already had therefore SURVIVE a migration, which is right and is
+      // not an accident: `wipe_user_financial_data` deletes ten tables and
+      // `user_preferences` is not one of them, on either engine.
       preferences: null
     });
 

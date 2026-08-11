@@ -73,8 +73,11 @@ if (shell === null) {
   const invoke = shell.core.invoke;
 
   const start = (ledger: OpenLedger): void => {
-    const port = openDeviceDocument({ ledger, invoke });
-    bootDeviceLedger(port)
+    // No preferences service is passed, and that is honest rather than
+    // unfinished: this screen mounts no React and nothing in it reads a setting.
+    // `bootDeviceLedger`'s own documentation says what the mount slice owes.
+    const document = openDeviceDocument({ ledger, invoke });
+    bootDeviceLedger(document)
       .then(boot => {
         say(
           ledger.path,

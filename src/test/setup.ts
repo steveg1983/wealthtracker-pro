@@ -3,6 +3,7 @@ import { cleanup } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { preferences } from '../services/preferencesService';
+import { forgetDeviceIdentity } from '../services/local/deviceIdentity';
 
 vi.mock('@clerk/clerk-react', () => ({
   useUser: () => ({ user: null, isLoaded: true }),
@@ -73,6 +74,14 @@ beforeEach(() => {
   // `detach` is the app's own sign-out path, not a test-only hatch: it forgets
   // the signed-in user and everything held for them.
   preferences.detach();
+
+  // And the device edition's own identity, for exactly the same reason one
+  // paragraph up. `services/local/deviceIdentity` holds the owner of the open
+  // ledger file in module scope — deliberately, because the callers are
+  // `useState` initialisers scattered across the app — so a case that opened a
+  // document would otherwise answer the NEXT case's "whose ledger is this?".
+  // `forgetDeviceIdentity` is the app's own `close_ledger` path, not a hatch.
+  forgetDeviceIdentity();
 });
 
 // Mock window.matchMedia
