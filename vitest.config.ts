@@ -28,6 +28,12 @@ export default createVitestReactConfig({
     'WealthTracker-Backups/**',
     'apps/**',
     'api/**', // Backend API endpoints tested separately
+    // The local edition's contract run. It needs a built Rust binary and
+    // REFUSES to skip without one, which is right on a developer's machine and
+    // wrong in Vercel's build container — so it is asked for on purpose, by
+    // `npm run test:local-contract` (vitest.local.config.ts), and never by
+    // accident here.
+    '**/localCore.*.test.ts',
   ],
   test: {
     environment: process.env.RUN_SUPABASE_REAL_TESTS === 'true' ? 'node' : 'jsdom',
