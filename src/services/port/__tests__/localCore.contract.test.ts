@@ -22,22 +22,25 @@
  * `npm run test:local-contract`, so the two questions ("does the app work" and
  * "does the local engine keep the seam's contract") stay separable.
  *
- * ── THE PORT IS DELIBERATELY PARTIAL, AND SAYS SO ───────────────────────────
+ * ── THE PORT IS WHOLE, AND THE RATCHET THAT SAID OTHERWISE IS GONE ──────────
  *
- * `LocalDataPort` implements the reads, the boot composite, the capability
- * descriptor, the lifecycle, and the writes the crate's verbs serve — the
- * sixteen of slice 19, the account family of slice 20 and the category family
- * of slice 21 — and NOT the seventeen operations that are named one by one in
- * `contract.ts`'s NOT_YET ratchet. The surface rule asserts that the operations
- * this port is missing are EXACTLY that list, in both directions, and every
- * rule needing one of them is skipped by name.
+ * `LocalDataPort` answers every operation the seam names. It did not always:
+ * from slice 18 to slice 25 it was a partial port, and `contract.ts` carried a
+ * NOT_YET ratchet naming what was missing — checked in both directions, counted,
+ * monotone-shrinking, with every rule that needed a missing operation skipped BY
+ * NAME so a run read as a work queue. Slice 26 wired the last one
+ * (`importMsMoney`, which is a wipe and a restore and needed no new rule), the
+ * count reached zero, and the ratchet was DELETED rather than left holding an
+ * empty array. Every rule in the suite now runs on this engine; none is skipped.
  *
- * So the `DataPort` annotation below is documentation rather than proof, which
- * is the situation `contract.ts` describes in its own words: tests are not
- * compiled by `tsc -b`, so the annotation is checked by nobody, and the runtime
- * list is what holds the port to the seam. **Do not "fix" it with a cast.** A
- * cast would silence the one honest signal that this engine is half-built, and
- * the thing that actually proves the surface is a test that already runs.
+ * The `DataPort` annotation below is still documentation rather than proof —
+ * tests are not compiled by `tsc -b` — but `localDataPort.ts` IS compiled, and
+ * the class there says `implements DataPort`, so the surface is now proved twice:
+ * once by the compiler on the production module, and once at runtime by the
+ * surface rule, which walks `DATA_PORT_OPERATIONS` against the object a harness
+ * really built. **Do not "fix" the annotation with a cast**, here or anywhere:
+ * the two proofs are independent on purpose, and a cast would remove the one
+ * that watches what the harness assembles.
  */
 
 import { afterAll } from 'vitest';
@@ -47,8 +50,13 @@ import {
   remapBackupIds,
   rowsForStep
 } from '../../backupService';
+import { planCloudImport } from '../../import/msMoney/msMoneyImport';
 import { createSpawnTransport } from '../../local/coreTransport';
-import { LocalDataPort, type BackupFormat } from '../../local/localDataPort';
+import {
+  LocalDataPort,
+  type BackupFormat,
+  type MsMoneyMigration
+} from '../../local/localDataPort';
 import type { DataPort } from '../dataPort';
 import { runDataPortContract, type DataPortUnderTest, type PortFixture } from './contract';
 import { LedgerFiles, locateBridge, readBack, seed } from './localCore.fixtureFile';
@@ -113,6 +121,34 @@ const backupFormat = (): BackupFormat => {
   };
 };
 
+/**
+ * How a parsed .mny file becomes rows, supplied the way the desktop shell will
+ * supply it.
+ *
+ * `planCloudImport` is the REAL planner the cloud migration runs, for the same
+ * reason the four format functions above are the real ones: it is where Money's
+ * model is reconciled with the app's, and a harness that handed the port its own
+ * planner would prove only that the local engine agrees with a planner written
+ * for the test. It is imported HERE rather than by the port because its module
+ * reaches `storageAdapter` and the app's cloud-bound logger, neither of which
+ * belongs in a desktop bundle — see `MsMoneyMigration` for the obligation that
+ * leaves for slice 27.
+ *
+ * The generator is a COUNTER for the reason the format's is: the ids a plan
+ * mints never reach the file (the restore remaps every one of them), but a
+ * random one here would still make a failure message different on every run for
+ * no reason. Uuid-SHAPED because `remapBackupIds` tells a reference from a label
+ * inside TEXT columns partly by shape, and `ffffffff` rather than the format's
+ * `00000000` so that a plan id and a stored id can never be read for one another
+ * in a diff.
+ */
+const msMoneyMigration = (): MsMoneyMigration => {
+  let sequence = 0;
+  const mint = (): string =>
+    `ffffffff-0000-4000-8000-${String((sequence += 1)).padStart(12, '0')}`;
+  return { plan: (result, owner) => planCloudImport(result, owner, mint) };
+};
+
 afterAll(() => {
   files.dispose();
 });
@@ -132,6 +168,7 @@ const createLocalCorePort = async (fixture: PortFixture): Promise<DataPortUnderT
     owner: OWNER,
     transport: createSpawnTransport({ binary: bridge, database: file }),
     format: backupFormat(),
+    migration: msMoneyMigration(),
     // A LOUD logger, and deliberately not a silent one. Everything that reaches
     // it here is a read that could not happen against a file this harness has
     // just created and seeded — which is a broken harness, not an engine
@@ -164,6 +201,7 @@ const createUnreadableLocalCorePort = async (): Promise<DataPort> => {
     owner: OWNER,
     transport: createSpawnTransport({ binary: bridge, database: files.missing() }),
     format: backupFormat(),
+    migration: msMoneyMigration(),
     // Expected here, so recorded rather than shouted: these tests exist to
     // prove the failure is survived, and a stack trace per assertion would bury
     // the run's real output.
