@@ -52,7 +52,14 @@
  */
 
 import { mapAccountFromDb } from '../../api/accountMapping';
-import { CATEGORY_COLUMNS, SPLIT_COLUMNS, TRANSACTION_COLUMNS, fieldsOf } from './columns';
+import {
+  BUDGET_COLUMNS,
+  CATEGORY_COLUMNS,
+  GOAL_COLUMNS,
+  SPLIT_COLUMNS,
+  TRANSACTION_COLUMNS,
+  fieldsOf
+} from './columns';
 import type {
   Account,
   Budget,
@@ -63,19 +70,7 @@ import type {
   TransactionSplit
 } from '../../../types';
 import type { AccountBalanceSnapshot } from '../../port/dataPort';
-import {
-  day,
-  field,
-  flag,
-  instant,
-  money,
-  moneyOr,
-  oneOf,
-  strings,
-  text,
-  textOr,
-  whole
-} from './values';
+import { field, instant, moneyOr, oneOf, strings, text, textOr, whole } from './values';
 
 /**
  * A listed account.
@@ -230,12 +225,19 @@ const BUDGET_PERIODS: Record<Budget['period'], true> = {
 /**
  * A budget.
  *
+ * Through {@link BUDGET_COLUMNS} since slice 22, which is the same list
+ * `writes.ts` serialises a new budget and a patch with — so a field cannot be
+ * written under one name and read back under another. It read the row's keys by
+ * hand until the day it had a writer, which is the arrangement `columns.ts`
+ * describes.
+ *
  * `categoryId` comes out of the TEXT `category` column and never out of
  * `category_id`, which is `budgetFromDb`'s decision and its reason verbatim:
  * *"frontend category ids are not UUIDs, so the uuid `category_id` column
- * cannot hold them"*.
+ * cannot hold them"*. The table carries that rename, so the write direction
+ * cannot pick the other column by accident.
  *
- * `alert_threshold` arrives as the crate's already-rendered percentage string
+ * `alertThreshold` arrives as the crate's already-rendered percentage string
  * ('80.00' for the stored 8000 basis-points-of-a-percent). It is read with the
  * money reader because the shape is the same — a fixed two-place decimal — and
  * NOT because it is money: `schema.sql` says in capitals that it is not, and
@@ -247,23 +249,28 @@ const BUDGET_PERIODS: Record<Budget['period'], true> = {
  * a cadence none of the standard ones describe. A cast would put a string the
  * budgets page has no branch for into a period selector.
  */
-export const toBudget = (row: Record<string, unknown>): Budget => ({
-  id: textOr(row.id, ''),
-  categoryId: textOr(row.category, ''),
-  amount: moneyOr(row.amount, 0),
-  period: oneOf<Budget['period']>(row.period, BUDGET_PERIODS, 'custom'),
-  isActive: flag(row.is_active),
-  createdAt: instant(row.created_at) ?? new Date(0),
-  updatedAt: instant(row.updated_at) ?? new Date(0),
-  name: text(row.name),
-  spent: moneyOr(row.spent, 0),
-  startDate: text(row.start_date),
-  endDate: text(row.end_date),
-  rollover: flag(row.rollover),
-  rolloverAmount: moneyOr(row.rollover_amount, 0),
-  alertThreshold: money(row.alert_threshold),
-  notes: text(row.notes)
-});
+export const toBudget = (row: Record<string, unknown>): Budget => {
+  const value = fieldsOf(BUDGET_COLUMNS, row);
+  return {
+    id: textOr(value.id, ''),
+    categoryId: textOr(value.categoryId, ''),
+    amount: typeof value.amount === 'number' ? value.amount : 0,
+    period: oneOf<Budget['period']>(value.period, BUDGET_PERIODS, 'custom'),
+    isActive: value.isActive === true,
+    // Not in the table: stamped by the file's clock inside the write, and read
+    // here off the row the crate answered with.
+    createdAt: instant(row.created_at) ?? new Date(0),
+    updatedAt: instant(row.updated_at) ?? new Date(0),
+    name: text(value.name),
+    spent: typeof value.spent === 'number' ? value.spent : 0,
+    startDate: text(value.startDate),
+    endDate: text(value.endDate),
+    rollover: value.rollover === true,
+    rolloverAmount: typeof value.rolloverAmount === 'number' ? value.rolloverAmount : 0,
+    alertThreshold: typeof value.alertThreshold === 'number' ? value.alertThreshold : undefined,
+    notes: text(value.notes)
+  };
+};
 
 const GOAL_TYPES: Record<Goal['type'], true> = {
   savings: true,
@@ -287,56 +294,61 @@ const GOAL_STATUSES: Record<NonNullable<Goal['status']>, true> = {
 /**
  * A goal, mapped exactly as `goalFromDb` maps the cloud's row.
  *
- * Three of its decisions are not obvious and all three are copied deliberately:
+ * Through {@link GOAL_COLUMNS} since slice 22, for the fifteen columns that
+ * really are one column and one field. The three that are not are assembled
+ * here, and every one of them is a decision `goalFromDb` already took:
  *
  *  - `type` is not a column in either engine. It lives in `metadata.type`, and
  *    'savings' is the default a goal with no stated kind reads as.
  *  - `isActive` is "the status is not paused" and `achieved` is "the status is
  *    completed". One column answers both, because a goal has one state.
- *  - `progress` IS `current_amount`. It is not derived from the target and it is
+ *  - `progress` IS `currentAmount`. It is not derived from the target and it is
  *    never zero for a goal created with money already put by — the rule the
  *    contract suite asks for by name, and the one that used to be lost
- *    differently by each engine.
+ *    differently by each engine. `writes.ts` folds the same two fields back
+ *    into the same column on the way out, with the same precedence the cloud's
+ *    mapper uses.
  *
  * `status` is read against the app's three values, so the schema's fourth
  * ('canceled', which no screen offers and nothing writes) reads as 'active'
  * rather than as a value the goals page cannot draw.
  */
 export const toGoal = (row: Record<string, unknown>): Goal => {
-  const currentAmount = moneyOr(row.current_amount, 0);
+  const value = fieldsOf(GOAL_COLUMNS, row);
+  const currentAmount = typeof value.currentAmount === 'number' ? value.currentAmount : 0;
   // Annotated rather than inferred: without it TypeScript narrows the result to
   // the literal type of the fallback, and the two comparisons below — which are
   // the whole of "one column answers both questions" — become comparisons
   // between types with no overlap.
-  const status: NonNullable<Goal['status']> = oneOf<NonNullable<Goal['status']>>(row.status, GOAL_STATUSES, 'active');
-  const completedAt = instant(row.completed_at);
+  const status: NonNullable<Goal['status']> = oneOf<NonNullable<Goal['status']>>(value.status, GOAL_STATUSES, 'active');
+  const completedAt = value.completedAt;
   return {
-    id: textOr(row.id, ''),
-    name: textOr(row.name, ''),
+    id: textOr(value.id, ''),
+    name: textOr(value.name, ''),
     type: oneOf<Goal['type']>(field(row.metadata, 'type'), GOAL_TYPES, 'savings'),
-    targetAmount: moneyOr(row.target_amount, 0),
+    targetAmount: typeof value.targetAmount === 'number' ? value.targetAmount : 0,
     currentAmount,
     progress: currentAmount,
     // A goal with no target date is a goal with no deadline; the app's type
     // says Date, so "no deadline" is the epoch rather than an Invalid Date that
     // renders as "NaN/NaN/NaN" in the one place the page prints it.
-    targetDate: day(row.target_date) ?? new Date(0),
-    description: text(row.description),
+    targetDate: value.targetDate instanceof Date ? value.targetDate : new Date(0),
+    description: text(value.description),
     isActive: status !== 'paused',
     achieved: status === 'completed',
     status,
-    completedAt: completedAt === undefined ? undefined : completedAt.toISOString(),
+    completedAt: completedAt instanceof Date ? completedAt.toISOString() : undefined,
     createdAt: instant(row.created_at) ?? new Date(0),
     updatedAt: instant(row.updated_at) ?? new Date(0),
-    category: text(row.category),
-    priority: typeof row.priority === 'string'
-      ? oneOf<NonNullable<Goal['priority']>>(row.priority, GOAL_PRIORITIES, 'medium')
+    category: text(value.category),
+    priority: typeof value.priority === 'string'
+      ? oneOf<NonNullable<Goal['priority']>>(value.priority, GOAL_PRIORITIES, 'medium')
       : undefined,
-    accountId: text(row.account_id),
-    autoContribute: flag(row.auto_contribute),
-    contributionFrequency: text(row.contribution_frequency),
-    icon: text(row.icon),
-    color: text(row.color)
+    accountId: text(value.accountId),
+    autoContribute: value.autoContribute === true,
+    contributionFrequency: text(value.contributionFrequency),
+    icon: text(value.icon),
+    color: text(value.color)
   };
 };
 

@@ -84,6 +84,19 @@
 //! | two semantic flags on one row | stored | refused by `categories_flags_exclusive`, likewise |
 //! | the already-seeded case | `ensureCategories` reads first and never calls the RPC; the RPC itself raises `categories_already_migrated` | ANSWERED, not refused: one crossing, and a port may not branch on a refusal code (D-3) |
 //!
+//! And the PLANNING family's, which is the third — [`create_budget`],
+//! [`update_budget`], [`delete_budget`], [`create_goal`], [`update_goal`],
+//! [`delete_goal`], whose oracles are `planningService`'s six direct writes:
+//!
+//! | | the cloud's direct write | the verb |
+//! | --- | --- | --- |
+//! | the audit log | nothing, for EITHER table | one entry per write, chained — PHASE1-PLAN §2.2 decided this before the verbs existed, and it is DESIGN.md §5 divergence 10 |
+//! | `updated_at` on an edit | a `BEFORE UPDATE` trigger stamps it | written by the verb, because `schema.sql` has no trigger on either table |
+//! | a threshold finer than a hundredth of a percent | `numeric(5,2)` ROUNDS it and says nothing (MEASURED: 80.005 is stored as 80.01) | refused, `percentage_malformed` |
+//! | a threshold outside 0–100% | stored: `numeric(5,2)` holds 999.99 quite happily | refused by `alert_threshold_bp BETWEEN 0 AND 10000`, a CHECK the cloud has never had |
+//! | a goal's contributions on a delete | `ON DELETE CASCADE` takes them | the same, and deliberately NOT walked — [`delete_goal`] argues why this family answers the cascade question the opposite way to [`delete_category`] |
+//! | a refusal's words | `PGRST116: JSON object requested, multiple (or no) rows returned` | `Budget not found` / `Goal not found`, which is the app's OWN sentence for the same case — the first refusal here the cloud has no prose for |
+//!
 //! # `migrate_categories_atomic` — HALF of it is ported, and the half is B-4
 //!
 //! It was recorded here as *"needs a decision about what it would even do before
@@ -455,10 +468,14 @@ mod clear_transfer_links;
 mod close_account;
 mod confirm_transaction_categories;
 mod create_account;
+mod create_budget;
 mod create_category;
 mod create_transaction;
 mod create_transfer_counterpart;
+mod create_goal;
+mod delete_budget;
 mod delete_category;
+mod delete_goal;
 mod delete_transaction;
 mod delete_unused_categories;
 mod finalize_user_restore;
@@ -476,7 +493,9 @@ mod seed_categories;
 mod set_transaction_splits_with_legs;
 mod transfer;
 mod update_account;
+mod update_budget;
 mod update_category;
+mod update_goal;
 mod update_transaction;
 mod user_financial_data_is_empty;
 mod verify_integrity;
@@ -497,6 +516,16 @@ pub use confirm_transaction_categories::{
     ConfirmTransactionCategoriesResult,
 };
 pub use create_account::{create_account, CreateAccount, CreateAccountResult};
+// The planning family — six verbs, no RPC between them either, and the same
+// "A VERB WHOSE ORACLE IS A TYPESCRIPT WRITER" argument. The one thing they add
+// to it is an audit trail the cloud has for neither table: DESIGN.md §5
+// divergence 10, decided in PHASE1-PLAN §2.2 and argued at [`create_budget`].
+pub use create_budget::{create_budget, BudgetDraft, CreateBudget, CreateBudgetResult};
+pub use create_goal::{create_goal, CreateGoal, CreateGoalResult, GoalDraft};
+pub use delete_budget::{delete_budget, DeleteBudget, DeleteBudgetResult};
+pub use delete_goal::{delete_goal, DeleteGoal, DeleteGoalResult};
+pub use update_budget::{update_budget, BudgetPatch, UpdateBudget, UpdateBudgetResult};
+pub use update_goal::{update_goal, GoalPatch, UpdateGoal, UpdateGoalResult};
 // The category family — five verbs, no RPC between them either, and the same
 // "A VERB WHOSE ORACLE IS A TYPESCRIPT WRITER" argument above.
 pub use create_category::{
@@ -594,6 +623,23 @@ use crate::error::{CoreError, CoreResult, Refusal};
 fn json_of<T: Serialize>(value: &T) -> CoreResult<String> {
     serde_json::to_string(value)
         .map_err(|error| CoreError::InvalidCommand(format!("audit payload: {error}")))
+}
+
+/// The id the caller named, or a fresh v4 uuid.
+///
+/// B-5 with the file as the client, and the shape every create in the two
+/// TypeScript-writer families needs: `categories.id`, `budgets.id` and
+/// `goals.id` are all TEXT PRIMARY KEY with NO DEFAULT in `schema.sql`, where
+/// the cloud's are uuid columns defaulting to `gen_random_uuid()`. The column
+/// cannot default here because [`create_category`] and [`seed_categories`] also
+/// store slug ids in it, and a column that defaulted is a column that silently
+/// replaced a caller's slug.
+///
+/// An EMPTY STRING is not an id: `null_if_empty` first, so `{"id": ""}` mints
+/// one rather than storing a primary key nothing can name.
+fn minted_uuid(id: Option<&str>) -> String {
+    crate::wire::null_if_empty(id)
+        .map_or_else(|| uuid::Uuid::new_v4().to_string(), ToOwned::to_owned)
 }
 
 /// A row count, as the `i64` every result in this crate reports.

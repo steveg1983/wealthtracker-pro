@@ -159,6 +159,39 @@ impl Money {
     /// # Errors
     /// [`MoneyError`] — see its variants.
     pub fn parse(text: &str) -> Result<Self, MoneyError> {
+        hundredths_from_decimal_string(text).map(Self)
+    }
+
+    /// Render as the decimal string this type deserialises from. Exact: no
+    /// float ever exists on this path.
+    #[must_use]
+    pub fn to_decimal_string(self) -> String {
+        hundredths_to_decimal_string(self.0)
+    }
+}
+
+/// A two-place decimal string as a count of hundredths.
+///
+/// [`Money::parse`] IS this function, and it is spelled separately for the same
+/// reason [`hundredths_to_decimal_string`] is spelled separately from
+/// [`Money::to_decimal_string`]: `budgets.alert_threshold_bp` is a PERCENTAGE
+/// stored in hundredths (8000 meaning 80.00%), the cloud stores the same
+/// quantity as `numeric(5,2)`, and a caller writing one has a decimal string in
+/// its hand exactly as a caller writing money does.
+///
+/// The alternative was `Money::parse(text).minor()`, and it is refused for the
+/// reason stated at [`hundredths_to_decimal_string`]: a [`Money`] holding a
+/// percentage would be eligible for every arithmetic this crate reserves for
+/// amounts, and one `+` between a threshold and a balance is a class of bug no
+/// test would think to look for. So the grammar and the exactness are shared and
+/// the TYPE is not.
+///
+/// # Errors
+/// [`MoneyError`] — the same three, for the same three reasons. A threshold with
+/// three decimal places is refused rather than rounded, because a caller that
+/// meant 80.005% has not been understood.
+pub fn hundredths_from_decimal_string(text: &str) -> Result<i64, MoneyError> {
+    {
         let (negative, digits) = match text.strip_prefix('-') {
             Some(rest) => (true, rest),
             None => (false, text),
@@ -222,14 +255,7 @@ impl Money {
         } else {
             minor
         };
-        Ok(Self(signed))
-    }
-
-    /// Render as the decimal string this type deserialises from. Exact: no
-    /// float ever exists on this path.
-    #[must_use]
-    pub fn to_decimal_string(self) -> String {
-        hundredths_to_decimal_string(self.0)
+        Ok(signed)
     }
 }
 

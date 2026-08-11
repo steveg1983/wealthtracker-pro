@@ -1266,6 +1266,236 @@ const VERBS = {
       WHERE c.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid;`;
   },
 
+  // ── THE PLANNING FAMILY, WHOSE ORACLE IS A TYPESCRIPT WRITER TOO ──────────
+  //
+  // Six verbs, no function behind any of them: `budgets` and `goals` are written
+  // straight over PostgREST (PHASE3-PLAN D-2), so the oracle is again the WRITE
+  // the client builds — `budgetToDb` / `goalToDb` plus the query they are sent
+  // through — transcribed key for key.
+  //
+  // Both mappers are WHITELISTS, like `categoryToDb` and unlike `mapAccountToDb`,
+  // so the local verbs FILTER a create and a patch rather than passing them
+  // through whole. `mappers/writes.ts` carries the same distinction.
+  //
+  // THREE THINGS ARE TRANSCRIBED THAT LOOK LIKE THE HARNESS BEING CLEVER, and
+  // every one of them is a line of the writer:
+  //
+  //   * `createBudget` fills in `start_date` and `name` AFTER the mapper,
+  //     because both columns are NOT NULL and the mapper can produce a row with
+  //     neither. `now()::date` and `COALESCE(NULLIF(category,''), 'Budget')`
+  //     below are those two lines.
+  //   * `budgetToDb`'s name line is `b.name ?? b.categoryId ?? 'Budget'` guarded
+  //     by "either key was present", so an update that moves a budget to another
+  //     category RENAMES it. Transcribed as one CASE with the same three-way
+  //     fallthrough, and `??` means the fallthrough is on NULL rather than on
+  //     falsy — a stated empty name stays empty.
+  //   * `goalToDb` makes `completed_at` follow `status`: stamped when a goal
+  //     completes, cleared when it is anything else, and only honoured on its own
+  //     when no status was stated.
+  //
+  // THE THRESHOLD IS NOT MONEY. `alert_threshold` is `numeric(5,2)` here and an
+  // INTEGER count of hundredths of a percent locally; both sides therefore send
+  // and answer the same two-place decimal STRING, and `${money(...)}` below is
+  // reused for its exactness rather than for its meaning.
+  //
+  // `id` is supplied by the payload where the client leaves the column default to
+  // answer, for the reason every write spec needs: two engines cannot be compared
+  // on a row neither can name.
+  create_budget: (payloadLiteral) => {
+    const text = (key) => `${payloadLiteral}::jsonb->>'${key}'`;
+    return `INSERT INTO public.budgets (
+       id, user_id, name, amount, period, category, start_date, end_date,
+       spent, rollover, rollover_amount, alert_threshold, is_active, notes
+     ) VALUES (
+       COALESCE(NULLIF(${text('id')},'')::uuid, uuid_generate_v4()),
+       (${text('user_id')})::uuid,
+       -- budgetToDb's name ?? categoryId ?? 'Budget', and then createBudget's
+       -- own "if (!row.name) row.name = categoryId || 'Budget'". The two
+       -- collapse to this on a create, because the mapper only writes the
+       -- column at all when one of the two keys is present.
+       COALESCE(NULLIF(${text('name')},''), NULLIF(${text('category')},''), 'Budget'),
+       (${text('amount')})::numeric,
+       ${text('period')},
+       NULLIF(${text('category')},''),
+       -- "if (!row.start_date) row.start_date = new Date().toISOString()
+       -- .slice(0,10)" — the UTC day, which is what the local verb takes off
+       -- the file's own clock.
+       COALESCE(NULLIF(${text('start_date')},'')::date, (now() AT TIME ZONE 'UTC')::date),
+       NULLIF(${text('end_date')},'')::date,
+       -- { ...budget, spent: 0 }: the writer's zero, not the caller's.
+       0,
+       COALESCE((${text('rollover')})::boolean, false),
+       COALESCE((${text('rollover_amount')})::numeric, 0),
+       COALESCE(NULLIF(${text('alert_threshold')},'')::numeric, 80),
+       COALESCE((${text('is_active')})::boolean, true),
+       ${text('notes')}
+     );
+     SELECT ${BUDGET_JSON} INTO v_row
+       FROM public.budgets b
+      WHERE b.id = (${text('id')})::uuid;`;
+  },
+
+  // `budgetToDb(updates)` sent as `.update(…).eq('id',…).eq('user_id',…)
+  // .select().single()`. The `.single()` is transcribed for the reason
+  // `update_category`'s entry gives at length: without it the oracle would answer
+  // "fine, nothing happened" for a case the cloud refuses.
+  update_budget: (payloadLiteral) => {
+    const patch = `COALESCE(${payloadLiteral}::jsonb->'patch', '{}'::jsonb)`;
+    const has = (key) => `${patch} ? '${key}'`;
+    const text = (key) => `${patch}->>'${key}'`;
+    const set = (column, value, key = column) =>
+      `${column} = CASE WHEN ${has(key)} THEN ${value} ELSE ${column} END`;
+    return `UPDATE public.budgets b SET
+       -- The one column two keys decide. Nullish, not falsy: NULL falls
+       -- through to the category and an empty name does not.
+       name = CASE WHEN ${has('name')} OR ${has('category')}
+                   THEN COALESCE(${text('name')}, ${text('category')}, 'Budget')
+                   ELSE b.name END,
+       ${set('amount', `(${text('amount')})::numeric`)},
+       ${set('period', text('period'))},
+       ${set('category', text('category'))},
+       ${set('start_date', `(${text('start_date')})::date`)},
+       ${set('end_date', `(${text('end_date')})::date`)},
+       ${set('spent', `(${text('spent')})::numeric`)},
+       ${set('rollover', `(${text('rollover')})::boolean`)},
+       ${set('rollover_amount', `(${text('rollover_amount')})::numeric`)},
+       ${set('alert_threshold', `(${text('alert_threshold')})::numeric`)},
+       ${set('is_active', `(${text('is_active')})::boolean`)},
+       ${set('notes', text('notes'))}
+     WHERE b.id = (${payloadLiteral}::jsonb->>'id')::uuid
+       AND (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
+            OR b.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid);
+     IF NOT FOUND THEN
+       RAISE EXCEPTION 'PGRST116: JSON object requested, multiple (or no) rows returned';
+     END IF;
+     SELECT ${BUDGET_JSON} INTO v_row
+       FROM public.budgets b
+      WHERE b.id = (${payloadLiteral}::jsonb->>'id')::uuid;`;
+  },
+
+  // `.delete().eq('id',…).eq('user_id',…)`. No `.single()`, so an id naming
+  // nothing is a successful nothing and the count is 0. ROW_COUNT is the whole
+  // answer here — unlike `delete_category`, nothing cascades.
+  delete_budget: (payloadLiteral) =>
+    `DELETE FROM public.budgets b
+      WHERE b.id = (${payloadLiteral}::jsonb->>'id')::uuid
+        AND (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
+             OR b.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid);
+     GET DIAGNOSTICS v_count = ROW_COUNT;
+     SELECT jsonb_build_object('deleted', v_count) INTO v_row;`,
+
+  // `goalToDb({ ...goal, progress: goal.currentAmount ?? 0 }, userId)` — and by
+  // the time a row exists, that precedence has already collapsed into ONE key.
+  // The payload carries `current_amount`; both engines default it to the column's
+  // zero when it is absent, which is rule 49's "a goal not yet saved for begins
+  // at zero" and is a DEFAULT rather than a literal either side writes.
+  create_goal: (payloadLiteral) => {
+    const text = (key) => `${payloadLiteral}::jsonb->>'${key}'`;
+    // PARENTHESISED, and it is not decoration: every non-built-in operator in
+    // Postgres shares one precedence and associates LEFT, so `a || b->'k'`
+    // parses as `(a || b)->'k'`. MEASURED in the update below, where the
+    // unparenthesised version merged the WHOLE patch over the stored blob and
+    // then read one key out of the result — which silently dropped every key
+    // the merge was supposed to keep.
+    const json = (key) => `(${payloadLiteral}::jsonb->'${key}')`;
+    const status = `COALESCE(NULLIF(${text('status')},''), 'active')`;
+    return `INSERT INTO public.goals (
+       id, user_id, name, description, target_amount, current_amount,
+       target_date, category, priority, status, account_id,
+       contribution_frequency, auto_contribute, icon, color, completed_at, metadata
+     ) VALUES (
+       COALESCE(NULLIF(${text('id')},'')::uuid, uuid_generate_v4()),
+       (${text('user_id')})::uuid,
+       ${text('name')},
+       ${text('description')},
+       (${text('target_amount')})::numeric,
+       COALESCE((${text('current_amount')})::numeric, 0),
+       NULLIF(${text('target_date')},'')::date,
+       ${text('category')},
+       ${text('priority')},
+       ${status},
+       -- "|| null": falsy, so an empty string is not an account.
+       NULLIF(${text('account_id')},'')::uuid,
+       NULLIF(${text('contribution_frequency')},''),
+       COALESCE((${text('auto_contribute')})::boolean, false),
+       ${text('icon')},
+       ${text('color')},
+       -- The achievement date follows the status, always.
+       CASE WHEN ${status} = 'completed'
+            THEN COALESCE(NULLIF(${text('completed_at')},'')::timestamptz, now())
+            ELSE NULL END,
+       COALESCE(${json('metadata')}, '{}'::jsonb)
+     );
+     SELECT ${GOAL_JSON} INTO v_row
+       FROM public.goals g
+      WHERE g.id = (${text('id')})::uuid;`;
+  },
+
+  // `goalToDb(updates, undefined, existingMetadata)` behind the same
+  // `.eq().eq().select().single()`, with the metadata read the cloud does first.
+  //
+  // THE MERGE IS THE TRANSCRIPTION THAT MATTERS: `{...existingMetadata,
+  // ...stated}`, which is `||` on jsonb — a SHALLOW right-biased merge, the same
+  // one the local verb does over a serde_json::Map. `jsonb_strip_nulls` is
+  // deliberately NOT used: the spread stores a null rather than dropping the key.
+  update_goal: (payloadLiteral) => {
+    const patch = `COALESCE(${payloadLiteral}::jsonb->'patch', '{}'::jsonb)`;
+    const has = (key) => `${patch} ? '${key}'`;
+    const text = (key) => `${patch}->>'${key}'`;
+    const json = (key) => `(${patch}->'${key}')`;  // parenthesised — see create_goal
+    const set = (column, value, key = column) =>
+      `${column} = CASE WHEN ${has(key)} THEN ${value} ELSE ${column} END`;
+    // The status this row WILL hold: the stated one, or the stored one when the
+    // patch says nothing. `completed_at` is decided against it.
+    const nextStatus = `CASE WHEN ${has('status')} THEN ${text('status')} ELSE g.status END`;
+    return `UPDATE public.goals g SET
+       ${set('name', text('name'))},
+       ${set('description', text('description'))},
+       ${set('target_amount', `(${text('target_amount')})::numeric`)},
+       -- SET, never a plus: the caller has already added up and capped this.
+       ${set('current_amount', `(${text('current_amount')})::numeric`)},
+       ${set('target_date', `NULLIF(${text('target_date')},'')::date`)},
+       ${set('category', text('category'))},
+       ${set('priority', text('priority'))},
+       ${set('status', text('status'))},
+       completed_at = CASE
+         WHEN ${has('status')} THEN
+           CASE WHEN ${nextStatus} = 'completed'
+                THEN COALESCE(NULLIF(${text('completed_at')},'')::timestamptz, now())
+                ELSE NULL END
+         WHEN ${has('completed_at')} THEN (${text('completed_at')})::timestamptz
+         ELSE g.completed_at END,
+       ${set('account_id', `NULLIF(${text('account_id')},'')::uuid`)},
+       ${set('contribution_frequency', `NULLIF(${text('contribution_frequency')},'')`)},
+       ${set('auto_contribute', `(${text('auto_contribute')})::boolean`)},
+       ${set('icon', text('icon'))},
+       ${set('color', text('color'))},
+       metadata = CASE WHEN ${has('metadata')}
+                       THEN COALESCE(g.metadata, '{}'::jsonb) || ${json('metadata')}
+                       ELSE g.metadata END
+     WHERE g.id = (${payloadLiteral}::jsonb->>'id')::uuid
+       AND (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
+            OR g.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid);
+     IF NOT FOUND THEN
+       RAISE EXCEPTION 'PGRST116: JSON object requested, multiple (or no) rows returned';
+     END IF;
+     SELECT ${GOAL_JSON} INTO v_row
+       FROM public.goals g
+      WHERE g.id = (${payloadLiteral}::jsonb->>'id')::uuid;`;
+  },
+
+  // `.delete().eq('id',…).eq('user_id',…)`, and the cascade the schema declares:
+  // `goal_contributions.goal_id` is ON DELETE CASCADE on BOTH engines. The count
+  // is ROW_COUNT — the goals removed, never the contributions, which is the
+  // decision `delete_goal`'s module docs argue against `delete_category`'s.
+  delete_goal: (payloadLiteral) =>
+    `DELETE FROM public.goals g
+      WHERE g.id = (${payloadLiteral}::jsonb->>'id')::uuid
+        AND (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
+             OR g.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid);
+     GET DIAGNOSTICS v_count = ROW_COUNT;
+     SELECT jsonb_build_object('deleted', v_count) INTO v_row;`,
+
   // The snap returns the whole accounts row. Projected into the same eight
   // fields crate::row::account::AccountRow serialises, money as a decimal string
   // on both sides — numeric::text is exact and involves no rounding function.

@@ -14,11 +14,15 @@
  * lifecycle no-ops, the sixteen writes slice 19 wired, the three ACCOUNT writes
  * slice 20 added — the first the crate had no Postgres function to port
  * (PHASE3-PLAN D-2: the cloud writes `accounts` directly over PostgREST, so the
- * oracle is the TypeScript writer and `schema.sql`'s constraints) — and, since
- * slice 21, the four CATEGORY writes and `prepareCategories`, which is the same
- * kind of port with one addition: the writer it ports (`ensureCategories`) calls
- * an RPC of its own, and only the third of its three steps is that RPC.
- * SEVENTEEN operations of the seam are not here yet, and
+ * oracle is the TypeScript writer and `schema.sql`'s constraints) — the four
+ * CATEGORY writes and `prepareCategories` from slice 21, which is the same kind
+ * of port with one addition (the writer it ports, `ensureCategories`, calls an
+ * RPC of its own, and only the third of its three steps is that RPC) — and,
+ * since slice 22, the three BUDGET writes and the three GOAL writes, which is
+ * D-2's argument a third time and the first family to keep an audit trail the
+ * cloud keeps for neither table (DESIGN.md §5 divergence 10, ruled in
+ * PHASE1-PLAN §2.2 long before the verbs existed).
+ * ELEVEN operations of the seam are not here yet, and
  * that is a declared, counted, shrinking list rather than a silence: they are
  * named in `services/port/__tests__/contract.ts`'s `NOT_YET` ratchet, the
  * contract suite asserts that the operations this port is missing are EXACTLY
@@ -154,9 +158,13 @@ import {
   defaultCategorySeed,
   toAccountCreatePayload,
   toAccountUpdatePatch,
+  toBudgetCreatePayload,
+  toBudgetUpdatePatch,
   toCategoryCreatePayload,
   toCategoryUpdatePatch,
   toCreatePayload,
+  toGoalCreatePayload,
+  toGoalUpdatePatch,
   toImportRow,
   toSplitLine,
   toUpdatePatch
@@ -168,6 +176,10 @@ import {
  * Written as an intersection so `tsc -b` checks every operation that IS
  * claimed. Deleted at slice 25, when the class says `implements DataPort` and
  * the compiler checks all fifty-six.
+ *
+ * The planning group is now an `Omit` of two rather than a `Pick` of six, which
+ * is the shape that says the group is nearly whole: the two that are left are
+ * the dismissals, and they are slice 23.
  */
 export type LocalDataPortSurface =
   DataPortReads &
@@ -185,15 +197,7 @@ export type LocalDataPortSurface =
     | 'unarchiveAccount'
   > &
   Omit<DataPortTransferWrites, 'repointTransfer'> &
-  Pick<
-    DataPortPlanningWrites,
-    | 'createCategory'
-    | 'createCategories'
-    | 'updateCategory'
-    | 'deleteCategory'
-    | 'deleteUnusedCategories'
-    | 'mergeCategories'
-  > &
+  Omit<DataPortPlanningWrites, 'dismissSuggestion' | 'restoreSuggestion'> &
   Pick<DataPortBackupLifecycle, 'financialDataIsEmpty' | 'wipeAllFinancialData'> &
   Pick<DataPortLifecycle, 'initialize' | 'prepareCategories' | 'subscribeToUpdates'>;
 
@@ -844,6 +848,153 @@ export class LocalDataPort implements LocalDataPortSurface {
         toTransaction
       )
     };
+  }
+
+  // ── Budgets and goals ─────────────────────────────────────────────────────
+
+  /**
+   * A limit somebody set on a category, for a period.
+   *
+   * ── B-3, AND WHAT "THE DEVICE ITSELF" MEANS HERE ────────────────────────
+   *
+   * The divergence table gives this engine *'the device itself'* as its owner,
+   * against the cloud's *'an owner the implementation resolves, stamped on the
+   * row and enforced by RLS'* — and the two rules underneath that phrase are
+   * asserted equal for every engine. Both are structural here rather than
+   * careful:
+   *
+   *   NO OPERATION ACCEPTS AN OWNER. This method takes one argument, as the
+   *   contract suite checks by arity, and there is nowhere to put a second: the
+   *   owner is added by `#ask` and by nothing else, so no method on this class
+   *   can send somebody else's.
+   *
+   *   A WRITE WHOSE OWNER COULD NOT BE RESOLVED DOES NOT REACH ANOTHER OWNER'S
+   *   STORE. There is no unresolved owner to have: the port is constructed with
+   *   the open document's, its shape is checked at construction (R-3), and two
+   *   documents are two FILES. The hazard the seam describes at length —
+   *   `PlanningService.createBudget(null, …)` quietly writing the browser's copy
+   *   and losing the budget by morning — has no analogue on a device, and this
+   *   is why: there is one store and one owner, decided when the file opened.
+   *
+   * `spent` is not sent and the verb has no argument for it. What has been spent
+   * against a category is summed from the ledger, so a new budget starts at zero
+   * in every implementation, and `writes.ts` leaves the key out rather than
+   * sending a figure the verb would discard.
+   *
+   * TWO COLUMNS ARE FILLED IN BY THE VERB, not here: `start_date` defaults to
+   * today and `name` to the category id (or the literal 'Budget'). Both are
+   * `NOT NULL` in the file and both are lines of the cloud's own writer, so they
+   * live where the differential harness can compare them.
+   */
+  async createBudget(budget: Omit<Budget, 'id' | 'spent'>): Promise<Budget> {
+    const answer = await this.#ask('create_budget', toBudgetCreatePayload(budget));
+    return toBudget(rowOf(answer, 'create_budget', 'answer'));
+  }
+
+  /**
+   * Change a budget, and hand back the whole budget as it now stands.
+   *
+   * A budget that is not there is refused BY NAME and the store is left exactly
+   * as it was — the verb reads the row before its first write. That is the port
+   * of one word in the cloud's query, `.single()`, and `deleteBudget` below has
+   * no such clause and is therefore a successful nothing on the same id.
+   *
+   * ONE EDIT DOES MORE THAN IT SAYS, and it is the cloud's behaviour rather than
+   * this port's: moving a budget to a different category also renames it to that
+   * category's id, because `budgetToDb` writes `name` whenever EITHER key is
+   * present. The verb reproduces it and a spec pins it; a port that tidied it
+   * would leave the two editions disagreeing about what a budget is called.
+   */
+  async updateBudget(id: string, updates: Partial<Budget>): Promise<Budget> {
+    const answer = await this.#ask('update_budget', {
+      id,
+      patch: toBudgetUpdatePatch(updates)
+    });
+    return toBudget(rowOf(answer, 'update_budget', 'answer'));
+  }
+
+  /**
+   * Remove a budget — a real delete, which an account never gets.
+   *
+   * The seam gives the reason: a budget holds no money and nothing is filed
+   * against it, so removing one leaves no hole in the ledger. Removing one that
+   * is already gone is a NO-OP rather than an error, which is the same rule
+   * `dismissSuggestion` keeps and is the case a slow network actually produces.
+   *
+   * Answers `void`, and the verb answers with a count anyway. Discarded here for
+   * `closeAccount`'s reason: a return value nobody reads is a return value that
+   * will one day be read wrongly.
+   */
+  async deleteBudget(id: string): Promise<void> {
+    await this.#ask('delete_budget', { id });
+  }
+
+  /**
+   * A target, a date to reach it by, and how much has been put by so far.
+   *
+   * ── THE OPENING FIGURE (rule 49) ────────────────────────────────────────
+   *
+   * `progress` is not an argument and is not ignored either: it is DERIVED from
+   * `currentAmount`, so a goal written down for something already half saved for
+   * begins there. The two app fields are one column, `writes.ts` folds them the
+   * way the cloud's own writer folds them, and a goal with nothing put by starts
+   * at zero because the COLUMN defaults to zero — not because anything here
+   * writes one. The version that hard-coded zero lost the opening amount, and
+   * lost it differently in each engine.
+   *
+   * B-3 applies word for word: see `createBudget` above.
+   */
+  async createGoal(goal: Omit<Goal, 'id' | 'progress'>): Promise<Goal> {
+    const answer = await this.#ask('create_goal', toGoalCreatePayload(goal));
+    return toGoal(rowOf(answer, 'create_goal', 'answer'));
+  }
+
+  /**
+   * Change a goal, and hand back the whole goal as it now stands.
+   *
+   * ALSO THE CONTRIBUTION PATH. Money put towards a goal arrives here as an
+   * ordinary update carrying the new `progress` — already summed and already
+   * capped against the target by the caller — so the verb SETS the column and
+   * never adds to it. `writes.ts` gives `progress` precedence over
+   * `currentAmount`, which is the order the cloud's mapper tests them in and the
+   * order the contribution actually arrives with.
+   *
+   * A goal that is not there is refused by name, and the store is left exactly
+   * as it was.
+   *
+   * THE THREE FIELDS WITH NO COLUMNS — `type`, `linkedAccountIds`,
+   * `contributionAmount` — travel as a `metadata` object and are MERGED over
+   * what is stored, inside the write's own transaction. The merge is the verb's
+   * rather than this port's on purpose: merging here would merge over whatever
+   * this caller last read, which is precisely how editing a goal's type came to
+   * delete its linked accounts.
+   */
+  async updateGoal(id: string, updates: Partial<Goal>): Promise<Goal> {
+    const answer = await this.#ask('update_goal', {
+      id,
+      patch: toGoalUpdatePatch(updates)
+    });
+    return toGoal(rowOf(answer, 'update_goal', 'answer'));
+  }
+
+  /**
+   * Remove a goal, and the contributions filed against it.
+   *
+   * The cascade is the FILE's — `goal_contributions.goal_id` is `ON DELETE
+   * CASCADE` in both schemas — and the verb deliberately does not walk it, which
+   * is the opposite of `deleteCategory`'s decision about ITS cascade. The verb's
+   * own documentation argues the three differences; the short version is that a
+   * contribution is a different entity from the thing being deleted, so counting
+   * or auditing it would make one number mean two things.
+   *
+   * What this does NOT do is forget the goal's trophy: the achievement record
+   * belongs to the caller that owns the celebration, and a store is not the
+   * place to put the rule about what a completed goal feels like.
+   *
+   * Removing one that is already gone is a no-op, not an error.
+   */
+  async deleteGoal(id: string): Promise<void> {
+    await this.#ask('delete_goal', { id });
   }
 
   // ── Categories ────────────────────────────────────────────────────────────

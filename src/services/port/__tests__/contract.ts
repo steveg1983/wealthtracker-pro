@@ -272,7 +272,9 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
    * 20 wrote the first three verbs that port no Postgres function at all — the
    * account family, whose oracle is the TypeScript writer the cloud uses to
    * write `accounts` directly over PostgREST; slice 21 did the same for the four
-   * category writes and, with them, `prepareCategories`.
+   * category writes and, with them, `prepareCategories`; slice 22 did it a third
+   * time for the six planning writes, and B-3's row below is asserted rather
+   * than skipped as a result.
    *
    * What is left needs new Rust, in the order the plan sets out.
    *
@@ -293,16 +295,9 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
     'unarchiveAccount',
     // Transfers — `repointTransfer` has no verb in either engine's crate half.
     'repointTransfer',
-    // Planning — budgets and goals (slice 22). The category half of this group
-    // has gone: `mergeCategories` and `deleteUnusedCategories` left in slice 19
-    // because the crate already had their verbs, and the four writes left in
-    // slice 21 with five new ones.
-    'createBudget',
-    'updateBudget',
-    'deleteBudget',
-    'createGoal',
-    'updateGoal',
-    'deleteGoal',
+    // Planning — nothing is left of this group but the dismissals. The category
+    // half went in slices 19 and 21; the budget and goal writes went in slice 22
+    // with six new verbs, and the whole of B-3 went green with them.
     // Dismissals — no verb yet (slice 23).
     'dismissSuggestion',
     'restoreSuggestion',
@@ -353,7 +348,7 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
  * on a line that exists for no other purpose.
  */
 export const NOT_YET_CEILING: Partial<Record<DataPortEngine, number>> = {
-  'local-core': 17
+  'local-core': 11
 };
 
 // ── Declared divergences ────────────────────────────────────────────────────
@@ -519,6 +514,13 @@ const PREPARE_CATEGORIES: Record<
 const OWNERSHIP: Record<DataPortEngine, string> = {
   'browser-storage': 'one store and no owner at all',
   supabase: 'an owner the implementation resolves, stamped on the row and enforced by RLS',
+  // Asserted rather than aspirational since slice 22, and worth saying what the
+  // phrase turned out to MEAN once there were writes to ask it of: a local
+  // ledger's owner is the uuid in its own `users` row, read when the document
+  // opened and cached for its life (PHASE3-PLAN D-5). Both halves of the rule
+  // are therefore structural rather than careful — the port has no per-call
+  // owner argument to get wrong, and two owners are two FILES, which is exactly
+  // what the isolation half of the test below constructs.
   'local-core': 'the device itself'
 };
 

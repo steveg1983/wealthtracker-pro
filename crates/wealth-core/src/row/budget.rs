@@ -45,7 +45,7 @@
 //! the one nobody would think to check. That is why they are spelled out
 //! separately rather than one being derived from the other.
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
 use crate::error::CoreResult;
@@ -193,6 +193,91 @@ pub fn list_all(connection: &Connection, user_id: &str) -> CoreResult<Vec<Listed
     Ok(budgets)
 }
 
+/// Read one budget as the app lists it, scoped to an owner.
+///
+/// The `.eq('id', …).eq('user_id', …)` pair every one of `planningService`'s
+/// budget writes carries, and `None` is the port of `.single()` finding nothing.
+/// An absent owner applies no ownership clause — the decision
+/// [`crate::verbs::update_transaction`] documents at length.
+///
+/// This answers [`ListedBudget`] rather than [`BudgetRow`] because it is what a
+/// WRITE hands back, and a write's answer is what the caller puts straight into
+/// state: the same projection `list_budgets` returns, threshold rendered and
+/// all. The audit entry's `before`/`after` want the other one, which is
+/// [`read`].
+///
+/// # Errors
+/// [`crate::error::CoreError`] if the read fails.
+pub fn read_listed(
+    connection: &Connection,
+    id: &str,
+    user_id: Option<&str>,
+) -> CoreResult<Option<ListedBudget>> {
+    Ok(connection
+        .query_row(
+            "SELECT id, user_id, name, amount_minor, period, category, category_id,
+                    start_date, end_date, spent_minor, rollover, rollover_amount_minor,
+                    alert_threshold_bp, is_active, notes, metadata, created_at, updated_at
+               FROM budgets
+              WHERE id = ?1
+                AND (?2 IS NULL OR user_id = ?2)",
+            params![id, user_id],
+            |record| {
+                let metadata_text: String = record.get(15)?;
+                Ok(ListedBudget {
+                    id: record.get(0)?,
+                    user_id: record.get(1)?,
+                    name: record.get(2)?,
+                    amount: Money::from_minor(record.get(3)?),
+                    period: record.get(4)?,
+                    category: record.get(5)?,
+                    category_id: record.get(6)?,
+                    start_date: record.get(7)?,
+                    end_date: record.get(8)?,
+                    spent: Money::from_minor(record.get(9)?),
+                    rollover: record.get::<_, i64>(10)? != 0,
+                    rollover_amount: Money::from_minor(record.get(11)?),
+                    alert_threshold: hundredths_to_decimal_string(record.get(12)?),
+                    is_active: record.get::<_, i64>(13)? != 0,
+                    notes: record.get(14)?,
+                    metadata: serde_json::from_str(&metadata_text)
+                        .unwrap_or(serde_json::Value::Null),
+                    created_at: record.get(16)?,
+                    updated_at: record.get(17)?,
+                })
+            },
+        )
+        .optional()?)
+}
+
+/// Read one budget as an audit entry records it, scoped to an owner.
+///
+/// [`read`] with the ownership clause and without the refusal, so a verb can
+/// tell "no such budget" from "not yours" in one read and then say neither —
+/// both are `budget_not_found`, exactly as `.eq().eq().single()` cannot tell
+/// them apart either.
+///
+/// # Errors
+/// [`crate::error::CoreError`] if the read fails.
+pub fn read_owned(
+    connection: &Connection,
+    id: &str,
+    user_id: Option<&str>,
+) -> CoreResult<Option<BudgetRow>> {
+    Ok(connection
+        .query_row(
+            "SELECT id, user_id, name, amount_minor, period, category, category_id,
+                    start_date, end_date, spent_minor, rollover, rollover_amount_minor,
+                    alert_threshold_bp, is_active, notes, metadata, created_at, updated_at
+               FROM budgets
+              WHERE id = ?1
+                AND (?2 IS NULL OR user_id = ?2)",
+            params![id, user_id],
+            row_of,
+        )
+        .optional()?)
+}
+
 /// Read one budget, whole.
 ///
 /// # Errors
@@ -205,28 +290,35 @@ pub fn read(connection: &Connection, id: &str) -> CoreResult<BudgetRow> {
            FROM budgets
           WHERE id = ?1",
         params![id],
-        |record| {
-            let metadata_text: String = record.get(15)?;
-            Ok(BudgetRow {
-                id: record.get(0)?,
-                user_id: record.get(1)?,
-                name: record.get(2)?,
-                amount: Money::from_minor(record.get(3)?),
-                period: record.get(4)?,
-                category: record.get(5)?,
-                category_id: record.get(6)?,
-                start_date: record.get(7)?,
-                end_date: record.get(8)?,
-                spent: Money::from_minor(record.get(9)?),
-                rollover: record.get::<_, i64>(10)? != 0,
-                rollover_amount: Money::from_minor(record.get(11)?),
-                alert_threshold_bp: record.get(12)?,
-                is_active: record.get::<_, i64>(13)? != 0,
-                notes: record.get(14)?,
-                metadata: serde_json::from_str(&metadata_text).unwrap_or(serde_json::Value::Null),
-                created_at: record.get(16)?,
-                updated_at: record.get(17)?,
-            })
-        },
+        row_of,
     )?)
+}
+
+/// One record of that eighteen-column SELECT as a [`BudgetRow`].
+///
+/// Written once because two readers use the identical column list, and a second
+/// copy is how an added column comes to be read at the wrong index by one of
+/// them.
+fn row_of(record: &rusqlite::Row<'_>) -> rusqlite::Result<BudgetRow> {
+    let metadata_text: String = record.get(15)?;
+    Ok(BudgetRow {
+        id: record.get(0)?,
+        user_id: record.get(1)?,
+        name: record.get(2)?,
+        amount: Money::from_minor(record.get(3)?),
+        period: record.get(4)?,
+        category: record.get(5)?,
+        category_id: record.get(6)?,
+        start_date: record.get(7)?,
+        end_date: record.get(8)?,
+        spent: Money::from_minor(record.get(9)?),
+        rollover: record.get::<_, i64>(10)? != 0,
+        rollover_amount: Money::from_minor(record.get(11)?),
+        alert_threshold_bp: record.get(12)?,
+        is_active: record.get::<_, i64>(13)? != 0,
+        notes: record.get(14)?,
+        metadata: serde_json::from_str(&metadata_text).unwrap_or(serde_json::Value::Null),
+        created_at: record.get(16)?,
+        updated_at: record.get(17)?,
+    })
 }

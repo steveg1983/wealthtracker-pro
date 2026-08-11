@@ -31,14 +31,31 @@
  *
  * ── ONLY THE ENTITIES THAT REALLY GO BOTH WAYS ──────────────────────────────
  *
- * Transactions, split lines, accounts — and, since slice 21, categories.
- * Budgets, goals and dismissals are still read-only: their write verbs are
- * slices 22 and 23, and a one-directional mapping has nothing to disagree with,
- * so the three of them stay written out in `rows.ts` where they can be read
- * beside the cloud twin each one has to agree with. Each joins this table in the
- * commit that gives it a writer, and the category's arrival is what that promise
- * looks like when it is kept: `toCategory` moved out of hand-written property
- * access and into `fieldsOf` in the same commit as `toCategoryCreatePayload`.
+ * Transactions, split lines, accounts, categories — and, since slice 22,
+ * budgets and goals. Dismissals are the last one still read-only: their write
+ * verbs are slice 23, and a one-directional mapping has nothing to disagree
+ * with, so they stay written out in `rows.ts` where they can be read beside the
+ * cloud twin they have to agree with. Each entity joins this table in the commit
+ * that gives it a writer, and the promise has now been kept three times running:
+ * `toCategory`, `toBudget` and `toGoal` each moved out of hand-written property
+ * access and into `fieldsOf` in the same commit as their own create payload.
+ *
+ * ── WHAT A ROW HERE CANNOT SAY, AND WHERE THAT LIVES INSTEAD ────────────────
+ *
+ * One column, one field. That is the whole shape of the table, and two of this
+ * slice's mappings do not fit it:
+ *
+ *   `Goal.progress` and `Goal.currentAmount` are ONE column, and `goalToDb`
+ *   gives `progress` precedence over `currentAmount`;
+ *   `Goal.isActive` and `Goal.achieved` are both derived from `status`, and the
+ *   write direction has to fold three app fields back into one.
+ *
+ * Neither is a correspondence, so neither is here: they are ASSEMBLY, and
+ * `writes.ts` owns them beside the account create's `openingBalance || balance
+ * || 0`, which folds two app fields into one column for exactly the same reason.
+ * The read direction's half lives in `rows.ts`. What this table holds for a goal
+ * is the fifteen columns whose name and conversion really are one thing in both
+ * directions.
  *
  * ACCOUNTS ARE THE ONE ENTRY HERE WHOSE READ DOES NOT COME BACK THROUGH IT, and
  * that is a stronger arrangement rather than a hole in the rule. `rows.ts`'s
@@ -94,6 +111,24 @@ export type Kind =
   | 'text'
   | 'money'
   | 'day'
+  /**
+   * A calendar day the APP keeps as a string rather than as a Date —
+   * `Budget.startDate` and `Budget.endDate`.
+   *
+   * The same column and the same WRITE as `day`, and the opposite READ: a day
+   * has no time and no zone, so a type that says `string` is a type that has
+   * already answered the question, and re-deriving it through a Date could only
+   * lose. Written out as its own kind rather than left to each mapper, because
+   * "which of these two a column is" is exactly the sort of thing two mappers
+   * come to disagree about — which is what this whole table exists to prevent.
+   *
+   * The account rows above keep `day` for the three columns that are strings in
+   * `Account` too (`bankBalanceDate` and the two reconciled dates), and the
+   * distinction costs nothing there: an account is read back through
+   * `mapAccountFromDb` rather than through this table, so only the WRITE side is
+   * ever used and the two kinds encode identically.
+   */
+  | 'dayText'
   | 'instant'
   | 'flag'
   | 'whole'
@@ -253,6 +288,78 @@ export const CATEGORY_COLUMNS: readonly Column[] = [
   { key: 'is_active', field: 'isActive', kind: 'flag' }
 ];
 
+/**
+ * A budget, column by column.
+ *
+ * Twelve of the eighteen the table has, and the six absences are each a
+ * decision. `user_id` is the port's own (`#ask` adds it and no method below
+ * could send another) and `created_at`/`updated_at` are stamped by the file's
+ * clock inside the write's transaction — the same rule the category table
+ * states. `category_id` is the uuid twin the app never writes: `budgetFromDb`
+ * reads the TEXT `category` column and says why, and `budgetToDb` has no line
+ * for the other one at all, so a port that sent it would write a column the
+ * cloud's own writer leaves to `merge_categories`. `spent` and `id` are the two
+ * that differ by DIRECTION rather than by existence, and `writes.ts` handles
+ * them in its key lists.
+ *
+ * `alertThreshold` is the one row here that is not money and is shaped like it:
+ * a two-place decimal, crossing as text in both directions, because the column
+ * is `numeric(5,2)` in the cloud and an INTEGER count of hundredths of a percent
+ * in a file. Reading it with the money reader is what keeps a `/ 100` off this
+ * side of the boundary — the shape R-7's grep exists to catch, whether or not
+ * the quantity is money. `rows.ts` says the same thing from the other end.
+ */
+export const BUDGET_COLUMNS: readonly Column[] = [
+  { key: 'id', field: 'id', kind: 'text' },
+  { key: 'name', field: 'name', kind: 'text' },
+  { key: 'amount', field: 'amount', kind: 'money' },
+  { key: 'period', field: 'period', kind: 'text' },
+  // The app calls it `categoryId`; the column that holds it is `category`.
+  { key: 'category', field: 'categoryId', kind: 'text' },
+  // Strings in the app's own type, like an account's `bankBalanceDate`.
+  { key: 'start_date', field: 'startDate', kind: 'dayText' },
+  { key: 'end_date', field: 'endDate', kind: 'dayText' },
+  { key: 'spent', field: 'spent', kind: 'money' },
+  { key: 'rollover', field: 'rollover', kind: 'flag' },
+  { key: 'rollover_amount', field: 'rolloverAmount', kind: 'money' },
+  { key: 'alert_threshold', field: 'alertThreshold', kind: 'money' },
+  { key: 'is_active', field: 'isActive', kind: 'flag' },
+  { key: 'notes', field: 'notes', kind: 'text' }
+];
+
+/**
+ * A goal, column by column — the fifteen that really are one column and one
+ * field. See the header for the three that are not.
+ *
+ * `metadata` is a column and not a field: three app fields ride in it (`type`,
+ * `linkedAccountIds`, `contributionAmount`), and both directions assemble it.
+ * It is therefore absent from this table and present in both mappers, which is
+ * the same arrangement `status` has.
+ *
+ * `completed_at` is `instant` in one direction only. The app's `Goal.completedAt`
+ * is an ISO STRING rather than a Date (`types/index.ts`), and `encode`'s
+ * `instant` passes a string through untouched — which is right, because the
+ * value a caller holds is one this port answered with. `rows.ts` turns it back
+ * into a string on the way in.
+ */
+export const GOAL_COLUMNS: readonly Column[] = [
+  { key: 'id', field: 'id', kind: 'text' },
+  { key: 'name', field: 'name', kind: 'text' },
+  { key: 'description', field: 'description', kind: 'text' },
+  { key: 'target_amount', field: 'targetAmount', kind: 'money' },
+  { key: 'current_amount', field: 'currentAmount', kind: 'money' },
+  { key: 'target_date', field: 'targetDate', kind: 'day' },
+  { key: 'category', field: 'category', kind: 'text' },
+  { key: 'priority', field: 'priority', kind: 'text' },
+  { key: 'status', field: 'status', kind: 'text' },
+  { key: 'completed_at', field: 'completedAt', kind: 'instant' },
+  { key: 'account_id', field: 'accountId', kind: 'text' },
+  { key: 'contribution_frequency', field: 'contributionFrequency', kind: 'text' },
+  { key: 'auto_contribute', field: 'autoContribute', kind: 'flag' },
+  { key: 'icon', field: 'icon', kind: 'text' },
+  { key: 'color', field: 'color', kind: 'text' }
+];
+
 /** One stored value on its way IN, or `undefined` where the answer said nothing. */
 const decode = (kind: Kind, value: unknown): unknown => {
   switch (kind) {
@@ -268,6 +375,9 @@ const decode = (kind: Kind, value: unknown): unknown => {
       return money(value);
     case 'day':
       return day(value);
+    case 'dayText':
+      // The stored day, verbatim. See the kind's own documentation.
+      return text(value);
     case 'instant':
       return instant(value);
     case 'flag':
@@ -324,6 +434,9 @@ export const encode = (kind: Kind, value: unknown): unknown => {
       // multiplied. The crate's money boundary is what judges it.
       return typeof value === 'number' ? String(value) : value;
     case 'day':
+    case 'dayText':
+      // ONE encoder for both, which is the point of them being one column type:
+      // a string passes through and a Date names its UTC day (divergence D-8).
       return asDay(value);
     case 'instant':
       return value instanceof Date ? value.toISOString() : value;

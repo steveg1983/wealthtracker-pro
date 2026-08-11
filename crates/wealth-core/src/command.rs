@@ -79,22 +79,26 @@ use crate::admission::{
 use crate::error::CoreError;
 use crate::verbs::{
     account_balances, apply_category_to_uncategorized, clear_transfer_links, close_account,
-    confirm_transaction_categories, create_account, create_categories, create_category,
-    create_transaction, create_transfer_counterpart, delete_category, delete_transaction,
+    confirm_transaction_categories, create_account, create_budget, create_categories,
+    create_category, create_goal, create_transaction, create_transfer_counterpart, delete_budget,
+    delete_category, delete_goal, delete_transaction,
     delete_unused_categories, finalize_user_restore, import_bank_transactions, import_transactions,
     link_bank_account_snap, link_split_line_transfer, link_transfer_pair, list_accounts,
     list_budgets, list_categories, list_closed_accounts, list_goals, list_suggestion_dismissals,
     list_transaction_splits, list_transactions, load_boot, merge_categories,
     repair_claimed_transfer, restore_user_chunk, seed_categories,
-    set_transaction_splits_with_legs, splits_for, update_account, update_category,
-    update_transaction, user_financial_data_is_empty, verify_integrity, wipe_user_financial_data,
+    set_transaction_splits_with_legs, splits_for, update_account, update_budget, update_category,
+    update_goal, update_transaction, user_financial_data_is_empty, verify_integrity,
+    wipe_user_financial_data,
     ApplyCategoryToUncategorized, ClearTransferLinks, CloseAccount, ConfirmTransactionCategories,
-    CreateAccount, CreateCategories, CreateCategory, CreateTransaction, CreateTransferCounterpart,
-    DeleteCategory, DeleteTransaction, DeleteUnusedCategories, FinalizeUserRestore,
+    CreateAccount, CreateBudget, CreateCategories, CreateCategory, CreateGoal, CreateTransaction,
+    CreateTransferCounterpart, DeleteBudget, DeleteCategory, DeleteGoal, DeleteTransaction,
+    DeleteUnusedCategories, FinalizeUserRestore,
     ImportBankTransactions, ImportTransactions, LinkBankAccountSnap, LinkSplitLineTransfer,
     LinkTransferPair, MergeCategories, OwnedRead, RepairClaimedTransfer, RestoreUserChunk,
-    SeedCategories, SetTransactionSplitsWithLegs, SplitsFor, UpdateAccount, UpdateCategory,
-    UpdateTransaction, UserFinancialDataIsEmpty, VerifyIntegrity, WipeUserFinancialData,
+    SeedCategories, SetTransactionSplitsWithLegs, SplitsFor, UpdateAccount, UpdateBudget,
+    UpdateCategory, UpdateGoal, UpdateTransaction, UserFinancialDataIsEmpty, VerifyIntegrity,
+    WipeUserFinancialData,
 };
 
 /// A command, as a caller sends it.
@@ -177,6 +181,27 @@ pub enum Command {
     DeleteCategory(Box<DeleteCategory>),
     /// [`crate::verbs::seed_categories`].
     SeedCategories(Box<SeedCategories>),
+    // ── The planning family ──────────────────────────────────────────────────
+    //
+    // Six more verb strings with no function behind any of them: `budgets` and
+    // `goals` are written directly over PostgREST too (`planningService.ts:256`,
+    // `:273`, `:289`, `:323`, `:342`, `:379`). PHASE3-PLAN D-2 again.
+    //
+    // They are the first family in this crate to audit a table the cloud audits
+    // NOWHERE — PHASE1-PLAN §2.2, DESIGN.md §5 divergence 10 — and
+    // [`crate::verbs::create_budget`] carries that argument in full.
+    /// [`crate::verbs::create_budget`].
+    CreateBudget(Box<CreateBudget>),
+    /// [`crate::verbs::update_budget`].
+    UpdateBudget(Box<UpdateBudget>),
+    /// [`crate::verbs::delete_budget`].
+    DeleteBudget(Box<DeleteBudget>),
+    /// [`crate::verbs::create_goal`].
+    CreateGoal(Box<CreateGoal>),
+    /// [`crate::verbs::update_goal`].
+    UpdateGoal(Box<UpdateGoal>),
+    /// [`crate::verbs::delete_goal`].
+    DeleteGoal(Box<DeleteGoal>),
     // The restore family. Four verb strings, each spelled exactly as the
     // function it ports — including `restore_user_chunk`, whose LOCAL payload
     // carries a LIST of chunks because the whole restore is one transaction here
@@ -469,6 +494,12 @@ pub fn dispatch(
         Command::UpdateCategory(payload) => update_category(connection, *payload).and_then(as_json),
         Command::DeleteCategory(payload) => delete_category(connection, *payload).and_then(as_json),
         Command::SeedCategories(payload) => seed_categories(connection, *payload).and_then(as_json),
+        Command::CreateBudget(payload) => create_budget(connection, *payload).and_then(as_json),
+        Command::UpdateBudget(payload) => update_budget(connection, *payload).and_then(as_json),
+        Command::DeleteBudget(payload) => delete_budget(connection, *payload).and_then(as_json),
+        Command::CreateGoal(payload) => create_goal(connection, *payload).and_then(as_json),
+        Command::UpdateGoal(payload) => update_goal(connection, *payload).and_then(as_json),
+        Command::DeleteGoal(payload) => delete_goal(connection, *payload).and_then(as_json),
         // The only verb that needs no `&mut`: it opens no transaction, because
         // it writes nothing.
         Command::UserFinancialDataIsEmpty(payload) => {

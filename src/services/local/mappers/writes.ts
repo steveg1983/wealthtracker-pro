@@ -57,24 +57,48 @@
  * it would refuse on is a real one: `Category.description` exists in the app's
  * type and has a column in neither engine.
  *
+ * THE BUDGET AND GOAL PAIRS ARE FILTERED IN BOTH DIRECTIONS TOO, for the same
+ * reason and against the same kind of mapper: `budgetToDb` is twelve
+ * `if (b.k !== undefined)` lines and `goalToDb` is a similar list, so both are
+ * whitelists and a key neither has a line for never reaches the cloud's table.
+ *
  * So the rule is not "creates filter and updates do not". It is: **do what the
  * cloud's own mapper does with a key it has never heard of.** For a transaction
  * that is discard-on-create and send-on-update; for an account it is send in
- * both directions; for a category it is discard in both.
+ * both directions; for a category, a budget and a goal it is discard in both.
+ *
+ * ── AND THE PART A COLUMN TABLE CANNOT DO: MANY FIELDS, ONE COLUMN ───────────
+ *
+ * Three of this file's builders fold SEVERAL app fields into ONE column, which
+ * `columns.ts` deliberately cannot express — it is one row per column, and a
+ * correspondence with two left-hand sides is not a correspondence:
+ *
+ *   an account's `openingBalance || balance || 0` → `initial_balance`
+ *   a goal's `progress ?? currentAmount`          → `current_amount`
+ *   a goal's `status ?? achieved ?? isActive`     → `status`
+ *
+ * Every one of them is a line of the cloud's own writer, transcribed with its
+ * own operator: `||` where the writer wrote `||`, `??` where it wrote `??`. The
+ * difference is reachable in both cases — `??` passes an empty string and a zero
+ * through and `||` does not — so the operators are copied rather than chosen.
  */
 
 import { getDefaultCategories } from '../../../data/defaultCategories';
 import type {
   Account,
   AccountUpdate,
+  Budget,
   Category,
+  Goal,
   Transaction,
   TransactionSplitInput
 } from '../../../types';
 import type { Column } from './columns';
 import {
   ACCOUNT_COLUMNS,
+  BUDGET_COLUMNS,
   CATEGORY_COLUMNS,
+  GOAL_COLUMNS,
   SPLIT_COLUMNS,
   TRANSACTION_COLUMNS,
   encode,
@@ -394,4 +418,210 @@ function whole(
     patch[column.key] = encode(column.kind, value);
   }
   return patch;
+}
+
+// ── Budgets ─────────────────────────────────────────────────────────────────
+
+/**
+ * What `create_budget` accepts, out of the budget's columns.
+ *
+ * `spent` is absent, and it is the important absence: the cloud's own writer
+ * overrides whatever it was handed with zero (`budgetToDb({ ...budget, spent: 0
+ * })`), because what has been spent against a category is summed from the ledger
+ * and is never the caller's to state. The verb therefore has no `spent` argument
+ * at all rather than one it would then discard, and the seam says the same thing
+ * from its end.
+ *
+ * `id` is absent for the transaction create's reason: the seam's argument is
+ * `Omit<Budget, 'id' | 'spent'>`, and the crate mints one (B-5). The verb DOES
+ * accept an id, because the differential harness has to name a row on both
+ * engines.
+ *
+ * `name` and `start_date` ARE here even though both are `NOT NULL` and the
+ * caller may state neither. The verb fills them in — today's date, and the
+ * category id or the literal 'Budget' — because those two lines belong to the
+ * cloud's writer and a default applied on this side would arrive at the harness
+ * already applied, where no spec could compare it.
+ */
+const BUDGET_CREATE_KEYS: readonly string[] = [
+  'name',
+  'amount',
+  'period',
+  'category',
+  'start_date',
+  'end_date',
+  'rollover',
+  'rollover_amount',
+  'alert_threshold',
+  'is_active',
+  'notes'
+];
+
+/**
+ * What `update_budget` accepts: the create's list, plus `spent`.
+ *
+ * `budgetToDb` has a `spent` line and only `createBudget` overrides it, so an
+ * update that states the figure sends it — which is faithful rather than
+ * permissive. The seam's *"summed from the ledger, never stored knowledge"* is a
+ * statement about where the figure COMES FROM; the column is still written by
+ * whatever recomputed it, and a port that refused the key would refuse a write
+ * the cloud performs.
+ */
+const BUDGET_UPDATE_KEYS: readonly string[] = [...BUDGET_CREATE_KEYS, 'spent'];
+
+/** A new budget as `create_budget`'s payload. */
+export const toBudgetCreatePayload = (
+  budget: Omit<Budget, 'id' | 'spent'>
+): Record<string, unknown> => payloadOf(BUDGET_COLUMNS, { ...budget }, BUDGET_CREATE_KEYS);
+
+/**
+ * A partial edit as `update_budget`'s patch.
+ *
+ * FILTERED, like the category patch and for the same reason: the mapper it ports
+ * is a whitelist, so a key it has never heard of is a key the cloud drops in
+ * silence, and a port that sent one would refuse an edit the cloud performs.
+ * `Partial<Budget>` carries `createdAt` and `updatedAt`, which are exactly that.
+ *
+ * A field stated as `null` still travels as `null`: `payloadOf` drops only what
+ * is `undefined`, and the crate's tri-state fields read a stated null as "clear
+ * this" and absence as "leave it alone".
+ */
+export const toBudgetUpdatePatch = (
+  updates: Partial<Budget>
+): Record<string, unknown> => payloadOf(BUDGET_COLUMNS, { ...updates }, BUDGET_UPDATE_KEYS);
+
+// ── Goals ───────────────────────────────────────────────────────────────────
+
+/**
+ * What the goal verbs accept, out of the goal's columns.
+ *
+ * One list for the create and the update, because `goalToDb` is one mapper with
+ * no `spent`-shaped exception in it. `id` is absent for the reason the budget's
+ * is.
+ *
+ * `metadata` is not a column of the table in `columns.ts` and is not in this
+ * list either: it is assembled from three app fields below.
+ */
+const GOAL_KEYS: readonly string[] = [
+  'name',
+  'description',
+  'target_amount',
+  'current_amount',
+  'target_date',
+  'category',
+  'priority',
+  'status',
+  'completed_at',
+  'account_id',
+  'contribution_frequency',
+  'auto_contribute',
+  'icon',
+  'color'
+];
+
+/**
+ * A new goal as `create_goal`'s payload.
+ *
+ * THE OPENING FIGURE, which is contract rule 49 and the whole of this slice's
+ * named property. `createGoal` computes `goal.currentAmount ?? 0` and hands it
+ * to `goalToDb` as `progress`, whose own line is `progress ?? currentAmount` —
+ * so both app fields collapse into ONE column before a row exists, and the
+ * column's own default (`0` on both engines) is what a goal with nothing put by
+ * starts at. Nothing here writes a zero: a literal would be one edit away from
+ * being written over a stated figure, which is exactly the bug rule 49 records
+ * ("the version that hard-coded zero lost the opening amount, and lost it
+ * differently in each engine").
+ *
+ * `Omit<Goal, 'id' | 'progress'>` has no `progress` to give precedence to, so on
+ * this path the two-field fold has one input. {@link toGoalUpdatePatch} is where
+ * the precedence is really exercised.
+ */
+export function toGoalCreatePayload(goal: Omit<Goal, 'id' | 'progress'>): Record<string, unknown> {
+  return {
+    ...payloadOf(GOAL_COLUMNS, { ...goal, status: statusOf(goal) }, GOAL_KEYS),
+    ...metadataOf(goal)
+  };
+}
+
+/**
+ * A partial edit as `update_goal`'s patch.
+ *
+ * THE CONTRIBUTION PATH, and the fold that matters on it: `progress` wins over
+ * `currentAmount`, because that is the order `goalToDb` tests them in, and the
+ * contribution the app sends carries both. It SETS — the verb's statement is
+ * `current_amount_minor = ?` and never `+ ?` — because the figure has already
+ * been added up and capped against the target by the caller.
+ *
+ * FILTERED, like the budget patch: `Partial<Goal>` carries `progress`,
+ * `isActive`, `achieved`, `type`, `linkedAccountIds`, `contributionAmount`,
+ * `createdAt` and `updatedAt`, and not one of them is a column. Three of them
+ * are folded (below) and the rest are dropped, which is what the cloud's mapper
+ * does with them.
+ */
+export function toGoalUpdatePatch(updates: Partial<Goal>): Record<string, unknown> {
+  const folded: Partial<Goal> = { ...updates };
+  // `if (g.progress !== undefined) row.current_amount = g.progress;
+  //  else if (g.currentAmount !== undefined) row.current_amount = g.currentAmount;`
+  if (updates.progress !== undefined) folded.currentAmount = updates.progress;
+  const status = statusOf(updates);
+  if (status !== undefined) folded.status = status;
+  return {
+    ...payloadOf(GOAL_COLUMNS, folded, GOAL_KEYS),
+    ...metadataOf(updates)
+  };
+}
+
+/**
+ * `status`, folded out of the three app fields that all describe it.
+ *
+ * `goalToDb`'s ladder, in its order and with its operators:
+ *
+ * ```text
+ * if      (g.status  !== undefined) row.status = g.status;
+ * else if (g.achieved === true)     row.status = 'completed';
+ * else if (g.isActive !== undefined) row.status = g.isActive ? 'active' : 'paused';
+ * ```
+ *
+ * The middle rung is `=== true` rather than truthy, so `achieved: false` falls
+ * through to `isActive` instead of claiming the goal is unfinished — which
+ * matters, because the goal modal sends both.
+ *
+ * `undefined` means the column is not mentioned, which on a create leaves the
+ * column's default ('active') and on an update leaves whatever is stored.
+ */
+function statusOf(goal: Partial<Goal>): Goal['status'] | undefined {
+  if (goal.status !== undefined) return goal.status;
+  if (goal.achieved === true) return 'completed';
+  if (goal.isActive !== undefined) return goal.isActive ? 'active' : 'paused';
+  return undefined;
+}
+
+/**
+ * `metadata`, assembled from the three app fields that never got columns.
+ *
+ * `{}` — no key at all — when the caller mentioned none of them, because the
+ * verb reads an absent `metadata` as "leave the blob alone" and a stated one as
+ * "merge this over it". Sending `{}` would be a merge of nothing, which is
+ * harmless and would also make every ordinary edit rewrite a column it has no
+ * business touching.
+ *
+ * The MERGE is the verb's, not this function's: `goalToDb` spreads the stated
+ * fields over the row's CURRENT metadata, and that object lives in the file. A
+ * port that merged here would be merging over whatever its caller last read,
+ * which is how "editing a goal's type deleted its linked accounts" happened in
+ * the first place.
+ *
+ * `contributionAmount` is a NUMBER and it is money, riding in a blob on both
+ * engines — DESIGN.md §5 divergence 9's shape, and the CHECK that bans money
+ * from metadata covers `transactions` alone. Nothing in the app writes the field
+ * today (`GoalModal` sets `linkedAccountIds` and never this), so what crosses
+ * here is a field of the app's type with no writer. The day it gets one it wants
+ * a column, in both schemas.
+ */
+function metadataOf(goal: Partial<Goal>): Record<string, unknown> {
+  const stated: Record<string, unknown> = {};
+  if (goal.type !== undefined) stated.type = goal.type;
+  if (goal.linkedAccountIds !== undefined) stated.linkedAccountIds = goal.linkedAccountIds;
+  if (goal.contributionAmount !== undefined) stated.contributionAmount = goal.contributionAmount;
+  return Object.keys(stated).length === 0 ? {} : { metadata: stated };
 }
