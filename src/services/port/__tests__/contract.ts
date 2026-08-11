@@ -274,7 +274,10 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
    * write `accounts` directly over PostgREST; slice 21 did the same for the four
    * category writes and, with them, `prepareCategories`; slice 22 did it a third
    * time for the six planning writes, and B-3's row below is asserted rather
-   * than skipped as a result.
+   * than skipped as a result; slice 23 did it a fourth time for the two
+   * dismissal writes, which also closed the local schema's `kind` CHECK — it
+   * admitted four of the seven `DismissalKind` values, so Payee cleanup's three
+   * would have been refused by a file while the cloud stored them.
    *
    * What is left needs new Rust, in the order the plan sets out.
    *
@@ -295,12 +298,10 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
     'unarchiveAccount',
     // Transfers — `repointTransfer` has no verb in either engine's crate half.
     'repointTransfer',
-    // Planning — nothing is left of this group but the dismissals. The category
-    // half went in slices 19 and 21; the budget and goal writes went in slice 22
-    // with six new verbs, and the whole of B-3 went green with them.
-    // Dismissals — no verb yet (slice 23).
-    'dismissSuggestion',
-    'restoreSuggestion',
+    // Planning and dismissals are BOTH whole now: the category half went in
+    // slices 19 and 21, the budget and goal writes in slice 22 with six new
+    // verbs (and the whole of B-3 with them), and the two dismissal writes in
+    // slice 23 with two more.
     // ── The backup group ────────────────────────────────────────────────────
     //
     // `collectBackup` needs `collect_backup`, which is slice 25.
@@ -348,7 +349,7 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
  * on a line that exists for no other purpose.
  */
 export const NOT_YET_CEILING: Partial<Record<DataPortEngine, number>> = {
-  'local-core': 11
+  'local-core': 9
 };
 
 // ── Declared divergences ────────────────────────────────────────────────────
@@ -3188,7 +3189,24 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
       rule(['dismissSuggestion', 'listSuggestionDismissals'], 'records a refusal once, however many times it is asked', async () => {
         // A double-click, or a second device, must not turn a decision into an
         // error message.
-        const { port, read } = await harness.create({ accounts: threeAccounts() });
+        //
+        // THE TWO ROWS ARE SEEDED, and until slice 23 they were not — this rule
+        // and the restore one below both named `txn-1` in a fixture that had no
+        // transactions in it, while the prune rule between them seeded its own.
+        // Nothing noticed, because both rules were skipped on the only engine
+        // that would have minded: `suggestion_dismissal_subjects.transaction_id`
+        // is a foreign key in a ledger file, where the cloud has a `uuid[]` and
+        // a column comment claiming the same thing.
+        //
+        // Seeding them is the honest fixture rather than a concession to one
+        // engine. A dismissal about a row that does not exist is not a state the
+        // app can produce: a sweep makes an offer about rows it has just read,
+        // and the prune trigger the rule below tests exists precisely so those
+        // rows cannot stop existing underneath it.
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          transactions: [aTransaction('txn-1'), aTransaction('txn-2', { amount: 10 })]
+        });
 
         const first = await port.dismissSuggestion('duplicate', 'subject-key', ['txn-1', 'txn-2']);
         const second = await port.dismissSuggestion('duplicate', 'subject-key', ['txn-1', 'txn-2']);
@@ -3222,8 +3240,11 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
       });
 
       rule(['restoreSuggestion', 'listSuggestionDismissals'], 'offers a suggestion again once the refusal is undone', async () => {
+        // `txn-1` is seeded for the reason the first rule in this block gives at
+        // length: a dismissal names rows that exist, everywhere.
         const { port } = await harness.create({
           accounts: threeAccounts(),
+          transactions: [aTransaction('txn-1')],
           dismissals: [
             {
               id: 'dismissal-1',

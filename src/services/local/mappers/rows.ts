@@ -55,6 +55,7 @@ import { mapAccountFromDb } from '../../api/accountMapping';
 import {
   BUDGET_COLUMNS,
   CATEGORY_COLUMNS,
+  DISMISSAL_COLUMNS,
   GOAL_COLUMNS,
   SPLIT_COLUMNS,
   TRANSACTION_COLUMNS,
@@ -353,17 +354,22 @@ export const toGoal = (row: Record<string, unknown>): Goal => {
 };
 
 /**
- * Every kind the APP knows — which is three more than the file can currently
+ * Every kind the APP knows, and — since slice 23 — every kind the file can
  * store.
  *
- * `scripts/local-sqlite/schema.sql` spells its CHECK
- * `kind IN ('transfer-pair','transfer-leg','stranded','duplicate')`, so the
- * three payee kinds added later have no home in a local ledger yet: a backup
- * carrying one would be refused by that constraint on the way in. The gap is
- * the schema's and it is fixed there (the dismissal writes are slice 23), not
- * papered over here — this list stays the APP's, so the day the CHECK is
- * widened the reader already understands the answer, and until then a value it
- * cannot hold cannot arrive.
+ * This list stayed the APP's while `scripts/local-sqlite/schema.sql` spelled its
+ * CHECK `kind IN ('transfer-pair','transfer-leg','stranded','duplicate')`: the
+ * three payee kinds arrived in the cloud after the local mirror was written, so
+ * a value the reader understood could not actually reach it, and a backup
+ * carrying one would have been refused by that constraint on the way in. The gap
+ * was recorded here rather than papered over, and it was fixed where it lived —
+ * `dismiss_suggestion` is the write that made it reachable and the schema is
+ * where the CHECK was widened, with the reason beside the constraint.
+ *
+ * It is still spelled out rather than derived, and the reason is unchanged: this
+ * is the APP's vocabulary, and a reader that narrowed to whatever the file
+ * happened to admit would silently start answering `duplicate` for a kind the
+ * cloud had just added.
  */
 const DISMISSAL_KINDS: Record<SuggestionDismissal['kind'], true> = {
   'transfer-pair': true,
@@ -378,18 +384,28 @@ const DISMISSAL_KINDS: Record<SuggestionDismissal['kind'], true> = {
 /**
  * A dismissal, with the child table already folded back into an array.
  *
- * `subject_ids` is a `text[]` column in the cloud and a joined child table
+ * `subject_ids` is a `uuid[]` column in the cloud and a joined child table
  * locally (`suggestion_dismissal_subjects`, ordered by `role_order`) — the verb
  * does the join, so what arrives here is the array either engine's caller
- * expects, in role order.
+ * expects, IN ROLE ORDER. The positions are the fact: for a transfer pair they
+ * say which row was the out and which the in, so `strings` is the one kind in
+ * `columns.ts` whose order-preservation is load-bearing rather than incidental.
+ *
+ * Through `fieldsOf` since slice 23, with `dismissSuggestion`'s payload. The
+ * `kind` narrowing stays here because it is ASSEMBLY: the table carries the
+ * correspondence, and *which strings are admissible* is a decision, not a
+ * conversion.
  */
-export const toDismissal = (row: Record<string, unknown>): SuggestionDismissal => ({
-  id: textOr(row.id, ''),
-  kind: oneOf<SuggestionDismissal['kind']>(row.kind, DISMISSAL_KINDS, 'duplicate'),
-  subjectKey: textOr(row.subject_key, ''),
-  subjectIds: strings(row.subject_ids),
-  dismissedAt: instant(row.dismissed_at) ?? new Date(0)
-});
+export const toDismissal = (row: Record<string, unknown>): SuggestionDismissal => {
+  const value = fieldsOf(DISMISSAL_COLUMNS, row);
+  return {
+    id: textOr(value.id, ''),
+    kind: oneOf<SuggestionDismissal['kind']>(value.kind, DISMISSAL_KINDS, 'duplicate'),
+    subjectKey: textOr(value.subjectKey, ''),
+    subjectIds: strings(value.subjectIds),
+    dismissedAt: value.dismissedAt instanceof Date ? value.dismissedAt : new Date(0)
+  };
+};
 
 /**
  * One account's DERIVED balance — `initial_balance + Σ amounts`, computed where
