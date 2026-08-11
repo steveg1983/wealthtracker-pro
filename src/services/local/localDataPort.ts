@@ -10,15 +10,36 @@
  *
  * ── WHAT THIS SLICE IMPLEMENTS, AND WHAT IT ADMITS IT DOES NOT ──────────────
  *
- * The eleven reads, the boot composite, the capability descriptor and the two
- * lifecycle no-ops. FORTY-ONE operations of the seam are not here yet, and that
- * is a declared, counted, shrinking list rather than a silence: they are named
- * in `services/port/__tests__/contract.ts`'s `NOT_YET` ratchet, the contract
- * suite asserts that the operations this port is missing are EXACTLY that list
- * in both directions, and every rule that needs one of them is skipped BY NAME
- * with the operation printed. The count goes in the title of every pull request
- * that changes it, it may only go down, and the entry is deleted when it
- * reaches zero.
+ * The eleven reads, the boot composite, the capability descriptor, the two
+ * lifecycle no-ops — and, since slice 19, the sixteen writes the crate's own
+ * verbs already serve. TWENTY-FIVE operations of the seam are not here yet, and
+ * that is a declared, counted, shrinking list rather than a silence: they are
+ * named in `services/port/__tests__/contract.ts`'s `NOT_YET` ratchet, the
+ * contract suite asserts that the operations this port is missing are EXACTLY
+ * that list in both directions, and every rule that needs one of them is
+ * skipped BY NAME with the operation printed. The count goes in the title of
+ * every pull request that changes it, it may only go down, and the entry is
+ * deleted when it reaches zero.
+ *
+ * ── WHAT A WRITE HANDS BACK, AND THE ONE COLUMN IT CANNOT ───────────────────
+ *
+ * Every write below answers with the row as stored, mapped by the same
+ * `toTransaction` the reads use. It is not quite the same projection: a verb's
+ * result is `TransactionRow`, which IS the audit entry's shape, and the audit
+ * entry does not carry `needs_review`, `created_at` or `updated_at` (see
+ * `crate::row`, which says so and says why neither set is a subset of the
+ * other). So a written row comes back with `needsReview: false` and no
+ * timestamps, whatever the file now holds.
+ *
+ * For the two timestamps that is harmless — nothing reads them off a write's
+ * answer. For `needs_review` it is a real gap with a small blast radius: an
+ * update that did not mention the flag answers `false` for a row that is still
+ * new work, so a caller replacing its copy with the answer would un-bold a row
+ * in the register until the next read. It is NOT fixed by widening
+ * `TransactionRow`, because that would change the audit payload two engines
+ * compare field by field and re-chain every hash; the fix is a result
+ * projection of its own, and it belongs to the commit that gives this port a
+ * caller (slice 27). Written down here rather than discovered there.
  *
  * The class therefore implements {@link LocalDataPortSurface} — the half of the
  * seam it really answers — rather than `DataPort`. That is not a technicality:
@@ -82,24 +103,35 @@ import type {
   Account,
   Budget,
   Category,
+  CategoryMergeResult,
   Goal,
+  SplitWriteResult,
   SuggestionDismissal,
   Transaction,
-  TransactionSplit
+  TransactionSplit,
+  TransactionSplitInput
 } from '../../types';
 import type {
   AccountBalanceSnapshot,
   BootSnapshot,
   BootTransactionStats,
   BootTransactionsResult,
+  BulkImportResult,
+  DataPortBackupLifecycle,
   DataPortBoot,
+  DataPortBulkWrites,
   DataPortCapabilities,
   DataPortCapabilityDescriptor,
   DataPortLifecycle,
-  DataPortReads
+  DataPortPlanningWrites,
+  DataPortReads,
+  DataPortTransactionWrites,
+  DataPortSplitWrites,
+  DataPortTransferWrites,
+  MoneyNumber
 } from '../port/dataPort';
 import type { CoreTransport } from './coreTransport';
-import { rowsOf } from './mappers/values';
+import { countOf, field, listOf, money, rowOf, rowsOf, textOf } from './mappers/values';
 import {
   toAccount,
   toBalance,
@@ -110,6 +142,7 @@ import {
   toSplit,
   toTransaction
 } from './mappers/rows';
+import { toCreatePayload, toImportRow, toSplitLine, toUpdatePatch } from './mappers/writes';
 
 /**
  * The half of the seam this slice answers.
@@ -121,7 +154,20 @@ import {
 export type LocalDataPortSurface =
   DataPortReads &
   DataPortBoot &
+  DataPortBulkWrites &
+  DataPortSplitWrites &
   DataPortCapabilityDescriptor &
+  Omit<
+    DataPortTransactionWrites,
+    | 'setTransactionsCleared'
+    | 'finalizeReconciliation'
+    | 'setTransactionArchived'
+    | 'archiveTransactionsBefore'
+    | 'unarchiveAccount'
+  > &
+  Omit<DataPortTransferWrites, 'repointTransfer'> &
+  Pick<DataPortPlanningWrites, 'deleteUnusedCategories' | 'mergeCategories'> &
+  Pick<DataPortBackupLifecycle, 'financialDataIsEmpty' | 'wipeAllFinancialData'> &
   Pick<DataPortLifecycle, 'initialize' | 'subscribeToUpdates'>;
 
 /**
@@ -182,6 +228,15 @@ const DEVICE_CAPABILITIES: DataPortCapabilities = {
 /** The two words this port's boot stats are allowed to use. See the header. */
 const LOCAL_MODE = 'local mode';
 const LOAD_FAILED = 'load failed';
+
+/**
+ * The phrase `wipe_user_financial_data` demands before it will do anything.
+ *
+ * Stated here rather than carried across the seam: see `wipeAllFinancialData`
+ * below for why the confirmation belongs to the screen and the phrase belongs
+ * to the implementation.
+ */
+const WIPE_CONFIRMATION = 'DELETE EVERYTHING';
 
 const failedStats = (): BootTransactionStats => ({
   cached: 0,
@@ -401,6 +456,365 @@ export class LocalDataPort implements LocalDataPortSurface {
 
     phases.load_boot = Math.round(performance.now() - started);
     return snapshot;
+  }
+
+  // ── Transaction writes ────────────────────────────────────────────────────
+
+  /**
+   * One row, typed by a person.
+   *
+   * The draft is FILTERED to the verb's own arguments (`writes.ts`'s
+   * `CREATE_KEYS`), which reproduces what `create_transaction_atomic` does with
+   * the same object: it reads the keys it knows out of a jsonb blob and ignores
+   * the rest. `Omit<Transaction, 'id'>` carries `isSplit`, `archived` and a
+   * handful of others that this verb has no argument for, and a port that sent
+   * them would turn every ordinary create into a refusal.
+   *
+   * Born reviewed, and the absence is where that happens: the verb has no
+   * `needs_review` argument, so the column's own default (`0`) answers, which is
+   * the rule `20260810090000` states — *"a row the user typed into the Quick Add
+   * bar or the full editor is born reviewed; they were looking at it as they
+   * made it"*.
+   */
+  async createTransaction(transaction: Omit<Transaction, 'id'>): Promise<Transaction> {
+    const answer = await this.#ask('create_transaction', toCreatePayload(transaction));
+    return toTransaction(rowOf(answer, 'create_transaction', 'transaction'));
+  }
+
+  /**
+   * A partial edit of the fields a row's own editor owns.
+   *
+   * The patch is passed through WHOLE rather than filtered — see `writes.ts` for
+   * why the create and the update make opposite decisions about a key the verb
+   * has not heard of. In one sentence: D-7 gives this engine 'refuses', and it
+   * can only refuse what it is shown.
+   */
+  async updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction> {
+    const answer = await this.#ask('update_transaction', {
+      id,
+      patch: toUpdatePatch(updates)
+    });
+    return toTransaction(rowOf(answer, 'update_transaction', 'transaction'));
+  }
+
+  /**
+   * Remove one row, and reverse its account by exactly its amount.
+   *
+   * The seam's two promises beyond the delete itself are the FILE's here rather
+   * than this method's, which is why there is nothing to do about either: the
+   * survivor of a linked pair is unlinked by
+   * `transactions_linked_transfer_id_fkey`'s ON DELETE SET NULL, and a dismissed
+   * suggestion about the row is pruned by the schema's own AFTER DELETE trigger.
+   * Both are stated in `schema.sql` and both are asserted through this operation
+   * by the contract suite, so a schema that lost either would fail here rather
+   * than in a register offering to jump to a transaction that is gone.
+   */
+  async deleteTransaction(id: string): Promise<void> {
+    await this.#ask('delete_transaction', { id });
+  }
+
+  /**
+   * File a category on the rows of a payee that are still blank.
+   *
+   * Fill-blanks only, and it leaves `needsReview` exactly as it was. The
+   * contrast with `confirmTransactionCategories` below is the point and it is
+   * the crate's, not this file's: this is a decision about a CATEGORY taken from
+   * a list of payees, where the rows' dates, amounts and accounts were never on
+   * screen, so one run of the bulk tool must not mark a whole imported statement
+   * as dealt with.
+   */
+  async applyCategoryToUncategorized(ids: string[], category: string): Promise<number> {
+    const answer = await this.#ask('apply_category_to_uncategorized', { ids, category });
+    return countOf(answer, 'apply_category_to_uncategorized', 'applied');
+  }
+
+  /**
+   * Agree with the suggested category on a set of rows — and end their review
+   * with it, because answering the question a row was asking IS reviewing it.
+   */
+  async confirmTransactionCategories(ids: string[]): Promise<number> {
+    const answer = await this.#ask('confirm_transaction_categories', { ids });
+    return countOf(answer, 'confirm_transaction_categories', 'confirmed');
+  }
+
+  // ── A file's worth of rows ────────────────────────────────────────────────
+
+  /**
+   * Add a statement to ONE account, atomically.
+   *
+   * ── IT REPORTS RATHER THAN THROWS ───────────────────────────────────────
+   *
+   * The one write on this port with a catch around it, and the seam is explicit
+   * about why: *"412 of 900 landed" is an outcome a caller has to render rather
+   * than a failure it can retry blindly*. Both importers slice the array they
+   * handed in at `inserted` and show the remainder as the payments that are
+   * missing, so a rejection would turn a useful screen into "Import failed" and
+   * nothing else. The engine's own sentence rides out in `error`, unchanged,
+   * because the caller prints it.
+   *
+   * ── B-9, AND THE TWO SILENCES IT DECLARES ───────────────────────────────
+   *
+   * `inserted` is a PREFIX count and here it can only be 0 or all of them: one
+   * verb, one SQLite transaction, so there is no chunk boundary to stop at.
+   * Both are prefixes, which is what the callers actually depend on.
+   *
+   * `onProgress` is never called, and that is declared rather than approximated
+   * — one atomic write has no honest fraction, and a bar creeping to 90% is how
+   * somebody waits on a write that already failed. `options.source` is likewise
+   * not used: it says the rows carry the bank's own transaction ids, which the
+   * cloud keys its chunks by so a re-post cannot land twice. A single atomic
+   * write cannot half-land, so there is nothing here for a key to protect, and
+   * `alreadyPresent` is 0 — *"a statement rather than a stub"*, in the seam's
+   * own words. (The verb behind this does support `import_source`, so honouring
+   * it is a decision waiting for a caller rather than a gap in the crate.)
+   */
+  async importTransactions(
+    accountId: string,
+    transactions: ReadonlyArray<Omit<Transaction, 'id'>>
+  ): Promise<BulkImportResult> {
+    const total = transactions.length;
+    try {
+      const answer = await this.#ask('import_transactions', {
+        account_id: accountId,
+        rows: transactions.map(toImportRow)
+      });
+      const result = rowOf(answer, 'import_transactions', 'answer');
+      // The two counts mean different things on the two sides of this
+      // boundary. The verb's `skipped` is "this login already held a row under
+      // that import id"; the seam's `alreadyPresent` is the same rows, and its
+      // `inserted` is everything now IN THE ACCOUNT — written by this run or
+      // already there under this run's own key. So the seam's inserted is the
+      // verb's two counts together, and `alreadyPresent` is a subset of it,
+      // which is exactly what the contract asserts.
+      const written = countOf(result, 'import_transactions', 'inserted');
+      const alreadyPresent = countOf(result, 'import_transactions', 'skipped');
+      const inserted = written + alreadyPresent;
+      return { inserted, alreadyPresent, total, complete: inserted === total };
+    } catch (error) {
+      return {
+        inserted: 0,
+        alreadyPresent: 0,
+        total,
+        complete: false,
+        // The ledger's own prose, or the transport's fault sentence — either
+        // way it is already written for a person (seam rule 4), so it is not
+        // prefixed or re-worded on the way to the screen.
+        error: error instanceof Error ? error.message : 'The import could not be written.'
+      };
+    }
+  }
+
+  // ── Transfers ─────────────────────────────────────────────────────────────
+
+  /**
+   * Join two existing rows as the two halves of one transfer.
+   *
+   * Balance-neutral: no amount moves, only the link and the categories that name
+   * each side. The crate answers with `transaction` and `other_side` — the house
+   * key every result carries, plus a name that says what it is rather than which
+   * argument it was — and the seam's `{a, b}` is those two in the order they
+   * were asked for.
+   */
+  async linkTransferPair(idA: string, idB: string): Promise<{ a: Transaction; b: Transaction }> {
+    const answer = await this.#ask('link_transfer_pair', { id_a: idA, id_b: idB });
+    return {
+      a: toTransaction(rowOf(answer, 'link_transfer_pair', 'transaction')),
+      b: toTransaction(rowOf(answer, 'link_transfer_pair', 'other_side'))
+    };
+  }
+
+  /** Join one LINE of a split to an existing row; amounts are compared against the line. */
+  async linkSplitLineTransfer(
+    splitId: string,
+    transactionId: string
+  ): Promise<{ split: TransactionSplit; transaction: Transaction }> {
+    const answer = await this.#ask('link_split_line_transfer', {
+      split_id: splitId,
+      transaction_id: transactionId
+    });
+    return {
+      split: toSplit(rowOf(answer, 'link_split_line_transfer', 'split')),
+      transaction: toTransaction(rowOf(answer, 'link_split_line_transfer', 'transaction'))
+    };
+  }
+
+  /**
+   * Break the links on the named rows, and count the ones that really broke.
+   *
+   * `clear_transfer_links` rather than a table update, because that is what the
+   * client's `clearTransferLinks` has actually called since `20260805145035`.
+   * The count is rows ACTUALLY unlinked: a row already unlinked, and a row whose
+   * link lives on a split line, are both skipped without a write and neither is
+   * counted — the line owns that link, and clearing it here would leave the line
+   * pointing at nothing.
+   */
+  async unlinkTransfers(ids: string[]): Promise<number> {
+    const answer = await this.#ask('clear_transfer_links', { ids });
+    return countOf(answer, 'clear_transfer_links', 'unlinked');
+  }
+
+  /** Re-pair a counterpart onto the row that really matches it. Three rows, one transaction. */
+  async repairClaimedTransfer(
+    strandedId: string,
+    counterpartId: string,
+    partnerId: string,
+    adjustmentCategoryId: string
+  ): Promise<{ stranded: Transaction; counterpart: Transaction; partner: Transaction }> {
+    const answer = await this.#ask('repair_claimed_transfer', {
+      stranded_id: strandedId,
+      counterpart_id: counterpartId,
+      partner_id: partnerId,
+      adjustment_category_id: adjustmentCategoryId
+    });
+    return {
+      stranded: toTransaction(rowOf(answer, 'repair_claimed_transfer', 'transaction')),
+      counterpart: toTransaction(rowOf(answer, 'repair_claimed_transfer', 'counterpart')),
+      partner: toTransaction(rowOf(answer, 'repair_claimed_transfer', 'partner'))
+    };
+  }
+
+  /**
+   * Make the other side of a transfer in the target account, and link it.
+   *
+   * The one verb in the transfer family that moves money — it mints a row in
+   * another account's register, so that account moves by the new row's amount
+   * and the source does not, because the source row's amount is unchanged. Net
+   * worth is the same afterwards, which is what makes it a transfer rather than
+   * income appearing from nowhere.
+   */
+  async createTransferCounterpart(
+    id: string,
+    targetAccountId: string
+  ): Promise<{ source: Transaction; counterpart: Transaction }> {
+    const answer = await this.#ask('create_transfer_counterpart', {
+      id,
+      target_account_id: targetAccountId
+    });
+    return {
+      source: toTransaction(rowOf(answer, 'create_transfer_counterpart', 'transaction')),
+      counterpart: toTransaction(rowOf(answer, 'create_transfer_counterpart', 'counterpart'))
+    };
+  }
+
+  // ── Splits ────────────────────────────────────────────────────────────────
+
+  /**
+   * Replace a transaction's split lines, all or nothing.
+   *
+   * `set_transaction_splits_with_legs` and never the older
+   * `set_transaction_splits`, for both kinds of payload. The seam says the
+   * choice between server paths *"is the implementation's decision, not the
+   * caller's"*, and the cloud makes it per call because both functions exist
+   * there; only one was ported, because the with-legs writer is a strict
+   * superset — it matches lines by id, so an ordinary line beside a transfer leg
+   * can be re-filed, and a plain replace is what it does when no line declares a
+   * target.
+   *
+   * `expectedAmount` is OMITTED when the caller passes null rather than sent as
+   * one. Absent is the verb's "do not check", which is the cloud's
+   * `p_expected_amount IS NOT NULL` guard; a JSON null would be a caller stating
+   * an amount of nothing.
+   */
+  async setTransactionSplits(
+    transactionId: string,
+    splits: TransactionSplitInput[],
+    expectedAmount: MoneyNumber | null
+  ): Promise<SplitWriteResult> {
+    const answer = await this.#ask('set_transaction_splits_with_legs', {
+      id: transactionId,
+      splits: splits.map(toSplitLine),
+      ...(expectedAmount === null ? {} : { expected_amount: String(expectedAmount) })
+    });
+    return {
+      isSplit: field(answer, 'is_split') === true,
+      splitCount: countOf(answer, 'set_transaction_splits_with_legs', 'split_count'),
+      // The parent's total as the WRITE computed it, which is the figure the
+      // caller moves its own balance by. `?? 0` is unreachable for an answer
+      // this crate produced (the field is a `Money`, never absent) and says
+      // "nothing" rather than throwing if it ever is.
+      amount: money(field(answer, 'amount')) ?? 0,
+      // Real rows in other accounts — the lines that BECAME transfer legs in
+      // this write. The caller updates those accounts' balances from them
+      // rather than guessing, which is why an empty list and a missing key are
+      // not the same answer and `listOf` refuses the second.
+      counterparts: listOf(answer, 'set_transaction_splits_with_legs', 'counterparts').map(
+        toTransaction
+      )
+    };
+  }
+
+  // ── Categories, in bulk ───────────────────────────────────────────────────
+
+  /**
+   * Remove the categories nothing is filed against.
+   *
+   * B-6 gives this engine 're-judges every row and keeps the ones still in use',
+   * and the count is what ACTUALLY went — never the size of the list. The caller
+   * prints that figure ("pruned 40, kept 12 in use") and re-reads the category
+   * set because of it, so a count derived from the request would be a guess in
+   * the shape of a fact.
+   */
+  async deleteUnusedCategories(ids: string[]): Promise<number> {
+    const answer = await this.#ask('delete_unused_categories', { ids });
+    return countOf(rowOf(answer, 'delete_unused_categories', 'answer'), 'delete_unused_categories', 'deleted');
+  }
+
+  /** Move every reference from one category to another, then remove the source. */
+  async mergeCategories(sourceId: string, targetId: string): Promise<CategoryMergeResult> {
+    const answer = await this.#ask('merge_categories', {
+      source_id: sourceId,
+      target_id: targetId
+    });
+    const named = (key: string): number => countOf(answer, 'merge_categories', key);
+    return {
+      // Echoed by the verb because the source is gone and this is the only
+      // record of which id the caller named.
+      sourceId: textOf(answer, 'merge_categories', 'source_id'),
+      targetId: textOf(answer, 'merge_categories', 'target_id'),
+      transactions: named('transactions'),
+      splitLines: named('split_lines'),
+      splitTransactions: named('split_transactions'),
+      budgets: named('budgets'),
+      recurring: named('recurring')
+    };
+  }
+
+  // ── Emptying it ───────────────────────────────────────────────────────────
+
+  /**
+   * Is there anything here at all?
+   *
+   * REJECTS rather than guessing, unlike the three boot reads. There is no
+   * honest fallback: `true` from a file that could not be opened would unlock
+   * the restore button in front of a ledger full of data.
+   */
+  async financialDataIsEmpty(): Promise<boolean> {
+    const answer = await this.#ask('user_financial_data_is_empty');
+    return rowOf(answer, 'user_financial_data_is_empty', 'answer').empty === true;
+  }
+
+  /**
+   * Erase everything this file holds.
+   *
+   * ── THE PHRASE IS SUPPLIED HERE, AND THAT IS THE SEAM'S DECISION ────────
+   *
+   * `wipeAllFinancialData` takes no confirmation: the SCREEN holds it, and both
+   * callers refuse to enable their button until it has been typed exactly. A
+   * phrase that travelled across the seam would be a string an implementation
+   * could get wrong; the screen's is one the user typed. So the implementation
+   * supplies whatever its own engine demands, and this is that literal.
+   *
+   * It is the fourth copy — the SQL function's own check, the crate's
+   * `CONFIRMATION`, `LOCAL_WIPE_CONFIRMATION` and this — and that is safe
+   * precisely because every one of them CHECKS it: a copy that drifted would
+   * refuse every wipe on the first run rather than weaken one, and the contract
+   * suite asks for a wipe that works.
+   *
+   * `onProgress` is never called, for `importTransactions`'s reason: one atomic
+   * write has no honest fraction. The callers already treat silence as normal.
+   */
+  async wipeAllFinancialData(): Promise<void> {
+    await this.#ask('wipe_user_financial_data', { confirm: WIPE_CONFIRMATION });
   }
 
   // ── Lifecycle, and what this engine can do ────────────────────────────────

@@ -624,3 +624,70 @@ fn a_row_naming_another_owner_loses_the_whole_sync() {
     assert_eq!(scalar(&connection, "SELECT COUNT(*) FROM financial_audit_log"), 0);
     assert_eq!(balances(&connection, FED), (10000, 10000));
 }
+
+// ── Every arriving row is NEW WORK (20260810090000) ─────────────────────────
+//
+// Both importers write `needs_review = 1` as a LITERAL, and neither takes it
+// from the row. That is worth two tests rather than a glance at the INSERT for
+// a reason the differential harness makes plain: `needs_review` is not in
+// `TransactionRow`, so the fifty-odd specs that compare these verbs against the
+// live RPCs field by field cannot see this column at all. It went unported for
+// exactly that long.
+
+#[test]
+fn every_row_a_file_brings_in_arrives_as_new_work() {
+    let mut connection = fixture();
+
+    file_import(&mut connection, json!([row("Corner shop", "-1.00"), row("Bus", "-2.00")]))
+        .expect("the import lands");
+
+    // The fixture's own row predates the import and is untouched: history reads
+    // as reviewed, which is the whole of the migration's backfill argument.
+    assert_eq!(
+        scalar(&connection, "SELECT COUNT(*) FROM transactions WHERE needs_review = 1"),
+        2
+    );
+    assert_eq!(
+        scalar(
+            &connection,
+            &format!("SELECT needs_review FROM transactions WHERE id = '{CORNER_SHOP}'")
+        ),
+        0
+    );
+}
+
+#[test]
+fn a_feed_row_arrives_as_new_work_too() {
+    let mut connection = fixture();
+
+    feed_import(&mut connection, json!([feed_row("Direct debit", "-3.00", "n-1")]))
+        .expect("the sync lands");
+
+    assert_eq!(
+        scalar(
+            &connection,
+            "SELECT needs_review FROM transactions WHERE external_transaction_id = 'n-1'"
+        ),
+        1
+    );
+}
+
+#[test]
+fn a_row_the_file_says_is_reviewed_is_still_new_work() {
+    // The flag is a literal, not a key: `ImportRow` has nowhere to put one, so
+    // a caller cannot turn the register's bold off by sending a field. The
+    // refusal is how that is enforced, and it is asserted rather than assumed
+    // because a silently-discarded key is the failure mode this whole verb's
+    // `deny_unknown_fields` exists to end.
+    let mut connection = fixture();
+
+    let error = file_import(
+        &mut connection,
+        json!([{ "description": "Seen already", "amount": "-1.00", "type": "expense",
+                 "date": "2024-05-01", "needs_review": false }]),
+    )
+    .unwrap_err();
+
+    assert!(error.to_string().contains("needs_review"), "{error}");
+    assert_eq!(scalar(&connection, "SELECT COUNT(*) FROM transactions WHERE needs_review = 1"), 0);
+}

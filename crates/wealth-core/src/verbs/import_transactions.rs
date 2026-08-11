@@ -14,10 +14,29 @@
 //! | `20260808090000:162` | adds `statement_sequence` |
 //! | `20260808100000:183` | adds `category_confirmed`, default true |
 //! | `20260808140000:234` | adds provenance, `ON CONFLICT DO NOTHING`, the in-request duplicate refusal, and `{inserted, skipped, idempotent}` |
+//! | `20260810090000:411` | adds `needs_review` to the column list, with the literal `true` |
 //!
 //! `20260725120000:255` only re-grants it, and `20260808150000:67-71` says in as
-//! many words that it does **not** touch either import RPC. So `140000` is live,
-//! and everything below is a port of that body.
+//! many words that it does **not** touch either import RPC. So `20260810090000`
+//! is live, and everything below is a port of that body.
+//!
+//! # Every row a file brings in arrives as NEW WORK
+//!
+//! `20260810090000:428` — `true,  -- needs_review: a file's rows are new until
+//! somebody saves one`. It is a LITERAL rather than a key read off the row, and
+//! the migration says why: a per-row key is a key each of the three parsers has
+//! to remember, and a parser that forgets fails silently — the rows import,
+//! nothing lights up, and the feature reads as switched off rather than broken.
+//! So this verb writes `1` whatever the payload says, and [`ImportRow`] has no
+//! field for it.
+//!
+//! This one line was the crate's LAST port lag, and it was invisible to the
+//! differential harness rather than merely unnoticed: `needs_review` is not in
+//! [`crate::row::TransactionRow`], which is the audit projection every verb spec
+//! compares two engines on, so a spec could not have seen the difference. The
+//! contract suite could and did — `contract.ts`'s *"marks every row it writes as
+//! new work, whatever the drafts said"*, which reads the STORE rather than the
+//! answer.
 //!
 //! # `idempotent` describes THE REQUEST, and this is not a quibble
 //!
@@ -541,12 +560,12 @@ fn insert_row(
         "INSERT INTO transactions (
            id, user_id, account_id, description, amount_minor, type, date,
            category, notes, is_recurring, is_cleared, statement_sequence,
-           category_confirmed, import_source, import_source_id,
+           category_confirmed, needs_review, import_source, import_source_id,
            created_at, updated_at
          ) VALUES (
            ?1, ?2, ?3, ?4, ?5, ?6, ?7,
            ?8, ?9, ?10, ?11, ?12,
-           ?13, ?14, ?15,
+           ?13, 1, ?14, ?15,
            ?16, ?16
          )
          ON CONFLICT (user_id, import_source, import_source_id) DO NOTHING",
