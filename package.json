@@ -54,6 +54,7 @@
     "test:local-sqlite": "node --disable-warning=ExperimentalWarning scripts/local-sqlite/run.mjs",
     "test:local-verbs": "node --disable-warning=ExperimentalWarning scripts/local-sqlite/verbs.mjs",
     "test:local-admission": "node scripts/local-sqlite/admission.mjs",
+    "test:local-contract": "NODE_OPTIONS=--disable-warning=ExperimentalWarning vitest run --config vitest.local.config.ts",
     "port:coverage": "node scripts/port-coverage/run.mjs",
     "banking:smoke": "node scripts/run-banking-api-smoke.mjs",
     "banking:rollout": "bash scripts/apply-banking-ops-rollout.sh",

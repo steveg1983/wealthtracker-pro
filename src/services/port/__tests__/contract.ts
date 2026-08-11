@@ -81,7 +81,25 @@ export interface PortStoreState {
 }
 
 export interface DataPortUnderTest {
+  /**
+   * The engine under test, typed as the whole seam — and permitted to be less
+   * than that while {@link NOT_YET} says which operations are missing, by name.
+   * The annotation is documentation rather than proof (this file is not
+   * compiled by `tsc -b`); the surface rule below is what actually holds a port
+   * to the seam, in both directions.
+   */
   port: DataPort;
+  /**
+   * What the store holds now, read by something OTHER THAN THE PORT.
+   *
+   * Not a preference. This is the independent witness that every "the refusal
+   * changed nothing" and every "the row really landed" assertion is built on,
+   * and a harness that answered it with the port's own reads would turn all of
+   * them into "the port agrees with itself" — which a port that silently writes
+   * nothing and reads nothing back satisfies perfectly. The rule *"reads its
+   * own store back by some means other than itself"* checks it by watching
+   * rather than by asking.
+   */
   read(): Promise<PortStoreState>;
 }
 
@@ -202,6 +220,125 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   // What the engine can do
   'capabilities'
 ];
+
+/**
+ * THE RATCHET: operations an engine has NOT implemented yet, by name.
+ *
+ * ── WHY A PARTIAL PORT IS ALLOWED TO RUN THIS SUITE AT ALL ──────────────────
+ *
+ * The surface rule below is the floor under every other rule: a suite run
+ * against a port that is missing operations proves only that the operations it
+ * HAS behave. That rule is what makes this file worth running, and it is also
+ * what makes a second engine impossible to build incrementally — a local
+ * edition is fifty-six operations against a Rust crate, and the choice would
+ * otherwise be between one enormous unreviewable commit and turning the floor
+ * off while the work is in progress.
+ *
+ * So the floor stays on and the exception is written DOWN, per engine, by name,
+ * and checked in both directions:
+ *
+ *   NOTHING MISSING THAT IS NOT LISTED. A port that quietly dropped an
+ *   operation, or never had it, fails the surface rule exactly as it did
+ *   before. This is the half that stops the list from being a way to opt out.
+ *
+ *   NOTHING LISTED THAT IS NOT MISSING. An operation that has since been
+ *   implemented must LEAVE this list in the same commit, or the suite fails —
+ *   which is what stops the rules that need it from staying skipped after the
+ *   work is done. This is the half that makes it a ratchet rather than a
+ *   register of excuses.
+ *
+ * And it may only shrink: {@link NOT_YET_CEILING} is the count, written out so
+ * that adding an entry is a visible, arguable line in a diff rather than a
+ * quiet one. The count goes in the title of every pull request that changes it.
+ * When it reaches zero the engine's entry is DELETED — not left as an empty
+ * array — and this whole block goes with the last one.
+ *
+ * Every rule that needs a listed operation is skipped BY NAME, with the
+ * operation printed beside it, so a test run reads as a work queue rather than
+ * as green.
+ */
+export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]>> = {
+  /**
+   * The local edition, mid-build. PHASE3-PLAN slice 18 lands the reads, the
+   * boot composite, the capability descriptor and the two lifecycle no-ops —
+   * fifteen of the fifty-six — because the crate's read verbs exist and its
+   * write verbs are wired in the slices after this one.
+   *
+   * Seventeen of these have a verb in the crate already and are wired next
+   * (slice 19); the rest need new Rust, in the order the plan sets out.
+   * `prepareCategories` is here rather than half-answered: divergence B-4 says
+   * the local core SEEDS its defaults into the store, and there is no
+   * `seed_categories` verb yet, so answering with unwritten defaults would be
+   * browser storage's behaviour wearing this engine's name.
+   */
+  'local-core': [
+    // Account writes — no verb yet (slice 20).
+    'createAccount',
+    'updateAccount',
+    'closeAccount',
+    // Transaction writes — five have a verb (slice 19), five need new Rust.
+    'createTransaction',
+    'updateTransaction',
+    'deleteTransaction',
+    'setTransactionsCleared',
+    'finalizeReconciliation',
+    'applyCategoryToUncategorized',
+    'confirmTransactionCategories',
+    'setTransactionArchived',
+    'archiveTransactionsBefore',
+    'unarchiveAccount',
+    // Bulk — `import_transactions` exists (slice 19).
+    'importTransactions',
+    // Transfers — five of the six have a verb (slice 19); `repointTransfer`
+    // has none in either engine's crate half yet.
+    'linkTransferPair',
+    'linkSplitLineTransfer',
+    'unlinkTransfers',
+    'repairClaimedTransfer',
+    'createTransferCounterpart',
+    'repointTransfer',
+    // Splits — `set_transaction_splits_with_legs` exists (slice 19).
+    'setTransactionSplits',
+    // Planning — two have a verb (merge, prune); ten need new Rust (21, 22).
+    'createBudget',
+    'updateBudget',
+    'deleteBudget',
+    'createGoal',
+    'updateGoal',
+    'deleteGoal',
+    'createCategory',
+    'createCategories',
+    'updateCategory',
+    'deleteCategory',
+    'deleteUnusedCategories',
+    'mergeCategories',
+    // Dismissals — no verb yet (slice 23).
+    'dismissSuggestion',
+    'restoreSuggestion',
+    // Backup — three have a verb; `collect_backup` is slice 25.
+    'financialDataIsEmpty',
+    'collectBackup',
+    'restoreBackup',
+    'wipeAllFinancialData',
+    // Migration — composed from wipe + restore, slice 26.
+    'importMsMoney',
+    // Lifecycle — needs `seed_categories` (slice 21). See above.
+    'prepareCategories'
+  ]
+};
+
+/**
+ * How long {@link NOT_YET} is allowed to be, per engine.
+ *
+ * The exact-equality check above cannot tell "this operation was never written"
+ * from "this operation was deleted and excused", because both leave the list
+ * agreeing with the port. This number can: it is lowered in the commit that
+ * shrinks the list and raised by nobody without saying so out loud, in a diff,
+ * on a line that exists for no other purpose.
+ */
+export const NOT_YET_CEILING: Partial<Record<DataPortEngine, number>> = {
+  'local-core': 41
+};
 
 // ── Declared divergences ────────────────────────────────────────────────────
 // Written as tables rather than as `if (engine === …)` scattered through the
@@ -657,9 +794,43 @@ const expectRowsFiledUnderTheSnapshotsCategories = (boot: BootSnapshot): void =>
 export function runDataPortContract(name: string, harness: DataPortContractHarness): void {
   const { engine } = harness;
 
+  /** This engine's declared exceptions. Empty for a finished implementation. */
+  const notYet = new Set<keyof DataPort>(NOT_YET[engine] ?? []);
+
+  /**
+   * A rule, and the operations it exercises.
+   *
+   * Every `it` below is written through this so that a rule needing an
+   * operation the engine has not implemented yet is SKIPPED BY NAME, with the
+   * operation printed. Three things follow from doing it here rather than with
+   * an early return inside each body:
+   *
+   *  - a skipped rule reads as skipped in the runner's output, so a partial
+   *    engine's test run is a work queue rather than a wall of green;
+   *  - the rule says out loud which operations it is about, which is worth
+   *    having even for a finished engine — it is the index nobody wrote;
+   *  - nothing is conditional inside a test body, so a rule cannot half-run.
+   *
+   * The list is the operations a rule CALLS, not the ones its fixture happens
+   * to touch: seeding is the harness's job and is expected to work whatever the
+   * port can do.
+   */
+  const rule = (
+    needs: readonly (keyof DataPort)[],
+    title: string,
+    body: () => Promise<void>
+  ): void => {
+    const missing = needs.filter(operation => notYet.has(operation));
+    if (missing.length === 0) {
+      it(title, body);
+      return;
+    }
+    it.skip(`${title} — NOT YET on ${engine}: ${missing.join(', ')}`, body);
+  };
+
   describe(name, () => {
     describe('the surface itself', () => {
-      it('answers every operation the seam names', async () => {
+      it('answers every operation the seam names, or declares the ones it does not', async () => {
         // The floor under every rule below: a suite run against a port that is
         // missing operations proves only that the operations it HAS behave.
         // Nothing else here would notice the absence — an engine under
@@ -673,10 +844,62 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         const { port } = await harness.create({ accounts: threeAccounts() });
 
         const missing = DATA_PORT_OPERATIONS.filter(operation => typeof port[operation] !== 'function');
-        expect(missing).toEqual([]);
+        const declared = NOT_YET[engine] ?? [];
+
+        // BOTH DIRECTIONS, and each is a different failure with a different
+        // fix, so they are reported apart rather than as one array diff.
+        // `unexcused` is a port that is quietly short of the seam. `stale` is
+        // an operation that has been implemented and left excused, which would
+        // keep every rule that needs it skipped after the work was finished —
+        // the way a ratchet stops being one.
+        const unexcused = missing.filter(operation => !declared.includes(operation));
+        const stale = declared.filter(operation => !missing.includes(operation));
+        expect({ unexcused, stale }).toEqual({ unexcused: [], stale: [] });
+
+        // And it may only ever get shorter. See NOT_YET_CEILING.
+        const ceiling = NOT_YET_CEILING[engine];
+        if (declared.length > 0) {
+          expect(typeof ceiling).toBe('number');
+        }
+        expect(declared.length).toBeLessThanOrEqual(ceiling ?? 0);
       });
 
-      it('describes what it can do, synchronously and completely', async () => {
+      it('reads its own store back by some means other than itself', async () => {
+        // A HARNESS rule rather than an engine one, and the only rule in this
+        // file about the file itself.
+        //
+        // `read()` is the independent witness every "a refusal changed nothing"
+        // and every "the row really landed" assertion here is built on. A
+        // harness that implemented it by calling the port's own reads would
+        // turn all of them into "the port agrees with itself", which is a
+        // property every broken implementation also has: a write that silently
+        // did nothing and a read that consistently reports nothing agree
+        // perfectly.
+        //
+        // It cannot be checked by reading the harness, because "does this
+        // function reach the port" is not a question a grep answers once a
+        // helper or two is involved. So it is checked by watching: every
+        // operation the port has is spied on — spies call through, so nothing
+        // is changed — and the store is read back. Any call at all is the
+        // forbidden shape.
+        const { port, read } = await harness.create({ accounts: threeAccounts() });
+
+        const watched = DATA_PORT_OPERATIONS
+          .filter(operation => typeof port[operation] === 'function')
+          .map(operation => ({ operation, spy: vi.spyOn(port, operation) }));
+
+        try {
+          await read();
+          const touched = watched
+            .filter(({ spy }) => spy.mock.calls.length > 0)
+            .map(({ operation }) => operation);
+          expect(touched).toEqual([]);
+        } finally {
+          watched.forEach(({ spy }) => spy.mockRestore());
+        }
+      });
+
+      rule(['capabilities'], 'describes what it can do, synchronously and completely', async () => {
         // The capability descriptor is the one answer every OTHER answer in
         // this suite is allowed to differ on — it is how an engine declares its
         // own divergences instead of the app guessing them. So its shape is a
@@ -722,7 +945,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     });
 
     describe('accounts', () => {
-      it('gives back every field it was given', async () => {
+      rule(['createAccount', 'listAccounts'], 'gives back every field it was given', async () => {
         // The seam's promise about accounts: what the app wrote is what the
         // app reads. Two mappers that each dropped what the other kept is how
         // a low-balance alert silently switched itself off, so the field set
@@ -770,7 +993,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         });
       });
 
-      it('B-7: hands the whole account back to the caller that created it', async () => {
+      rule(['createAccount'], 'B-7: hands the whole account back to the caller that created it', async () => {
         // The WRITE twin of the rule above, and a different promise: that one
         // is about what the store holds afterwards, this one is about the
         // object the create ANSWERS with. The caller puts it straight into app
@@ -840,7 +1063,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(JSON.stringify(await read())).not.toContain('1111222233334444');
       });
 
-      it('closes an account rather than deleting it', async () => {
+      rule(['closeAccount', 'listClosedAccounts'], 'closes an account rather than deleting it', async () => {
         // A deleted account is a hole in a ledger: its transactions would have
         // nowhere to belong. Every engine soft-closes.
         const { port, read } = await harness.create({
@@ -870,7 +1093,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         anAccount(ACCOUNT_C, 'Spare', { type: 'savings', balance: 0 })
       ];
 
-      it('adds a transaction to the balance to the penny', async () => {
+      rule(['createTransaction'], 'adds a transaction to the balance to the penny', async () => {
         const { port, read } = await harness.create({ accounts: openWith(0.1) });
 
         await port.createTransaction({
@@ -885,7 +1108,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(balanceOf(await read(), ACCOUNT_A)).toBe(0.3);
       });
 
-      it('moves the balance by the difference when an amount is edited', async () => {
+      rule(['updateTransaction'], 'moves the balance by the difference when an amount is edited', async () => {
         // Two float traps in one: the difference itself, and adding it on.
         const { port, read } = await harness.create({
           accounts: openWith(1.1),
@@ -897,7 +1120,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(balanceOf(await read(), ACCOUNT_A)).toBe(0.9);
       });
 
-      it('takes a deleted transaction back out of the balance', async () => {
+      rule(['deleteTransaction'], 'takes a deleted transaction back out of the balance', async () => {
         const { port, read } = await harness.create({
           accounts: openWith(-70.1),
           transactions: [aTransaction('txn-1', { amount: -0.2 })]
@@ -908,7 +1131,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(balanceOf(await read(), ACCOUNT_A)).toBe(-69.9);
       });
 
-      it('moves both balances when a transfer counterpart is created', async () => {
+      rule(['createTransferCounterpart'], 'moves both balances when a transfer counterpart is created', async () => {
         const { port, read } = await harness.create({
           accounts: openWith(-70.1, 0.1),
           transactions: [aTransaction('txn-1', { amount: -0.2 })]
@@ -928,7 +1151,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(balanceOf(state, ACCOUNT_B)).toBe(0.3);
       });
 
-      it('carries the money with the row when a transfer is re-pointed', async () => {
+      rule(['createTransferCounterpart', 'repointTransfer'], 'carries the money with the row when a transfer is re-pointed', async () => {
         // A re-point is the ONE transfer operation that is not balance-neutral:
         // the counterpart changes address, so the account it left must be down
         // by exactly what the account it joined is up by. The figures are
@@ -955,7 +1178,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(balanceOf(state, ACCOUNT_C)).toBe(0.2);
       });
 
-      it('leaves the survivor of a deleted transfer leg unlinked', async () => {
+      rule(['createTransferCounterpart', 'deleteTransaction'], 'leaves the survivor of a deleted transfer leg unlinked', async () => {
         // Stated as a contract because it is not free anywhere: the cloud gets
         // it from transactions_linked_transfer_id_fkey (ON DELETE SET NULL) and
         // browser storage has to do it by hand. A dangling link is a row every
@@ -976,7 +1199,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(survivor?.transferAccountId).toBe(ACCOUNT_B);
       });
 
-      it('moves the balance when a split changes the transaction total', async () => {
+      rule(['setTransactionSplits'], 'moves the balance when a split changes the transaction total', async () => {
         const { port, read } = await harness.create({
           accounts: openWith(0.1),
           transactions: [aTransaction('txn-1', { amount: 0.1, type: 'income' })]
@@ -998,7 +1221,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(transactionOf(state, 'txn-1')?.amount).toBe(0.3);
       });
 
-      it('computes a server-side balance that agrees with the client sum to the penny', async () => {
+      rule(['getAccountBalances'], 'computes a server-side balance that agrees with the client sum to the penny', async () => {
         // The two figures are stand-ins for each other on the dashboard for the
         // seconds a long history is in flight, so a disagreement between them
         // is money changing on screen. Same float trap as everything above:
@@ -1057,7 +1280,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         }
       ];
 
-      it('files every row into the account it was told, and moves that balance to the penny', async () => {
+      rule(['importTransactions'], 'files every row into the account it was told, and moves that balance to the penny', async () => {
         const { port, read } = await harness.create({ accounts: threeAccounts() });
         const rows = statement();
 
@@ -1103,7 +1326,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
        * forgets fails silently — rows import, nothing lights up, and the
        * feature looks switched off rather than broken.
        */
-      it('marks every row it writes as new work, whatever the drafts said', async () => {
+      rule(['importTransactions'], 'marks every row it writes as new work, whatever the drafts said', async () => {
         const { port, read } = await harness.create({ accounts: threeAccounts() });
         const rows = statement().map(row => ({ ...row, needsReview: false }));
 
@@ -1114,7 +1337,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(landed.every(t => t.needsReview === true)).toBe(true);
       });
 
-      it('B-9: what it says landed is a prefix of the file, and the rest really is absent', async () => {
+      rule(['importTransactions'], 'B-9: what it says landed is a prefix of the file, and the rest really is absent', async () => {
         // The rule both importers depend on LITERALLY: each slices the array it
         // handed in at `inserted` and shows the remainder as "these payments
         // are missing". So this asks the store what it holds and compares it
@@ -1144,7 +1367,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(asComparable(state)).toBe(before);
       });
 
-      it(`B-9: when the store fails mid-import, this engine lands ${BULK_IMPORT[engine].partial}`, async () => {
+      rule(['importTransactions'], `B-9: when the store fails mid-import, this engine lands ${BULK_IMPORT[engine].partial}`, async () => {
         // REPORTED, NOT THROWN. "412 of 900 landed" is an outcome the caller
         // has to render — the missing rows are named on screen — so a store
         // that will not answer must come back as a result, not as a rejection
@@ -1164,7 +1387,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         }
       });
 
-      it('writes nothing at all when the file has no rows', async () => {
+      rule(['importTransactions'], 'writes nothing at all when the file has no rows', async () => {
         // The ordinary case rather than a caller's mistake: a statement whose
         // every row was already in the register arrives here empty, because the
         // duplicate check ran before anyone knew what would be left.
@@ -1179,7 +1402,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     });
 
     describe('the boot read', () => {
-      it('hands over every row, with dates the app can use', async () => {
+      rule(['loadBootTransactions'], 'hands over every row, with dates the app can use', async () => {
         // Rule 3 of the seam: a Date crosses as a Date. These rows go straight
         // into app state and into the balance maths, and a store that hands
         // back the string it serialised would put "2025-01-10" where every
@@ -1201,7 +1424,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         });
       });
 
-      it('reports honestly how many rows it handed over, and where they came from', async () => {
+      rule(['loadBootTransactions'], 'reports honestly how many rows it handed over, and where they came from', async () => {
         // The count is printed on the boot-timing line. A figure that does not
         // match the array beside it is worse than no figure at all: the next
         // slowness report starts from it.
@@ -1226,7 +1449,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         }
       });
 
-      it('answers empty, with the reason said out loud, when the store will not open', async () => {
+      rule(['loadBootTransactions'], 'answers empty, with the reason said out loud, when the store will not open', async () => {
         // THE rule this slice exists to keep. The boot effect has one outer
         // catch and reaching it replaces the whole app with a "Failed to load
         // data" page — for somebody whose ledger is fine and whose next reload
@@ -1243,7 +1466,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     });
 
     describe('server-computed balances', () => {
-      it(`B-2: this engine ${SERVER_BALANCES[engine]}`, async () => {
+      rule(['getAccountBalances'], `B-2: this engine ${SERVER_BALANCES[engine]}`, async () => {
         const { port } = await harness.create({
           accounts: threeAccounts(),
           transactions: [aTransaction('txn-1')]
@@ -1262,7 +1485,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect([...balances.keys()].sort()).toEqual([ACCOUNT_A, ACCOUNT_B, ACCOUNT_C]);
       });
 
-      it('never rejects, and does not invent zeros, when the store will not open', async () => {
+      rule(['getAccountBalances'], 'never rejects, and does not invent zeros, when the store will not open', async () => {
         const port = await harness.createUnreadable();
 
         const balances = await port.getAccountBalances();
@@ -1272,7 +1495,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     });
 
     describe('preparing the categories', () => {
-      it(`B-4: with nothing stored, this engine ${PREPARE_CATEGORIES[engine].describes}`, async () => {
+      rule(['prepareCategories'], `B-4: with nothing stored, this engine ${PREPARE_CATEGORIES[engine].describes}`, async () => {
         // Never empty, whatever the store holds. This is the list the register,
         // the budgets page and every category filter are built from, and the
         // boot does not ask twice — an engine that answered [] here would put a
@@ -1301,7 +1524,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         }
       });
 
-      it('finishes its work before a transaction read can see the rows', async () => {
+      rule(['prepareCategories', 'loadBootTransactions', 'listCategories'], 'finishes its work before a transaction read can see the rows', async () => {
         // The ordering the boot depends on, stated where an implementation can
         // be held to it rather than only where it is obeyed.
         //
@@ -1340,7 +1563,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     });
 
     describe('budgets and goals', () => {
-      it('answers for the owner it resolved itself, and only that owner', async () => {
+      rule(['listBudgets', 'listGoals'], 'answers for the owner it resolved itself, and only that owner', async () => {
         // Rule 1 of the seam: no read takes a user id, every implementation
         // resolves its own owner. That rule has teeth precisely because
         // getting it wrong is SILENT — the wrong owner's budgets are a
@@ -1365,7 +1588,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect((await theirs.port.listGoals()).map(goal => goal.id)).toEqual(['goal-theirs']);
       });
 
-      it('hands back the amounts it was given, to the penny', async () => {
+      rule(['listBudgets', 'listGoals'], 'hands back the amounts it was given, to the penny', async () => {
         // A budget and a goal are money on a page. 0.1 + 0.2 territory again:
         // an engine that round-trips these through a float column would be
         // caught here rather than by a limit that is a penny out.
@@ -1381,7 +1604,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     });
 
     describe('writing a budget', () => {
-      it('round-trips the amount through a create and an edit, to the penny', async () => {
+      rule(['createBudget', 'listBudgets', 'updateBudget'], 'round-trips the amount through a create and an edit, to the penny', async () => {
         // A budget is a limit somebody set on purpose, and the page compares
         // it against a Decimal sum of real transactions. An engine that stored
         // it through a float column would put a limit a penny out and then
@@ -1406,7 +1629,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect((await port.listBudgets())[0].amount).toBe(0.3);
       });
 
-      it(`B-3: a budget is filed under ${OWNERSHIP[engine]}`, async () => {
+      rule(['createBudget', 'listBudgets'], `B-3: a budget is filed under ${OWNERSHIP[engine]}`, async () => {
         // Two rules, equal for every engine however it spells "owner".
         //
         // FIRST: no operation ACCEPTS an owner. Stated at runtime and not left
@@ -1435,7 +1658,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(await theirs.port.listBudgets()).toEqual([]);
       });
 
-      it('refuses to change a budget that is not there, and says which', async () => {
+      rule(['updateBudget'], 'refuses to change a budget that is not there, and says which', async () => {
         // Not created-on-the-fly: an id that names nothing is a bug upstream
         // (a stale page, a double submit after a delete), and inventing a
         // budget to satisfy it would put an amount somebody never set on the
@@ -1450,7 +1673,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           .rejects.toThrow(/budget not found/i);
       });
 
-      it('leaves the store exactly as it was when it refuses', async () => {
+      rule(['updateBudget'], 'leaves the store exactly as it was when it refuses', async () => {
         // The all-or-nothing rule the splits and the merge already keep, asked
         // of a planning write: everything is judged before anything is
         // written, so a refusal is never a half-applied edit.
@@ -1466,7 +1689,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(asComparable(await read())).toBe(before);
       });
 
-      it('treats deleting a budget that has already gone as done, not as an error', async () => {
+      rule(['deleteBudget'], 'treats deleting a budget that has already gone as done, not as an error', async () => {
         // Same rule as a dismissal: a double-click, or a second device that
         // got there first, must not turn a decision into an error message.
         // Idempotence is the point — the second call is not a test of the
@@ -1487,7 +1710,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     });
 
     describe('writing a goal', () => {
-      it('round-trips the amounts through a create and an edit, to the penny', async () => {
+      rule(['createGoal', 'listGoals', 'updateGoal'], 'round-trips the amounts through a create and an edit, to the penny', async () => {
         // Same reason as the budget above: a goal's target is a figure
         // somebody typed, and the page draws a bar of progress against it. An
         // engine that stored either through a float column would announce a
@@ -1509,7 +1732,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect((await port.listGoals())[0].targetAmount).toBe(0.3);
       });
 
-      it('starts a goal at the money already put by, not at zero', async () => {
+      rule(['createGoal', 'listGoals'], 'starts a goal at the money already put by, not at zero', async () => {
         // Rule 49. `progress` is the accumulated amount, so a goal written
         // down for something already half saved for begins there. The version
         // of this that hard-coded zero did not merely round down — it lost the
@@ -1532,7 +1755,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(stored?.progress).toBe(250.05);
       });
 
-      it('never carries a goal past its own target', async () => {
+      rule(['createGoal', 'updateGoal', 'listGoals'], 'never carries a goal past its own target', async () => {
         // Rule 50, and it is a rule about the SHAPE of the write rather than
         // about arithmetic here.
         //
@@ -1559,7 +1782,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect((await port.listGoals())[0].progress).toBe(1500);
       });
 
-      it(`B-3 for goals: a goal is filed under ${OWNERSHIP[engine]}`, async () => {
+      rule(['createGoal', 'listGoals'], `B-3 for goals: a goal is filed under ${OWNERSHIP[engine]}`, async () => {
         // The same pair of rules the budget writes are held to, asked again of
         // the operations that did not exist when it was asked the first time —
         // because both halves of B-3 are per-operation. The arity check cannot
@@ -1581,7 +1804,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(await theirs.port.listGoals()).toEqual([]);
       });
 
-      it('refuses to change a goal that is not there, and leaves the store exactly as it was', async () => {
+      rule(['updateGoal'], 'refuses to change a goal that is not there, and leaves the store exactly as it was', async () => {
         // Two rules in one ask, because they are the same moment: an id that
         // names nothing is a bug upstream (a stale page, a contribution
         // submitted after a delete) and must not quietly become a new goal
@@ -1601,7 +1824,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(asComparable(await read())).toBe(before);
       });
 
-      it('treats deleting a goal that has already gone as done, not as an error', async () => {
+      rule(['deleteGoal'], 'treats deleting a goal that has already gone as done, not as an error', async () => {
         // Same rule as the budget delete and the dismissal before it: a
         // double-click, or a second device that got there first, must not turn
         // a decision into an error message.
@@ -1621,7 +1844,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     });
 
     describe('writing a category', () => {
-      it('removes the categories under a category it removes', async () => {
+      rule(['deleteCategory'], 'removes the categories under a category it removes', async () => {
         // Rule 51. The cascade is a rule of the SEAM, not an artefact of the
         // cloud's foreign key: an engine with no foreign keys to inherit it
         // from would otherwise leave a group's children behind as orphans
@@ -1642,7 +1865,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect((await read()).categories.map(category => category.id)).toEqual(['cat-other']);
       });
 
-      it('writes nothing when a bulk create is given nothing, and every row when it is given some', async () => {
+      rule(['createCategories'], 'writes nothing when a bulk create is given nothing, and every row when it is given some', async () => {
         // Rule 52, and the empty half is the ordinary case rather than a
         // caller's mistake: a tree import that only adds detail to groups the
         // account already has plans no new groups at all, and asks anyway,
@@ -1672,7 +1895,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           .toEqual(['Fuel', 'Groceries', 'Parking']);
       });
 
-      it(`B-6: a bulk prune ${BULK_PRUNE[engine].describes}`, async () => {
+      rule(['deleteUnusedCategories'], `B-6: a bulk prune ${BULK_PRUNE[engine].describes}`, async () => {
         // Rule 53. The plan a prune is handed was computed from a snapshot, and
         // the gap between computing it and running it is long enough for
         // somebody to file a transaction under one of the categories in it —
@@ -1706,7 +1929,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(removed).toBe(before - after.length);
       });
 
-      it('never invents the count: it is what actually went, not what was asked for', async () => {
+      rule(['deleteUnusedCategories'], 'never invents the count: it is what actually went, not what was asked for', async () => {
         // The other half of B-6, and the one the caller prints. `importCategoryTree`
         // shows this figure to the user ("pruned 40, kept 12 still in use") and
         // re-reads the whole category set BECAUSE it cannot be derived from the
@@ -1739,7 +1962,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(removedGroup).toBe(beforeGroup - afterGroup);
       });
 
-      it('gives every new category an id of its own', async () => {
+      rule(['createCategory', 'createCategories'], 'gives every new category an id of its own', async () => {
         // Rule 54. Two categories created in a row must not come back sharing
         // an id — an engine that answered with a constant, or that reused the
         // last one, would have the second name silently overwrite the first in
@@ -1763,7 +1986,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(new Set(stored.map(category => category.id)).size).toBe(stored.length);
       });
 
-      it(`B-5: a new category comes back with ${ID_PROVENANCE[engine]}, usable at once`, async () => {
+      rule(['createCategory', 'updateCategory'], `B-5: a new category comes back with ${ID_PROVENANCE[engine]}, usable at once`, async () => {
         // Where the id is minted is declared, not asserted. What is asserted is
         // that it is FINAL: the callers use it on the next line — as the value
         // of the select they just added an option to, and as the parentId of
@@ -1790,7 +2013,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     });
 
     describe('splits', () => {
-      it('leaves the store untouched when it refuses', async () => {
+      rule(['setTransactionSplits'], 'leaves the store untouched when it refuses', async () => {
         // All-or-nothing. Every check runs before the first write, so a
         // refusal is not a half-written split — and the transaction being
         // edited already HAS lines, so a writer that clears them before
@@ -1812,7 +2035,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(asComparable(await read())).toBe(before);
       });
 
-      it('refuses a set that does not sum to the amount it was told to expect', async () => {
+      rule(['setTransactionSplits'], 'refuses a set that does not sum to the amount it was told to expect', async () => {
         const { port } = await harness.create({
           accounts: threeAccounts(),
           transactions: [aTransaction('txn-1', { amount: -70.1 })]
@@ -1830,10 +2053,16 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         ).rejects.toThrow(/sum to the transaction amount/i);
       });
 
-      it('reads a split back in display order', async () => {
+      rule(['listTransactionSplitsFor'], 'reads a split back in display order', async () => {
+        // `category: ''` on the parent, like the other three split fixtures in
+        // this file. A split parent's categorisation lives in its LINES, and a
+        // store is entitled to insist: the local engine's schema spells it
+        // `transactions_split_parent_has_blank_category`, and it refused this
+        // fixture on the first run of the second engine — which is the whole
+        // reason a contract suite is written against more than one.
         const { port } = await harness.create({
           accounts: threeAccounts(),
-          transactions: [aTransaction('txn-1', { amount: -30, isSplit: true })],
+          transactions: [aTransaction('txn-1', { amount: -30, isSplit: true, category: '' })],
           splits: [
             { id: 'line-2', transactionId: 'txn-1', category: 'cat-bills', amount: -20, sortOrder: 2 },
             { id: 'line-1', transactionId: 'txn-1', category: 'cat-everyday', amount: -10, sortOrder: 1 }
@@ -1884,7 +2113,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           ]
         });
 
-        it('refuses to drop it, and changes nothing', async () => {
+        rule(['setTransactionSplits'], 'refuses to drop it, and changes nothing', async () => {
           const { port, read } = await harness.create(splitWithALeg());
           const before = asComparable(await read());
 
@@ -1899,7 +2128,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           expect(asComparable(await read())).toBe(before);
         });
 
-        it('refuses to change its amount', async () => {
+        rule(['setTransactionSplits'], 'refuses to change its amount', async () => {
           const { port } = await harness.create(splitWithALeg());
 
           await expect(
@@ -1914,7 +2143,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           ).rejects.toThrow(/has to stay as it is/i);
         });
 
-        it('refuses to point it at a different account', async () => {
+        rule(['setTransactionSplits'], 'refuses to point it at a different account', async () => {
           const { port } = await harness.create(splitWithALeg());
 
           await expect(
@@ -1929,7 +2158,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           ).rejects.toThrow(/would strand that row/i);
         });
 
-        it('refuses to re-file it under another category', async () => {
+        rule(['setTransactionSplits'], 'refuses to re-file it under another category', async () => {
           const { port } = await harness.create(splitWithALeg());
 
           await expect(
@@ -1944,7 +2173,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           ).rejects.toThrow(/one half of a transfer/i);
         });
 
-        it('lets the line beside it be re-filed', async () => {
+        rule(['setTransactionSplits'], 'lets the line beside it be re-filed', async () => {
           // The whole point of the rule being this narrow: the rest of the
           // split is ordinary and must stay editable.
           const { port, read } = await harness.create(splitWithALeg());
@@ -1982,7 +2211,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         ]
       });
 
-      it('links two rows without moving a penny', async () => {
+      rule(['linkTransferPair'], 'links two rows without moving a penny', async () => {
         const { port, read } = await harness.create(twoSides());
 
         const { a, b } = await port.linkTransferPair('txn-out', 'txn-in');
@@ -1997,7 +2226,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(balanceOf(state, ACCOUNT_B)).toBe(500);
       });
 
-      it('refuses two rows in the same account', async () => {
+      rule(['linkTransferPair'], 'refuses two rows in the same account', async () => {
         const { port } = await harness.create({
           accounts: threeAccounts(),
           transactions: [
@@ -2010,7 +2239,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           .rejects.toThrow(/two different accounts/i);
       });
 
-      it('refuses amounts that are not exact opposites', async () => {
+      rule(['linkTransferPair'], 'refuses amounts that are not exact opposites', async () => {
         const { port } = await harness.create({
           accounts: threeAccounts(),
           transactions: [
@@ -2023,21 +2252,21 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           .rejects.toThrow(/opposite non-zero amounts/i);
       });
 
-      it('refuses a split transaction', async () => {
+      rule(['linkTransferPair'], 'refuses a split transaction', async () => {
         const { port } = await harness.create(twoSides({ isSplit: true }));
 
         await expect(port.linkTransferPair('txn-out', 'txn-in'))
           .rejects.toThrow(/split transaction cannot become a transfer/i);
       });
 
-      it('refuses a row that is already linked', async () => {
+      rule(['linkTransferPair'], 'refuses a row that is already linked', async () => {
         const { port } = await harness.create(twoSides({ linkedTransferId: 'txn-elsewhere' }));
 
         await expect(port.linkTransferPair('txn-out', 'txn-in'))
           .rejects.toThrow(/already part of a linked transfer/i);
       });
 
-      it('unlinks only the rows it can, and counts them', async () => {
+      rule(['unlinkTransfers'], 'unlinks only the rows it can, and counts them', async () => {
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
           transactions: [
@@ -2097,7 +2326,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         ]
       });
 
-      it('moves every reference, then removes the source', async () => {
+      rule(['mergeCategories'], 'moves every reference, then removes the source', async () => {
         const { port, read } = await harness.create(mergeFixture());
 
         const result = await port.mergeCategories('cat-source', 'cat-target');
@@ -2120,7 +2349,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(state.budgets[0].categoryId).toBe('cat-target');
       });
 
-      it('judges the source before the target', async () => {
+      rule(['mergeCategories'], 'judges the source before the target', async () => {
         // Both sides are top-level headings here, so both guards would fire.
         // Which sentence the user sees is decided by the ORDER, and the order
         // is part of the contract: they are asked to think about what they are
@@ -2131,7 +2360,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           .rejects.toThrow(/not a category things are filed under/i);
       });
 
-      it('refuses to merge a category into itself, and changes nothing', async () => {
+      rule(['mergeCategories'], 'refuses to merge a category into itself, and changes nothing', async () => {
         const { port, read } = await harness.create(mergeFixture());
         const before = asComparable(await read());
 
@@ -2155,7 +2384,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
        * separation exists to end. Asserted at the seam because every screen
        * reads the store's answer, not its own memory.
        */
-      it('a mark is not a reconciliation: it is kept, and it settles nothing', async () => {
+      rule(['setTransactionsCleared'], 'a mark is not a reconciliation: it is kept, and it settles nothing', async () => {
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
           transactions: [
@@ -2173,7 +2402,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         }
       });
 
-      it('unmarking takes any commitment with it', async () => {
+      rule(['setTransactionsCleared'], 'unmarking takes any commitment with it', async () => {
         // reconciled implies cleared. The pair (committed, unmarked) would put
         // the cleared balance and the reconciled set permanently out of step,
         // so a store may never be left holding it.
@@ -2190,7 +2419,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         });
       });
 
-      it('finalizing commits exactly the marked rows, and records what they were settled against', async () => {
+      rule(['finalizeReconciliation'], 'finalizing commits exactly the marked rows, and records what they were settled against', async () => {
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
           transactions: [
@@ -2223,7 +2452,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           .toBe('2025-03-31');
       });
 
-      it('records a zero ending balance as a figure, not as "none"', async () => {
+      rule(['finalizeReconciliation'], 'records a zero ending balance as a figure, not as "none"', async () => {
         // A real account in this product is swept to zero every night, so its
         // correct statement balance is exactly £0. An engine that treated 0 as
         // "nothing was confirmed" would refuse to finish that reconciliation
@@ -2242,7 +2471,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         ).toBe(0);
       });
 
-      it('finalizing twice commits nothing the second time, and re-states the balance', async () => {
+      rule(['finalizeReconciliation'], 'finalizing twice commits nothing the second time, and re-states the balance', async () => {
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
           transactions: [aTransaction('txn-marked', { cleared: true, reconciled: false })]
@@ -2257,7 +2486,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         ).toBe(200);
       });
 
-      it('refuses to finalize an account it cannot find, and changes nothing', async () => {
+      rule(['finalizeReconciliation'], 'refuses to finalize an account it cannot find, and changes nothing', async () => {
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
           transactions: [aTransaction('txn-marked', { cleared: true, reconciled: false })]
@@ -2270,7 +2499,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(asComparable(await read())).toBe(before);
       });
 
-      it('archives a row that becomes COMMITTED on or before the account cutoff', async () => {
+      rule(['setTransactionsCleared', 'finalizeReconciliation'], 'archives a row that becomes COMMITTED on or before the account cutoff', async () => {
         // The sweep hangs off finalizing, never off marking. Ticking a row
         // dated before the cutoff used to make it vanish from the very list the
         // ticking happens on — from a list whose whole promise is that ticks
@@ -2301,7 +2530,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(transactionOf(state, 'txn-new')?.archived).not.toBe(true);
       });
 
-      it('archives reconciled rows up to a cutoff and leaves the rest alone', async () => {
+      rule(['archiveTransactionsBefore'], 'archives reconciled rows up to a cutoff and leaves the rest alone', async () => {
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
           transactions: [
@@ -2332,7 +2561,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(state.accounts.find(account => account.id === ACCOUNT_A)?.archiveThroughDate).toBeTruthy();
       });
 
-      it('brings an account back out of the archive', async () => {
+      rule(['unarchiveAccount'], 'brings an account back out of the archive', async () => {
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
           transactions: [
@@ -2349,7 +2578,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(transactionOf(state, 'txn-2')?.archived).toBe(true);
       });
 
-      it('fills only the blanks when a category is applied in bulk', async () => {
+      rule(['applyCategoryToUncategorized'], 'fills only the blanks when a category is applied in bulk', async () => {
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
           transactions: [
@@ -2374,7 +2603,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(transactionOf(state, 'txn-filed')?.category).toBe('cat-bills');
       });
 
-      it('confirms only the rows still waiting to be agreed with', async () => {
+      rule(['confirmTransactionCategories'], 'confirms only the rows still waiting to be agreed with', async () => {
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
           transactions: [
@@ -2404,7 +2633,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
        * reason too: one click must be one write, or a confirm is two audit
        * entries and a race with itself.
        */
-      it('ends the review of every row it confirms', async () => {
+      rule(['confirmTransactionCategories'], 'ends the review of every row it confirms', async () => {
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
           transactions: [
@@ -2434,7 +2663,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
        * one run of the bulk tool would mark a whole imported statement as dealt
        * with, silently.
        */
-      it('leaves the review alone when a category is applied in bulk', async () => {
+      rule(['applyCategoryToUncategorized'], 'leaves the review alone when a category is applied in bulk', async () => {
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
           transactions: [aTransaction('txn-blank', { category: '', needsReview: true })]
@@ -2449,7 +2678,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
        * A row somebody typed is born reviewed. There is nothing to go back and
        * look at: they were looking at it as they made it.
        */
-      it('never marks a hand-entered transaction as new work', async () => {
+      rule(['createTransaction'], 'never marks a hand-entered transaction as new work', async () => {
         const { port, read } = await harness.create({ accounts: threeAccounts() });
 
         await port.createTransaction({
@@ -2467,7 +2696,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     });
 
     describe('dismissed suggestions', () => {
-      it('records a refusal once, however many times it is asked', async () => {
+      rule(['dismissSuggestion', 'listSuggestionDismissals'], 'records a refusal once, however many times it is asked', async () => {
         // A double-click, or a second device, must not turn a decision into an
         // error message.
         const { port, read } = await harness.create({ accounts: threeAccounts() });
@@ -2480,7 +2709,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(await port.listSuggestionDismissals()).toHaveLength(1);
       });
 
-      it('forgets a refusal about a row that no longer exists', async () => {
+      rule(['deleteTransaction'], 'forgets a refusal about a row that no longer exists', async () => {
         // A suggestion about a deleted row can never be offered again, so its
         // refusal is dead weight. The cloud does this with a trigger; every
         // other engine has to do it too, or a restored backup carries junk.
@@ -2503,7 +2732,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect((await read()).dismissals).toHaveLength(0);
       });
 
-      it('offers a suggestion again once the refusal is undone', async () => {
+      rule(['restoreSuggestion', 'listSuggestionDismissals'], 'offers a suggestion again once the refusal is undone', async () => {
         const { port } = await harness.create({
           accounts: threeAccounts(),
           dismissals: [
@@ -2524,7 +2753,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     });
 
     describe('archiving one row', () => {
-      it('hides it without deleting it, and can put it back', async () => {
+      rule(['setTransactionArchived'], 'hides it without deleting it, and can put it back', async () => {
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
           transactions: [aTransaction('txn-1', { amount: -0.2 })]
@@ -2543,7 +2772,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     });
 
     describe('watching for changes made elsewhere', () => {
-      it(`B-8: the handle is callable, idempotent and final — and this engine ${SUBSCRIPTION_DELIVERY[engine].describes}`, async () => {
+      rule(['subscribeToUpdates', 'createTransaction'], `B-8: the handle is callable, idempotent and final — and this engine ${SUBSCRIPTION_DELIVERY[engine].describes}`, async () => {
         const { port } = await harness.create({ accounts: threeAccounts() });
 
         const heard: string[] = [];
@@ -2601,7 +2830,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
       // These are the places the engines are known to differ. Asserting them
       // per engine is the difference between a difference that is recorded and
       // one that is discovered by a user.
-      it(`D-7: a field outside the update allow-list — this engine ${UPDATE_OUTSIDE_ALLOW_LIST[engine]} it`, async () => {
+      rule(['updateTransaction'], `D-7: a field outside the update allow-list — this engine ${UPDATE_OUTSIDE_ALLOW_LIST[engine]} it`, async () => {
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
           transactions: [aTransaction('txn-1')]
@@ -2628,7 +2857,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         }
       });
 
-      it(`M-1: an amount below a penny — this engine ${SUB_PENNY_AMOUNT[engine]} it`, async () => {
+      rule(['createTransaction'], `M-1: an amount below a penny — this engine ${SUB_PENNY_AMOUNT[engine]} it`, async () => {
         const { port, read } = await harness.create({ accounts: threeAccounts() });
 
         const write = port.createTransaction({
@@ -2730,7 +2959,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         preferences: bundle.preferences
       });
 
-      it('says a fresh store is empty, and says otherwise the moment it holds anything', async () => {
+      rule(['financialDataIsEmpty'], 'says a fresh store is empty, and says otherwise the moment it holds anything', async () => {
         // The question the restore dialog asks before it offers the button, so
         // a wrong answer either refuses a restore that was safe or allows one
         // over a login full of data.
@@ -2741,7 +2970,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(await holding.port.financialDataIsEmpty()).toBe(false);
       });
 
-      it('empties the store, and then agrees that it is empty', async () => {
+      rule(['financialDataIsEmpty', 'wipeAllFinancialData'], 'empties the store, and then agrees that it is empty', async () => {
         // The two operations have to answer the same question about one store.
         // A wipe that emptied what it felt like and an emptiness check that
         // asked about something else would give the restore dialog two
@@ -2765,7 +2994,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(after.dismissals).toEqual([]);
       });
 
-      it('is safe to run twice, because that is the recovery when it stops', async () => {
+      rule(['wipeAllFinancialData', 'financialDataIsEmpty'], 'is safe to run twice, because that is the recovery when it stops', async () => {
         // Idempotence is not tidiness here, it is the whole repair. An engine
         // that erases in pieces cannot avoid stopping part-way (one statement
         // over 51,000 rows is cancelled by the database's own timeout, which is
@@ -2783,7 +3012,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(await port.financialDataIsEmpty()).toBe(true);
       });
 
-      it('erases a store a file can then be poured straight back into', async () => {
+      rule(['collectBackup', 'wipeAllFinancialData', 'restoreBackup'], 'erases a store a file can then be poured straight back into', async () => {
         // THE ROUND TRIP, closed: collect → wipe → restore → collect. Slice 9
         // could prove the middle two against a store that started empty; this
         // is the journey a real person makes, which always begins with a login
@@ -2818,7 +3047,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(namesOf(again, 'goals', 'name')).toEqual(namesOf(file, 'goals', 'name'));
       });
 
-      it('pours a file into an empty store and gets the same ledger back, to the penny', async () => {
+      rule(['collectBackup', 'restoreBackup', 'financialDataIsEmpty'], 'pours a file into an empty store and gets the same ledger back, to the penny', async () => {
         const source = await harness.create(aWholeLedger());
         const file = await source.port.collectBackup();
 
@@ -2863,7 +3092,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(everyday?.accountId).toBe(byName.get('Everyday'));
       });
 
-      it('a restored ledger exports to the same file again, and again', async () => {
+      rule(['collectBackup', 'restoreBackup'], 'a restored ledger exports to the same file again, and again', async () => {
         // Generation 2 against generation 3, because generation 1 carries the
         // ids the fixture invented and every restore mints new ones. Two
         // restores from a store that starts fresh produce the same ids in the
@@ -2883,7 +3112,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(contents(third)).toEqual(contents(second));
       });
 
-      it('refuses to restore over a store that still holds something, and changes nothing', async () => {
+      rule(['collectBackup', 'restoreBackup'], 'refuses to restore over a store that still holds something, and changes nothing', async () => {
         // A restore REPLACES; it does not merge. Refusing is what makes it safe
         // to attempt at all — nothing the user already has can be mixed with
         // the file, re-dated, or half-overwritten.
@@ -2897,7 +3126,8 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(asComparable(await occupied.read())).toBe(before);
       });
 
-      it(
+      rule(
+        ['collectBackup', 'restoreBackup'],
         BACKUP_COVERAGE[engine].notStored.length === 0
           ? 'holds every table the format carries, and says so'
           : `names the ${BACKUP_COVERAGE[engine].notStored.length} tables it cannot keep instead of dropping them in silence`,
@@ -2968,7 +3198,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         goals: [aGoal('goal-1', 'New boiler', 1500)]
       });
 
-      it(`does not read a transaction until the categories are settled — ${BOOT_COMPOSITION[engine].describes}`, async () => {
+      rule(['loadBoot'], `does not read a transaction until the categories are settled — ${BOOT_COMPOSITION[engine].describes}`, async () => {
         // THE ordering rule, and the reason the boot is one call rather than
         // six: on a first signed-in load, preparing the categories renumbers
         // every one of them AND remaps every transaction and budget that
@@ -3025,13 +3255,20 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           // and that is a stronger property than an order kept correctly — it
           // is an order that cannot be got wrong. What IS observable is that the
           // composite really did not fan out into the seam's own reads.
-          const prepareCategories = vi.spyOn(port, 'prepareCategories');
-          const loadBootTransactions = vi.spyOn(port, 'loadBootTransactions');
+          //
+          // Watched only where they exist. An engine that has not implemented
+          // an operation yet (it is named in NOT_YET, and the surface rule
+          // holds it to that) cannot have called it, so its absence is an
+          // honest pass rather than a hole — and this rule must keep running
+          // while the engine is built, because it is the one that says the
+          // composite is a composite.
+          const notFannedOut = (['prepareCategories', 'loadBootTransactions'] as const)
+            .filter(operation => typeof port[operation] === 'function')
+            .map(operation => vi.spyOn(port, operation));
 
           boot = await port.loadBoot();
 
-          expect(prepareCategories).not.toHaveBeenCalled();
-          expect(loadBootTransactions).not.toHaveBeenCalled();
+          notFannedOut.forEach(spy => expect(spy).not.toHaveBeenCalled());
         }
 
         // The outcome the ordering exists to produce: whatever the categories
@@ -3064,7 +3301,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(Object.values(boot.phases).every(ms => typeof ms === 'number')).toBe(true);
       });
 
-      it('asks for the budgets and the goals together, not one after the other', async () => {
+      rule(['loadBoot'], 'asks for the budgets and the goals together, not one after the other', async () => {
         // They are independent reads. Serialising them adds a whole round trip
         // to every signed-in boot in exchange for nothing, and it is the kind of
         // change that looks tidier in a diff than it is on a slow connection.
@@ -3119,7 +3356,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(boot.goals.map(goal => goal.id)).toEqual(['goal-1']);
       });
 
-      it('answers, with the reason said out loud, when the store will not open', async () => {
+      rule(['loadBoot'], 'answers, with the reason said out loud, when the store will not open', async () => {
         // The same floor `loadBootTransactions` keeps, and now the more
         // important one: this call is the ONLY thing inside the boot's single
         // outer catch, so a rejection here is a full-page "Failed to load data"
