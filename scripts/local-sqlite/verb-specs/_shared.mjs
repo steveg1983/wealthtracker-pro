@@ -3133,3 +3133,253 @@ export function parentOf(categoryId, expect) {
     expect,
   };
 }
+
+// ── The planning family's fixtures ──────────────────────────────────────────
+//
+// Budgets and goals have appeared in this file before, but only as things a
+// CATEGORY MERGE has to move (`budgetOnTheSource`). These are the fixtures for
+// writing them, and what they mostly need is a row to edit and a second login
+// to be kept out of.
+
+/** A monthly budget of 100.00 against Weekly shop, already in the file. */
+export const EXISTING_BUDGET = 'b0000000-0000-0000-0000-0000000000f1';
+
+export const existingBudget = {
+  sqlite: `
+    INSERT INTO budgets (id, user_id, name, amount_minor, period, category, start_date,
+                         alert_threshold_bp)
+      VALUES ('${EXISTING_BUDGET}', '${USER}', 'Food', 10000, 'monthly',
+              '${WEEKLY_SHOP}', '2024-01-01', 8000);`,
+  postgres: `
+    INSERT INTO public.budgets (id, user_id, name, amount, period, category, start_date,
+                                alert_threshold)
+      VALUES ('${EXISTING_BUDGET}', '${USER}', 'Food', 100.00, 'monthly',
+              '${WEEKLY_SHOP}', '2024-01-01', 80.00);`,
+};
+
+/** A goal with 250.05 already put by towards 2000.00, already in the file. */
+export const EXISTING_GOAL = 'e0000000-0000-0000-0000-0000000000f1';
+
+export const existingGoal = {
+  sqlite: `
+    INSERT INTO goals (id, user_id, name, target_amount_minor, current_amount_minor,
+                       target_date, status, metadata)
+      VALUES ('${EXISTING_GOAL}', '${USER}', 'Holiday', 200000, 25005,
+              '2026-01-01', 'active', '{"type":"savings","linkedAccountIds":["keep-me"]}');`,
+  postgres: `
+    INSERT INTO public.goals (id, user_id, name, target_amount, current_amount,
+                              target_date, status, metadata)
+      VALUES ('${EXISTING_GOAL}', '${USER}', 'Holiday', 2000.00, 250.05,
+              '2026-01-01', 'active', '{"type":"savings","linkedAccountIds":["keep-me"]}');`,
+};
+
+/**
+ * Two contributions against [`EXISTING_GOAL`], so a delete has something to
+ * cascade into.
+ *
+ * `goal_contributions` has no writer anywhere in the app — nothing but a restore
+ * has ever created one — so this fixture is the only way to observe the key that
+ * takes them, and observing it is the point: `delete_goal` deliberately does NOT
+ * walk them, so "they went" is a claim about `ON DELETE CASCADE` and about
+ * `PRAGMA foreign_keys` having taken.
+ */
+export const CONTRIBUTIONS = ['f0000000-0000-0000-0000-0000000000c1', 'f0000000-0000-0000-0000-0000000000c2'];
+
+export const goalContributions = {
+  sqlite: `
+    INSERT INTO goal_contributions (id, goal_id, user_id, amount_minor, date) VALUES
+      ('${CONTRIBUTIONS[0]}', '${EXISTING_GOAL}', '${USER}', 10000, '2024-02-01'),
+      ('${CONTRIBUTIONS[1]}', '${EXISTING_GOAL}', '${USER}', 15005, '2024-03-01');`,
+  postgres: `
+    INSERT INTO public.goal_contributions (id, goal_id, user_id, amount, date) VALUES
+      ('${CONTRIBUTIONS[0]}', '${EXISTING_GOAL}', '${USER}', 100.00, '2024-02-01'),
+      ('${CONTRIBUTIONS[1]}', '${EXISTING_GOAL}', '${USER}', 150.05, '2024-03-01');`,
+};
+
+/** A budget of the STRANGER's, so the owner clause has something to refuse. */
+export const THEIR_BUDGET = 'b0000000-0000-0000-0000-0000000000d1';
+
+export const strangersBudget = {
+  sqlite: `
+    INSERT INTO budgets (id, user_id, name, amount_minor, period, start_date)
+      VALUES ('${THEIR_BUDGET}', '${STRANGER}', 'Theirs', 5000, 'monthly', '2024-01-01');`,
+  postgres: `
+    INSERT INTO public.budgets (id, user_id, name, amount, period, start_date)
+      VALUES ('${THEIR_BUDGET}', '${STRANGER}', 'Theirs', 50.00, 'monthly', '2024-01-01');`,
+};
+
+/** A goal of the STRANGER's, likewise. */
+export const THEIR_GOAL = 'e0000000-0000-0000-0000-0000000000d1';
+
+export const strangersGoal = {
+  sqlite: `
+    INSERT INTO goals (id, user_id, name, target_amount_minor)
+      VALUES ('${THEIR_GOAL}', '${STRANGER}', 'Theirs', 100000);`,
+  postgres: `
+    INSERT INTO public.goals (id, user_id, name, target_amount)
+      VALUES ('${THEIR_GOAL}', '${STRANGER}', 'Theirs', 1000.00);`,
+};
+
+/**
+ * One budget as one canonical string: `name:amount:period:category:start:end:
+ * spent:rollover:rolloverAmount:threshold:active:notes`.
+ *
+ * Money and the threshold both render as two-place decimals from an INTEGER
+ * column on one engine and a `numeric` on the other, which is the whole reason
+ * they are compared as TEXT rather than as numbers. `-` stands for NULL, so
+ * "cleared the end date" and "never had one" read alike and a spec that cares
+ * asserts the column on its own.
+ */
+export function budgetShape(budgetId, expect) {
+  const build = (engine) => {
+    const table = engine === 'sqlite' ? 'budgets' : 'public.budgets';
+    const amount = engine === 'sqlite' ? minorToDecimal('b.amount_minor') : numericToDecimal('b.amount');
+    const spent = engine === 'sqlite' ? minorToDecimal('b.spent_minor') : numericToDecimal('b.spent');
+    const rolled = engine === 'sqlite'
+      ? minorToDecimal('b.rollover_amount_minor')
+      : numericToDecimal('b.rollover_amount');
+    const threshold = engine === 'sqlite'
+      ? minorToDecimal('b.alert_threshold_bp')
+      : numericToDecimal('b.alert_threshold');
+    const flag = (column, yes, no) => (engine === 'sqlite'
+      ? `CASE WHEN b.${column} = 1 THEN '${yes}' ELSE '${no}' END`
+      : `CASE WHEN b.${column} THEN '${yes}' ELSE '${no}' END`);
+    // `::text` is Postgres-only: the local columns are TEXT already, and a cast
+    // written for both engines is a syntax error on one of them.
+    const asText = (column) => (engine === 'sqlite' ? column : `${column}::text`);
+    const row = `b.name || ':' || ${amount} || ':' || b.period
+                 || ':' || COALESCE(b.category, '-')
+                 || ':' || COALESCE(${asText('b.start_date')}, '-')
+                 || ':' || COALESCE(${asText('b.end_date')}, '-')
+                 || ':' || ${spent} || ':' || ${flag('rollover', 'carries', 'no')}
+                 || ':' || ${rolled} || ':' || ${threshold}
+                 || ':' || ${flag('is_active', 'active', 'paused')}
+                 || ':' || COALESCE(b.notes, '-')`;
+    return `SELECT COALESCE((SELECT ${row} FROM ${table} b WHERE b.id = '${budgetId}'), 'GONE')`;
+  };
+  return {
+    name: `budget_shape_${budgetId.slice(-4)}`,
+    sqlite: build('sqlite'),
+    postgres: build('postgres'),
+    expect,
+  };
+}
+
+/**
+ * One goal as one canonical string: `name:target:current:date:status:completed:
+ * priority:account:frequency:auto:category`.
+ *
+ * `completed` is rendered as `stamped`/`-` rather than as the instant, because
+ * the instant is `now()` on two clocks in two transactions — what the rule says
+ * is that the date FOLLOWS the status, and that is a yes/no.
+ */
+export function goalShape(goalId, expect) {
+  const build = (engine) => {
+    const table = engine === 'sqlite' ? 'goals' : 'public.goals';
+    const target = engine === 'sqlite'
+      ? minorToDecimal('g.target_amount_minor')
+      : numericToDecimal('g.target_amount');
+    const current = engine === 'sqlite'
+      ? minorToDecimal('g.current_amount_minor')
+      : numericToDecimal('g.current_amount');
+    const auto = engine === 'sqlite'
+      ? "CASE WHEN g.auto_contribute = 1 THEN 'auto' ELSE 'manual' END"
+      : "CASE WHEN g.auto_contribute THEN 'auto' ELSE 'manual' END";
+    // `::text` is Postgres-only — see [`budgetShape`].
+    const asText = (column) => (engine === 'sqlite' ? column : `${column}::text`);
+    const row = `g.name || ':' || ${target} || ':' || ${current}
+                 || ':' || COALESCE(${asText('g.target_date')}, '-')
+                 || ':' || g.status
+                 || ':' || CASE WHEN g.completed_at IS NULL THEN '-' ELSE 'stamped' END
+                 || ':' || COALESCE(g.priority, '-')
+                 || ':' || COALESCE(substr(${asText('g.account_id')}, -4), '-')
+                 || ':' || COALESCE(g.contribution_frequency, '-')
+                 || ':' || ${auto}
+                 || ':' || COALESCE(g.category, '-')`;
+    return `SELECT COALESCE((SELECT ${row} FROM ${table} g WHERE g.id = '${goalId}'), 'GONE')`;
+  };
+  return {
+    name: `goal_shape_${goalId.slice(-4)}`,
+    sqlite: build('sqlite'),
+    postgres: build('postgres'),
+    expect,
+  };
+}
+
+/**
+ * A goal's `metadata`, with its keys in a stable order.
+ *
+ * `json_each` on one engine and `jsonb_each` on the other, sorted by key and
+ * rejoined, because SQLite stores the blob as the TEXT it was handed and
+ * Postgres re-orders a `jsonb` by key length then bytes. Comparing the raw
+ * column would report every merge as a divergence.
+ */
+export function goalMetadata(goalId, expect) {
+  const build = (engine) => {
+    const table = engine === 'sqlite' ? 'goals' : 'public.goals';
+    const each = engine === 'sqlite'
+      ? `SELECT key || '=' || COALESCE(value, 'null') AS pair
+           FROM ${table} g, json_each(g.metadata) WHERE g.id = '${goalId}' ORDER BY key`
+      : `SELECT key || '=' || COALESCE(value #>> '{}', 'null') AS pair
+           FROM ${table} g, jsonb_each(g.metadata) WHERE g.id = '${goalId}' ORDER BY key`;
+    return engine === 'sqlite'
+      ? `SELECT COALESCE((SELECT group_concat(pair, ',') FROM (${each})), 'NONE')`
+      : `SELECT COALESCE((SELECT string_agg(pair, ',') FROM (${each}) AS m), 'NONE')`;
+  };
+  return {
+    name: `goal_metadata_${goalId.slice(-4)}`,
+    sqlite: build('sqlite'),
+    postgres: build('postgres'),
+    expect,
+  };
+}
+
+/** How many budgets one login has. */
+export function budgetsOwnedBy(userId, expect) {
+  return {
+    name: `budgets_owned_by_${userId.slice(-4)}`,
+    sqlite: `SELECT COUNT(*) FROM budgets WHERE user_id = '${userId}'`,
+    postgres: `SELECT COUNT(*) FROM public.budgets WHERE user_id = '${userId}'`,
+    expect,
+  };
+}
+
+/** How many goals one login has. */
+export function goalsOwnedBy(userId, expect) {
+  return {
+    name: `goals_owned_by_${userId.slice(-4)}`,
+    sqlite: `SELECT COUNT(*) FROM goals WHERE user_id = '${userId}'`,
+    postgres: `SELECT COUNT(*) FROM public.goals WHERE user_id = '${userId}'`,
+    expect,
+  };
+}
+
+/** How many contributions are filed against one goal. */
+export function contributionsOf(goalId, expect) {
+  return {
+    name: `contributions_of_${goalId.slice(-4)}`,
+    sqlite: `SELECT COUNT(*) FROM goal_contributions WHERE goal_id = '${goalId}'`,
+    postgres: `SELECT COUNT(*) FROM public.goal_contributions WHERE goal_id = '${goalId}'`,
+    expect,
+  };
+}
+
+/**
+ * The audit rows for ONE entity kind, as `action×count` in write order.
+ *
+ * Written for divergence 10 and named after the entity so a budget spec and a
+ * goal spec can both use it in one file. The expectation is stated PER ENGINE by
+ * every spec that uses it — that is the divergence — and `parity: 'divergent'`
+ * plus a reason is what the runner then requires.
+ */
+export function auditTrailFor(entity, expect) {
+  return {
+    name: `audit_trail_for_${entity}`,
+    sqlite: `SELECT COALESCE((SELECT group_concat(action, ',') FROM (
+               SELECT action FROM financial_audit_log
+                WHERE entity = '${entity}' ORDER BY seq)), 'NONE')`,
+    postgres: `SELECT COALESCE((SELECT string_agg(action, ',' ORDER BY ctid)
+                 FROM public.financial_audit_log WHERE entity = '${entity}'), 'NONE')`,
+    expect,
+  };
+}

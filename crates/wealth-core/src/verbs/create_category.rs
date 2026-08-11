@@ -256,7 +256,7 @@ pub fn create_category(
     let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let now = db::now(&transaction)?;
 
-    let id = minted(command.category.id.as_deref());
+    let id = super::minted_uuid(command.category.id.as_deref());
     let parent = null_if_empty(command.category.parent_id.as_deref()).map(ToOwned::to_owned);
     let stored = insert(
         &transaction,
@@ -310,7 +310,7 @@ pub fn create_categories(
     // remap, which is the whole of B-4.
     let mut ids = Vec::with_capacity(command.categories.len());
     for draft in &command.categories {
-        let id = minted(draft.id.as_deref());
+        let id = super::minted_uuid(draft.id.as_deref());
         insert(&transaction, draft, &command.user_id, &id, None, &now)?;
         ids.push(id);
     }
@@ -351,11 +351,6 @@ pub fn create_categories(
     Ok(CreateCategoriesResult {
         answer: CreatedCategories { categories: stored },
     })
-}
-
-/// The id the caller named, or a fresh one. See the module docs (B-5).
-fn minted(id: Option<&str>) -> String {
-    null_if_empty(id).map_or_else(|| uuid::Uuid::new_v4().to_string(), ToOwned::to_owned)
 }
 
 /// The INSERT itself — `categoryToDb`'s column list, once, for both verbs and

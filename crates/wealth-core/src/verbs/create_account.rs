@@ -377,7 +377,7 @@ pub(super) fn calendar_day(value: &str, field: &str) -> CoreResult<Option<String
 
 /// `COALESCE((p->>'k')::boolean, <fallback>)`, with the field's name in the
 /// refusal so a caller can tell which boolean it was.
-fn resolve_flag(flag: Option<&Flag>, fallback: bool, field: &str) -> CoreResult<bool> {
+pub(super) fn resolve_flag(flag: Option<&Flag>, fallback: bool, field: &str) -> CoreResult<bool> {
     Flag::resolve_or(flag, fallback).map_err(|message| boolean_invalid(field, &message))
 }
 
