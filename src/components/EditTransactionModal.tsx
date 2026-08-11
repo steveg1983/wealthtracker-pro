@@ -22,6 +22,7 @@ import { findTransferCandidates, transferCategoryFor, type TransferCandidate } f
 import { isTransferFiling } from '../utils/transferCoherence';
 import { describeCounterpartOrigin } from '../utils/transferCounterpartOrigin';
 import { describeDeleteStranding, resolveTransferOtherSide } from '../utils/transferOtherSide';
+import { deleteTransferPair } from '../utils/transferSurvivorRelease';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
 import AccountSelector from './common/AccountSelector';
 import DatePicker from './common/DatePicker';
@@ -83,7 +84,7 @@ interface FormData {
 
 export default function EditTransactionModal({ isOpen, onClose, transaction, defaultAccountId, onSaveAndNext, onSaveAndPrevious, hideJumpToAccountId }: EditTransactionModalProps): React.JSX.Element {
   const { accounts, categories, transactions, updateTransaction, deleteTransaction, getTransactionSplits, setTransactionSplits, linkTransferPair, createTransferCounterpart, repointTransfer } = useApp();
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showWarning } = useToast();
   const { addTransaction } = useTransactionNotifications();
   const { propagateCategory } = usePayeeMemory();
   const navigate = useNavigate();
@@ -926,10 +927,45 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
    * the list they deleted from. Cancelling, where the editor stays, puts focus
    * back on its Delete button as it should.
    */
-  const handleDelete = () => {
+  const handleDelete = async (): Promise<void> => {
     if (!transaction) return;
-    deleteTransaction(transaction.id);
+    // Closing first, and everything before the first await runs synchronously,
+    // so this behaves exactly as the fire-and-forget version did — except that
+    // a delete which fails now says so instead of leaving an unhandled
+    // rejection and a row the user believes is gone.
     onClose();
+    try {
+      await deleteTransaction(transaction.id);
+    } catch (error) {
+      showError(error);
+    }
+  };
+
+  /**
+   * Delete the whole movement — this row and the leg facing it.
+   *
+   * The editor closes on the same terms as a single delete: the row the user
+   * was editing is gone either way, and holding a form open over a deleted row
+   * is worse than leaving. Anything that goes wrong is reported afterwards by
+   * the shared sequencer, which is also where the wording lives — a delete
+   * reached through the editor must not describe its own failure differently
+   * from the identical delete reached from the register.
+   */
+  const handleDeleteBothSides = async (): Promise<void> => {
+    const otherSide = deleteStranding?.deletableOtherSide;
+    if (!transaction || !otherSide) return;
+    onClose();
+    const result = await deleteTransferPair(
+      transaction,
+      otherSide,
+      deleteStranding?.accountName,
+      { deleteTransaction }
+    );
+    if (result.kind === 'nothing-deleted') showError(result.error);
+    // showWarning, not showError: getUserFriendlyError swaps any message over
+    // 100 characters for "An error occurred", and the sentence naming which
+    // side survived is the entire point of reporting this at all.
+    if (result.kind === 'one-deleted') showWarning(result.message, 'Only one side was deleted');
   };
 
 
@@ -1613,7 +1649,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
           <DeleteTransactionConfirm
             transaction={transaction}
             stranding={deleteStranding}
-            onConfirm={handleDelete}
+            onConfirm={() => { void handleDelete(); }}
+            onConfirmBothSides={() => { void handleDeleteBothSides(); }}
             onCancel={() => setShowDeleteConfirm(false)}
           />
         )}

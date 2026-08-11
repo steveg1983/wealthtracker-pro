@@ -21,7 +21,7 @@
  */
 
 import React from 'react';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
@@ -96,12 +96,21 @@ const renderPage = (entry = '/transactions') =>
     </MemoryRouter>
   );
 
+/**
+ * The delete this page performs. Typed as the real one is — it reports what
+ * became of the other side — because the pair delete reads that report.
+ */
+const deleteTransaction = vi.fn(async (_id: string) => ({
+  survivors: [] as { transactionId: string; accountId: string; released: boolean }[],
+}));
+
 const seed = (transactions: Transaction[]): void => {
   __setAppContextValue({
     accounts: [CURRENT, SAVINGS],
     transactions,
     categories: CATEGORIES,
     isLoading: false,
+    deleteTransaction,
   });
 };
 
@@ -132,6 +141,7 @@ const openPage = async (entry?: string): Promise<void> => {
 
 beforeEach(() => {
   localStorage.clear();
+  deleteTransaction.mockClear();
   seed(ROWS);
 });
 
@@ -418,6 +428,92 @@ describe('Transactions page — rows that have just arrived', () => {
     // A permanent box reading 0 is a box the eye learns to skip, and then it
     // says nothing on the day it reads 40. Its absence is the "all done".
     expect(screen.queryByRole('button', { name: /To Review/ })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * DELETING FROM THE GLOBAL LIST.
+ *
+ * The last parity gap, and the worst one: this page asked with a
+ * `window.confirm` that said "Are you sure you want to delete this
+ * transaction?" and nothing else. On one half of a transfer that named no
+ * consequence, offered no way to remove the whole movement, and left the other
+ * account's row to be found later — while the register two clicks away had all
+ * three. It now raises the register's own confirmation.
+ */
+describe('Transactions page — deleting a row', () => {
+  const TRANSFER_OUT: Transaction = {
+    id: 'txn-leg-out', description: 'Standing order to savings',
+    date: new Date(Date.UTC(2026, 3, 4)), amount: -180, type: 'transfer',
+    category: 'tofrom-savings', accountId: CURRENT.id, cleared: false,
+    transferAccountId: SAVINGS.id, linkedTransferId: 'txn-leg-in',
+  };
+
+  const TRANSFER_IN: Transaction = {
+    id: 'txn-leg-in', description: 'Standing order from current',
+    date: new Date(Date.UTC(2026, 3, 4)), amount: 180, type: 'transfer',
+    category: 'tofrom-current', accountId: SAVINGS.id, cleared: false,
+    transferAccountId: CURRENT.id, linkedTransferId: 'txn-leg-out',
+  };
+
+  /** The row's own delete button, which is one of this page's three delete doors. */
+  const pressDelete = (description: string): void => {
+    fireEvent.click(within(row(description)).getByTestId('delete-button'));
+  };
+
+  it('asks with the app\'s own dialog, never the browser\'s', async () => {
+    seed([UNMARKED_ROW]);
+    await openPage();
+
+    pressDelete('Wexford Bakery');
+
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText(/Wexford Bakery/)).toBeInTheDocument();
+    expect(within(dialog).getAllByRole('button').map(b => b.textContent))
+      .toEqual(['Cancel', 'Delete']);
+    // Nothing is deleted by the asking.
+    expect(deleteTransaction).not.toHaveBeenCalled();
+  });
+
+  it('carries the transfer warning and the three answers, like the register', async () => {
+    seed([TRANSFER_OUT, TRANSFER_IN]);
+    await openPage();
+
+    pressDelete('Standing order to savings');
+
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText(/one half of a transfer/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Rainy Day Savings/)).toBeInTheDocument();
+    expect(within(dialog).getAllByRole('button').map(b => b.textContent))
+      .toEqual(['Cancel', 'Delete this side only', 'Delete both sides']);
+  });
+
+  it('removes both rows when both sides are asked for', async () => {
+    seed([TRANSFER_OUT, TRANSFER_IN]);
+    await openPage();
+    pressDelete('Standing order to savings');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete both sides' }));
+
+    await waitFor(() => expect(deleteTransaction).toHaveBeenCalledTimes(2));
+    expect(deleteTransaction).toHaveBeenNthCalledWith(1, 'txn-leg-out');
+    expect(deleteTransaction).toHaveBeenNthCalledWith(2, 'txn-leg-in');
+  });
+
+  it('removes one row when one side is asked for, and none on Cancel', async () => {
+    seed([TRANSFER_OUT, TRANSFER_IN]);
+    await openPage();
+
+    pressDelete('Standing order to savings');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(deleteTransaction).not.toHaveBeenCalled();
+
+    pressDelete('Standing order to savings');
+    fireEvent.click(screen.getByRole('button', { name: 'Delete this side only' }));
+
+    expect(deleteTransaction).toHaveBeenCalledTimes(1);
+    expect(deleteTransaction).toHaveBeenCalledWith('txn-leg-out');
   });
 });
 

@@ -60,7 +60,15 @@ const ROWS: Transaction[] = Array.from({ length: 40 }, (_, i) => ({
 const OLDEST = ROWS[0];
 const NEWEST = ROWS[ROWS.length - 1];
 
-const deleteTransaction = vi.fn();
+/**
+ * The double reports what became of the other side, as the real one does: the
+ * pair delete reads that to know what to say when the second delete fails, and
+ * a double returning undefined would let these tests pass over code the app
+ * cannot run.
+ */
+const deleteTransaction = vi.fn(async (_id: string) => ({
+  survivors: [] as { transactionId: string; accountId: string; released: boolean }[],
+}));
 
 const renderRegister = (path: string): void => {
   render(
@@ -536,6 +544,8 @@ describe('Account register — what the delete confirmation admits to', () => {
     expect(within(dialog).getByText(/one half of a transfer/i)).toBeInTheDocument();
     expect(within(dialog).getByText(/Synthetic Savings/)).toBeInTheDocument();
     expect(within(dialog).getByText(/still counted in that account's balance/i)).toBeInTheDocument();
+    // …and what it becomes there, which is the half the old warning left out.
+    expect(within(dialog).getByText(/stops being a transfer there/)).toBeInTheDocument();
   });
 
   it('says nothing extra about an ordinary row', async () => {
@@ -544,6 +554,69 @@ describe('Account register — what the delete confirmation admits to', () => {
     expect(within(dialog).getByText(/Synthetic ordinary row/)).toBeInTheDocument();
     expect(within(dialog).queryByText(/one half of a transfer/i)).not.toBeInTheDocument();
     expect(within(dialog).queryByText(/Synthetic Savings/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * THE CHOICE, in the register. The warning has been here since the transfers
+   * batch; what was missing was any way to act on it. Deleting a transfer means
+   * deleting the movement, so that is the primary answer and it holds the focus
+   * — which keeps the register's arrow / Delete / Enter loop intact.
+   */
+  it('offers three answers for a transfer leg, primary first under the cursor', async () => {
+    const dialog = await openConfirmFor('Synthetic transfer out');
+
+    expect(within(dialog).getAllByRole('button').map(b => b.textContent))
+      .toEqual(['Cancel', 'Delete this side only', 'Delete both sides']);
+    expect(document.activeElement)
+      .toBe(within(dialog).getByRole('button', { name: 'Delete both sides' }));
+  });
+
+  it('still offers exactly two for a plain row', async () => {
+    const dialog = await openConfirmFor('Synthetic ordinary row');
+
+    expect(within(dialog).getAllByRole('button').map(b => b.textContent))
+      .toEqual(['Cancel', 'Delete']);
+  });
+
+  it('removes both rows when both sides are asked for, this side first', async () => {
+    const dialog = await openConfirmFor('Synthetic transfer out');
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete both sides' }));
+
+    await waitFor(() => expect(deleteTransaction).toHaveBeenCalledTimes(2));
+    expect(deleteTransaction).toHaveBeenNthCalledWith(1, 'txn-transfer-out');
+    expect(deleteTransaction).toHaveBeenNthCalledWith(2, 'txn-transfer-in');
+  });
+
+  it('removes only this row when only this side is asked for', async () => {
+    const dialog = await openConfirmFor('Synthetic transfer out');
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete this side only' }));
+
+    expect(deleteTransaction).toHaveBeenCalledTimes(1);
+    expect(deleteTransaction).toHaveBeenCalledWith('txn-transfer-out');
+  });
+
+  /**
+   * A half-done pair delete has to say which half. The register shows it as a
+   * warning rather than an error for a mechanical reason as well as a tonal
+   * one: getUserFriendlyError swaps any message over 100 characters for "An
+   * error occurred", and the sentence naming the surviving row IS the report.
+   */
+  it('says which side survived, and what it now is, when the second delete fails', async () => {
+    deleteTransaction.mockImplementation(async (id: string) => {
+      if (id === 'txn-transfer-in') throw new Error('conflict');
+      return { survivors: [{ transactionId: 'txn-transfer-in', accountId: 'acc-other', released: true }] };
+    });
+    const dialog = await openConfirmFor('Synthetic transfer out');
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete both sides' }));
+
+    const report = await screen.findByText(/was not\./);
+    expect(report).toHaveTextContent('Synthetic transfer out');
+    expect(report).toHaveTextContent('in Synthetic Savings');
+    expect(report).toHaveTextContent(/no longer a transfer/);
+    expect(report).toHaveTextContent(/uncategorised deposit/);
   });
 });
 

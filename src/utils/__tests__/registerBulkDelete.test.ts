@@ -71,6 +71,12 @@ describe('planning a bulk delete', () => {
     expect(plan.stranding[0].transaction.id).toBe('txn-transfer-out');
     expect(plan.stranding[0].message).toContain('one half of a transfer');
     expect(plan.stranding[0].message).toContain('Synthetic Savings');
+    // A bulk delete goes down the same audited deleteTransaction as a single
+    // one, so the survivor is released there too — and the batch has to say so
+    // in the same words. The one sentence serves both dialogs, which is why it
+    // names no buttons: this one has none to name.
+    expect(plan.stranding[0].message).toContain('stops being a transfer there');
+    expect(plan.stranding[0].message).not.toMatch(/Delete both sides/);
   });
 
   it('refuses a split parent BY NAME instead of quietly taking its lines with it', () => {

@@ -21,6 +21,9 @@ import type { DecimalTransaction, DecimalInstance } from '../types/decimal-types
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
 import TransactionContextMenu from '../components/TransactionContextMenu';
+import DeleteTransactionConfirm from '../components/DeleteTransactionConfirm';
+import { describeDeleteStranding } from '../utils/transferOtherSide';
+import { deleteTransferPair } from '../utils/transferSurvivorRelease';
 import { useToast } from '../contexts/ToastContext';
 import { TransactionRow } from '../components/TransactionRow';
 import { transactionRowDomId } from '../components/transactionRowDomId';
@@ -39,10 +42,12 @@ const Transactions = React.memo(function Transactions() {
   const { compactView, setCompactView: _setCompactView, currency: displayCurrency } = usePreferences();
   const { isWideView } = useLayout();
   const { formatCurrency } = useCurrencyDecimal();
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showWarning } = useToast();
   const [searchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  /** The row a delete has been asked about, or null when nothing is being asked. */
+  const [deleteConfirmTransaction, setDeleteConfirmTransaction] = useState<Transaction | null>(null);
   const [viewingTransaction, setViewingTransaction] = useState<Transaction | null>(null);
   const [isDetailsViewOpen, setIsDetailsViewOpen] = useState(false);
   const [breakdownType, setBreakdownType] = useState<'income' | 'expense' | 'net' | null>(null);
@@ -392,11 +397,61 @@ const Transactions = React.memo(function Transactions() {
   }, [resetPagination]);
 
 
+  /**
+   * Ask before deleting — through the app's own confirmation, not the
+   * browser's.
+   *
+   * This list reaches the same rows the register does, from three places (the
+   * table's delete button, the phone's swipe, the right-click menu), and until
+   * now it asked with a `window.confirm` that said "Are you sure?" and nothing
+   * else. On one half of a transfer that was the worst question in the app: it
+   * named no consequence, offered no way to remove the whole movement, and left
+   * the other account's row to be discovered later. The register's confirmation
+   * says all of it and can be answered from the keyboard, so this uses it.
+   */
   const handleDelete = useCallback((id: string) => {
-    if (window.confirm('Are you sure you want to delete this transaction?')) {
-      deleteTransaction(id);
+    const target = transactions.find(t => t.id === id);
+    if (target) setDeleteConfirmTransaction(target);
+  }, [transactions]);
+
+  const deleteStranding = useMemo(
+    () => describeDeleteStranding(deleteConfirmTransaction, transactions, accounts),
+    [deleteConfirmTransaction, transactions, accounts]
+  );
+
+  const handleDeleteConfirm = useCallback(async (): Promise<void> => {
+    const target = deleteConfirmTransaction;
+    if (!target) return;
+    setDeleteConfirmTransaction(null);
+    try {
+      await deleteTransaction(target.id);
+    } catch (error) {
+      // A delete that fails must not be silent: the row stays in the list, and
+      // without this the only trace is an unhandled rejection in the console.
+      showError(error);
     }
-  }, [deleteTransaction]);
+  }, [deleteConfirmTransaction, deleteTransaction, showError]);
+
+  /**
+   * Delete both halves. Identical to the register's, down to the wording of a
+   * partial failure, because it is the same call into the same sequencer —
+   * showWarning rather than showError because getUserFriendlyError discards any
+   * message over 100 characters, and that sentence is the report.
+   */
+  const handleDeleteBothSidesConfirm = useCallback(async (): Promise<void> => {
+    const target = deleteConfirmTransaction;
+    const otherSide = deleteStranding?.deletableOtherSide;
+    if (!target || !otherSide) return;
+    setDeleteConfirmTransaction(null);
+    const result = await deleteTransferPair(
+      target,
+      otherSide,
+      deleteStranding?.accountName,
+      { deleteTransaction }
+    );
+    if (result.kind === 'nothing-deleted') showError(result.error);
+    if (result.kind === 'one-deleted') showWarning(result.message, 'Only one side was deleted');
+  }, [deleteConfirmTransaction, deleteStranding, deleteTransaction, showError, showWarning]);
 
   const handleEdit = useCallback((transaction: Transaction) => {
     setEditingTransaction(transaction);
@@ -1392,6 +1447,18 @@ const Transactions = React.memo(function Transactions() {
           onDelete={handleDelete}
           onView={handleView}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* The register's delete confirmation, on this page too: one question,
+          one set of answers, wherever the row is deleted from. */}
+      {deleteConfirmTransaction && (
+        <DeleteTransactionConfirm
+          transaction={deleteConfirmTransaction}
+          stranding={deleteStranding}
+          onConfirm={() => { void handleDeleteConfirm(); }}
+          onConfirmBothSides={() => { void handleDeleteBothSidesConfirm(); }}
+          onCancel={() => setDeleteConfirmTransaction(null)}
         />
       )}
 

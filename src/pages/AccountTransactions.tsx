@@ -39,6 +39,7 @@ import { orderColumnKeys, moveColumnKey } from '../utils/columnLayout';
 import { computeArchiveWindow, ARCHIVE_PRESETS, type ArchiveRange } from '../utils/archiveRange';
 import { effectiveOpeningDate, findSiblingAccount } from '../utils/openingDates';
 import { describeDeleteStranding, resolveTransferOtherSide } from '../utils/transferOtherSide';
+import { deleteTransferPair } from '../utils/transferSurvivorRelease';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
 import { readProvenance, returnState } from '../utils/navigationProvenance';
 import { planBulkDelete, type BulkDeletePlan } from '../utils/registerBulkDelete';
@@ -342,7 +343,7 @@ export default function AccountTransactions() {
   } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { userId: clerkUserId } = useClerkAuth();
-  const { showError, showInfo, showSuccess } = useToast();
+  const { showError, showInfo, showSuccess, showWarning } = useToast();
   const { compactView, setCompactView: _setCompactView } = usePreferences();
 
   // Find the specific account — the context holds the OPEN ones only.
@@ -2232,35 +2233,86 @@ export default function AccountTransactions() {
    *
    * The same warning the full editor's delete carries, for the same reason:
    * the counterpart of a linked transfer survives, still moving that account's
-   * balance, with its link silently nulled. A delete reached in two keystrokes
-   * must not be less informed than one reached through the editor.
+   * balance, released out of the transfer it was half of. A delete reached in
+   * two keystrokes must not be less informed than one reached through the
+   * editor — and it carries the same offer to remove the whole movement, which
+   * `deletableOtherSide` is what decides.
    */
   const deleteStranding = useMemo(
     () => describeDeleteStranding(deleteConfirmTransaction, transactions, accounts),
     [deleteConfirmTransaction, transactions, accounts]
   );
 
-  const handleDeleteConfirm = useCallback(() => {
+  /**
+   * Move the highlight off a row that is about to leave the list.
+   *
+   * Worked out BEFORE the row goes. Deleting from the keyboard must not
+   * dead-end: the register leaves you on the row that takes the deleted one's
+   * place (the last row's predecessor), ready for the next Delete.
+   */
+  const advanceSelectionPast = useCallback((targetId: string) => {
+    if (selectedTransactionId !== targetId) return;
+    const successorId = getNextTransactionId(targetId) ?? getPreviousTransactionId(targetId);
+    setSelectedTransactionId(successorId);
+    setSelectedTransaction(successorId ? transactionsWithBalance.find(t => t.id === successorId) ?? null : null);
+    // 'nearest', which here means "don't move": the successor takes the deleted
+    // row's own place on screen, so there is nothing to scroll to and centring
+    // would move the register for no reason at all.
+    setRowScroll(previous => (successorId ? nextRowScroll(previous, successorId, 'nearest') : null));
+  }, [
+    getNextTransactionId, getPreviousTransactionId, selectedTransactionId, transactionsWithBalance
+  ]);
+
+  /**
+   * The highlight moves and the dialog closes SYNCHRONOUSLY — everything before
+   * the first await — so the keyboard loop (Delete, Enter, Delete, Enter) is not
+   * waiting on a round trip. Only the reporting is asynchronous, and it exists
+   * because a delete that fails used to say nothing at all: the row stayed, the
+   * dialog went, and the only trace was an unhandled rejection in the console.
+   */
+  const handleDeleteConfirm = useCallback(async (): Promise<void> => {
     const target = deleteConfirmTransaction;
     if (!target) return;
-    // Where the highlight goes next, worked out BEFORE the row leaves the list.
-    // Deleting from the keyboard must not dead-end: the register leaves you on
-    // the row that takes the deleted one's place (the last row's predecessor),
-    // ready for the next Delete.
-    const successorId = getNextTransactionId(target.id) ?? getPreviousTransactionId(target.id);
-    deleteTransaction(target.id);
+    advanceSelectionPast(target.id);
     setDeleteConfirmTransaction(null);
-    if (selectedTransactionId === target.id) {
-      setSelectedTransactionId(successorId);
-      setSelectedTransaction(successorId ? transactionsWithBalance.find(t => t.id === successorId) ?? null : null);
-      // 'nearest', which here means "don't move": the successor takes the
-      // deleted row's own place on screen, so there is nothing to scroll to and
-      // centring would move the register for no reason at all.
-      setRowScroll(previous => (successorId ? nextRowScroll(previous, successorId, 'nearest') : null));
+    try {
+      await deleteTransaction(target.id);
+    } catch (error) {
+      showError(error);
     }
+  }, [advanceSelectionPast, deleteConfirmTransaction, deleteTransaction, showError]);
+
+  /**
+   * Delete the whole movement: this leg and the one facing it.
+   *
+   * Offered only when the other half is a row this register can see and can
+   * safely take with it — the planner decides that, not this handler. The
+   * sequencing and the partial-failure wording live in deleteTransferPair,
+   * beside the release rule they depend on, so the editor's copy of this button
+   * cannot end up saying something different.
+   *
+   * showWarning rather than showError for a half-done delete, for a mechanical
+   * reason as well as a tonal one: getUserFriendlyError replaces any message
+   * over 100 characters with "An error occurred", and the whole value of this
+   * report is the sentence that says which side survived and what it now is.
+   */
+  const handleDeleteBothSidesConfirm = useCallback(async (): Promise<void> => {
+    const target = deleteConfirmTransaction;
+    const otherSide = deleteStranding?.deletableOtherSide;
+    if (!target || !otherSide) return;
+    advanceSelectionPast(target.id);
+    setDeleteConfirmTransaction(null);
+    const result = await deleteTransferPair(
+      target,
+      otherSide,
+      deleteStranding?.accountName,
+      { deleteTransaction }
+    );
+    if (result.kind === 'nothing-deleted') showError(result.error);
+    if (result.kind === 'one-deleted') showWarning(result.message, 'Only one side was deleted');
   }, [
-    deleteConfirmTransaction, deleteTransaction, getNextTransactionId, getPreviousTransactionId,
-    selectedTransactionId, transactionsWithBalance
+    advanceSelectionPast, deleteConfirmTransaction, deleteStranding, deleteTransaction,
+    showError, showWarning
   ]);
 
   /**
@@ -3620,13 +3672,16 @@ export default function AccountTransactions() {
         />
       )}
       
-      {/* Delete Confirmation — keyboard-first: Delete is focused on open, so
-          the loop is arrow to the row, Delete, Enter. */}
+      {/* Delete Confirmation — keyboard-first: the primary destructive button
+          is focused on open, so the loop is arrow to the row, Delete, Enter.
+          On one half of a transfer that primary is "Delete both sides", which
+          is what deleting a transfer means. */}
       {deleteConfirmTransaction && (
         <DeleteTransactionConfirm
           transaction={deleteConfirmTransaction}
           stranding={deleteStranding}
-          onConfirm={handleDeleteConfirm}
+          onConfirm={() => { void handleDeleteConfirm(); }}
+          onConfirmBothSides={() => { void handleDeleteBothSidesConfirm(); }}
           onCancel={() => setDeleteConfirmTransaction(null)}
         />
       )}

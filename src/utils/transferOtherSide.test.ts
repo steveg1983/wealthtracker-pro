@@ -111,7 +111,7 @@ describe('describeDeleteStranding', () => {
     expect(describeDeleteStranding(null, [], OPEN)).toBeNull();
   });
 
-  it('names the account the survivor is left in, and what happens to it', () => {
+  it('names the account the survivor is left in, and what it BECOMES there', () => {
     const stranding = describeDeleteStranding(OUT, [OUT, IN], OPEN);
 
     expect(stranding).not.toBeNull();
@@ -120,13 +120,32 @@ describe('describeDeleteStranding', () => {
     expect(stranding?.message).toContain('Savings');
     // The consequence, not the mechanism: the row survives and still counts.
     expect(stranding?.message).toMatch(/still counted in that account's balance/);
-    expect(stranding?.message).toMatch(/no longer linked to anything/);
+    // …and it stops being a transfer, because a transfer must have another
+    // side. The survivor here is the +500 leg, so it lands as a deposit.
+    expect(stranding?.message).toMatch(/stops being a transfer/);
+    expect(stranding?.message).toMatch(/uncategorised deposit waiting to be filed/);
     // And where to go and finish the job.
     expect(stranding).toMatchObject({ accountId: 'acc-b', transactionId: 'in' });
   });
 
-  it('works from the other leg too — both sides strand each other', () => {
-    expect(describeDeleteStranding(IN, [OUT, IN], OPEN)?.message).toContain('Current Account');
+  it('works from the other leg too — and names what THAT survivor becomes', () => {
+    const stranding = describeDeleteStranding(IN, [OUT, IN], OPEN);
+
+    expect(stranding?.message).toContain('Current Account');
+    // Deleting the money-IN leg leaves the −500 money-out row, which becomes a
+    // payment rather than a deposit. Both directions, because a single word
+    // that was right half the time would be worse than no word.
+    expect(stranding?.message).toMatch(/uncategorised payment waiting to be filed/);
+  });
+
+  it('reads the direction off the survivor, not off the row being deleted', () => {
+    // A pair whose legs are BOTH negative should not happen, and imported
+    // history has produced it. What matters is that the sentence describes the
+    // row the user will actually find, so it is read from that row when it is
+    // loaded rather than inferred from this one's sign.
+    const oddPartner = { ...IN, amount: -500 };
+    expect(describeDeleteStranding(OUT, [OUT, oddPartner], OPEN)?.message)
+      .toMatch(/uncategorised payment/);
   });
 
   it('does not invent a name for an account that is closed', () => {
@@ -135,17 +154,59 @@ describe('describeDeleteStranding', () => {
     expect(stranding?.message).toContain('in the account it faces');
     expect(stranding?.message).not.toContain('undefined');
     expect(stranding?.accountId).toBe('acc-b');
+    expect(stranding?.accountName).toBeUndefined();
   });
 
   it('says a split LINE is what survives, when that is what survives', () => {
     // The counterpart is one line inside a split. Telling the user to "delete
     // that side too" would be telling them to delete other people's spending:
-    // the rest of the split is unrelated, and it stays.
+    // the rest of the split is unrelated, and it stays. Nor is it released —
+    // that line is still a real leg of the split it belongs to.
     const facingASplitLine = { ...OUT, linkedTransferSplitId: 'split-line-1' };
     const message = describeDeleteStranding(facingASplitLine, [facingASplitLine, IN], OPEN)?.message;
 
     expect(message).toContain('a single line inside a split transaction in Savings');
     expect(message).toMatch(/the split itself stays exactly as it is/);
     expect(message).not.toMatch(/Delete that side too/);
+    expect(message).not.toMatch(/stops being a transfer/);
+  });
+});
+
+/**
+ * WHICH OTHER HALVES MAY BE DELETED ALONGSIDE THIS ONE.
+ *
+ * `deletableOtherSide` is the whole of the decision behind the dialog's third
+ * button, so the three refusals are stated here rather than in the component:
+ * a row nobody can see, a split's line, and a split parent are each a promise
+ * this app must not make on the user's behalf.
+ */
+describe('describeDeleteStranding — deletableOtherSide', () => {
+  it('offers the loaded, ordinary counterpart', () => {
+    expect(describeDeleteStranding(OUT, [OUT, IN], OPEN)?.deletableOtherSide).toEqual(IN);
+  });
+
+  it('refuses a counterpart that is not loaded — usually a closed account', () => {
+    // The row may be anything: a split, a reconciled import, a leg of a third
+    // transfer. Offering to delete it would be describing contents nobody has.
+    const stranding = describeDeleteStranding(OUT, [OUT], OPEN);
+
+    expect(stranding?.transactionId).toBe('in');
+    expect(stranding?.deletableOtherSide).toBeNull();
+  });
+
+  it('refuses a counterpart that is a split parent', () => {
+    // Its lines go with it, and they are other spending. The bulk delete
+    // refuses exactly this row for exactly this reason.
+    const splitPartner = { ...IN, isSplit: true };
+    expect(describeDeleteStranding(OUT, [OUT, splitPartner], OPEN)?.deletableOtherSide).toBeNull();
+  });
+
+  it('refuses when the other half is one LINE of a split, either direction', () => {
+    const facingASplitLine = { ...OUT, linkedTransferSplitId: 'split-line-1' };
+    expect(describeDeleteStranding(facingASplitLine, [facingASplitLine, IN], OPEN)?.deletableOtherSide)
+      .toBeNull();
+
+    const partnerIsALeg = { ...IN, linkedTransferSplitId: 'split-line-9' };
+    expect(describeDeleteStranding(OUT, [OUT, partnerIsALeg], OPEN)?.deletableOtherSide).toBeNull();
   });
 });
