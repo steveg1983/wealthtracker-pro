@@ -259,13 +259,12 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
  */
 export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]>> = {
   /**
-   * The local edition, mid-build. PHASE3-PLAN slice 18 lands the reads, the
-   * boot composite, the capability descriptor and the two lifecycle no-ops —
-   * fifteen of the fifty-six — because the crate's read verbs exist and its
-   * write verbs are wired in the slices after this one.
+   * The local edition, mid-build. Slice 18 landed the reads, the boot
+   * composite, the capability descriptor and the two lifecycle no-ops; slice 19
+   * has now wired the SIXTEEN operations the crate's write verbs already serve.
+   * What is left needs new Rust, in the order the plan sets out — except for
+   * one, which is here for a different reason and says so below.
    *
-   * Seventeen of these have a verb in the crate already and are wired next
-   * (slice 19); the rest need new Rust, in the order the plan sets out.
    * `prepareCategories` is here rather than half-answered: divergence B-4 says
    * the local core SEEDS its defaults into the store, and there is no
    * `seed_categories` verb yet, so answering with unwritten defaults would be
@@ -276,30 +275,19 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
     'createAccount',
     'updateAccount',
     'closeAccount',
-    // Transaction writes — five have a verb (slice 19), five need new Rust.
-    'createTransaction',
-    'updateTransaction',
-    'deleteTransaction',
+    // Transaction writes — the five with no verb. All four are live cloud RPCs
+    // with no port yet, and they land together in slice 24 with a differential
+    // spec each; `finalizeReconciliation` is the fifth.
     'setTransactionsCleared',
     'finalizeReconciliation',
-    'applyCategoryToUncategorized',
-    'confirmTransactionCategories',
     'setTransactionArchived',
     'archiveTransactionsBefore',
     'unarchiveAccount',
-    // Bulk — `import_transactions` exists (slice 19).
-    'importTransactions',
-    // Transfers — five of the six have a verb (slice 19); `repointTransfer`
-    // has none in either engine's crate half yet.
-    'linkTransferPair',
-    'linkSplitLineTransfer',
-    'unlinkTransfers',
-    'repairClaimedTransfer',
-    'createTransferCounterpart',
+    // Transfers — `repointTransfer` has no verb in either engine's crate half.
     'repointTransfer',
-    // Splits — `set_transaction_splits_with_legs` exists (slice 19).
-    'setTransactionSplits',
-    // Planning — two have a verb (merge, prune); ten need new Rust (21, 22).
+    // Planning — budgets and goals (slice 22), categories (slice 21). The two
+    // that DID have a verb, `mergeCategories` and `deleteUnusedCategories`,
+    // left this list in slice 19.
     'createBudget',
     'updateBudget',
     'deleteBudget',
@@ -310,16 +298,41 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
     'createCategories',
     'updateCategory',
     'deleteCategory',
-    'deleteUnusedCategories',
-    'mergeCategories',
     // Dismissals — no verb yet (slice 23).
     'dismissSuggestion',
     'restoreSuggestion',
-    // Backup — three have a verb; `collect_backup` is slice 25.
-    'financialDataIsEmpty',
+    // ── The backup group ────────────────────────────────────────────────────
+    //
+    // `collectBackup` needs `collect_backup`, which is slice 25.
     'collectBackup',
+    // AND SO DOES `restoreBackup`, WHICH IS THE ONE ENTRY HERE THAT IS NOT
+    // WAITING ON RUST.
+    //
+    // Its verbs exist — `restore_user_chunk` and `finalize_user_restore` are
+    // both ported and both green — so slice 19's brief expected it to leave
+    // this list with the other sixteen. It stays, and the argument is worth
+    // reading before anybody deletes the line:
+    //
+    //   NOT ONE RULE IN THIS FILE CAN RUN IT. Every restore rule below needs
+    //   `collectBackup` too, because a restore needs a file and only a collect
+    //   makes one. Wiring it now would ship the operation whose failure costs
+    //   somebody their whole financial life with zero coverage, in a file whose
+    //   entire purpose is to make un-done work counted rather than hidden.
+    //
+    //   AND IT WOULD HAVE TO INVENT THREE ANSWERS. `RestoreOutcome.restored` is
+    //   "rows inserted PER STEP, in restore order", and the local restore is ONE
+    //   call in ONE transaction (B-10, R-16) that answers with one total.
+    //   `notStoredLocally` is per-TABLE, and the verb's `dropped` is
+    //   per-COLUMN — a cloud file carrying a figure this schema has no column
+    //   for produces one, and mapping it across would make B-11's `notStored:
+    //   []` claim false for a reason that has nothing to do with tables.
+    //   Preferences are a third (slice 28's `write_preferences`). Three
+    //   guesses, none of them checkable until `collect_backup` closes the round
+    //   trip — which is exactly what slice 25 is.
+    //
+    // So it goes with its group, one slice later, and the count says 25 rather
+    // than 24. The ratchet only forbids GROWING.
     'restoreBackup',
-    'wipeAllFinancialData',
     // Migration — composed from wipe + restore, slice 26.
     'importMsMoney',
     // Lifecycle — needs `seed_categories` (slice 21). See above.
@@ -337,7 +350,7 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
  * on a line that exists for no other purpose.
  */
 export const NOT_YET_CEILING: Partial<Record<DataPortEngine, number>> = {
-  'local-core': 41
+  'local-core': 25
 };
 
 // ── Declared divergences ────────────────────────────────────────────────────
@@ -757,6 +770,49 @@ const threeAccounts = (): Account[] => [
   anAccount(ACCOUNT_A, 'Everyday', { balance: -70.1 }),
   anAccount(ACCOUNT_B, 'Rainy day', { type: 'savings', balance: 500 }),
   anAccount(ACCOUNT_C, 'Spare', { type: 'savings', balance: 0 })
+];
+
+/**
+ * The categories the rows in this file are filed under — the two ordinary ones,
+ * and the To/From category of each account a transfer leg names.
+ *
+ * ── WHY A FIXTURE NEEDS THESE AT ALL ────────────────────────────────────────
+ *
+ * Until the local engine ran, no test here seeded a category unless the test was
+ * ABOUT categories: every other fixture filed its rows under 'cat-everyday' and
+ * left the tree out, because browser storage does not mind. The split writer
+ * does mind, in every engine that has one — `set_transaction_splits_with_legs`
+ * refuses a line filed under a category the owner does not have, by name, and
+ * `dataService.setTransactionSplitsLocally` records in its own comment that it
+ * deliberately does NOT reproduce that ("demo/offline fixtures routinely carry
+ * transactions without the tree they were filed against"). That is a reasonable
+ * thing for a browser cache to do and a bad thing for a ledger to do; the RPC is
+ * the specification, and a fixture that only one engine's laxness makes possible
+ * is a fixture describing a ledger nobody should be able to hold.
+ *
+ * So the split fixtures state their tree. It changes nothing for the engines
+ * that never looked.
+ *
+ * ── THE TWO LEG CATEGORIES ARE ORDINARY ONES, AND THAT IS DELIBERATE ────────
+ *
+ * A split line that is half of a transfer can be filed one of two ways, and the
+ * two are refused differently. Under a store's own To/From category, the line
+ * is PINNED — the category names the account on the other side, so a line that
+ * transfers somewhere else is contradicting itself and is refused for that,
+ * before anything about the link is looked at. Under an ORDINARY category
+ * nothing contradicts, and the refusal that fires is the one about the link.
+ *
+ * The rules below are about the link, so the fixtures file their legs under
+ * ordinary categories — the shape the Microsoft Money import produces, and, in
+ * `20260806094058`'s own words, *"exactly the population this migration was
+ * written for"*. Filing them under a real To/From category would test a
+ * different rule and would test it by accident.
+ */
+const filingCategories = (): Category[] => [
+  aCategory('cat-everyday', 'Everyday spending'),
+  aCategory('cat-bills', 'Bills'),
+  aCategory('cat-transfer-a', 'Money paid to Everyday', { type: 'both' }),
+  aCategory('cat-transfer-b', 'Money paid to Rainy day', { type: 'both' })
 ];
 
 const balanceOf = (state: PortStoreState, accountId: string): number | undefined =>
@@ -1202,6 +1258,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
       rule(['setTransactionSplits'], 'moves the balance when a split changes the transaction total', async () => {
         const { port, read } = await harness.create({
           accounts: openWith(0.1),
+          categories: filingCategories(),
           transactions: [aTransaction('txn-1', { amount: 0.1, type: 'income' })]
         });
 
@@ -2020,6 +2077,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         // validating would be caught here rather than by the user.
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
+          categories: filingCategories(),
           transactions: [aTransaction('txn-1', { amount: -30, isSplit: true, category: '' })],
           splits: [
             { id: 'line-1', transactionId: 'txn-1', category: 'cat-everyday', amount: -10, sortOrder: 1 },
@@ -2038,6 +2096,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
       rule(['setTransactionSplits'], 'refuses a set that does not sum to the amount it was told to expect', async () => {
         const { port } = await harness.create({
           accounts: threeAccounts(),
+          categories: filingCategories(),
           transactions: [aTransaction('txn-1', { amount: -70.1 })]
         });
 
@@ -2050,7 +2109,14 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
             ],
             -70.1
           )
-        ).rejects.toThrow(/sum to the transaction amount/i);
+          // The clause both engines say, rather than either one's sentence. The
+          // cloud names the two figures ("split lines sum to −70.30 but the
+          // transaction amount is −70.10") and browser storage does not ("The
+          // split lines must sum to the transaction amount"); naming them is
+          // better, so the assertion is on what they agree about — a phrasing
+          // that admits the extra half is not a weaker rule than one that
+          // forbids it.
+        ).rejects.toThrow(/sum to[\s\S]*the transaction amount/i);
       });
 
       rule(['listTransactionSplitsFor'], 'reads a split back in display order', async () => {
@@ -2062,6 +2128,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         // reason a contract suite is written against more than one.
         const { port } = await harness.create({
           accounts: threeAccounts(),
+          categories: filingCategories(),
           transactions: [aTransaction('txn-1', { amount: -30, isSplit: true, category: '' })],
           splits: [
             { id: 'line-2', transactionId: 'txn-1', category: 'cat-bills', amount: -20, sortOrder: 2 },
@@ -2081,6 +2148,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         // to act on it.
         const splitWithALeg = (): PortFixture => ({
           accounts: threeAccounts(),
+          categories: filingCategories(),
           transactions: [
             aTransaction('txn-parent', { amount: -30, isSplit: true, category: '' }),
             aTransaction('txn-leg', {
@@ -2114,13 +2182,22 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         });
 
         rule(['setTransactionSplits'], 'refuses to drop it, and changes nothing', async () => {
+          // TWO lines, one of them new, so the ONLY rule this payload breaks is
+          // the one it is about. Sending a single line dropped the leg AND took
+          // the split below its two-line minimum, and which of the two an
+          // engine mentions is decided by the order it checks them in — so the
+          // test was asking a question about ordering while claiming to ask one
+          // about transfer legs.
           const { port, read } = await harness.create(splitWithALeg());
           const before = asComparable(await read());
 
           await expect(
             port.setTransactionSplits(
               'txn-parent',
-              [{ id: 'line-plain', category: 'cat-everyday', amount: -30 }],
+              [
+                { id: 'line-plain', category: 'cat-everyday', amount: -10 },
+                { category: 'cat-bills', amount: -20 }
+              ],
               null
             )
           ).rejects.toThrow(/one half of a transfer/i);
@@ -2140,7 +2217,11 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
               ],
               null
             )
-          ).rejects.toThrow(/has to stay as it is/i);
+            // Again the shared clause: the cloud names the figure the line has
+            // to stay at and browser storage says "as it is". What both promise
+            // — and the half that tells somebody what to do about it — is the
+            // reason.
+          ).rejects.toThrow(/the transaction on the other side is for exactly that much/i);
         });
 
         rule(['setTransactionSplits'], 'refuses to point it at a different account', async () => {
@@ -2205,6 +2286,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     describe('transfer pairing', () => {
       const twoSides = (rest: Partial<Transaction> = {}): PortFixture => ({
         accounts: threeAccounts(),
+        categories: filingCategories(),
         transactions: [
           aTransaction('txn-out', { accountId: ACCOUNT_A, amount: -25 }),
           aTransaction('txn-in', { accountId: ACCOUNT_B, amount: 25, type: 'income', ...rest })
@@ -2253,25 +2335,82 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
       });
 
       rule(['linkTransferPair'], 'refuses a split transaction', async () => {
-        const { port } = await harness.create(twoSides({ isSplit: true }));
+        // `category: ''` beside `isSplit`, like every other split fixture in
+        // this file: a split parent's categorisation lives in its LINES, and a
+        // store is entitled to insist (the local schema spells it
+        // `transactions_split_parent_has_blank_category`).
+        const { port } = await harness.create(twoSides({ isSplit: true, category: '' }));
 
         await expect(port.linkTransferPair('txn-out', 'txn-in'))
           .rejects.toThrow(/split transaction cannot become a transfer/i);
       });
 
       rule(['linkTransferPair'], 'refuses a row that is already linked', async () => {
-        const { port } = await harness.create(twoSides({ linkedTransferId: 'txn-elsewhere' }));
+        // A row that is half of a transfer names the account on the other side
+        // as well as the row: the two travel together everywhere the app writes
+        // them, and a store is entitled to insist on the pair
+        // (`transactions_linked_has_target`). The counterpart is left out on
+        // purpose — this is a STRANDED leg, which is a real state with a repair
+        // flow, and it is still already linked as far as this operation cares.
+        const { port } = await harness.create({
+          accounts: threeAccounts(),
+          categories: filingCategories(),
+          transactions: [
+            aTransaction('txn-out', { accountId: ACCOUNT_A, amount: -25 }),
+            aTransaction('txn-in', {
+              accountId: ACCOUNT_B,
+              amount: 25,
+              type: 'transfer',
+              category: 'cat-transfer-a',
+              transferAccountId: ACCOUNT_C,
+              linkedTransferId: 'txn-elsewhere'
+            }),
+            aTransaction('txn-elsewhere', {
+              accountId: ACCOUNT_C,
+              amount: -25,
+              type: 'transfer',
+              category: 'cat-transfer-b',
+              transferAccountId: ACCOUNT_B,
+              linkedTransferId: 'txn-in'
+            })
+          ]
+        });
 
         await expect(port.linkTransferPair('txn-out', 'txn-in'))
           .rejects.toThrow(/already part of a linked transfer/i);
       });
 
       rule(['unlinkTransfers'], 'unlinks only the rows it can, and counts them', async () => {
+        // The third row is the interesting one, and it needs the whole shape
+        // around it to BE that row: a split parent with a line that is one half
+        // of a transfer, and the counterpart over in the other account. Named
+        // links used to be enough here, pointing at a parent and a line the
+        // fixture did not contain — which is a ledger no store can hold (the
+        // local schema's `transactions_linked_has_target`, and the two foreign
+        // keys behind the split leg). Written out, it is also clearer about
+        // what is being asked: the leg's link lives on the LINE, so unlinking
+        // it from the row would leave the line pointing at nothing.
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
+          categories: filingCategories(),
           transactions: [
-            aTransaction('txn-out', { accountId: ACCOUNT_A, amount: -25, type: 'transfer', linkedTransferId: 'txn-in' }),
-            aTransaction('txn-in', { accountId: ACCOUNT_B, amount: 25, type: 'transfer', linkedTransferId: 'txn-out' }),
+            aTransaction('txn-out', {
+              accountId: ACCOUNT_A,
+              amount: -25,
+              type: 'transfer',
+              category: 'cat-transfer-b',
+              transferAccountId: ACCOUNT_B,
+              linkedTransferId: 'txn-in'
+            }),
+            aTransaction('txn-in', {
+              accountId: ACCOUNT_B,
+              amount: 25,
+              type: 'transfer',
+              category: 'cat-transfer-a',
+              transferAccountId: ACCOUNT_A,
+              linkedTransferId: 'txn-out'
+            }),
+            aTransaction('txn-parent', { amount: -30, isSplit: true, category: '' }),
             // The opposite side of a split LINE: its link also lives on the
             // line, so unlinking it here would leave the line pointing at
             // nothing. Skipped, not counted, in every engine.
@@ -2279,9 +2418,23 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
               accountId: ACCOUNT_B,
               amount: 5,
               type: 'transfer',
+              category: 'cat-transfer-a',
+              transferAccountId: ACCOUNT_A,
               linkedTransferId: 'txn-parent',
               linkedTransferSplitId: 'line-leg'
             })
+          ],
+          splits: [
+            { id: 'line-plain', transactionId: 'txn-parent', category: 'cat-everyday', amount: -25, sortOrder: 1 },
+            {
+              id: 'line-leg',
+              transactionId: 'txn-parent',
+              category: 'cat-transfer-b',
+              amount: -5,
+              sortOrder: 2,
+              transferAccountId: ACCOUNT_B,
+              linkedTransferId: 'txn-leg'
+            }
           ]
         });
 
@@ -2306,7 +2459,15 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         transactions: [
           aTransaction('txn-1', { category: 'cat-source' }),
           aTransaction('txn-2', { category: 'cat-target' }),
-          aTransaction('txn-3', { category: 'cat-source', isSplit: true, amount: -30 })
+          // A split parent, so its categorisation lives in its LINES and its own
+          // category column is blank — the rule every other split fixture here
+          // keeps, and a constraint in the engine that has one. The fourth row
+          // is what keeps this fixture asking the same question it always did:
+          // the counts below distinguish WHOLE transactions moved from split
+          // LINES moved, so the whole-transaction side needs two rows of its own
+          // now that the parent is not one of them.
+          aTransaction('txn-3', { category: '', isSplit: true, amount: -30 }),
+          aTransaction('txn-4', { category: 'cat-source' })
         ],
         splits: [
           { id: 'line-1', transactionId: 'txn-3', category: 'cat-source', amount: -10, sortOrder: 1 },

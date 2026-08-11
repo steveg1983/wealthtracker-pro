@@ -3,8 +3,8 @@
 //! # What it is a port OF
 //!
 //! The **live** definition,
-//! `supabase/migrations/20260808100000_category_provenance.sql:282-375`. Five
-//! migrations have redefined this function:
+//! `supabase/migrations/20260810090000_imported_rows_arrive_new.sql:684-760`.
+//! Six migrations have redefined this function:
 //!
 //! | migration | change |
 //! | --- | --- |
@@ -13,17 +13,27 @@
 //! | `20260612110000:15` | adds `p_user_id` — the IDOR guard, and `transaction_not_found` with it |
 //! | `20260707120000:28` | adds `is_cleared` to the SET list, after the reconciliation incident |
 //! | `20260808100000:282` | adds `category_confirmed` and its three-way CASE |
+//! | `20260810090000:684` | adds `needs_review`, honoured only when the caller states it |
 //!
 //! Traced by grep across all sixty-two migration files; nothing else redefines
 //! it. `20260805145035_repair_claimed_transfer.sql:50-70` deliberately did *not*
 //! widen it, and says why: *"update_transaction_atomic is the busiest RPC in the
 //! schema. Widening it …"*
 //!
+//! The last row was a PORT LAG found in slice 19 and it was not merely
+//! unnoticed — it was unfindable from the differential harness, because
+//! `needs_review` is absent from [`crate::row::TransactionRow`], the projection
+//! every verb spec compares two engines on. It matters at the seam because
+//! `deny_unknown_fields` turns a missing patch field into a REFUSAL rather than
+//! a discard: the register's four save buttons send `needs_review: false`
+//! explicitly, so without this line every save in the local edition would fail
+//! by name.
+//!
 //! # The four behaviours, and why guessing produces a data-loss bug
 //!
 //! AUDIT3 §1 is the reason this file is long. The documented contract (TS-T3,
 //! canonical #41) says *"present-and-empty clears, absent is ignored"*. That is
-//! true of **two** fields out of fifteen. The RPC actually has four behaviours,
+//! true of **two** fields out of sixteen. The RPC actually has four behaviours,
 //! and one of them is the exact opposite of the documented one.
 //!
 //! MEASURED on the reference cluster, 2026-08-08, one call per cell — AUDIT3's
@@ -42,6 +52,7 @@
 //! | `tags` | keep | keep (not an array) | keep (not an array) |
 //! | `is_recurring` | keep | **raises** | keep |
 //! | `is_cleared` | keep | **raises** | keep |
+//! | `needs_review` | keep | **raises** | keep |
 //! | `transfer_account_id` | keep | **NULL — clears** | **NULL — clears** |
 //! | `metadata` | keep | sets the JSON string `""` | sets JSON `null` |
 //! | `category_id` | keep | **NULL — clears** | **NULL — clears** |
@@ -56,8 +67,15 @@
 //!   value is taken with `->` rather than `->>`, so `""` stores a JSON *string*
 //!   and `null` stores JSON *null*. Neither is ignored.
 //! * `category_confirmed` is listed as **not settable**, which was true of
-//!   `20260707120000`. `20260808100000` made it settable. The allow-list is
-//!   fifteen fields now, not fourteen.
+//!   `20260707120000`. `20260808100000` made it settable, and `20260810090000`
+//!   added `needs_review` beside it. The allow-list is sixteen fields now, not
+//!   fourteen.
+//!
+//! `needs_review` is the one row of that table NOT separately measured, and it
+//! is stated rather than left blank because its SQL is character for character
+//! its two neighbours': `COALESCE((p->>'k')::boolean, k)` inside a `p ? 'k'`
+//! test, which is the same three answers. A cell that said "unknown" would be
+//! less honest than one that says where the answer comes from.
 //!
 //! `account_id` is the row that would have caused a data-loss bug:
 //! `COALESCE(NULLIF(p->>'account_id','')::uuid, account_id)` turns
@@ -67,7 +85,7 @@
 //!
 //! # The one place this verb is deliberately stricter than the cloud (D-7)
 //!
-//! `update_transaction_atomic` sets exactly those fifteen columns and **silently
+//! `update_transaction_atomic` sets exactly those sixteen columns and **silently
 //! discards every other key**. MEASURED: `archived`, `is_split`,
 //! `linked_transfer_id`, `statement_sequence`, `user_id` and a plain typo
 //! (`amont`) all return a row unchanged, with no error.
@@ -158,7 +176,7 @@ pub struct UpdateTransaction {
     pub patch: TransactionPatch,
 }
 
-/// The fifteen settable columns, each in the three states `jsonb` can present.
+/// The sixteen settable columns, each in the three states `jsonb` can present.
 ///
 /// `deny_unknown_fields` is the declared divergence; see the module docs.
 #[derive(Debug, Default, Deserialize)]
@@ -203,6 +221,17 @@ pub struct TransactionPatch {
     /// `COALESCE((p->>'is_cleared')::boolean, is_cleared)`.
     #[serde(default)]
     pub is_cleared: Field<Flag>,
+    /// `CASE WHEN p ? 'needs_review' THEN COALESCE((p->>'needs_review')::boolean,
+    /// needs_review) ELSE needs_review END` — `20260810090000:736-739`.
+    ///
+    /// ONLY WHEN STATED, and the migration argues the absence at length: there
+    /// is deliberately no rule of the shape *"a row that was updated has been
+    /// reviewed"*, because this verb is also how the bulk categorise sweep, the
+    /// payee rename, the transfer-link repair and the reconcile toggle write,
+    /// and none of those is a person reading a row. The register's four save
+    /// buttons send `false` explicitly; nothing else does.
+    #[serde(default)]
+    pub needs_review: Field<Flag>,
     /// `CASE WHEN p ? … THEN NULLIF(p->>…,'')::uuid ELSE … END` — one of the two
     /// fields the `''`-clears contract is actually true of, and the one the
     /// application depends on (`strandedTransferActions.ts:57`).
@@ -262,6 +291,7 @@ pub fn update_transaction(
     }
     let is_recurring = resolve_flag(&patch.is_recurring, "is_recurring")?;
     let is_cleared = resolve_flag(&patch.is_cleared, "is_cleared")?;
+    let needs_review = resolve_flag(&patch.needs_review, "needs_review")?;
     let category_confirmed = resolve_flag(&patch.category_confirmed, "category_confirmed")?;
 
     // BEGIN IMMEDIATE: the write lock up front, which is what makes the
@@ -301,6 +331,7 @@ pub fn update_transaction(
         Flags {
             is_recurring,
             is_cleared,
+            needs_review,
             category_confirmed,
         },
         &before,
@@ -353,6 +384,7 @@ pub fn update_transaction(
 struct Flags {
     is_recurring: Option<bool>,
     is_cleared: Option<bool>,
+    needs_review: Option<bool>,
     category_confirmed: Option<bool>,
 }
 
@@ -412,12 +444,13 @@ fn apply_patch(
            notes               = CASE WHEN ?15 THEN ?16 ELSE notes END,
            is_recurring        = CASE WHEN ?17 THEN ?18 ELSE is_recurring END,
            is_cleared          = CASE WHEN ?19 THEN ?20 ELSE is_cleared END,
-           transfer_account_id = CASE WHEN ?21 THEN ?22 ELSE transfer_account_id END,
-           metadata            = CASE WHEN ?23 THEN ?24 ELSE metadata END,
-           category_id         = CASE WHEN ?25 THEN ?26 ELSE category_id END,
-           merchant_name       = CASE WHEN ?27 THEN ?28 ELSE merchant_name END,
-           updated_at          = ?29
-         WHERE id = ?30",
+           needs_review        = CASE WHEN ?21 THEN ?22 ELSE needs_review END,
+           transfer_account_id = CASE WHEN ?23 THEN ?24 ELSE transfer_account_id END,
+           metadata            = CASE WHEN ?25 THEN ?26 ELSE metadata END,
+           category_id         = CASE WHEN ?27 THEN ?28 ELSE category_id END,
+           merchant_name       = CASE WHEN ?29 THEN ?30 ELSE merchant_name END,
+           updated_at          = ?31
+         WHERE id = ?32",
         params![
             // COALESCE class: absent and JSON null are the same thing, so
             // "present" here means "a value arrived".
@@ -448,6 +481,15 @@ fn apply_patch(
             flags.is_recurring.map(i64::from),
             flags.is_cleared.is_some(),
             flags.is_cleared.map(i64::from),
+            // COALESCE class again. `20260810090000:736-739` spells it as an
+            // outer `p ? 'needs_review'` around an inner COALESCE, which is the
+            // same three answers as the two lines above — a stated JSON null
+            // COALESCEs back to the stored value, so "present but null" and
+            // "absent" both keep. Written in the shape its neighbours are
+            // written in, because a fourth spelling of one rule is a fourth
+            // place to get it wrong.
+            flags.needs_review.is_some(),
+            flags.needs_review.map(i64::from),
             // `p ? 'k'` + NULLIF: present-and-empty clears. These two fields,
             // and only these two, are what TS-T3 actually describes.
             patch.transfer_account_id.is_present(),

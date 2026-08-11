@@ -122,7 +122,13 @@ describe('the port over a transport', () => {
     id: 'acct-a',
     user_id: OWNER,
     name: 'Everyday',
-    kind: 'checking',
+    // `type` on the wire, as the crate really spells it. This fixture said
+    // `kind` until slice 19 — the crate's RUST field is called that, because
+    // `type` is a reserved word there, and every row struct renames it back for
+    // serde. A hand-written fixture is the port's own idea of what an answer
+    // looks like, so it agreed with the mapper's mistake and both were wrong
+    // together; the suite that runs against the real binary is what found it.
+    type: 'checking',
     currency: 'GBP',
     balance: '-70.10',
     initial_balance: '0.00',
@@ -200,9 +206,8 @@ describe('the port over a transport', () => {
 
   it('reads a crate answer into the app’s own shapes', async () => {
     // Money as a fixed decimal STRING becomes a number exactly once; a
-    // timestamp becomes a Date; `kind` becomes `type`; 'checking' becomes the
-    // app's 'current'. The figure is the one IEEE-754 gets wrong when anything
-    // re-adds it.
+    // timestamp becomes a Date; 'checking' becomes the app's 'current'. The
+    // figure is the one IEEE-754 gets wrong when anything re-adds it.
     const transport = transportAnswering(() => ({
       ok: true,
       result: { answer: { accounts: [anAccount] } }
@@ -289,7 +294,7 @@ describe('the port over a transport', () => {
               id: 'cat-everyday',
               user_id: OWNER,
               name: 'Everyday',
-              kind: 'expense',
+              type: 'expense',
               level: 'detail',
               parent_id: null,
               account_id: null,
@@ -325,7 +330,7 @@ describe('the port over a transport', () => {
               notes: 'Paid in cash',
               statement_sequence: 3,
               tags: ['weekly', 'food'],
-              kind: 'expense',
+              type: 'expense',
               updated_at: '2025-01-10T09:00:00.000Z',
               transfer_account_id: null
             }
@@ -400,7 +405,6 @@ describe('the port over a transport', () => {
     expect(boot.accounts).toHaveLength(1);
     expect(boot.categories[0]).toMatchObject({
       id: 'cat-everyday',
-      // `kind` on the wire, `type` in the app.
       type: 'expense',
       level: 'detail',
       parentId: null,

@@ -2,9 +2,38 @@
 //!
 //! # What it is a port OF
 //!
-//! `supabase/migrations/20260808100000_category_provenance.sql:440-478`. New in
-//! that migration and never redefined; the client calls it at exactly one place
-//! (`transactionService.ts:867`).
+//! `supabase/migrations/20260810090000_imported_rows_arrive_new.sql:800-859`,
+//! which is the LIVE definition. New in
+//! `20260808100000_category_provenance.sql:440-478` and redefined exactly once,
+//! by `20260810090000`, to clear `needs_review` beside the flag it already set.
+//! The client calls it at exactly one place (`transactionService.ts:867`).
+//!
+//! # Confirming a guess ENDS THE ROW'S REVIEW
+//!
+//! `20260810090000:839-842`, unconditional rather than guarded on
+//! `needs_review`, and the migration argues it at length: both surfaces that
+//! reach this verb are *a person looking at a row and answering the question it
+//! was asking* — the register's row editor, with the whole row on screen, and
+//! the Categorisation page's group confirm. *"A register that kept a row bold
+//! after the user had explicitly answered it would be nagging about work already
+//! done, which is how people learn to ignore the bold everywhere else."*
+//!
+//! It rides this one UPDATE rather than a second write for a mechanical reason
+//! too: one click must be one write, or a confirm is two audit entries and a
+//! race with itself.
+//!
+//! Note what does NOT follow from it. `update_transaction` clears the flag only
+//! when the caller SAYS SO, because "something wrote to this row" is not
+//! evidence a human read it — the bulk categorise sweep, the payee rename and
+//! the transfer-link repair all go through that verb and none of them is a
+//! person reading a row. Confirming is different in kind: there is nothing else
+//! it could mean.
+//!
+//! The pairing was a PORT LAG until slice 19, and one the differential harness
+//! could not have caught: `needs_review` is not in
+//! [`crate::row::TransactionRow`], the audit projection every verb spec compares
+//! two engines on. `contract.ts`'s *"ends the review of every row it confirms"*
+//! reads the store instead, and found it.
 //!
 //! # The verb that is safe by SUBTRACTION
 //!
@@ -151,8 +180,13 @@ pub fn confirm_transaction_categories(
         }
 
         let changed = write.execute(
+            // Two columns, one decision. `needs_review = 0` is unconditional,
+            // exactly as `20260810090000:842` writes it: setting a flag that is
+            // already clear costs nothing, and a CASE here would be a second
+            // place for the rule to be got wrong.
             "UPDATE transactions
                 SET category_confirmed = 1,
+                    needs_review = 0,
                     updated_at = ?1
               WHERE id = ?2",
             params![now, before.id],

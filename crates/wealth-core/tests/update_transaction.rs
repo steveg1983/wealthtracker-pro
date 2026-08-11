@@ -582,3 +582,71 @@ fn a_split_parents_protected_fields_are_still_protected_through_this_verb() {
     assert_eq!(balance(&connection, EVERYDAY), -2_500);
     assert_eq!(identity(&connection, EVERYDAY), 0);
 }
+
+// ── needs_review, the sixteenth field (20260810090000) ──────────────────────
+
+/// `needs_review` as stored on the fixture's one row.
+fn review(connection: &Connection) -> i64 {
+    connection
+        .query_row("SELECT needs_review FROM transactions WHERE id = ?1", [ROW], |row| row.get(0))
+        .expect("needs_review")
+}
+
+#[test]
+fn a_review_nobody_mentioned_is_left_exactly_as_it_was() {
+    // The whole of the migration's argument in one assertion: this verb is also
+    // how the bulk categorise sweep, the payee rename and the transfer-link
+    // repair write, and none of those is a human reading a row. An edit that
+    // implied a review would mark a whole import as dealt with the first time
+    // anybody ran a bulk tool over it.
+    let mut connection = fixture();
+    connection
+        .execute("UPDATE transactions SET needs_review = 1 WHERE id = ?1", [ROW])
+        .expect("arrange");
+
+    run(&mut connection, patch(serde_json::json!({ "category": OUTGOINGS })));
+
+    assert_eq!(review(&connection), 1);
+}
+
+#[test]
+fn a_stated_review_flag_is_honoured() {
+    // What the register's four save buttons send, and the only thing that ends
+    // a row's review through this verb.
+    let mut connection = fixture();
+    connection
+        .execute("UPDATE transactions SET needs_review = 1 WHERE id = ?1", [ROW])
+        .expect("arrange");
+
+    let result = run(&mut connection, patch(serde_json::json!({ "needs_review": false })));
+
+    assert_eq!(review(&connection), 0);
+    // And the row it hands back is otherwise untouched — one boolean, no money.
+    assert_eq!(result.transaction.amount.to_decimal_string(), "-25.00");
+    assert_eq!(balance(&connection, EVERYDAY), -2500);
+    assert_eq!(identity(&connection, EVERYDAY), 0);
+}
+
+#[test]
+fn a_stated_null_review_flag_keeps_the_stored_answer() {
+    // The COALESCE class, same as its two neighbours: present-but-null is not a
+    // value, so the stored answer stands.
+    let mut connection = fixture();
+    connection
+        .execute("UPDATE transactions SET needs_review = 1 WHERE id = ?1", [ROW])
+        .expect("arrange");
+
+    run(&mut connection, patch(serde_json::json!({ "needs_review": serde_json::Value::Null })));
+
+    assert_eq!(review(&connection), 1);
+}
+
+#[test]
+fn an_empty_review_flag_is_refused_by_name() {
+    let mut connection = fixture();
+    let error = update_transaction(&mut connection, patch(serde_json::json!({ "needs_review": "" })))
+        .unwrap_err();
+
+    assert_eq!(error.code(), "boolean_invalid");
+    assert!(error.to_string().contains("needs_review"), "{error}");
+}

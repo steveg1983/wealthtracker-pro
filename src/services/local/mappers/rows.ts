@@ -52,6 +52,7 @@
  */
 
 import { mapAccountFromDb } from '../../api/accountMapping';
+import { SPLIT_COLUMNS, TRANSACTION_COLUMNS, fieldsOf } from './columns';
 import type {
   Account,
   Budget,
@@ -76,21 +77,25 @@ import {
   whole
 } from './values';
 
-/** The crate names a column `kind` wherever `type` is a Rust keyword clash. */
-const KIND = 'kind';
-
 /**
  * A listed account.
  *
- * The crate's row IS the `accounts` row, column for column, with one exception:
- * `type` is serialised as `kind`. So the rename happens here and the row then
- * goes through `mapAccountFromDb` — the same function the signed-in boot uses —
- * which is what keeps `lowBalanceAlertEnabled`, `sortCode`/`accountNumber` and
- * the opening balance from being forgotten by a second mapper, as they were
- * once before.
+ * The crate's row IS the `accounts` row, column for column and name for name,
+ * so it goes straight through `mapAccountFromDb` — the same function the
+ * signed-in boot uses — which is what keeps `lowBalanceAlertEnabled`,
+ * `sortCode`/`accountNumber` and the opening balance from being forgotten by a
+ * second mapper, as they were once before.
+ *
+ * **This used to rename `kind` to `type` on the way past, and that was wrong.**
+ * The crate's Rust field is called `kind` because `type` is a reserved word
+ * there, and every row struct carries `#[serde(rename = "type")]` to put it
+ * back — so the JSON says `type` and always did. The rename therefore read a key
+ * that is not there and overwrote the real one with `undefined`: every account
+ * loaded from a file came back typed 'other'. It threw nothing and no read rule
+ * asked, which is how it survived a slice. See `columns.ts`, where the wire name
+ * is now stated once for both directions.
  */
-export const toAccount = (row: Record<string, unknown>): Account =>
-  mapAccountFromDb({ ...row, type: row[KIND] });
+export const toAccount = (row: Record<string, unknown>): Account => mapAccountFromDb(row);
 
 /** Every category value the app knows, as a runtime lookup (see `oneOf`). */
 const CATEGORY_TYPES: Record<Category['type'], true> = {
@@ -108,7 +113,7 @@ const CATEGORY_LEVELS: Record<Category['level'], true> = {
 export const toCategory = (row: Record<string, unknown>): Category => ({
   id: textOr(row.id, ''),
   name: textOr(row.name, ''),
-  type: oneOf<Category['type']>(row[KIND], CATEGORY_TYPES, 'expense'),
+  type: oneOf<Category['type']>(row.type, CATEGORY_TYPES, 'expense'),
   level: oneOf<Category['level']>(row.level, CATEGORY_LEVELS, 'detail'),
   parentId: text(row.parent_id) ?? null,
   color: text(row.color),
@@ -130,39 +135,48 @@ const TRANSACTION_TYPES: Record<Transaction['type'], true> = {
 /**
  * A listed transaction.
  *
+ * Every value comes through {@link TRANSACTION_COLUMNS}, which is the SAME list
+ * `writes.ts` serialises a draft with — so a column cannot be read under one
+ * name and written under another, and cannot be a day in one direction and an
+ * instant in the other. What is left here is assembly: which fields the app's
+ * type requires, and what each one becomes when the file said nothing.
+ *
  * `category` is `''` rather than absent when the column is NULL, because the
  * app's type says `string` and a split parent legitimately holds no category of
  * its own (`transactions_split_parent_has_blank_category` in the schema makes
  * that a constraint rather than a habit).
  *
- * `category_id` is deliberately NOT mapped: `Transaction` has no such field.
- * The cloud's mapper produces the key anyway because it renames every column it
- * meets and then casts the result, so nothing there notices; writing it here
- * would be inventing a property the app has no reader for.
+ * `category_id` is deliberately NOT in the table: `Transaction` has no such
+ * field. The cloud's mapper produces the key anyway because it renames every
+ * column it meets and then casts the result, so nothing there notices; carrying
+ * it here would be inventing a property the app has no reader for.
  */
-export const toTransaction = (row: Record<string, unknown>): Transaction => ({
-  id: textOr(row.id, ''),
-  accountId: textOr(row.account_id, ''),
-  amount: moneyOr(row.amount, 0),
-  date: day(row.date) ?? new Date(0),
-  description: textOr(row.description, ''),
-  category: textOr(row.category, ''),
-  categoryConfirmed: flag(row.category_confirmed),
-  needsReview: flag(row.needs_review),
-  type: oneOf<Transaction['type']>(row[KIND], TRANSACTION_TYPES, 'expense'),
-  tags: strings(row.tags),
-  notes: text(row.notes),
-  cleared: flag(row.is_cleared),
-  isRecurring: flag(row.is_recurring),
-  isSplit: flag(row.is_split),
-  archived: flag(row.archived),
-  statementSequence: whole(row.statement_sequence) ?? null,
-  createdAt: instant(row.created_at),
-  updatedAt: instant(row.updated_at),
-  linkedTransferId: text(row.linked_transfer_id),
-  transferAccountId: text(row.transfer_account_id),
-  linkedTransferSplitId: text(row.linked_transfer_split_id)
-});
+export const toTransaction = (row: Record<string, unknown>): Transaction => {
+  const value = fieldsOf(TRANSACTION_COLUMNS, row);
+  return {
+    id: textOr(value.id, ''),
+    accountId: textOr(value.accountId, ''),
+    amount: typeof value.amount === 'number' ? value.amount : 0,
+    date: value.date instanceof Date ? value.date : new Date(0),
+    description: textOr(value.description, ''),
+    category: textOr(value.category, ''),
+    categoryConfirmed: value.categoryConfirmed === true,
+    needsReview: value.needsReview === true,
+    type: oneOf<Transaction['type']>(value.type, TRANSACTION_TYPES, 'expense'),
+    tags: strings(value.tags),
+    notes: text(value.notes),
+    cleared: value.cleared === true,
+    isRecurring: value.isRecurring === true,
+    isSplit: value.isSplit === true,
+    archived: value.archived === true,
+    statementSequence: whole(value.statementSequence) ?? null,
+    createdAt: value.createdAt instanceof Date ? value.createdAt : undefined,
+    updatedAt: value.updatedAt instanceof Date ? value.updatedAt : undefined,
+    linkedTransferId: text(value.linkedTransferId),
+    transferAccountId: text(value.transferAccountId),
+    linkedTransferSplitId: text(value.linkedTransferSplitId)
+  };
+};
 
 /**
  * A split line.
@@ -172,16 +186,19 @@ export const toTransaction = (row: Record<string, unknown>): Transaction => ({
  * `'transferAccountId' in line` in places, and a present-but-undefined key
  * answers that question the wrong way.
  */
-export const toSplit = (row: Record<string, unknown>): TransactionSplit => ({
-  id: textOr(row.id, ''),
-  transactionId: textOr(row.transaction_id, ''),
-  category: textOr(row.category, ''),
-  amount: moneyOr(row.amount, 0),
-  memo: text(row.memo) === '' ? undefined : text(row.memo),
-  sortOrder: whole(row.sort_order) ?? 0,
-  ...(text(row.transfer_account_id) ? { transferAccountId: text(row.transfer_account_id) } : {}),
-  ...(text(row.linked_transfer_id) ? { linkedTransferId: text(row.linked_transfer_id) } : {})
-});
+export const toSplit = (row: Record<string, unknown>): TransactionSplit => {
+  const value = fieldsOf(SPLIT_COLUMNS, row);
+  return {
+    id: textOr(value.id, ''),
+    transactionId: textOr(value.transactionId, ''),
+    category: textOr(value.category, ''),
+    amount: typeof value.amount === 'number' ? value.amount : 0,
+    memo: text(value.memo) === '' ? undefined : text(value.memo),
+    sortOrder: whole(value.sortOrder) ?? 0,
+    ...(text(value.transferAccountId) ? { transferAccountId: text(value.transferAccountId) } : {}),
+    ...(text(value.linkedTransferId) ? { linkedTransferId: text(value.linkedTransferId) } : {})
+  };
+};
 
 const BUDGET_PERIODS: Record<Budget['period'], true> = {
   monthly: true,

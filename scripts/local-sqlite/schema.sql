@@ -1102,8 +1102,29 @@ END;
 
 -- ── Suggestion dismissals die with their subject ───────────────────────────
 -- Port of prune_suggestion_dismissals_for_transaction (20260806180000:156-170).
+--
+-- BEFORE, not AFTER — and the difference is the whole trigger. MEASURED
+-- (slice 19): as an AFTER DELETE it never fired once. The cloud keeps the
+-- subjects in a `text[]` ON the dismissal, so `subject_ids @> ARRAY[OLD.id]` is
+-- still true whenever its trigger runs. This schema keeps them in a child table
+-- with `ON DELETE CASCADE` on `transaction_id` (see the table, and the reason it
+-- is a key rather than an array) — and SQLite applies that cascade before the
+-- AFTER trigger, so by the time this statement looked for the subject rows they
+-- had already gone with the transaction. The subquery matched nothing, the
+-- dismissal survived, and nothing said a word.
+--
+-- What it costs is not a tidy-up: the dismissal is left naming a row that no
+-- longer exists, with no subjects at all, and it travels into every backup taken
+-- afterwards. `contract.ts`'s "forgets a refusal about a row that no longer
+-- exists" is the rule that found it, and the rule says why the cloud does it
+-- with a trigger and every other engine has to do it too.
+--
+-- BEFORE is safe: the DELETE below cascades the subject rows itself, the
+-- transaction's own delete then finds nothing left to cascade, and a tidy-up
+-- that runs a moment earlier cannot fail a financial delete any more than one
+-- that runs a moment later.
 CREATE TRIGGER trg_prune_suggestion_dismissals
-AFTER DELETE ON transactions
+BEFORE DELETE ON transactions
 BEGIN
   DELETE FROM suggestion_dismissals
    WHERE user_id = OLD.user_id

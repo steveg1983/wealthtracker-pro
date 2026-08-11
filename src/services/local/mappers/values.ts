@@ -49,11 +49,79 @@ export const field = (value: unknown, key: string): unknown =>
  * as an empty ledger, which is the one wrong answer nobody would question.
  */
 export function rowsOf(answer: unknown, verb: string, key: string): Record<string, unknown>[] {
-  const list = field(field(answer, 'answer'), key);
+  return listOf(field(answer, 'answer'), verb, key);
+}
+
+/**
+ * The rows of a named list ON a result object.
+ *
+ * The same rule as `rowsOf` one level up: the reads wrap their lists in
+ * `{ answer: … }` and a write's list — the split writer's `counterparts` — sits
+ * on the result itself. One reader, two callers, so a missing key is the same
+ * fault either way rather than an empty array in one of them.
+ *
+ * @throws for `rowsOf`'s reason.
+ */
+export function listOf(value: unknown, verb: string, key: string): Record<string, unknown>[] {
+  const list = field(value, key);
   if (!Array.isArray(list)) {
     throw new Error(`The ledger file answered ${verb} without a ${key} list.`);
   }
   return list.filter(isRecord);
+}
+
+/**
+ * One named part of a WRITE verb's answer.
+ *
+ * The reads all wrap their rows in `{ answer: { <name>: [...] } }`; a write
+ * answers with its own object — `{ transaction, audit_seq, … }` — and the four
+ * that port a function returning a scalar put that scalar under `answer` beside
+ * it. So `rowsOf` above cannot serve both, and this is the write side's reader.
+ *
+ * @throws when the key is absent or is not an object, for `rowsOf`'s reason:
+ * the crate's dispatch is exhaustive and its results are serialised by serde, so
+ * a missing key means the transport is talking to something other than this
+ * crate. A default here would report that as a write that did nothing.
+ */
+export function rowOf(answer: unknown, verb: string, key: string): Record<string, unknown> {
+  const value = field(answer, key);
+  if (!isRecord(value)) {
+    throw new Error(`The ledger file answered ${verb} without a ${key}.`);
+  }
+  return value;
+}
+
+/**
+ * A count a write verb reports.
+ *
+ * `undefined` is refused rather than defaulted to 0 for the reason every count
+ * in this seam is shown to somebody: "0 rows unlinked" and "the answer did not
+ * say" are different sentences, and only one of them is true.
+ *
+ * @throws when the key is absent or is not a whole number.
+ */
+export function countOf(answer: unknown, verb: string, key: string): number {
+  const value = field(answer, key);
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    throw new Error(`The ledger file answered ${verb} without a ${key} count.`);
+  }
+  return value;
+}
+
+/**
+ * A string a write verb echoed back.
+ *
+ * @throws when the key is absent or is not a string, for `countOf`'s reason:
+ * the merge echoes the ids it was given precisely because the source no longer
+ * exists to be looked up, so a blank there is a lost record rather than a
+ * harmless default.
+ */
+export function textOf(answer: unknown, verb: string, key: string): string {
+  const value = field(answer, key);
+  if (typeof value !== 'string') {
+    throw new Error(`The ledger file answered ${verb} without a ${key}.`);
+  }
+  return value;
 }
 
 /** Text, or nothing. Empty strings are text: the schema distinguishes '' from NULL. */

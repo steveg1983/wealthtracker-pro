@@ -30,9 +30,15 @@
 //! | `20260722140000:53` | payee memory moved into `payee_memory_category`, and the rule changed from most-RECENT to most-COMMON |
 //! | `20260807180000` | `is_cleared` false — the feed does not pre-clear |
 //! | `20260808100000:552` | provenance: a payee-memory guess is `category_confirmed = false` |
+//! | `20260810090000:604` | `needs_review` true — *"nobody has seen this row; it did not exist until now"* |
 //!
 //! `20260725120000:253` only re-grants it, and `20260808150000:67-71` says in as
 //! many words that it does not touch either import RPC.
+//!
+//! The last row is the same slice-19 port lag the file importer carried, closed
+//! here in the same commit for the same reason: the two importers are one rule
+//! about arriving rows, and a version of it that held in one of them would be a
+//! feed whose rows come in silently while a file's come in bold.
 //!
 //! # B-4, the first-import rebase — and the precondition it needs (TS-F7)
 //!
@@ -602,11 +608,13 @@ fn insert_row(
         "INSERT INTO transactions (
            id, user_id, account_id, connection_id, external_transaction_id,
            external_provider, description, amount_minor, type, date, metadata,
-           is_cleared, category, category_confirmed, created_at, updated_at
+           is_cleared, category, category_confirmed, needs_review,
+           created_at, updated_at
          ) VALUES (
            ?1, ?2, ?3, ?4, ?5,
            ?6, ?7, ?8, ?9, ?10, ?11,
-           0, ?12, ?13, ?14, ?14
+           0, ?12, ?13, 1,
+           ?14, ?14
          )
          ON CONFLICT (connection_id, external_transaction_id)
            WHERE external_transaction_id IS NOT NULL

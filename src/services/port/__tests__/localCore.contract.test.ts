@@ -25,10 +25,11 @@
  * ── THE PORT IS DELIBERATELY PARTIAL, AND SAYS SO ───────────────────────────
  *
  * `LocalDataPort` implements the reads, the boot composite, the capability
- * descriptor and the two lifecycle no-ops — and NOT the forty-one writes, which
- * are named one by one in `contract.ts`'s NOT_YET ratchet. The surface rule
- * asserts that the operations this port is missing are EXACTLY that list, in
- * both directions, and every rule needing one of them is skipped by name.
+ * descriptor, the two lifecycle no-ops and the sixteen writes the crate's verbs
+ * serve — and NOT the twenty-five operations that are named one by one in
+ * `contract.ts`'s NOT_YET ratchet. The surface rule asserts that the operations
+ * this port is missing are EXACTLY that list, in both directions, and every
+ * rule needing one of them is skipped by name.
  *
  * So the `DataPort` annotation below is documentation rather than proof, which
  * is the situation `contract.ts` describes in its own words: tests are not

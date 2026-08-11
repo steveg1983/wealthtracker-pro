@@ -54,6 +54,8 @@ const CORNER_SHOP: &str = "70000000-0000-0000-0000-000000000001";
 const COUNTERPART: &str = "70000000-0000-0000-0000-000000000009";
 const BLANK_ROW: &str = "70000000-0000-0000-0000-000000000021";
 const GUESSED_ROW: &str = "70000000-0000-0000-0000-000000000025";
+/// Filed AND already vouched for — there is nothing here to agree with.
+const CONFIRMED_ROW: &str = "70000000-0000-0000-0000-000000000024";
 const LEG_LINE: &str = "50000000-0000-0000-0000-000000000001";
 const PLAIN_LINE: &str = "50000000-0000-0000-0000-000000000002";
 const BUDGET: &str = "b0000000-0000-0000-0000-000000000001";
@@ -827,4 +829,77 @@ fn neither_provenance_verb_takes_the_split_guard() {
     )
     .expect("confirm skips it");
     assert_eq!(scalar(&connection, "SELECT COUNT(*) FROM _rpc_guard"), 0);
+}
+
+// ── Confirming a guess ends the row's review (20260810090000) ───────────────
+
+#[test]
+fn confirming_a_guess_ends_that_rows_review_and_no_other() {
+    // The pair the seam's contract asks for by name. `needs_review` is not in
+    // `TransactionRow`, so no differential spec can see this column — which is
+    // how the pairing went unported between 20260810090000 and slice 19.
+    let mut connection = fixture();
+    every_shape_of_filing(&connection);
+    connection
+        .execute_batch("UPDATE transactions SET needs_review = 1")
+        .expect("arrange: every row is new work");
+
+    confirm_transaction_categories(
+        &mut connection,
+        ConfirmTransactionCategories {
+            ids: Some(vec![GUESSED_ROW.to_owned(), CONFIRMED_ROW.to_owned()]),
+            user_id: Some(OWNER.to_owned()),
+        },
+    )
+    .expect("confirm");
+
+    assert_eq!(
+        scalar(
+            &connection,
+            &format!("SELECT needs_review FROM transactions WHERE id = '{GUESSED_ROW}'")
+        ),
+        0,
+        "the row that had a guess to agree with"
+    );
+    assert_eq!(
+        scalar(
+            &connection,
+            &format!("SELECT needs_review FROM transactions WHERE id = '{CONFIRMED_ROW}'")
+        ),
+        1,
+        "nothing to agree with here, so its review is somebody else's job to end"
+    );
+}
+
+#[test]
+fn filing_a_payee_in_bulk_leaves_every_review_alone() {
+    // The pair with the test above, and the reason both are here: the two verbs
+    // look alike and mean opposite things. Applying a category to a payee's
+    // blanks is a decision about a CATEGORY taken from a list of payees, where
+    // the rows' dates, amounts and accounts were never on screen. If this ever
+    // started clearing the flag, one run of the bulk tool would mark a whole
+    // imported statement as dealt with, silently.
+    let mut connection = fixture();
+    every_shape_of_filing(&connection);
+    connection
+        .execute_batch("UPDATE transactions SET needs_review = 1")
+        .expect("arrange: every row is new work");
+
+    apply_category_to_uncategorized(
+        &mut connection,
+        ApplyCategoryToUncategorized {
+            ids: Some(vec![BLANK_ROW.to_owned()]),
+            category: Some(WEEKLY_SHOP.to_owned()),
+            user_id: Some(OWNER.to_owned()),
+        },
+    )
+    .expect("apply");
+
+    assert_eq!(
+        scalar(
+            &connection,
+            &format!("SELECT needs_review FROM transactions WHERE id = '{BLANK_ROW}'")
+        ),
+        1
+    );
 }
