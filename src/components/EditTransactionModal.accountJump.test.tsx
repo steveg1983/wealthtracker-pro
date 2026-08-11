@@ -47,7 +47,7 @@ vi.mock('react-router-dom', async () => {
     ...actual,
     useNavigate: () => mocks.navigate,
     useLocation: () => ({
-      pathname: '/transactions',
+      pathname: '/find',
       search: mocks.search.value,
       hash: '',
       state: null,

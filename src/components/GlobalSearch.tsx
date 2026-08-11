@@ -18,6 +18,7 @@ import {
 import { useGlobalSearch, type SearchResult } from '../hooks/useGlobalSearch';
 import { useDebounce } from '../hooks/useDebounce';
 import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
+import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
 
 export interface GlobalSearchHandle {
   focusInput: () => void;
@@ -45,12 +46,46 @@ const getResultIcon = (type: SearchResult['type']): React.ElementType => {
   }
 };
 
+/**
+ * Enough of a search result's payload to be a transaction. `data` is a union of
+ * every kind the search returns, and `accountId` is the field only a
+ * transaction carries — so this is the narrowing, done once, with no cast.
+ */
+const asTransaction = (data: SearchResult['data']): { id: string; accountId: string } | null => {
+  if ('accountId' in data && typeof data.accountId === 'string' && data.accountId !== '') {
+    return { id: data.id, accountId: data.accountId };
+  }
+  return null;
+};
+
+/**
+ * Where a chosen result goes.
+ *
+ * A transaction goes to the ROW, in the register of the account that holds it —
+ * Money's Find, and the whole shape of this app: work happens in the register.
+ * It used to go to `/transactions?search=<id>`, which was a broken promise
+ * twice over — the global list is retired, and while it existed it never read a
+ * `search` parameter at all, so the link landed on an unfiltered list of
+ * everything with nothing pointed at.
+ *
+ * A transaction with no account (nothing the app writes, but the type allows
+ * it) has no register to be shown in, and falls back to the list of accounts
+ * rather than to a broken address.
+ *
+ * No demo flag is carried here — hence the empty search string below. The
+ * caller adds it once, to whichever route this returns, so every kind of result
+ * gets it by the same rule and no route can get it twice.
+ */
 const getResultRoute = (result: SearchResult): string => {
   switch (result.type) {
     case 'account':
       return '/accounts';
-    case 'transaction':
-      return `/transactions?search=${result.id}`;
+    case 'transaction': {
+      const transaction = asTransaction(result.data);
+      return transaction
+        ? buildTransactionRegisterPath(transaction.accountId, transaction.id, '')
+        : '/accounts';
+    }
     case 'budget':
       return '/budget';
     case 'goal':
@@ -139,25 +174,43 @@ const GlobalSearch = forwardRef<GlobalSearchHandle, GlobalSearchProps>(
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleResultNavigate = useCallback((result: SearchResult) => {
-      const searchParams = new URLSearchParams(window.location.search);
-      const isDemoMode =
-        isDemoModeRuntimeAllowed(import.meta.env) &&
-        searchParams.get('demo') === 'true';
-
-      let route = getResultRoute(result);
-      if (isDemoMode) {
-        route = route.includes('?') ? `${route}&demo=true` : `${route}?demo=true`;
-      }
-
-      navigate(route);
+    /** Close up and hand the page back — the tail of choosing anything here. */
+    const dismiss = useCallback(() => {
       setQuery('');
       setIsFocused(false);
       setIsHoveringResults(false);
       setSelectedIndex(0);
       inputRef.current?.blur();
       onResultSelect?.();
-    }, [navigate, onResultSelect]);
+    }, [onResultSelect]);
+
+    /** The demo flag, carried onto any route this panel navigates to. */
+    const carryDemo = useCallback((route: string): string => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const isDemoMode =
+        isDemoModeRuntimeAllowed(import.meta.env) &&
+        searchParams.get('demo') === 'true';
+      if (!isDemoMode) return route;
+      return route.includes('?') ? `${route}&demo=true` : `${route}?demo=true`;
+    }, []);
+
+    const handleResultNavigate = useCallback((result: SearchResult) => {
+      navigate(carryDemo(getResultRoute(result)));
+      dismiss();
+    }, [navigate, carryDemo, dismiss]);
+
+    /**
+     * "See all N results" — the drop-down is a shortlist, Find is the answer.
+     *
+     * The panel shows what it can fit; a search that matches ninety rows has to
+     * be able to go somewhere, and that somewhere is Find, carrying the words
+     * already typed. This is the one route out of the header search that is not
+     * a single record.
+     */
+    const handleSeeAll = useCallback(() => {
+      navigate(carryDemo(`/find?q=${encodeURIComponent(debouncedQuery)}`));
+      dismiss();
+    }, [navigate, carryDemo, dismiss, debouncedQuery]);
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
       if (!results || results.length === 0) {
@@ -277,6 +330,18 @@ const GlobalSearch = forwardRef<GlobalSearchHandle, GlobalSearchProps>(
                     );
                   })}
                 </ul>
+                {/* Outside the listbox, deliberately: it is not one of the
+                    options, and a screen reader walking the list with the
+                    arrows must not land on it as if it were a result. */}
+                <div className="border-t border-gray-200 dark:border-gray-700 mt-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSeeAll}
+                    className="w-full px-4 py-2.5 text-left text-sm font-medium text-[#1a2332] dark:text-blue-300 hover:bg-[#c5cfdf] dark:hover:bg-gray-700/70 transition-colors"
+                  >
+                    See all {resultCount} result{resultCount !== 1 ? 's' : ''} in Find
+                  </button>
+                </div>
               </div>
             )}
           </div>

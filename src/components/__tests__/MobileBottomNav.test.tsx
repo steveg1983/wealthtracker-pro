@@ -23,7 +23,19 @@ describe('MobileBottomNav', () => {
     const nav = screen.getByRole('navigation', { name: 'Mobile navigation' });
     const labels = Array.from(nav.querySelectorAll('a')).map(a => a.textContent?.trim());
 
-    expect(labels).toEqual(['Home', 'Accounts', 'Transactions', 'Reconcile', 'Categorise']);
+    // Find, where the global Transactions list used to be: on a phone you
+    // either open the account in front of you or you are hunting for one row.
+    expect(labels).toEqual(['Home', 'Accounts', 'Find', 'Reconcile', 'Categorise']);
+  });
+
+  it('offers no slot for the retired global transactions list', () => {
+    renderAt('/dashboard');
+
+    const nav = screen.getByRole('navigation', { name: 'Mobile navigation' });
+    const hrefs = Array.from(nav.querySelectorAll('a')).map(a => a.getAttribute('href'));
+
+    expect(hrefs).not.toContain('/transactions');
+    expect(hrefs).toContain('/find');
   });
 
   it('sends Home to the dashboard, not the public welcome page', () => {
@@ -83,8 +95,12 @@ describe('the phone quick-add', () => {
 
     fireEvent.click(fab);
 
+    // Both point at pages that exist. The two parameters are deliberately
+    // different words: `add` on /accounts already means "add an ACCOUNT" (the
+    // Accounts page reads it), while the add-transaction modal is Layout's and
+    // is opened by an app-wide parameter on whatever page it lands on.
     expect(screen.getByRole('link', { name: 'Add Transaction' }))
-      .toHaveAttribute('href', '/transactions?action=add');
+      .toHaveAttribute('href', '/accounts?action=add-transaction');
     expect(screen.getByRole('link', { name: 'Add Account' }))
       .toHaveAttribute('href', '/accounts?action=add');
   });

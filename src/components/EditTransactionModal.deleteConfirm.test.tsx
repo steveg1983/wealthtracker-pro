@@ -30,6 +30,14 @@ import type { Account, Transaction } from '../types';
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
+  toast: {
+    showToast: vi.fn(),
+    showSuccess: vi.fn(),
+    showError: vi.fn(),
+    showWarning: vi.fn(),
+    showInfo: vi.fn(),
+    dismissToast: vi.fn(),
+  },
   app: {
     accounts: [] as Account[],
     transactions: [] as Transaction[],
@@ -39,7 +47,11 @@ const mocks = vi.hoisted(() => ({
       { id: 'det-tax', name: 'Council Tax', type: 'expense', level: 'detail', parentId: 'sub-bills' },
     ],
     updateTransaction: vi.fn(async () => {}),
-    deleteTransaction: vi.fn(),
+    // Truthful about its shape: the real deleteTransaction reports what became
+    // of the other side, and the pair delete reads that to know what to say if
+    // the second delete fails. A double returning undefined would let a test
+    // pass over code the app cannot run.
+    deleteTransaction: vi.fn(async (_id: string) => ({ survivors: [] as { transactionId: string; accountId: string; released: boolean }[] })),
     getTransactionSplits: vi.fn(async () => []),
     setTransactionSplits: vi.fn(async () => ({ isSplit: false, splitCount: 0, amount: 0 })),
     linkTransferPair: vi.fn(async () => ({ a: {}, b: {} })),
@@ -58,16 +70,7 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('../contexts/AppContextSupabase', () => ({ useApp: () => mocks.app }));
 
-vi.mock('../contexts/ToastContext', () => ({
-  useToast: () => ({
-    showToast: vi.fn(),
-    showSuccess: vi.fn(),
-    showError: vi.fn(),
-    showWarning: vi.fn(),
-    showInfo: vi.fn(),
-    dismissToast: vi.fn(),
-  }),
-}));
+vi.mock('../contexts/ToastContext', () => ({ useToast: () => mocks.toast }));
 
 vi.mock('../hooks/useTransactionNotifications', () => ({
   useTransactionNotifications: () => ({ addTransaction: vi.fn(async () => {}) }),
@@ -166,14 +169,14 @@ describe('EditTransactionModal — delete confirmation', () => {
     mocks.app.transactions = [OUT_LEG, IN_LEG, EXPENSE];
   });
 
-  it('names the account the other half is left in, and what happens to it', async () => {
+  it('names the account the other half is left in, and what it becomes there', async () => {
     await openDeleteConfirm(OUT_LEG);
 
     expect(
       screen.getByText(/Deleting it will leave the other half in Savings/)
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/still counted in that account's balance but no longer linked to anything/)
+      screen.getByText(/still counted in that account's balance — it stops being a transfer there/)
     ).toBeInTheDocument();
   });
 
@@ -195,15 +198,120 @@ describe('EditTransactionModal — delete confirmation', () => {
     expect(within(dialog).queryByText(/one half of a transfer/)).not.toBeInTheDocument();
   });
 
-  it('does not offer to delete the other side for the user', async () => {
-    // Cascading into another account unasked is worse than stranding a row, so
-    // this is consent and nothing more: it names the consequence and offers the
-    // same two choices it always did.
+  /**
+   * THE CHOICE. This dialog used to name the consequence of deleting a leg and
+   * then offer no way to do the thing the user almost certainly meant — remove
+   * the movement. Cascading unasked would have been worse; asking is right.
+   */
+  it('offers three answers for one half of a transfer', async () => {
     const { dialog } = await openDeleteConfirm(OUT_LEG);
 
     expect(within(dialog).getAllByRole('button').map(button => button.textContent))
-      .toEqual(['Cancel', 'Delete']);
+      .toEqual(['Cancel', 'Delete this side only', 'Delete both sides']);
+    // Nothing happens until one of them is pressed.
     expect(mocks.app.deleteTransaction).not.toHaveBeenCalled();
+  });
+
+  it('offers the same two answers as ever for a plain row', async () => {
+    const { dialog } = await openDeleteConfirm(EXPENSE);
+
+    expect(within(dialog).getAllByRole('button').map(button => button.textContent))
+      .toEqual(['Cancel', 'Delete']);
+  });
+
+  it('deletes both rows, this side first, and closes the editor', async () => {
+    const onClose = vi.fn();
+    const { user, dialog } = await openDeleteConfirm(OUT_LEG, onClose);
+
+    await user.click(within(dialog).getByRole('button', { name: 'Delete both sides' }));
+
+    expect(mocks.app.deleteTransaction).toHaveBeenNthCalledWith(1, 'txn-out');
+    expect(mocks.app.deleteTransaction).toHaveBeenNthCalledWith(2, 'txn-in');
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('deletes only this row when only this row was asked for', async () => {
+    const { user, dialog } = await openDeleteConfirm(OUT_LEG);
+
+    await user.click(within(dialog).getByRole('button', { name: 'Delete this side only' }));
+
+    expect(mocks.app.deleteTransaction).toHaveBeenCalledTimes(1);
+    expect(mocks.app.deleteTransaction).toHaveBeenCalledWith('txn-out');
+  });
+
+  /**
+   * Deleting a transfer means deleting the movement, so the loop that ends in
+   * a reflex Enter lands on "both sides". The dialog has already said what that
+   * means, in the account it will happen in.
+   */
+  it('puts the focus on Delete both sides, so the keyboard loop still finishes', async () => {
+    const { user, dialog } = await openDeleteConfirm(OUT_LEG);
+
+    expect(document.activeElement)
+      .toBe(within(dialog).getByRole('button', { name: 'Delete both sides' }));
+
+    await user.keyboard('{Enter}');
+
+    expect(mocks.app.deleteTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it('cycles the tab key across all three buttons, both ways', async () => {
+    const { dialog } = await openDeleteConfirm(OUT_LEG);
+    const cancel = within(dialog).getByRole('button', { name: 'Cancel' });
+    const oneSide = within(dialog).getByRole('button', { name: 'Delete this side only' });
+    const bothSides = within(dialog).getByRole('button', { name: 'Delete both sides' });
+
+    fireEvent.keyDown(bothSides, { key: 'Tab' });
+    expect(document.activeElement).toBe(cancel);
+    fireEvent.keyDown(cancel, { key: 'Tab' });
+    expect(document.activeElement).toBe(oneSide);
+    fireEvent.keyDown(oneSide, { key: 'Tab' });
+    expect(document.activeElement).toBe(bothSides);
+
+    // Backwards, which two buttons could not tell apart and three can.
+    fireEvent.keyDown(bothSides, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(oneSide);
+    fireEvent.keyDown(oneSide, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(cancel);
+    fireEvent.keyDown(cancel, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(bothSides);
+  });
+
+  /**
+   * A pair delete is two writes, and the second one can fail. What must never
+   * happen is a silent half-delete: the report names the side that survived and
+   * the state it is in, which the caller can only know from what the first
+   * delete reported back.
+   */
+  it('reports which side survived when the second delete fails', async () => {
+    mocks.app.deleteTransaction.mockImplementation(async (id: string) => {
+      if (id === 'txn-in') throw new Error('conflict');
+      return { survivors: [{ transactionId: 'txn-in', accountId: 'acc-b', released: true }] };
+    });
+    const { user, dialog } = await openDeleteConfirm(OUT_LEG);
+
+    await user.click(within(dialog).getByRole('button', { name: 'Delete both sides' }));
+
+    expect(mocks.toast.showWarning).toHaveBeenCalledTimes(1);
+    const [message, title] = mocks.toast.showWarning.mock.calls[0];
+    expect(title).toBe('Only one side was deleted');
+    expect(message).toContain('in Savings');
+    expect(message).toMatch(/no longer a transfer/);
+    expect(message).toMatch(/uncategorised deposit/);
+    // showError would have run the sentence through getUserFriendlyError, which
+    // replaces anything over 100 characters with "An error occurred".
+    expect(mocks.toast.showError).not.toHaveBeenCalled();
+  });
+
+  it('reports a failure that deleted nothing as an ordinary error', async () => {
+    const boom = new Error('offline');
+    mocks.app.deleteTransaction.mockImplementation(async () => { throw boom; });
+    const { user, dialog } = await openDeleteConfirm(OUT_LEG);
+
+    await user.click(within(dialog).getByRole('button', { name: 'Delete both sides' }));
+
+    expect(mocks.toast.showError).toHaveBeenCalledWith(boom);
+    expect(mocks.toast.showWarning).not.toHaveBeenCalled();
   });
 
   /**
@@ -254,10 +362,11 @@ describe('EditTransactionModal — delete confirmation', () => {
   });
 
   /**
-   * The Transactions page keeps this component mounted with isOpen=false. A
-   * confirmation left standing there used to outlive the editor it belonged to;
-   * now that it traps focus, that would strand the user in a dialog about a
-   * form they can no longer see.
+   * A caller is free to keep this component mounted with isOpen=false rather
+   * than unmounting it (the retired global transactions list did, which is how
+   * this was found). A confirmation left standing there used to outlive the
+   * editor it belonged to; now that it traps focus, that would strand the user
+   * in a dialog about a form they can no longer see.
    */
   it('goes away with the editor it belongs to', () => {
     const { rerender } = render(

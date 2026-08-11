@@ -3,7 +3,7 @@ import { parseMoneyInput, toDecimal } from '../../utils/decimal';
 import MoneyInput from '../common/MoneyInput';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { formatDate } from '../../utils/dateFormatter';
-import { UNCONFIRMED_YELLOW, CONFIRM_BALANCE_HINT_ID } from './unconfirmedYellow';
+import { NEXT_ACTION_YELLOW, CONFIRM_BALANCE_HINT_ID } from './nextActionYellow';
 import type { ClearedSummary } from '../../hooks/useReconciliation';
 
 interface ReconciliationBalanceBarProps {
@@ -99,13 +99,14 @@ export default function ReconciliationBalanceBar({
 
   const displayBankBalance = pendingBankBalance ? pendingBankBalance.value : bankBalance;
   /**
-   * The one fact the yellow stands for: this figure has not been agreed to.
+   * The one fact the yellow moves on: this figure has not been agreed to.
    *
-   * Every control on this bar that wears UNCONFIRMED_YELLOW branches on THIS
-   * single boolean — and it is the negation of the gate Finalize is disabled
-   * by — so the two yellows are one fact shown twice rather than two that
-   * happen to agree today. There is no state in which one of them resolves
-   * without the other.
+   * Every control on this bar that wears NEXT_ACTION_YELLOW branches on THIS
+   * single boolean — and it is the exact negation of the gate Finalize is
+   * disabled by, which is why the yellow can only ever be in one of the two
+   * places. While this is true the bar is asking, so the bar is yellow; the
+   * moment it goes false the asking is over and the yellow belongs to the
+   * button that finishes the job.
    */
   const awaitingConfirmation = !balanceConfirmed;
   const removeConsequence = lastReconciledBalance != null
@@ -152,8 +153,16 @@ export default function ReconciliationBalanceBar({
         {/* Closing Balance — the statement's ending figure, Money's own name
             for it, and the one this reconciliation is settled against. Not the
             account's live "Bank Bal" on the Accounts page: that is whatever the
-            feed last said, a different fact that nobody has to agree to. */}
-        <div className="text-center">
+            feed last said, a different fact that nobody has to agree to.
+
+            A COLUMN, not a paragraph of inline things. The figure and Confirm
+            are both inline-level, so in a plain `text-center` block the browser
+            set them on ONE line whenever the cell was wide enough for both:
+            the amount slid off-centre, wedged against a button, and stopped
+            lining up with the three figures beside it. `flex-col items-center`
+            gives label → amount → Confirm a line each, centred, sharing the
+            other cells' vertical rhythm. */}
+        <div className="flex flex-col items-center text-center">
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Closing Balance</p>
           {displayBankBalance != null && !isEditingBankBalance ? (
             <button
@@ -169,7 +178,7 @@ export default function ReconciliationBalanceBar({
                  confirmed) so resolving the yellow does not move the figure. */
               className={`text-lg font-bold border rounded-lg px-2 py-0.5 transition-colors cursor-pointer ${
                 awaitingConfirmation
-                  ? UNCONFIRMED_YELLOW
+                  ? NEXT_ACTION_YELLOW
                   : 'border-transparent text-gray-900 dark:text-white hover:text-primary'
               }`}
               title="Click to change or remove"
@@ -177,7 +186,10 @@ export default function ReconciliationBalanceBar({
               {formatCurrency(displayBankBalance, currency)}
             </button>
           ) : isEditingBankBalance ? (
-            <form ref={editFormRef} onSubmit={handleBankBalanceSubmit} className="flex flex-col gap-1">
+            /* w-full because the cell is now a centring flex column, which
+               would otherwise shrink this form to its content and leave the
+               input narrower than the figure it replaces. */
+            <form ref={editFormRef} onSubmit={handleBankBalanceSubmit} className="w-full flex flex-col gap-1">
               <MoneyInput
                 // An overdrawn account's statement balance is negative.
                 allowNegative
@@ -197,7 +209,7 @@ export default function ReconciliationBalanceBar({
                    it by CSS source order. */
                 className={`w-full px-2 py-1 text-sm border rounded ${
                   awaitingConfirmation
-                    ? UNCONFIRMED_YELLOW
+                    ? NEXT_ACTION_YELLOW
                     : 'dark:bg-gray-700 dark:border-gray-600 dark:text-white'
                 }`}
                 aria-label="Closing balance"
@@ -249,7 +261,7 @@ export default function ReconciliationBalanceBar({
               aria-describedby={awaitingConfirmation ? CONFIRM_BALANCE_HINT_ID : undefined}
               className={`text-sm font-medium border rounded-lg px-2 py-0.5 transition-colors ${
                 awaitingConfirmation
-                  ? UNCONFIRMED_YELLOW
+                  ? NEXT_ACTION_YELLOW
                   : 'border-transparent text-primary hover:underline'
               }`}
             >
@@ -257,13 +269,30 @@ export default function ReconciliationBalanceBar({
             </button>
           )}
 
-          {/* Confirm sits under the figure it is about. It is offered whenever
-              there is a figure to agree to — including £0.00, which is a real
-              statement balance for an account swept to zero every night, and
-              which the app must never confuse with "no balance". */}
+          {/* Confirm sits under the figure it is about, third in the column. It
+              is offered whenever there is a figure to agree to — including
+              £0.00, which is a real statement balance for an account swept to
+              zero every night, and which the app must never confuse with "no
+              balance".
+
+              The two states of this slot carry IDENTICAL box metrics — same
+              margin, padding, text size, and a border width in both, the
+              second one transparent — so agreeing to the figure cannot change
+              the height of the cell, and the whole sticky bar cannot shift
+              under the cursor at the exact moment of the click. It is the same
+              trick the figure above already plays with its own border, and the
+              reason both are spelled out rather than left to chance.
+
+              The other two shape changes here are NOT reserved, deliberately:
+              an account with no figure at all has no Confirm to offer, and
+              opening the editor adds a Remove link beneath the input. Both are
+              mode changes the user asked for by clicking, both are followed by
+              their own click target, and reserving a phantom line for a control
+              that cannot exist in that mode would be inventing space to hold
+              nothing. */}
           {displayBankBalance != null && !isEditingBankBalance && (
             balanceConfirmed ? (
-              <p className="mt-1 text-xs font-medium text-blue-600 dark:text-blue-400">
+              <p className="mt-1 px-2 py-0.5 text-xs font-medium rounded border border-transparent text-blue-600 dark:text-blue-400">
                 Confirmed
               </p>
             ) : (

@@ -52,10 +52,10 @@ export function preloadWhenIdle<T extends ComponentType<any>>(component: Preload
 export function preloadByRoute<T extends ComponentType<any>>(currentPath: string, components: Record<string, PreloadableComponent<T>>): void {
   // Common navigation patterns
   const preloadMap: Record<string, string[]> = {
-    '/dashboard': ['/transactions', '/accounts', '/budget'],
-    '/accounts': ['/transactions', '/dashboard'],
-    '/transactions': ['/accounts', '/dashboard', '/budget'],
-    '/budget': ['/goals', '/transactions'],
+    '/dashboard': ['/accounts', '/budget'],
+    '/accounts': ['/dashboard', '/budget'],
+    '/find': ['/accounts'],
+    '/budget': ['/goals', '/dashboard'],
     '/goals': ['/budget', '/dashboard'],
   };
 

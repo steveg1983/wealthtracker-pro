@@ -71,6 +71,12 @@ import {
   BULK_TRANSFER_FILING_REFUSAL,
   categoryIdIsTransferFiling,
 } from '../utils/transferCoherence';
+import {
+  releaseUpdatesFor,
+  survivorsOfDeletedLeg,
+  type DeleteTransactionOutcome,
+  type TransferSurvivorOutcome,
+} from '../utils/transferSurvivorRelease';
 import { preferences as preferencesService } from '../services/preferencesService';
 
 export interface Tag {
@@ -106,7 +112,16 @@ export interface AppContextType extends AppState {
    */
   addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<Transaction>;
   updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
-  deleteTransaction: (id: string) => Promise<void>;
+  /**
+   * Remove one row — and RELEASE whatever it was half of.
+   *
+   * It reports what became of the other side rather than returning void,
+   * because a caller that deletes both halves has to be able to say truthfully
+   * which one survived if the second delete fails, and "released" and "merely
+   * unlinked" are two different rows to go and look for. See
+   * utils/transferSurvivorRelease.ts.
+   */
+  deleteTransaction: (id: string) => Promise<DeleteTransactionOutcome>;
   
   // Budget operations — async so callers can surface persistence failures
   addBudget: (budget: Omit<Budget, 'id' | 'spent'>) => Promise<void>;
@@ -1497,9 +1512,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const deleteTransaction = useCallback(async (id: string) => {
+  /**
+   * Delete one row, and answer for whatever it was half of.
+   *
+   * THE ONE PLACE THE SURVIVOR RELEASE IS APPLIED. Every delete in the app
+   * arrives here — the register's single delete and its bulk delete, the
+   * phone's swipe, the global transactions list, the full editor, the duplicate
+   * sweep — and `dataPort.deleteTransaction` has exactly one caller, this
+   * function, so no path can forget the rule by taking a different route.
+   *
+   * Why above the seam rather than inside it: releasing a survivor is a
+   * statement about what the app's data MEANS (utils/transferSurvivorRelease.ts
+   * holds it, with the measurements), not about how one store keeps it. Put in
+   * the port it would have to be written three times — cloud, browser storage,
+   * local core — and could drift; put here it is one rule, and the cloud path
+   * gets it as a second audited write rather than as a migration nobody asked
+   * for.
+   */
+  const deleteTransaction = useCallback(async (id: string): Promise<DeleteTransactionOutcome> => {
     try {
       const transaction = transactions.find(t => t.id === id);
+      // Read BEFORE the delete: afterwards the store has already nulled the
+      // link and there is nothing left to find them by.
+      const survivors = survivorsOfDeletedLeg(id, transactions);
       await dataPort.deleteTransaction(id);
       setTransactions(prev => prev
         .filter(t => t.id !== id)
@@ -1514,10 +1549,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // to a transaction that no longer existed. The only exit anybody found
         // was to delete the survivor too.
         //
-        // The link is all that goes. The row keeps its transfer type, its
-        // To/From category and its transferAccountId, because it is now an
-        // UNMATCHED leg — a real state with a repair flow — and re-typing it on
-        // the user's behalf would be inventing an answer only they can give.
+        // Unlinking is all the STORE does. The release below finishes the job:
+        // a row that has lost its other side stops being a transfer, because a
+        // transfer must have another side or it is not one.
         .map(t => {
           if (t.linkedTransferId !== id) return t;
           const { linkedTransferId: _dangling, ...rest } = t;
@@ -1543,11 +1577,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return acc;
         }));
       }
+
+      // ── The release ────────────────────────────────────────────────────────
+      // AFTER the delete, never before: released first and then a failed delete
+      // would leave a live transfer whose two sides no longer agree, which is a
+      // worse lie than a survivor that is briefly still typed as a transfer. A
+      // release that fails leaves exactly the state the app had before this
+      // rule existed — unlinked, still typed transfer — which the editor names
+      // ("no other side recorded") and this function reports as unreleased so
+      // the caller can too. Balance-neutral by construction: not one of the five
+      // fields is an amount, so nothing here can move money.
+      const outcomes: TransferSurvivorOutcome[] = [];
+      for (const survivor of survivors) {
+        try {
+          await updateTransaction(survivor.id, releaseUpdatesFor(survivor));
+          outcomes.push({ transactionId: survivor.id, accountId: survivor.accountId, released: true });
+        } catch (error) {
+          appLogger.error('Deleted a transfer leg but could not release its survivor', error);
+          outcomes.push({ transactionId: survivor.id, accountId: survivor.accountId, released: false });
+        }
+      }
+      return { survivors: outcomes };
     } catch (error) {
       appLogger.error('Failed to delete transaction', error);
       throw error;
     }
-  }, [transactions]);
+  }, [transactions, updateTransaction]);
 
   // Budget operations — persisted through the seam, which resolves the owner
   // itself (the id used to be resolved here and handed over; a null one wrote

@@ -25,7 +25,14 @@ export async function gotoDemo(page: Page, route: string): Promise<void> {
   await page.goto(`${route}${sep}demo=true`, { waitUntil: 'domcontentloaded' });
 }
 
-/** Wait until the app shell + current page content have rendered. */
+/**
+ * Wait until the app shell has rendered.
+ *
+ * Watches the Accounts entry in the desktop top nav. It used to watch a
+ * "Transactions" link, which named the retired global page — and, being in the
+ * phone's bottom bar by then, was `display: none` at the desktop width these
+ * journeys run at.
+ */
 export async function waitForApp(page: Page): Promise<void> {
-  await expect(page.getByRole('link', { name: /^transactions$/i }).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('link', { name: /^accounts$/i }).first()).toBeVisible({ timeout: 15_000 });
 }

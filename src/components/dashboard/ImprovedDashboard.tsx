@@ -535,8 +535,12 @@ export function ImprovedDashboard() {
                           data={pieData}
                           innerRadius={true}
                           colors={COLORS}
+                          // Straight into that account's register. It used to
+                          // go to the global list filtered to the account,
+                          // which is the same answer one page further away —
+                          // and that page is retired.
                           onClick={(clickedData: AccountDistributionEntry) => {
-                            navigate(preserveDemoParam(`/transactions?account=${clickedData.id}`, location.search));
+                            navigate(preserveDemoParam(`/accounts/${clickedData.id}`, location.search));
                           }}
                           formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
                           contentStyle={chartStyles.pieTooltip}
@@ -550,7 +554,7 @@ export function ImprovedDashboard() {
                         <li key={d.id}>
                           <button
                             type="button"
-                            onClick={() => navigate(preserveDemoParam(`/transactions?account=${d.id}`, location.search))}
+                            onClick={() => navigate(preserveDemoParam(`/accounts/${d.id}`, location.search))}
                             className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
                           >
                             <span

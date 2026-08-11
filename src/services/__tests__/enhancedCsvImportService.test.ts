@@ -51,7 +51,6 @@ describe('EnhancedCsvImportService (deterministic)', () => {
     const existingProfile: ImportProfile = {
       id: 'existing',
       name: 'Existing Profile',
-      type: 'transaction',
       mappings: []
     };
     const storage = createStorage({
@@ -66,7 +65,6 @@ describe('EnhancedCsvImportService (deterministic)', () => {
     const newProfile: ImportProfile = {
       id: 'new-profile',
       name: 'New Profile',
-      type: 'account',
       mappings: []
     };
 
@@ -122,8 +120,8 @@ describe('EnhancedCsvImportService (deterministic)', () => {
     expect(result.success).toBe(1);
     expect(result.failed).toBe(2);
     expect(result.errors).toEqual([
-      { row: 2, error: 'Unreadable date: "invalid-date"' },
-      { row: 3, error: 'No date in this row' }
+      { line: 2, error: 'Unreadable date: "invalid-date"' },
+      { line: 3, error: 'No date in this row' }
     ]);
     // The readable row still lands, still deterministic, still signed.
     expect(result.items[0].id).toBe(`import-${FIXED_NOW}-2-0`);
@@ -152,7 +150,7 @@ describe('EnhancedCsvImportService (deterministic)', () => {
 
     expect(result.success).toBe(0);
     expect(result.items).toHaveLength(0);
-    expect(result.errors).toEqual([{ row: 2, error: 'No amount in this row' }]);
+    expect(result.errors).toEqual([{ line: 2, error: 'No amount in this row' }]);
   });
 
   /**
@@ -413,8 +411,8 @@ describe('EnhancedCsvImportService (deterministic)', () => {
     expect(result.success).toBe(1);
     expect(result.failed).toBe(2);
     expect(result.errors).toEqual([
-      { row: 2, error: expect.stringMatching(/debit\/credit/i) },
-      { row: 3, error: expect.stringMatching(/debit\/credit/i) }
+      { line: 2, error: expect.stringMatching(/debit\/credit/i) },
+      { line: 3, error: expect.stringMatching(/debit\/credit/i) }
     ]);
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({ amount: -3.5, type: 'expense' });
@@ -588,6 +586,40 @@ describe('EnhancedCsvImportService (deterministic)', () => {
       }
     });
 
+    /**
+     * A template that did not say which way round its bank writes dates would
+     * leave the user to answer a question the bank has already answered — and
+     * `undefined` here would mean "nobody thought about this bank", which is
+     * exactly the state a prefill must never be in.
+     */
+    it('has every template declare which way round its bank writes dates', () => {
+      const service = createService();
+
+      for (const template of service.listBankTemplates()) {
+        expect({ template: template.id, format: template.dateFormat }).toEqual({
+          template: template.id,
+          format: expect.stringMatching(/^(DD\/MM\/YYYY|MM\/DD\/YYYY|YYYY-MM-DD)$/)
+        });
+      }
+    });
+
+    it('gives the UK banks day-first and the American ones month-first', () => {
+      // Spot-checked rather than exhaustively asserted: every entry is a guess
+      // about somebody else's export, and the safety is the control the user
+      // can see and the preview that prints the file's own string beside the
+      // parsed one — not this table being eternally right.
+      const service = createService();
+      const format = (id: string) =>
+        service.listBankTemplates().find(template => template.id === id)?.dateFormat;
+
+      expect(format('nationwide')).toBe('DD/MM/YYYY');
+      expect(format('lloyds')).toBe('DD/MM/YYYY');
+      expect(format('chase')).toBe('MM/DD/YYYY');
+      expect(format('wells-fargo')).toBe('MM/DD/YYYY');
+      expect(format('stripe')).toBe('YYYY-MM-DD');
+      expect(format('coinbase')).toBe('YYYY-MM-DD');
+    });
+
     it('has no two templates sharing an id, and no two sharing a label', () => {
       // Two entries reading 'ANZ' is a coin toss presented as a choice.
       const service = createService();
@@ -669,10 +701,14 @@ describe('EnhancedCsvImportService (deterministic)', () => {
   it('auto-detects BOTH halves of a debit/credit statement', () => {
     const service = createService();
 
-    const mappings = service.suggestMappings(
-      ['Date', 'Transaction type', 'Description', 'Paid out', 'Paid in', 'Balance'],
-      'transaction'
-    );
+    const mappings = service.suggestMappings([
+      'Date',
+      'Transaction type',
+      'Description',
+      'Paid out',
+      'Paid in',
+      'Balance'
+    ]);
 
     expect(mappings.filter(m => m.targetField === 'amount').map(m => m.sourceColumn)).toEqual([
       'Paid out',
@@ -685,18 +721,66 @@ describe('EnhancedCsvImportService (deterministic)', () => {
   it('still maps a single signed Amount column when there is no pair', () => {
     const service = createService();
 
-    const mappings = service.suggestMappings(['Date', 'Description', 'Amount'], 'transaction');
+    const mappings = service.suggestMappings(['Date', 'Description', 'Amount']);
 
     expect(mappings.filter(m => m.targetField === 'amount').map(m => m.sourceColumn)).toEqual([
       'Amount'
     ]);
   });
 
+  /**
+   * ONE COLUMN, ONE MEANING.
+   *
+   * "Amount" and "account" are two edits apart — 0.71 on the fuzzy match, over
+   * the 0.6 threshold — so the commonest CSV shape there is had its Amount
+   * column mapped to `amount` AND to `accountName`. Every row then arrived
+   * naming an account called "-4.20", every row was unroutable, and the import
+   * finished with "3 transactions had no account to go into. Their Account
+   * column names -4.20, -52.40, 1200.00". A plain three-column export imported
+   * NOTHING and told the user to go and rename an account.
+   */
+  it('does not claim the Amount column as the account column as well', () => {
+    const service = createService();
+
+    const mappings = service.suggestMappings(['Date', 'Description', 'Amount']);
+
+    expect(mappings.map(m => [m.sourceColumn, m.targetField])).toEqual([
+      ['Date', 'date'],
+      ['Description', 'description'],
+      ['Amount', 'amount']
+    ]);
+  });
+
+  it('still finds a real account column when the file has one', () => {
+    const service = createService();
+
+    const mappings = service.suggestMappings(['Date', 'Description', 'Amount', 'Account']);
+
+    expect(mappings.find(m => m.targetField === 'accountName')?.sourceColumn).toBe('Account');
+  });
+
+  it('gives a plain three-column file rows that can actually be filed', async () => {
+    // The end of the same bug, measured where it hurt: rows carrying an
+    // accountName of "-3.50" cannot be routed anywhere.
+    const service = createService();
+    const csv = 'Date,Description,Amount\n2025-06-01,Coffee,-3.50';
+
+    const result = await service.importTransactions(
+      csv,
+      service.suggestMappings(['Date', 'Description', 'Amount']),
+      [],
+      new Map(),
+      { skipDuplicates: false }
+    );
+
+    expect(result.success).toBe(1);
+    expect(result.items[0]).not.toHaveProperty('accountName');
+  });
+
   describe('saved profiles have a life cycle', () => {
     const profile: ImportProfile = {
       id: 'p-1',
       name: 'Barclays monthly',
-      type: 'transaction',
       mappings: [{ sourceColumn: 'Date', targetField: 'date' }],
       skipDuplicates: true,
       duplicateThreshold: 85
@@ -758,8 +842,8 @@ describe('EnhancedCsvImportService (deterministic)', () => {
         createStorage({
           csvImportProfiles: [
             profile,
-            { id: 'no-mappings', name: 'Broken', type: 'transaction' },
-            { name: 'No id', type: 'transaction', mappings: [] },
+            { id: 'no-mappings', name: 'Broken' },
+            { name: 'No id', mappings: [] },
             'not an object at all',
             null
           ]
@@ -783,6 +867,324 @@ describe('EnhancedCsvImportService (deterministic)', () => {
       );
 
       expect(service.getProfiles()[0].lastUsed).toBeInstanceOf(Date);
+    });
+
+    it('keeps a stored date format, and ignores one it does not recognise', () => {
+      const service = createService(
+        createStorage({
+          csvImportProfiles: [
+            { ...profile, id: 'p-good', dateFormat: 'DD/MM/YYYY' },
+            { ...profile, id: 'p-auto', dateFormat: 'auto' },
+            { ...profile, id: 'p-junk', dateFormat: 'DD.MM.YY-ish' }
+          ]
+        })
+      );
+
+      const stored = service.getProfiles();
+      expect(stored.find(p => p.id === 'p-good')?.dateFormat).toBe('DD/MM/YYYY');
+      // 'auto' is a stored ANSWER too: it means "this file proves its own
+      // format", which is worth knowing next month.
+      expect(stored.find(p => p.id === 'p-auto')?.dateFormat).toBe('auto');
+      // Storage is not a type system. A format this app does not have is
+      // dropped rather than carried into the parse, where it would decide
+      // nothing and be believed anyway.
+      expect(stored.find(p => p.id === 'p-junk')?.dateFormat).toBeUndefined();
+    });
+
+    /**
+     * ── THE PROFILES FOR THE IMPORT THAT NEVER EXISTED ────────────────────────
+     *
+     * A profile marked `type: 'account'` could never have imported anything:
+     * the wizard's account branch was a `// TODO` that wrote nothing, and
+     * latterly a refusal that said so. Its columns name `name`, `balance`,
+     * `institution` — fields no transaction has.
+     *
+     * DECISION: drop them, once, and say so. Coercing one into a transaction
+     * profile would be worse than useless — it would apply zero mappings and
+     * report every column as "not imported by this app", a profile that does
+     * nothing presented as a profile, with no hint of why. Dropping it says
+     * what happened; coercing hides that the app ever offered the thing.
+     */
+    describe('a saved profile for the account import that never existed', () => {
+      const accountProfile = {
+        id: 'p-acc',
+        name: 'Account opening balances',
+        type: 'account',
+        mappings: [
+          { sourceColumn: 'Name', targetField: 'name' },
+          { sourceColumn: 'Balance', targetField: 'balance' }
+        ]
+      };
+
+      it('is dropped rather than coerced into a transaction profile', () => {
+        const service = createService(
+          createStorage({ csvImportProfiles: [accountProfile, profile] })
+        );
+
+        expect(service.getProfiles().map(p => p.id)).toEqual(['p-1']);
+      });
+
+      it('is named, so the removal is not itself a silent change', () => {
+        const service = createService(createStorage({ csvImportProfiles: [accountProfile] }));
+
+        expect(service.consumeDiscardedProfileNotice()).toEqual(['Account opening balances']);
+      });
+
+      it('is said ONCE — reading the notice clears it', () => {
+        // A notice about a one-time migration that reappears on every visit is
+        // noise, and noise is how the notices that matter get ignored.
+        const service = createService(createStorage({ csvImportProfiles: [accountProfile] }));
+
+        expect(service.consumeDiscardedProfileNotice()).toHaveLength(1);
+        expect(service.consumeDiscardedProfileNotice()).toEqual([]);
+      });
+
+      it('is removed from storage, so it is not dropped again on every load', () => {
+        const storage = createStorage({ csvImportProfiles: [accountProfile, profile] });
+        createService(storage);
+
+        const written = JSON.parse(storage.setItem.mock.calls.at(-1)?.[1] ?? 'null');
+        expect(written).toHaveLength(1);
+        expect(written[0].id).toBe('p-1');
+      });
+
+      it('leaves a transaction profile alone, and strips the dead field off it', () => {
+        // Profiles written before the field was dropped still carry
+        // `type: 'transaction'`. They are perfectly good profiles, and the
+        // field must not travel back out to storage on the next save.
+        const storage = createStorage({
+          csvImportProfiles: [{ ...profile, type: 'transaction' }]
+        });
+        const service = createService(storage);
+
+        expect(service.getProfiles()).toHaveLength(1);
+        expect(Object.keys(service.getProfiles()[0])).not.toContain('type');
+      });
+
+      it('writes nothing at all when there was nothing dead to remove', () => {
+        const storage = createStorage({ csvImportProfiles: [profile] });
+        createService(storage);
+
+        expect(storage.setItem).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  /**
+   * ── A FILE WITH A COVERING BLOCK ABOVE ITS TABLE ────────────────────────────
+   * Reading line 1 as the headings gave a file with two columns called
+   * "Account Name:" and "Everyday Current", no date column and no amount
+   * column — and a mapping step offering the user nothing they could use.
+   */
+  describe('where the column headings are', () => {
+    const WITH_PREAMBLE = [
+      'Account Name:,"Everyday Current"',
+      'Statement period:,"01 Jun 2026 to 30 Jun 2026"',
+      '',
+      'Date,Description,Amount',
+      '2026-06-01,Coffee,-3.50',
+      '2026-06-02,Salary,1200.00'
+    ].join('\n');
+
+    it('finds them under the covering block, and reports what it skipped', () => {
+      const parsed = createService().parseCSV(WITH_PREAMBLE);
+
+      expect(parsed.headers).toEqual(['Date', 'Description', 'Amount']);
+      // The blank line counts as a line: the headings are the 3rd record and
+      // the 4th line of the file.
+      expect(parsed.headerLine).toBe(4);
+      expect(parsed.data).toHaveLength(2);
+      expect(parsed.lines).toEqual([5, 6]);
+      expect(parsed.preamble.map(record => record.raw)).toEqual([
+        'Account Name:,"Everyday Current"',
+        'Statement period:,"01 Jun 2026 to 30 Jun 2026"'
+      ]);
+      expect(parsed.headerDetectedBecause).toContain('2 lines above it');
+    });
+
+    it('takes a heading line the caller names instead', () => {
+      const parsed = createService().parseCSV(WITH_PREAMBLE, { headerLine: 1 });
+
+      expect(parsed.headers).toEqual(['Account Name:', 'Everyday Current']);
+      expect(parsed.preamble).toEqual([]);
+      // Nothing was detected, so nothing is explained.
+      expect(parsed.headerDetectedBecause).toBeNull();
+    });
+
+    it('keeps its own answer when the caller names a line no record starts on', () => {
+      // Silently rounding to a neighbouring line would move the whole table by
+      // one row without saying so.
+      const parsed = createService().parseCSV(WITH_PREAMBLE, { headerLine: 99 });
+
+      expect(parsed.headers).toEqual(['Date', 'Description', 'Amount']);
+    });
+
+    it('imports from the named heading line, so preview and write agree', async () => {
+      const service = createService();
+      const result = await service.importTransactions(
+        WITH_PREAMBLE,
+        [
+          { sourceColumn: 'Date', targetField: 'date' },
+          { sourceColumn: 'Description', targetField: 'description' },
+          { sourceColumn: 'Amount', targetField: 'amount' }
+        ],
+        [],
+        new Map(),
+        { skipDuplicates: false }
+      );
+
+      expect(result.success).toBe(2);
+    });
+
+    it('does not disturb a file whose table starts at the top', () => {
+      const parsed = createService().parseCSV('Date,Description,Amount\n2026-06-01,Coffee,-3.50');
+
+      expect(parsed.headerLine).toBe(1);
+      expect(parsed.preamble).toEqual([]);
+      expect(parsed.headerDetectedBecause).toBeNull();
+    });
+  });
+
+  /**
+   * ── A DESCRIPTION WITH A LINE BREAK IN IT ───────────────────────────────────
+   * Split-on-newline turned one transaction into two half-rows — one with no
+   * amount, one with no date, both refused — and the figure that WAS in the
+   * file simply absent from the register.
+   */
+  describe('a quoted field that spans lines', () => {
+    const MULTILINE = [
+      'Date,Description,Amount',
+      '2026-06-01,Coffee,-3.50',
+      '2026-06-02,"Bluebird Garage',
+      'Invoice 4471, parts and labour",-52.40',
+      'not-a-date,Mystery line,-10.00'
+    ].join('\n');
+
+    const mappings: ColumnMapping[] = [
+      { sourceColumn: 'Date', targetField: 'date' },
+      { sourceColumn: 'Description', targetField: 'description' },
+      { sourceColumn: 'Amount', targetField: 'amount' }
+    ];
+
+    it('reads it as one row, keeping the newline and the comma', () => {
+      const parsed = createService().parseCSV(MULTILINE);
+
+      expect(parsed.data).toHaveLength(3);
+      expect(parsed.data[1][1]).toBe('Bluebird Garage\nInvoice 4471, parts and labour');
+      expect(parsed.data[1][2]).toBe('-52.40');
+    });
+
+    /**
+     * THE LINE-NUMBER BOOKKEEPING. `rowIndex + 2` assumes a one-line header and
+     * a one-line row. The third row here is the 3rd record and the 5th LINE, so
+     * the old arithmetic would have sent the reader to line 4 — a row that
+     * imported perfectly well.
+     */
+    it('reports a refusal against the row’s real line in the file', async () => {
+      const result = await createService().importTransactions(
+        MULTILINE,
+        mappings,
+        [],
+        new Map(),
+        { skipDuplicates: false }
+      );
+
+      expect(result.success).toBe(2);
+      expect(result.errors).toEqual([{ line: 5, error: 'Unreadable date: "not-a-date"' }]);
+    });
+
+    it('writes the whole description through the import, not the first line of it', async () => {
+      const result = await createService().importTransactions(
+        MULTILINE,
+        mappings,
+        [],
+        new Map(),
+        { skipDuplicates: false }
+      );
+
+      expect(result.items[1]).toMatchObject({
+        description: 'Bluebird Garage\nInvoice 4471, parts and labour',
+        amount: -52.4
+      });
+    });
+  });
+
+  /**
+   * ── THE DATE FORMAT REACHES THE ROWS ────────────────────────────────────────
+   * The preview and the write must read the same column the same way. They go
+   * through one builder, and the format is an argument to it.
+   */
+  describe('reading a column of slash dates', () => {
+    const csv = 'Date,Description,Amount\n01/06/2026,Coffee,-3.50';
+    const mappings: ColumnMapping[] = [
+      { sourceColumn: 'Date', targetField: 'date' },
+      { sourceColumn: 'Description', targetField: 'description' },
+      { sourceColumn: 'Amount', targetField: 'amount' }
+    ];
+
+    it('reads 01/06/2026 as 1 June under DD/MM/YYYY', async () => {
+      const result = await createService().importTransactions(csv, mappings, [], new Map(), {
+        skipDuplicates: false,
+        dateFormat: 'DD/MM/YYYY'
+      });
+
+      expect(result.items[0].date?.toISOString()).toBe('2026-06-01T00:00:00.000Z');
+    });
+
+    it('reads the same cell as 6 January under MM/DD/YYYY', async () => {
+      const result = await createService().importTransactions(csv, mappings, [], new Map(), {
+        skipDuplicates: false,
+        dateFormat: 'MM/DD/YYYY'
+      });
+
+      expect(result.items[0].date?.toISOString()).toBe('2026-01-06T00:00:00.000Z');
+    });
+
+    it('refuses a 13 in the month position, naming the format and the cure', async () => {
+      const result = await createService().importTransactions(
+        'Date,Description,Amount\n13/06/2026,Coffee,-3.50',
+        mappings,
+        [],
+        new Map(),
+        { skipDuplicates: false, dateFormat: 'MM/DD/YYYY' }
+      );
+
+      expect(result.success).toBe(0);
+      expect(result.errors[0].error).toContain('There is no month 13');
+      expect(result.errors[0].error).toContain('MM/DD/YYYY (month first)');
+      expect(result.errors[0].error).toContain('Choose DD/MM/YYYY');
+    });
+
+    it('builds the preview under the same format the import uses', () => {
+      const service = createService();
+      const parsed = service.parseCSV(csv);
+
+      const preview = service.generatePreview(parsed.headers, parsed.data, mappings, 'DD/MM/YYYY');
+
+      expect(preview.transactions[0].date?.toISOString()).toBe('2026-06-01T00:00:00.000Z');
+    });
+
+    it('hands the date column back with the line each cell sits on', () => {
+      const service = createService();
+      const parsed = service.parseCSV(
+        'Date,Description,Amount\n01/06/2026,Coffee,-3.50\n13/06/2026,Bus,-2.40'
+      );
+
+      expect(
+        service.dateColumnSamples(parsed.headers, parsed.data, mappings, parsed.lines)
+      ).toEqual([
+        { value: '01/06/2026', line: 2 },
+        { value: '13/06/2026', line: 3 }
+      ]);
+    });
+
+    it('hands back nothing when no column is mapped to the date', () => {
+      const service = createService();
+      const parsed = service.parseCSV(csv);
+
+      expect(
+        service.dateColumnSamples(parsed.headers, parsed.data, mappings.slice(1), parsed.lines)
+      ).toEqual([]);
     });
   });
 });

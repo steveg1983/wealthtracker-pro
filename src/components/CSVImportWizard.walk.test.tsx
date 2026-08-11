@@ -90,7 +90,7 @@ describe("the CSV wizard, walked as its owner walked it", () => {
   });
 
   const openWizard = () =>
-    render(<CSVImportWizard isOpen onClose={vi.fn()} type="transaction" />);
+    render(<CSVImportWizard isOpen onClose={vi.fn()} />);
 
   const forwardButton = (): HTMLElement =>
     screen.getByRole('button', { name: /^(Next|Import)/ });
@@ -441,7 +441,7 @@ describe("the CSV wizard, walked as its owner walked it", () => {
       });
       expect(screen.getByText('Imported').parentElement).toHaveTextContent('3');
       expect(screen.getByText('Could not be read').parentElement).toHaveTextContent('2');
-      expect(screen.getByText(/Row 5: Unreadable date: "not-a-date"/)).toBeInTheDocument();
+      expect(screen.getByText(/Line 5: Unreadable date: "not-a-date"/)).toBeInTheDocument();
     });
 
     /**
@@ -491,7 +491,7 @@ describe("the CSV wizard, walked as its owner walked it", () => {
       await waitFor(() => {
         expect(screen.getByRole('option', { name: 'Everyday statement' })).toBeInTheDocument();
       });
-      const saved = enhancedCsvImportService.getProfiles('transaction');
+      const saved = enhancedCsvImportService.getProfiles();
       expect(saved).toHaveLength(1);
       expect(saved[0]).toMatchObject({
         name: 'Everyday statement',
@@ -592,7 +592,6 @@ describe("the CSV wizard, walked as its owner walked it", () => {
       enhancedCsvImportService.saveProfile({
         id: 'p-other-bank',
         name: 'Other bank',
-        type: 'transaction',
         mappings: [
           { sourceColumn: 'Transaction Date', targetField: 'date' },
           { sourceColumn: 'Narrative', targetField: 'description' },
@@ -620,7 +619,6 @@ describe("the CSV wizard, walked as its owner walked it", () => {
       enhancedCsvImportService.saveProfile({
         id: 'p-partial',
         name: 'Partly right',
-        type: 'transaction',
         mappings: [
           { sourceColumn: 'Date', targetField: 'date' },
           { sourceColumn: 'Description', targetField: 'description' },

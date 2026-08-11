@@ -5,7 +5,7 @@ import { preserveDemoParam } from '../../utils/navigation';
 
 const routeLabels: Record<string, string> = {
   dashboard: 'Dashboard',
-  transactions: 'Transactions',
+  find: 'Find',
   accounts: 'Accounts',
   budget: 'Budget',
   goals: 'Goals',

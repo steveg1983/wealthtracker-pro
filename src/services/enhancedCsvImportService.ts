@@ -4,6 +4,16 @@ import { importRulesService } from './importRulesService';
 import type { JsonValue } from '../types/common';
 import { toDecimal, toNumber } from '../utils/decimal';
 import { signTransactionAmount } from '../utils/transactionAmount';
+import { tokenizeCsv, type CsvRecord } from '../utils/csvTokenizer';
+import { detectHeaderRecord, recordIndexAtLine } from '../utils/csvHeaderDetection';
+import {
+  CSV_DATE_FORMATS,
+  parseCsvDateCell,
+  SUGGESTED_AMBIGUOUS_FORMAT,
+  type CsvDateFormat,
+  type CsvDateFormatChoice,
+  type DateFormatSample
+} from '../utils/csvDateFormat';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -14,6 +24,15 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
 // (intesa-sanpaolo profile).
 const OUTFLOW_COLUMN_KEYWORDS = ['debit', 'paid out', 'money out', 'withdrawal', 'dare'];
 const INFLOW_COLUMN_KEYWORDS = ['credit', 'paid in', 'money in', 'deposit', 'avere'];
+
+/**
+ * How many of a file's opening records the heading-row picker offers.
+ *
+ * A bank's covering block is a handful of lines; ten is generous for one and
+ * short enough to read at a glance. It matches the window the detector itself
+ * searches, so the picker can always show the line the detector chose.
+ */
+const HEADING_CANDIDATE_RECORDS = 10;
 
 /**
  * What one CSV row came to: a transaction, or a refusal that says why.
@@ -48,12 +67,29 @@ export interface ColumnMapping {
   transform?: (value: string) => JsonValue;
 }
 
+/**
+ * A set of column choices somebody saved, to use again next month.
+ *
+ * ── THERE IS NO `type` ANY MORE ─────────────────────────────────────────────
+ * This carried `type: 'transaction' | 'account'`, and the account half was
+ * never implemented: the wizard's account branch was a `// TODO` that wrote
+ * nothing, and latterly a refusal that said so out loud. A saved profile
+ * marked 'account' could therefore never have imported anything — it was a
+ * record of a decision the app never honoured. See {@link loadProfiles} for
+ * what happens to one now.
+ */
 export interface ImportProfile {
   id: string;
   name: string;
-  type: 'transaction' | 'account';
   mappings: ColumnMapping[];
-  dateFormat?: string;
+  /**
+   * Which way round the file's dates are, saved WITH the columns because it is
+   * the same decision: the bank that writes 'Paid out' also writes 01/06/2026,
+   * and remembering the columns while forgetting the format is remembering the
+   * easy half. 'auto' is a stored answer too — it means "this file proves its
+   * own format", which is worth knowing next month.
+   */
+  dateFormat?: CsvDateFormatChoice;
   bank?: string;
   lastUsed?: Date;
   /**
@@ -86,9 +122,63 @@ export interface ImportResult {
   duplicates: number;
   items: Array<Partial<Transaction> | Partial<Account>>;
   errors: Array<{
-    row: number;
+    /**
+     * The PHYSICAL line of the file the refused row starts on — the number the
+     * user will see in a text editor.
+     *
+     * It used to be `rowIndex + 2`, an arithmetic guess that a row is a line
+     * and a header is one line long. Both are false the moment a quoted field
+     * contains a newline, and once one row spans three lines every number
+     * after it is wrong by the same growing amount. The tokenizer counts real
+     * lines and hands each record the one it started on.
+     */
+    line: number;
     error: string;
   }>;
+}
+
+/**
+ * A CSV file, read.
+ *
+ * `headers`/`data` are the shape every caller already used. The other four are
+ * the facts that used to be assumed and were sometimes wrong: which physical
+ * line each row starts on, where the headings actually were, what was above
+ * them, and whether the file is well formed at all.
+ */
+export interface ParsedCsv {
+  headers: string[];
+  /** The data rows, header row excluded. */
+  data: string[][];
+  /** `lines[i]` is the physical file line `data[i]` starts on. Same length as `data`. */
+  lines: number[];
+  /** The physical line the heading row was read from. */
+  headerLine: number;
+  /**
+   * The records above the heading row — a bank's covering block.
+   *
+   * Handed back rather than dropped so the mapping step can print them greyed:
+   * a parser that silently skips three lines of somebody's file is indist-
+   * inguishable from one that has misread it.
+   */
+  preamble: CsvRecord[];
+  /**
+   * The file's opening records, whichever one is currently the heading row.
+   *
+   * The mini-preview offers these as the lines the headings could be on, so the
+   * user can move the choice in either direction — including back UP, when
+   * detection has skipped a line that was really data. A picker that could only
+   * show what had already been skipped could not undo an over-eager detection.
+   */
+  headingCandidates: CsvRecord[];
+  /** Why the heading row was taken from where it was, when it was not line 1. */
+  headerDetectedBecause: string | null;
+  /**
+   * The line a quote was opened on and never closed.
+   *
+   * Not a warning: everything after it has been swallowed into one cell, so the
+   * rows below are missing rather than wrong. The caller refuses the file.
+   */
+  unterminatedQuoteLine: number | null;
 }
 
 /**
@@ -121,6 +211,20 @@ export interface BankTemplate {
    * a bank can change its export at any time and this app will not have heard.
    */
   mappings: ColumnMapping[];
+  /**
+   * Which way round this bank writes its dates.
+   *
+   * A bank knows its own format: a UK high-street export is DD/MM, an American
+   * one is MM/DD, and an app exporter (Monzo, Starling, Wise, the exchanges)
+   * ships ISO. Carrying it here means picking your bank answers the question
+   * that a file of nothing but early-month dates cannot answer for itself.
+   *
+   * EVERY template declares one, and a test holds that. Undefined would mean
+   * "we did not think about this bank", which is exactly the state a prefill
+   * must never be in — and the value is a PREFILL of the control, so a bank
+   * that has since changed is corrected in one click rather than argued with.
+   */
+  dateFormat: CsvDateFormat;
 }
 
 export type BankTemplateRegion =
@@ -161,6 +265,14 @@ export const BANK_TEMPLATE_REGIONS: readonly BankTemplateRegion[] = [
  * Where two formats of the same bank exist, both are listed and the label says
  * what distinguishes them — one entry silently shadowing the other is how a
  * user concludes the feature is broken.
+ *
+ * The same caveat covers `dateFormat`, and it is the one that matters most: a
+ * template that names the wrong way round would transpose the first twelve days
+ * of every month. It is therefore a PREFILL of a control the user can see and
+ * change, sitting next to a preview that prints the file's own date string
+ * beside the parsed one — and where the FILE proves a different format (a 13th
+ * anywhere in the column), the mapping step says so rather than letting the
+ * template win by default.
  */
 const BANK_TEMPLATES: readonly BankTemplate[] = [
   // ── UK ────────────────────────────────────────────────────────────────────
@@ -168,6 +280,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'barclays',
     label: 'Barclays',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -183,6 +296,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'hsbc',
     label: 'HSBC UK',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -193,6 +307,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'lloyds',
     label: 'Lloyds Bank',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Transaction Date', targetField: 'date' },
       { sourceColumn: 'Transaction Description', targetField: 'description' },
@@ -205,6 +320,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'natwest',
     label: 'NatWest',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Type', targetField: 'category' },
@@ -217,6 +333,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'santander',
     label: 'Santander UK',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -228,6 +345,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'halifax',
     label: 'Halifax',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Transaction Date', targetField: 'date' },
       { sourceColumn: 'Transaction Description', targetField: 'description' },
@@ -240,6 +358,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'rbs',
     label: 'Royal Bank of Scotland',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Type', targetField: 'category' },
@@ -252,6 +371,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'tsb',
     label: 'TSB',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Transaction Type', targetField: 'category' },
@@ -265,6 +385,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'first-direct',
     label: 'first direct',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -276,6 +397,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'co-op',
     label: 'The Co-operative Bank',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Narrative', targetField: 'description' },
@@ -288,6 +410,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'virgin',
     label: 'Virgin Money',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -300,6 +423,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'tesco',
     label: 'Tesco Bank',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -312,6 +436,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'metro',
     label: 'Metro Bank',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Transaction', targetField: 'description' },
@@ -324,6 +449,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'nationwide',
     label: 'Nationwide Building Society',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Transaction type', targetField: 'category' },
@@ -337,6 +463,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'yorkshire',
     label: 'Yorkshire Building Society',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -349,6 +476,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'coventry',
     label: 'Coventry Building Society',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Transaction Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -361,6 +489,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'skipton',
     label: 'Skipton Building Society',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Transaction Description', targetField: 'description' },
@@ -373,6 +502,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'monzo',
     label: 'Monzo',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       // Monzo ships both: 'Name' is the payee, 'Description' the raw bank
@@ -388,6 +518,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'starling',
     label: 'Starling Bank',
     region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Counter Party', targetField: 'description' },
@@ -401,6 +532,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'revolut',
     label: 'Revolut',
     region: 'UK',
+    dateFormat: 'YYYY-MM-DD',
     mappings: [
       { sourceColumn: 'Started Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -415,6 +547,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'deutsche-bank',
     label: 'Deutsche Bank',
     region: 'Europe',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Booking date', targetField: 'date' },
       { sourceColumn: 'Transaction Description', targetField: 'description' },
@@ -427,6 +560,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'bnp-paribas',
     label: 'BNP Paribas',
     region: 'Europe',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Label', targetField: 'description' },
@@ -439,6 +573,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'credit-agricole',
     label: 'Crédit Agricole',
     region: 'Europe',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date Operation', targetField: 'date' },
       { sourceColumn: 'Libelle', targetField: 'description' },
@@ -450,6 +585,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'societe-generale',
     label: 'Société Générale',
     region: 'Europe',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Libelle', targetField: 'description' },
@@ -462,6 +598,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'ing',
     label: 'ING (Debit/Credit columns)',
     region: 'Europe',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -474,6 +611,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'ing-bank',
     label: 'ING (single Amount column)',
     region: 'Europe',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -485,6 +623,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'abn-amro',
     label: 'ABN AMRO',
     region: 'Europe',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -496,6 +635,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'rabobank',
     label: 'Rabobank',
     region: 'Europe',
+    dateFormat: 'YYYY-MM-DD',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -507,6 +647,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'unicredit',
     label: 'UniCredit',
     region: 'Europe',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Data', targetField: 'date' },
       { sourceColumn: 'Descrizione', targetField: 'description' },
@@ -518,6 +659,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'intesa-sanpaolo',
     label: 'Intesa Sanpaolo',
     region: 'Europe',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Data', targetField: 'date' },
       { sourceColumn: 'Causale', targetField: 'description' },
@@ -532,6 +674,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'chase',
     label: 'Chase (credit card export)',
     region: 'North America',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'Transaction Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -544,6 +687,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'chase-checking',
     label: 'Chase (checking export)',
     region: 'North America',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       // The checking export dates its rows 'Posting Date', not 'Transaction
       // Date' — the credit-card template above matches nothing on it, which is
@@ -558,6 +702,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'bank-of-america',
     label: 'Bank of America',
     region: 'North America',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -569,6 +714,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'wells-fargo',
     label: 'Wells Fargo',
     region: 'North America',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -581,6 +727,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'citibank',
     label: 'Citi',
     region: 'North America',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -593,6 +740,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'td-bank',
     label: 'TD Bank (US)',
     region: 'North America',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'DATE', targetField: 'date' },
       { sourceColumn: 'DESCRIPTION', targetField: 'description' },
@@ -605,6 +753,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'rbc-royal-bank',
     label: 'RBC Royal Bank',
     region: 'North America',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'Transaction Date', targetField: 'date' },
       { sourceColumn: 'Description 1', targetField: 'description' },
@@ -616,6 +765,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'td-canada-trust',
     label: 'TD Canada Trust',
     region: 'North America',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -628,6 +778,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'scotiabank',
     label: 'Scotiabank',
     region: 'North America',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -640,6 +791,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'bmo-bank-of-montreal',
     label: 'BMO Bank of Montreal',
     region: 'North America',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -654,6 +806,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'dbs-bank',
     label: 'DBS Bank',
     region: 'Asia-Pacific',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Transaction Date', targetField: 'date' },
       { sourceColumn: 'Transaction Description', targetField: 'description' },
@@ -666,6 +819,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'ocbc-bank',
     label: 'OCBC Bank',
     region: 'Asia-Pacific',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Transaction Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -678,6 +832,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'uob-bank',
     label: 'UOB',
     region: 'Asia-Pacific',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Transaction Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -690,6 +845,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'icbc',
     label: 'ICBC',
     region: 'Asia-Pacific',
+    dateFormat: 'YYYY-MM-DD',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -701,6 +857,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'hsbc-asia',
     label: 'HSBC (Asia)',
     region: 'Asia-Pacific',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Transaction Date', targetField: 'date' },
       { sourceColumn: 'Transaction Description', targetField: 'description' },
@@ -713,6 +870,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'anz',
     label: 'ANZ (Transaction Date column)',
     region: 'Asia-Pacific',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Transaction Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -725,6 +883,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'anz-bank',
     label: 'ANZ (Date column)',
     region: 'Asia-Pacific',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -737,6 +896,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'commonwealth',
     label: 'Commonwealth Bank (Debit/Credit columns)',
     region: 'Asia-Pacific',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -749,6 +909,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'commonwealth-bank',
     label: 'Commonwealth Bank (Debit Amount/Credit Amount columns)',
     region: 'Asia-Pacific',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -761,6 +922,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'westpac',
     label: 'Westpac',
     region: 'Asia-Pacific',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Narrative', targetField: 'description' },
@@ -773,6 +935,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'nab',
     label: 'NAB (Transaction Details column)',
     region: 'Asia-Pacific',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Transaction Details', targetField: 'description' },
@@ -785,6 +948,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'nab-bank',
     label: 'NAB (Description column)',
     region: 'Asia-Pacific',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -799,6 +963,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'paypal',
     label: 'PayPal',
     region: 'Payments',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Name', targetField: 'description' },
@@ -811,6 +976,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'wise',
     label: 'Wise',
     region: 'Payments',
+    dateFormat: 'DD/MM/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -823,6 +989,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'stripe',
     label: 'Stripe',
     region: 'Payments',
+    dateFormat: 'YYYY-MM-DD',
     mappings: [
       { sourceColumn: 'Created (UTC)', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -837,6 +1004,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'coinbase',
     label: 'Coinbase',
     region: 'Crypto',
+    dateFormat: 'YYYY-MM-DD',
     mappings: [
       { sourceColumn: 'Timestamp', targetField: 'date' },
       { sourceColumn: 'Transaction Type', targetField: 'description' },
@@ -849,6 +1017,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'binance',
     label: 'Binance',
     region: 'Crypto',
+    dateFormat: 'YYYY-MM-DD',
     mappings: [
       { sourceColumn: 'Date(UTC)', targetField: 'date' },
       { sourceColumn: 'Market', targetField: 'description' },
@@ -861,6 +1030,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'kraken',
     label: 'Kraken',
     region: 'Crypto',
+    dateFormat: 'YYYY-MM-DD',
     mappings: [
       { sourceColumn: 'time', targetField: 'date' },
       { sourceColumn: 'type', targetField: 'description' },
@@ -875,6 +1045,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'vanguard',
     label: 'Vanguard',
     region: 'Investments',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'Trade Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -888,6 +1059,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'fidelity',
     label: 'Fidelity',
     region: 'Investments',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'Run Date', targetField: 'date' },
       { sourceColumn: 'Action', targetField: 'description' },
@@ -901,6 +1073,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'charles-schwab',
     label: 'Charles Schwab',
     region: 'Investments',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Action', targetField: 'description' },
@@ -914,6 +1087,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'etrade',
     label: 'E*TRADE',
     region: 'Investments',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'TransactionDate', targetField: 'date' },
       { sourceColumn: 'TransactionType', targetField: 'description' },
@@ -929,6 +1103,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'quickbooks',
     label: 'QuickBooks',
     region: 'Accounting apps',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -940,6 +1115,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'mint',
     label: 'Mint',
     region: 'Accounting apps',
+    dateFormat: 'MM/DD/YYYY',
     mappings: [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -952,6 +1128,7 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
     id: 'wave',
     label: 'Wave',
     region: 'Accounting apps',
+    dateFormat: 'YYYY-MM-DD',
     mappings: [
       { sourceColumn: 'Transaction Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -997,10 +1174,17 @@ export const REQUIRED_TRANSACTION_FIELDS: readonly string[] = ['date', 'descript
 
 /**
  * A profile as it comes BACK from storage, where a Date has been through JSON
- * and is a string again. Kept separate from {@link ImportProfile} so the
- * difference is stated rather than assumed away.
+ * and is a string again, and where a field this app has since dropped may still
+ * be present. Kept separate from {@link ImportProfile} so the difference is
+ * stated rather than assumed away.
  */
-type StoredProfile = Omit<ImportProfile, 'lastUsed'> & { lastUsed?: string | number | Date };
+type StoredProfile = Omit<ImportProfile, 'lastUsed' | 'dateFormat'> & {
+  lastUsed?: string | number | Date;
+  /** Unvalidated: storage is not a type system, so this is narrowed on load. */
+  dateFormat?: unknown;
+  /** Written by versions that offered an account import. See isDeadAccountProfile. */
+  type?: unknown;
+};
 
 const isColumnMapping = (value: unknown): value is ColumnMapping => {
   if (typeof value !== 'object' || value === null) return false;
@@ -1013,9 +1197,29 @@ const isImportProfile = (value: unknown): value is StoredProfile => {
   if (typeof value !== 'object' || value === null) return false;
   const candidate: Record<string, unknown> = { ...value };
   if (typeof candidate.id !== 'string' || typeof candidate.name !== 'string') return false;
-  if (candidate.type !== 'transaction' && candidate.type !== 'account') return false;
+  // `type` is NOT required any more, and must not be: profiles written before
+  // it was dropped still have it, and profiles written after it never will.
+  // Requiring either shape would throw away half the user's saved work on the
+  // release that changed it.
   return Array.isArray(candidate.mappings) && candidate.mappings.every(isColumnMapping);
 };
+
+/**
+ * Was this stored profile for the account import that never existed?
+ *
+ * The wizard's account branch wrote nothing — first a `// TODO`, later a
+ * refusal that said so. Its mappings point at `name`, `balance`, `institution`:
+ * fields no transaction has. So one of these is not a profile that has stopped
+ * working; it is a profile that never worked.
+ */
+const isDeadAccountProfile = (value: StoredProfile): boolean => {
+  const candidate: Record<string, unknown> = { ...value };
+  return candidate.type === 'account';
+};
+
+/** A stored dateFormat is only honoured if it is one this app actually has. */
+const isStoredDateFormat = (value: unknown): value is CsvDateFormatChoice =>
+  value === 'auto' || CSV_DATE_FORMATS.some(format => format === value);
 
 const toDate = (value: string | number | Date): Date =>
   value instanceof Date ? value : new Date(value);
@@ -1028,6 +1232,8 @@ export class EnhancedCsvImportService {
   private readonly categorizationService: CategorizationServiceLike;
   private readonly rulesService: ImportRulesServiceLike;
   private idCounter = 0;
+  /** Names of dead account profiles dropped on load; see consumeDiscardedProfileNotice. */
+  private discardedProfileNames: string[] = [];
 
   constructor(options: EnhancedCsvImportServiceOptions = {}) {
     this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
@@ -1043,196 +1249,240 @@ export class EnhancedCsvImportService {
     this.profiles = this.loadProfiles();
   }
 
-  private createDate(offsetMs = 0): Date {
-    return new Date(this.nowProvider() + offsetMs);
-  }
-
-  private getCurrentDateString(): string {
-    return this.createDate().toISOString().split('T')[0];
-  }
+  // `createDate` and `getCurrentDateString` used to live here. They existed for
+  // ONE caller: the date parser's fallback, which put TODAY on a row whose date
+  // cell it could not read. That fallback is gone — a statement line silently
+  // redated to today reconciles against nothing and is not where anybody will
+  // look for it — and with it the only reason this service ever needed to know
+  // what day it is. `nowProvider` remains for the deterministic import ids.
 
   private createId(prefix: string, index: number): string {
     return `${prefix}-${this.nowProvider()}-${index}-${this.idCounter++}`;
   }
 
   /**
-   * Parse CSV with intelligent header detection
+   * Read a CSV file into its heading row and its data rows.
+   *
+   * ── THE SPLIT-ON-NEWLINE PARSER IS GONE ─────────────────────────────────────
+   * This used to cut the file on '\n' and only then look for quotes, which
+   * loses a transaction every time a description contains a line break — a
+   * quoted multi-line memo became two half-rows, both then reported as
+   * unreadable, with the amount that WAS in the file simply absent. Tokenizing
+   * is the only way round that, and it is also what makes the line numbers in
+   * every refusal mean physical lines rather than an index plus two.
+   *
+   * ── AND THE HEADINGS ARE NOT ASSUMED TO BE ON LINE 1 ────────────────────────
+   * Plenty of banks put a covering block above the table. `headerLine` lets the
+   * caller say where the headings really are; left out, they are detected (see
+   * csvHeaderDetection) and the lines above them are handed back as `preamble`
+   * so the user can see what is being ignored and move the choice.
    */
-  parseCSV(content: string): { headers: string[]; data: string[][] } {
-    // A BLANK LINE IS NOT A ROW. Files that end with one, or that separate
-    // months with one, produced an empty row apiece — counted as a row in the
-    // preview and reported afterwards as a row that could not be read, which is
-    // an error report about nothing. Dropped here, in the one parse both the
-    // preview and the import go through, so the two cannot disagree about how
-    // many rows the file has. ('\r' is what a Windows line ending leaves behind
-    // after the split, so it is trimmed before the test.)
-    const lines = content.trim().split('\n').filter(line => line.trim() !== '');
-    const rows: string[][] = [];
+  parseCSV(content: string, options: { headerLine?: number } = {}): ParsedCsv {
+    const { records, unterminatedQuoteLine } = tokenizeCsv(content);
 
-    for (const line of lines) {
-      const row: string[] = [];
-      let current = '';
-      let inQuotes = false;
-      
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        const nextChar = line[i + 1];
-        
-        if (char === '"') {
-          if (inQuotes && nextChar === '"') {
-            current += '"';
-            i++;
-          } else {
-            inQuotes = !inQuotes;
-          }
-        } else if ((char === ',' || char === '\t' || char === ';') && !inQuotes) {
-          row.push(current.trim());
-          current = '';
-        } else {
-          current += char;
-        }
-      }
-      
-      row.push(current.trim());
-      rows.push(row);
+    if (records.length === 0) {
+      return {
+        headers: [],
+        data: [],
+        lines: [],
+        headerLine: 1,
+        preamble: [],
+        headingCandidates: [],
+        headerDetectedBecause: null,
+        unterminatedQuoteLine
+      };
     }
-    
-    // Detect headers (first row with text content)
-    const headers = rows[0] || [];
-    const data = rows.slice(1);
-    
-    return { headers, data };
+
+    const detected = detectHeaderRecord(records);
+    const chosenIndex =
+      options.headerLine === undefined
+        ? detected.recordIndex
+        : // A line the user pointed at that holds no record is not honoured
+          // silently: the detection stands, and the mini-preview goes on
+          // showing which line IS being used.
+          recordIndexAtLine(records, options.headerLine) ?? detected.recordIndex;
+
+    const headerRecord = records[chosenIndex];
+    const dataRecords = records.slice(chosenIndex + 1);
+
+    return {
+      headers: headerRecord.cells,
+      data: dataRecords.map(record => record.cells),
+      lines: dataRecords.map(record => record.line),
+      headerLine: headerRecord.line,
+      preamble: records.slice(0, chosenIndex),
+      headingCandidates: records.slice(0, Math.max(HEADING_CANDIDATE_RECORDS, chosenIndex + 1)),
+      headerDetectedBecause: options.headerLine === undefined ? detected.because : null,
+      unterminatedQuoteLine
+    };
   }
 
   /**
-   * Smart column mapping using fuzzy matching
+   * The date column's cells, each with the file line it sits on, for working
+   * out which way round the file writes its dates.
+   *
+   * Lives here rather than in the wizard because resolving a mapping to a
+   * column index is this service's job, and a second implementation of it in
+   * the component is a second thing to get wrong.
    */
-  suggestMappings(headers: string[], type: 'transaction' | 'account'): ColumnMapping[] {
+  dateColumnSamples(
+    headers: string[],
+    rows: string[][],
+    mappings: ColumnMapping[],
+    lines: number[]
+  ): DateFormatSample[] {
+    const mapping = mappings.find(entry => entry.targetField === 'date');
+    if (!mapping) return [];
+    const index = headers.indexOf(mapping.sourceColumn);
+    if (index < 0) return [];
+    return rows.map((row, rowIndex) => ({
+      value: row[index] ?? '',
+      line: lines[rowIndex] ?? rowIndex + 2
+    }));
+  }
+
+  /**
+   * Smart column mapping using fuzzy matching.
+   *
+   * Transactions only. It used to branch on a `type` argument and, in the
+   * 'account' half, suggest name/balance/type columns for an account import
+   * that never existed — the wizard's account branch wrote nothing at all. A
+   * suggestion for a thing that cannot happen is the same dead control as a
+   * button that does nothing.
+   */
+  suggestMappings(headers: string[]): ColumnMapping[] {
     const mappings: ColumnMapping[] = [];
     const normalizedHeaders = headers.map(h => h.toLowerCase().trim());
-    
-    if (type === 'transaction') {
-      // Date mapping
-      const datePatterns = ['date', 'transaction date', 'posted', 'trans date', 'value date'];
-      const dateIndex = this.findBestMatch(normalizedHeaders, datePatterns);
-      if (dateIndex >= 0) {
-        mappings.push({
-          sourceColumn: headers[dateIndex],
-          targetField: 'date',
-          transform: (value: string) => this.parseDate(value)
-        });
-      }
-      
-      // Description mapping
-      const descPatterns = ['description', 'desc', 'memo', 'details', 'transaction'];
-      const descIndex = this.findBestMatch(normalizedHeaders, descPatterns);
-      if (descIndex >= 0) {
-        mappings.push({
-          sourceColumn: headers[descIndex],
-          targetField: 'description'
-        });
-      }
-      
-      // Amount mapping.
-      //
-      // BOTH HALVES OF A TWO-COLUMN FORMAT, NOT THE BETTER-SPELT ONE. Most UK
-      // banks ship money-out and money-in as separate columns. The old
-      // single-best-match picked whichever of "Paid out" / "Paid in" scored
-      // higher and dropped the other, so on a Lloyds or Nationwide statement
-      // every credit row — wages, refunds, transfers in — came through with no
-      // usable amount and was skipped. The same keywords the row builder uses
-      // to classify a column are used to find them, so detection and
-      // interpretation cannot disagree.
-      const directionalIndices = headers
-        .map((header, index) => ({ header, index }))
-        // A column already claimed as the date or the payee is not an amount,
-        // however it is spelt — "Deposit Date" holds a date, and reading it as
-        // money would put an unparseable figure on the row.
-        .filter(({ index }) => index !== dateIndex && index !== descIndex)
-        .filter(({ header }) => this.classifyAmountColumn(header) !== 'signed')
-        .map(({ index }) => index);
 
-      if (directionalIndices.length > 0) {
-        for (const index of directionalIndices) {
-          mappings.push({
-            sourceColumn: headers[index],
-            targetField: 'amount',
-            transform: (value: string) => this.parseAmount(value)
-          });
-        }
-      } else {
-        const amountPatterns = ['amount', 'value', 'charge'];
-        const amountIndex = this.findBestMatch(normalizedHeaders, amountPatterns);
-        if (amountIndex >= 0) {
-          mappings.push({
-            sourceColumn: headers[amountIndex],
-            targetField: 'amount',
-            transform: (value: string) => this.parseAmount(value)
-          });
-        }
-      }
+    /**
+     * ── ONE COLUMN, ONE MEANING ────────────────────────────────────────────
+     * Every column claimed so far, so nothing can be claimed twice.
+     *
+     * "Amount" and "account" are two edits apart, which scores 0.71 on the
+     * fuzzy match — over the 0.6 threshold. So on the commonest CSV shape there
+     * is, Date/Description/Amount with no account column at all, the Amount
+     * column was mapped to `amount` AND to `accountName`. Every row then
+     * arrived naming an account called "-4.20", every row was unroutable, and
+     * the import finished with "3 transactions had no account to go into —
+     * their Account column names -4.20, -52.40, 1200.00". A plain three-column
+     * export imported NOTHING, and told the user to go and rename an account.
+     *
+     * The amount search already excluded the date and payee columns for exactly
+     * this reason ("Deposit Date" holds a date, not money). The rule was right;
+     * it was only applied to one of the four searches.
+     */
+    const claimed = new Set<number>();
 
-      // Category mapping
-      const categoryPatterns = ['category', 'cat', 'type', 'classification'];
-      const categoryIndex = this.findBestMatch(normalizedHeaders, categoryPatterns);
-      if (categoryIndex >= 0) {
+    // Date mapping.
+    //
+    // NO TRANSFORM. It used to carry `value => this.parseDate(value)`, a
+    // closure that defaulted an unreadable cell to TODAY because its return
+    // type had no way to say "no". The row builder has always ignored it and
+    // resolved the raw cell itself so a failure could be reported as one; the
+    // closure survived as a loaded gun pointed at any future caller that
+    // trusted it. Now the date column is read in exactly one place, under a
+    // format the user can see.
+    const datePatterns = ['date', 'transaction date', 'posted', 'trans date', 'value date'];
+    const dateIndex = this.findBestMatch(normalizedHeaders, datePatterns, claimed);
+    if (dateIndex >= 0) {
+      claimed.add(dateIndex);
+      mappings.push({
+        sourceColumn: headers[dateIndex],
+        targetField: 'date'
+      });
+    }
+
+    // Description mapping
+    const descPatterns = ['description', 'desc', 'memo', 'details', 'transaction'];
+    const descIndex = this.findBestMatch(normalizedHeaders, descPatterns, claimed);
+    if (descIndex >= 0) {
+      claimed.add(descIndex);
+      mappings.push({
+        sourceColumn: headers[descIndex],
+        targetField: 'description'
+      });
+    }
+
+    // Amount mapping.
+    //
+    // BOTH HALVES OF A TWO-COLUMN FORMAT, NOT THE BETTER-SPELT ONE. Most UK
+    // banks ship money-out and money-in as separate columns. The old
+    // single-best-match picked whichever of "Paid out" / "Paid in" scored
+    // higher and dropped the other, so on a Lloyds or Nationwide statement
+    // every credit row — wages, refunds, transfers in — came through with no
+    // usable amount and was skipped. The same keywords the row builder uses
+    // to classify a column are used to find them, so detection and
+    // interpretation cannot disagree.
+    const directionalIndices = headers
+      .map((header, index) => ({ header, index }))
+      // A column already claimed as the date or the payee is not an amount,
+      // however it is spelt — "Deposit Date" holds a date, and reading it as
+      // money would put an unparseable figure on the row.
+      .filter(({ index }) => !claimed.has(index))
+      .filter(({ header }) => this.classifyAmountColumn(header) !== 'signed')
+      .map(({ index }) => index);
+
+    if (directionalIndices.length > 0) {
+      for (const index of directionalIndices) {
+        claimed.add(index);
         mappings.push({
-          sourceColumn: headers[categoryIndex],
-          targetField: 'category'
-        });
-      }
-      
-      // Account mapping
-      const accountPatterns = ['account', 'acc', 'account name', 'from account'];
-      const accountIndex = this.findBestMatch(normalizedHeaders, accountPatterns);
-      if (accountIndex >= 0) {
-        mappings.push({
-          sourceColumn: headers[accountIndex],
-          targetField: 'accountName'
-        });
-      }
-    } else {
-      // Account mappings
-      const namePatterns = ['name', 'account name', 'account', 'description'];
-      const nameIndex = this.findBestMatch(normalizedHeaders, namePatterns);
-      if (nameIndex >= 0) {
-        mappings.push({
-          sourceColumn: headers[nameIndex],
-          targetField: 'name'
-        });
-      }
-      
-      const balancePatterns = ['balance', 'current balance', 'amount', 'value'];
-      const balanceIndex = this.findBestMatch(normalizedHeaders, balancePatterns);
-      if (balanceIndex >= 0) {
-        mappings.push({
-          sourceColumn: headers[balanceIndex],
-          targetField: 'balance',
+          sourceColumn: headers[index],
+          targetField: 'amount',
           transform: (value: string) => this.parseAmount(value)
         });
       }
-      
-      const typePatterns = ['type', 'account type', 'category'];
-      const typeIndex = this.findBestMatch(normalizedHeaders, typePatterns);
-      if (typeIndex >= 0) {
+    } else {
+      const amountPatterns = ['amount', 'value', 'charge'];
+      const amountIndex = this.findBestMatch(normalizedHeaders, amountPatterns, claimed);
+      if (amountIndex >= 0) {
+        claimed.add(amountIndex);
         mappings.push({
-          sourceColumn: headers[typeIndex],
-          targetField: 'type'
+          sourceColumn: headers[amountIndex],
+          targetField: 'amount',
+          transform: (value: string) => this.parseAmount(value)
         });
       }
     }
-    
+
+    // Category mapping
+    const categoryPatterns = ['category', 'cat', 'type', 'classification'];
+    const categoryIndex = this.findBestMatch(normalizedHeaders, categoryPatterns, claimed);
+    if (categoryIndex >= 0) {
+      claimed.add(categoryIndex);
+      mappings.push({
+        sourceColumn: headers[categoryIndex],
+        targetField: 'category'
+      });
+    }
+
+    // Account mapping
+    const accountPatterns = ['account', 'acc', 'account name', 'from account'];
+    const accountIndex = this.findBestMatch(normalizedHeaders, accountPatterns, claimed);
+    if (accountIndex >= 0) {
+      claimed.add(accountIndex);
+      mappings.push({
+        sourceColumn: headers[accountIndex],
+        targetField: 'accountName'
+      });
+    }
+
     return mappings;
   }
 
   /**
-   * Find best matching header using fuzzy search
+   * Find best matching header using fuzzy search, skipping columns another
+   * field has already claimed.
    */
-  private findBestMatch(headers: string[], patterns: string[]): number {
+  private findBestMatch(
+    headers: string[],
+    patterns: string[],
+    claimed: ReadonlySet<number> = new Set()
+  ): number {
     let bestIndex = -1;
     let bestScore = 0;
-    
+
     for (let i = 0; i < headers.length; i++) {
+      if (claimed.has(i)) continue;
       const header = headers[i];
       for (const pattern of patterns) {
         const score = this.calculateSimilarity(header, pattern.toLowerCase());
@@ -1288,73 +1538,6 @@ export class EnhancedCsvImportService {
     }
     
     return matrix[str2.length][str1.length];
-  }
-
-  /**
-   * Parse date with multiple format support
-   */
-  private parseDate(value: string): string {
-    const parsed = this.tryParseDate(value);
-    if (parsed !== null) return parsed;
-
-    // Default to today if parsing fails.
-    //
-    // KEPT ONLY FOR THE TRANSFORM CLOSURES suggestMappings hands out, which are
-    // typed to return a value and have no way to say "no". The IMPORT no longer
-    // travels this road: buildTransactionFromRow calls tryParseDate and refuses
-    // the row, because a statement line silently redated to today is a
-    // transaction that reconciles against nothing and that nobody can find by
-    // looking where it should be.
-    this.logger.warn(`Cannot parse date: ${value}, using today's date`);
-    return this.getCurrentDateString();
-  }
-
-  /**
-   * A date cell as an ISO day, or null when the cell says nothing this app can
-   * read. Null is the honest answer and the caller must handle it.
-   */
-  private tryParseDate(value: string): string | null {
-    const trimmed = value.trim();
-    // An empty cell is not a date and never was. It used to reach the import as
-    // "no date at all", and the wizard turned that into `new Date('undefined')`
-    // — a row written with an Invalid Date, which no register can sort and no
-    // reconciliation can find.
-    if (!trimmed) return null;
-
-    // First, try standard Date parsing
-    let date = new Date(trimmed);
-    if (!isNaN(date.getTime())) {
-      return date.toISOString().split('T')[0];
-    }
-
-    // Try DD/MM/YYYY format (common in UK)
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
-      const [day, month, year] = trimmed.split('/');
-      date = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
-      if (!isNaN(date.getTime())) {
-        return date.toISOString().split('T')[0];
-      }
-    }
-
-    // Try DD-MM-YYYY format
-    if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
-      const [day, month, year] = trimmed.split('-');
-      date = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
-      if (!isNaN(date.getTime())) {
-        return date.toISOString().split('T')[0];
-      }
-    }
-
-    // Try MM/DD/YYYY format (US format)
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
-      const [month, day, year] = trimmed.split('/');
-      date = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
-      if (!isNaN(date.getTime())) {
-        return date.toISOString().split('T')[0];
-      }
-    }
-
-    return null;
   }
 
   /**
@@ -1418,7 +1601,8 @@ export class EnhancedCsvImportService {
   private buildTransactionFromRow(
     row: string[],
     mappings: ColumnMapping[],
-    columnIndices: Map<string, number>
+    columnIndices: Map<string, number>,
+    dateFormat: CsvDateFormat
   ): RowBuildResult {
     const transaction: Partial<Transaction> = {
       type: 'expense', // Default
@@ -1538,16 +1722,16 @@ export class EnhancedCsvImportService {
     // COUNTED and NAMED by both callers: the preview shows them as skipped
     // before anything is written, and the result step lists them by row number.
     if (hasDateMapping) {
-      const isoDate = dateCell === null ? null : this.tryParseDate(dateCell);
-      if (isoDate === null) {
-        return {
-          ok: false,
-          error: dateCell
-            ? `Unreadable date: "${dateCell}"`
-            : 'No date in this row'
-        };
+      // ONE FORMAT, APPLIED TO EVERY CELL, AND NAMED WHEN IT REFUSES. The
+      // refusal is the format's own words — "There is no month 13 — '13/06/2026'
+      // is being read as MM/DD/YYYY (month first)" — because the row is not
+      // broken, the setting is, and a message that does not say so sends the
+      // user off to correct their bank's export.
+      const parsed = parseCsvDateCell(dateCell ?? '', dateFormat);
+      if (!parsed.ok) {
+        return { ok: false, error: parsed.reason };
       }
-      transaction.date = new Date(isoDate);
+      transaction.date = new Date(parsed.iso);
     }
 
     if (transaction.amount === undefined) {
@@ -1623,9 +1807,19 @@ export class EnhancedCsvImportService {
       categories?: Category[];
       autoCategorize?: boolean;
       categoryConfidenceThreshold?: number;
+      /**
+       * Which way round this file's dates are. The wizard has already resolved
+       * it — from the file's own evidence, from a bank template, or from the
+       * user — and passes the ANSWER, so the preview and the write cannot read
+       * the same column two different ways.
+       */
+      dateFormat?: CsvDateFormat;
+      /** Where the heading row is, when it is not where detection put it. */
+      headerLine?: number;
     } = {}
   ): Promise<ImportResult> {
-    const { headers, data } = this.parseCSV(csvContent);
+    const { headers, data, lines } = this.parseCSV(csvContent, { headerLine: options.headerLine });
+    const dateFormat = options.dateFormat ?? SUGGESTED_AMBIGUOUS_FORMAT;
     const result: ImportResult = {
       success: 0,
       failed: 0,
@@ -1652,11 +1846,14 @@ export class EnhancedCsvImportService {
       const row = data[rowIndex];
       
       try {
-        const built = this.buildTransactionFromRow(row, mappings, columnIndices);
+        const built = this.buildTransactionFromRow(row, mappings, columnIndices, dateFormat);
         if (!built.ok) {
           result.failed++;
           result.errors.push({
-            row: rowIndex + 2, // +1 for header, +1 for 1-based indexing
+            // The row's own physical line, counted by the tokenizer. `+ 2` was
+            // only ever right for a file with no preamble and no multi-line
+            // field.
+            line: lines[rowIndex],
             error: built.error
           });
           continue;
@@ -1738,7 +1935,7 @@ export class EnhancedCsvImportService {
       } catch (error) {
         result.failed++;
         result.errors.push({
-          row: rowIndex + 2, // +1 for header, +1 for 1-based indexing
+          line: lines[rowIndex],
           error: error instanceof Error ? error.message : 'Unknown error'
         });
       }
@@ -1762,13 +1959,28 @@ export class EnhancedCsvImportService {
   }
 
   /**
-   * Get saved profiles
+   * Get saved profiles.
+   *
+   * No filter argument any more: they are all transaction profiles, because
+   * that is the only kind of CSV import this app has ever performed. The
+   * argument used to be `type`, and passing 'account' returned the profiles for
+   * a feature that wrote nothing.
    */
-  getProfiles(type?: 'transaction' | 'account'): ImportProfile[] {
-    if (type) {
-      return this.profiles.filter(p => p.type === type);
-    }
+  getProfiles(): ImportProfile[] {
     return this.profiles;
+  }
+
+  /**
+   * The names of saved profiles that were thrown away on load, said ONCE.
+   *
+   * Reading this clears it. A notice about a one-time migration that reappears
+   * on every visit is noise, and noise is how the notices that matter get
+   * ignored.
+   */
+  consumeDiscardedProfileNotice(): string[] {
+    const discarded = this.discardedProfileNames;
+    this.discardedProfileNames = [];
+    return discarded;
   }
 
   /**
@@ -1815,6 +2027,18 @@ export class EnhancedCsvImportService {
    *
    * `lastUsed` is rebuilt as a Date because JSON has no date type; it goes out
    * as a string and would come back as one while the type says otherwise.
+   *
+   * ── AND THE PROFILES FOR THE IMPORT THAT NEVER EXISTED ARE DROPPED ──────────
+   * A stored profile marked `type: 'account'` is discarded here, once, and its
+   * name is kept so the wizard can say so. The alternative was to coerce it into
+   * a transaction profile, and that would be worse than useless: its columns
+   * name `name`, `balance` and `institution`, none of which a transaction has,
+   * so loading it would apply zero mappings and report every column as "not
+   * imported by this app" — a profile that does nothing, presented as a profile,
+   * with no hint of why. Dropping it says what happened; coercing it hides that
+   * the app ever offered the thing.
+   *
+   * The discard is written back so it happens once rather than on every load.
    */
   private loadProfiles(): ImportProfile[] {
     if (!this.storage) return [];
@@ -1823,10 +2047,35 @@ export class EnhancedCsvImportService {
       if (!saved) return [];
       const parsed: unknown = JSON.parse(saved);
       if (!Array.isArray(parsed)) return [];
-      return parsed.filter(isImportProfile).map(profile => ({
-        ...profile,
-        lastUsed: profile.lastUsed === undefined ? undefined : toDate(profile.lastUsed)
-      }));
+
+      const stored = parsed.filter(isImportProfile);
+      const dead = stored.filter(isDeadAccountProfile);
+      this.discardedProfileNames = dead.map(profile => profile.name);
+
+      const profiles = stored.filter(profile => !isDeadAccountProfile(profile)).map(profile => {
+        // Rebuilt field by field rather than spread: `type` was on the stored
+        // shape and is not on this one, and a spread would carry it straight
+        // back out to storage on the next save.
+        const rebuilt: ImportProfile = {
+          id: profile.id,
+          name: profile.name,
+          mappings: profile.mappings
+        };
+        if (profile.lastUsed !== undefined) rebuilt.lastUsed = toDate(profile.lastUsed);
+        if (profile.bank !== undefined) rebuilt.bank = profile.bank;
+        if (profile.skipDuplicates !== undefined) rebuilt.skipDuplicates = profile.skipDuplicates;
+        if (profile.duplicateThreshold !== undefined) {
+          rebuilt.duplicateThreshold = profile.duplicateThreshold;
+        }
+        if (isStoredDateFormat(profile.dateFormat)) rebuilt.dateFormat = profile.dateFormat;
+        return rebuilt;
+      });
+
+      if (dead.length > 0) {
+        this.profiles = profiles;
+        this.saveProfiles();
+      }
+      return profiles;
     } catch (error) {
       this.logger.warn('Failed to load import profiles from storage:', error as Error);
       return [];
@@ -1863,12 +2112,13 @@ export class EnhancedCsvImportService {
   generatePreview(
     headers: string[],
     rows: string[][],
-    mappings: ColumnMapping[]
+    mappings: ColumnMapping[],
+    dateFormat: CsvDateFormat = SUGGESTED_AMBIGUOUS_FORMAT
   ): { transactions: Partial<Transaction>[] } {
     const transactions: Partial<Transaction>[] = [];
 
     // Process first 10 rows as preview
-    for (const outcome of this.buildRows(headers, rows.slice(0, 10), mappings)) {
+    for (const outcome of this.buildRows(headers, rows.slice(0, 10), mappings, dateFormat)) {
       if (outcome.ok) transactions.push(outcome.transaction);
     }
 
@@ -1894,7 +2144,8 @@ export class EnhancedCsvImportService {
   buildRows(
     headers: string[],
     rows: string[][],
-    mappings: ColumnMapping[]
+    mappings: ColumnMapping[],
+    dateFormat: CsvDateFormat = SUGGESTED_AMBIGUOUS_FORMAT
   ): RowBuildResult[] {
     // Create column index map, keyed by SOURCE column — see importTransactions:
     // two bank columns (Debit/Credit) can map to the same 'amount' target.
@@ -1908,7 +2159,7 @@ export class EnhancedCsvImportService {
 
     return rows.map((row, rowIndex) => {
       try {
-        const built = this.buildTransactionFromRow(row, mappings, columnIndices);
+        const built = this.buildTransactionFromRow(row, mappings, columnIndices, dateFormat);
         if (!built.ok) return built;
         return {
           ok: true as const,

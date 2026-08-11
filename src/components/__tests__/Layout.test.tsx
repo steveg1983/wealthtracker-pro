@@ -250,17 +250,40 @@ describe('Layout — the Plan menu and split triggers', () => {
     return links.slice(1);
   };
 
-  it('puts Investments in Accounts, under Transactions — a holding is a thing you own', () => {
+  it('puts Investments in Accounts, under Find — a holding is a thing you own', () => {
     renderWithProviders(<Layout />);
 
+    // Find sits where Transactions used to. The global list is retired: you
+    // work in an account's register, and the one thing that list did which a
+    // register cannot — "which account was that in?" — is Find's whole job.
     expect(openMenuItems('Accounts')).toEqual([
       'All Accounts',
-      'Transactions',
+      'Find Transactions',
       'Investments',
       'Reconciliation',
       'Categorisation',
       'Bank Feeds',
     ]);
+  });
+
+  it('offers no way into the retired global transactions list', () => {
+    renderWithProviders(<Layout />);
+
+    // Every menu opened in turn — only one is ever open at a time — and every
+    // link in the nav read while it is. A menu entry is the one thing that
+    // would make the retirement look like a bug rather than a decision, and
+    // /transactions now only answers as a redirect, which no menu should be
+    // teaching anyone to use.
+    const hrefs: (string | null)[] = [];
+    for (const menu of ['Accounts', 'Plan', 'Manage', 'Settings']) {
+      fireEvent.click(menuButton(menu));
+      const nav = screen.getByRole('navigation', { name: 'Main navigation' });
+      hrefs.push(...within(nav).getAllByRole('link').map(a => a.getAttribute('href')));
+      fireEvent.click(menuButton(menu));
+    }
+
+    expect(hrefs).not.toContain('/transactions');
+    expect(hrefs).toContain('/find');
   });
 
   it('orders Manage as Categories, Payees, Tags — and no longer keeps Investments', () => {
@@ -276,6 +299,37 @@ describe('Layout — the Plan menu and split triggers', () => {
       'Export Data',
       'Documents',
     ]);
+  });
+
+  /**
+   * The add-transaction modal is Layout's, and the parameter that opens it is
+   * app-wide. It used to be honoured only on /transactions, which is why the
+   * phone's + and the keyboard's "new transaction" both pointed at a page whose
+   * only remaining job was holding a modal that was never its.
+   */
+  it('opens the add-transaction modal from ?action=add-transaction on any page', async () => {
+    window.history.pushState({}, '', '/accounts?action=add-transaction');
+
+    renderWithProviders(<Layout />);
+
+    // By its heading: "Add Transaction" is also a word on the modal's own save
+    // button, and the query has to name the thing that proves it is open.
+    expect(await screen.findByRole('heading', { name: 'Add Transaction' })).toBeInTheDocument();
+    // And the parameter is spent, so back or refresh cannot re-open it.
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get('action')).toBeNull();
+    });
+  });
+
+  it('leaves ?action=add alone — on /accounts that means a new ACCOUNT', () => {
+    window.history.pushState({}, '', '/accounts?action=add');
+
+    renderWithProviders(<Layout />);
+
+    // Two different things may not share one parameter once the parameter
+    // stops belonging to one page: the Accounts page reads this one.
+    expect(screen.queryByRole('heading', { name: 'Add Transaction' })).not.toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get('action')).toBe('add');
   });
 
   it('clicking a trigger label navigates instead of only toggling a menu', () => {

@@ -7,11 +7,10 @@
  * a card has two lines rather than eight columns, so the pair that carries the
  * weight is the description and the date line under it.
  *
- * And it is OPT-IN. This same card renders the Transactions page, which is a
- * search over everything with no counter above it and no filter beside it.
- * Marking rows where there is nothing to do about them as a set is how people
- * learn to ignore the marking on the screen where it matters, so that page does
- * not ask for it and does not get it.
+ * And it is OPT-IN. A list with no To Review counter above it and no filter
+ * beside it — a report, a Find result — marks nothing: marking rows where there
+ * is nothing to do about them as a set is how people learn to ignore the
+ * marking on the screen where it matters. So only the register asks for it.
  *
  * Every name and figure below is invented: this repo is public.
  */

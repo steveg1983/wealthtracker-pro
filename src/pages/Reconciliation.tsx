@@ -7,7 +7,7 @@ import { useReconciliation } from '../hooks/useReconciliation';
 import ReconciliationAccountList, { type ReconciliationGroup } from '../components/reconciliation/ReconciliationAccountList';
 import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSections';
 import ReconciliationBalanceBar, { CONFIRM_BALANCE_CONSEQUENCE } from '../components/reconciliation/ReconciliationBalanceBar';
-import { UNCONFIRMED_YELLOW, CONFIRM_BALANCE_HINT_ID } from '../components/reconciliation/unconfirmedYellow';
+import { NEXT_ACTION_YELLOW, CONFIRM_BALANCE_HINT_ID } from '../components/reconciliation/nextActionYellow';
 import ReconciliationTransactionList from '../components/reconciliation/ReconciliationTransactionList';
 import ReconciliationFinalizationModal from '../components/reconciliation/ReconciliationFinalizationModal';
 import EditTransactionModal from '../components/EditTransactionModal';
@@ -558,32 +558,35 @@ export default function Reconciliation() {
             </h1>
           </div>
 
-          {/* Disabled with the reason attached, and the reason itself is printed
-              on the balance bar right under the box that has to be confirmed —
-              a disabled button that will not say why is how people conclude the
-              app is broken.
-              The yellow is the same constant the closing-balance affordance
-              wears, so the two are legible as one refusal: that figure is
-              unconfirmed, therefore this will not press. Confirm it and both
-              settle together — this becomes the app's ordinary primary action.
-              Deliberately NOT dimmed with disabled:opacity-50 any more: a
-              half-strength amber is not the same yellow as the bar's, which
-              would break the very thread this draws. Nothing was lost, because
-              the refusal was never carried by colour — the disabled attribute,
-              the not-allowed cursor, the title and the described-by hint all
-              still say it, and none of them are visual. */}
+          {/* The far end of the travelling yellow.
+              While the closing balance is unconfirmed the next action is on the
+              balance bar — go and agree to that figure — so the BAR is yellow
+              and this is quiet: the app's ordinary primary, dimmed by the same
+              disabled:opacity-50 / not-allowed pair that every other disabled
+              primary in this codebase uses. Confirm the figure and the bar
+              settles while the yellow arrives HERE, because pressing this is
+              now the only thing left to do.
+              It wore the yellow in the OTHER state until the owner tested it:
+              two amber controls at once read as two refusals, and left the
+              user's actual next step — Confirm, in quiet blue on the bar — the
+              least visible thing on the screen. One yellow, one meaning, and it
+              points at the step you are on.
+              The refusal is still never carried by colour: the disabled
+              attribute, the not-allowed cursor, the title and the described-by
+              hint printed under the box all say it, and none of them are
+              visual. */}
           <button
             type="button"
             onClick={() => setShowFinalizationModal(true)}
             disabled={!balanceConfirmed}
             aria-describedby={balanceConfirmed ? undefined : CONFIRM_BALANCE_HINT_ID}
             title={balanceConfirmed ? undefined : CONFIRM_BALANCE_CONSEQUENCE}
-            /* Border width in both branches (transparent when ready) so the
+            /* Border width in both branches (transparent while quiet) so the
                button does not resize as the gate opens. */
-            className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors font-medium disabled:cursor-not-allowed ${
+            className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
               balanceConfirmed
-                ? 'border-transparent bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700'
-                : UNCONFIRMED_YELLOW
+                ? NEXT_ACTION_YELLOW
+                : 'border-transparent bg-[#1a2332] dark:bg-blue-600 text-white'
             }`}
           >
             <CheckCircleIcon size={18} />

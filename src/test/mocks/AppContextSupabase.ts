@@ -9,6 +9,7 @@ import { getDefaultCategories } from '../../data/defaultCategories';
 import type { Category, DismissalKind, SuggestionDismissal, Transaction } from '../../types';
 import type { DataPortCapabilities } from '../../services/port';
 import type { TestDataSeedResult } from '../../utils/testDataset';
+import { NO_SURVIVORS, type DeleteTransactionOutcome } from '../../utils/transferSurvivorRelease';
 import type {
   DecimalAccount,
   DecimalBudget,
@@ -86,7 +87,16 @@ const baseValue = {
     id: `created-transaction-${++createdTransactionSeq}`,
   }),
   updateTransaction: noop,
-  deleteTransaction: noop,
+  /**
+   * Reports what became of the other side, as the real one does.
+   *
+   * Not `noop`: a caller deleting BOTH halves of a transfer reads this to know
+   * whether the survivor was released before it tried to delete it, and a
+   * double that answered nothing would let a suite pass over a branch the app
+   * cannot run. The typed parameter is load-bearing too — it is what lets a
+   * suite hand `__setAppContextValue` a spy of the real shape.
+   */
+  deleteTransaction: async (_id: string): Promise<DeleteTransactionOutcome> => NO_SURVIVORS,
   setTransactionsCleared: asyncNoop,
   finalizeReconciliation: async () => 0,
   applyCategoryToUncategorized: async () => 0,

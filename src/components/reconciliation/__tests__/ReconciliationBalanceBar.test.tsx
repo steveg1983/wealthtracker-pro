@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import { renderWithProviders } from '../../../test/testUtils';
 import ReconciliationBalanceBar from '../ReconciliationBalanceBar';
-import { UNCONFIRMED_YELLOW, CONFIRM_BALANCE_HINT_ID } from '../unconfirmedYellow';
+import { NEXT_ACTION_YELLOW, CONFIRM_BALANCE_HINT_ID } from '../nextActionYellow';
 
 /**
  * The closing balance — the statement's ending figure — is the only number on
@@ -227,16 +227,84 @@ describe('ReconciliationBalanceBar', () => {
   });
 
   /**
-   * The yellow that means "not yet", on the bar's side of the thread. That it
-   * is the SAME yellow as the Finalize button's is asserted where both are on
-   * screen at once — src/pages/__tests__/Reconciliation.yellowThread.test.tsx.
+   * The cell is a COLUMN.
+   *
+   * The figure and Confirm are both inline-level, so the old `text-center`
+   * block set them side by side the moment the cell was wide enough for both:
+   * the amount slid off-centre, wedged against a button, out of step with the
+   * three figures beside it. These tests are structural — they assert the
+   * stacking order and that the two states of the Confirm slot occupy the same
+   * box, because "the bar must not jump under the cursor" is a claim about
+   * geometry that a screenshot cannot keep honest.
    */
-  describe('the yellow that means "not yet"', () => {
+  describe('the closing-balance column', () => {
+    const cell = (): HTMLElement => {
+      const label = screen.getByText('Closing Balance');
+      const parent = label.parentElement;
+      if (!(parent instanceof HTMLElement)) throw new Error('the label has no cell around it');
+      return parent;
+    };
+
+    /** The box the Confirm slot occupies, in both of its states. */
+    const SLOT_METRICS = ['mt-1', 'px-2', 'py-0.5', 'text-xs', 'font-medium', 'rounded', 'border'];
+
+    it('stacks label, then amount, then Confirm — one per line, centred', () => {
+      renderBar(220);
+      expect(cell()).toHaveClass('flex', 'flex-col', 'items-center');
+
+      const stacked = Array.from(cell().children);
+      expect(stacked).toHaveLength(3);
+      expect(stacked[0]).toHaveTextContent('Closing Balance');
+      expect(stacked[1]).toBe(screen.getByTitle('Click to change or remove'));
+      expect(stacked[2]).toBe(screen.getByRole('button', { name: 'Confirm' }));
+    });
+
+    it('keeps the order once the figure is agreed to', () => {
+      renderBar(220, { balanceConfirmed: true });
+      const stacked = Array.from(cell().children);
+      expect(stacked).toHaveLength(3);
+      expect(stacked[1]).toBe(screen.getByTitle('Click to change or remove'));
+      expect(stacked[2]).toBe(screen.getByText('Confirmed'));
+    });
+
+    it('gives Confirm and Confirmed the same box, so agreeing cannot move the bar', () => {
+      // A sticky bar that changes height at the moment of the click moves
+      // everything under the cursor. Both states carry the same margin,
+      // padding, type and border WIDTH — the settled one in transparent.
+      const asking = renderBar(220);
+      const confirm = screen.getByRole('button', { name: 'Confirm' });
+      SLOT_METRICS.forEach(metric => expect(confirm).toHaveClass(metric));
+      asking.unmount();
+
+      renderBar(220, { balanceConfirmed: true });
+      const confirmed = screen.getByText('Confirmed');
+      SLOT_METRICS.forEach(metric => expect(confirmed).toHaveClass(metric));
+      expect(confirmed).toHaveClass('border-transparent');
+    });
+
+    it('lets the editor span the cell rather than shrinking to its content', () => {
+      // A centring flex column sizes its children to their content; without
+      // w-full the input would be narrower than the figure it replaced.
+      renderBar(220);
+      openEditor();
+      const form = screen.getByLabelText('Closing balance').parentElement;
+      expect(form).toHaveClass('w-full');
+    });
+  });
+
+  /**
+   * The yellow that means "your next action is here", on the bar's side of the
+   * thread: the bar wears it while the figure is unconfirmed, and hands it to
+   * Finalize the moment it is agreed to. That the two are the SAME yellow, and
+   * that only ever one of them wears it, is asserted where both are on screen
+   * at once — src/pages/__tests__/Reconciliation.yellowThread.test.tsx.
+   */
+  describe('the yellow that means "your next action is here"', () => {
     /** Every amber utility an element carries, order-insensitive. */
     const amber = (el: Element): string[] =>
       el.className.split(/\s+/).filter(cls => cls.includes('amber-')).sort();
 
-    const TOKEN = UNCONFIRMED_YELLOW.split(/\s+/).filter(Boolean).sort();
+    const TOKEN = NEXT_ACTION_YELLOW.split(/\s+/).filter(Boolean).sort();
 
     it('the unconfirmed figure wears the shared token, whole', () => {
       renderBar(220);

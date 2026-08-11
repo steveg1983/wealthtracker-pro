@@ -21,9 +21,18 @@ const NOTIFICATION_CATEGORIES = ['transaction', 'account', 'budget', 'goal'] as 
  */
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
-/** Where clicking the alert in the bell should take the user. */
+/**
+ * Where clicking the alert in the bell should take the user.
+ *
+ * These are the FALLBACKS — the destination for an alert that named no subject
+ * of its own. An alert that knows its transaction carries a register deep link
+ * as its `actionUrl` instead (see useActivityLogger), which is always the
+ * better answer. With no subject, the honest landing for a transaction alert is
+ * the list of accounts: the registers are what it would have pointed into, and
+ * there is no global list of transactions to open any more.
+ */
 const CATEGORY_ROUTES: Record<NotificationCategory, string> = {
-  transaction: '/transactions',
+  transaction: '/accounts',
   account: '/accounts',
   budget: '/budget',
   goal: '/goals'
@@ -533,9 +542,11 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
         message: `A large transaction of ${formatCurrency(amount)} was added: ${description}`,
         category: 'transaction',
         action: {
-          label: 'View Transactions',
+          // The alert is raised from an amount and a description, with no id
+          // to point at, so it offers the accounts — where the registers are.
+          label: 'View accounts',
           onClick: (): void => {
-            window.location.href = '/transactions';
+            window.location.href = '/accounts';
           }
         }
       });

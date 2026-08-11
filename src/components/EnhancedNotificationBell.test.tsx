@@ -98,7 +98,11 @@ describe('clicking a notification', () => {
   it('still works for an alert stored by an older build', () => {
     // Notifications outlive a deploy: a week of them is kept in localStorage.
     // One carrying the old list URL must keep doing exactly what it always did
-    // rather than failing to open anything.
+    // rather than failing to open anything. The bell hands the stored address
+    // to the router unaltered — and the router answers /transactions with a
+    // redirect that keeps the query string (see
+    // components/legacyTransactionsDestination), which is what makes a link
+    // written months ago still land somewhere sensible.
     mocks.activities = [alert({ id: 'a3', title: 'New Transaction', actionUrl: '/transactions' })];
     openBell();
 

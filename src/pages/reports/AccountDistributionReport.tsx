@@ -48,8 +48,9 @@ export default function AccountDistributionReport(): React.JSX.Element {
     [distribution.slices]
   );
 
+  // The account's register, not the retired global list filtered to it.
   const transactionsHref = (accountId: string): string =>
-    preserveDemoParam(`/transactions?account=${accountId}`, location.search);
+    preserveDemoParam(`/accounts/${accountId}`, location.search);
 
   const money = (value: number): string =>
     formatCurrency(value, displayCurrency);

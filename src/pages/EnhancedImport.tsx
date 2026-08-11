@@ -288,7 +288,6 @@ export default function EnhancedImport(): React.JSX.Element {
           <CSVImportWizard
             isOpen={showCSVImportWizard}
             onClose={() => setShowCSVImportWizard(false)}
-            type="transaction"
           />
         </Suspense>
       )}

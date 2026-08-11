@@ -69,6 +69,26 @@ const markingStore = (initial: Transaction[]) => {
   };
 };
 
+/**
+ * The store's rule for FINISHING: every mark becomes committed, and the count
+ * of what changed comes back. Written out literally for the same reason as the
+ * marking store above — these suites prove what the screens do with an honest
+ * store, not what a shared helper believes.
+ */
+const finalizingStore = (initial: Transaction[]) => {
+  let transactions = initial;
+  const finalizeReconciliation = vi.fn(async () => {
+    const committing = transactions.filter(t => t.cleared === true && t.reconciled !== true);
+    transactions = transactions.map(t => (t.cleared === true ? { ...t, reconciled: true } : t));
+    __setAppContextValue({ transactions });
+    return committing.length;
+  });
+  return {
+    finalizeReconciliation,
+    current: () => transactions,
+  };
+};
+
 const renderReconciliation = () =>
   render(
     <MemoryRouter initialEntries={[`/reconciliation?account=${ACCOUNT.id}`]}>
@@ -202,6 +222,99 @@ describe('Reconciliation — marking is a holding state', () => {
 
     expect(confirmSpy).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
+  });
+});
+
+/**
+ * The working list is what is not yet R.
+ *
+ * The owner's second complaint, from live testing of the shipped C/R model:
+ * "Mark all empties the unmarked view — the rows vanish from the very list I am
+ * working." They vanished because the middle filter meant UNMARKED, so a mark
+ * was an exit. Under the holding-state model the only exit is Finalize: a
+ * marked row stays in the work, wearing its C, until a reconciliation commits
+ * it.
+ */
+describe('Reconciliation — the working list keeps its marks', () => {
+  it('opens on the work', () => {
+    __setAppContextValue({
+      accounts: [ACCOUNT],
+      transactions: [row('t1'), row('t2', { cleared: true, reconciled: true })],
+      isLoading: false,
+    });
+    renderReconciliation();
+
+    expect(screen.getByText('To reconcile')).toHaveAttribute('aria-pressed', 'true');
+    // The committed row is not in the way of the work; it is one click away.
+    expect(screen.getByText('Invented t1')).toBeInTheDocument();
+    expect(screen.queryByText('Invented t2')).not.toBeInTheDocument();
+  });
+
+  it('HEADLINE: Mark all leaves every row on screen, wearing its C', async () => {
+    const store = markingStore([row('t1'), row('t2'), row('t3')]);
+    __setAppContextValue({
+      accounts: [ACCOUNT],
+      transactions: store.current(),
+      setTransactionsCleared: store.setTransactionsCleared,
+      isLoading: false,
+    });
+    renderReconciliation();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Mark all'));
+    });
+
+    // Nothing left the list. The badges changed, and that is all.
+    const marks = screen.getAllByTitle('Unmark this transaction');
+    expect(marks).toHaveLength(3);
+    marks.forEach(mark => expect(mark).toHaveTextContent('C'));
+    expect(screen.getByText('Invented t1')).toBeInTheDocument();
+    expect(screen.getByText('Invented t3')).toBeInTheDocument();
+    // And Unmark all is the way back, still acting on what is in view.
+    await act(async () => {
+      fireEvent.click(screen.getByText('Unmark all'));
+    });
+    expect(screen.getAllByTitle('Mark this transaction')).toHaveLength(3);
+  });
+
+  it('only finalizing empties it — the rows turn R and leave together', async () => {
+    // Two marked rows of 20 against a closing balance of 40: balanced, so the
+    // dialog offers the completing step.
+    const store = finalizingStore([
+      row('t1', { cleared: true }),
+      row('t2', { cleared: true }),
+    ]);
+    __setAppContextValue({
+      accounts: [ACCOUNT],
+      transactions: store.current(),
+      finalizeReconciliation: store.finalizeReconciliation,
+      isLoading: false,
+    });
+
+    const session = renderReconciliation();
+    // Before: the work is on screen.
+    expect(screen.getAllByTitle('Unmark this transaction')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: /Finalize Reconciliation/ }));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Complete Reconciliation'));
+    });
+
+    expect(store.current().every(t => t.reconciled === true)).toBe(true);
+    session.unmount();
+
+    // Coming back: the working list is empty, and says which emptiness it is
+    // rather than sending the user hunting for rows nothing lost.
+    renderReconciliation();
+    expect(await screen.findByText('Nothing left to reconcile on this account.')).toBeInTheDocument();
+    expect(screen.queryByTitle('Unmark this transaction')).not.toBeInTheDocument();
+
+    // They are not gone, they are done: All still holds them, marked R.
+    fireEvent.click(screen.getByText('All'));
+    const committed = screen.getAllByTitle(/Reconciled in a finished reconciliation/);
+    expect(committed).toHaveLength(2);
+    committed.forEach(mark => expect(mark).toHaveTextContent('R'));
   });
 });
 

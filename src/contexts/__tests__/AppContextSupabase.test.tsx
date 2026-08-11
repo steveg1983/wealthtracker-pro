@@ -417,22 +417,29 @@ describe('AppContextSupabase live provider', () => {
     });
 
     /**
-     * THE UNLOCK BUG, in the place it actually bit.
+     * THE UNLOCK BUG, in the place it actually bit — and the law that followed.
      *
-     * The store had always done the right thing — the cloud through
+     * The store had always unlinked the survivor — the cloud through
      * transactions_linked_transfer_id_fkey (ON DELETE SET NULL), browser
      * storage once its own mirror was written — but the provider only FILTERED
      * the deleted row out of state and left the survivor's linkedTransferId
      * pointing at it. Every screen reads state, so until the next boot the
-     * survivor still looked like half of a pair: the editor went on refusing to
-     * move it ("delete the transfer and recreate it") and the register went on
-     * offering to jump to a transaction that no longer existed. The only exit
-     * anybody found was to delete the survivor as well, which is how an
-     * imported row gets destroyed to fix a category.
+     * survivor still looked like half of a pair.
+     *
+     * Unlinking alone was never the whole answer, though, and this is where the
+     * rest of it is proved: a transfer must have another side or it is not a
+     * transfer. The survivor is RELEASED — typed by the direction of its own
+     * money, its To/From category cleared, marked for review — so it stops
+     * being a row that moves a balance while counting as neither income nor
+     * spending in any report and never reaching the review band either.
+     *
+     * This is the ONE place the release is applied, so it is the one place it
+     * is proved end to end, against a real store.
      */
-    it('deleting one leg of a transfer leaves the survivor UNLINKED in state', async () => {
-      const { result } = await renderApp();
-
+    const buildLinkedPair = async (
+      result: { current: ReturnType<typeof useApp> },
+      sourceAmount: number
+    ): Promise<{ sourceId: string; counterpartId: string; to: Account }> => {
       let from!: Account;
       let to!: Account;
       await act(async () => {
@@ -442,7 +449,7 @@ describe('AppContextSupabase live provider', () => {
 
       await act(async () => {
         await result.current.addTransaction(
-          createTransactionInput(from.id, { amount: -500, description: 'Transfer out' })
+          createTransactionInput(from.id, { amount: sourceAmount, description: 'Transfer out' })
         );
       });
       const sourceId = result.current.transactions[0].id;
@@ -456,18 +463,99 @@ describe('AppContextSupabase live provider', () => {
         result.current.transactions.find(t => t.id === sourceId)?.linkedTransferId
       ).toBe(counterpartId);
 
+      return { sourceId, counterpartId, to };
+    };
+
+    it('deleting one leg RELEASES the survivor: unlinked, re-typed, uncategorised', async () => {
+      const { result } = await renderApp();
+      const { sourceId, counterpartId } = await buildLinkedPair(result, -500);
+
       await act(async () => {
         await result.current.deleteTransaction(counterpartId);
       });
 
       const survivor = result.current.transactions.find(t => t.id === sourceId)!;
-      // THE FIX: no dangling pointer, so the row is re-pointable again.
+      // No dangling pointer, so the row is re-pointable again.
       expect(survivor.linkedTransferId).toBeUndefined();
-      // …and nothing else changed. It is an UNMATCHED leg, which is a real
-      // state with a repair flow, not something to re-type on the user's behalf.
-      expect(survivor.type).toBe('transfer');
-      expect(survivor.transferAccountId).toBe(to.id);
+      // Money out becomes a plain expense…
+      expect(survivor.type).toBe('expense');
+      // …with nothing left claiming it is half of a movement.
+      expect(survivor.category).toBe('');
+      expect(survivor.transferAccountId).toBeFalsy();
+      // Marked for review, because the work is in an account the user may not
+      // be looking at, and the blank is a decision rather than a guess.
+      expect(survivor.needsReview).toBe(true);
+      expect(survivor.categoryConfirmed).toBe(true);
+      // Nothing about the money itself moved.
       expect(survivor.amount).toBe(-500);
+      expect(result.current.accounts[0].balance).toBe(500);
+    });
+
+    it('releases a money-IN survivor as income — the direction decides', async () => {
+      const { result } = await renderApp();
+      // The source is the money-IN leg this time, so the counterpart is money
+      // out; deleting the counterpart leaves the +500 row behind.
+      const { sourceId, counterpartId } = await buildLinkedPair(result, 500);
+
+      await act(async () => {
+        await result.current.deleteTransaction(counterpartId);
+      });
+
+      const survivor = result.current.transactions.find(t => t.id === sourceId)!;
+      expect(survivor.type).toBe('income');
+      expect(survivor.category).toBe('');
+      expect(survivor.linkedTransferId).toBeUndefined();
+    });
+
+    it('reports the released survivor to its caller, so a pair delete can be honest', async () => {
+      const { result } = await renderApp();
+      const { sourceId, counterpartId } = await buildLinkedPair(result, -500);
+
+      let outcome!: Awaited<ReturnType<typeof result.current.deleteTransaction>>;
+      await act(async () => {
+        outcome = await result.current.deleteTransaction(counterpartId);
+      });
+
+      expect(outcome.survivors).toEqual([
+        { transactionId: sourceId, accountId: result.current.accounts[0].id, released: true },
+      ]);
+    });
+
+    it('reports no survivors for an ordinary row', async () => {
+      const { result } = await renderApp();
+
+      let account!: Account;
+      await act(async () => {
+        account = await result.current.addAccount(createAccountInput());
+      });
+      await act(async () => {
+        await result.current.addTransaction(createTransactionInput(account.id, { amount: -12.5 }));
+      });
+      const id = result.current.transactions[0].id;
+
+      let outcome!: Awaited<ReturnType<typeof result.current.deleteTransaction>>;
+      await act(async () => {
+        outcome = await result.current.deleteTransaction(id);
+      });
+
+      expect(outcome.survivors).toEqual([]);
+    });
+
+    it('deleting BOTH legs leaves nothing behind and puts both balances back', async () => {
+      const { result } = await renderApp();
+      const { sourceId, counterpartId } = await buildLinkedPair(result, -500);
+      const openingFrom = 1000;
+
+      // What the dialog's "Delete both sides" does: the same audited delete,
+      // twice, the leg the user was looking at first.
+      await act(async () => {
+        await result.current.deleteTransaction(sourceId);
+        await result.current.deleteTransaction(counterpartId);
+      });
+
+      expect(result.current.transactions).toHaveLength(0);
+      expect(result.current.accounts[0].balance).toBe(openingFrom);
+      expect(result.current.accounts[1].balance).toBe(openingFrom);
     });
 
     it('updateTransaction changing -100 → -150 LOWERS the balance by 50', async () => {
