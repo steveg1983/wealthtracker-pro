@@ -215,10 +215,22 @@
 //! asserts the temp B-trees are PRESENT, so the day somebody rewrites this for
 //! speed they are sent to this paragraph.
 //!
+//! # The composite is next door, and it is the exception to two of these rules
+//!
+//! [`super::load_boot`] answers six of these ten at once — the accounts, the
+//! categories, the ledger, its lines, the budgets and the goals — and it is in
+//! its own module because it breaks this one's opening claim on purpose: it
+//! DOES open a transaction, a deferred read one, so that its six answers are
+//! one snapshot of one file rather than six snapshots of a file somebody else
+//! may be writing to in between. It also carries no plan of its own, because it
+//! runs no query of its own: it calls the same [`crate::row`] functions the six
+//! verbs below call, which is what keeps their ordering contracts true through
+//! it (R-5) and what stops a second copy of any query from existing.
+//!
 //! # What is still not here
 //!
-//! `load_boot` composes six reads into one transaction, and `collect_backup` is
-//! the backup group's.
+//! `collect_backup`, the backup group's — every table whole, in
+//! `BACKUP_ENTITIES` order.
 
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -233,11 +245,12 @@ use crate::row::goal::{self, GoalRow};
 use crate::row::split::{self, ListedSplit};
 use crate::row::{self as transaction, ListedTransaction};
 
-/// The payload nine of the ten reads take: one owner, and nothing else.
+/// The payload every read but [`splits_for`] takes: one owner, and nothing
+/// else. Nine of the ten here, and [`super::load_boot`] makes it ten.
 ///
-/// One type for nine verbs because it is one argument for nine verbs, and nine
-/// identical struct definitions would be nine places for the next person to add
-/// a filter to. The VERBS stay nine — the enum's exhaustive dispatch is over
+/// One type for ten verbs because it is one argument for ten verbs, and ten
+/// identical struct definitions would be ten places for the next person to add
+/// a filter to. The VERBS stay ten — the enum's exhaustive dispatch is over
 /// variants, not over payload types.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]

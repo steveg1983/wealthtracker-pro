@@ -349,6 +349,24 @@
 //! the plan requires the plans to be readable — *"a plan saying SCAN is a bug
 //! report, not a merge"* is not a rule anybody can apply to a table they cannot
 //! see.
+//!
+//! # And then the composite, which is the reads asked once
+//!
+//! [`load_boot`] is the first verb in the crate that is a port of no SQL at all:
+//! the thing it ports is a TypeScript method (`DataServiceImpl.loadBoot`) whose
+//! whole body is six of the reads above in the order the boot depended on. It
+//! composes the same `crate::row` functions those reads call — no query of its
+//! own, so no plan of its own — inside ONE deferred read transaction, which is
+//! what makes the contract suite's `BOOT_COMPOSITION` row for this engine (*"one
+//! crossing, one transaction, one snapshot"*) true rather than aspirational.
+//!
+//! It lives in its own module rather than beside them in [`reads`] because it
+//! disagrees with that module's opening claim in one respect that matters: the
+//! reads *"open no transaction, for the reason
+//! [`user_financial_data_is_empty`] gives: there is nothing to be atomic
+//! about"*. A composite has something to be atomic about — six statements are
+//! six snapshots unless something makes them one — and a verb whose behaviour
+//! contradicts its module's header is a verb somebody will read wrongly.
 
 mod apply_category_to_uncategorized;
 mod clear_transfer_links;
@@ -363,6 +381,7 @@ mod import_transactions;
 mod link_bank_account_snap;
 mod link_split_line_transfer;
 mod link_transfer_pair;
+mod load_boot;
 mod merge_categories;
 pub mod reads;
 mod repair_claimed_transfer;
@@ -413,6 +432,10 @@ pub use link_split_line_transfer::{
     link_split_line_transfer, LinkSplitLineTransfer, LinkSplitLineTransferResult,
 };
 pub use link_transfer_pair::{link_transfer_pair, LinkTransferPair, LinkTransferPairResult};
+// The composite. Its payload is the reads' own `OwnedRead` — one owner and
+// nothing else — because that is exactly what it takes; a struct of its own
+// would be a second place for somebody to add a filter to.
+pub use load_boot::{load_boot, Boot};
 pub use merge_categories::{merge_categories, MergeCategories, MergeCategoriesResult};
 // The read family. Re-exported like every other verb so a call site reads the
 // same whether it is asking or writing; the module stays `pub` as well, because

@@ -42,7 +42,8 @@ use tempfile::TempDir;
 use wealth_core::db;
 use wealth_core::row;
 use wealth_core::verbs::{
-    account_balances, list_transaction_splits, list_transactions, splits_for, OwnedRead, SplitsFor,
+    account_balances, list_transaction_splits, list_transactions, load_boot, splits_for, OwnedRead,
+    SplitsFor,
 };
 
 const OWNER: &str = "11111111-1111-1111-1111-111111111111";
@@ -427,4 +428,50 @@ fn the_balances_agree_with_the_ledger_the_client_would_sum() {
     assert_eq!(listed.iter().filter(|row| row.archived).count(), ARCHIVED);
     let counted: i64 = balances.iter().map(|balance| balance.txn_count).sum();
     assert_eq!(counted, i64::try_from(TRANSACTIONS).unwrap());
+}
+
+// ── The composite, at the same size ────────────────────────────────────────
+
+#[test]
+fn the_whole_boot_costs_about_the_sum_of_its_parts() {
+    let mut connection = a_real_sized_ledger();
+
+    let started = Instant::now();
+    let boot = load_boot(&mut connection, OwnedRead { user_id: OWNER.to_owned() }).expect("boot");
+    let elapsed = started.elapsed();
+    let answer = &boot.answer;
+    println!(
+        "── load_boot: {} accounts · {} categories · {} transactions · {} lines · \
+         {} budgets · {} goals in {elapsed:?}",
+        answer.accounts.len(),
+        answer.categories.len(),
+        answer.transactions.len(),
+        answer.transaction_splits.len(),
+        answer.budgets.len(),
+        answer.goals.len(),
+    );
+
+    // The whole boot in one call, and every part of it whole. There is no plan
+    // to assert here because there is no query here: the six plans are the six
+    // reads' own, asserted above against the SQL those reads prepare. What this
+    // measures is the composite's own overhead — one BEGIN and one COMMIT
+    // around work that was already being done — and the figure recorded in
+    // `crate::verbs::load_boot` says what it came to.
+    assert_eq!(answer.transactions.len(), TRANSACTIONS);
+    assert_eq!(answer.transaction_splits.len(), SPLIT_PARENTS * 2);
+    assert_eq!(answer.accounts.len(), ACCOUNTS);
+    // Two categories, and neither is a To/From: this ledger's accounts are
+    // created inside one transaction with the trigger's root present, so C-3
+    // mints one per account — twelve of them — beside the two the fixture
+    // names.
+    assert_eq!(answer.categories.len(), 2 + ACCOUNTS);
+    // Nothing in the fixture plans or saves, and empty is an answer: a boot
+    // that invented a budget would be a boot that read something else.
+    assert!(answer.budgets.is_empty());
+    assert!(answer.goals.is_empty());
+
+    // The transaction is finished, not leaked. At this size a leaked read lock
+    // is the difference between an app that opens and an app that cannot write
+    // again until it is restarted.
+    assert!(connection.is_autocommit());
 }

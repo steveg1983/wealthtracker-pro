@@ -61,12 +61,17 @@ const ROW_JSON = `jsonb_build_object(
 
 // ── The reads, whose oracle is a QUERY and not a function ────────────────────
 //
-// Every other verb in this file names a Postgres function. The six reads cannot:
-// the cloud reads these tables over PostgREST, so the thing being ported is the
-// query the client BUILDS — its `.eq()`s and its `.order()` — and the oracle has
-// to be that query written out. Each entry below names the TypeScript it is
-// transcribed from, and the transcription is deliberately literal: same filter,
-// same ORDER BY, same column list.
+// Every other verb in this file names a Postgres function. The nine list reads
+// cannot: the cloud reads these tables over PostgREST, so the thing being ported
+// is the query the client BUILDS — its `.eq()`s and its `.order()` — and the
+// oracle has to be that query written out. Each entry in the READS table below
+// names the TypeScript it is transcribed from, and the transcription is
+// deliberately literal: same filter, same ORDER BY, same column list.
+//
+// They live in a TABLE rather than one query per verb because `load_boot` asks
+// six of them at once. Two copies of the transactions query — one for the read
+// and one for the composite — would be two queries that agree until somebody
+// edits the one they happened to find.
 //
 // This is the same hazard `merge_categories` above declares, and it has the same
 // answer: a query repeated in the harness can silently agree with a wrong
@@ -92,6 +97,12 @@ const ROW_JSON = `jsonb_build_object(
 // AND ONE VERB IS NOT A QUERY AT ALL: `account_balances` IS a Postgres function,
 // so its oracle is that function, called for real — see its entry below for how
 // the identity it takes from a JWT is supplied.
+//
+// AND ONE IS NOT A QUERY EITHER, THE OTHER WAY ROUND: `load_boot`'s cloud side
+// is a TypeScript method, `DataServiceImpl.loadBoot`, whose body is six of these
+// reads in the order the boot depended on. Its oracle is therefore those same
+// six entries, gathered into one object — see its entry for what the cloud's
+// snapshot carries that no database can answer with.
 
 /** A numeric(_,2) column as the decimal string both engines must agree on. */
 const money = (expr) => `(${expr})::text`;
@@ -305,11 +316,175 @@ const SPLIT_JSON = `jsonb_build_object(
   'updated_at', ${stamp('s.updated_at')}
 )`;
 
+/** The owner every read is scoped to, as the payload spells it. */
+const ownerOf = (payloadLiteral) => `(${payloadLiteral}::jsonb->>'user_id')::uuid`;
+
+/**
+ * Every list read, as the (projection, source, order) triple the client's own
+ * query is transcribed into. Each entry names the TypeScript it comes from.
+ *
+ * ONE TABLE RATHER THAN ONE ENTRY PER VERB, because the composite below asks
+ * six of these at once and a second copy of any of these queries would be a
+ * second query that could drift while the single-read spec it was copied from
+ * went on passing. It is the harness-side twin of the rule the crate keeps by
+ * calling its own row mappers: there is one copy of each read, and both callers
+ * use it.
+ */
+const READS = {
+  // accountService.getAccounts:
+  //   .from('accounts').select('*')
+  //   .eq('user_id', userId).eq('is_active', true)
+  //   .order('created_at', { ascending: true })
+  accounts: {
+    json: ACCOUNT_JSON,
+    from: (p) => `public.accounts a WHERE a.user_id = ${ownerOf(p)} AND a.is_active`,
+    order: 'a.created_at',
+  },
+
+  // accountService.getClosedAccounts — the same query with `.eq('is_active',
+  // false)`, which is why the local edition makes it a second VERB rather than a
+  // flag: the two questions are asked from two different places in the app.
+  closed_accounts: {
+    json: ACCOUNT_JSON,
+    from: (p) => `public.accounts a WHERE a.user_id = ${ownerOf(p)} AND NOT a.is_active`,
+    order: 'a.created_at',
+  },
+
+  // planningService.ensureCategories:
+  //   .from('categories').select('*').eq('user_id', userId)
+  //   .order('level', { ascending: true }).order('name', { ascending: true })
+  //
+  // NOT `dataService.listCategories`, which reads browser storage and never
+  // touches the cloud — the signed-in boot's category list comes from here. No
+  // `is_active` filter: a hidden category still has to resolve for the rows
+  // already filed under it.
+  //
+  // `level` is a text column, so ascending means detail, sub, type. Collation
+  // could in principle differ from SQLite's BINARY; these three values are
+  // lower-case ASCII, where every collation agrees, and the harness prints a
+  // warning if the cluster is not UTF8.
+  categories: {
+    json: CATEGORY_JSON,
+    from: (p) => `public.categories c WHERE c.user_id = ${ownerOf(p)}`,
+    order: 'c.level, c.name',
+  },
+
+  // planningService.getBudgets:
+  //   .from('budgets').select('*').eq('user_id', userId)
+  //   .order('created_at', { ascending: true })
+  // Inactive budgets load too — the service says why in its own comment.
+  budgets: {
+    json: BUDGET_JSON,
+    from: (p) => `public.budgets b WHERE b.user_id = ${ownerOf(p)}`,
+    order: 'b.created_at',
+  },
+
+  // planningService.getGoals — the same shape as budgets, same order, no status
+  // filter.
+  goals: {
+    json: GOAL_JSON,
+    from: (p) => `public.goals g WHERE g.user_id = ${ownerOf(p)}`,
+    order: 'g.created_at',
+  },
+
+  // suggestionDismissalService.list:
+  //   .from('suggestion_dismissals')
+  //   .select('id, kind, subject_key, subject_ids, dismissed_at')
+  //   .eq('user_id', userId).order('dismissed_at', { ascending: false })
+  suggestion_dismissals: {
+    json: DISMISSAL_JSON,
+    from: (p) => `public.suggestion_dismissals d WHERE d.user_id = ${ownerOf(p)}`,
+    order: 'd.dismissed_at DESC',
+  },
+
+  // transactionService.fetchTransactionPage — the query the signed-in boot
+  // actually runs:
+  //   .from('transactions').select(BOOT_TRANSACTION_COLUMNS)
+  //   .eq('user_id', userId)
+  //   .order('date', { ascending: false })
+  //   .order('id', { ascending: false })    // stable tiebreak for paging
+  //   .range(from, to)
+  //
+  // NO ARCHIVED FILTER, and that is the query rather than an omission here: the
+  // archive is a VIEW flag, the flag rides back as a column, and the register
+  // does its hiding in memory. It is the same fact `account_balances` below
+  // states from the other end, and R-1 is what happens when one of the two
+  // forgets it.
+  //
+  // The `.range()` is not transcribed because it is not part of the question: it
+  // is PostgREST's 1,000-row response cap, which the client walks ~52 times to
+  // ask ONE thing. A file answers it once (DESIGN's "one crossing"), and a
+  // harness that paged would be comparing the transport rather than the read.
+  transactions: {
+    json: TRANSACTION_JSON,
+    from: (p) => `public.transactions t WHERE t.user_id = ${ownerOf(p)}`,
+    order: 't.date DESC, t.id DESC',
+  },
+
+  // transactionService.getAllTransactionSplits:
+  //   .from('transaction_splits').select('*').eq('user_id', userId)
+  //   .order('transaction_id').order('sort_order')
+  //
+  // `user_id` here is the LINE's owner and not the parent's. The two are usually
+  // one person and the schema does not require it — `myLineOnTheirParent` in the
+  // shared fixtures exists because `merge_categories` walks parents by one and
+  // lines by the other — so filtering on the parent instead would be a different
+  // question with the same name.
+  transaction_splits: {
+    json: SPLIT_JSON,
+    from: (p) => `public.transaction_splits s WHERE s.user_id = ${ownerOf(p)}`,
+    order: 's.transaction_id, s.sort_order',
+  },
+
+  // transactionService.getTransactionSplits(transactionId):
+  //   .from('transaction_splits').select('*')
+  //   .eq('transaction_id', transactionId).order('sort_order')
+  //
+  // THE OWNER FILTER BELOW IS TRANSCRIBED FROM THE RLS POLICY, NOT THE CLIENT.
+  // That query names no owner at all, because it does not have to: the policy on
+  // this table is `user_id = requesting_user_id()` (20260713100000:57-60), so in
+  // production every row this returns has already been through it. The harness
+  // runs as a superuser with RLS out of the way, so leaving the filter out would
+  // make the oracle answer a question production never asks — and would report
+  // the local edition's only-gate owner check as a divergence. Both halves of
+  // the cloud's real behaviour, written down.
+  splits: {
+    json: SPLIT_JSON,
+    from: (p) => `public.transaction_splits s
+        WHERE s.transaction_id = (${p}::jsonb->>'transaction_id')::uuid
+          AND s.user_id = ${ownerOf(p)}`,
+    order: 's.sort_order',
+  },
+};
+
+/** One read's rows, aggregated into a JSON array in the order it states. */
+const aggregated = (key, payloadLiteral) =>
+  `(SELECT COALESCE(jsonb_agg(${READS[key].json} ORDER BY ${READS[key].order}), '[]'::jsonb)
+      FROM ${READS[key].from(payloadLiteral)})`;
+
 /** A read's answer: one named key holding the list, or an empty list. */
-const listed = (key, json, from, order) =>
-  `SELECT jsonb_build_object('${key}', COALESCE(jsonb_agg(${json} ORDER BY ${order}), '[]'::jsonb))
-     INTO v_row
-     FROM ${from};`;
+const listed = (key, payloadLiteral) =>
+  `SELECT jsonb_build_object('${key}', ${aggregated(key, payloadLiteral)}) INTO v_row;`;
+
+/**
+ * The six reads `DataServiceImpl.loadBoot` composes, in the order it makes them.
+ *
+ * The order is carried here for readability only: this oracle asks them in one
+ * statement and the crate asks them in one transaction, so neither side has a
+ * "before" inside the composite for anything to observe. That is exactly what
+ * the contract suite's BOOT_COMPOSITION table declares — `fansOut: true` for the
+ * cloud, where the ordering rules are proved by holding one read and watching
+ * whether the next starts, and `fansOut: false` for the local core, where they
+ * cannot be broken.
+ */
+const BOOT_READS = [
+  'accounts',
+  'categories',
+  'transactions',
+  'transaction_splits',
+  'budgets',
+  'goals',
+];
 
 /**
  * The RPC each verb maps onto, and how its result is projected.
@@ -629,163 +804,60 @@ const VERBS = {
        INTO v_row;`,
 
   // ── THE READS ──────────────────────────────────────────────────────────────
-  // Transcribed from the client query each one ports; see the block above the
-  // VERBS table for why a query is a legitimate oracle and what keeps it honest.
+  // Each one is an entry in the READS table above, which is where the client
+  // query it transcribes is written down. One line apiece here, because a verb
+  // that has to repeat its own query in two places is a verb whose two copies
+  // will one day disagree — the same rule the crate keeps by calling its row
+  // mappers rather than re-writing their SQL.
 
-  // accountService.getAccounts:
-  //   .from('accounts').select('*')
-  //   .eq('user_id', userId).eq('is_active', true)
-  //   .order('created_at', { ascending: true })
-  list_accounts: (payloadLiteral) =>
-    listed(
-      'accounts',
-      ACCOUNT_JSON,
-      `public.accounts a
-        WHERE a.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid
-          AND a.is_active`,
-      'a.created_at',
-    ),
+  list_accounts: (payloadLiteral) => listed('accounts', payloadLiteral),
 
-  // accountService.getClosedAccounts — the same query with `.eq('is_active',
-  // false)`, which is why the local edition makes it a second VERB rather than a
-  // flag: the two questions are asked from two different places in the app.
-  list_closed_accounts: (payloadLiteral) =>
-    listed(
-      'closed_accounts',
-      ACCOUNT_JSON,
-      `public.accounts a
-        WHERE a.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid
-          AND NOT a.is_active`,
-      'a.created_at',
-    ),
+  list_closed_accounts: (payloadLiteral) => listed('closed_accounts', payloadLiteral),
 
-  // planningService.ensureCategories:
-  //   .from('categories').select('*').eq('user_id', userId)
-  //   .order('level', { ascending: true }).order('name', { ascending: true })
-  //
-  // NOT `dataService.listCategories`, which reads browser storage and never
-  // touches the cloud — the signed-in boot's category list comes from here. No
-  // `is_active` filter: a hidden category still has to resolve for the rows
-  // already filed under it.
-  //
-  // `level` is a text column, so ascending means detail, sub, type. Collation
-  // could in principle differ from SQLite's BINARY; these three values are
-  // lower-case ASCII, where every collation agrees, and the harness prints a
-  // warning if the cluster is not UTF8.
-  list_categories: (payloadLiteral) =>
-    listed(
-      'categories',
-      CATEGORY_JSON,
-      `public.categories c
-        WHERE c.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
-      'c.level, c.name',
-    ),
+  list_categories: (payloadLiteral) => listed('categories', payloadLiteral),
 
-  // planningService.getBudgets:
-  //   .from('budgets').select('*').eq('user_id', userId)
-  //   .order('created_at', { ascending: true })
-  // Inactive budgets load too — the service says why in its own comment.
-  list_budgets: (payloadLiteral) =>
-    listed(
-      'budgets',
-      BUDGET_JSON,
-      `public.budgets b
-        WHERE b.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
-      'b.created_at',
-    ),
+  list_budgets: (payloadLiteral) => listed('budgets', payloadLiteral),
 
-  // planningService.getGoals — the same shape as budgets, same order, no status
-  // filter.
-  list_goals: (payloadLiteral) =>
-    listed(
-      'goals',
-      GOAL_JSON,
-      `public.goals g
-        WHERE g.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
-      'g.created_at',
-    ),
+  list_goals: (payloadLiteral) => listed('goals', payloadLiteral),
 
-  // suggestionDismissalService.list:
-  //   .from('suggestion_dismissals')
-  //   .select('id, kind, subject_key, subject_ids, dismissed_at')
-  //   .eq('user_id', userId).order('dismissed_at', { ascending: false })
   list_suggestion_dismissals: (payloadLiteral) =>
-    listed(
-      'suggestion_dismissals',
-      DISMISSAL_JSON,
-      `public.suggestion_dismissals d
-        WHERE d.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
-      'd.dismissed_at DESC',
-    ),
+    listed('suggestion_dismissals', payloadLiteral),
 
   // ── The heavy four ─────────────────────────────────────────────────────────
 
-  // transactionService.fetchTransactionPage — the query the signed-in boot
-  // actually runs:
-  //   .from('transactions').select(BOOT_TRANSACTION_COLUMNS)
-  //   .eq('user_id', userId)
-  //   .order('date', { ascending: false })
-  //   .order('id', { ascending: false })    // stable tiebreak for paging
-  //   .range(from, to)
-  //
-  // NO ARCHIVED FILTER, and that is the query rather than an omission here: the
-  // archive is a VIEW flag, the flag rides back as a column, and the register
-  // does its hiding in memory. It is the same fact `account_balances` below
-  // states from the other end, and R-1 is what happens when one of the two
-  // forgets it.
-  //
-  // The `.range()` is not transcribed because it is not part of the question: it
-  // is PostgREST's 1,000-row response cap, which the client walks ~52 times to
-  // ask ONE thing. A file answers it once (DESIGN's "one crossing"), and a
-  // harness that paged would be comparing the transport rather than the read.
-  list_transactions: (payloadLiteral) =>
-    listed(
-      'transactions',
-      TRANSACTION_JSON,
-      `public.transactions t
-        WHERE t.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
-      't.date DESC, t.id DESC',
-    ),
+  list_transactions: (payloadLiteral) => listed('transactions', payloadLiteral),
 
-  // transactionService.getAllTransactionSplits:
-  //   .from('transaction_splits').select('*').eq('user_id', userId)
-  //   .order('transaction_id').order('sort_order')
-  //
-  // `user_id` here is the LINE's owner and not the parent's. The two are usually
-  // one person and the schema does not require it — `myLineOnTheirParent` in the
-  // shared fixtures exists because `merge_categories` walks parents by one and
-  // lines by the other — so filtering on the parent instead would be a different
-  // question with the same name.
-  list_transaction_splits: (payloadLiteral) =>
-    listed(
-      'transaction_splits',
-      SPLIT_JSON,
-      `public.transaction_splits s
-        WHERE s.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
-      's.transaction_id, s.sort_order',
-    ),
+  list_transaction_splits: (payloadLiteral) => listed('transaction_splits', payloadLiteral),
 
-  // transactionService.getTransactionSplits(transactionId):
-  //   .from('transaction_splits').select('*')
-  //   .eq('transaction_id', transactionId).order('sort_order')
+  splits_for: (payloadLiteral) => listed('splits', payloadLiteral),
+
+  // ── THE COMPOSITE, WHOSE ORACLE IS A TYPESCRIPT METHOD ─────────────────────
   //
-  // THE OWNER FILTER BELOW IS TRANSCRIBED FROM THE RLS POLICY, NOT THE CLIENT.
-  // That query names no owner at all, because it does not have to: the policy on
-  // this table is `user_id = requesting_user_id()` (20260713100000:57-60), so in
-  // production every row this returns has already been through it. The harness
-  // runs as a superuser with RLS out of the way, so leaving the filter out would
-  // make the oracle answer a question production never asks — and would report
-  // the local edition's only-gate owner check as a divergence. Both halves of
-  // the cloud's real behaviour, written down.
-  splits_for: (payloadLiteral) =>
-    listed(
-      'splits',
-      SPLIT_JSON,
-      `public.transaction_splits s
-        WHERE s.transaction_id = (${payloadLiteral}::jsonb->>'transaction_id')::uuid
-          AND s.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid`,
-      's.sort_order',
-    ),
+  // `load_boot` is the first verb here whose cloud side is neither a function
+  // nor a single query: it is `DataServiceImpl.loadBoot`, whose body is six of
+  // the reads above made one after another. So the oracle is those six queries,
+  // gathered into one object — the same transcription rule the reads follow,
+  // applied to a method instead of to a `.select()`.
+  //
+  // WHAT THE CLOUD'S SNAPSHOT CARRIES THAT THIS DOES NOT, and why neither is a
+  // divergence to declare: `BootSnapshot` also has `transactionStats` and
+  // `phases`. The first describes a FETCH — how many rows came from the local
+  // cache, how many from a delta, and in words why no snapshot was served — and
+  // the second is a duration per phase. Neither is a fact about a database, so
+  // neither engine's verb answers with one: the cloud's come from the client's
+  // paging layer and the local edition's from `LocalDataPort`, which times the
+  // one crossing it makes and says `'local mode'` for the same reason browser
+  // storage does (divergence B-1). An oracle that invented them here would be
+  // comparing the harness against itself.
+  //
+  // WHAT IS COMPARED IS THE SIX LISTS, and comparing them is the point: the
+  // composite is where a port can quietly re-order a ledger, drop the archived
+  // rows, lose a login's scoping on one read out of six, or answer with five
+  // lists and an empty sixth. Every one of those is a difference in this object.
+  load_boot: (payloadLiteral) =>
+    `SELECT jsonb_build_object(
+              ${BOOT_READS.map((key) => `'${key}', ${aggregated(key, payloadLiteral)}`).join(',\n              ')})
+       INTO v_row;`,
 
   // account_balances() — 20260722160000:26-42, and the only read in this table
   // whose oracle is a FUNCTION rather than a transcribed query.

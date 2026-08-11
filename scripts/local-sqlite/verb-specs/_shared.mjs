@@ -2248,6 +2248,21 @@ export function fedRow(externalId, expect) {
 //     never stated must not be transcribed into its own oracle), so a fixture
 //     that ties is a fixture whose two answers may legitimately differ. The
 //     tie-break has its own proof in `crates/wealth-core/tests/reads.rs`.
+//
+// A `load_boot` spec has to obey BOTH RULES ON ALL SIX LISTS AT ONCE, and that
+// is not a detail of writing one — it is what the composite is for. The runner
+// compares every key of the answer, whether or not the spec asserts it, so a
+// boot spec that pins only the table it is about fails on the ones it is not:
+// unpinned accounts differ by a millisecond, and the two To/From categories are
+// minted by a TRIGGER with a generated id on each engine, so they differ always.
+// MEASURED, by writing four such specs and watching them go MISDECLARED:
+// `namedTransferCategories` and BOTH pinning fragments belong in every one, and
+// the fragment order is the usual one — whatever moves a row goes before the pin
+// that fixes its timestamp.
+//
+// This is a feature rather than a tax. A composite that quietly re-ordered the
+// accounts nobody's spec was looking at, or lost a login's scoping on the one
+// list that spec ignored, is caught by the spec next door.
 
 /** The instant Everyday was opened; Rainy day is a day later. */
 export const OPENED_FIRST = '2024-01-01T00:00:00.000Z';
