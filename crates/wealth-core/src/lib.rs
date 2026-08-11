@@ -21,6 +21,15 @@
 //! drift from the first, and the drift would be invisible until a constraint
 //! that fires in the harness did not fire in the app.
 //!
+//! # The surface, and who reaches it
+//!
+//! [`command`] holds the verb set, the one dispatch over it and the envelope an
+//! answer travels in. It is a library module rather than part of the CLI bin
+//! that first held it because two callers need that dispatch and there must not
+//! be two of it: the differential harness's bridge, and the desktop shell's
+//! single Tauri command (PHASE3-PLAN D-3). The bin keeps what is the command
+//! line's own — arguments, stdin, stdout, exit codes.
+//!
 //! # Phase 1 scope
 //!
 //! Nine verbs, in the order they were ported and for the reasons they were
@@ -230,6 +239,7 @@
 pub mod admission;
 pub mod audit;
 pub mod backup;
+pub mod command;
 pub mod db;
 pub mod error;
 pub mod money;

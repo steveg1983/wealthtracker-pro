@@ -121,7 +121,7 @@ pub struct LinkTransferPair {
 ///
 /// The RPC returns `{a, b}`. Here side A is called `transaction` because every
 /// verb result in this crate carries a `transaction` key the harness compares
-/// field by field (`bin/wealth_core_cli.rs`), and side B keeps a name that says
+/// field by field ([`crate::command`]), and side B keeps a name that says
 /// what it is rather than which argument it was.
 #[derive(Debug, Serialize)]
 pub struct LinkTransferPairResult {

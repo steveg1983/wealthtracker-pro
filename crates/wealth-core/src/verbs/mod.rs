@@ -486,7 +486,7 @@ fn is_blank_category(category: Option<&str>) -> bool {
 /// A row inside a batch that serde could not read, as a refusal with a NAME.
 ///
 /// The two ingest verbs deserialise their rows one at a time inside the loop, so
-/// the row's own errors never pass through the CLI's top-level `boundary_code`
+/// the row's own errors never pass through [`crate::command`]'s `boundary_code`
 /// and would otherwise all arrive as `invalid_command`. That matters for exactly
 /// one of them: `deny_unknown_fields` is this crate's DECLARED divergence from
 /// both import RPCs — the cloud discards a key it does not know, the local
