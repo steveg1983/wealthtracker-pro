@@ -792,6 +792,28 @@ CREATE INDEX idx_splits_linked      ON transaction_splits(linked_transfer_id) WH
 -- Covering index for the sum-check verify_integrity() runs after every split write.
 CREATE INDEX idx_splits_sum_cover   ON transaction_splits(transaction_id, amount_minor);
 
+-- The boot's whole-store split read: `list_transaction_splits`, which is
+-- `.eq('user_id', …).order('transaction_id').order('sort_order')` plus this
+-- crate's `id` tie-break. LOCAL-ONLY — the cloud has no counterpart, and needs
+-- none: PostgREST pages that query 1,000 rows at a time behind RLS, while a file
+-- answers it whole, once, on every boot.
+--
+-- MEASURED (crates/wealth-core/tests/reads_at_scale.rs, 50k transactions /
+-- 8k split lines, debug profile):
+--
+--   without: SCAN transaction_splits USING INDEX idx_splits_transaction
+--            + USE TEMP B-TREE FOR LAST TERM OF ORDER BY      8.9ms
+--   with:    SEARCH transaction_splits USING INDEX idx_splits_user_display
+--                                                             4.5ms
+--
+-- The 2× is the smaller half of the reason. The larger half is the word SCAN:
+-- without this index the read walks EVERY login's lines and discards the ones
+-- that are not the caller's, so the cost is a property of the file rather than
+-- of the answer — and a restored two-login file (B-3) is exactly the case the
+-- reads were given a required owner for. The write cost is four columns on a
+-- table written a line set at a time.
+CREATE INDEX idx_splits_user_display ON transaction_splits(user_id, transaction_id, sort_order, id);
+
 
 -- ============================================================================
 -- 6. THE RPC GUARD
