@@ -11,15 +11,60 @@
 //! * **Anything that accepts SQL.** DESIGN.md §6.4: *"Not a policy — an absence.
 //!   There is no command that accepts a SQL string. You cannot bypass what does
 //!   not exist."*
-//! * **`create_category`, `update_category`, `delete_category`.** Not an
-//!   omission — the cloud has no such RPC. `PlanningService` writes the table
-//!   directly (`planningService.ts:479`, `:567`, `:638`), so the authority for
-//!   those operations is the table and its constraints, and `schema.sql` already
-//!   carries every one of them. A verb here would be a port of nothing.
+//! * **`create_category`, `update_category`, `delete_category`.** The cloud has
+//!   no such RPC: `PlanningService` writes the table directly
+//!   (`planningService.ts:479`, `:567`, `:638`), so the authority for those
+//!   operations is the table and its constraints, and `schema.sql` already
+//!   carries every one of them.
+//!
+//!   That was once written here as *"a verb here would be a port of nothing"*,
+//!   and the sentence was true about the CLOUD and wrong about a device — see
+//!   the section below, which is the correction and the reason the account
+//!   family now exists. The category family is slice 21 and lands the same way.
 //! * **The transfer-category lifecycle.** `create_transfer_category_for_account`,
 //!   `sync_transfer_category_for_account` and `protect_transfer_category`
 //!   (`20260708140000`) all `RETURN trigger`; nothing calls them as functions.
 //!   They are C-3, C-4 and C-5 in `schema.sql`.
+//!
+//! # A VERB WHOSE ORACLE IS A TYPESCRIPT WRITER (PHASE3-PLAN D-2)
+//!
+//! [`create_account`], [`update_account`] and [`close_account`] are the first
+//! three verbs here that port no Postgres function, because there is none to
+//! port: `accounts` is one of the tables the cloud writes DIRECTLY over
+//! PostgREST (`accountService.ts:267`, `:317`, `:357`). Every verb before them
+//! either ported an RPC or, in the case of [`reads`], ported a query.
+//!
+//! Two things follow, and both are worth stating once here rather than three
+//! times below.
+//!
+//! **Why they exist at all.** DESIGN.md §6.4 leaves no SQL door — *"There is no
+//! command that accepts a SQL string. You cannot bypass what does not exist."*
+//! In the cloud, "no RPC" means the client writes the table itself; locally it
+//! means the operation is UNIMPLEMENTABLE. So a table the cloud writes directly
+//! is precisely a table that needs a verb, which is the opposite of the
+//! conclusion the category paragraph above used to draw.
+//!
+//! **What they are held to.** The oracle is the TypeScript writer plus
+//! `schema.sql`'s constraints, and `lib/verb-postgres.mjs` runs that writer's
+//! own INSERT and UPDATE through `psql` — transcribed key for key and default
+//! for default, exactly as the READS table transcribes a `.select()`. Where the
+//! two engines then differ, they differ because the local edition keeps an
+//! invariant the cloud's direct writes do not, and each one is a DECLARED
+//! divergence with a spec:
+//!
+//! | | the cloud's direct write | the verb |
+//! | --- | --- | --- |
+//! | a create's two money figures | stores both, and B-1 is broken from birth | ONE figure: `balance = initial_balance` |
+//! | `balance` in an update patch | sets it — an absolute balance setter | refused, `account_balance_is_derived` |
+//! | an opening-balance edit | moves `initial_balance` only, so B-1 drifts | moves both sides by one delta, in SQL |
+//! | the audit log | nothing: there is no function to write one from | one entry per write, chained |
+//! | `low_balance_*` on a create | not in the client's column list | written, because the seam says a create keeps every field |
+//!
+//! The audit row is the one that is a difference of KIND rather than of degree.
+//! `write_financial_audit` is called from inside the atomic RPCs, and there is
+//! no atomic RPC here — so in the cloud, renaming an account, closing one or
+//! correcting its opening balance leaves no trace at all. Locally there is one
+//! door and it audits, so it does.
 //!
 //! # `migrate_categories_atomic` — OUT OF SCOPE, and this is the decision
 //!
@@ -186,6 +231,9 @@
 //! | [`verify_integrity`] | no — it opens no transaction and writes nothing | no |
 //! | [`import_transactions`] | no, and proven so — nothing on `transactions` fires on INSERT | no |
 //! | [`import_bank_transactions`] | no, same measurement | no |
+//! | [`create_account`] | no, and proven so — the only trigger an account INSERT fires is C-3, which is wanted | no |
+//! | [`update_account`] | no, and proven so — C-4 fires, and is wanted | no |
+//! | [`close_account`] | no, same measurement — C-4 again | no |
 //!
 //! The restore family adds a **third** flag to the table, which the first twelve
 //! verbs never needed: `_rpc_guard('restore')`, held by
@@ -370,7 +418,9 @@
 
 mod apply_category_to_uncategorized;
 mod clear_transfer_links;
+mod close_account;
 mod confirm_transaction_categories;
+mod create_account;
 mod create_transaction;
 mod create_transfer_counterpart;
 mod delete_transaction;
@@ -388,6 +438,7 @@ mod repair_claimed_transfer;
 mod restore_user_chunk;
 mod set_transaction_splits_with_legs;
 mod transfer;
+mod update_account;
 mod update_transaction;
 mod user_financial_data_is_empty;
 mod verify_integrity;
@@ -400,10 +451,14 @@ pub use apply_category_to_uncategorized::{
 pub use clear_transfer_links::{
     clear_transfer_links, ClearTransferLinks, ClearTransferLinksResult,
 };
+// The account family — three verbs, no RPC between them. See "A VERB WHOSE
+// ORACLE IS A TYPESCRIPT WRITER" above.
+pub use close_account::{close_account, CloseAccount, CloseAccountResult};
 pub use confirm_transaction_categories::{
     confirm_transaction_categories, ConfirmTransactionCategories,
     ConfirmTransactionCategoriesResult,
 };
+pub use create_account::{create_account, CreateAccount, CreateAccountResult};
 pub use create_transaction::{create_transaction, CreateTransaction, CreateTransactionResult};
 pub use create_transfer_counterpart::{
     create_transfer_counterpart, CreateTransferCounterpart, CreateTransferCounterpartResult,
@@ -456,6 +511,7 @@ pub use set_transaction_splits_with_legs::{
     set_transaction_splits_with_legs, SetTransactionSplitsWithLegs,
     SetTransactionSplitsWithLegsResult,
 };
+pub use update_account::{update_account, AccountPatch, UpdateAccount, UpdateAccountResult};
 pub use update_transaction::{
     update_transaction, TransactionPatch, UpdateTransaction, UpdateTransactionResult,
 };

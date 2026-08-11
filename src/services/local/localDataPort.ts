@@ -11,8 +11,11 @@
  * ── WHAT THIS SLICE IMPLEMENTS, AND WHAT IT ADMITS IT DOES NOT ──────────────
  *
  * The eleven reads, the boot composite, the capability descriptor, the two
- * lifecycle no-ops — and, since slice 19, the sixteen writes the crate's own
- * verbs already serve. TWENTY-FIVE operations of the seam are not here yet, and
+ * lifecycle no-ops, the sixteen writes slice 19 wired — and, since slice 20, the
+ * three ACCOUNT writes, which are the first the crate had no Postgres function
+ * to port (PHASE3-PLAN D-2: the cloud writes `accounts` directly over PostgREST,
+ * so the oracle is the TypeScript writer and `schema.sql`'s constraints).
+ * TWENTY-TWO operations of the seam are not here yet, and
  * that is a declared, counted, shrinking list rather than a silence: they are
  * named in `services/port/__tests__/contract.ts`'s `NOT_YET` ratchet, the
  * contract suite asserts that the operations this port is missing are EXACTLY
@@ -101,6 +104,7 @@
 
 import type {
   Account,
+  AccountUpdate,
   Budget,
   Category,
   CategoryMergeResult,
@@ -117,6 +121,7 @@ import type {
   BootTransactionStats,
   BootTransactionsResult,
   BulkImportResult,
+  DataPortAccountWrites,
   DataPortBackupLifecycle,
   DataPortBoot,
   DataPortBulkWrites,
@@ -142,7 +147,14 @@ import {
   toSplit,
   toTransaction
 } from './mappers/rows';
-import { toCreatePayload, toImportRow, toSplitLine, toUpdatePatch } from './mappers/writes';
+import {
+  toAccountCreatePayload,
+  toAccountUpdatePatch,
+  toCreatePayload,
+  toImportRow,
+  toSplitLine,
+  toUpdatePatch
+} from './mappers/writes';
 
 /**
  * The half of the seam this slice answers.
@@ -154,6 +166,7 @@ import { toCreatePayload, toImportRow, toSplitLine, toUpdatePatch } from './mapp
 export type LocalDataPortSurface =
   DataPortReads &
   DataPortBoot &
+  DataPortAccountWrites &
   DataPortBulkWrites &
   DataPortSplitWrites &
   DataPortCapabilityDescriptor &
@@ -456,6 +469,82 @@ export class LocalDataPort implements LocalDataPortSurface {
 
     phases.load_boot = Math.round(performance.now() - started);
     return snapshot;
+  }
+
+  // ── Account writes ────────────────────────────────────────────────────────
+
+  /**
+   * One account, as somebody typed it.
+   *
+   * ── B-7, AND THE ONE FIELD THE ANSWER CANNOT CARRY ──────────────────────
+   *
+   * The seam's promise is that a create hands the WHOLE account back, because
+   * the caller puts the object straight into app state and the settings modal
+   * seeds its form from whatever is there. So the verb answers with the same
+   * projection `listAccounts` answers with, read back from storage after the
+   * write, and it comes through the same `mapAccountFromDb` — nothing is
+   * reconstructed from the request.
+   *
+   * `creditLimit` is the exception and it is not this port's to fix: no
+   * migration has ever created `accounts.credit_limit`, in the cloud or here
+   * (`accountMapping.ts` says so and maps it in both directions "for the day the
+   * column exists"). The field can only ever arrive from browser storage, and
+   * `contract.ts`'s `CREDIT_LIMIT_STORAGE` declares that rather than leaving it
+   * to be discovered.
+   *
+   * ── THE TWO MONEY FIELDS BECOME ONE ─────────────────────────────────────
+   *
+   * `Omit<Account, 'id'>` carries a balance and an opening balance, and a
+   * ledger with no transactions cannot honour two different figures without
+   * breaking B-1. `writes.ts` folds them the way the cloud's own writer folds
+   * them — `openingBalance || balance || 0` — and the verb has no second money
+   * argument to send the loser to. `ACCOUNT_BALANCE_AT_BIRTH` declares it.
+   */
+  async createAccount(account: Omit<Account, 'id'>): Promise<Account> {
+    const answer = await this.#ask('create_account', toAccountCreatePayload(account));
+    return toAccount(rowOf(answer, 'create_account', 'answer'));
+  }
+
+  /**
+   * A partial edit of an account.
+   *
+   * The patch is passed through WHOLE rather than filtered, for the reason
+   * `updateTransaction` gives above and `writes.ts` argues at length: an engine
+   * that refuses a field it does not recognise can only refuse what it is shown.
+   * Here that matches the cloud rather than diverging from it —
+   * `mapAccountToDb` sends an unmapped field under its own name and PostgREST
+   * refuses the whole update, because there is no such column.
+   *
+   * The field worth naming is `balance`. `AccountUpdate` is a
+   * `Partial<Account>`, so a caller can state one, and the cloud will WRITE it —
+   * an absolute balance setter, unaudited, with no transaction to justify the
+   * figure. It crosses this seam unchanged and the verb refuses it by name.
+   */
+  async updateAccount(id: string, updates: AccountUpdate): Promise<Account> {
+    const answer = await this.#ask('update_account', {
+      id,
+      patch: toAccountUpdatePatch(updates)
+    });
+    return toAccount(rowOf(answer, 'update_account', 'answer'));
+  }
+
+  /**
+   * Close an account, which is a soft close in every implementation.
+   *
+   * The seam is explicit: *"the account leaves the live list and its
+   * transactions stay exactly where they are. Nothing in this seam hard-deletes
+   * an account, because a deleted account is a hole in a ledger."* One column
+   * moves, and the account's To/From category follows it out of the transaction
+   * dropdowns — C-4, done by the file's own trigger, so it cannot be forgotten
+   * by a caller and cannot be done twice.
+   *
+   * Answers `void`, and the verb answers with the closed row anyway. Discarded
+   * here rather than widened into the seam: `closeAccount` is called by a screen
+   * that re-reads both account lists, and a return value nobody reads is a
+   * return value that will one day be read wrongly.
+   */
+  async closeAccount(id: string): Promise<void> {
+    await this.#ask('close_account', { id });
   }
 
   // ── Transaction writes ────────────────────────────────────────────────────

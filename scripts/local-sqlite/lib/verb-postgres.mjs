@@ -122,12 +122,15 @@ const stamp = (expr) => `to_char(${expr} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:
  * One `accounts` row, in the twenty-five keys `crate::row::account::ListedAccount`
  * serialises.
  *
- * THREE CLOUD COLUMNS ARE DELIBERATELY NOT PROJECTED: `plaid_account_id` and
- * `plaid_connection_id` (a local file has no bank feed) and
- * `last_reconciled_balance` (in the cloud since 20260810200000, not yet in
- * scripts/local-sqlite/schema.sql). Projecting a key the local answer cannot
- * have would report a schema gap as a per-spec divergence; the gap is recorded
- * in the crate's `row/account.rs` where a reader of the read will meet it.
+ * TWO CLOUD COLUMNS ARE DELIBERATELY NOT PROJECTED: `plaid_account_id` and
+ * `plaid_connection_id`. A local file has no bank feed, so projecting either
+ * would report an absence-by-design as a per-spec divergence.
+ *
+ * THERE WERE THREE. `last_reconciled_balance` was left out because
+ * scripts/local-sqlite/schema.sql predated 20260810200000 and had no column for
+ * it — a gap rather than a decision, recorded here and in the crate's
+ * `row/account.rs`. Slice 20 closed the gap, so the key is projected and the two
+ * engines are compared on it like any other figure.
  */
 const ACCOUNT_JSON = `jsonb_build_object(
   'id', a.id,
@@ -140,6 +143,7 @@ const ACCOUNT_JSON = `jsonb_build_object(
   'bank_balance', ${money('a.bank_balance')},
   'bank_balance_date', a.bank_balance_date::text,
   'last_reconciled_date', a.last_reconciled_date::text,
+  'last_reconciled_balance', ${money('a.last_reconciled_balance')},
   'low_balance_alert_enabled', a.low_balance_alert_enabled,
   'low_balance_threshold', ${money('a.low_balance_threshold')},
   'opening_balance_date', a.opening_balance_date::text,
@@ -895,6 +899,141 @@ const VERBS = {
                 'txn_count', b.txn_count) ORDER BY b.account_id), '[]'::jsonb))
        INTO v_row
        FROM public.account_balances() b;`,
+
+  // ── THE ACCOUNT FAMILY, WHOSE ORACLE IS A TYPESCRIPT WRITER ────────────────
+  //
+  // Three verbs that port no function, because `accounts` is one of the tables
+  // the cloud writes DIRECTLY over PostgREST (PHASE3-PLAN D-2). So the oracle is
+  // the WRITE the client builds, transcribed here key for key and default for
+  // default — the same rule the READS table follows for a `.select()`, applied
+  // to an `.insert()` and an `.update()`.
+  //
+  // Each is PERFORMed and the row projected afterwards through ACCOUNT_JSON, the
+  // same twenty-six keys `crate::row::account::ListedAccount` serialises, so the
+  // two engines are compared on the whole stored account rather than on whatever
+  // each writer happened to return.
+  //
+  // WHAT IS TRANSCRIBED IS THE WRITER, NOT A TIDIED VERSION OF IT. Three of its
+  // habits look like omissions and are reproduced anyway, because a spec that
+  // finds one is finding a real difference between the editions:
+  //
+  //   * the create does NOT send `low_balance_alert_enabled` or
+  //     `low_balance_threshold` — the columns exist in both engines and the
+  //     CLIENT leaves them out, so an account created in the cloud with an alert
+  //     configured arrives with the alert off;
+  //   * the create sends `icon` and `color` as explicit NULLs, which is what
+  //     `accountService.ts:260-261` does and is indistinguishable from the
+  //     column default;
+  //   * the update will happily send `balance`, which makes it an absolute
+  //     balance setter. The verb refuses that by name; this does not.
+  //
+  // THE ONE THING THAT IS NOT LITERAL, and why. The writer's two money lines are
+  // `balance: account.balance || 0` and
+  // `initial_balance: account.openingBalance || account.balance || 0`, so it
+  // takes TWO figures where the verb takes one. The payload a spec sends is a
+  // WIRE payload with one money key, and it is mapped to both — which is exactly
+  // what the writer is handed in production, because
+  // `AppContextSupabase.addAccount:894-897` sets `balance = initialBalance ||
+  // balance || 0` before the seam is called. Transcribing the writer means
+  // transcribing what it is actually given. The case where a CALLER contradicts
+  // itself is a seam-level difference and is declared where the seam can see
+  // it — contract.ts's ACCOUNT_BALANCE_AT_BIRTH — rather than smuggled in here.
+  //
+  // `id` is supplied by the payload where the client leaves the column default
+  // to answer, for the reason every write spec needs: two engines cannot be
+  // compared on a row neither can name.
+  create_account: (payloadLiteral) =>
+    `INSERT INTO public.accounts (
+       id, user_id, name, type, currency, balance, initial_balance, is_active,
+       institution, sort_code, account_number, opening_balance_date, notes, icon, color
+     ) VALUES (
+       COALESCE(NULLIF(${payloadLiteral}::jsonb->>'id','')::uuid, uuid_generate_v4()),
+       (${payloadLiteral}::jsonb->>'user_id')::uuid,
+       ${payloadLiteral}::jsonb->>'name',
+       COALESCE(NULLIF(${payloadLiteral}::jsonb->>'type',''), 'checking'),
+       COALESCE(NULLIF(${payloadLiteral}::jsonb->>'currency',''), 'GBP'),
+       COALESCE((${payloadLiteral}::jsonb->>'initial_balance')::numeric, 0),
+       COALESCE((${payloadLiteral}::jsonb->>'initial_balance')::numeric, 0),
+       COALESCE((${payloadLiteral}::jsonb->>'is_active')::boolean, true),
+       NULLIF(${payloadLiteral}::jsonb->>'institution',''),
+       NULLIF(${payloadLiteral}::jsonb->>'sort_code',''),
+       -- accountNumberForStorage(value, isCardAccountType(type)): a card keeps
+       -- its last four digits and nothing else, a bank number is trimmed and
+       -- kept whole, and an empty result is NULL rather than ''.
+       CASE WHEN COALESCE(NULLIF(${payloadLiteral}::jsonb->>'type',''), 'checking') = 'credit'
+            THEN NULLIF(right(regexp_replace(
+                   COALESCE(${payloadLiteral}::jsonb->>'account_number',''), '\\D', '', 'g'), 4), '')
+            ELSE NULLIF(btrim(COALESCE(${payloadLiteral}::jsonb->>'account_number','')), '')
+       END,
+       NULLIF(${payloadLiteral}::jsonb->>'opening_balance_date','')::date,
+       NULLIF(${payloadLiteral}::jsonb->>'notes',''),
+       NULL, NULL
+     );
+     SELECT ${ACCOUNT_JSON} INTO v_row
+       FROM public.accounts a
+      WHERE a.id = (${payloadLiteral}::jsonb->>'id')::uuid;`,
+
+  // mapAccountToDb, transcribed. Its whole rule is "undefined is dropped, null
+  // is kept", which over a jsonb patch is `patch ? 'k'` — the key being present
+  // is the whole test — so every column below is one `CASE WHEN … THEN … ELSE
+  // <column> END` and there is no second class. The patch's keys are already the
+  // COLUMN names, so the field→column map itself has nothing to translate.
+  //
+  // `cardSafeUpdates` rides in front of it: an account number is cut to its last
+  // four iff the row will be a card once this lands — the payload's type when it
+  // states one, the stored type otherwise. `keepLastFour` and NOT
+  // `accountNumberForStorage`, so `''` stores an empty string rather than NULL;
+  // the two helpers really do differ there.
+  update_account: (payloadLiteral) => {
+    const patch = `COALESCE(${payloadLiteral}::jsonb->'patch', '{}'::jsonb)`;
+    const has = (key) => `${patch} ? '${key}'`;
+    const text = (key) => `${patch}->>'${key}'`;
+    const set = (column, value, key = column) =>
+      `${column} = CASE WHEN ${has(key)} THEN ${value} ELSE ${column} END`;
+    return `UPDATE public.accounts a SET
+       ${set('name', text('name'))},
+       ${set('type', text('type'))},
+       ${set('currency', text('currency'))},
+       ${set('balance', `(${text('balance')})::numeric`)},
+       ${set('initial_balance', `(${text('initial_balance')})::numeric`)},
+       ${set('is_active', `(${text('is_active')})::boolean`)},
+       ${set('institution', text('institution'))},
+       ${set('sort_code', text('sort_code'))},
+       ${set(
+         'account_number',
+         `CASE WHEN COALESCE(NULLIF(${text('type')},''), a.type) = 'credit'
+               THEN right(regexp_replace(COALESCE(${text('account_number')},''), '\\D', '', 'g'), 4)
+               ELSE ${text('account_number')} END`
+       )},
+       ${set('opening_balance_date', `(${text('opening_balance_date')})::date`)},
+       ${set('archive_through_date', `(${text('archive_through_date')})::date`)},
+       ${set('notes', text('notes'))},
+       ${set('low_balance_alert_enabled', `(${text('low_balance_alert_enabled')})::boolean`)},
+       ${set('low_balance_threshold', `(${text('low_balance_threshold')})::numeric`)},
+       ${set('bank_balance', `(${text('bank_balance')})::numeric`)},
+       ${set('bank_balance_date', `(${text('bank_balance_date')})::date`)},
+       ${set('last_reconciled_date', `(${text('last_reconciled_date')})::date`)},
+       ${set('last_reconciled_balance', `(${text('last_reconciled_balance')})::numeric`)},
+       ${set('parent_account_id', `(${text('parent_account_id')})::uuid`)}
+     WHERE a.id = (${payloadLiteral}::jsonb->>'id')::uuid
+       AND (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
+            OR a.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid);
+     SELECT ${ACCOUNT_JSON} INTO v_row
+       FROM public.accounts a
+      WHERE a.id = (${payloadLiteral}::jsonb->>'id')::uuid;`;
+  },
+
+  // accountService.deleteAccount, whose whole body is one column. The name is
+  // the seam's, because nothing here deletes anything.
+  close_account: (payloadLiteral) =>
+    `UPDATE public.accounts a
+        SET is_active = false
+      WHERE a.id = (${payloadLiteral}::jsonb->>'id')::uuid
+        AND (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
+             OR a.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid);
+     SELECT ${ACCOUNT_JSON} INTO v_row
+       FROM public.accounts a
+      WHERE a.id = (${payloadLiteral}::jsonb->>'id')::uuid;`,
 
   // The snap returns the whole accounts row. Projected into the same eight
   // fields crate::row::account::AccountRow serialises, money as a decimal string

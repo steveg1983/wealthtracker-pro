@@ -261,7 +261,11 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
   /**
    * The local edition, mid-build. Slice 18 landed the reads, the boot
    * composite, the capability descriptor and the two lifecycle no-ops; slice 19
-   * has now wired the SIXTEEN operations the crate's write verbs already serve.
+   * wired the sixteen operations the crate's write verbs already served; slice
+   * 20 wrote the first three verbs that port no Postgres function at all — the
+   * account family, whose oracle is the TypeScript writer the cloud uses to
+   * write `accounts` directly over PostgREST.
+   *
    * What is left needs new Rust, in the order the plan sets out — except for
    * one, which is here for a different reason and says so below.
    *
@@ -271,10 +275,6 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
    * browser storage's behaviour wearing this engine's name.
    */
   'local-core': [
-    // Account writes — no verb yet (slice 20).
-    'createAccount',
-    'updateAccount',
-    'closeAccount',
     // Transaction writes — the five with no verb. All four are live cloud RPCs
     // with no port yet, and they land together in slice 24 with a differential
     // spec each; `finalizeReconciliation` is the fifth.
@@ -330,8 +330,8 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
     //   guesses, none of them checkable until `collect_backup` closes the round
     //   trip — which is exactly what slice 25 is.
     //
-    // So it goes with its group, one slice later, and the count says 25 rather
-    // than 24. The ratchet only forbids GROWING.
+    // So it goes with its group, one slice later, and the count says 22 rather
+    // than 21. The ratchet only forbids GROWING.
     'restoreBackup',
     // Migration — composed from wipe + restore, slice 26.
     'importMsMoney',
@@ -350,7 +350,7 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
  * on a line that exists for no other purpose.
  */
 export const NOT_YET_CEILING: Partial<Record<DataPortEngine, number>> = {
-  'local-core': 25
+  'local-core': 22
 };
 
 // ── Declared divergences ────────────────────────────────────────────────────
@@ -597,6 +597,94 @@ const BACKUP_COVERAGE: Record<
   // exists: it is meant to hold the whole ledger. The day it cannot hold a
   // table, this row says which, and the restore starts saying so too.
   'local-core': { notStored: [] }
+};
+
+/**
+ * B-7 — WHAT AN ACCOUNT IS WORTH AT BIRTH, when the caller states two figures.
+ *
+ * `Omit<Account, 'id'>` carries a `balance` AND an `openingBalance`, and on an
+ * account with no transactions those are the same quantity described twice. B-1
+ * — `balance = openingBalance + Σ(rows)` — is only satisfiable while they agree.
+ *
+ * In production they always do: `AppContextSupabase.addAccount` sets
+ * `balance = initialBalance || balance || 0` before it calls the seam, so the
+ * one shape that can reach this disagreement is a caller (or a fixture) that
+ * contradicts itself. What the engines then do differs, and it differs for a
+ * reason worth writing down rather than asserting away.
+ *
+ * `keeps both figures` stores what it was told and lets the two stand. The cloud
+ * does that — its insert has a `balance` column and its writer fills it from
+ * `account.balance || 0` — so a cloud account created this way is permanently
+ * 50.50 out, and nothing there notices, because the cloud has no
+ * `verify_integrity` and no ledger identity to keep.
+ *
+ * `the balance is the opening balance` has ONE money argument. It is not a
+ * dropped field: it is the ledger identity being kept, in a file that reports
+ * `balance_identity` by name the moment it is not. The rule below asserts BOTH
+ * branches, because "the create answered with something" is not the claim —
+ * the claim is that each engine did the specific thing declared here.
+ */
+const ACCOUNT_BALANCE_AT_BIRTH: Record<
+  DataPortEngine,
+  'keeps both figures' | 'the balance is the opening balance'
+> = {
+  'browser-storage': 'keeps both figures',
+  supabase: 'keeps both figures',
+  'local-core': 'the balance is the opening balance'
+};
+
+/**
+ * B-7 — `Account.creditLimit`, which no DATABASE in this product has a column
+ * for.
+ *
+ * Not a gap in one engine: `accountMapping.ts` says it outright — *"no migration
+ * creates `accounts.credit_limit`"* — and it is not in the local mirror either.
+ * VERIFIED against the reference cluster: `accounts` has twenty-eight columns
+ * and none of them is that one. The field is mapped in both directions "for the
+ * day the column exists", and until then it can only ever arrive from browser
+ * storage, which keeps whatever object it is handed.
+ *
+ * So the rule below asserts a DIFFERENT thing per engine rather than the same
+ * thing everywhere, and both halves are assertions: a store that keeps it gives
+ * the figure back, and a store with no column for it answers `undefined` —
+ * never `0`, which is a real credit limit and would divide the dashboard's
+ * utilisation by zero.
+ *
+ * The day a migration adds the column, this table has one value and goes.
+ */
+const CREDIT_LIMIT_STORAGE: Record<DataPortEngine, 'keeps' | 'has no column for it'> = {
+  'browser-storage': 'keeps',
+  supabase: 'has no column for it',
+  'local-core': 'has no column for it'
+};
+
+/**
+ * C-3 — what a create does about the new account's own To/From category.
+ *
+ * Every transfer is filed under a category naming the account on the other side,
+ * and those categories are made BY the account rather than by anybody typing
+ * one: `create_transfer_category_for_account` fires on `accounts` INSERT in the
+ * cloud (`20260708140000:34-82`) and `trg_create_transfer_category_for_account`
+ * does the same in a local file. Neither is a verb, in either edition, and that
+ * is the point — parity by construction, not by two implementations kept in
+ * step.
+ *
+ * Browser storage has no triggers and mints nothing, which is a real difference
+ * and not a shortfall to be fixed: local mode's category tree is a cache of a
+ * decision taken elsewhere.
+ *
+ * `mints` therefore governs BOTH branches of rule 83: one To/From category named
+ * after the account, or none at all — asserted either way, because "none"
+ * silently becoming "one" would mean an engine had grown a second implementation
+ * of the trigger.
+ */
+const TRANSFER_CATEGORY_ON_CREATE: Record<DataPortEngine, { describes: string; mints: boolean }> = {
+  // No trigger, and nothing to be one: the store is a cache.
+  'browser-storage': { describes: 'mints nothing — there is no trigger in a browser store', mints: false },
+  // The database mints it, on INSERT.
+  supabase: { describes: 'the database mints one, on the account INSERT', mints: true },
+  // The file mints it, from the same trigger ported into schema.sql.
+  'local-core': { describes: 'the file mints one, on the account INSERT', mints: true }
 };
 
 /**
@@ -1035,11 +1123,20 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           notes: 'Set aside for the boiler',
           sortCode: '00-00-00',
           accountNumber: '12345678',
-          creditLimit: 0,
           lowBalanceThreshold: 25,
           lowBalanceAlertEnabled: true
         });
         expect(stored.id).toBeTruthy();
+
+        // `creditLimit` is the ONE field of that payload no database in this
+        // product has a column for, which is a fact about the schema rather
+        // than about any engine — see CREDIT_LIMIT_STORAGE. Asserted in both
+        // branches: a store that keeps it must give the figure back, and a
+        // store with no column must answer `undefined` rather than `0`, because
+        // £0 is a real credit limit and the dashboard divides by it.
+        expect(stored.creditLimit).toBe(
+          CREDIT_LIMIT_STORAGE[engine] === 'keeps' ? 0 : undefined
+        );
 
         const listed = await port.listAccounts();
         expect(listed.find(account => account.id === stored.id)).toMatchObject({
@@ -1089,19 +1186,51 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(created).toMatchObject({
           name: 'Rainy day',
           type: 'savings',
-          balance: 250.5,
           currency: 'GBP',
           institution: 'Made Up Bank',
           isActive: true,
-          openingBalance: 200,
           notes: 'Set aside for the boiler',
           sortCode: '12-34-56',
           accountNumber: '12345678'
         });
+
+        // THE TWO MONEY FIELDS, which are the same quantity described twice on
+        // an account with no transactions — and which this payload deliberately
+        // states as two different numbers. What each engine does with that is
+        // ACCOUNT_BALANCE_AT_BIRTH, and both branches are asserted, because the
+        // difference is a ledger identity rather than a preference.
+        if (ACCOUNT_BALANCE_AT_BIRTH[engine] === 'keeps both figures') {
+          expect(created.balance).toBe(250.5);
+          expect(created.openingBalance).toBe(200);
+        } else {
+          // One figure, and it is the opening balance: `balance = opening + Σ
+          // rows` is true from the account's first instant because there is no
+          // way to state anything else. Asserted as an EQUALITY between the two
+          // fields rather than as a literal, so an engine that started dropping
+          // both would fail here rather than pass by accident.
+          expect(created.openingBalance).toBe(200);
+          expect(created.balance).toBe(created.openingBalance);
+
+          const [onFile] = (await read()).accounts;
+          expect(onFile.balance).toBe(onFile.openingBalance);
+        }
         // A Date crosses as a Date (rule 3): this one is read straight back
         // into a date input, and a string there shows as an empty field.
         expect(created.openingBalanceDate).toBeInstanceOf(Date);
-        expect(created.openingBalanceDate?.toISOString()).toBe(AT('2024-04-06').toISOString());
+        // THE DAY, not the instant, and the difference is the field's own.
+        // `opening_balance_date` is a calendar DAY in every engine that has a
+        // schema — a `date` column in the cloud, `LIKE '____-__-__'` in the
+        // file — so the noon this fixture happens to state is not stored
+        // anywhere and comes back as midnight. Asserting the instant would be
+        // asserting a property of a store that keeps the object it was handed,
+        // which is one engine out of three, and it would fail against the cloud
+        // for the same reason it fails against a file.
+        //
+        // What the consumer needs is still asserted, and it is the whole of what
+        // the rule was after: a Date, on the right day. A zone slip — the way a
+        // day west of Greenwich becomes the day before — moves the UTC day, so
+        // this catches the bug the assertion existed for.
+        expect(created.openingBalanceDate?.toISOString().slice(0, 10)).toBe('2024-04-06');
 
         // Card-shaped but invented. A card has no sort code at all, and its
         // number is the last four digits and nothing else.
@@ -1136,6 +1265,107 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         const closed = await port.listClosedAccounts();
         expect(closed.map(account => account.id)).toContain(ACCOUNT_A);
       });
+
+      rule(
+        ['createAccount', 'listCategories'],
+        '83: a created account has the To/From category its transfers will be filed under',
+        async () => {
+          // C-3. Every transfer is filed under a category naming the account on
+          // the OTHER side, and those categories are made by the account rather
+          // than by anybody typing one — a trigger on `accounts` INSERT in the
+          // cloud, the same trigger ported into the file's schema, and nothing
+          // at all in a browser store.
+          //
+          // The consequence of getting it wrong is not a missing row in a list:
+          // it is that transfers into or out of this account have nowhere to be
+          // filed, so the money moves and the report cannot say where it went.
+          //
+          // The fixture states the Transfer type root on purpose. BOTH triggers
+          // stand down without one — "categories seed lazily; a parentless
+          // category renders as junk" is the cloud's own comment — and that
+          // stand-down is what makes a restore's insert order safe, so it is a
+          // behaviour to preserve rather than to design around.
+          const { port } = await harness.create({
+            accounts: [],
+            categories: [aCategory('cat-transfer-root', 'Transfer', { type: 'both', level: 'type' })]
+          });
+
+          const created = await port.createAccount({
+            name: 'Holiday fund',
+            type: 'savings',
+            balance: 0,
+            openingBalance: 0,
+            currency: 'GBP',
+            isActive: true,
+            lastUpdated: AT('2025-01-01')
+          });
+
+          const mine = (await port.listCategories()).filter(
+            category => category.accountId === created.id && category.isTransferCategory === true
+          );
+
+          if (!TRANSFER_CATEGORY_ON_CREATE[engine].mints) {
+            // Asserted, not skipped: "none" quietly becoming "one" would mean
+            // this engine had grown a second implementation of a trigger, and
+            // two implementations of C-3 is how an account ends up with two.
+            expect(mine).toHaveLength(0);
+            return;
+          }
+
+          expect(mine).toHaveLength(1);
+          expect(mine[0].name).toBe('To/From Holiday fund');
+          // Filed under the Transfer root, active, and a leaf: a To/From
+          // category that is not under the anchor renders as junk in the
+          // category tree, and one that is not active is missing from the
+          // dropdown that needs it.
+          expect(mine[0].parentId).toBe('cat-transfer-root');
+          expect(mine[0].isActive).toBe(true);
+        }
+      );
+
+      rule(
+        ['collectBackup', 'restoreBackup', 'listCategories'],
+        '84: a restored ledger has exactly ONE To/From category per account',
+        async () => {
+          // R-6, and the collision rule 83 creates: a backup carries its own
+          // To/From categories AND its accounts, and an engine that mints one
+          // on every account INSERT will mint a second for every account in the
+          // file. Two To/From categories for one account is not cosmetic — the
+          // transfer picker offers the same account twice under two ids, and
+          // half the history is then filed under a category the other half does
+          // not use.
+          //
+          // Asserted for every engine, including the one that mints nothing:
+          // there the count is the file's own, and a restore that duplicated
+          // rows would fail here too.
+          const source = await harness.create({
+            accounts: [anAccount(ACCOUNT_A, 'Everyday')],
+            categories: [
+              aCategory('cat-transfer-root', 'Transfer', { type: 'both', level: 'type' }),
+              aCategory('cat-to-from-a', 'To/From Everyday', {
+                type: 'both',
+                parentId: 'cat-transfer-root',
+                accountId: ACCOUNT_A,
+                isTransferCategory: true
+              })
+            ]
+          });
+          const file = await source.port.collectBackup();
+
+          const target = await harness.create({});
+          await target.port.restoreBackup(file);
+
+          const accounts = (await target.read()).accounts;
+          expect(accounts).toHaveLength(1);
+
+          const transferCategories = (await target.port.listCategories()).filter(
+            category => category.isTransferCategory === true
+          );
+          expect(transferCategories).toHaveLength(1);
+          expect(transferCategories[0].accountId).toBe(accounts[0].id);
+          expect(transferCategories[0].name).toBe('To/From Everyday');
+        }
+      );
     });
 
     describe('money moves exactly', () => {

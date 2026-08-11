@@ -245,12 +245,21 @@ const fromColumn = (kind: Kind, value: unknown): unknown => {
 // Columns the schema has and the app has no field for (`metadata`, `icon`,
 // `color`, the promoted FX money, the import provenance) are absent from both
 // directions on purpose: a fixture cannot state them and a read-back cannot
-// invent them. Columns the APP has and this schema has not — `creditLimit`,
-// `lastReconciledBalance`, `Transaction.reconciled` — are absent for the
-// opposite reason, and that is a real gap in `scripts/local-sqlite/schema.sql`
-// rather than a shortcut here: the mirror predates the two migrations that
-// added them, and the day it catches up, one line in each list below is the
-// whole change.
+// invent them.
+//
+// Columns the APP has and this schema has not are absent for the opposite
+// reason. There were three. `lastReconciledBalance` is no longer one of them —
+// slice 20 gave `schema.sql` the column, because `AccountUpdate` names the field
+// and the account write verb would otherwise have had to refuse an edit the
+// cloud accepts, and the line below is the whole of the change it needed here.
+//
+// The other two stand, and they are not the same kind of absence.
+// `Transaction.reconciled` is a real gap: the mirror predates
+// `20260810200000`, and a file that cannot tell a marked row from a reconciled
+// one is a file the reconciliation bar cannot start from. `creditLimit` is NOT a
+// gap — no migration has ever created `accounts.credit_limit`, in the cloud or
+// here, and `contract.ts`'s `CREDIT_LIMIT_STORAGE` declares that as a fact about
+// the product rather than about this mirror.
 
 const ENTITIES = {
   accounts: [
@@ -263,6 +272,7 @@ const ENTITIES = {
     { column: 'bank_balance_minor', field: 'bankBalance', kind: 'money' },
     { column: 'bank_balance_date', field: 'bankBalanceDate', kind: 'dayText' },
     { column: 'last_reconciled_date', field: 'lastReconciledDate', kind: 'day' },
+    { column: 'last_reconciled_balance_minor', field: 'lastReconciledBalance', kind: 'money' },
     { column: 'low_balance_alert_enabled', field: 'lowBalanceAlertEnabled', kind: 'bool' },
     { column: 'low_balance_threshold_minor', field: 'lowBalanceThreshold', kind: 'money' },
     { column: 'opening_balance_date', field: 'openingBalanceDate', kind: 'day' },
@@ -586,6 +596,12 @@ export function readBack(file: string): PortStoreState {
         bankBalance: typeof value.bankBalance === 'number' ? value.bankBalance : null,
         bankBalanceDate: typeof value.bankBalanceDate === 'string' ? value.bankBalanceDate : null,
         lastReconciledDate: value.lastReconciledDate instanceof Date ? value.lastReconciledDate : null,
+        // `?? null`, never `?? 0`: £0.00 is a real statement balance (a swept
+        // account closes on exactly that), so "never reconciled" and
+        // "reconciled at zero" must not share a value. `mapAccountFromDb` makes
+        // the same distinction on the other side of the wire.
+        lastReconciledBalance:
+          typeof value.lastReconciledBalance === 'number' ? value.lastReconciledBalance : null,
         sortCode: asText(value.sortCode),
         accountNumber: asText(value.accountNumber),
         notes: asText(value.notes),

@@ -37,15 +37,18 @@
 //!   an account's identity depends on (sort code, account number, institution,
 //!   parent) and the three the reconciliation bar depends on.
 //!
-//! **Three columns the cloud has and this file does not**:
-//! `plaid_account_id`, `plaid_connection_id` (a local file has no bank feed to
-//! carry an id for) and `last_reconciled_balance` (added to the cloud by
-//! `20260810200000` and not yet mirrored in `scripts/local-sqlite/schema.sql`).
-//! The first two are an absence by design; the third is a gap, and it is named
-//! here rather than papered over because `mapAccountFromDb` reads
-//! `last_reconciled_balance` and treats a missing one as *never reconciled* —
-//! which is a true statement about a file that cannot store it, and a false one
-//! about an account that has been.
+//! **Two columns the cloud has and this file does not**: `plaid_account_id` and
+//! `plaid_connection_id`. A local file has no bank feed to carry an id for, so
+//! both are an absence by design.
+//!
+//! There were THREE. `last_reconciled_balance` was the odd one out — a gap
+//! rather than a decision, named here rather than papered over because
+//! `mapAccountFromDb` reads it and treats a missing one as *never reconciled*,
+//! which is a true statement about a file that cannot store it and a false one
+//! about an account that has been. Slice 20 closed it: `schema.sql` now carries
+//! `last_reconciled_balance_minor`, [`ListedAccount`] carries it below, and
+//! [`crate::verbs::update_account`] can write it, because `AccountUpdate` — the
+//! seam's own type for what an account edit may say — names it.
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -150,6 +153,9 @@ pub struct ListedAccount {
     pub bank_balance_date: Option<String>,
     /// `YYYY-MM-DD`: the last statement this account was reconciled against.
     pub last_reconciled_date: Option<String>,
+    /// The ending balance that reconciliation was settled against. `None` means
+    /// none has ever been finalized — never zero, which is a real figure.
+    pub last_reconciled_balance: Option<Money>,
     /// Does a low balance raise an alert?
     pub low_balance_alert_enabled: bool,
     /// The figure it raises one below.
@@ -185,7 +191,8 @@ pub struct ListedAccount {
 /// Every column [`ListedAccount`] carries, in its serialised order.
 const LISTED_COLUMNS: &str = "id, user_id, name, type, currency, balance_minor,
         initial_balance_minor, bank_balance_minor, bank_balance_date,
-        last_reconciled_date, low_balance_alert_enabled, low_balance_threshold_minor,
+        last_reconciled_date, last_reconciled_balance_minor,
+        low_balance_alert_enabled, low_balance_threshold_minor,
         opening_balance_date, archive_through_date, parent_account_id, institution,
         account_number, sort_code, icon, color, notes, is_active, metadata,
         created_at, updated_at";
@@ -242,42 +249,89 @@ fn list_by_activity(
             AND is_active = ?2
           ORDER BY created_at, id"
     ))?;
-    let rows = statement.query_map(params![user_id, i64::from(is_active)], |record| {
-        let metadata_text: String = record.get(22)?;
-        Ok(ListedAccount {
-            id: record.get(0)?,
-            user_id: record.get(1)?,
-            name: record.get(2)?,
-            kind: record.get(3)?,
-            currency: record.get(4)?,
-            balance: Money::from_minor(record.get(5)?),
-            initial_balance: Money::from_minor(record.get(6)?),
-            bank_balance: record.get::<_, Option<i64>>(7)?.map(Money::from_minor),
-            bank_balance_date: record.get(8)?,
-            last_reconciled_date: record.get(9)?,
-            low_balance_alert_enabled: record.get::<_, i64>(10)? != 0,
-            low_balance_threshold: record.get::<_, Option<i64>>(11)?.map(Money::from_minor),
-            opening_balance_date: record.get(12)?,
-            archive_through_date: record.get(13)?,
-            parent_account_id: record.get(14)?,
-            institution: record.get(15)?,
-            account_number: record.get(16)?,
-            sort_code: record.get(17)?,
-            icon: record.get(18)?,
-            color: record.get(19)?,
-            notes: record.get(20)?,
-            is_active: record.get::<_, i64>(21)? != 0,
-            metadata: serde_json::from_str(&metadata_text).unwrap_or(serde_json::Value::Null),
-            created_at: record.get(23)?,
-            updated_at: record.get(24)?,
-        })
-    })?;
+    let rows = statement.query_map(params![user_id, i64::from(is_active)], from_record)?;
 
     let mut accounts = Vec::new();
     for account in rows {
         accounts.push(account?);
     }
     Ok(accounts)
+}
+
+/// ONE account, whole, and only if it belongs to this user.
+///
+/// The twin of [`read_owned`] over the WIDE projection, and the two are not
+/// interchangeable: that one exists so the audit payload of a balance move
+/// carries eight comparable fields, this one exists so an account WRITE can
+/// answer with the same object a read answers with. B-7 is why — *"the caller
+/// puts it straight into app state without re-reading"* — and a create that
+/// answered with the narrow projection would hand the settings modal an account
+/// with no bank details, which is the exact field set B-7 was written after.
+///
+/// `None` for "no such account" and for "somebody else's", deliberately
+/// undistinguished; [`read_owned`] gives the reason.
+///
+/// # Errors
+/// [`crate::error::CoreError`] if the read fails.
+pub fn read_listed(
+    connection: &Connection,
+    id: &str,
+    user_id: &str,
+) -> CoreResult<Option<ListedAccount>> {
+    // EXPLAIN QUERY PLAN (measured against schema.sql):
+    //   SEARCH accounts USING INTEGER PRIMARY KEY (rowid=?)
+    // — the primary key, so no index on user_id is consulted or wanted: the
+    // owner clause is a filter on the one row, not a way of finding it.
+    Ok(connection
+        .query_row(
+            &format!(
+                "SELECT {LISTED_COLUMNS}
+                   FROM accounts
+                  WHERE id = ?1
+                    AND user_id = ?2"
+            ),
+            params![id, user_id],
+            from_record,
+        )
+        .optional()?)
+}
+
+/// One `accounts` record in [`LISTED_COLUMNS`] order, as a [`ListedAccount`].
+///
+/// Written once and shared by the list reads and the single read, because
+/// twenty-six positional `record.get(n)` calls are the one thing in this file
+/// that a second copy would get subtly wrong — and would get wrong SILENTLY,
+/// since every neighbouring column is the same SQLite type.
+fn from_record(record: &rusqlite::Row<'_>) -> rusqlite::Result<ListedAccount> {
+    let metadata_text: String = record.get(23)?;
+    Ok(ListedAccount {
+        id: record.get(0)?,
+        user_id: record.get(1)?,
+        name: record.get(2)?,
+        kind: record.get(3)?,
+        currency: record.get(4)?,
+        balance: Money::from_minor(record.get(5)?),
+        initial_balance: Money::from_minor(record.get(6)?),
+        bank_balance: record.get::<_, Option<i64>>(7)?.map(Money::from_minor),
+        bank_balance_date: record.get(8)?,
+        last_reconciled_date: record.get(9)?,
+        last_reconciled_balance: record.get::<_, Option<i64>>(10)?.map(Money::from_minor),
+        low_balance_alert_enabled: record.get::<_, i64>(11)? != 0,
+        low_balance_threshold: record.get::<_, Option<i64>>(12)?.map(Money::from_minor),
+        opening_balance_date: record.get(13)?,
+        archive_through_date: record.get(14)?,
+        parent_account_id: record.get(15)?,
+        institution: record.get(16)?,
+        account_number: record.get(17)?,
+        sort_code: record.get(18)?,
+        icon: record.get(19)?,
+        color: record.get(20)?,
+        notes: record.get(21)?,
+        is_active: record.get::<_, i64>(22)? != 0,
+        metadata: serde_json::from_str(&metadata_text).unwrap_or(serde_json::Value::Null),
+        created_at: record.get(24)?,
+        updated_at: record.get(25)?,
+    })
 }
 
 /// An account's name, for a refusal that has to say which account it means.
