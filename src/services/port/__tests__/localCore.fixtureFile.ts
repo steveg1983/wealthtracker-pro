@@ -107,6 +107,20 @@ type Kind =
   | 'percent'
   | 'int'
   | 'bool'
+  /**
+   * A boolean the file is allowed to have NO ANSWER for — `is_reconciled`, and
+   * only that.
+   *
+   * `bool` is total in both directions (`value === true ? 1 : 0` out, `=== 1`
+   * back), which is right for every other flag in this table because every one
+   * of them is NOT NULL. This column is nullable and its third value MEANS
+   * something: "this row predates the split between marking and committing; ask
+   * `cleared`". A fixture that said nothing must therefore write NULL and not 0,
+   * and a NULL must read back as `undefined` and not as `false` — otherwise the
+   * two states `finalizeReconciliation` distinguishes would be one state here,
+   * and the rule that a pre-split row is left alone could not be tested at all.
+   */
+  | 'answeredBool'
   | 'day'
   | 'dayText'
   | 'instant'
@@ -208,6 +222,11 @@ const toColumn = (kind: Kind, value: unknown, where: string): string | number | 
       return typeof value === 'number' && Number.isInteger(value) ? value : null;
     case 'bool':
       return value === true ? 1 : 0;
+    case 'answeredBool':
+      // Unreachable for `undefined` — the guard above turns that into NULL,
+      // which is exactly the "no answer" this kind exists for. A stated `false`
+      // still lands as 0.
+      return value === true ? 1 : 0;
     case 'day':
     case 'dayText':
       return toDay(value, where);
@@ -231,6 +250,10 @@ const fromColumn = (kind: Kind, value: unknown): unknown => {
       return typeof value === 'number' ? value : undefined;
     case 'bool':
       return value === 1;
+    case 'answeredBool':
+      // A NULL has already returned `undefined` above, so reaching here means
+      // the file answered.
+      return value === 1;
     case 'day':
       return typeof value === 'string' ? fromDay(value) : undefined;
     case 'dayText':
@@ -248,18 +271,21 @@ const fromColumn = (kind: Kind, value: unknown): unknown => {
 // invent them.
 //
 // Columns the APP has and this schema has not are absent for the opposite
-// reason. There were three. `lastReconciledBalance` is no longer one of them —
-// slice 20 gave `schema.sql` the column, because `AccountUpdate` names the field
-// and the account write verb would otherwise have had to refuse an edit the
-// cloud accepts, and the line below is the whole of the change it needed here.
+// reason. There were three, and there is now ONE.
 //
-// The other two stand, and they are not the same kind of absence.
-// `Transaction.reconciled` is a real gap: the mirror predates
-// `20260810200000`, and a file that cannot tell a marked row from a reconciled
-// one is a file the reconciliation bar cannot start from. `creditLimit` is NOT a
-// gap — no migration has ever created `accounts.credit_limit`, in the cloud or
-// here, and `contract.ts`'s `CREDIT_LIMIT_STORAGE` declares that as a fact about
-// the product rather than about this mirror.
+// `lastReconciledBalance` stopped being one in slice 20, because `AccountUpdate`
+// names the field and the account write verb would otherwise have had to refuse
+// an edit the cloud accepts. `Transaction.reconciled` stopped being one here:
+// the mirror predated `20260810200000`, and a file that cannot tell a marked row
+// from a reconciled one is a file the reconciliation bar cannot start from — so
+// the reconciliation verbs brought the column with them, and it is the row below
+// with the `answeredBool` kind, which is the only three-valued flag in this
+// table.
+//
+// `creditLimit` is the one left, and it is NOT a gap — no migration has ever
+// created `accounts.credit_limit`, in the cloud or here, and `contract.ts`'s
+// `CREDIT_LIMIT_STORAGE` declares that as a fact about the product rather than
+// about this mirror.
 
 const ENTITIES = {
   accounts: [
@@ -297,6 +323,7 @@ const ENTITIES = {
     { column: 'notes', field: 'notes', kind: 'text' },
     { column: 'is_recurring', field: 'isRecurring', kind: 'bool' },
     { column: 'is_cleared', field: 'cleared', kind: 'bool' },
+    { column: 'is_reconciled', field: 'reconciled', kind: 'answeredBool' },
     { column: 'is_split', field: 'isSplit', kind: 'bool' },
     { column: 'archived', field: 'archived', kind: 'bool' },
     { column: 'statement_sequence', field: 'statementSequence', kind: 'int' },
@@ -627,6 +654,12 @@ export function readBack(file: string): PortStoreState {
         notes: typeof value.notes === 'string' ? value.notes : undefined,
         tags: tagsByTransaction.get(id) ?? [],
         cleared: asFlag(value.cleared),
+        // NOT `asFlag`, which is total: the column is three-valued and an
+        // unanswered row must come back `undefined`, which
+        // `transactionReconciliation.ts` reads as "ask `cleared`". Flattening it
+        // here would make the independent witness unable to see the difference
+        // the reconciliation rules turn on.
+        reconciled: typeof value.reconciled === 'boolean' ? value.reconciled : undefined,
         isRecurring: asFlag(value.isRecurring),
         isSplit: asFlag(value.isSplit),
         archived: asFlag(value.archived),

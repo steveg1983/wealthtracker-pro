@@ -39,16 +39,22 @@
  * contract suite, which asks both engines the same questions and compares
  * app-shaped answers.
  *
- * ── THREE THINGS THE FILE CANNOT ANSWER, STATED RATHER THAN GUESSED ─────────
+ * ── WHAT THE FILE CANNOT ANSWER, STATED RATHER THAN GUESSED ────────────────
  *
- * `Transaction.reconciled`, `Account.lastReconciledBalance` and
- * `Transaction.metadata`-derived fields have no column in
- * `scripts/local-sqlite/schema.sql`: the mirror predates
- * `20260810200000_marking_is_not_reconciling.sql`. They therefore read as
- * `undefined`, which `utils/transactionReconciliation.ts` defines as "ask
- * `cleared`" — the one-flag behaviour, which is exactly what such a file is
- * still describing. Inventing `false` would report a whole reconciled history
- * as unreconciled work.
+ * This paragraph named three fields and is down to one. `Transaction.reconciled`
+ * and `Account.lastReconciledBalance` had no column in
+ * `scripts/local-sqlite/schema.sql` — the mirror predated
+ * `20260810200000_marking_is_not_reconciling.sql` — and both are ported now
+ * (the account's in slice 20, the transaction's with the reconciliation verbs).
+ * What is left is `Transaction.metadata`-derived fields, which read as
+ * `undefined` because the blob is not projected by any read here.
+ *
+ * The rule the ported column brought with it stands, and it is why `reconciled`
+ * is mapped through `answeredFlag` rather than through `flag`: the column is
+ * NULLABLE, and a NULL means "ask `cleared`"
+ * (`utils/transactionReconciliation.ts`), which is the one-flag behaviour a row
+ * written before the split is still describing. Inventing `false` for one would
+ * report a whole reconciled history as unreconciled work.
  */
 
 import { mapAccountFromDb } from '../../api/accountMapping';
@@ -181,6 +187,12 @@ export const toTransaction = (row: Record<string, unknown>): Transaction => {
     tags: strings(value.tags),
     notes: text(value.notes),
     cleared: value.cleared === true,
+    // NOT `=== true`, and that is the whole of the C/R split on this side: the
+    // column is three-valued, and `undefined` means "ask `cleared`" rather than
+    // "not committed". `answeredFlag` is what keeps the three apart on the way
+    // in; flattening them here would undo it in the last line that touches the
+    // value.
+    reconciled: typeof value.reconciled === 'boolean' ? value.reconciled : undefined,
     isRecurring: value.isRecurring === true,
     isSplit: value.isSplit === true,
     archived: value.archived === true,

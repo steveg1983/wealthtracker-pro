@@ -78,27 +78,32 @@ use crate::admission::{
 };
 use crate::error::CoreError;
 use crate::verbs::{
-    account_balances, apply_category_to_uncategorized, clear_transfer_links, close_account,
+    account_balances, apply_category_to_uncategorized, archive_transactions_before,
+    clear_transfer_links, close_account,
     confirm_transaction_categories, create_account, create_budget, create_categories,
     create_category, create_goal, create_transaction, create_transfer_counterpart, delete_budget,
     delete_category, delete_goal, delete_transaction,
-    delete_unused_categories, dismiss_suggestion, finalize_user_restore, import_bank_transactions,
+    delete_unused_categories, dismiss_suggestion, finalize_reconciliation, finalize_user_restore,
+    import_bank_transactions,
     import_transactions,
     link_bank_account_snap, link_split_line_transfer, link_transfer_pair, list_accounts,
     list_budgets, list_categories, list_closed_accounts, list_goals, list_suggestion_dismissals,
     list_transaction_splits, list_transactions, load_boot, merge_categories,
     repair_claimed_transfer, restore_suggestion, restore_user_chunk, seed_categories,
-    set_transaction_splits_with_legs, splits_for, update_account, update_budget, update_category,
+    set_transaction_splits_with_legs, set_transactions_archived, set_transactions_cleared,
+    splits_for, unarchive_account, update_account, update_budget, update_category,
     update_goal, update_transaction, user_financial_data_is_empty, verify_integrity,
     wipe_user_financial_data,
-    ApplyCategoryToUncategorized, ClearTransferLinks, CloseAccount, ConfirmTransactionCategories,
+    ApplyCategoryToUncategorized, ArchiveTransactionsBefore, ClearTransferLinks, CloseAccount,
+    ConfirmTransactionCategories,
     CreateAccount, CreateBudget, CreateCategories, CreateCategory, CreateGoal, CreateTransaction,
     CreateTransferCounterpart, DeleteBudget, DeleteCategory, DeleteGoal, DeleteTransaction,
-    DeleteUnusedCategories, DismissSuggestion, FinalizeUserRestore,
+    DeleteUnusedCategories, DismissSuggestion, FinalizeReconciliation, FinalizeUserRestore,
     ImportBankTransactions, ImportTransactions, LinkBankAccountSnap, LinkSplitLineTransfer,
     LinkTransferPair, MergeCategories, OwnedRead, RepairClaimedTransfer, RestoreSuggestion,
     RestoreUserChunk,
-    SeedCategories, SetTransactionSplitsWithLegs, SplitsFor, UpdateAccount, UpdateBudget,
+    SeedCategories, SetTransactionSplitsWithLegs, SetTransactionsArchived, SetTransactionsCleared,
+    SplitsFor, UnarchiveAccount, UpdateAccount, UpdateBudget,
     UpdateCategory, UpdateGoal, UpdateTransaction, UserFinancialDataIsEmpty, VerifyIntegrity,
     WipeUserFinancialData,
 };
@@ -129,6 +134,29 @@ pub enum Command {
     // verb string that will one day mean the wrong one.
     /// [`crate::verbs::set_transaction_splits_with_legs`].
     SetTransactionSplitsWithLegs(Box<SetTransactionSplitsWithLegs>),
+    // ── The reconciliation and archive family ────────────────────────────────
+    //
+    // Five verb strings, each spelled exactly as the RPC it ports — including
+    // the two PLURALS, `set_transactions_cleared` and `set_transactions_
+    // archived`, whose seam operations are singular (`setTransactionArchived`
+    // takes one id and the client sends `[id]`). The narrowing belongs to the
+    // port; the verb is the function.
+    //
+    // Three of the five were restated by 20260810200000_marking_is_not_
+    // reconciling.sql and the LIVE definitions are the ones ported: marking now
+    // resolves the committed flag, finalize is new, and the archive reads
+    // COALESCE(is_reconciled, is_cleared). `unarchive_account` is untouched by
+    // that migration and is ported from 20260721130000.
+    /// [`crate::verbs::set_transactions_cleared`].
+    SetTransactionsCleared(Box<SetTransactionsCleared>),
+    /// [`crate::verbs::finalize_reconciliation`].
+    FinalizeReconciliation(Box<FinalizeReconciliation>),
+    /// [`crate::verbs::set_transactions_archived`].
+    SetTransactionsArchived(Box<SetTransactionsArchived>),
+    /// [`crate::verbs::archive_transactions_before`].
+    ArchiveTransactionsBefore(Box<ArchiveTransactionsBefore>),
+    /// [`crate::verbs::unarchive_account`].
+    UnarchiveAccount(Box<UnarchiveAccount>),
     // The transfer family. Five RPCs, five verb strings, each spelled exactly as
     // the function it ports — including `clear_transfer_links`, which is what
     // the client's `clearTransferLinks` actually calls (it stopped being a table
@@ -491,6 +519,21 @@ pub fn dispatch(
         }
         Command::LinkSplitLineTransfer(payload) => {
             link_split_line_transfer(connection, *payload).and_then(as_json)
+        }
+        Command::SetTransactionsCleared(payload) => {
+            set_transactions_cleared(connection, *payload).and_then(as_json)
+        }
+        Command::FinalizeReconciliation(payload) => {
+            finalize_reconciliation(connection, *payload).and_then(as_json)
+        }
+        Command::SetTransactionsArchived(payload) => {
+            set_transactions_archived(connection, *payload).and_then(as_json)
+        }
+        Command::ArchiveTransactionsBefore(payload) => {
+            archive_transactions_before(connection, *payload).and_then(as_json)
+        }
+        Command::UnarchiveAccount(payload) => {
+            unarchive_account(connection, *payload).and_then(as_json)
         }
         Command::MergeCategories(payload) => {
             merge_categories(connection, *payload).and_then(as_json)

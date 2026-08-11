@@ -112,6 +112,42 @@
 //! | undoing a refusal | `.delete()`, never a flag — there is no UPDATE policy | a DELETE, never a flag — `trg_dismissals_no_update` would ABORT one |
 //! | the subjects on that delete | nothing to cascade: they were an array in the row | `ON DELETE CASCADE`, deliberately not walked — [`delete_goal`]'s decision, not [`delete_category`]'s |
 //!
+//! # THE C/R SPLIT, WHICH IS THE ONE PORT THAT NEEDED A COLUMN
+//!
+//! [`set_transactions_cleared`], [`finalize_reconciliation`],
+//! [`set_transactions_archived`], [`archive_transactions_before`] and
+//! [`unarchive_account`] are five ports of five REAL RPCs — no TypeScript-writer
+//! argument applies to any of them — and they arrived together because they read
+//! and write one flag between them: `transactions.is_reconciled`, Microsoft
+//! Money's R.
+//!
+//! `schema.sql` had no such column, and the mirror's sweep therefore fired on
+//! `is_cleared` while the cloud's had moved to `is_reconciled`
+//! (`20260810200000_marking_is_not_reconciling.sql`). The two engines disagreed
+//! about whether TICKING a row archives it, which is the A-3 constraint spec, and
+//! that spec failed on every run from the day the cloud migration landed until
+//! the column was ported. Two things follow that are worth having in one place:
+//!
+//! * **the split is not a preference, it is what the flags MEAN.** C is a
+//!   working note and R is a commitment; the sweep, the Accounts list's
+//!   unreconciled count and the archive all read the commitment, and everything
+//!   that ticks writes the note. A file with one flag describes a ledger in which
+//!   marking and reconciling are the same act — which is what this file WAS, and
+//!   what `transactionReconciliation.ts` still reads a `NULL` row as.
+//! * **only [`finalize_reconciliation`] writes `is_reconciled = 1`.** That is
+//!   what makes "leave the screen and those transactions are still yet to be
+//!   reconciled" true, and it is why the sweep hangs off that verb and no other.
+//!
+//! Two of the five audit and three do not, and the difference is the CLOUD's
+//! rather than a decision made here: `set_transactions_cleared`,
+//! `finalize_reconciliation` and `set_transactions_archived` call
+//! `write_financial_audit`; `archive_transactions_before` and
+//! `unarchive_account` contain no such call, twenty lines apart in the same
+//! migration. These are ports of RPCs, so the RPC is the specification — the
+//! audit argument in the four TypeScript-writer tables above does not apply,
+//! because there the alternative was no trail at all rather than a different
+//! trail from the cloud's.
+//!
 //! # `migrate_categories_atomic` — HALF of it is ported, and the half is B-4
 //!
 //! It was recorded here as *"needs a decision about what it would even do before
@@ -296,6 +332,18 @@
 //! | [`update_category`] | no — `trg_categories_updated_at` stands down of its own accord, and C-5 is `BEFORE DELETE` | no |
 //! | [`delete_category`] | no, and it must not — C-5 is the answer, exactly as it is for the prune | no |
 //! | [`seed_categories`] | no — an INSERT and an UPDATE of `categories`, same measurement as the two above | no |
+//! | [`set_transactions_cleared`] | no — it writes `is_cleared`, `is_reconciled` and `updated_at`, none of which any `BEFORE UPDATE OF` list holds | no |
+//! | [`finalize_reconciliation`] | no, same three columns plus the account's own two | no |
+//! | [`set_transactions_archived`] | no — `archived` and `updated_at` | no |
+//! | [`archive_transactions_before`] | no, the same two columns in bulk | no |
+//! | [`unarchive_account`] | no, likewise | no |
+//!
+//! The reconciliation family is the first group where "no guard" needed a
+//! sentence about a trigger that IS consulted: the sweep is `AFTER UPDATE OF
+//! is_reconciled`, and [`set_transactions_cleared`] writes that column on every
+//! row it touches. It stands down every time — the trigger fires only on a
+//! transition TO committed, and marking never writes one — which is precisely
+//! the property the C/R split exists to give the register.
 //!
 //! The restore family adds a **third** flag to the table, which the first twelve
 //! verbs never needed: `_rpc_guard('restore')`, held by
@@ -479,6 +527,7 @@
 //! contradicts its module's header is a verb somebody will read wrongly.
 
 mod apply_category_to_uncategorized;
+mod archive_transactions_before;
 mod clear_transfer_links;
 mod close_account;
 mod confirm_transaction_categories;
@@ -494,6 +543,7 @@ mod delete_goal;
 mod delete_transaction;
 mod delete_unused_categories;
 mod dismiss_suggestion;
+mod finalize_reconciliation;
 mod finalize_user_restore;
 mod import_bank_transactions;
 mod import_transactions;
@@ -508,7 +558,10 @@ mod restore_suggestion;
 mod restore_user_chunk;
 mod seed_categories;
 mod set_transaction_splits_with_legs;
+mod set_transactions_archived;
+mod set_transactions_cleared;
 mod transfer;
+mod unarchive_account;
 mod update_account;
 mod update_budget;
 mod update_category;
@@ -524,6 +577,26 @@ pub use apply_category_to_uncategorized::{
 };
 pub use clear_transfer_links::{
     clear_transfer_links, ClearTransferLinks, ClearTransferLinksResult,
+};
+// The reconciliation and archive family — five verbs, five RPCs, and the first
+// group in this crate that had to bring a COLUMN across with it. See "THE C/R
+// SPLIT" above.
+pub use archive_transactions_before::{
+    archive_transactions_before, ArchiveAnswer, ArchiveTransactionsBefore,
+    ArchiveTransactionsBeforeResult,
+};
+pub use finalize_reconciliation::{
+    finalize_reconciliation, FinalizeAnswer as FinalizeReconciliationAnswer,
+    FinalizeReconciliation, FinalizeReconciliationResult,
+};
+pub use set_transactions_archived::{
+    set_transactions_archived, SetTransactionsArchived, SetTransactionsArchivedResult,
+};
+pub use set_transactions_cleared::{
+    set_transactions_cleared, SetTransactionsCleared, SetTransactionsClearedResult,
+};
+pub use unarchive_account::{
+    unarchive_account, UnarchiveAccount, UnarchiveAccountResult, UnarchiveAnswer,
 };
 // The account family — three verbs, no RPC between them. See "A VERB WHOSE
 // ORACLE IS A TYPESCRIPT WRITER" above.

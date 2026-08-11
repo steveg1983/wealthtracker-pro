@@ -128,8 +128,19 @@ pub struct TransactionRow {
     pub payment_channel: Option<String>,
     /// Part of a recurring series.
     pub is_recurring: bool,
-    /// Reconciled against a statement.
+    /// MARKED against a statement — Money's C, a working note. Not a
+    /// reconciliation: see [`TransactionRow::is_reconciled`].
     pub is_cleared: bool,
+    /// COMMITTED against a confirmed statement balance — Money's R.
+    ///
+    /// `Option`, because the column is three-valued in both engines and the
+    /// third value carries meaning: `None` is *"this row predates the split
+    /// between marking and committing; ask `is_cleared`"*
+    /// (`20260810200000:52-54`, and `transactionReconciliation.ts` for the app).
+    /// Reading it as `false` would report a whole reconciled history as
+    /// unreconciled work, which is the mistake the cloud's nullable column
+    /// exists to make impossible.
+    pub is_reconciled: Option<bool>,
     /// Is this row a split parent?
     pub is_split: bool,
     /// Archived out of the live register.
@@ -167,7 +178,8 @@ pub fn read_transaction(connection: &Connection, id: &str) -> CoreResult<Transac
                 location_country, payment_channel, is_recurring, is_cleared,
                 is_split, archived, statement_sequence, category_confirmed,
                 transfer_account_id, linked_transfer_id, linked_transfer_split_id,
-                import_source, import_source_id, external_transaction_id, metadata
+                import_source, import_source_id, external_transaction_id, metadata,
+                is_reconciled
            FROM transactions
           WHERE id = ?1",
         params![id],
@@ -190,6 +202,8 @@ pub fn read_transaction(connection: &Connection, id: &str) -> CoreResult<Transac
                 payment_channel: record.get(13)?,
                 is_recurring: record.get::<_, i64>(14)? != 0,
                 is_cleared: record.get::<_, i64>(15)? != 0,
+                // The NULL survives as `None`; see the field.
+                is_reconciled: record.get::<_, Option<i64>>(27)?.map(|value| value != 0),
                 is_split: record.get::<_, i64>(16)? != 0,
                 archived: record.get::<_, i64>(17)? != 0,
                 statement_sequence: record.get(18)?,
@@ -285,24 +299,25 @@ pub fn read_owned_transaction(
 /// redundant `user_id` we already filter on"*. It is a column the answer's own
 /// question already fixed.
 ///
-/// # `is_reconciled` is the column this file has not got
+/// # `is_reconciled` WAS the column this file had not got
 ///
-/// The cloud's boot list carries it (added by `20260810200000_marking_is_not_
-/// reconciling.sql`, which split "marked" from "reconciled") and
+/// It is here now, and the entry is kept rather than deleted because it is the
+/// record of what such a gap costs while it is open. It used to read: the
+/// cloud's boot list carries the column (added by `20260810200000_marking_is_
+/// not_reconciling.sql`, which split "marked" from "reconciled") and
 /// `scripts/local-sqlite/schema.sql` has no such column — the same kind of gap
-/// [`crate::row::account::ListedAccount`] records for `last_reconciled_balance`,
-/// and named here rather than papered over because it is named where it BITES:
+/// [`crate::row::account::ListedAccount`] recorded for `last_reconciled_balance`
+/// — so a local file *"does not lie about a row: it describes a ledger in which
+/// marking and reconciling are the same act, which is what a file without the
+/// column IS"*, exactly as the cloud's own fallback ladder
+/// (`BOOT_TRANSACTION_COLUMNS_NO_RECONCILED`) reads a database that has not had
+/// the migration. It ended with the condition for closing it: *"the day
+/// `schema.sql` grows the column, this struct and the harness's oracle must grow
+/// it together"*, and that is what this slice did.
 ///
-/// `src/utils/transactionReconciliation.ts` treats an absent `reconciled` as
-/// *"ask `cleared`"*, which is the one-flag behaviour this app had until that
-/// migration. So a local file does not lie about a row — it describes a ledger
-/// in which marking and reconciling are the same act, which is what a file
-/// without the column IS. The cloud's own fallback ladder
-/// (`BOOT_TRANSACTION_COLUMNS_NO_RECONCILED`) does exactly this for a database
-/// that has not had the migration applied yet. What is NOT true of a local file
-/// is that the feature *lights up by itself the moment the migration lands*:
-/// there is no migration to land until `schema.sql` grows the column, and the
-/// day it does, this struct and the harness's oracle must grow it together.
+/// `Option<bool>` for [`TransactionRow::is_reconciled`]'s reason: `None` means
+/// *"ask `is_cleared`"*, and `src/utils/transactionReconciliation.ts` is the one
+/// place that rule is written for the app.
 #[derive(Debug, Clone, Serialize)]
 // Six booleans, because six of the columns the boot reads are booleans. The
 // reasoning is `TransactionRow`'s: this is a row, not a designed API.
@@ -329,8 +344,10 @@ pub struct ListedTransaction {
     pub date: String,
     /// Payee or description, as entered or as the file stated it.
     pub description: String,
-    /// Marked against a statement.
+    /// Marked against a statement — Money's C, a working note.
     pub is_cleared: bool,
+    /// Committed by a finalize — Money's R. `None` means "ask `is_cleared`".
+    pub is_reconciled: Option<bool>,
     /// Part of a recurring series.
     pub is_recurring: bool,
     /// Is this row a split parent?
@@ -357,11 +374,12 @@ pub struct ListedTransaction {
 }
 
 /// Every column [`ListedTransaction`] carries, in its serialised order — which
-/// is `BOOT_TRANSACTION_COLUMNS`'s order, so the two lists can be read side by
-/// side and the one difference (`is_reconciled`) seen rather than searched for.
+/// is `BOOT_TRANSACTION_COLUMNS`'s order. The two lists can be read side by side
+/// and, since this slice, they hold the same names: the one difference used to
+/// be `is_reconciled`, and closing it is what the C/R split needed here.
 const LISTED_COLUMNS: &str = "id, account_id, amount_minor, archived, category,
         category_confirmed, category_id, created_at, date, description, is_cleared,
-        is_recurring, is_split, linked_transfer_id, linked_transfer_split_id,
+        is_reconciled, is_recurring, is_split, linked_transfer_id, linked_transfer_split_id,
         needs_review, notes, statement_sequence, type, updated_at, transfer_account_id";
 
 /// The statement [`list_owned`] prepares, and the ONLY copy of it.
@@ -445,17 +463,18 @@ pub fn list_owned(connection: &Connection, user_id: &str) -> CoreResult<Vec<List
             date: record.get(8)?,
             description: record.get(9)?,
             is_cleared: record.get::<_, i64>(10)? != 0,
-            is_recurring: record.get::<_, i64>(11)? != 0,
-            is_split: record.get::<_, i64>(12)? != 0,
-            linked_transfer_id: record.get(13)?,
-            linked_transfer_split_id: record.get(14)?,
-            needs_review: record.get::<_, i64>(15)? != 0,
-            notes: record.get(16)?,
-            statement_sequence: record.get(17)?,
+            is_reconciled: record.get::<_, Option<i64>>(11)?.map(|value| value != 0),
+            is_recurring: record.get::<_, i64>(12)? != 0,
+            is_split: record.get::<_, i64>(13)? != 0,
+            linked_transfer_id: record.get(14)?,
+            linked_transfer_split_id: record.get(15)?,
+            needs_review: record.get::<_, i64>(16)? != 0,
+            notes: record.get(17)?,
+            statement_sequence: record.get(18)?,
             tags: Vec::new(),
-            kind: record.get(18)?,
-            updated_at: record.get(19)?,
-            transfer_account_id: record.get(20)?,
+            kind: record.get(19)?,
+            updated_at: record.get(20)?,
+            transfer_account_id: record.get(21)?,
         })
     })?;
 

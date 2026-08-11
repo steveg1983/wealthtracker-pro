@@ -277,7 +277,12 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
    * than skipped as a result; slice 23 did it a fourth time for the two
    * dismissal writes, which also closed the local schema's `kind` CHECK — it
    * admitted four of the seven `DismissalKind` values, so Payee cleanup's three
-   * would have been refused by a file while the cloud stored them.
+   * would have been refused by a file while the cloud stored them; slice 24 did
+   * the five reconciliation and archive operations, which are ports of five REAL
+   * RPCs and which needed a COLUMN before any of them could be written —
+   * `transactions.is_reconciled`, Microsoft Money's R. Until it existed this
+   * mirror's archive sweep fired on the mark rather than on the commitment, and
+   * the A-3 constraint spec failed on every run saying so.
    *
    * What is left needs new Rust, in the order the plan sets out.
    *
@@ -288,14 +293,13 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
    * B-4's row is now asserted rather than excused.
    */
   'local-core': [
-    // Transaction writes — the five with no verb. All four are live cloud RPCs
-    // with no port yet, and they land together in slice 24 with a differential
-    // spec each; `finalizeReconciliation` is the fifth.
-    'setTransactionsCleared',
-    'finalizeReconciliation',
-    'setTransactionArchived',
-    'archiveTransactionsBefore',
-    'unarchiveAccount',
+    // The transaction group is WHOLE. The five that were here — the four live
+    // RPCs with no port and `finalizeReconciliation`, which was the fifth —
+    // landed together in slice 24 with a differential spec each, and they had to
+    // land together: they read and write one column between them, and porting
+    // that column is what closed the last gap between `BOOT_TRANSACTION_COLUMNS`
+    // and what a file can answer with.
+    //
     // Transfers — `repointTransfer` has no verb in either engine's crate half.
     'repointTransfer',
     // Planning and dismissals are BOTH whole now: the category half went in
@@ -349,7 +353,7 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
  * on a line that exists for no other purpose.
  */
 export const NOT_YET_CEILING: Partial<Record<DataPortEngine, number>> = {
-  'local-core': 9
+  'local-core': 4
 };
 
 // ── Declared divergences ────────────────────────────────────────────────────
