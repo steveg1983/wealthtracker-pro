@@ -39,10 +39,26 @@
  * is shown, so the update builder must NOT quietly drop a field it does not
  * recognise: `archived` goes over the wire and comes back as a refusal naming
  * it, which is exactly what the contract suite asks this engine for.
+ *
+ * THE ACCOUNT PAIR TAKES THE SAME TWO SHAPES, and for once the update's half is
+ * not a divergence at all: `mapAccountToDb` sends a field it has no column for
+ * under its own name, and PostgREST then refuses the whole update because there
+ * is no such column. So both engines refuse an unrecognised account field, and
+ * the local `deny_unknown_fields` is parity rather than strictness. What the
+ * account update DOES drop is listed and argued at
+ * {@link ACCOUNT_UPDATE_DROPS} — two of them are the cloud's own drop-list and
+ * three are timestamps a caller has no business stating.
  */
 
-import type { Transaction, TransactionSplitInput } from '../../../types';
-import { SPLIT_COLUMNS, TRANSACTION_COLUMNS, encode, payloadOf } from './columns';
+import type { Account, AccountUpdate, Transaction, TransactionSplitInput } from '../../../types';
+import type { Column } from './columns';
+import {
+  ACCOUNT_COLUMNS,
+  SPLIT_COLUMNS,
+  TRANSACTION_COLUMNS,
+  encode,
+  payloadOf
+} from './columns';
 
 /**
  * What `create_transaction` accepts, out of the transaction's columns.
@@ -145,10 +161,128 @@ export const toSplitLine = (line: TransactionSplitInput): Record<string, unknown
  * point rather than a rough edge.
  */
 export function toUpdatePatch(updates: Partial<Transaction>): Record<string, unknown> {
+  return whole(TRANSACTION_COLUMNS, updates as Record<string, unknown>, new Set());
+}
+
+// ── Accounts ────────────────────────────────────────────────────────────────
+
+/**
+ * What `create_account` accepts, out of the account's columns.
+ *
+ * `balance` is absent, and it is the most important absence in this file. The
+ * seam hands over `Omit<Account, 'id'>`, which carries both `balance` and
+ * `openingBalance` — and a ledger with no transactions cannot hold two different
+ * figures without breaking B-1. The verb therefore takes ONE, `initial_balance`,
+ * and sets the balance equal to it; which of the caller's two figures becomes
+ * that one is decided in {@link toAccountCreatePayload} below, on the side that
+ * has the caller's own type.
+ *
+ * `id` IS here, unlike the transaction create's key list, and for the opposite
+ * reason to the one stated there: the seam's argument is `Omit<Account, 'id'>`
+ * too, so an id can only arrive from a caller that minted one on purpose — and
+ * the crate treats an absent id as "mint me one" (B-5). Nothing in the app sends
+ * one today; the harness does, because two engines cannot be compared on a row
+ * neither of them can name.
+ */
+const ACCOUNT_CREATE_KEYS: readonly string[] = [
+  'id',
+  'name',
+  'type',
+  'currency',
+  'initial_balance',
+  'is_active',
+  'institution',
+  'sort_code',
+  'account_number',
+  'opening_balance_date',
+  'notes',
+  'low_balance_alert_enabled',
+  'low_balance_threshold'
+];
+
+/**
+ * Fields of an `AccountUpdate` that are DROPPED rather than sent, and each one
+ * is a decision.
+ *
+ * `holdings` and `tags` are the cloud's own drop-list (`mapAccountToDb`'s
+ * `NOT_ACCOUNT_COLUMNS`): holdings live with the investments they belong to and
+ * tags are not stored on an account, so sending either would fail the whole
+ * update rather than just that field.
+ *
+ * The three timestamps are this edition's addition, and the reason is the one
+ * every write verb here gives about `updated_at`: the crate stamps it from the
+ * file's own clock INSIDE the write's transaction, so that the row, the To/From
+ * category C-4 touches and the audit entry all carry one instant. A caller's
+ * copy of a timestamp is not an instruction — it is what the caller last read —
+ * and the cloud accepting one is how a stale client comes to backdate a row it
+ * has just edited.
+ */
+const ACCOUNT_UPDATE_DROPS = new Set(['holdings', 'tags', 'createdAt', 'updatedAt', 'lastUpdated']);
+
+/**
+ * A new account as `create_account`'s payload.
+ *
+ * THE ONE FIGURE. `initial_balance` is `openingBalance || balance || 0`, falsy
+ * -wise, which is `accountService.createAccount`'s own expression for the same
+ * column (`account.openingBalance || account.balance || 0`) — so an account
+ * created here opens at the figure the cloud would have called its initial
+ * balance. In production the two are always the same number anyway:
+ * `AppContextSupabase.addAccount` sets `balance = initialBalance || balance || 0`
+ * before the seam is called. When they differ, the opening balance is the one a
+ * ledger can honour, and `contract.ts`'s `ACCOUNT_BALANCE_AT_BIRTH` declares it.
+ *
+ * FILTERED, like the transaction create and for the same reason:
+ * `Omit<Account, 'id'>` carries `plaidAccountId`, `mask`, `holdings` and half a
+ * dozen others the verb has no argument for, and sending them would make every
+ * ordinary create a refusal.
+ */
+export function toAccountCreatePayload(account: Omit<Account, 'id'>): Record<string, unknown> {
+  const opening = account.openingBalance || account.balance || 0;
+  return payloadOf(
+    ACCOUNT_COLUMNS,
+    { ...account, openingBalance: opening },
+    ACCOUNT_CREATE_KEYS
+  );
+}
+
+/**
+ * A partial edit as `update_account`'s patch.
+ *
+ * PASSED THROUGH WHOLE, minus {@link ACCOUNT_UPDATE_DROPS}, which is exactly
+ * what `mapAccountToDb` does: *"`undefined` means 'leave this alone' and is
+ * dropped; `null` means 'clear the stored value' and is kept"*, and a field it
+ * has no column for travels under its own name — where PostgREST refuses the
+ * whole update because there is no such column. The local twin of that refusal
+ * is `deny_unknown_fields`, so the two engines agree about an unrecognised field
+ * as well as about a recognised one.
+ *
+ * `balance` is the one field that is recognised AND refused, by name. It is in
+ * the column table for that purpose alone; the verb's module documentation says
+ * why the refusal is worth more than the silence.
+ */
+export function toAccountUpdatePatch(updates: AccountUpdate): Record<string, unknown> {
+  return whole(ACCOUNT_COLUMNS, updates as Record<string, unknown>, ACCOUNT_UPDATE_DROPS);
+}
+
+/**
+ * Every key a caller STATED, converted where this table knows the column and
+ * carried under its own name where it does not.
+ *
+ * The shared shape of both update builders. A key present with `undefined` is
+ * treated as absent — it is what an object spread produces for a field that was
+ * never set, and JSON has no way to carry it anyway. A key present with `null`
+ * is a STATEMENT and travels as one.
+ */
+function whole(
+  columns: readonly Column[],
+  updates: Record<string, unknown>,
+  dropped: ReadonlySet<string>
+): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
   for (const [field, value] of Object.entries(updates)) {
     if (value === undefined) continue;
-    const column = TRANSACTION_COLUMNS.find(entry => entry.field === field);
+    if (dropped.has(field)) continue;
+    const column = columns.find(entry => entry.field === field);
     if (column === undefined) {
       patch[field] = value;
       continue;

@@ -362,6 +362,24 @@ CREATE TABLE accounts (
   bank_balance_date   TEXT,
   last_reconciled_date TEXT,
 
+  -- The ending balance the last finalized reconciliation settled against —
+  -- Money's "last statement balance", and the figure the next reconciliation
+  -- is offered as its starting point. Port of
+  -- 20260810200000_marking_is_not_reconciling.sql:123, which added it to the
+  -- cloud; this mirror predated that migration and the gap was RECORDED in
+  -- three places rather than closed (crate `row/account.rs`, the harness's
+  -- ACCOUNT_JSON, and localCore.fixtureFile.ts's column table). It is closed
+  -- here because `update_account` takes an `AccountUpdate`, whose type names
+  -- this field: a column the seam's own type carries and the file cannot hold
+  -- is a write the local edition would have had to refuse while the cloud
+  -- accepted it.
+  --
+  -- NULLABLE, and never zero-as-unknown: the migration's own comment says so
+  -- and so does `mapAccountFromDb` — £0.00 is a real statement balance (an
+  -- account swept to zero every night closes on exactly that), so "never
+  -- reconciled" and "reconciled at zero" must not share a value.
+  last_reconciled_balance_minor INTEGER,
+
   low_balance_alert_enabled INTEGER NOT NULL DEFAULT 0 CHECK (low_balance_alert_enabled IN (0,1)),
   low_balance_threshold_minor INTEGER,
 
@@ -401,6 +419,7 @@ CREATE TABLE accounts (
     balance_minor         BETWEEN -1000000000000000 AND 1000000000000000 AND
     initial_balance_minor BETWEEN -1000000000000000 AND 1000000000000000 AND
     (bank_balance_minor IS NULL OR bank_balance_minor BETWEEN -1000000000000000 AND 1000000000000000) AND
+    (last_reconciled_balance_minor IS NULL OR last_reconciled_balance_minor BETWEEN -1000000000000000 AND 1000000000000000) AND
     (low_balance_threshold_minor IS NULL OR low_balance_threshold_minor BETWEEN -1000000000000000 AND 1000000000000000)),
 
   CONSTRAINT accounts_dates_shaped CHECK (

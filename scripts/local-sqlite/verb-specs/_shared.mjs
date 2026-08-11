@@ -2488,6 +2488,9 @@ export function listedAccount(fields) {
     bank_balance: null,
     bank_balance_date: null,
     last_reconciled_date: null,
+    // The column slice 20 gave this file, so the read now compares it. NULL is
+    // "never reconciled" and is never zero: £0.00 is a real statement balance.
+    last_reconciled_balance: null,
     low_balance_alert_enabled: false,
     low_balance_threshold: null,
     opening_balance_date: null,
@@ -2901,3 +2904,132 @@ export const twoTagsInTheWrongOrder = {
       ('${CORNER_SHOP}', 'zebra'), ('${CORNER_SHOP}', 'apple');`,
   postgres: `UPDATE public.transactions SET tags = ARRAY['zebra','apple'] WHERE id = '${CORNER_SHOP}';`,
 };
+
+// ── The account family's fixtures and assertions ───────────────────────────
+
+/** The account every write spec in the family makes or edits. */
+export const NEW_ACCOUNT = 'a0000000-0000-0000-0000-0000000000a1';
+
+/**
+ * The two timestamps a WRITE spec can never compare across engines.
+ *
+ * Both are `now()` at the moment of the write, on two machines' clocks and in
+ * two transactions, so they are different by construction and say nothing when
+ * they differ. Declared once here rather than re-argued in each spec, because a
+ * per-spec sentence would drift into "and while we are here, this other field
+ * too". A READ spec does not need it: those pin the times in their setup
+ * (`pinnedReadTimes`) and then really do compare them.
+ */
+export const writeInstants = {
+  created_at: 'the instant of the write, on two clocks and in two transactions',
+  updated_at: 'the same instant, and the same two clocks',
+};
+
+/**
+ * Every To/From category of one account, as `name:active` lines in name order.
+ *
+ * C-3's subject, read back as one string so the COUNT and the NAME are one
+ * assertion: "exactly one, called this, and open" is the whole rule, and three
+ * separate assertions would let a spec accidentally check two of them.
+ * `NONE` covers "no To/From category", which is a real and legal state on a file
+ * whose Transfer anchor does not exist yet.
+ */
+export function transferCategoriesFor(accountId, expect) {
+  const line = (activeExpr) => `c.name || ':' || CASE WHEN ${activeExpr} THEN 'open' ELSE 'hidden' END`;
+  return {
+    name: `transfer_categories_for_${accountId.slice(-4)}`,
+    sqlite: `SELECT COALESCE((SELECT group_concat(line, ' | ') FROM (
+               SELECT ${line('c.is_active = 1')} AS line FROM categories c
+                WHERE c.account_id = '${accountId}' AND c.is_transfer_category = 1
+                ORDER BY c.name)), 'NONE')`,
+    postgres: `SELECT COALESCE(string_agg(${line('c.is_active')}, ' | ' ORDER BY c.name), 'NONE')
+                 FROM public.categories c
+                WHERE c.account_id = '${accountId}' AND c.is_transfer_category`,
+    expect,
+  };
+}
+
+/**
+ * One TEXT-ish column of one ACCOUNT, with the three states kept apart the way
+ * {@link storedText} keeps them apart for a transaction: `ABSENT`, `NULL`,
+ * `EMPTY`. The last one earns its place here — the create collapses an empty
+ * account number to NULL and the update does not, and without this those two
+ * behaviours would both read as a blank line.
+ */
+export function accountText(accountId, column, expect) {
+  const wrap = (cast) => `CASE WHEN ${cast} IS NULL THEN 'NULL'
+                              WHEN ${cast} = '' THEN 'EMPTY'
+                              ELSE ${cast} END`;
+  return {
+    name: `account_${column}_${accountId.slice(-4)}`,
+    sqlite: `SELECT COALESCE((SELECT ${wrap(column)} FROM accounts
+        WHERE id = '${accountId}'), 'ABSENT')`,
+    postgres: `SELECT COALESCE((SELECT ${wrap(`${column}::text`)} FROM public.accounts
+        WHERE id = '${accountId}'), 'ABSENT')`,
+    expect,
+  };
+}
+
+/** One boolean column of one account, as `yes`/`no`. */
+export function accountFlag(accountId, column, expect) {
+  return {
+    name: `account_${column}_${accountId.slice(-4)}`,
+    sqlite: `SELECT COALESCE((SELECT CASE WHEN ${column} = 1 THEN 'yes' ELSE 'no' END
+        FROM accounts WHERE id = '${accountId}'), 'ABSENT')`,
+    postgres: `SELECT COALESCE((SELECT CASE WHEN ${column} THEN 'yes' ELSE 'no' END
+        FROM public.accounts WHERE id = '${accountId}'), 'ABSENT')`,
+    expect,
+  };
+}
+
+/**
+ * THE SIZE OF A B-1 BREACH, signed, for the two specs where one engine has one.
+ *
+ * The same query {@link balanceIdentityHolds} runs, and deliberately a different
+ * function with a different name: that one expects `0.00` and says so in its
+ * own documentation, because *"B-1 is the invariant the whole application rests
+ * on and neither schema enforces it"*. Giving it an `expect` argument would turn
+ * the most load-bearing assertion in this directory into one a spec can excuse
+ * itself from in passing.
+ *
+ * This one has to be asked for by name, and there are exactly two callers: the
+ * update specs where the cloud's direct write leaves the identity broken and the
+ * verb does not. The figure is the drift, so `0.00` still means "holds".
+ */
+export function balanceDrift(accountId, expect) {
+  return {
+    name: `balance_drift_for_${accountId.slice(-4)}`,
+    sqlite: balanceIdentity.sqlite(accountId),
+    postgres: balanceIdentity.postgres(accountId),
+    expect,
+  };
+}
+
+/** How many accounts this login has, open and closed together. */
+export function accountsOwned(expect) {
+  return {
+    name: 'accounts_owned',
+    sqlite: `SELECT COUNT(*) FROM accounts WHERE user_id = '${USER}'`,
+    postgres: `SELECT COUNT(*) FROM public.accounts WHERE user_id = '${USER}'`,
+    expect,
+  };
+}
+
+/**
+ * Is this string anywhere in the accounts table at all?
+ *
+ * Written for the card rule, where "the field was truncated" is the weak
+ * assertion and "the number is not in the database" is the one that matters —
+ * anything stored reaches that person's backups and their JSON export.
+ */
+export function nowhereInTheAccounts(needle, expect) {
+  const predicate = (concat) => `${concat} LIKE '%${needle}%'`;
+  return {
+    name: `occurrences_of_${needle.slice(-6)}`,
+    sqlite: `SELECT COUNT(*) FROM accounts
+              WHERE ${predicate("COALESCE(account_number,'') || COALESCE(sort_code,'') || COALESCE(notes,'') || COALESCE(name,'')")}`,
+    postgres: `SELECT COUNT(*) FROM public.accounts
+                WHERE ${predicate("COALESCE(account_number,'') || COALESCE(sort_code,'') || COALESCE(notes,'') || COALESCE(name,'')")}`,
+    expect,
+  };
+}

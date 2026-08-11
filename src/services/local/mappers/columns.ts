@@ -31,12 +31,23 @@
  *
  * ── ONLY THE ENTITIES THAT REALLY GO BOTH WAYS ──────────────────────────────
  *
- * Transactions and split lines, and no more. Accounts, categories, budgets,
- * goals and dismissals are read-only at this slice — their write verbs are
- * slices 20 to 23 — and a one-directional mapping has nothing to disagree
- * with, so the five of them stay written out in `rows.ts` where they can be
- * read beside the cloud twin each one has to agree with. Each joins this table
- * in the commit that gives it a writer.
+ * Transactions, split lines and — since slice 20 — accounts. Categories,
+ * budgets, goals and dismissals are still read-only: their write verbs are
+ * slices 21 to 23, and a one-directional mapping has nothing to disagree with,
+ * so the four of them stay written out in `rows.ts` where they can be read
+ * beside the cloud twin each one has to agree with. Each joins this table in the
+ * commit that gives it a writer.
+ *
+ * ACCOUNTS ARE THE ONE ENTRY HERE WHOSE READ DOES NOT COME BACK THROUGH IT, and
+ * that is a stronger arrangement rather than a hole in the rule. `rows.ts`'s
+ * `toAccount` is `mapAccountFromDb` — *the* cloud translation, the one that
+ * exists because there used to be two of them — so the read direction is not
+ * "another interpretation of this table", it is literally the same function the
+ * signed-in boot uses. What this table owns for an account is therefore the
+ * WRITE: the wire key, and the conversion. Its correspondence is checked against
+ * `accountMapping.ts`'s own `ACCOUNT_FIELD_TO_COLUMN`, which is the map the read
+ * side is built from, and any disagreement shows up immediately as a field that
+ * goes out under one name and comes back missing.
  *
  * ── MONEY CROSSES AS THE NUMBER'S OWN DECIMAL TEXT ──────────────────────────
  *
@@ -65,11 +76,36 @@
 import { day, flag, instant, money, strings, text, whole } from './values';
 
 /**
+ * The database's word for a current account (`accounts_type_check`, migration
+ * 20260720120000). The app says 'current' everywhere else, which is why
+ * `accountMapping.ts` states the same constant for the cloud's two directions
+ * and why the `accountType` kind below states it for these.
+ */
+const DB_CURRENT_ACCOUNT_TYPE = 'checking';
+
+/**
  * How one value crosses. The same word governs both directions, which is what
  * makes "read as a day, written as a day" a property of the table rather than
  * of two functions that happen to agree today.
  */
-export type Kind = 'text' | 'money' | 'day' | 'instant' | 'flag' | 'whole' | 'tags';
+export type Kind =
+  | 'text'
+  | 'money'
+  | 'day'
+  | 'instant'
+  | 'flag'
+  | 'whole'
+  | 'tags'
+  /**
+   * An account's type, which the app and the column spell differently: the app
+   * says 'current' everywhere and `accounts_type_check` allows 'checking'.
+   *
+   * The rename is the CLIENT's in both editions — `accountService.ts:225` does
+   * it before its insert, `accountMapping.ts`'s `accountTypeToDb` does it for an
+   * update — so the crate stores what it is given and the CHECK judges it. A
+   * verb that renamed it would be a second opinion about what a payload means.
+   */
+  | 'accountType';
 
 export interface Column {
   /** The key on the wire, the same in both directions. */
@@ -136,9 +172,56 @@ export const SPLIT_COLUMNS: readonly Column[] = [
   { key: 'linked_transfer_id', field: 'linkedTransferId', kind: 'text' }
 ];
 
+/**
+ * An account, column by column, for the WRITE direction.
+ *
+ * Every row is checked against `accountMapping.ts`'s `ACCOUNT_FIELD_TO_COLUMN`,
+ * with `_minor` dropped: the crate's payload keys are the CLOUD's column names
+ * because a verb's arguments are the cloud write's arguments, and `balance_minor`
+ * is a storage detail on one engine that no wire should carry.
+ *
+ * `balance` IS here, and it is the one column no write can set. It is in the
+ * table so that a caller which sends it — and `AccountUpdate` is a
+ * `Partial<Account>`, so one will — reaches the verb's named refusal
+ * (`account_balance_is_derived`) instead of an `unknown_field` about a key that
+ * looks misspelled. The create's own key list leaves it out, which is a
+ * different mechanism for the same rule: see `writes.ts`.
+ */
+export const ACCOUNT_COLUMNS: readonly Column[] = [
+  { key: 'id', field: 'id', kind: 'text' },
+  { key: 'name', field: 'name', kind: 'text' },
+  { key: 'type', field: 'type', kind: 'accountType' },
+  { key: 'currency', field: 'currency', kind: 'text' },
+  { key: 'balance', field: 'balance', kind: 'money' },
+  { key: 'initial_balance', field: 'openingBalance', kind: 'money' },
+  { key: 'is_active', field: 'isActive', kind: 'flag' },
+  { key: 'institution', field: 'institution', kind: 'text' },
+  { key: 'sort_code', field: 'sortCode', kind: 'text' },
+  { key: 'account_number', field: 'accountNumber', kind: 'text' },
+  { key: 'opening_balance_date', field: 'openingBalanceDate', kind: 'day' },
+  { key: 'archive_through_date', field: 'archiveThroughDate', kind: 'day' },
+  { key: 'notes', field: 'notes', kind: 'text' },
+  { key: 'low_balance_alert_enabled', field: 'lowBalanceAlertEnabled', kind: 'flag' },
+  { key: 'low_balance_threshold', field: 'lowBalanceThreshold', kind: 'money' },
+  { key: 'bank_balance', field: 'bankBalance', kind: 'money' },
+  // A STRING in the app's own type, and deliberately: the column is a calendar
+  // day, and wrapping one in a Date invents a midnight that has to belong to
+  // some zone. `asDay` passes a string through untouched for that reason.
+  { key: 'bank_balance_date', field: 'bankBalanceDate', kind: 'day' },
+  { key: 'last_reconciled_date', field: 'lastReconciledDate', kind: 'day' },
+  { key: 'last_reconciled_balance', field: 'lastReconciledBalance', kind: 'money' },
+  { key: 'parent_account_id', field: 'parentAccountId', kind: 'text' }
+];
+
 /** One stored value on its way IN, or `undefined` where the answer said nothing. */
 const decode = (kind: Kind, value: unknown): unknown => {
   switch (kind) {
+    case 'accountType':
+      // The inverse of the rename below. Unused today — an account is read back
+      // through `mapAccountFromDb`, which does its own — and written out rather
+      // than thrown, because a kind whose two directions are not inverses is a
+      // kind that will one day be used in the direction nobody implemented.
+      return value === DB_CURRENT_ACCOUNT_TYPE ? 'current' : text(value);
     case 'text':
       return text(value);
     case 'money':
@@ -189,6 +272,11 @@ export const encode = (kind: Kind, value: unknown): unknown => {
   if (value === undefined) return undefined;
   if (value === null) return null;
   switch (kind) {
+    case 'accountType':
+      // `accountTypeToDb`, and nothing more: every other value the app's union
+      // holds is a value `accounts_type_check` allows, so the CHECK is what
+      // judges an unknown one — on both engines, with the same message.
+      return value === 'current' ? DB_CURRENT_ACCOUNT_TYPE : String(value);
     case 'text':
       return typeof value === 'string' ? value : String(value);
     case 'money':

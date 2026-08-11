@@ -78,21 +78,22 @@ use crate::admission::{
 };
 use crate::error::CoreError;
 use crate::verbs::{
-    account_balances, apply_category_to_uncategorized, clear_transfer_links,
-    confirm_transaction_categories, create_transaction, create_transfer_counterpart,
-    delete_transaction, delete_unused_categories, finalize_user_restore, import_bank_transactions,
-    import_transactions, link_bank_account_snap, link_split_line_transfer, link_transfer_pair,
-    list_accounts, list_budgets, list_categories, list_closed_accounts, list_goals,
-    list_suggestion_dismissals, list_transaction_splits, list_transactions, load_boot,
-    merge_categories, repair_claimed_transfer, restore_user_chunk,
-    set_transaction_splits_with_legs, splits_for, update_transaction, user_financial_data_is_empty,
-    verify_integrity, wipe_user_financial_data,
-    ApplyCategoryToUncategorized, ClearTransferLinks, ConfirmTransactionCategories,
-    CreateTransaction, CreateTransferCounterpart, DeleteTransaction, DeleteUnusedCategories,
-    FinalizeUserRestore, ImportBankTransactions, ImportTransactions, LinkBankAccountSnap,
-    LinkSplitLineTransfer, LinkTransferPair, MergeCategories, OwnedRead, RepairClaimedTransfer,
-    RestoreUserChunk, SetTransactionSplitsWithLegs, SplitsFor, UpdateTransaction,
-    UserFinancialDataIsEmpty, VerifyIntegrity, WipeUserFinancialData,
+    account_balances, apply_category_to_uncategorized, clear_transfer_links, close_account,
+    confirm_transaction_categories, create_account, create_transaction,
+    create_transfer_counterpart, delete_transaction, delete_unused_categories,
+    finalize_user_restore, import_bank_transactions, import_transactions, link_bank_account_snap,
+    link_split_line_transfer, link_transfer_pair, list_accounts, list_budgets, list_categories,
+    list_closed_accounts, list_goals, list_suggestion_dismissals, list_transaction_splits,
+    list_transactions, load_boot, merge_categories, repair_claimed_transfer, restore_user_chunk,
+    set_transaction_splits_with_legs, splits_for, update_account, update_transaction,
+    user_financial_data_is_empty, verify_integrity, wipe_user_financial_data,
+    ApplyCategoryToUncategorized, ClearTransferLinks, CloseAccount, ConfirmTransactionCategories,
+    CreateAccount, CreateTransaction, CreateTransferCounterpart, DeleteTransaction,
+    DeleteUnusedCategories, FinalizeUserRestore, ImportBankTransactions, ImportTransactions,
+    LinkBankAccountSnap, LinkSplitLineTransfer, LinkTransferPair, MergeCategories, OwnedRead,
+    RepairClaimedTransfer, RestoreUserChunk, SetTransactionSplitsWithLegs, SplitsFor,
+    UpdateAccount, UpdateTransaction, UserFinancialDataIsEmpty, VerifyIntegrity,
+    WipeUserFinancialData,
 };
 
 /// A command, as a caller sends it.
@@ -170,6 +171,26 @@ pub enum Command {
     // the schema that assigns an absolute balance without breaking B-1.
     /// [`crate::verbs::link_bank_account_snap`].
     LinkBankAccountSnap(Box<LinkBankAccountSnap>),
+    // ── The account family ───────────────────────────────────────────────────
+    //
+    // Three verbs and no function between them: the cloud writes `accounts`
+    // directly over PostgREST, so what these port is a TypeScript writer
+    // (PHASE3-PLAN D-2, argued in full at the head of [`crate::verbs`]).
+    //
+    // The names are the SEAM's, not the service's, and one of them differs on
+    // purpose: `accountService.deleteAccount` sets `is_active = false` and
+    // deletes nothing, and `dataPort.ts` had already renamed it `closeAccount`
+    // for that reason. A verb string that says `delete` for a soft close is a
+    // verb string somebody will one day implement as a delete.
+    //
+    // There is deliberately no `reopen_account`: reopening is
+    // `update_account` with `is_active: true`, which is what the cloud does too.
+    /// [`crate::verbs::create_account`].
+    CreateAccount(Box<CreateAccount>),
+    /// [`crate::verbs::update_account`].
+    UpdateAccount(Box<UpdateAccount>),
+    /// [`crate::verbs::close_account`].
+    CloseAccount(Box<CloseAccount>),
     // The ingest surface. Two verb strings, each spelled as the function it
     // ports minus the `_atomic` every verb in this crate drops.
     //
@@ -426,6 +447,9 @@ pub fn dispatch(
         Command::LinkBankAccountSnap(payload) => {
             link_bank_account_snap(connection, *payload).and_then(as_json)
         }
+        Command::CreateAccount(payload) => create_account(connection, *payload).and_then(as_json),
+        Command::UpdateAccount(payload) => update_account(connection, *payload).and_then(as_json),
+        Command::CloseAccount(payload) => close_account(connection, *payload).and_then(as_json),
         Command::ImportTransactions(payload) => {
             import_transactions(connection, *payload).and_then(as_json)
         }
