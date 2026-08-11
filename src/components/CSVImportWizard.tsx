@@ -8,7 +8,7 @@ import {
   type ImportProfile,
   type ImportResult
 } from '../services/enhancedCsvImportService';
-import { dataPort, type BulkImportResult } from '../services/port';
+import { dataPort, type BulkImportResult } from '@data';
 import { summariseMissingRows, type MissingRowsSummary } from '../utils/partialImportSummary';
 import { applyMappingPrefill } from '../utils/csvMappingPrefill';
 import type { CsvRecord } from '../utils/csvTokenizer';

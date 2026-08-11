@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WealthTracker</title>
+    <!--
+      The window's document, and it lives here rather than in `apps/desktop/`
+      for the reason `src/services/local/deviceDocument.ts` gives at length:
+      everything under `apps/**` is outside this repo's lint, typecheck and test
+      roots, and a renderer that nothing checks is a renderer that drifts. What
+      remains in `apps/desktop/` is the shell — the Rust crate, its config, and
+      the vite config that writes this build into `dist/` for the binary to
+      embed.
+
+      No inline styles and no inline script: `tauri.conf.json`'s CSP is
+      `script-src 'self'`, and an app that had to widen its own policy to render
+      its first screen would have started as it did not mean to go on.
+    -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>

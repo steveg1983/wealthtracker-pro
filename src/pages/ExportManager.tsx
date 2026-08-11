@@ -22,7 +22,7 @@ import PageTip from '../components/PageTip';
 import PeriodPicker from '../components/PeriodPicker';
 import { LoadingState } from '../components/loading/LoadingState';
 import { createScopedLogger } from '../loggers/scopedLogger';
-import { dataPort } from '../services/port';
+import { dataPort } from '@data';
 import { downloadBackupBundle, type ExportProgress } from '../services/backupService';
 import { selectExportData, describeExportRange, type AccountsScope } from '../utils/exportSelection';
 import { generateDataExportPDF } from '../utils/pdfExport';

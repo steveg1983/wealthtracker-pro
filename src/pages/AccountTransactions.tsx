@@ -67,7 +67,7 @@ import { buildAttentionItems } from '../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../utils/bankAutoSync';
 import { buildAccountBankLinks } from '../hooks/useAccountBankSync';
 import { useBankConnectionSnapshot } from '../hooks/useBankConnectionSnapshot';
-import { dataPort } from '../services/port';
+import { dataPort } from '@data';
 import AccountSelector from '../components/common/AccountSelector';
 import type { Account, Transaction } from '../types';
 import { preferences, type PreferenceStorage } from '../services/preferencesService';

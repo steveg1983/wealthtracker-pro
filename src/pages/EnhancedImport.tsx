@@ -5,7 +5,7 @@ import { importRulesService } from '../services/importRulesService';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
 import { LoadingState } from '../components/loading/LoadingState';
-import { dataPort, type ImportProgress, type MsMoneyImportResult } from '../services/port';
+import { dataPort, type ImportProgress, type MsMoneyImportResult } from '@data';
 import {
   UploadIcon,
   FolderIcon,

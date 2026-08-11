@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { qifImportService } from '../services/qifImportService';
-import { dataPort, type BulkImportResult } from '../services/port';
+import { dataPort, type BulkImportResult } from '@data';
 import type { Account } from '../types';
 import type { QIFParseResult } from '../services/qifImportService';
 import { Modal, ModalBody } from './common/Modal';

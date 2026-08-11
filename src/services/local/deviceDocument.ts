@@ -17,11 +17,14 @@
  * from here, on every test run and on every machine.
  * `deviceDocument.cloudFree.test.ts` is that grep, executed.
  *
- * Which is also why the suppliers below are here rather than in
- * `apps/desktop/ui`: everything under `apps/` is outside this repo's lint,
+ * Which is also why the suppliers below are here rather than under
+ * `apps/desktop`: everything under `apps/` is outside this repo's lint,
  * typecheck and test roots, and a wiring decision that nothing checks is a
- * wiring decision that drifts. What lives in the shell's renderer is one line —
- * where `invoke` comes from — and nothing else.
+ * wiring decision that drifts. Slice 29 took that argument to its conclusion and
+ * moved the whole renderer to `src/desktop`, so what is left under `apps/` is
+ * the Rust shell and one build config. `src/desktop/main.tsx` is now a SECOND
+ * root the same walk is run from (`desktopEntry.cloudFree.test.ts`), because a
+ * component tree can reach cloud modules this file knows nothing about.
  */
 
 import { RESTORE_STEPS, buildBackupBundle, remapBackupIds, rowsForStep } from '../backup/format';
@@ -154,6 +157,9 @@ export interface DeviceDocument {
  * means a malformed owner never reaches `adoptDeviceIdentity`, and the app above
  * is never told an identity the engine below has already rejected.
  */
+/** The open document. Declared here, explained at {@link currentDeviceDocument}. */
+let open: DeviceDocument | null = null;
+
 export const openDeviceDocument = (options: DeviceDocumentOptions): DeviceDocument => {
   const transport = createInvokeTransport(options.invoke);
   const { owner, path } = options.ledger;
@@ -169,7 +175,75 @@ export const openDeviceDocument = (options: DeviceDocumentOptions): DeviceDocume
   const identity: DeviceIdentity = { owner, path };
   adoptDeviceIdentity(identity);
 
-  return { port, identity, preferences: localPreferencesTransport({ owner, transport }) };
+  const document: DeviceDocument = {
+    port,
+    identity,
+    preferences: localPreferencesTransport({ owner, transport })
+  };
+  open = document;
+  return document;
+};
+
+/**
+ * The document this window has open, remembered — and why a module-scope value
+ * is the right shape for it.
+ *
+ * It is the same argument `deviceIdentity.ts` makes about the owner, one layer
+ * out. Slice 28 published the identity here because the callers that need it are
+ * `useState` initialisers and hooks scattered across pages that mount at
+ * different times, and an argument cannot reach them. The ENGINE has exactly the
+ * same callers: `dataPort` is a module-scope singleton in every edition, because
+ * thirteen components import it as one.
+ *
+ * So a desktop's engine is published the way its identity is, from the one
+ * function that assembles a document, and `deviceDataPort.ts` — the desktop's
+ * choosing line, the file `@data` resolves to when the app is built for a
+ * window — reads it. That module is ONE line, exactly as `services/port/index.ts`
+ * is one line, and this is what makes the two interchangeable.
+ *
+ * Not reactive, for the reason the identity is not: the engine cannot change
+ * under a mounted tree. Opening a different ledger replaces the document and the
+ * app is booted against it.
+ *
+ * @returns the open document, or `null` when this window has no ledger.
+ */
+export const currentDeviceDocument = (): DeviceDocument | null => open;
+
+/**
+ * The open document, or a sentence saying there is not one.
+ *
+ * THE ORDERING RULE OF THE DESKTOP MOUNT, and the reason this throws rather than
+ * answering something empty. `deviceDataPort.ts` resolves the app's `dataPort`
+ * out of this at MODULE SCOPE, so a desktop build that imported the application
+ * before a file was open would bind every screen to nothing — and the failure
+ * would not arrive here, where it can be understood, but later and one screen at
+ * a time, as reads that answer with no rows.
+ *
+ * A window cannot render a ledger it has not opened, so the ordering is a
+ * property of the product rather than a discipline: `src/desktop/main.tsx`
+ * chooses a file, opens it, boots it, and only then loads the application's
+ * module graph. This sentence is what a future entry that forgot will read.
+ *
+ * @throws when no ledger is open in this window.
+ */
+export const requireDeviceDocument = (): DeviceDocument => {
+  if (open === null) {
+    throw new Error(
+      'No ledger is open in this window, so there is no data to read. A ledger must be ' +
+        'opened before the application is loaded — see src/desktop/main.tsx.'
+    );
+  }
+  return open;
+};
+
+/**
+ * Forget it — what `close_ledger` means to the layer above the seam, and the
+ * companion to `forgetDeviceIdentity` for the same reason: this is module state,
+ * and a suite that left one case's document standing would be a suite in which
+ * the next case read the previous case's ledger.
+ */
+export const forgetDeviceDocument = (): void => {
+  open = null;
 };
 
 /**

@@ -84,6 +84,8 @@
     "verify:types": "node scripts/verify-type-safety.mjs",
     "prepare": "husky",
     "desktop:ui": "vite build --config apps/desktop/vite.config.ts",
+    "desktop:greps": "node scripts/desktop-bundle-greps.mjs",
+    "desktop:verify": "npm run desktop:ui && npm run desktop:greps",
     "desktop:build": "npm run desktop:ui && cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --release",
     "desktop:check": "cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml"
   },

@@ -17,8 +17,18 @@
  */
 
 import { defineConfig } from 'vitest/config';
+import path from 'node:path';
 
 export default defineConfig({
+  resolve: {
+    // This run drives the DEVICE engine against real files, so `@data` is the
+    // device's own choosing line. Nothing in the suite imports it today — the
+    // contract tests build a `LocalDataPort` themselves, because a contract that
+    // resolved its engine from a build config would be testing the config — but
+    // the mapping is here so that the two runs never disagree about what the
+    // word means, which is the failure a second alias would eventually cause.
+    alias: { '@data': path.resolve(process.cwd(), './src/services/local/deviceDataPort') }
+  },
   test: {
     environment: 'node',
     globals: true,

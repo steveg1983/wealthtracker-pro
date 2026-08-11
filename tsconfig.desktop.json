@@ -16,6 +16,7 @@
     "verbatimModuleSyntax": false,
     "moduleDetection": "force",
     "noEmit": true,
+    "jsx": "react-jsx",
     "types": ["vite/client", "node"],
 
     "strict": true,
@@ -27,11 +28,21 @@
 
     "baseUrl": ".",
     "paths": {
+      /* The edition seam, pointed at the DEVICE engine — the whole difference
+         between this project and tsconfig.app.json. Any shared surface the
+         desktop renderer mounts is compiled here against the port a file
+         provides, so a component that only typechecks against DataService is a
+         build error in this project rather than a discovery at run time. */
+      "@data": ["./src/services/local/deviceDataPort.ts"],
       "@wealthtracker/utils": ["./packages/utils/index.ts"],
       "@wealthtracker/utils/*": ["./packages/utils/*"],
       "@wealthtracker/types/*": ["./packages/types/*"],
       "@app-types/*": ["./src/types/*"]
     }
   },
-  "include": ["apps/desktop/ui", "apps/desktop/vite.config.ts"]
+  /* `src/desktop` and nothing else of src: the renderer lives inside this
+     repo's lint, typecheck and test roots on purpose (deviceDocument.ts's
+     header gives the reason), and everything it reaches is compiled with it. */
+  "include": ["src/desktop", "apps/desktop/vite.config.ts"],
+  "exclude": ["src/desktop/**/__tests__/**"]
 }
