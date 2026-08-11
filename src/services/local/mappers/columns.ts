@@ -133,6 +133,25 @@ export type Kind =
   | 'dayText'
   | 'instant'
   | 'flag'
+  /**
+   * A boolean the store is allowed to have NO ANSWER for — `is_reconciled`, and
+   * so far only that.
+   *
+   * `flag` is total: it answers `false` for a key that is absent, which is right
+   * for every other boolean the seam carries because every one of them is NOT
+   * NULL in both schemas. This column is nullable in both, and the third value
+   * MEANS something: *"this row predates the split between marking and
+   * committing; ask `cleared`"*
+   * (`20260810200000_marking_is_not_reconciling.sql`, and
+   * `utils/transactionReconciliation.ts` for the app's half of the same rule).
+   *
+   * So it decodes to `undefined` rather than to `false`, and `Transaction.
+   * reconciled` is typed `boolean | null | undefined` for exactly this. Reading
+   * an unanswered row as "not reconciled" would light up a whole imported
+   * history as unreconciled work on the day a file was restored — which is the
+   * mistake the cloud's nullable column exists to make impossible.
+   */
+  | 'answeredFlag'
   | 'whole'
   /**
    * A list of strings, in the order it is in — `Transaction.tags` and, since
@@ -198,6 +217,9 @@ export const TRANSACTION_COLUMNS: readonly Column[] = [
   { key: 'tags', field: 'tags', kind: 'strings' },
   { key: 'notes', field: 'notes', kind: 'text' },
   { key: 'is_cleared', field: 'cleared', kind: 'flag' },
+  // Money's R beside its C, and the one boolean here that is allowed to say
+  // nothing. See the `answeredFlag` kind.
+  { key: 'is_reconciled', field: 'reconciled', kind: 'answeredFlag' },
   { key: 'is_recurring', field: 'isRecurring', kind: 'flag' },
   { key: 'is_split', field: 'isSplit', kind: 'flag' },
   { key: 'archived', field: 'archived', kind: 'flag' },
@@ -441,6 +463,12 @@ const decode = (kind: Kind, value: unknown): unknown => {
       // `rows.ts` documents for the columns a WRITE verb's projection leaves
       // out. See `localDataPort.ts` on what the write projection does not carry.
       return flag(value);
+    case 'answeredFlag':
+      // The opposite decision, for the one column that is allowed no answer:
+      // `true`/`false` pass through and ANYTHING else — a JSON null, an absent
+      // key — becomes `undefined`, which `transactionReconciliation.ts` reads as
+      // "ask `cleared`".
+      return typeof value === 'boolean' ? value : undefined;
     case 'whole':
       return whole(value);
     case 'strings':
@@ -496,6 +524,11 @@ export const encode = (kind: Kind, value: unknown): unknown => {
     case 'instant':
       return value instanceof Date ? value.toISOString() : value;
     case 'flag':
+    case 'answeredFlag':
+      // The same encoder for both, and the `null`/`undefined` split above is
+      // what makes it correct for the three-valued one: an app object holding
+      // `reconciled: null` sends a null (the store's "no answer"), one holding
+      // `undefined` sends nothing at all, and the verb's own default decides.
       return value;
     case 'whole':
       return value;

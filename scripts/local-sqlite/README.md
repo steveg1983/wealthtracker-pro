@@ -132,7 +132,7 @@ that quietly stops diverging is a failing spec, not a bonus).
 | R-8 optional links cleared, never cascaded | contribution and budget survive | identical | match |
 | R-9 account delete takes its holdings | 0 holdings left | identical | match |
 | R-11 deferred keys close the txn↔split cycle | **refused** `transactions_linked_transfer_split_id_fkey` | accepted, cycle closed in one transaction | divergent — local is better |
-| A-3 reconcile sweep archives | archived | archived (second statement, same transaction) | match |
+| A-3 reconcile sweep archives | archived | archived (second statement, same transaction) | match *(was a FINDING for two slices — see below)* |
 | X-4 restore preserves `updated_at` | 2019-01-01 | 2019-01-01 | match |
 | X-4 *control*: an ordinary edit still stamps | MOVED | MOVED | match |
 | MONEY-1 sub-penny amount | **accepted, silently rounded to −1235 minor** | refused: cannot store REAL in an INTEGER column | divergent |
@@ -152,7 +152,34 @@ that quietly stops diverging is a failing spec, not a bonus).
 | R-12 a holding in a stranger's account | refused `investments_account_id_user_fkey` | refused, same key | match |
 | R-12 deleting an account clears the reference, keeps the owner | accepted, four references cleared, `user_id` intact | identical — by a trigger, not by the key | match |
 
-64 specs, 64 passing, 16 declared divergences, 0 harness errors.
+67 specs, 67 passing, 16 declared divergences, 0 harness errors.
+
+### The row that was red for two slices, and what it was saying
+
+**A-3 is a match again as of 2026-08-11, and it had not been one since
+`20260810200000_marking_is_not_reconciling.sql` landed in the cloud.** The spec
+ticked a row dated before its account's cutoff and expected the archive sweep to
+fire. Postgres stopped archiving it — the migration moved the sweep from
+`is_cleared` to `is_reconciled`, because a working mark must never make a row
+vanish from the screen the ticking happens on — while this schema went on firing
+on the mark. Every run said so, in the only way it can:
+
+```
+── a3-reconciling-an-old-row-archives-it          [A-3] FAIL
+   sqlite     accepted archived_by_the_sweep=1
+   postgres   accepted archived_by_the_sweep=0
+   parity     DECLARED match, OBSERVED divergent
+```
+
+That is a schema gap reported as a behavioural one, which is exactly what the
+harness is for: the two engines disagreed about whether TICKING a row archives
+it, and the disagreement stood in the file rather than in any verb. The fix is
+`transactions.is_reconciled` (schema amendment 7), the sweep moved onto it, and
+the spec now MARKS in its setup and COMMITS in its action — so it asserts the new
+rule rather than yesterday's question. Its other half is a verb spec,
+`cleared-marking-an-old-row-does-not-archive-it`: neither is worth much alone,
+because one passes against a trigger that never fires and the other against a
+trigger that always does.
 
 ### Reading a divergence
 
@@ -447,10 +474,17 @@ stop being comparable.
 
 ### The verbs, and what each one is for
 
-Twenty-one, and the list is the order they were ported in. The first twelve are
+Twenty-six, and the list is the order they were ported in. The first twelve are
 the ledger and its families; the restore family, the prune and the checker close
 the ledger core; the ingest pair opens the surface through which every
-transaction that nobody typed arrives.
+transaction that nobody typed arrives; and the last five are the reconciliation
+and archive family, which is the only group so far that could not be ported at
+all until `schema.sql` grew a COLUMN.
+
+(This table lists the verbs whose oracle is a Postgres FUNCTION. The account,
+category, planning and dismissal families — sixteen more verbs whose oracle is a
+TypeScript writer — are documented in `crates/wealth-core/src/verbs/mod.rs`,
+which is where the argument for their existence lives.)
 
 | verb | ported from | why it is in Phase 1 |
 | --- | --- | --- |
@@ -468,6 +502,11 @@ transaction that nobody typed arrives.
 | `confirm_transaction_categories` | `20260808100000:440-478` | the smallest verb in the crate, and the only one whose safety comes from an argument that is **not there**: it takes no category, so it cannot change one |
 | `import_transactions` | `20260808140000:234-402` (four definitions deep: `20260709120000:20` → `20260808090000:162` → `20260808100000:183`) | every file import in the app, and the one verb whose headline is a thing that must not happen **twice**. Five refusals whose ORDER is measured — including a genuine surprise, a malformed request being named before the caller is told the account is not theirs — and an `idempotent` flag that describes THE REQUEST rather than the function |
 | `import_bank_transactions` | `20260808100000:552-724` (over `20260807180000` over `20260722140000:53` over `20260708100000` over `20260613090000`) | the bank feed's whole write path, ported for a local edition that will probably never have a feed — because a restored cloud backup carries feed-written rows, and because **B-4's first-import rebase lives here and nowhere else**: the only place in the schema where an import moves `initial_balance` instead of `balance` |
+| `set_transactions_cleared` | `20260810200000:143-183` (restates `20260707120000`) | the tick, and the whole of the C/R split on the write side. One `CASE` separates Microsoft Money's C from its R: marking KEEPS a commitment, unmarking CLEARS it, and a pre-split NULL is resolved rather than left to outlive the change |
+| `finalize_reconciliation` | `20260810200000:209-278` | the only thing in the system that COMMITS a row, and the one verb here where an absent owner is a refusal rather than a stand-down. `IS NOT DISTINCT FROM false` is the predicate the whole feature turns on — a NULL row is history the old world already called reconciled, and sweeping it in would re-audit an entire account on the first finalize |
+| `set_transactions_archived` | `20260805145035:172-229` | the per-row archive, and the OPPOSITE refusal shape to the tick beside it: one unknown id loses the whole call. Never a delete — the Money original hard-deleted archived rows and adjusted the opening balance to compensate |
+| `archive_transactions_before` | `20260810200000:290-329` (restates `20260721130000:47-86`) | the bulk archive, whose predicate became `COALESCE(is_reconciled, is_cleared)`: settled history is hidden, work in progress stays in the register where it can still be unmarked, and pre-split rows are judged exactly as they were the day before the column existed |
+| `unarchive_account` | `20260721130000:92-114` | the verb with NO refusal at all — no lookup, no `FOUND` check, no `RAISE` — twenty lines from one that raises `account_not_found`. Ported with the silence, because a port that invented a refusal would turn a no-op into an error dialog nobody has ever seen |
 
 **Not ported, and neither is an omission.** The transfer-category lifecycle
 (`create_transfer_category_for_account`, `sync_transfer_category_for_account`,
@@ -735,22 +774,40 @@ Each of these was executed, then reverted.
 | put back the rule `20260722140000` replaced: `ORDER BY MAX(date) DESC` alone, without `COUNT(*) DESC` | 2 verb specs fail, both `MISDECLARED (divergent)`: `fed_row_n_1` comes back `Fuel` where both engines say `Groceries`. **`cargo test` still passes**, and that is the finding rather than a gap — the crate tests cover the tie the CLOUD has no rule for, which is unaffected by dropping the count. The habit rule has no local-only half, so the differential harness is the only thing that can catch it, and it does |
 | disable B-4's first-import branch (`backfill: false && …`) | **6 verb specs fail**, all `MISDECLARED (divergent)`, and every one of them on `stored_balances`: `100.00/112.00` becomes `88.00/100.00`, `100.00/120.00` becomes `80.00/100.00`, and the two-account sync moves both accounts' `balance` instead of both accounts' opening figures. 3 of the 18 crate tests fail with them. Note which specs failed: four of the six are not B-4 specs at all — they are dedupe and provenance specs that happen to assert the balances afterwards, which is what asserting state on every spec buys |
 
+**From the reconciliation and archive family (2026-08-11, 459 specs):**
+
+| break | result |
+| --- | --- |
+| put the sweep back on the mark: `AFTER UPDATE OF is_cleared` in `schema.sql` | `cleared-marking-an-old-row-does-not-archive-it` fails four ways — SQLite archives the row it was only asked to tick (`stored_archived` yes vs no, `archived_rows_in` 1 vs 0) and goes `MISDECLARED (divergent)`. **The constraint spec `a3-…` PASSED, and that is a finding rather than a pass**: its setup planted the cutoff before the mark, so the mark archived the row during the setup and the verify — which runs only after the action — could not see which statement did it. The spec now marks BEFORE the account has a cutoff, and with that order the same break fails it: `archived_by_the_sweep` 0 vs 1 |
+| drop the working-set filter: `AND is_cleared = 1` out of `finalize_reconciliation` | **5 of the 11 finalize specs fail**, all `MISDECLARED (divergent)`, and every one of them on the SAME refusal: SQLite raises `constraint_violated` where Postgres commits, because committing an unticked row breaks `transactions_reconciled_implies_cleared`. The whole call is then lost, so the account records nothing either (`last_reconciled_date` NULL vs 2024-03-31). The CHECK catching a control-flow mistake is the argument for making the rule structural, executed |
+| stop stamping the figure: `last_reconciled_balance_minor = last_reconciled_balance_minor` | 3 specs fail on `account_last_reconciled_balance` — `NULL vs 0.00`, `NULL vs -28.00` and, in the finalize-twice spec, `-28.00 vs -30.50`, which is the one that matters: the account keeps LAST time's figure, so the next reconciliation opens at a statement that has already been settled. `tests/reconciliation_family.rs::the_recorded_figure_is_a_record_and_never_the_balance` fails with them |
+| make `unarchive_account` clear the commitment too | `unarchive-a-row-that-comes-back-is-still-committed` fails twice and goes `MISDECLARED (divergent)`: `stored_is_reconciled` reads `no` where Postgres says `yes`, and — the assertion the three-valued helper exists for — `no` where Postgres says `NULL`. A `storedFlag` could not have told those two apart. One crate test fails with it. What the break costs is not cosmetic: every finished reconciliation in the account is re-opened by a click that was only meant to show the rows again |
+| filter the archive out of the balances aggregate (`AND t.archived = 0`) — R-1's own mutation, re-run because this family puts archived rows back in play | `balances-an-archived-row-still-counts-towards-the-balance` fails: the account answers `0.00` with `txn_count` 0 where both the cloud and the ledger say `-25.00` and 1. 2 crate tests fail with it. **The contract suite does NOT catch it**, and that is worth writing down: its balances rule uses an unarchived row, and its money assertions read the store directly rather than through `getAccountBalances`. The differential harness and the crate are what stand between this schema and a dashboard whose two figures disagree |
+
 `cargo test` fails alongside every one of these; the counts are in the table.
 
 ### Current run
 
-**308 verb specs · 308 pass · 9 declared divergences · 24 single-engine**,
-2026-08-08, against a reference cluster rebuilt from the full migration history.
-`npm run test:local-sqlite` is 66/66, `npm run test:local-admission` is 109/109
-and `cargo test` is **270** (it was 237 before the admission surface).
+**459 verb specs · 459 pass · 25 declared divergences · 24 single-engine**,
+2026-08-11, against a reference cluster rebuilt from the full migration history.
+`npm run test:local-sqlite` is **67/67 for the first time since
+20260810200000 landed in the cloud** (see A-3 above),
+`npm run test:local-admission` is 109/109 and `cargo test` is **420**.
 
-The count in this section has been behind twice, and the drift is worth one
-line rather than a quiet edit: it read **172** while the suite had already grown
-to 217 with the restore family, then 259 with the prune and the checker. The
-ingest pair adds 49 — 22 for `import_transactions` and 27 for
-`import_bank_transactions`, all of them two-engine — so 284 of the 308 actually
-COMPARE two engines and 24 (`verify_integrity`, which is not a port of anything)
-run on one.
+The reconciliation and archive family adds 26 — six for `set_transactions_cleared`,
+eight for `finalize_reconciliation`, four for `set_transactions_archived`, four
+for `archive_transactions_before`, three for `unarchive_account`, and one for
+`update_transaction` which is the DIVERGENCE the C/R split creates: unticking a
+committed row is accepted by the cloud, whose own migration ships a query to go
+and find the rows that leaves behind, and refused by this file, which makes
+"committed implies marked" a CHECK.
+
+The count in this section has been behind three times, and the drift is worth
+one line rather than a quiet edit: it read **172** while the suite had already
+grown to 217 with the restore family, then 259 with the prune and the checker,
+then 308 while the account, category, planning and dismissal families had taken
+it to 433. 435 of the 459 actually COMPARE two engines and 24
+(`verify_integrity`, which is not a port of anything) run on one.
 
 ### What became of five failures, 2026-08-08
 
@@ -803,7 +860,9 @@ PostgreSQL 17.10 with the full migration history applied — **including**
 picks up on its next run because that script replays the whole history from the
 baseline rather than tracking what it applied last time.
 
-**67 specs · 67 pass · 3 declared divergences.**
+**67 specs · 67 pass · 3 declared divergences** — a SNAPSHOT of the first four
+families, kept because the per-spec tables below are what it documents. The
+suite is 459 now; the current figures are in "Current run" above.
 
 ### create (16 specs)
 

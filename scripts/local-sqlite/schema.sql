@@ -124,14 +124,47 @@
 --         rewritten. The two IMPORT verbs are what set it to 1; the create verb
 --         deliberately does not, so a row a person typed is born reviewed.
 --
---         PARITY OBLIGATION, RECORDED RATHER THAN DISCHARGED: the cloud
---         migration is UNAPPLIED at the time of writing (the owner applies
---         migrations himself). scripts/local-sqlite/lib/verb-postgres.mjs
---         therefore does NOT project needs_review in ROW_JSON, because the
---         differential harness runs against a live Postgres and would fail on
---         every row for a column that database does not yet have. Add it there
---         — and to the TS oracle's import verbs — in the same change that
---         confirms 20260810090000 is applied.
+--         PARITY OBLIGATION — RETIRED 2026-08-11, by ruling rather than by
+--         edit. 20260810090000 is now confirmed applied in the reference
+--         cluster, which is the condition this note originally waited on. But
+--         the obligation as written predates slice 19's ruling and conflicts
+--         with it: ROW_JSON is the Postgres twin of the crate's audit
+--         projection, and that projection deliberately excludes needs_review —
+--         the audit payload is hash-chained and compared field by field across
+--         engines, so widening it re-chains history to say what the review
+--         flag already says elsewhere. The field's read-back home is the
+--         RESULT projection, which belongs to the commit that gives the port
+--         a caller (slice 27, recorded in localDataPort.ts's header). Until
+--         then the boot read (BOOT columns) is where needs_review crosses,
+--         and it does.
+--
+-- AMENDED 2026-08-11 (7), in THIS COPY ONLY, mirroring
+--         supabase/migrations/20260810200000_marking_is_not_reconciling.sql:
+--         `transactions.is_reconciled`, Microsoft Money's R — the committed
+--         state only a finalize produces — and with it the reconcile-sweep moved
+--         onto that flag and a new CHECK that committed implies marked. Added on
+--         amendment (2)'s precedent and for the same reason. This copy is now
+--         ahead of the draft by amendment (2)'s one column, amendment (5)'s one
+--         table, amendment (6)'s one column and this one column.
+--
+--         THE CLOUD'S NULL STORY, TRANSLATED AND MEASURED. The migration adds
+--         the column bare and sets the default in a SECOND statement, so that
+--         history keeps the honest NULL ("ask is_cleared") and only new rows get
+--         false. Neither half of that is available or needed here: MEASURED
+--         (probe-addcolumn.mjs), SQLite's ADD COLUMN with a DEFAULT gives rows
+--         written before the alter that default — attmissingval by another name
+--         — and `ALTER COLUMN … SET DEFAULT` is a syntax error, so the two-step
+--         cannot be written. A file created from this schema has no pre-split
+--         rows, so DEFAULT 0 is right for every INSERT and matches the cloud's
+--         answer for one. The column stays NULLABLE because a restored cloud
+--         backup's rows really are pre-split, and the obligation that leaves is
+--         recorded at the column: `crate::backup` currently turns a JSON null
+--         into "column omitted", which the default then fills.
+--
+--         The accounts side of the same migration was already here: slice 20
+--         added last_reconciled_balance_minor for AccountUpdate's sake.
+--         Specs: specs/a3-*, verb-specs/cleared-*, verb-specs/finalize-*,
+--         verb-specs/archive-*, verb-specs/unarchive-*.
 -- ============================================================================
 
 
@@ -545,6 +578,45 @@ CREATE TABLE transactions (
 
   is_recurring  INTEGER NOT NULL DEFAULT 0 CHECK (is_recurring IN (0,1)),
   is_cleared    INTEGER NOT NULL DEFAULT 0 CHECK (is_cleared IN (0,1)),
+
+  -- Microsoft Money's R, and the ONLY thing a finalize produces
+  -- (20260810200000_marking_is_not_reconciling.sql:107-114). `is_cleared` above
+  -- is the C beside it: a working mark, kept, settling nothing.
+  --
+  -- THREE-VALUED, and the third value is the point. NULL means "this row
+  -- predates the split between marking and committing; ask is_cleared", which is
+  -- the rule src/utils/transactionReconciliation.ts holds for the app and
+  -- COALESCE(is_reconciled, is_cleared) holds in SQL. 0 means marked or not but
+  -- explicitly NOT committed; 1 means committed by a finalize.
+  --
+  -- DEFAULT 0, and the cloud's own two-statement trick is BOTH unavailable here
+  -- and unnecessary. The cloud added the column bare and then set the default,
+  -- because a column added WITH one gives existing rows that default through
+  -- attmissingval and would silently answer "not committed" for the whole of
+  -- history. MEASURED (probe-addcolumn.mjs, node:sqlite 3.50.0): SQLite does
+  -- exactly the same — after `ALTER TABLE t ADD COLUMN c INTEGER DEFAULT 0`, a
+  -- row written BEFORE the alter reads 0 and not NULL, with no rewrite — and
+  -- SQLite has no `ALTER COLUMN … SET DEFAULT` at all (`near "ALTER": syntax
+  -- error`), so the two-step cannot be spelled. It is not needed: this file is
+  -- CREATEd rather than migrated, so it has no pre-split rows of its own, and
+  -- the default is what every INSERT that says nothing about the column gets —
+  -- which is the cloud's answer too, and the migration's rule that "a
+  -- transaction is born uncommitted whether it was typed, imported or
+  -- downloaded". A bank-feed row still arrives is_cleared = 1; that is a mark.
+  --
+  -- WHERE A NULL CAN STILL ARRIVE, AND THE OBLIGATION THAT LEAVES: a restored
+  -- cloud backup. Those rows carry NULL for the whole of a user's history, and
+  -- `crate::backup`'s rule is that an absent or JSON-null key OMITS the column —
+  -- so the default fills it and the honest NULL is lost, where the cloud's
+  -- jsonb_populate_recordset stores the NULL. RECORDED rather than closed here:
+  -- the restore round trip is the backup group's slice (collect_backup is not
+  -- written yet, so nothing can produce the file this would be measured on), and
+  -- the fix is one Kind in `crate::backup` that tells absent from null. Until
+  -- then a restored pre-split history reads as "marked, never committed" rather
+  -- than as reconciled, which is a display of work outstanding rather than a
+  -- money error.
+  is_reconciled INTEGER DEFAULT 0 CHECK (is_reconciled IN (0,1)),
+
   is_split      INTEGER NOT NULL DEFAULT 0 CHECK (is_split IN (0,1)),
   archived      INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0,1)),
 
@@ -666,6 +738,32 @@ CREATE TABLE transactions (
   -- A transfer cannot be split (20260713100000:153-155). NEW as a constraint.
   CONSTRAINT transactions_transfer_not_split
     CHECK (NOT (is_split = 1 AND type = 'transfer')),
+
+  -- Committed implies marked (20260810200000:130-136, and the migration's own
+  -- verification 7, which is a SELECT looking for rows in this state).
+  --
+  -- The cloud keeps it in ONE function — set_transactions_cleared's CASE, whose
+  -- unmark branch writes `is_reconciled = false` — and nowhere else, so its
+  -- update RPC can leave a row committed-but-unmarked and the migration ships a
+  -- query to go and find them. Here it is a property of the file, which is
+  -- DESIGN.md §6's argument applied to the newest column in it: the pair
+  -- (committed, unmarked) puts the cleared balance and the reconciled set
+  -- permanently out of step, and a rule enforced in one writer is a rule the
+  -- next writer skips.
+  --
+  -- `IS NOT 1` rather than `<> 1`, because the third value has to pass: a NULL
+  -- row is pre-split history whose commitment nobody has answered, and `NULL <>
+  -- 1` is NULL, which a CHECK treats as satisfied — true here by luck rather
+  -- than by statement. Written as `IS NOT` so it is true by statement.
+  --
+  -- DECLARED DIVERGENCE, with a spec: update_transaction's `is_cleared` field
+  -- can reach this. Unticking a committed row is accepted by the cloud (leaving
+  -- exactly the pair verification 7 hunts for) and refused by this file. There
+  -- is no `unreconcile` operation in the seam on either engine, so the local
+  -- answer is "a committed row stays ticked", which is Money's behaviour and
+  -- what the register must be told before it offers the tick.
+  CONSTRAINT transactions_reconciled_implies_cleared
+    CHECK (is_reconciled IS NOT 1 OR is_cleared = 1),
 
   -- A linked transfer must name the other account (20260716100000:121-137).
   CONSTRAINT transactions_linked_has_target
@@ -1096,9 +1194,12 @@ END;
 
 
 -- ── The reconcile-sweep ────────────────────────────────────────────────────
--- Port of sweep_reconciled_into_archive (20260721130000:123-148). The cloud's
--- version is a BEFORE trigger that ASSIGNS NEW.archived := true. That cannot be
--- done in SQLite, so it becomes an AFTER trigger issuing an UPDATE.
+-- Port of sweep_reconciled_into_archive as RESTATED by
+-- 20260810200000_marking_is_not_reconciling.sql:336-361, which is the live
+-- definition; the original (20260721130000:123-148) hung off is_cleared because
+-- that was the only flag there was. The cloud's version is a BEFORE trigger
+-- that ASSIGNS NEW.archived := true. That cannot be done in SQLite, so it
+-- becomes an AFTER trigger issuing an UPDATE.
 --
 -- This is a REAL behavioural difference, not just a syntactic one: the cloud
 -- archives the row in the same statement that clears it, while this fires a
@@ -1106,9 +1207,17 @@ END;
 -- sees two here. It is safe because recursive_triggers is OFF (the inner UPDATE
 -- does not re-fire this trigger) and because both statements are inside the
 -- caller's transaction.
+--
+-- IT HANGS OFF THE COMMITTED FLAG, AND THAT IS THE WHOLE OF THE C/R SPLIT HERE.
+-- A working mark must never make a row vanish from the screen the ticking
+-- happens on: a mark is reversible, and a row you cannot see is a row you cannot
+-- unmark. Only finalizing is final, so only finalizing sweeps. This mirror kept
+-- firing on is_cleared for two slices after the cloud moved, and
+-- specs/a3-reconciling-an-old-row-archives-it is what said so on every run —
+-- the two engines disagreed about whether ticking a row archives it.
 CREATE TRIGGER trg_sweep_reconciled_into_archive
-AFTER UPDATE OF is_cleared ON transactions
-WHEN NEW.is_cleared = 1 AND OLD.is_cleared IS NOT NEW.is_cleared AND NEW.archived = 0
+AFTER UPDATE OF is_reconciled ON transactions
+WHEN NEW.is_reconciled = 1 AND OLD.is_reconciled IS NOT NEW.is_reconciled AND NEW.archived = 0
  AND EXISTS (
    SELECT 1 FROM accounts a
     WHERE a.id = NEW.account_id

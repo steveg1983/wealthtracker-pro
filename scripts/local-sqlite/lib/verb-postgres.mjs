@@ -28,6 +28,18 @@ const STATE = '__STATE__';
 // (numeric(20,2)::text is exact and involves no rounding function), date as
 // text, tags as a JSON array. The Rust side produces the same key set from its
 // own storage, and the runner compares the two objects field by field.
+//
+// `is_reconciled` is projected as ITSELF and not through a COALESCE, and that is
+// the point of it being here: the column is three-valued on both engines — NULL
+// means "this row predates the split between marking and committing; ask
+// is_cleared" — and the three states are exactly what the two implementations
+// have to agree about. A projection that resolved the NULL would pass whether or
+// not the port had kept it.
+//
+// Unlike `needs_review` (schema.sql amendment 6, which records why that one is
+// deliberately NOT here), this column IS in the reference cluster:
+// 20260810200000_marking_is_not_reconciling.sql is applied there, verified by
+// reading information_schema before this line was written rather than assumed.
 const ROW_JSON = `jsonb_build_object(
   'id', t.id,
   'user_id', t.user_id,
@@ -45,6 +57,7 @@ const ROW_JSON = `jsonb_build_object(
   'payment_channel', t.payment_channel,
   'is_recurring', t.is_recurring,
   'is_cleared', t.is_cleared,
+  'is_reconciled', t.is_reconciled,
   'is_split', t.is_split,
   'archived', t.archived,
   'statement_sequence', t.statement_sequence,
@@ -254,8 +267,8 @@ const DISMISSAL_JSON = `jsonb_build_object(
 
 /**
  * One `transactions` row, in the twenty-two keys
- * `crate::row::ListedTransaction` serialises — which are
- * `BOOT_TRANSACTION_COLUMNS` minus one, and NOT `select('*')`.
+ * `crate::row::ListedTransaction` serialises — which are now
+ * `BOOT_TRANSACTION_COLUMNS` exactly, and NOT `select('*')`.
  *
  * The boot's column list is explicit and measured (~38% of the payload was
  * columns nothing reads), so the ten columns it omits are omitted here too:
@@ -263,14 +276,14 @@ const DISMISSAL_JSON = `jsonb_build_object(
  * `location_country`, `payment_channel`, `external_transaction_id`,
  * `import_source`, `import_source_id`, and the feed's `plaid_transaction_id`.
  *
- * ONE CLOUD COLUMN IS IN THE BOOT LIST AND DELIBERATELY NOT PROJECTED:
+ * ONE CLOUD COLUMN USED TO BE IN THE BOOT LIST AND DELIBERATELY NOT PROJECTED:
  * `is_reconciled`, added by `20260810200000_marking_is_not_reconciling.sql` and
- * not yet in `scripts/local-sqlite/schema.sql`. Projecting a key the local
- * answer cannot have would report a schema gap as a per-spec divergence; the gap
- * is recorded in the crate's `row.rs`, where a reader of the read will meet it,
- * together with what it costs (a local file cannot tell a marked row from a
- * reconciled one — the same degradation the cloud's own fallback ladder accepts
- * for a database that has not had the migration applied).
+ * not then in `scripts/local-sqlite/schema.sql`. The note said that projecting a
+ * key the local answer cannot have would report a schema gap as a per-spec
+ * divergence, and that the gap was recorded in the crate's `row.rs` together
+ * with what it cost — a local file that cannot tell a marked row from a
+ * reconciled one. The column is in both schemas now and is projected here, so
+ * every read spec compares Money's C and R rather than only C.
  */
 const TRANSACTION_JSON = `jsonb_build_object(
   'id', t.id,
@@ -284,6 +297,7 @@ const TRANSACTION_JSON = `jsonb_build_object(
   'date', t.date::text,
   'description', t.description,
   'is_cleared', t.is_cleared,
+  'is_reconciled', t.is_reconciled,
   'is_recurring', t.is_recurring,
   'is_split', t.is_split,
   'linked_transfer_id', t.linked_transfer_id,
@@ -607,6 +621,88 @@ const VERBS = {
      SELECT ${ROW_JSON} INTO v_row
        FROM public.transactions t
       WHERE t.id = (${payloadLiteral}::jsonb->'ids'->>0)::uuid;`,
+
+  // ── THE RECONCILIATION AND ARCHIVE FAMILY ──────────────────────────────────
+  //
+  // Five RPCs, and they split two ways in how they are compared:
+  //
+  //   * the two `set_transactions_*` return a bare integer and DO change a
+  //     transaction, so they are PERFORMed and the row the caller named first is
+  //     projected — the clear_transfer_links shape, and the projected row is
+  //     `ids[0]` for the same reason: it is the row the Rust side answers with
+  //     under its own `transaction` key;
+  //   * the other three return jsonb objects of their own, so like the restore
+  //     family they are compared on that object and everything it cannot carry
+  //     (which rows moved, what the account now records, the audit trail) is
+  //     asserted through `state` SELECTs.
+  //
+  // `finalize_reconciliation` is the one whose ANSWER is not passed through
+  // verbatim: its `ending_balance` comes back as a jsonb number from
+  // `jsonb_build_object('ending_balance', p_ending_balance)`, and money crosses
+  // this boundary as a decimal STRING on the Rust side. `::text` on the numeric
+  // is exact and involves no rounding function, so the two agree without either
+  // going through a float — the same rule ROW_JSON follows for `amount`.
+  //
+  // THE RE-RENDER IS A SECOND STATEMENT, AND IT HAS TO BE. The first draft
+  // wrapped the call — `jsonb_set(finalize_reconciliation(…), '{ending_balance}',
+  // to_jsonb(<the payload's figure>::text))` — and the spec for an absent ending
+  // balance came back `ok` from a function whose first act is to raise. MEASURED
+  // in psql: `jsonb_set` is STRICT, so when one of its arguments is NULL
+  // Postgres skips evaluating the others and NEVER CALLS the RPC at all. A
+  // wrapper that can stop the function under test from running is a driver that
+  // reports on a call that did not happen, which is the worst thing this harness
+  // could do. So the RPC is called on its own line, and the figure is re-rendered
+  // out of ITS OWN answer afterwards.
+  //
+  // `p_ending_balance` is passed with `->>` and NULLIF'd, deliberately: an
+  // absent key must arrive as SQL NULL so the RPC's first refusal —
+  // `ending_balance_required` — stays reachable from a payload.
+  set_transactions_cleared: (payloadLiteral) =>
+    `PERFORM public.set_transactions_cleared(
+               ARRAY(SELECT x::uuid
+                       FROM jsonb_array_elements_text(
+                              COALESCE(${payloadLiteral}::jsonb->'ids', '[]'::jsonb)) AS x),
+               (${payloadLiteral}::jsonb->>'cleared')::boolean,
+               NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid
+             );
+     SELECT ${ROW_JSON} INTO v_row
+       FROM public.transactions t
+      WHERE t.id = (${payloadLiteral}::jsonb->'ids'->>0)::uuid;`,
+
+  set_transactions_archived: (payloadLiteral) =>
+    `PERFORM public.set_transactions_archived(
+               ARRAY(SELECT x::uuid
+                       FROM jsonb_array_elements_text(
+                              COALESCE(${payloadLiteral}::jsonb->'ids', '[]'::jsonb)) AS x),
+               (${payloadLiteral}::jsonb->>'archived')::boolean,
+               NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid
+             );
+     SELECT ${ROW_JSON} INTO v_row
+       FROM public.transactions t
+      WHERE t.id = (${payloadLiteral}::jsonb->'ids'->>0)::uuid;`,
+
+  finalize_reconciliation: (payloadLiteral) =>
+    `SELECT public.finalize_reconciliation(
+              NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid,
+              (${payloadLiteral}::jsonb->>'account_id')::uuid,
+              NULLIF(${payloadLiteral}::jsonb->>'ending_balance', '')::numeric,
+              NULLIF(${payloadLiteral}::jsonb->>'reconciled_on', '')::date)
+       INTO v_row;
+     v_row := jsonb_set(v_row, '{ending_balance}',
+                        to_jsonb((v_row->>'ending_balance')::numeric::text));`,
+
+  archive_transactions_before: (payloadLiteral) =>
+    `SELECT public.archive_transactions_before(
+              NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid,
+              (${payloadLiteral}::jsonb->>'account_id')::uuid,
+              NULLIF(${payloadLiteral}::jsonb->>'cutoff', '')::date)
+       INTO v_row;`,
+
+  unarchive_account: (payloadLiteral) =>
+    `SELECT public.unarchive_account(
+              NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid,
+              (${payloadLiteral}::jsonb->>'account_id')::uuid)
+       INTO v_row;`,
 
   repair_claimed_transfer: (payloadLiteral) =>
     `PERFORM public.repair_claimed_transfer(

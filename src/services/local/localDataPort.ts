@@ -146,10 +146,17 @@ import type {
   DataPortTransactionWrites,
   DataPortSplitWrites,
   DataPortTransferWrites,
-  MoneyNumber
+  MoneyNumber,
+  ReconciliationOutcome
 } from '../port/dataPort';
 import type { CoreTransport } from './coreTransport';
-import { countOf, field, listOf, money, rowOf, rowsOf, textOf } from './mappers/values';
+// The ONE encoder, for the two arguments this port sends that are not part of a
+// column table's payload: a finalize's ending balance and the two cutoff days.
+// `encode` is where "money crosses as the number's own decimal text" and "a Date
+// names its UTC day" are written down, and a second spelling of either here is
+// exactly the drift `columns.ts` exists to prevent.
+import { encode } from './mappers/columns';
+import { countOf, day, field, listOf, money, moneyOr, rowOf, rowsOf, textOf } from './mappers/values';
 import {
   toAccount,
   toBalance,
@@ -186,7 +193,9 @@ import {
  * the compiler checks all fifty-six.
  *
  * The planning group is whole, and so is the dismissal group beside it — which
- * this slice had to ADD, because it was never here.
+ * slice 23 had to ADD, because it was never here. The TRANSACTION group is whole
+ * as of this slice: the five reconciliation and archive operations were the last
+ * five names in its `Omit`, and the line is now the bare interface.
  *
  * WORTH READING BEFORE TRUSTING AN `Omit` AGAIN. Until slice 23 this line said
  * `Omit<DataPortPlanningWrites, 'dismissSuggestion' | 'restoreSuggestion'>`, and
@@ -200,9 +209,9 @@ import {
  * a name that is not there and says nothing, so an `Omit` naming operations is a
  * comment that TypeScript does not check — which is the same class of thing
  * `contract.ts`'s `NOT_YET` list exists to replace, and the reason the ratchet is
- * a runtime list rather than a type. The two `Omit`s left above are real: their
- * names are keys of the interfaces they narrow, and the day one stops being one
- * this note is what says how to notice.
+ * a runtime list rather than a type. The one `Omit` left above is real: its name
+ * is a key of the interface it narrows, and the day it stops being one this note
+ * is what says how to notice.
  */
 export type LocalDataPortSurface =
   DataPortReads &
@@ -211,14 +220,7 @@ export type LocalDataPortSurface =
   DataPortBulkWrites &
   DataPortSplitWrites &
   DataPortCapabilityDescriptor &
-  Omit<
-    DataPortTransactionWrites,
-    | 'setTransactionsCleared'
-    | 'finalizeReconciliation'
-    | 'setTransactionArchived'
-    | 'archiveTransactionsBefore'
-    | 'unarchiveAccount'
-  > &
+  DataPortTransactionWrites &
   Omit<DataPortTransferWrites, 'repointTransfer'> &
   DataPortPlanningWrites &
   DataPortDismissalWrites &
@@ -666,6 +668,126 @@ export class LocalDataPort implements LocalDataPortSurface {
   async confirmTransactionCategories(ids: string[]): Promise<number> {
     const answer = await this.#ask('confirm_transaction_categories', { ids });
     return countOf(answer, 'confirm_transaction_categories', 'confirmed');
+  }
+
+  // ── Marking, committing, and hiding ───────────────────────────────────────
+
+  /**
+   * Tick rows off against a statement, or take the tick back.
+   *
+   * A MARK IS NOT A RECONCILIATION. This is Microsoft Money's C — a working
+   * flag, persisted immediately so eight hundred ticks survive walking away from
+   * the screen, and settling nothing on its own. The seam says the rule about
+   * the committed flag that travels with it — marking LEAVES it alone, unmarking
+   * CLEARS it — and the verb keeps it in the same statement, which is what stops
+   * the file's own `transactions_reconciled_implies_cleared` from refusing an
+   * untick.
+   *
+   * The count is the verb's `changed` rather than the length of the list: a row
+   * already in the requested state is not written and not counted, which is what
+   * makes a re-tick free.
+   */
+  async setTransactionsCleared(ids: string[], cleared: boolean): Promise<number> {
+    const answer = await this.#ask('set_transactions_cleared', { ids, cleared });
+    return countOf(answer, 'set_transactions_cleared', 'changed');
+  }
+
+  /**
+   * Finish a reconciliation: commit this account's marked rows and record the
+   * day and the ending balance they were settled against, in one transaction.
+   *
+   * ── WHAT CROSSES, AND IN WHAT SHAPE ─────────────────────────────────────
+   *
+   * `endingBalance` is a number on this side of the seam and a decimal STRING on
+   * the wire, through the same `money` encoder every other figure uses — never
+   * `toFixed(2)` and never `* 100`. £0.00 is a real statement balance and the
+   * verb refuses an ABSENT one by name, so a caller can tell "settled at zero"
+   * from "settled against nothing".
+   *
+   * `reconciledOn` is a `Date` here and a calendar day on the wire — divergence
+   * D-9, and this engine's answer to it is the UTC day, which is what `asDay`
+   * takes.
+   *
+   * ── THE OUTCOME IS THE VERB'S, NOT THE CALLER'S ─────────────────────────
+   *
+   * All three fields come back from the answer rather than being echoed from the
+   * arguments. `reconciled` is the number of rows this call converted — not how
+   * many were ticked, and not how many the account holds — because the screen
+   * reports it and "Reconciliation complete" with no number is the sentence the
+   * old flow ended on.
+   */
+  async finalizeReconciliation(
+    accountId: string,
+    endingBalance: number,
+    reconciledOn: Date
+  ): Promise<ReconciliationOutcome> {
+    const answer = await this.#ask('finalize_reconciliation', {
+      account_id: accountId,
+      ending_balance: encode('money', endingBalance),
+      reconciled_on: encode('day', reconciledOn)
+    });
+    const result = rowOf(answer, 'finalize_reconciliation', 'answer');
+    return {
+      reconciled: countOf(result, 'finalize_reconciliation', 'reconciled'),
+      endingBalance: moneyOr(field(result, 'ending_balance'), endingBalance),
+      reconciledOn: day(field(result, 'reconciled_on')) ?? reconciledOn
+    };
+  }
+
+  /**
+   * Hide ONE row from the live register, or bring it back.
+   *
+   * Never a delete: the row stays in the file, stays counted in the account's
+   * balance and in every report, and is hidden only from the register. The verb
+   * is the RPC's plural `set_transactions_archived` and the seam's operation is
+   * singular, so the narrowing happens here — one id in an array of one.
+   *
+   * Answers `void`, and the verb answers with a count anyway. Discarded here for
+   * `closeAccount`'s reason: an id nobody has is a REFUSAL rather than a zero
+   * (this verb is the one in its family that raises), so there is no outcome a
+   * caller could learn from the number that it does not already have from the
+   * absence of a rejection.
+   */
+  async setTransactionArchived(id: string, archived: boolean): Promise<void> {
+    await this.#ask('set_transactions_archived', { ids: [id], archived });
+  }
+
+  /**
+   * Archive an account's committed rows up to and including a cutoff day, and
+   * stamp the account with it.
+   *
+   * Only COMMITTED rows are hidden — marked-but-not-committed is work in
+   * progress and stays in the register where it can still be unmarked — with the
+   * pre-split fallback the cloud keeps: a row whose commitment was never
+   * answered is judged by its mark, exactly as the archive judged it before the
+   * two flags were separated.
+   *
+   * **Divergence D-8**: the cutoff is a `Date` here and a calendar day on the
+   * wire, and which day an instant belongs to is answered differently per
+   * engine. This one takes the UTC day.
+   */
+  async archiveTransactionsBefore(accountId: string, cutoff: Date): Promise<number> {
+    const answer = await this.#ask('archive_transactions_before', {
+      account_id: accountId,
+      cutoff: encode('day', cutoff)
+    });
+    const result = rowOf(answer, 'archive_transactions_before', 'answer');
+    return countOf(result, 'archive_transactions_before', 'archived');
+  }
+
+  /**
+   * Bring an account's archived rows back into the register, and forget its
+   * cutoff.
+   *
+   * One click, because nothing ever left. It answers zero rather than refusing
+   * for an account this owner has not got — the verb has no refusal at all, and
+   * that is the RPC's shape rather than an omission in the port; the verb's own
+   * documentation traces it.
+   */
+  async unarchiveAccount(accountId: string): Promise<number> {
+    const answer = await this.#ask('unarchive_account', { account_id: accountId });
+    const result = rowOf(answer, 'unarchive_account', 'answer');
+    return countOf(result, 'unarchive_account', 'unarchived');
   }
 
   // ── A file's worth of rows ────────────────────────────────────────────────

@@ -2847,16 +2847,21 @@ export const nothingOfMine = {
 /**
  * One transaction, as both engines must answer with it.
  *
- * Twenty-two keys: `BOOT_TRANSACTION_COLUMNS` minus `is_reconciled`, which the
- * cloud has had since 20260810200000 and scripts/local-sqlite/schema.sql has
- * not. The gap is recorded in the crate's `row.rs` and in the harness oracle;
- * it is NOT hidden here, it is simply not a key either side can answer with.
+ * Twenty-three keys, which is `BOOT_TRANSACTION_COLUMNS` exactly. It was
+ * twenty-two until the C/R split was ported: `is_reconciled` was the one boot
+ * column the cloud had (since 20260810200000) and scripts/local-sqlite/schema.sql
+ * had not, and the gap was recorded here, in the crate's `row.rs` and in the
+ * harness oracle rather than hidden. Both schemas hold it now, so every read
+ * spec in this directory compares Money's R as well as its C.
  *
  * The defaults below are the Corner shop row's, checked against the column
  * defaults in both schemas — `category_confirmed` is true by default in both
- * (a writer that does not know about provenance produces a confirmed row) and
+ * (a writer that does not know about provenance produces a confirmed row),
  * `needs_review` false in both (one that does not know about review produces a
- * reviewed row).
+ * reviewed row), and `is_reconciled` FALSE in both, which is the third of the
+ * same shape: a transaction is born uncommitted whether it was typed, imported
+ * or downloaded. Not NULL — that value belongs to rows written before the split,
+ * and a file created from this schema has none.
  */
 export function listedTransaction(fields) {
   return {
@@ -2871,6 +2876,7 @@ export function listedTransaction(fields) {
     date: '2024-03-01',
     description: 'Corner shop',
     is_cleared: false,
+    is_reconciled: false,
     is_recurring: false,
     is_split: false,
     linked_transfer_id: null,
@@ -3541,3 +3547,149 @@ export function subjectRowsInTotal(expect) {
     expect,
   };
 }
+
+// ── The reconciliation and archive family ──────────────────────────────────
+//
+// Five verbs about two flags and a date, and everything below exists because
+// those flags are THREE-valued and a date has to be planted before an archive
+// has anything to bite on. All data is invented.
+
+/**
+ * One THREE-valued boolean column of one transaction: `yes` / `no` / `NULL`.
+ *
+ * {@link storedFlag} cannot serve, and the difference is the whole C/R split:
+ * it renders anything that is not 1 as `no`, so a pre-split NULL — the row that
+ * means "ask is_cleared" — and an explicit "not committed" would read the same.
+ * Those two are exactly what `finalize_reconciliation` distinguishes with
+ * `IS NOT DISTINCT FROM false` and what `archive_transactions_before`
+ * distinguishes with its COALESCE, so a spec that could not tell them apart
+ * would pass against a port that had lost the distinction.
+ */
+export function storedTriFlag(transactionId, column, expect) {
+  const wrap = (yes) => `CASE WHEN ${column} IS NULL THEN 'NULL'
+                              WHEN ${yes} THEN 'yes' ELSE 'no' END`;
+  return {
+    name: `stored_${column}_${transactionId.slice(-4)}`,
+    sqlite: `SELECT COALESCE((SELECT ${wrap(`${column} = 1`)}
+        FROM transactions WHERE id = '${transactionId}'), 'ABSENT')`,
+    postgres: `SELECT COALESCE((SELECT ${wrap(column)}
+        FROM public.transactions WHERE id = '${transactionId}'), 'ABSENT')`,
+    expect,
+  };
+}
+
+/**
+ * One MONEY column of one account, as an exact decimal string, with `NULL` kept
+ * apart from zero.
+ *
+ * Written for `last_reconciled_balance`, where the two are different facts and
+ * the column is nullable for that reason alone: £0.00 is a real statement
+ * balance — an account swept to zero every night closes on exactly that — and
+ * "no reconciliation has ever been finalized" is not a figure. A helper that
+ * rendered NULL as `0.00` would make the spec that proves it pass by accident.
+ *
+ * The column is named ONCE, in the cloud's spelling, and the local `_minor`
+ * suffix is added here — the same correspondence `storedBalances` writes out for
+ * `balance`/`balance_minor`, and the same one `schema.sql` states as a rule
+ * ("scale is per column, and the column NAME says which").
+ */
+export function accountMoney(accountId, column, expect) {
+  const local = `${column}_minor`;
+  const wrap = (col, decimal) => `CASE WHEN ${col} IS NULL THEN 'NULL' ELSE ${decimal} END`;
+  return {
+    name: `account_${column}_${accountId.slice(-4)}`,
+    sqlite: `SELECT COALESCE((SELECT ${wrap(local, minorToDecimal(local))} FROM accounts
+        WHERE id = '${accountId}'), 'ABSENT')`,
+    postgres: `SELECT COALESCE((SELECT ${wrap(column, numericToDecimal(column))}
+        FROM public.accounts WHERE id = '${accountId}'), 'ABSENT')`,
+    expect,
+  };
+}
+
+/**
+ * How many rows of one account are hidden from the live register.
+ *
+ * The archive's headline, asked as a count rather than row by row so that a
+ * verb which archived MORE than it was asked to cannot pass by having the one
+ * row a spec thought to name come out right.
+ */
+export function archivedRowsIn(accountId, expect) {
+  return {
+    name: `archived_rows_in_${accountId.slice(-4)}`,
+    sqlite: `SELECT COUNT(*) FROM transactions WHERE account_id = '${accountId}' AND archived = 1`,
+    postgres: `SELECT COUNT(*) FROM public.transactions
+                WHERE account_id = '${accountId}' AND archived`,
+    expect,
+  };
+}
+
+/** The three ids the reconciliation fixtures plant, beside the base row. */
+export const MARKED_ROW = '70000000-0000-0000-0000-0000000000c1';
+export const COMMITTED_ROW = '70000000-0000-0000-0000-0000000000c2';
+export const PRE_SPLIT_ROW = '70000000-0000-0000-0000-0000000000c3';
+
+/**
+ * Three rows in Everyday, one per state of the committed flag, and the base
+ * fixture's Corner shop left unmarked as the fourth.
+ *
+ * | row | `is_cleared` | `is_reconciled` | what it is |
+ * | --- | --- | --- | --- |
+ * | MARKED_ROW | 1 | 0 | ticked this session; the working set a finalize converts |
+ * | COMMITTED_ROW | 1 | 1 | already through a finalize |
+ * | PRE_SPLIT_ROW | 1 | NULL | written before the split; "ask is_cleared" |
+ * | CORNER_SHOP | 0 | 0 | not ticked at all |
+ *
+ * Dated 2024-01-15, 2024-01-16 and 2024-01-17 — all BEFORE the base row's
+ * 2024-03-01 — so one cutoff can separate them from it. Every row is −1.00 and
+ * both balances are moved, so B-1 holds before the verb runs.
+ *
+ * The NULL row is planted as an EXPLICIT NULL rather than by leaving the column
+ * out, and that is not belt and braces: the local column carries `DEFAULT 0`, so
+ * an INSERT that says nothing gets 0 — the right answer for a row being born and
+ * the wrong state for this fixture, which needs the one value only history can
+ * hold.
+ *
+ * `updated_at` is planted at 2019-01-01 ON THE INSERT, and it has to be on the
+ * insert: the cloud's `update_transactions_updated_at` is a BEFORE UPDATE
+ * trigger, so a fixture that planted the stamp with an UPDATE would have it
+ * overwritten with `now()` before the spec ever ran — MEASURED, by writing it
+ * that way first and watching Postgres answer today's date. That is what makes
+ * "this verb did not touch the row" observable at all.
+ */
+export const everyStateOfCommitment = {
+  sqlite: `
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date,
+                              category, is_cleared, is_reconciled, updated_at) VALUES
+      ('${MARKED_ROW}',    '${USER}', '${EVERYDAY}', 'Ticked',    -100, 'expense', '2024-01-15', '${WEEKLY_SHOP}', 1, 0,    '2019-01-01T00:00:00.000Z'),
+      ('${COMMITTED_ROW}', '${USER}', '${EVERYDAY}', 'Settled',   -100, 'expense', '2024-01-16', '${WEEKLY_SHOP}', 1, 1,    '2019-01-01T00:00:00.000Z'),
+      ('${PRE_SPLIT_ROW}', '${USER}', '${EVERYDAY}', 'Historic',  -100, 'expense', '2024-01-17', '${WEEKLY_SHOP}', 1, NULL, '2019-01-01T00:00:00.000Z');
+    UPDATE accounts SET balance_minor = balance_minor - 300 WHERE id = '${EVERYDAY}';`,
+  postgres: `
+    INSERT INTO public.transactions (id, user_id, account_id, description, amount, type, date,
+                                     category, is_cleared, is_reconciled, updated_at) VALUES
+      ('${MARKED_ROW}',    '${USER}', '${EVERYDAY}', 'Ticked',   -1.00, 'expense', '2024-01-15', '${WEEKLY_SHOP}', true, false, '2019-01-01T00:00:00Z'),
+      ('${COMMITTED_ROW}', '${USER}', '${EVERYDAY}', 'Settled',  -1.00, 'expense', '2024-01-16', '${WEEKLY_SHOP}', true, true,  '2019-01-01T00:00:00Z'),
+      ('${PRE_SPLIT_ROW}', '${USER}', '${EVERYDAY}', 'Historic', -1.00, 'expense', '2024-01-17', '${WEEKLY_SHOP}', true, NULL,  '2019-01-01T00:00:00Z');
+    UPDATE public.accounts SET balance = balance - 3.00 WHERE id = '${EVERYDAY}';`,
+};
+
+/**
+ * Everyday archived through 2024-02-28 — after the three planted rows and
+ * before the base fixture's Corner shop.
+ *
+ * A cutoff on its own archives nothing: it is the ACCOUNT saying "everything
+ * before this is archived", and A-3's sweep is what fills it in one row at a
+ * time as each is committed. That is why this fragment is separate from the
+ * rows: several specs need the cutoff without needing anything already hidden.
+ */
+export const archivedThroughFebruary = {
+  sqlite: `UPDATE accounts SET archive_through_date = '2024-02-28' WHERE id = '${EVERYDAY}';`,
+  postgres: `UPDATE public.accounts SET archive_through_date = '2024-02-28'
+              WHERE id = '${EVERYDAY}';`,
+};
+
+/** Everyday, re-typed as an investment account. Nothing else changes. */
+export const everydayIsAnInvestment = {
+  sqlite: `UPDATE accounts SET type = 'investment' WHERE id = '${EVERYDAY}';`,
+  postgres: `UPDATE public.accounts SET type = 'investment' WHERE id = '${EVERYDAY}';`,
+};
