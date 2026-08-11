@@ -89,11 +89,11 @@ export interface PortStoreState {
 
 export interface DataPortUnderTest {
   /**
-   * The engine under test, typed as the whole seam — and permitted to be less
-   * than that while {@link NOT_YET} says which operations are missing, by name.
-   * The annotation is documentation rather than proof (this file is not
-   * compiled by `tsc -b`); the surface rule below is what actually holds a port
-   * to the seam, in both directions.
+   * The engine under test, typed as the whole seam — and it must BE the whole
+   * seam: while an engine was being built this was permitted to be less, with a
+   * ratchet naming what was missing, and that permission is withdrawn. The
+   * annotation is documentation rather than proof (this file is not compiled by
+   * `tsc -b`); the surface rule below is what actually holds a port to the seam.
    */
   port: DataPort;
   /**
@@ -228,117 +228,41 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   'capabilities'
 ];
 
-/**
- * THE RATCHET: operations an engine has NOT implemented yet, by name.
+/*
+ * ── THE RATCHET IS GONE, AND THIS IS ITS EPITAPH ────────────────────────────
  *
- * ── WHY A PARTIAL PORT IS ALLOWED TO RUN THIS SUITE AT ALL ──────────────────
+ * `NOT_YET` and `NOT_YET_CEILING` used to be declared here: a per-engine list of
+ * the operations an implementation had NOT written yet, by name, with a count
+ * beside it that could only go down. They are DELETED — not left holding an
+ * empty array, which is what the block itself said would happen the day the
+ * number reached zero. It reached zero at slice 26.
+ *
+ * The argument is kept because it is the reason the local edition could be built
+ * at all, and the next second engine will want it back.
  *
  * The surface rule below is the floor under every other rule: a suite run
  * against a port that is missing operations proves only that the operations it
- * HAS behave. That rule is what makes this file worth running, and it is also
- * what makes a second engine impossible to build incrementally — a local
- * edition is fifty-six operations against a Rust crate, and the choice would
+ * HAS behave. That is what makes this file worth running — and it is also what
+ * makes a second engine impossible to build incrementally, because a local
+ * edition is fifty-six operations against a Rust crate and the choice would
  * otherwise be between one enormous unreviewable commit and turning the floor
- * off while the work is in progress.
+ * off while the work was in progress.
  *
- * So the floor stays on and the exception is written DOWN, per engine, by name,
- * and checked in both directions:
+ * So the floor stayed on and the exception was written DOWN, per engine, by
+ * name, and checked in BOTH DIRECTIONS: nothing missing that was not listed (so
+ * the list could not become a way to opt out), and nothing listed that was not
+ * missing (so an operation that had since been written had to LEAVE the list in
+ * the same commit, which is what stopped the rules needing it from staying
+ * skipped after the work was done — the half that made it a ratchet rather than
+ * a register of excuses). The count went in the title of every pull request that
+ * changed it: 41, 25, 22, 17, 11, 9, 4, 1, 0.
  *
- *   NOTHING MISSING THAT IS NOT LISTED. A port that quietly dropped an
- *   operation, or never had it, fails the surface rule exactly as it did
- *   before. This is the half that stops the list from being a way to opt out.
- *
- *   NOTHING LISTED THAT IS NOT MISSING. An operation that has since been
- *   implemented must LEAVE this list in the same commit, or the suite fails —
- *   which is what stops the rules that need it from staying skipped after the
- *   work is done. This is the half that makes it a ratchet rather than a
- *   register of excuses.
- *
- * And it may only shrink: {@link NOT_YET_CEILING} is the count, written out so
- * that adding an entry is a visible, arguable line in a diff rather than a
- * quiet one. The count goes in the title of every pull request that changes it.
- * When it reaches zero the engine's entry is DELETED — not left as an empty
- * array — and this whole block goes with the last one.
- *
- * Every rule that needs a listed operation is skipped BY NAME, with the
- * operation printed beside it, so a test run reads as a work queue rather than
- * as green.
+ * What survives is the floor without the exception, and it is stronger for it:
+ * the surface rule asks a port for every operation the seam names and accepts no
+ * answer but all of them, and {@link rule} below no longer has a branch that can
+ * skip anything. Nothing in this file is conditional on an engine being
+ * unfinished, because no engine is.
  */
-export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]>> = {
-  /**
-   * The local edition, mid-build. Slice 18 landed the reads, the boot
-   * composite, the capability descriptor and the two lifecycle no-ops; slice 19
-   * wired the sixteen operations the crate's write verbs already served; slice
-   * 20 wrote the first three verbs that port no Postgres function at all — the
-   * account family, whose oracle is the TypeScript writer the cloud uses to
-   * write `accounts` directly over PostgREST; slice 21 did the same for the four
-   * category writes and, with them, `prepareCategories`; slice 22 did it a third
-   * time for the six planning writes, and B-3's row below is asserted rather
-   * than skipped as a result; slice 23 did it a fourth time for the two
-   * dismissal writes, which also closed the local schema's `kind` CHECK — it
-   * admitted four of the seven `DismissalKind` values, so Payee cleanup's three
-   * would have been refused by a file while the cloud stored them; slice 24 did
-   * the five reconciliation and archive operations, which are ports of five REAL
-   * RPCs and which needed a COLUMN before any of them could be written —
-   * `transactions.is_reconciled`, Microsoft Money's R. Until it existed this
-   * mirror's archive sweep fired on the mark rather than on the commitment, and
-   * the A-3 constraint spec failed on every run saying so. Slice 25 took THREE —
-   * the re-point and the whole backup group — and with them the round trip that
-   * makes a file on a device a thing somebody can get back out again.
-   *
-   * ONE IS LEFT, and it needs no new rule at all: `importMsMoney` is composed
-   * from a wipe and a restore, both of which now exist and are green. Slice 26
-   * is the commit that DELETES this entry, and this whole block goes with it.
-   *
-   * `prepareCategories` used to be listed here rather than half-answered,
-   * because divergence B-4 says the local core SEEDS its defaults into the store
-   * and answering with unwritten defaults would have been browser storage's
-   * behaviour wearing this engine's name. `seed_categories` is that verb, and
-   * B-4's row is now asserted rather than excused.
-   */
-  'local-core': [
-    // The transaction group is WHOLE, and so is the transfer group: slice 25
-    // took `repointTransfer`, the newest RPC in the schema and the sixth verb of
-    // that family, with the crossover rule derived on both sides rather than
-    // patched on one.
-    //
-    // THE BACKUP GROUP IS WHOLE TOO, and the two entries that were here left
-    // TOGETHER, exactly as slice 19's argument for keeping `restoreBackup`
-    // required. That argument is worth preserving in the ratchet it shaped,
-    // because it is what a ratchet is FOR:
-    //
-    //   NOT ONE RULE IN THIS FILE COULD RUN IT. Every restore rule below needs
-    //   `collectBackup` too, because a restore needs a file and only a collect
-    //   makes one. Wiring it alone would have shipped the operation whose
-    //   failure costs somebody their whole financial life with zero coverage.
-    //
-    //   AND IT WOULD HAVE HAD TO INVENT THREE ANSWERS — which slice 25 answered
-    //   rather than guessed, because the round trip is what makes them
-    //   checkable. `restored` is per STEP: the verb answers one figure per
-    //   chunk, positionally, and the labels stay in TypeScript where the other
-    //   two engines already read them. `notStoredLocally` is EMPTY, because a
-    //   file holds all fourteen tables — and the verb's per-COLUMN `dropped` is
-    //   deliberately NOT mapped into it, which is the distinction the entry
-    //   predicted. Preferences are still slice 28's, so a file carrying them
-    //   restores its ledger and SAYS the settings were left behind.
-    //
-    // Migration — composed from wipe + restore, slice 26. The last one.
-    'importMsMoney'
-  ]
-};
-
-/**
- * How long {@link NOT_YET} is allowed to be, per engine.
- *
- * The exact-equality check above cannot tell "this operation was never written"
- * from "this operation was deleted and excused", because both leave the list
- * agreeing with the port. This number can: it is lowered in the commit that
- * shrinks the list and raised by nobody without saying so out loud, in a diff,
- * on a line that exists for no other purpose.
- */
-export const NOT_YET_CEILING: Partial<Record<DataPortEngine, number>> = {
-  'local-core': 1
-};
 
 // ── Declared divergences ────────────────────────────────────────────────────
 // Written as tables rather than as `if (engine === …)` scattered through the
@@ -965,22 +889,20 @@ const expectRowsFiledUnderTheSnapshotsCategories = (boot: BootSnapshot): void =>
 export function runDataPortContract(name: string, harness: DataPortContractHarness): void {
   const { engine } = harness;
 
-  /** This engine's declared exceptions. Empty for a finished implementation. */
-  const notYet = new Set<keyof DataPort>(NOT_YET[engine] ?? []);
-
   /**
    * A rule, and the operations it exercises.
    *
-   * Every `it` below is written through this so that a rule needing an
-   * operation the engine has not implemented yet is SKIPPED BY NAME, with the
-   * operation printed. Three things follow from doing it here rather than with
-   * an early return inside each body:
+   * Every `it` below is written through this, and `needs` is now documentation
+   * that the compiler checks the SPELLING of: a rule says out loud which
+   * operations it is about, which is the index nobody wrote, and a name that is
+   * not a member of the seam does not typecheck.
    *
-   *  - a skipped rule reads as skipped in the runner's output, so a partial
-   *    engine's test run is a work queue rather than a wall of green;
-   *  - the rule says out loud which operations it is about, which is worth
-   *    having even for a finished engine — it is the index nobody wrote;
-   *  - nothing is conditional inside a test body, so a rule cannot half-run.
+   * It used to do more. While an engine was being built, a rule needing an
+   * operation that engine had not written was SKIPPED BY NAME with the missing
+   * operation printed beside it — so a partial engine's test run read as a work
+   * queue rather than as a wall of green, and nothing inside a test body was
+   * ever conditional, so a rule could not half-run. That branch is deleted with
+   * the ratchet it belonged to. Every rule runs on every engine now.
    *
    * The list is the operations a rule CALLS, not the ones its fixture happens
    * to touch: seeding is the harness's job and is expected to work whatever the
@@ -991,17 +913,13 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
     title: string,
     body: () => Promise<void>
   ): void => {
-    const missing = needs.filter(operation => notYet.has(operation));
-    if (missing.length === 0) {
-      it(title, body);
-      return;
-    }
-    it.skip(`${title} — NOT YET on ${engine}: ${missing.join(', ')}`, body);
+    void needs;
+    it(title, body);
   };
 
   describe(name, () => {
     describe('the surface itself', () => {
-      it('answers every operation the seam names, or declares the ones it does not', async () => {
+      it('answers every operation the seam names', async () => {
         // The floor under every rule below: a suite run against a port that is
         // missing operations proves only that the operations it HAS behave.
         // Nothing else here would notice the absence — an engine under
@@ -1010,29 +928,18 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         // Not a type check, deliberately. Tests are not compiled by `tsc -b`,
         // so `implements DataPort` is only checked where the implementation
         // itself is production code; a harness that assembles its port out of
-        // parts (which a local edition, being two halves, will) gets no such
+        // parts (which the local edition, being two halves, does) gets no such
         // check at all. This one runs.
+        //
+        // ALL OF THEM, with no excuse list. This rule used to accept a declared
+        // set of operations an engine had not written yet, checked in both
+        // directions against a per-engine ratchet; the ratchet reached zero at
+        // slice 26 and went, and what is left is the sentence it was protecting.
         const { port } = await harness.create({ accounts: threeAccounts() });
 
         const missing = DATA_PORT_OPERATIONS.filter(operation => typeof port[operation] !== 'function');
-        const declared = NOT_YET[engine] ?? [];
 
-        // BOTH DIRECTIONS, and each is a different failure with a different
-        // fix, so they are reported apart rather than as one array diff.
-        // `unexcused` is a port that is quietly short of the seam. `stale` is
-        // an operation that has been implemented and left excused, which would
-        // keep every rule that needs it skipped after the work was finished —
-        // the way a ratchet stops being one.
-        const unexcused = missing.filter(operation => !declared.includes(operation));
-        const stale = declared.filter(operation => !missing.includes(operation));
-        expect({ unexcused, stale }).toEqual({ unexcused: [], stale: [] });
-
-        // And it may only ever get shorter. See NOT_YET_CEILING.
-        const ceiling = NOT_YET_CEILING[engine];
-        if (declared.length > 0) {
-          expect(typeof ceiling).toBe('number');
-        }
-        expect(declared.length).toBeLessThanOrEqual(ceiling ?? 0);
+        expect(missing).toEqual([]);
       });
 
       it('reads its own store back by some means other than itself', async () => {
@@ -3763,14 +3670,13 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           // is an order that cannot be got wrong. What IS observable is that the
           // composite really did not fan out into the seam's own reads.
           //
-          // Watched only where they exist. An engine that has not implemented
-          // an operation yet (it is named in NOT_YET, and the surface rule
-          // holds it to that) cannot have called it, so its absence is an
-          // honest pass rather than a hole — and this rule must keep running
-          // while the engine is built, because it is the one that says the
-          // composite is a composite.
+          // Both operations are there to watch, and the surface rule above is
+          // what says so. While an engine was being built this filtered to the
+          // ones that existed, so a port that had not written them yet passed
+          // honestly rather than by accident; there is no such engine now, and
+          // a spy on a method that is missing would fail loudly, which is the
+          // right answer.
           const notFannedOut = (['prepareCategories', 'loadBootTransactions'] as const)
-            .filter(operation => typeof port[operation] === 'function')
             .map(operation => vi.spyOn(port, operation));
 
           boot = await port.loadBoot();

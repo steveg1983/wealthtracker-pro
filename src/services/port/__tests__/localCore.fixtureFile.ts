@@ -43,12 +43,13 @@
  *
  * ── SEEDING IS DIRECT SQL, BECAUSE THE WRITES DO NOT EXIST YET ──────────────
  *
- * `LocalDataPort` implements the reads and none of the writes, so a fixture
- * cannot be seeded through the port at this slice — and once the writes DO
- * exist, seeding through them would make the same port-versus-itself mistake in
- * the other direction. PHASE3-PLAN D-6 also rejected the tidier-looking
- * alternative: test-only `seed`/`dump` verbs behind a cargo feature are a
- * SQL-shaped door one build configuration away from shipping.
+ * `LocalDataPort` answers every write now, and seeding through them would be the
+ * port-versus-itself mistake in the other direction: a fixture written by the
+ * thing under test proves nothing about whether the thing under test writes what
+ * it claims. It was originally direct SQL because there were no writes at all;
+ * it stays direct SQL for the better reason. PHASE3-PLAN D-6 also rejected the
+ * tidier-looking alternative: test-only `seed`/`dump` verbs behind a cargo
+ * feature are a SQL-shaped door one build configuration away from shipping.
  *
  * A fixture that the schema refuses is reported with the constraint's own name
  * and the row that broke it, never smoothed over. That is the harness doing its
