@@ -148,6 +148,47 @@
 //! because there the alternative was no trail at all rather than a different
 //! trail from the cloud's.
 //!
+//! # THE BACKUP PAIR, AND THE FIRST VERB THAT PORTS A TypeScript *READER*
+//!
+//! [`collect_backup`] and [`restore_backup`] are the sixth family, and they are
+//! a different shape from the five before them.
+//!
+//! [`restore_backup`] ports **no new rule at all.** Every row it inserts goes
+//! through [`restore_user_chunk`]'s own body and every link it closes through
+//! [`finalize_user_restore`]'s, called from ONE transaction instead of from
+//! N+1. What is new is only the shape, and the shape is divergence B-10 / X-7 /
+//! R-16: *"Restore is chunked, not atomic | Restore is one transaction."* The
+//! cloud chunks because a 50k-row dataset is tens of megabytes and one request
+//! that size is a cliff on the one operation a user cannot afford to have fail;
+//! locally there is no request, so there is no cliff, so there is nothing to buy
+//! with the non-atomicity. It asks the emptiness question ONCE about the whole
+//! file rather than once per accounts chunk, which is stronger than the cloud
+//! and is declared as such in the verb.
+//!
+//! [`collect_backup`] is the one that is genuinely new: the first verb here
+//! whose oracle is a TypeScript **reader**. The five families above port
+//! writers; this ports `backupService.collectBackupBundle`'s walk of fourteen
+//! tables. And it ports only the READ half — everything that turns rows into a
+//! FILE stays in `buildBackupBundle`, the one builder the cloud, the browser and
+//! now this edition all call, because a second builder of one format is a file
+//! that exports what it cannot import.
+//!
+//! | | the cloud's collector | the verb |
+//! | --- | --- | --- |
+//! | how the rows are read | 14 PostgREST walks, paged at 1000 | fourteen SELECTs in ONE deferred read transaction |
+//! | the column list | `select('*')` — whatever the table has | `crate::backup`'s maps, read in reverse, so a column that can be RESTORED can be COLLECTED by construction |
+//! | money | a JSON number from `numeric(20,2)` | the number's own decimal text (D-4), which both restores accept |
+//! | `tags` / `subject_ids` | `text[]` / `uuid[]` on the row | child tables, folded back into the array the format carries |
+//! | the four FX figures | already in `metadata.transferMetadata` | typed columns here, put BACK into the blob on the way out (divergence 9, backwards) |
+//! | order | `ORDER BY id`, for stable paging | `ORDER BY rowid` — the file's own order, so a round trip is order-preserving |
+//! | the audit log | nothing | nothing either: taking a copy is not a change to the ledger |
+//!
+//! The last row is the one that needed an argument rather than a measurement.
+//! Every other family here writes an audit entry where the cloud has no function
+//! to write one from; this one deliberately does not, because an entry for an
+//! operation that moved no money and altered no field would put a row in a
+//! hash-chained log for something that did not happen to the ledger.
+//!
 //! # `migrate_categories_atomic` — HALF of it is ported, and the half is B-4
 //!
 //! It was recorded here as *"needs a decision about what it would even do before
@@ -320,6 +361,9 @@
 //! | [`wipe_user_financial_data`] | no | **conditionally** — the pre-clear, R-5 |
 //! | [`restore_user_chunk`] | no, and proven so on BOTH engines | no |
 //! | [`finalize_user_restore`] | no | no |
+//! | [`restore_backup`] | no, the same measurement — it INSERTs | no; the link pass holds `restore`, inside the same transaction, exactly as the finalize does |
+//! | [`collect_backup`] | no — it opens a READ transaction and writes nothing | no |
+//! | [`repoint_transfer`] | no — refusal 7 refuses every split row before its first write, as the rest of the family does | **conditionally**, on the DELETE branch only — R-5, reusing `delete_transaction::touches_a_transfer_leg` |
 //! | [`link_bank_account_snap`] | no, and proven so | no |
 //! | [`delete_unused_categories`] | no, and proven so — it deletes a category, and the cascade's only writes are `category_id` columns nothing watches | no |
 //! | [`verify_integrity`] | no — it opens no transaction and writes nothing | no |
@@ -382,7 +426,15 @@
 //!   to `transaction_splits`. `trg_protect_linked_leg` fires
 //!   `WHEN OLD.linked_transfer_id IS NOT NULL`, and the verb refuses
 //!   `split_line_already_linked` before touching the line — so the trigger is
-//!   consulted and stands down. `tests/transfer_family.rs` proves that
+//!   consulted and stands down.
+//! * [`repoint_transfer`], the sixth, is the FIRST of the family that needs a
+//!   guard — and only on one of its three branches. Its `delete` disposition
+//!   removes a transaction, so a split line linking to that row is SET NULL by
+//!   an UPDATE and `trg_protect_linked_leg` raises. It reuses
+//!   `delete_transaction::touches_a_transfer_leg` rather than re-deriving the
+//!   condition, which is what the R-5 paragraph above asks every later path to
+//!   do. `tests/transfer_family.rs` shows the trigger ARMED first, by making the
+//!   same delete by hand and watching it refuse. `tests/transfer_family.rs` proves that
 //!   behaviourally, with the guard table asserted empty for the whole call.
 //!
 //! The general lesson the splits verb wrote down holds in both directions: the
@@ -530,6 +582,7 @@ mod apply_category_to_uncategorized;
 mod archive_transactions_before;
 mod clear_transfer_links;
 mod close_account;
+mod collect_backup;
 mod confirm_transaction_categories;
 mod create_account;
 mod create_budget;
@@ -554,6 +607,8 @@ mod load_boot;
 mod merge_categories;
 pub mod reads;
 mod repair_claimed_transfer;
+mod repoint_transfer;
+mod restore_backup;
 mod restore_suggestion;
 mod restore_user_chunk;
 mod seed_categories;
@@ -679,6 +734,19 @@ pub use reads::{
 };
 pub use repair_claimed_transfer::{
     repair_claimed_transfer, RepairClaimedTransfer, RepairClaimedTransferResult,
+};
+// The transfer family's sixth verb, and the newest RPC in the schema. See "THE
+// RE-POINT" above for the crossover rule it keeps and for why it is the one
+// operation in the family that is not balance-neutral.
+pub use repoint_transfer::{
+    repoint_transfer, Displaced, Disposition, RepointTransfer, RepointTransferResult,
+};
+// The backup pair. `collect_backup` ports a TypeScript READER rather than a
+// writer — the first of those in the crate — and `restore_backup` ports no new
+// rule at all: it is the two restore verbs' own bodies, run in ONE transaction.
+pub use collect_backup::{collect_backup, CollectBackup, CollectBackupResult, Collected};
+pub use restore_backup::{
+    restore_backup, RestoreBackup, RestoreBackupAnswer, RestoreBackupResult,
 };
 pub use restore_user_chunk::{
     restore_user_chunk, Chunk, RestoreAnswer, RestoreUserChunk, RestoreUserChunkResult,

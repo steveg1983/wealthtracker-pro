@@ -47,17 +47,26 @@
 //!    refuses eleven keys that a cloud backup legitimately carries. Four have a
 //!    typed home and are PROMOTED into it; the other eight are dropped and every
 //!    drop is REPORTED. See [`strip_metadata_money`].
-//! 4. **Absent keys.** The cloud refuses a row missing any NOT NULL key, because
-//!    `jsonb_populate_recordset` supplies SQL NULL rather than the column's
-//!    default — MEASURED: a row with no `low_balance_alert_enabled` is refused
-//!    even though the column has a default. Here an absent (or JSON null) key
-//!    simply omits the column, so the local default applies where there is one
-//!    and the NOT NULL fires where there is not. The set of rows refused is
-//!    therefore SMALLER locally, and the difference is reachable only from a
-//!    hand-edited file: both exporters in this repo write whole rows, which is
-//!    the contract the migration states. The columns that carry meaning — `name`,
-//!    `amount`, `date`, `description`, `account_id` — have no default on either
-//!    engine and are refused on both.
+//! 4. **Absent keys, and the null that is not one.** The cloud USED to refuse a
+//!    row missing any NOT NULL key, because `jsonb_populate_recordset` supplies
+//!    an explicit SQL NULL rather than the column's default — MEASURED: a row
+//!    with no `low_balance_alert_enabled` was refused even though the column has
+//!    a default. That was a live data-safety defect (every file exported before
+//!    2026-08-10 failed to restore) and `20260811090000` fixed it by reading the
+//!    schema's own constant defaults and laying them under each row. Here an
+//!    absent key simply omits the column, so the engine applies the default and
+//!    the fix needs no mechanism. What the same migration ALSO settled is the
+//!    rule this file now keeps in both directions: **omitted is not the same as
+//!    null**. A key stated as null on a NULLABLE column is a deliberate null and
+//!    is stored as one; on a NOT NULL column it is treated as absent, because no
+//!    legal export could have produced it. See [`insert_row`], which reads the
+//!    nullability from the schema rather than from a list.
+//!
+//! 5. **Getting a row back OUT.** [`read_rows`] is the collect side, and it goes
+//!    through the SAME column tables in reverse. One map, two directions: a file
+//!    written here is a file the cloud's restore reads, and a file written there
+//!    is one this restore reads, because neither side has a column list of its
+//!    own to drift with.
 //!
 //! # Unknown keys are ignored, because they are ignored in the cloud
 //!
@@ -186,6 +195,12 @@ const ACCOUNTS: &[Column] = &[
             money("bank_balance", "bank_balance_minor"),
             date("bank_balance_date"),
             date("last_reconciled_date"),
+            // Added by 20260810200000, the same migration that split C from R.
+            // Absent until slice 25, which is when anything could have NOTICED:
+            // a column with no collector and no restorer is a column whose
+            // absence from this table nothing can see. The round trip is what
+            // sees it.
+            money("last_reconciled_balance", "last_reconciled_balance_minor"),
             flag("low_balance_alert_enabled"),
             money("low_balance_threshold", "low_balance_threshold_minor"),
             date("opening_balance_date"),
@@ -253,10 +268,24 @@ const TRANSACTIONS: &[Column] = &[
             text("payment_channel"),
             flag("is_recurring"),
             flag("is_cleared"),
+            // Money's R, and THE column the three-branch null rule in
+            // [`insert_row`] exists for: it is the only nullable column in this
+            // schema with a default, so it is the only one where "the file said
+            // null" and "the file said nothing" produce different rows. NULL
+            // means *"this row predates the split between marking and
+            // committing; ask is_cleared"*, and a restored cloud history is
+            // made of exactly those rows.
+            flag("is_reconciled"),
             flag("is_split"),
             flag("archived"),
             ordinal("statement_sequence"),
             flag("category_confirmed"),
+            // Added by 20260810090000 — and the column whose absence from the
+            // CLOUD's restore was a live data-safety defect (20260811090000:
+            // every file exported before 2026-08-10 failed to restore). It has
+            // always been storable here; it was never collected or restored,
+            // which is the quieter half of the same mistake.
+            flag("needs_review"),
             text("transfer_account_id"),
             text("import_source"),
             text("import_source_id"),
@@ -444,6 +473,25 @@ const SUGGESTION_DISMISSALS: &[Column] = &[
             stamp("dismissed_at"),
 ];
 
+// ── The columns a restore will not insert, and a collect must still write ───
+//
+// Three columns form the cycles `finalize_user_restore` exists to close, so
+// [`insert_row`] deliberately has no entry for any of them and the RPC nulls
+// them for the same reason. They are still part of the FILE — `buildBackupBundle`
+// reads them straight off the rows to build `links.account_parents` and
+// `links.transaction_links` — so a collect that left them out would export a
+// ledger whose every transfer came back unpaired, silently, and the pairing
+// would be gone from the only copy.
+//
+// Separate lists rather than a flag on [`Column`], so that the INSERT side
+// cannot reach them by accident: the two directions ask for different sets and
+// each asks by name.
+
+const ACCOUNTS_DEFERRED: &[Column] = &[text("parent_account_id")];
+
+const TRANSACTIONS_DEFERRED: &[Column] =
+    &[text("linked_transfer_id"), text("linked_transfer_split_id")];
+
 // ── The entities ────────────────────────────────────────────────────────────
 
 /// Everything `restore_user_chunk` will accept, spelled exactly as the RPC's
@@ -486,6 +534,31 @@ pub enum Entity {
 }
 
 impl Entity {
+    /// Every entity a backup carries, in the order `BACKUP_ENTITIES` lists them.
+    ///
+    /// The same order the cloud's collector reads in
+    /// (`backupService.BACKUP_ENTITIES`), and the reason it is written down once
+    /// rather than spelled at each call site: [`super::verbs::collect_backup`]
+    /// walks it, and so does the exhaustiveness test below. A file whose
+    /// sections came out in a different order from the cloud's would be a
+    /// different file for no reason a reader could see.
+    pub const ALL: [Self; 14] = [
+        Self::Accounts,
+        Self::Categories,
+        Self::Transactions,
+        Self::TransactionSplits,
+        Self::Budgets,
+        Self::Goals,
+        Self::GoalContributions,
+        Self::Investments,
+        Self::InvestmentTransactions,
+        Self::RecurringTransactions,
+        Self::Notifications,
+        Self::DashboardLayouts,
+        Self::WidgetPreferences,
+        Self::SuggestionDismissals,
+    ];
+
     /// The table this entity is stored in.
     #[must_use]
     pub const fn table(self) -> &'static str {
@@ -564,6 +637,19 @@ impl Entity {
             Self::DashboardLayouts => DASHBOARD_LAYOUTS,
             Self::WidgetPreferences => WIDGET_PREFERENCES,
             Self::SuggestionDismissals => SUGGESTION_DISMISSALS,
+        }
+    }
+
+    /// The columns a COLLECT writes and a RESTORE will not insert.
+    ///
+    /// Empty for twelve of the fourteen. See the two lists above for why the
+    /// other two are asymmetric on purpose.
+    #[must_use]
+    pub const fn deferred(self) -> &'static [Column] {
+        match self {
+            Self::Accounts => ACCOUNTS_DEFERRED,
+            Self::Transactions => TRANSACTIONS_DEFERRED,
+            _ => &[],
         }
     }
 }
@@ -791,6 +877,44 @@ pub fn strip_metadata_money(metadata: &mut Value) -> CoreResult<MetadataStrip> {
 
 // ── Writing a row ───────────────────────────────────────────────────────────
 
+/// Which of a table's columns will accept a NULL, asked of the schema itself.
+///
+/// The local half of the cloud's catalogue read (`20260811090000`: *"it cannot
+/// be a list. It is read from the schema itself"*). SQLite's answer is simpler
+/// than Postgres's and the difference is worth stating, because it is why this
+/// function returns one set rather than a map of defaults:
+///
+/// * the cloud has to decide WHICH default is safe to apply, since it must
+///   supply a value for every column it does not want NULLed — and a generated
+///   default (`gen_random_uuid()`, `now()`) applied to a silence would mint a
+///   fresh identity or stamp history with today. Leaving a column out of an
+///   INSERT has no such hazard: the default is applied by the ENGINE, exactly as
+///   it is for every other writer, so nothing here can choose the wrong one.
+/// * so the only question left is the one this answers: may this column hold the
+///   null the file stated?
+///
+/// MEASURED against `schema.sql` (2026-08-11): of every column reachable from a
+/// backup row, exactly ONE is nullable AND carries a default —
+/// `transactions.is_reconciled`. Every other nullable column defaults to NULL
+/// anyway, so this rule changes the stored row for that column and no other
+/// today. It is written as a rule rather than as that one column because the
+/// next nullable column with a meaning-carrying default must not need anybody to
+/// remember this file.
+///
+/// `pragma` binds the table name as a parameter; nothing is concatenated.
+fn nullable_columns(connection: &Connection, table: &str) -> CoreResult<BTreeSet<String>> {
+    let mut names = BTreeSet::new();
+    connection.pragma(None, "table_info", table, |row| {
+        let name: String = row.get("name")?;
+        let not_null: i64 = row.get("notnull")?;
+        if not_null == 0 {
+            names.insert(name);
+        }
+        Ok(())
+    })?;
+    Ok(names)
+}
+
 /// The two child tables a backup row can carry inside an array column.
 fn child_array(entity: Entity, row: &BackupRow) -> Option<(&'static str, &[Value])> {
     let key = match entity {
@@ -823,11 +947,52 @@ pub fn insert_row(
     let mut columns: Vec<&'static str> = vec!["user_id"];
     let mut values: Vec<SqlValue> = vec![SqlValue::Text(owner.to_owned())];
 
+    let nullable = nullable_columns(connection, entity.table())?;
+
     for column in entity.columns() {
-        let Some(value) = row.get(column.key) else { continue };
-        if value.is_null() {
+        // ── A SILENCE IS ANSWERED BY THE SCHEMA, AND ONLY WHERE IT MAY BE ───
+        // The cloud's own rule (20260811090000), translated — and the
+        // translation was CORRECTED by the differential harness, which is the
+        // whole reason that harness exists. The rule is one sentence:
+        //
+        //   A COLUMN THAT MAY HOLD NULL IS GIVEN WHAT THE FILE SAYS, OR NULL.
+        //   A COLUMN THAT MAY NOT IS GIVEN WHAT THE FILE SAYS, OR ITS DEFAULT.
+        //
+        // In the cloud that falls out of two mechanisms: `jsonb_populate_recordset`
+        // emits an EXPLICIT NULL for every column the JSON does not mention, and
+        // 20260811090000 then lays the schema's constant defaults under the row
+        // for exactly one class — *"NOT NULL WITH a default, which is the only
+        // class this fills in"*. Here the same two outcomes are reached by
+        // choosing between binding NULL and leaving the column out of the
+        // INSERT, which is what makes SQLite apply its default.
+        //
+        // MEASURED, and the measurement is why this reads as it does: the first
+        // draft filled a silence from the default wherever there was one, and
+        // the differential spec caught it on `transactions.is_reconciled` — a
+        // file from before that column existed came back `0` here and NULL in
+        // the cloud. NULL there MEANS *"this row predates the split between
+        // marking and committing; ask is_cleared"*, and `0` means *"explicitly
+        // not committed"*. Filling it in would offer a decade of reconciled
+        // statements back to somebody to do again.
+        //
+        // A stated null on a NOT NULL column is treated as a silence for the
+        // reason the migration gives: no legal export could have produced it,
+        // because the column refuses NULL, so it is a hand-edited file or a
+        // client that wrote a key it had no value for — and the default is the
+        // only honest reading.
+        //
+        // Which columns are which is READ FROM THE SCHEMA, never listed here. A
+        // list would be a promise to remember restore every time anybody adds a
+        // column, and that promise has already been broken once — by a careful
+        // migration, in the cloud, on this exact operation.
+        let stated = row.get(column.key).filter(|value| !value.is_null());
+        let Some(value) = stated else {
+            if nullable.contains(column.column) {
+                columns.push(column.column);
+                values.push(SqlValue::Null);
+            }
             continue;
-        }
+        };
         let stored = match column.kind {
             Kind::Json => SqlValue::Text(value.to_string()),
             Kind::Flag => {
@@ -997,6 +1162,258 @@ fn write_child_array(
     }
 }
 
+// ── Reading a row back OUT ──────────────────────────────────────────────────
+//
+// The other direction, and the reason this module is where it lives rather than
+// two modules that happen to agree. Everything above translates a backup row
+// into a stored row; everything below translates a stored row into a backup row,
+// THROUGH THE SAME COLUMN TABLE. The tables are the map between two schemas, and
+// a second copy of that map — a collector with a column list of its own — is a
+// file that exports what it cannot import. That is not a hypothetical shape: it
+// is what a hand-written collector produces the first time somebody adds a
+// column to one list and not the other, and the failure surfaces only when a
+// person restores.
+//
+// It is also the whole of B-11's claim, made structural: ONE format, read by
+// both editions. A cloud file restores here because [`insert_row`] reads the
+// cloud's keys; a file written here restores THERE because [`read_rows`] writes
+// the cloud's keys. The keys are the same `&'static str` in both cases, so the
+// two statements cannot drift apart.
+
+/// The exact inverse of [`scale`]: a scaled integer as its decimal text.
+///
+/// Money crosses this seam as the number's own decimal spelling (PHASE3-PLAN
+/// D-4), never as a JSON number — a JSON number is an IEEE-754 double by the
+/// time any parser has read it, and `backupService.MAX_EXACT_MONEY` exists
+/// because that trip is only exact below 2^53 hundredths. A decimal string has
+/// no such ceiling and both engines' restores accept one: [`scale`] reads it
+/// here, and `jsonb_populate_recordset` casts it to `numeric` there.
+///
+/// `hundredths_to_decimal_string` is the two-place case and this is the same
+/// algorithm generalised, for [`scale`]'s reason: quantities and prices are not
+/// money and must not acquire money's type on the way past.
+// Every operation is bounded by construction: `places` comes from a `Kind` in
+// the column table above and is never more than 10, so the divisor is at most
+// 10^10 and cannot overflow a u64; the divisor is never zero, so neither the
+// division nor the remainder can trap. Spelled out rather than switching the
+// lint off silently, exactly as `crate::money` does.
+#[allow(clippy::arithmetic_side_effects)]
+fn unscale(units: i64, places: u32) -> String {
+    if places == 0 {
+        return units.to_string();
+    }
+    let negative = units < 0;
+    // i64::MIN has no positive counterpart; unsigned_abs is the only correct way
+    // to take the magnitude.
+    let magnitude = units.unsigned_abs();
+    let mut divisor: u64 = 1;
+    for _ in 0..places {
+        divisor = divisor.saturating_mul(10);
+    }
+    let whole = magnitude / divisor;
+    let fraction = magnitude % divisor;
+    let width = usize::try_from(places).unwrap_or(0);
+    let sign = if negative { "-" } else { "" };
+    format!("{sign}{whole}.{fraction:0width$}")
+}
+
+/// One stored column as the JSON the file carries.
+///
+/// A NULL column becomes JSON `null` — never an omitted key — which is the
+/// collect side of the rule [`insert_row`] keeps: the two are different
+/// statements and a file that could not tell them apart could not carry
+/// `is_reconciled`'s third value at all.
+fn value_of(record: &rusqlite::Row<'_>, index: usize, kind: Kind) -> rusqlite::Result<Value> {
+    use rusqlite::types::ValueRef;
+
+    let raw = record.get_ref(index)?;
+    if matches!(raw, ValueRef::Null) {
+        return Ok(Value::Null);
+    }
+    let value = match kind {
+        Kind::Text | Kind::Date | Kind::Timestamp => Value::String(record.get::<_, String>(index)?),
+        Kind::Flag => Value::Bool(record.get::<_, i64>(index)? != 0),
+        Kind::Ordinal => Value::Number(record.get::<_, i64>(index)?.into()),
+        Kind::Scaled(places) => Value::String(unscale(record.get::<_, i64>(index)?, places)),
+        // Stored as TEXT and carried as a document, so a reader of the file sees
+        // the same object the cloud's `jsonb` renders rather than a string
+        // holding JSON. A blob this file cannot parse travels as its own text
+        // instead of failing the export: a backup that refuses to be taken is
+        // worse than one carrying something odd, and the odd thing is preserved
+        // exactly.
+        Kind::Json => {
+            let text: String = record.get(index)?;
+            serde_json::from_str(&text).unwrap_or(Value::String(text))
+        }
+    };
+    Ok(value)
+}
+
+/// Every row of one entity, whole, as the backup format spells them.
+///
+/// ── ORDERED BY `rowid` — THE FILE'S OWN ORDER, NOT THE ID'S ─────────────────
+///
+/// The cloud orders by `id` and says why: *"purely so paging is stable — without
+/// a deterministic order the same row can appear on two pages and another on
+/// none"*. There is no paging here, so that reason does not apply, and copying
+/// the clause anyway would have been the wrong kind of faithfulness. MEASURED,
+/// by the contract suite's *"a restored ledger exports to the same file again,
+/// and again"*: ordering by id makes the export order a function of the RANDOM
+/// uuids a restore mints, so two generations of the same ledger come out in
+/// different orders — the same rows, shuffled, in a file a person might diff.
+///
+/// `rowid` is the order the file itself holds them in, which is the order they
+/// were written in, which — after a restore — is the order the file being
+/// restored listed them in. So the round trip is order-preserving, and the same
+/// ledger exports to the same bytes however many times it goes round. It is also
+/// the order `localCore.fixtureFile.ts` reads its independent witness back in,
+/// for the same reason stated there.
+///
+/// Every table a backup carries has a rowid; the two child tables that do not
+/// (`transaction_tags`, `suggestion_dismissal_subjects`) are read by
+/// [`child_members`], each ordered by what its own meaning demands.
+///
+/// # Errors
+/// [`CoreError::Storage`] for a fault. There is no refusal here: reading a
+/// ledger you own cannot be refused, and a collect that could fail on a row
+/// would be a backup that stops being takeable as soon as it matters.
+pub fn read_rows(connection: &Connection, entity: Entity, owner: &str) -> CoreResult<Vec<Value>> {
+    // The columns a restore inserts, plus the ones it leaves for the second
+    // pass. Both are in the file; only the first are in an INSERT.
+    let carried: Vec<Column> =
+        entity.columns().iter().chain(entity.deferred().iter()).copied().collect();
+
+    // Divergence 9, backwards. The cloud keeps these four figures inside
+    // `metadata.transferMetadata` and this schema gives them typed columns, so a
+    // collect has to put them back where a cloud restore will look for them —
+    // otherwise a fee survives the trip out of the cloud and dies on the way
+    // home. Symmetry with [`strip_metadata_money`], which is the only reason it
+    // is safe: the same four keys, the same four columns, the same scales.
+    let promoted: &[(&str, &str, u32)] =
+        if matches!(entity, Entity::Transactions) { &PROMOTED } else { &[] };
+
+    let mut names: Vec<&'static str> = carried.iter().map(|column| column.column).collect();
+    for (_, column, _) in promoted {
+        names.push(column);
+    }
+
+    // Every name in this statement is a `&'static str` from a column table in
+    // this module. `owner` is bound. DESIGN.md §6.4 holds through the collect as
+    // it does through the restore.
+    let sql = format!(
+        "SELECT {} FROM {} WHERE user_id = ?1 ORDER BY rowid",
+        names.join(", "),
+        entity.table()
+    );
+
+    let mut rows: Vec<Value> = Vec::new();
+    let mut ids: Vec<String> = Vec::new();
+    {
+        let mut statement = connection.prepare(&sql)?;
+        let mut cursor = statement.query(rusqlite::params![owner])?;
+        while let Some(record) = cursor.next()? {
+            let mut object = BackupRow::new();
+            for (index, column) in carried.iter().enumerate() {
+                object.insert(column.key.to_owned(), value_of(record, index, column.kind)?);
+            }
+
+            let mut transfer = Map::new();
+            for (offset, (key, _, places)) in promoted.iter().enumerate() {
+                let index = carried.len().saturating_add(offset);
+                let kind = if *places == 0 { Kind::Text } else { Kind::Scaled(*places) };
+                let value = value_of(record, index, kind)?;
+                // A figure this row does not carry is left OUT of the blob
+                // rather than written as null: the cloud's own writer only ever
+                // puts a key there when there is a figure, and a
+                // `transferMetadata` full of nulls would be a document the app
+                // has never produced.
+                if !value.is_null() {
+                    transfer.insert((*key).to_owned(), value);
+                }
+            }
+            if !transfer.is_empty() {
+                fold_into_metadata(&mut object, transfer);
+            }
+
+            ids.push(object.get("id").and_then(Value::as_str).unwrap_or_default().to_owned());
+            rows.push(Value::Object(object));
+        }
+    }
+
+    // The child tables, folded back into the array columns the format carries.
+    // A second pass rather than a nested cursor: one statement at a time is the
+    // shape every other read in this crate keeps, and the row count here is a
+    // person's ledger rather than a join.
+    for (row, id) in rows.iter_mut().zip(ids.iter()) {
+        let members = child_members(connection, entity, id)?;
+        let Some((key, values)) = members else { continue };
+        if let Some(object) = row.as_object_mut() {
+            object.insert(key.to_owned(), Value::Array(values));
+        }
+    }
+
+    Ok(rows)
+}
+
+/// Put the four promoted figures back under `metadata.transferMetadata`.
+///
+/// Merged into whatever the blob already holds rather than replacing it: the
+/// same row's `transferType`, `reference` and dates live in there and are the
+/// user's own text.
+fn fold_into_metadata(object: &mut BackupRow, transfer: Map<String, Value>) {
+    let mut metadata = object.remove("metadata").unwrap_or(Value::Null);
+    if !metadata.is_object() {
+        metadata = Value::Object(Map::new());
+    }
+    if let Some(blob) = metadata.as_object_mut() {
+        let existing = blob.remove("transferMetadata");
+        let mut merged = match existing {
+            Some(Value::Object(map)) => map,
+            _ => Map::new(),
+        };
+        for (key, value) in transfer {
+            merged.insert(key, value);
+        }
+        blob.insert("transferMetadata".to_owned(), Value::Object(merged));
+    }
+    object.insert("metadata".to_owned(), metadata);
+}
+
+/// The array column an entity carries in the file, read out of its child table.
+///
+/// The inverse of [`write_child_array`], and ordered the way each table's own
+/// meaning demands: tags are a SET (`PRIMARY KEY (transaction_id, tag)`, so
+/// there is no original order to preserve and `tag` is the only stable one), and
+/// a dismissal's subjects are a SEQUENCE — `role_order` exists precisely because
+/// `subject_ids[0]` and `subject_ids[1]` mean different things to the sweep that
+/// wrote them.
+fn child_members(
+    connection: &Connection,
+    entity: Entity,
+    id: &str,
+) -> CoreResult<Option<(&'static str, Vec<Value>)>> {
+    let (key, sql) = match entity {
+        Entity::Transactions => (
+            "tags",
+            "SELECT tag FROM transaction_tags WHERE transaction_id = ?1 ORDER BY tag",
+        ),
+        Entity::SuggestionDismissals => (
+            "subject_ids",
+            "SELECT transaction_id FROM suggestion_dismissal_subjects
+              WHERE dismissal_id = ?1 ORDER BY role_order",
+        ),
+        _ => return Ok(None),
+    };
+
+    let mut statement = connection.prepare(sql)?;
+    let mut cursor = statement.query(rusqlite::params![id])?;
+    let mut members = Vec::new();
+    while let Some(record) = cursor.next()? {
+        members.push(Value::String(record.get::<_, String>(0)?));
+    }
+    Ok(Some((key, members)))
+}
+
 /// Put the entity and the row's id in front of whatever refused, and say what a
 /// person can do about it.
 ///
@@ -1033,7 +1450,7 @@ fn name_the_row(error: CoreError, entity: Entity, id: &str) -> CoreError {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
-    use super::{as_day, scale, strip_metadata_money, Entity};
+    use super::{as_day, scale, strip_metadata_money, unscale, Entity};
     use crate::money::MoneyError;
     use serde_json::json;
 
@@ -1131,12 +1548,7 @@ mod tests {
 
     #[test]
     fn every_entity_names_a_table_and_round_trips_its_own_name() {
-        for entity in [
-            Entity::Accounts, Entity::Categories, Entity::Transactions, Entity::TransactionSplits,
-            Entity::Budgets, Entity::Goals, Entity::GoalContributions, Entity::Investments,
-            Entity::InvestmentTransactions, Entity::RecurringTransactions, Entity::Notifications,
-            Entity::DashboardLayouts, Entity::WidgetPreferences, Entity::SuggestionDismissals,
-        ] {
+        for entity in Entity::ALL {
             assert_eq!(Entity::parse(entity.as_str()).unwrap(), entity);
             assert!(!entity.columns().is_empty());
             // user_id is supplied by the verb, never taken from the file: X-6.
@@ -1145,7 +1557,64 @@ mod tests {
                 "{} must not carry user_id from the file",
                 entity.as_str()
             );
+            // A deferred column is one a collect writes and a restore must NOT
+            // insert. The two lists overlapping would mean the restore inserting
+            // half of a cycle the finalize is about to close.
+            for deferred in entity.deferred() {
+                assert!(
+                    entity.columns().iter().all(|column| column.key != deferred.key),
+                    "{} carries {} in both directions",
+                    entity.as_str(),
+                    deferred.key
+                );
+            }
         }
+    }
+
+    #[test]
+    fn every_entity_the_format_carries_is_in_the_walk() {
+        // `ALL` is what the collector walks, so an entity missing from it would
+        // be a table exported by nobody — the silent half of the same mistake
+        // the exhaustive `columns()` match catches on the way in.
+        assert_eq!(Entity::ALL.len(), 14);
+        let mut seen = std::collections::BTreeSet::new();
+        for entity in Entity::ALL {
+            assert!(seen.insert(entity.as_str()), "{} is in ALL twice", entity.as_str());
+        }
+    }
+
+    #[test]
+    fn unscaling_is_the_exact_inverse_of_scaling_at_every_scale() {
+        for (text, places) in [
+            ("-12.34", 2), ("0.00", 2), ("1234567.89", 2), ("-0.01", 2),
+            ("0.00000001", 8), ("12.34500000", 8), ("1.0000000001", 10),
+            ("80.00", 2),
+        ] {
+            let units = scale(text, places).expect("the fixture is a legal decimal");
+            assert_eq!(unscale(units, places), text, "round trip of {text} at scale {places}");
+        }
+    }
+
+    #[test]
+    fn money_leaves_the_collector_spelled_exactly_as_money_spells_itself() {
+        // The two-place case has a second author — `crate::money` — and a file
+        // whose amounts were spelled differently from every other answer this
+        // crate gives would be a second money format.
+        for minor in [-7_010_i64, 0, 1, -1, 25_050, i64::MIN] {
+            assert_eq!(
+                unscale(minor, 2),
+                crate::money::hundredths_to_decimal_string(minor),
+                "{minor} minor units"
+            );
+        }
+    }
+
+    #[test]
+    fn a_scale_of_zero_is_the_integer_itself() {
+        // `originalCurrency` rides the promoted list with places = 0 because it
+        // is not a figure at all; the guard is what keeps it out of the decimal
+        // path.
+        assert_eq!(unscale(42, 0), "42");
     }
 
     #[test]

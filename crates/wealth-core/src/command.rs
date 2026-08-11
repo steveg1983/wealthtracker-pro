@@ -79,7 +79,7 @@ use crate::admission::{
 use crate::error::CoreError;
 use crate::verbs::{
     account_balances, apply_category_to_uncategorized, archive_transactions_before,
-    clear_transfer_links, close_account,
+    clear_transfer_links, close_account, collect_backup,
     confirm_transaction_categories, create_account, create_budget, create_categories,
     create_category, create_goal, create_transaction, create_transfer_counterpart, delete_budget,
     delete_category, delete_goal, delete_transaction,
@@ -89,18 +89,20 @@ use crate::verbs::{
     link_bank_account_snap, link_split_line_transfer, link_transfer_pair, list_accounts,
     list_budgets, list_categories, list_closed_accounts, list_goals, list_suggestion_dismissals,
     list_transaction_splits, list_transactions, load_boot, merge_categories,
-    repair_claimed_transfer, restore_suggestion, restore_user_chunk, seed_categories,
+    repair_claimed_transfer, repoint_transfer, restore_backup, restore_suggestion,
+    restore_user_chunk, seed_categories,
     set_transaction_splits_with_legs, set_transactions_archived, set_transactions_cleared,
     splits_for, unarchive_account, update_account, update_budget, update_category,
     update_goal, update_transaction, user_financial_data_is_empty, verify_integrity,
     wipe_user_financial_data,
     ApplyCategoryToUncategorized, ArchiveTransactionsBefore, ClearTransferLinks, CloseAccount,
-    ConfirmTransactionCategories,
+    CollectBackup, ConfirmTransactionCategories,
     CreateAccount, CreateBudget, CreateCategories, CreateCategory, CreateGoal, CreateTransaction,
     CreateTransferCounterpart, DeleteBudget, DeleteCategory, DeleteGoal, DeleteTransaction,
     DeleteUnusedCategories, DismissSuggestion, FinalizeReconciliation, FinalizeUserRestore,
     ImportBankTransactions, ImportTransactions, LinkBankAccountSnap, LinkSplitLineTransfer,
-    LinkTransferPair, MergeCategories, OwnedRead, RepairClaimedTransfer, RestoreSuggestion,
+    LinkTransferPair, MergeCategories, OwnedRead, RepairClaimedTransfer, RepointTransfer,
+    RestoreBackup, RestoreSuggestion,
     RestoreUserChunk,
     SeedCategories, SetTransactionSplitsWithLegs, SetTransactionsArchived, SetTransactionsCleared,
     SplitsFor, UnarchiveAccount, UpdateAccount, UpdateBudget,
@@ -172,6 +174,10 @@ pub enum Command {
     RepairClaimedTransfer(Box<RepairClaimedTransfer>),
     /// [`crate::verbs::link_split_line_transfer`].
     LinkSplitLineTransfer(Box<LinkSplitLineTransfer>),
+    // The family's sixth, and the newest function in the schema
+    // (20260810140000). Spelled exactly as the RPC it ports.
+    /// [`crate::verbs::repoint_transfer`].
+    RepointTransfer(Box<RepointTransfer>),
     // The category family. Three verb strings, each spelled exactly as the
     // function it ports — including the two from 20260808100000, whose LIVE
     // definitions are the ones ported (`apply_category_to_uncategorized` has
@@ -261,6 +267,15 @@ pub enum Command {
     RestoreUserChunk(Box<RestoreUserChunk>),
     /// [`crate::verbs::finalize_user_restore`].
     FinalizeUserRestore(Box<FinalizeUserRestore>),
+    // The backup pair, and the two verb strings in this enum that name no
+    // Postgres function at all: the cloud collects over PostgREST from
+    // TypeScript, and restores by calling the two above ~34 times. See
+    // [`crate::verbs::collect_backup`] for what is ported and what deliberately
+    // stays in the one TypeScript builder all three engines share.
+    /// [`crate::verbs::collect_backup`].
+    CollectBackup(Box<CollectBackup>),
+    /// [`crate::verbs::restore_backup`].
+    RestoreBackup(Box<RestoreBackup>),
     // The account snap: service-role only in the cloud, and the one function in
     // the schema that assigns an absolute balance without breaking B-1.
     /// [`crate::verbs::link_bank_account_snap`].
@@ -517,6 +532,9 @@ pub fn dispatch(
         Command::RepairClaimedTransfer(payload) => {
             repair_claimed_transfer(connection, *payload).and_then(as_json)
         }
+        Command::RepointTransfer(payload) => {
+            repoint_transfer(connection, *payload).and_then(as_json)
+        }
         Command::LinkSplitLineTransfer(payload) => {
             link_split_line_transfer(connection, *payload).and_then(as_json)
         }
@@ -580,6 +598,8 @@ pub fn dispatch(
         Command::FinalizeUserRestore(payload) => {
             finalize_user_restore(connection, *payload).and_then(as_json)
         }
+        Command::CollectBackup(payload) => collect_backup(connection, *payload).and_then(as_json),
+        Command::RestoreBackup(payload) => restore_backup(connection, *payload).and_then(as_json),
         Command::LinkBankAccountSnap(payload) => {
             link_bank_account_snap(connection, *payload).and_then(as_json)
         }

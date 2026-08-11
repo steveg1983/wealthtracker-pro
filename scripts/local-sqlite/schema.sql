@@ -165,6 +165,30 @@
 --         added last_reconciled_balance_minor for AccountUpdate's sake.
 --         Specs: specs/a3-*, verb-specs/cleared-*, verb-specs/finalize-*,
 --         verb-specs/archive-*, verb-specs/unarchive-*.
+--
+-- AMENDED 2026-08-11 (8), COMMENT ONLY — no DDL, no column, no constraint, no
+--         trigger. Recorded as an amendment anyway, because the comment it
+--         changes is a RECORDED OBLIGATION and retiring one silently is how a
+--         file's documentation stops being evidence.
+--
+--         Amendment (7) left the obligation at `transactions.is_reconciled`:
+--         a restored cloud backup's rows carry NULL for the whole of a user's
+--         history, and `crate::backup` turned an absent or JSON-null key into
+--         "column omitted", which the DEFAULT 0 then filled. Slice 25 built the
+--         collector that closes the round trip, so the rule became measurable —
+--         and the differential harness immediately corrected it: the fix the
+--         obligation predicted (tell absent from null) still filled an ABSENT
+--         key from the default, and the cloud does not. 20260811090000 fills a
+--         silence for exactly one class, NOT NULL columns with a constant
+--         default, so a nullable column is out of reach on both engines.
+--
+--         The column and its DEFAULT 0 are UNCHANGED and still right: the
+--         default is what a VERB's INSERT gets when it says nothing about the
+--         flag, which is the migration's "a transaction is born uncommitted
+--         whether it was typed, imported or downloaded". What changed is who
+--         may reach it — a restore no longer can.
+--         Specs: verb-specs/restore-a-deliberate-null-*, and the crate's
+--         tests/backup_round_trip.rs.
 -- ============================================================================
 
 
@@ -604,17 +628,24 @@ CREATE TABLE transactions (
   -- transaction is born uncommitted whether it was typed, imported or
   -- downloaded". A bank-feed row still arrives is_cleared = 1; that is a mark.
   --
-  -- WHERE A NULL CAN STILL ARRIVE, AND THE OBLIGATION THAT LEAVES: a restored
-  -- cloud backup. Those rows carry NULL for the whole of a user's history, and
-  -- `crate::backup`'s rule is that an absent or JSON-null key OMITS the column —
-  -- so the default fills it and the honest NULL is lost, where the cloud's
-  -- jsonb_populate_recordset stores the NULL. RECORDED rather than closed here:
-  -- the restore round trip is the backup group's slice (collect_backup is not
-  -- written yet, so nothing can produce the file this would be measured on), and
-  -- the fix is one Kind in `crate::backup` that tells absent from null. Until
-  -- then a restored pre-split history reads as "marked, never committed" rather
-  -- than as reconciled, which is a display of work outstanding rather than a
-  -- money error.
+  -- WHERE A NULL CAN STILL ARRIVE: a restored cloud backup, whose rows carry
+  -- NULL for the whole of a user's history. DISCHARGED 2026-08-11 by slice 25,
+  -- which is the slice that could measure it — a round trip needs a collector,
+  -- and until there was one nothing could produce the file this rule is about.
+  --
+  -- The obligation as recorded here anticipated the right FIX and the wrong
+  -- RULE, and the difference is worth keeping. It said the fix was "one Kind in
+  -- crate::backup that tells absent from null", with an absent key still taking
+  -- the default. The differential spec (restore-a-deliberate-null-is-not-the-
+  -- same-as-a-column-the-file-never-mentioned) measured that against the cloud
+  -- and found it diverging: 0 here, NULL there. The cloud's own rule, from
+  -- 20260811090000, fills a silence from the schema's default for exactly one
+  -- class — NOT NULL columns with a constant default — so a NULLABLE column is
+  -- never reached by it at all. `crate::backup` now says the same thing in one
+  -- sentence: a column that may hold null is given what the file says, or NULL;
+  -- a column that may not is given what the file says, or its default. So a
+  -- restored pre-split history reads as history rather than as a decade of
+  -- reconciliations offered back to be done again.
   is_reconciled INTEGER DEFAULT 0 CHECK (is_reconciled IN (0,1)),
 
   is_split      INTEGER NOT NULL DEFAULT 0 CHECK (is_split IN (0,1)),

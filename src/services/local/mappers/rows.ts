@@ -74,10 +74,11 @@ import type {
   Goal,
   SuggestionDismissal,
   Transaction,
-  TransactionSplit
+  TransactionSplit,
+  TransferDisplacedOutcome
 } from '../../../types';
 import type { AccountBalanceSnapshot } from '../../port/dataPort';
-import { field, instant, moneyOr, oneOf, strings, text, textOr, whole } from './values';
+import { field, instant, isRecord, moneyOr, oneOf, strings, text, textOr, whole } from './values';
 
 /**
  * A listed account.
@@ -417,6 +418,48 @@ export const toDismissal = (row: Record<string, unknown>): SuggestionDismissal =
     subjectIds: strings(value.subjectIds),
     dismissedAt: value.dismissedAt instanceof Date ? value.dismissedAt : new Date(0)
   };
+};
+
+/**
+ * What became of the counterpart a re-point displaced.
+ *
+ * The eighth translation, and the only one that is a UNION rather than a row:
+ * the crate tags it `{"kind": "moved" | "released" | "deleted"}` and the app's
+ * `TransferDisplacedOutcome` is the same three shapes in camelCase. The tag is
+ * read first and the rest of the object only after, so a shape this file has
+ * never heard of is a FAULT rather than a silently half-read object — the
+ * caller acts on this to decide which accounts to move, and "I could not tell
+ * what happened" must not arrive looking like "nothing happened".
+ *
+ * `moved` names no row because the row IS the result's `counterpart`, at a new
+ * address; `released` carries the whole transaction because the caller has to
+ * put an unlinked, uncategorised row back into a register it is not looking at;
+ * `deleted` carries what is needed to reverse a balance and nothing else,
+ * because the row is gone.
+ */
+export const toDisplaced = (value: unknown): TransferDisplacedOutcome => {
+  const kind = field(value, 'kind');
+  if (kind === 'moved') {
+    return { kind: 'moved', fromAccountId: textOr(field(value, 'from_account_id'), '') };
+  }
+  if (kind === 'released') {
+    const row = field(value, 'transaction');
+    if (!isRecord(row)) {
+      throw new Error('The ledger file released a counterpart without saying which row.');
+    }
+    return { kind: 'released', transaction: toTransaction(row) };
+  }
+  if (kind === 'deleted') {
+    return {
+      kind: 'deleted',
+      id: textOr(field(value, 'id'), ''),
+      accountId: textOr(field(value, 'account_id'), ''),
+      amount: moneyOr(field(value, 'amount'), 0)
+    };
+  }
+  throw new Error(
+    `The ledger file said a re-point displaced its counterpart in a way this app does not know: ${JSON.stringify(kind)}.`
+  );
 };
 
 /**

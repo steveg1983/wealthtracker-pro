@@ -28,8 +28,9 @@ use wealth_core::db;
 use wealth_core::error::CoreError;
 use wealth_core::verbs::{
     clear_transfer_links, create_transfer_counterpart, link_split_line_transfer,
-    link_transfer_pair, repair_claimed_transfer, ClearTransferLinks, CreateTransferCounterpart,
-    LinkSplitLineTransfer, LinkTransferPair, RepairClaimedTransfer,
+    link_transfer_pair, repair_claimed_transfer, repoint_transfer, ClearTransferLinks,
+    CreateTransferCounterpart, LinkSplitLineTransfer, LinkTransferPair, RepairClaimedTransfer,
+    RepointTransfer,
 };
 
 const OWNER: &str = "11111111-1111-1111-1111-111111111111";
@@ -631,4 +632,224 @@ fn a_pair_that_is_only_a_penny_apart_is_not_a_pair() {
     )
     .expect_err("zero negates to zero, which is why the zero test is not redundant");
     assert_eq!(refusal.code(), "transfer_amounts_not_opposite");
+}
+
+// ── 5. The re-point, and the flag it must never touch ───────────────────────
+//
+// `repoint_transfer` is the family's sixth verb and the newest RPC in the
+// schema. Its differential specs compare it against that RPC payload for
+// payload; what is here is again the half the cloud cannot be asked about — the
+// C/R interplay slice 24 created, and the R-5 leg trap, both of which are claims
+// about SQLite triggers with no cloud twin.
+
+/// The pair `with_a_claimed_transfer` builds, re-pointed at Holiday fund.
+fn repoint(
+    connection: &mut Connection,
+    disposition: &str,
+) -> Result<wealth_core::verbs::RepointTransferResult, CoreError> {
+    let command: RepointTransfer = serde_json::from_value(serde_json::json!({
+        "id": PAIR_OUT,
+        "target_account_id": HOLIDAY,
+        "disposition": disposition,
+        "user_id": OWNER,
+    }))
+    .expect("command");
+    repoint_transfer(connection, command)
+}
+
+#[test]
+fn a_repoint_of_a_committed_pair_leaves_both_flags_and_the_register_alone() {
+    // THE CLAIM in the verb's header: neither `is_cleared` nor `is_reconciled`
+    // is ever written, so `transactions_reconciled_implies_cleared` cannot be
+    // reached and `trg_sweep_reconciled_into_archive` cannot fire.
+    //
+    // A test that re-pointed an ordinary pair would prove none of it: the sweep
+    // is `AFTER UPDATE OF is_reconciled` and the CHECK only bites a committed
+    // row, so the fixture has to be committed BEFORE the verb runs.
+    let mut connection = fixture();
+    with_a_claimed_transfer(&connection);
+    connection
+        .execute_batch(&format!(
+            "UPDATE transactions SET is_cleared = 1, is_reconciled = 1
+              WHERE id IN ('{PAIR_OUT}', '{PAIR_IN}');"
+        ))
+        .expect("both halves settled against a statement");
+
+    let result = repoint(&mut connection, "move").expect("a committed pair can still be re-pointed");
+
+    // Both flags survive on both rows, and neither row has been swept into the
+    // archive. A sweep here would hide a transfer the user has just edited.
+    assert_eq!(
+        count(
+            &connection,
+            "SELECT COUNT(*) FROM transactions
+              WHERE is_reconciled = 1 AND is_cleared = 1 AND archived = 0"
+        ),
+        2,
+        "the re-point re-files; it does not settle, unsettle or archive"
+    );
+    assert_eq!(result.counterpart.is_reconciled, Some(true));
+    assert_eq!(result.transaction.is_reconciled, Some(true));
+    assert!(guard_is_clear(&connection));
+}
+
+#[test]
+fn a_released_counterpart_keeps_its_r_and_asks_to_be_looked_at() {
+    // The pair "settled, and asking to be looked at" — which reads oddly and is
+    // right: the statement it was ticked against has not been un-issued by
+    // somebody re-pointing a transfer in another account. What changes is what
+    // the row CLAIMS TO BE.
+    let mut connection = fixture();
+    with_a_claimed_transfer(&connection);
+    connection
+        .execute_batch(&format!(
+            "UPDATE transactions SET is_cleared = 1, is_reconciled = 1 WHERE id = '{PAIR_IN}';"
+        ))
+        .expect("the counterpart is a real, reconciled bank row");
+
+    let before = balance(&connection, RAINY_DAY);
+    let result = repoint(&mut connection, "release").expect("release");
+
+    let released = match result.displaced {
+        wealth_core::verbs::Displaced::Released { transaction } => *transaction,
+        other => panic!("expected a release, got {other:?}"),
+    };
+    assert_eq!(released.id, PAIR_IN);
+    assert_eq!(released.is_reconciled, Some(true), "still settled");
+    assert!(released.is_cleared, "still marked, or the CHECK would have refused");
+    assert_eq!(released.category, None, "the app does not know what this payment was");
+    assert_eq!(released.linked_transfer_id, None);
+    assert_eq!(released.transfer_account_id, None);
+    assert_eq!(released.kind, "income", "typed by the money's own direction");
+
+    // Balance-neutral for the released row: it did not move and its amount did
+    // not change, so its account is untouched.
+    assert_eq!(balance(&connection, RAINY_DAY), before);
+    assert!(identity_holds(&connection, RAINY_DAY));
+    assert!(identity_holds(&connection, HOLIDAY));
+    assert!(identity_holds(&connection, EVERYDAY));
+}
+
+#[test]
+fn the_crossover_holds_in_both_directions_and_neither_side_names_its_own_account() {
+    // The one rule a re-point exists to keep. Written as the invariant the
+    // migration's own verification 4 states, so a port that patched one side
+    // instead of deriving both fails here rather than in a register that offers
+    // the same account twice.
+    let mut connection = fixture();
+    with_a_claimed_transfer(&connection);
+
+    let result = repoint(&mut connection, "move").expect("move");
+
+    assert_eq!(result.transaction.transfer_account_id.as_deref(), Some(HOLIDAY));
+    assert_eq!(result.counterpart.account_id, HOLIDAY);
+    assert_eq!(result.counterpart.transfer_account_id.as_deref(), Some(EVERYDAY));
+    assert_eq!(result.transaction.linked_transfer_id.as_deref(), Some(result.counterpart.id.as_str()));
+    assert_eq!(result.counterpart.linked_transfer_id.as_deref(), Some(PAIR_OUT));
+
+    // Nobody is filed under their OWN account's To/From category, which is the
+    // crossover checked from the outside.
+    assert_eq!(
+        count(
+            &connection,
+            "SELECT COUNT(*) FROM transactions t
+               JOIN categories c ON c.id = t.category
+              WHERE c.is_transfer_category = 1 AND c.account_id = t.account_id"
+        ),
+        0,
+        "a leg filed under its own account's To/From category is the un-crossed bug"
+    );
+    // And each names the other's.
+    assert_eq!(
+        count(
+            &connection,
+            &format!(
+                "SELECT COUNT(*) FROM transactions t
+                   JOIN transactions o ON o.id = t.linked_transfer_id
+                   JOIN categories c ON c.id = t.category
+                  WHERE c.is_transfer_category = 1 AND c.account_id = o.account_id
+                    AND t.user_id = '{OWNER}'"
+            )
+        ),
+        2,
+        "both sides file under the OTHER side's To/From category"
+    );
+}
+
+#[test]
+fn deleting_a_displaced_row_that_a_split_line_links_to_holds_the_leg_guard() {
+    // R-5, in the one branch of this verb that deletes a transaction. Without
+    // the guard SQLite applies ON DELETE SET NULL as an UPDATE of the line and
+    // `trg_protect_linked_leg` raises — refusing the very remedy the error
+    // message recommends.
+    let mut connection = fixture();
+    with_an_unmatched_leg(&connection);
+    // Pair the leg's line with the row in Rainy day, then make Rainy day's row
+    // the counterpart of a NEW transfer out of Everyday, so that deleting it
+    // reaches the line.
+    connection
+        .execute_batch(&format!(
+            "UPDATE transaction_splits SET linked_transfer_id = '{MATCHING}' WHERE id = '{LEG_LINE}';
+             INSERT INTO transactions
+               (id, user_id, account_id, description, amount_minor, type, date, transfer_account_id)
+               VALUES ('{PAIR_OUT}', '{OWNER}', '{EVERYDAY}', 'To savings', -1500, 'transfer',
+                       '2024-04-01', '{RAINY_DAY}');
+             UPDATE accounts SET balance_minor = balance_minor - 1500 WHERE id = '{EVERYDAY}';
+             UPDATE transactions SET linked_transfer_id = '{MATCHING}' WHERE id = '{PAIR_OUT}';
+             UPDATE transactions SET linked_transfer_id = '{PAIR_OUT}', transfer_account_id = '{EVERYDAY}'
+              WHERE id = '{MATCHING}';"
+        ))
+        .expect("a counterpart a split line also links to");
+
+    // The trigger IS armed: the same delete by hand, with no guard, raises.
+    let raised = connection
+        .execute("DELETE FROM transactions WHERE id = ?1", [MATCHING])
+        .expect_err("the leg protection must be armed for this test to mean anything");
+    assert!(raised.to_string().contains("split_leg_locked"), "{raised}");
+
+    let result = repoint(&mut connection, "delete").expect("the verb holds the guard for its delete");
+    match result.displaced {
+        wealth_core::verbs::Displaced::Deleted { id, .. } => assert_eq!(id, MATCHING),
+        other => panic!("expected a delete, got {other:?}"),
+    }
+    assert!(guard_is_clear(&connection), "and releases it before returning");
+    assert!(identity_holds(&connection, RAINY_DAY));
+    assert!(identity_holds(&connection, HOLIDAY));
+}
+
+#[test]
+fn an_unchanged_target_re_files_both_sides_and_moves_no_money() {
+    // The case that makes this the right call after the SOURCE's own account has
+    // moved: the counterpart is already where it belongs and is filed under the
+    // To/From category of an account the transfer has nothing to do with any
+    // more.
+    let mut connection = fixture();
+    with_a_claimed_transfer(&connection);
+    // Mis-file the counterpart deliberately, as a stale save would leave it.
+    connection
+        .execute_batch(&format!(
+            "UPDATE transactions SET category = '{WEEKLY_SHOP}' WHERE id = '{PAIR_IN}';"
+        ))
+        .expect("a stale category");
+
+    let everyday = balance(&connection, EVERYDAY);
+    let rainy = balance(&connection, RAINY_DAY);
+
+    let command: RepointTransfer = serde_json::from_value(serde_json::json!({
+        "id": PAIR_OUT,
+        // The account the counterpart is ALREADY in.
+        "target_account_id": RAINY_DAY,
+        "user_id": OWNER,
+    }))
+    .expect("command");
+    let result = repoint_transfer(&mut connection, command).expect("a re-file is not an error");
+
+    assert_eq!(balance(&connection, EVERYDAY), everyday, "no money moved");
+    assert_eq!(balance(&connection, RAINY_DAY), rainy, "and none arrived");
+    assert_eq!(result.counterpart.account_id, RAINY_DAY);
+    assert_ne!(
+        result.counterpart.category.as_deref(),
+        Some(WEEKLY_SHOP),
+        "the stale category is what a re-file exists to correct"
+    );
 }
