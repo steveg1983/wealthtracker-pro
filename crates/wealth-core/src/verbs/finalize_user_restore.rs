@@ -191,12 +191,37 @@ pub fn finalize_user_restore(
     let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let now = db::now(&transaction)?;
 
+    let answer = close_the_links(&transaction, &command.links, &owner)?;
+    let entry = record_the_restore(&transaction, &owner, &answer, &now)?;
+
+    transaction.commit()?;
+
+    Ok(FinalizeUserRestoreResult {
+        answer,
+        audit_seq: entry.seq,
+        audit_row_hash: entry.row_hash,
+    })
+}
+
+/// The second pass itself, without the transaction around it.
+///
+/// Shared with [`super::restore_backup`], which runs it in the SAME transaction
+/// as the inserts — which is the whole of divergence B-10 for this engine. The
+/// pass is identical either way, and that is the point: *"the links travel in
+/// the backup file as a separate payload, both engines must apply them the same
+/// way, and a local edition that reached the same rows by a different route
+/// would make the two files diverge in what they mean."* One route.
+pub(super) fn close_the_links(
+    transaction: &rusqlite::Transaction<'_>,
+    links: &RestoreLinks,
+    owner: &str,
+) -> CoreResult<FinalizeAnswer> {
     // X-4. Set before the first UPDATE, cleared before the commit, so a refusal
     // anywhere below rolls the flag back with everything else.
     transaction.execute("INSERT OR IGNORE INTO _rpc_guard VALUES ('restore')", [])?;
 
     let mut accounts_relinked = 0_i64;
-    for link in &command.links.account_parents {
+    for link in &links.account_parents {
         let Some(parent) = link.parent_account_id.as_deref() else { continue };
         let moved = transaction.execute(
             "UPDATE accounts
@@ -211,7 +236,7 @@ pub fn finalize_user_restore(
     }
 
     let mut transactions_relinked = 0_i64;
-    for link in &command.links.transaction_links {
+    for link in &links.transaction_links {
         if link.linked_transfer_id.is_none() && link.linked_transfer_split_id.is_none() {
             continue;
         }
@@ -230,34 +255,39 @@ pub fn finalize_user_restore(
 
     transaction.execute("DELETE FROM _rpc_guard WHERE flag = 'restore'", [])?;
 
+    Ok(FinalizeAnswer { accounts_relinked, transactions_relinked })
+}
+
+/// The one audit row a restore writes, whichever verb did the restoring.
+///
+/// Shared for the reason the entry exists: the log's answer to *"where did this
+/// ledger come from"* must not depend on which door the file came through.
+pub(super) fn record_the_restore(
+    transaction: &rusqlite::Transaction<'_>,
+    owner: &str,
+    answer: &FinalizeAnswer,
+    now: &str,
+) -> CoreResult<crate::audit::AuditEntry> {
     let after = super::json_of(&serde_json::json!({
         "event": "restore_completed",
-        "accounts_relinked": accounts_relinked,
-        "transactions_relinked": transactions_relinked,
+        "accounts_relinked": answer.accounts_relinked,
+        "transactions_relinked": answer.transactions_relinked,
     }))?;
-    let entry = audit::write(
-        &transaction,
-        &owner,
+    audit::write(
+        transaction,
+        owner,
         "account",
         // The cloud puts the USER's id in an entity_id column that names an
         // account. Kept, because the entry is about the login rather than about
         // any one account, and changing it would make the two logs disagree
         // about which row a restore happened to.
-        &owner,
+        owner,
         // The divergence, and its reasoning, is in this module's header.
         Action::Create,
         None,
         Some(&after),
-        &now,
-    )?;
-
-    transaction.commit()?;
-
-    Ok(FinalizeUserRestoreResult {
-        answer: FinalizeAnswer { accounts_relinked, transactions_relinked },
-        audit_seq: entry.seq,
-        audit_row_hash: entry.row_hash,
-    })
+        now,
+    )
 }
 
 fn too_many() -> CoreError {

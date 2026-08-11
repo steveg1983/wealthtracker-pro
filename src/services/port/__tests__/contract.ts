@@ -282,9 +282,13 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
    * RPCs and which needed a COLUMN before any of them could be written —
    * `transactions.is_reconciled`, Microsoft Money's R. Until it existed this
    * mirror's archive sweep fired on the mark rather than on the commitment, and
-   * the A-3 constraint spec failed on every run saying so.
+   * the A-3 constraint spec failed on every run saying so. Slice 25 took THREE —
+   * the re-point and the whole backup group — and with them the round trip that
+   * makes a file on a device a thing somebody can get back out again.
    *
-   * What is left needs new Rust, in the order the plan sets out.
+   * ONE IS LEFT, and it needs no new rule at all: `importMsMoney` is composed
+   * from a wipe and a restore, both of which now exist and are green. Slice 26
+   * is the commit that DELETES this entry, and this whole block goes with it.
    *
    * `prepareCategories` used to be listed here rather than half-answered,
    * because divergence B-4 says the local core SEEDS its defaults into the store
@@ -293,52 +297,32 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
    * B-4's row is now asserted rather than excused.
    */
   'local-core': [
-    // The transaction group is WHOLE. The five that were here — the four live
-    // RPCs with no port and `finalizeReconciliation`, which was the fifth —
-    // landed together in slice 24 with a differential spec each, and they had to
-    // land together: they read and write one column between them, and porting
-    // that column is what closed the last gap between `BOOT_TRANSACTION_COLUMNS`
-    // and what a file can answer with.
+    // The transaction group is WHOLE, and so is the transfer group: slice 25
+    // took `repointTransfer`, the newest RPC in the schema and the sixth verb of
+    // that family, with the crossover rule derived on both sides rather than
+    // patched on one.
     //
-    // Transfers — `repointTransfer` has no verb in either engine's crate half.
-    'repointTransfer',
-    // Planning and dismissals are BOTH whole now: the category half went in
-    // slices 19 and 21, the budget and goal writes in slice 22 with six new
-    // verbs (and the whole of B-3 with them), and the two dismissal writes in
-    // slice 23 with two more.
-    // ── The backup group ────────────────────────────────────────────────────
+    // THE BACKUP GROUP IS WHOLE TOO, and the two entries that were here left
+    // TOGETHER, exactly as slice 19's argument for keeping `restoreBackup`
+    // required. That argument is worth preserving in the ratchet it shaped,
+    // because it is what a ratchet is FOR:
     //
-    // `collectBackup` needs `collect_backup`, which is slice 25.
-    'collectBackup',
-    // AND SO DOES `restoreBackup`, WHICH IS THE ONE ENTRY HERE THAT IS NOT
-    // WAITING ON RUST.
-    //
-    // Its verbs exist — `restore_user_chunk` and `finalize_user_restore` are
-    // both ported and both green — so slice 19's brief expected it to leave
-    // this list with the other sixteen. It stays, and the argument is worth
-    // reading before anybody deletes the line:
-    //
-    //   NOT ONE RULE IN THIS FILE CAN RUN IT. Every restore rule below needs
+    //   NOT ONE RULE IN THIS FILE COULD RUN IT. Every restore rule below needs
     //   `collectBackup` too, because a restore needs a file and only a collect
-    //   makes one. Wiring it now would ship the operation whose failure costs
-    //   somebody their whole financial life with zero coverage, in a file whose
-    //   entire purpose is to make un-done work counted rather than hidden.
+    //   makes one. Wiring it alone would have shipped the operation whose
+    //   failure costs somebody their whole financial life with zero coverage.
     //
-    //   AND IT WOULD HAVE TO INVENT THREE ANSWERS. `RestoreOutcome.restored` is
-    //   "rows inserted PER STEP, in restore order", and the local restore is ONE
-    //   call in ONE transaction (B-10, R-16) that answers with one total.
-    //   `notStoredLocally` is per-TABLE, and the verb's `dropped` is
-    //   per-COLUMN — a cloud file carrying a figure this schema has no column
-    //   for produces one, and mapping it across would make B-11's `notStored:
-    //   []` claim false for a reason that has nothing to do with tables.
-    //   Preferences are a third (slice 28's `write_preferences`). Three
-    //   guesses, none of them checkable until `collect_backup` closes the round
-    //   trip — which is exactly what slice 25 is.
+    //   AND IT WOULD HAVE HAD TO INVENT THREE ANSWERS — which slice 25 answered
+    //   rather than guessed, because the round trip is what makes them
+    //   checkable. `restored` is per STEP: the verb answers one figure per
+    //   chunk, positionally, and the labels stay in TypeScript where the other
+    //   two engines already read them. `notStoredLocally` is EMPTY, because a
+    //   file holds all fourteen tables — and the verb's per-COLUMN `dropped` is
+    //   deliberately NOT mapped into it, which is the distinction the entry
+    //   predicted. Preferences are still slice 28's, so a file carrying them
+    //   restores its ledger and SAYS the settings were left behind.
     //
-    // So it goes with its group, one slice later, and the count says 17 rather
-    // than 16. The ratchet only forbids GROWING.
-    'restoreBackup',
-    // Migration — composed from wipe + restore, slice 26.
+    // Migration — composed from wipe + restore, slice 26. The last one.
     'importMsMoney'
   ]
 };
@@ -353,7 +337,7 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
  * on a line that exists for no other purpose.
  */
 export const NOT_YET_CEILING: Partial<Record<DataPortEngine, number>> = {
-  'local-core': 4
+  'local-core': 1
 };
 
 // ── Declared divergences ────────────────────────────────────────────────────
@@ -3579,6 +3563,15 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           .toEqual(before.categories.map(category => category.name).sort());
         expect(after.budgets.map(budget => budget.amount)).toEqual(before.budgets.map(budget => budget.amount));
         expect(after.goals.map(goal => goal.name)).toEqual(before.goals.map(goal => goal.name));
+        // The two collections that hang off something other than the store, and
+        // are therefore the two an incomplete COLLECT drops in silence — the
+        // same pair the wipe rule names for the same reason. A section a
+        // collector forgets is invisible to a counts comparison, because the
+        // file it is compared against forgot it too.
+        expect(after.splits.map(split => split.amount).sort())
+          .toEqual(before.splits.map(split => split.amount).sort());
+        expect(after.dismissals.map(dismissal => dismissal.subjectKey).sort())
+          .toEqual(before.dismissals.map(dismissal => dismissal.subjectKey).sort());
 
         // Money survives a trip through the file as money — matched by NAME,
         // because every id is new (see below). -70.1 is the figure that goes

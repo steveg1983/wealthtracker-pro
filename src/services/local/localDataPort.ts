@@ -26,12 +26,17 @@
  * family to AGREE with the cloud about the audit log: divergence 10 turns on
  * money living in four columns, and a dismissal holds no figure in either
  * engine, so both write nothing and the agreement is argued rather than assumed.
- * NINE operations of the seam are not here yet, and
- * that is a declared, counted, shrinking list rather than a silence: they are
- * named in `services/port/__tests__/contract.ts`'s `NOT_YET` ratchet, the
- * contract suite asserts that the operations this port is missing are EXACTLY
- * that list in both directions, and every rule that needs one of them is
- * skipped BY NAME with the operation printed. The count goes in the title of
+ *
+ * Since slice 25 it also holds the RE-POINT and the whole BACKUP group, which is
+ * the round trip: `collectBackup` reads fourteen tables in one snapshot and
+ * hands the rows to the app's own `buildBackupBundle`, and `restoreBackup` sends
+ * the file back in ONE call that is ONE transaction. ONE operation of the seam
+ * is not here yet — `importMsMoney`, which is composed from a wipe and a restore
+ * and needs no new rule — and that is a declared, counted, shrinking list rather
+ * than a silence: it is named in `services/port/__tests__/contract.ts`'s
+ * `NOT_YET` ratchet, the contract suite asserts that the operations this port is
+ * missing are EXACTLY that list in both directions, and every rule that needs it
+ * is skipped BY NAME with the operation printed. The count goes in the title of
  * every pull request that changes it, it may only go down, and the entry is
  * deleted when it reaches zero.
  *
@@ -59,7 +64,9 @@
  * seam it really answers — rather than `DataPort`. That is not a technicality:
  * this file IS compiled by `tsc -b`, so the declaration is a proof, and the day
  * the last write lands the alias is deleted and `implements DataPort` takes its
- * place with the compiler checking it.
+ * place with the compiler checking it. That alias is now ONE operation wide: it
+ * is every interface of the seam except `DataPortMigration`, whose single
+ * member is slice 26's.
  *
  * ── THE OWNER (PHASE3-PLAN D-5) ─────────────────────────────────────────────
  *
@@ -125,10 +132,13 @@ import type {
   SuggestionDismissal,
   Transaction,
   TransactionSplit,
-  TransactionSplitInput
+  TransactionSplitInput,
+  TransferDisplacedDisposition,
+  TransferRepointResult
 } from '../../types';
 import type {
   AccountBalanceSnapshot,
+  BackupRestoreOutcome,
   BootSnapshot,
   BootTransactionStats,
   BootTransactionsResult,
@@ -149,6 +159,17 @@ import type {
   MoneyNumber,
   ReconciliationOutcome
 } from '../port/dataPort';
+// The FILE FORMAT's own types, imported for the reason `dataPort.ts` imports
+// them: `import type` is erased at build, and these describe a file on somebody's
+// disk rather than an engine. The RUNTIME half of the same module is NOT imported
+// — it is injected. See {@link BackupFormat}.
+import type {
+  BackupBundle,
+  BackupRow,
+  BuildBundleInput,
+  RemapResult,
+  RestoreStep
+} from '../backupService';
 import type { CoreTransport } from './coreTransport';
 // The ONE encoder, for the two arguments this port sends that are not part of a
 // column table's payload: a finalize's ending balance and the two cutoff days.
@@ -163,6 +184,7 @@ import {
   toBudget,
   toCategory,
   toDismissal,
+  toDisplaced,
   toGoal,
   toSplit,
   toTransaction
@@ -189,17 +211,21 @@ import {
  * The half of the seam this slice answers.
  *
  * Written as an intersection so `tsc -b` checks every operation that IS
- * claimed. Deleted at slice 25, when the class says `implements DataPort` and
+ * claimed. Deleted at slice 26, when the class says `implements DataPort` and
  * the compiler checks all fifty-six.
  *
- * The planning group is whole, and so is the dismissal group beside it — which
- * slice 23 had to ADD, because it was never here. The TRANSACTION group is whole
- * as of this slice: the five reconciliation and archive operations were the last
- * five names in its `Omit`, and the line is now the bare interface.
+ * EVERY GROUP IS WHOLE, and there is no `Omit` left. The transfer group's last
+ * name (`repointTransfer`) and the backup group's two went in slice 25, so this
+ * line is now nine bare interfaces and one `Pick` — and the `Pick` is not a gap
+ * either: `DataPortLifecycle` is where `importMsMoney` does NOT live. The one
+ * operation still outstanding is the whole of `DataPortMigration`, so it leaves
+ * this intersection by being an interface nobody named rather than by being a
+ * key somebody subtracted.
  *
- * WORTH READING BEFORE TRUSTING AN `Omit` AGAIN. Until slice 23 this line said
- * `Omit<DataPortPlanningWrites, 'dismissSuggestion' | 'restoreSuggestion'>`, and
- * it read as *"the planning group minus the two that are left"*. It was not:
+ * WORTH READING BEFORE TRUSTING AN `Omit` AGAIN — kept, because the trap is
+ * still there for the next person who reaches for one. Until slice 23 this line
+ * said `Omit<DataPortPlanningWrites, 'dismissSuggestion' | 'restoreSuggestion'>`,
+ * and it read as *"the planning group minus the two that are left"*. It was not:
  * those two operations live in `DataPortDismissalWrites`, a separate interface,
  * and `DataPortPlanningWrites` has never had either key. So the `Omit` removed
  * nothing, and the two operations were excluded not by it but by the whole
@@ -209,9 +235,7 @@ import {
  * a name that is not there and says nothing, so an `Omit` naming operations is a
  * comment that TypeScript does not check — which is the same class of thing
  * `contract.ts`'s `NOT_YET` list exists to replace, and the reason the ratchet is
- * a runtime list rather than a type. The one `Omit` left above is real: its name
- * is a key of the interface it narrows, and the day it stops being one this note
- * is what says how to notice.
+ * a runtime list rather than a type.
  */
 export type LocalDataPortSurface =
   DataPortReads &
@@ -221,11 +245,61 @@ export type LocalDataPortSurface =
   DataPortSplitWrites &
   DataPortCapabilityDescriptor &
   DataPortTransactionWrites &
-  Omit<DataPortTransferWrites, 'repointTransfer'> &
+  DataPortTransferWrites &
   DataPortPlanningWrites &
   DataPortDismissalWrites &
-  Pick<DataPortBackupLifecycle, 'financialDataIsEmpty' | 'wipeAllFinancialData'> &
+  DataPortBackupLifecycle &
   Pick<DataPortLifecycle, 'initialize' | 'prepareCategories' | 'subscribeToUpdates'>;
+
+/**
+ * The backup FILE FORMAT, supplied to the port rather than imported by it.
+ *
+ * ── WHY THIS IS INJECTED AND THE MAPPERS ARE NOT ────────────────────────────
+ *
+ * `buildBackupBundle`, `remapBackupIds`, `RESTORE_STEPS` and `rowsForStep` are
+ * PURE functions over rows, and the seam says so where it imports their types:
+ * *"these types describe a file on the user's disk, not an engine … a local
+ * edition inherits the format for the same reason it inherits the seam."* This
+ * port must use those exact functions — a second builder of one format is a file
+ * that exports what it cannot import, and the format is the only thing making a
+ * backup portable between editions.
+ *
+ * It cannot IMPORT them. They live in `services/backupService.ts`, whose first
+ * line is `import { supabase }`, and a static import here would put the cloud in
+ * the desktop bundle — the exact thing PHASE3-PLAN §5's two bundle greps exist
+ * to refuse, and the same reason `mappers/rows.ts` writes out six mappings whose
+ * cloud twins it cannot reach.
+ *
+ * So the format arrives the way the logger and the transport arrive: from
+ * whatever opened the document. That is not a workaround, it is the same
+ * statement made three times — the port holds no opinion about how a file is
+ * reached, where a fault is reported, or what a backup file looks like.
+ *
+ * ── THE OBLIGATION THIS LEAVES ──────────────────────────────────────────────
+ *
+ * Whoever opens a document in the DESKTOP shell (slice 27) must supply an
+ * implementation that does not itself reach a Supabase client. Today that means
+ * lifting the pure format half out of `backupService.ts` into a module of its
+ * own, which is a FILE MOVE — and a file move is a `scripts/port-coverage`
+ * manifest change, so it belongs to the commit that has a desktop bundle to
+ * measure rather than to this one. The contract harness supplies the real
+ * functions directly, because a test is not a bundle.
+ *
+ * REQUIRED rather than optional, and that is R-3's discipline applied to a
+ * second thing: a port constructed without a format could answer eleven reads
+ * and then fail on the one operation whose failure costs somebody their whole
+ * financial life. The compiler refuses instead.
+ */
+export interface BackupFormat {
+  /** `RESTORE_STEPS` — the order a file must be applied in, and the labels. */
+  readonly steps: readonly RestoreStep[];
+  /** `buildBackupBundle` — rows in, the file the user downloads out. */
+  build(input: BuildBundleInput): BackupBundle;
+  /** `rowsForStep` — one step's rows, including the three category levels. */
+  rowsForStep(bundle: BackupBundle, step: RestoreStep): BackupRow[];
+  /** `remapBackupIds` — every id replaced, every reference followed. */
+  remapIds(bundle: BackupBundle): RemapResult;
+}
 
 /**
  * An open ledger file, as the port needs to see it.
@@ -239,6 +313,8 @@ export interface LocalDocument {
   owner: string;
   /** How this document is reached. See {@link CoreTransport}. */
   transport: CoreTransport;
+  /** What a backup file looks like. See {@link BackupFormat}. */
+  format: BackupFormat;
   /**
    * Where a read that could not happen is reported. Structural and injected
    * rather than the app's `createScopedLogger`, which reaches the cloud's
@@ -309,6 +385,8 @@ export class LocalDataPort implements LocalDataPortSurface {
 
   readonly #logger: { error: (message: string, error: unknown) => void };
 
+  readonly #format: BackupFormat;
+
   constructor(document: LocalDocument) {
     if (!OWNER_SHAPE.test(document.owner)) {
       // R-3, refused where it can still be understood. `schema.sql` would
@@ -323,6 +401,7 @@ export class LocalDataPort implements LocalDataPortSurface {
     }
     this.#owner = document.owner;
     this.#transport = document.transport;
+    this.#format = document.format;
     this.#logger = document.logger ?? {
       error: (message, error) => {
         console.error(`[LocalDataPort] ${message}`, error);
@@ -949,6 +1028,55 @@ export class LocalDataPort implements LocalDataPortSurface {
     };
   }
 
+  /**
+   * Point an existing linked transfer at a different account.
+   *
+   * ── THE CROSSOVER, AND WHY NOTHING HERE COMPUTES IT ─────────────────────
+   *
+   * Each row's category names the OTHER side, and both are DERIVED from the
+   * pairing as it will be rather than patched — because the source's own account
+   * can move in the same save, and then the counterpart's category is stale too.
+   * The rule is written once in TypeScript (`utils/transferRepoint.ts`, which
+   * the browser mirror reads), once in the RPC and once in the verb, and all
+   * three derive. This port sends two ids and a word and reads back two rows as
+   * the file wrote them: a caller that guessed at the categories a re-file
+   * produced is a caller that will one day show a register disagreeing with the
+   * ledger.
+   *
+   * ── THE ONE FIELD THAT IS NOT SENT WHEN THE CALLER SAYS NOTHING ─────────
+   *
+   * `disposition` is OMITTED rather than defaulted here. `move` is the verb's
+   * own default (`p_disposition text DEFAULT 'move'`), and a port that spelled
+   * it would be a second place for that default to be decided — the day the
+   * three dispositions become four, or the default moves, the two spellings
+   * disagree and only one of them is the schema's.
+   *
+   * ── IT DOES NOT TOUCH EITHER RECONCILIATION FLAG ────────────────────────
+   *
+   * A re-point is a change of address, not of fact: amounts, dates,
+   * descriptions, notes, tags, the mark and the commitment all survive it
+   * untouched. That matters most for a committed row, because the file's
+   * `transactions_reconciled_implies_cleared` and its archive sweep both watch
+   * those flags — and neither is reachable from an operation that never writes
+   * one. The verb proves it behaviourally rather than claiming it.
+   */
+  async repointTransfer(
+    id: string,
+    targetAccountId: string,
+    disposition?: TransferDisplacedDisposition
+  ): Promise<TransferRepointResult> {
+    const answer = await this.#ask('repoint_transfer', {
+      id,
+      target_account_id: targetAccountId,
+      ...(disposition === undefined ? {} : { disposition })
+    });
+    return {
+      source: toTransaction(rowOf(answer, 'repoint_transfer', 'transaction')),
+      counterpart: toTransaction(rowOf(answer, 'repoint_transfer', 'counterpart')),
+      displaced: toDisplaced(field(answer, 'displaced'))
+    };
+  }
+
   // ── Splits ────────────────────────────────────────────────────────────────
 
   /**
@@ -1346,6 +1474,179 @@ export class LocalDataPort implements LocalDataPortSurface {
   async financialDataIsEmpty(): Promise<boolean> {
     const answer = await this.#ask('user_financial_data_is_empty');
     return rowOf(answer, 'user_financial_data_is_empty', 'answer').empty === true;
+  }
+
+  /**
+   * Read every table whole and build the file the user downloads.
+   *
+   * ── ONE FORMAT, THREE ENGINES, ONE BUILDER ──────────────────────────────
+   *
+   * The verb answers with ROWS — fourteen sections of whole rows, spelled the
+   * way the cloud's own columns are spelled, because `crate::backup` reads its
+   * column maps in this direction as well as the other. Everything that turns
+   * rows into a FILE happens in `buildBackupBundle`, which is the same function
+   * the cloud export and the browser export call: the format tag, the schema
+   * version, the per-entity counts, the `links` payload read off the rows, and
+   * the money-precision guard that refuses to write a figure the round trip
+   * would alter. None of it is re-implemented here, and that is B-11's whole
+   * claim — *the backup a cloud login writes restores into a file, and the
+   * backup a file writes restores into a cloud login* — made structural rather
+   * than asserted.
+   *
+   * ── `onProgress` IS NOT ACCEPTED, AND THAT IS THE HONEST ANSWER ─────────
+   *
+   * The seam asks for progress per table *"because a real dataset is 50k+ rows
+   * and 50+ round trips"*, and says an engine with nothing to report *"stays
+   * silent rather than estimating"*. There is ONE round trip here, inside one
+   * read transaction, so the fourteen sections do not become available one at a
+   * time — they arrive together. Firing fourteen callbacks on the way past would
+   * paint a bar that is a description of a loop rather than of the work, which
+   * is `importTransactions`'s reason for the same omission.
+   *
+   * ── PREFERENCES: `null`, AND WHY THAT IS TRUE RATHER THAN LAZY ──────────
+   *
+   * The file has a `user_preferences` table (schema amendment 5), and no verb
+   * writes or reads it until slice 28. So there are none to collect — not "none
+   * were looked for". `null` is the format's own word for *"this file carries
+   * none"*, and the day `read_preferences` exists this line is where it lands.
+   */
+  async collectBackup(): Promise<BackupBundle> {
+    const answer = await this.#ask('collect_backup');
+    const data = rowOf(rowOf(answer, 'collect_backup', 'answer'), 'collect_backup', 'data');
+
+    const sections: Record<string, BackupRow[]> = {};
+    for (const entity of Object.keys(data)) {
+      // `listOf` refuses a section that is not a list, for its usual reason: a
+      // table that answered with nothing and a table that answered with the
+      // wrong shape are different failures, and only one of them is a backup.
+      sections[entity] = listOf(data, 'collect_backup', entity);
+    }
+
+    return this.#format.build({
+      // The file's own owner, which a restore IGNORES on every engine — every
+      // row is re-owned to whoever restores it (X-6). It is in the file so that
+      // somebody holding two backups can tell which ledger each came out of.
+      sourceUserId: this.#owner,
+      exportedAt: new Date().toISOString(),
+      data: sections,
+      preferences: null
+    });
+  }
+
+  /**
+   * Pour a file back in — one call, one transaction.
+   *
+   * ── THE IDS ARE REMAPPED HERE, BEFORE A SINGLE ROW IS SENT ──────────────
+   *
+   * `crate::backup` states the boundary twice because it matters: *"ids arrive
+   * already remapped, or they do not arrive remapped at all"*. The remap is the
+   * app's rule (`remapBackupIds`), it is the same rule on all three engines, and
+   * a Rust copy of it would be a second implementation drifting from the one the
+   * file is actually validated against. Every id is replaced unconditionally —
+   * primary keys in a backup are unique across the whole store rather than per
+   * owner, so a file restored anywhere but where it came from carries ids that
+   * belong to somebody else's rows, which is the MAIN case a backup exists for.
+   * A reference the file does not contain is left exactly as it was and comes
+   * back in `danglingRefs` rather than blanked.
+   *
+   * ── THE STEP ORDER IS THE FORMAT'S, AND IT IS LOAD-BEARING ──────────────
+   *
+   * `RESTORE_STEPS` — accounts first, categories level by level, parents before
+   * children. Accounts first is not a convention: `trg_create_transfer_category_
+   * for_account` stands itself down while the file holds no Transfer anchor, so
+   * a restore that sent categories first would have the trigger mint a To/From
+   * category for every account and then insert the file's own beside it. Rule 84
+   * is that sentence as a test.
+   *
+   * ── B-10: ONE TRANSACTION, AND THE THREE ANSWERS IT HAD TO INVENT ───────
+   *
+   * The cloud restores in chunks that each commit on their own, so a failure
+   * halfway leaves the login PARTLY POPULATED. This is one call in one
+   * transaction: it either landed or it did not. The seam declares that
+   * difference rather than hiding it, and three fields of `RestoreOutcome` had
+   * to be answered for an engine shaped this way — `contract.ts`'s NOT_YET entry
+   * argued for a whole slice that they could not honestly be guessed at until a
+   * collect existed to close the round trip. They are:
+   *
+   *   `restored` — per STEP, in step order, because that is what the screen
+   *   prints. The verb answers `inserted` positionally, one figure per chunk in
+   *   the order the chunks were given, so the labels stay in TypeScript where
+   *   both other engines already read them and the crate never learns what a
+   *   step is called.
+   *
+   *   `notStoredLocally` — EMPTY, and that is a statement rather than a stub:
+   *   B-11 gives this engine `notStored: []` and the file holds all fourteen
+   *   tables. The verb's `dropped` is NOT mapped into it — `dropped` is per
+   *   COLUMN (a cloud row carrying a figure this schema has no home for), and
+   *   `notStoredLocally` is per TABLE. Mapping one to the other would make
+   *   B-11's claim false for a reason that has nothing to do with tables. It is
+   *   reported through the logger instead, which is where this port sends
+   *   everything a person needs to know and the seam has no field for.
+   *
+   *   `preferencesRestored` / `preferencesFailure` — 0, and a sentence when the
+   *   file actually carries settings. There is no `write_preferences` verb until
+   *   slice 28, so a file's `preferences` section cannot land; saying so is the
+   *   difference between a restore and a restore that quietly lost things. The
+   *   financial rows are all in either way, which is exactly why the seam made
+   *   this field a report rather than a throw.
+   */
+  async restoreBackup(bundle: BackupBundle): Promise<BackupRestoreOutcome> {
+    const { bundle: remapped, danglingRefs } = this.#format.remapIds(bundle);
+
+    const steps = this.#format.steps;
+    const answer = await this.#ask('restore_backup', {
+      chunks: steps.map(step => ({
+        entity: step.entity,
+        rows: this.#format.rowsForStep(remapped, step)
+      })),
+      links: remapped.links
+    });
+    const result = rowOf(answer, 'restore_backup', 'answer');
+
+    const counts = field(result, 'inserted');
+    if (!Array.isArray(counts) || counts.length !== steps.length) {
+      // A FAULT, not a refusal: the answer is matched to the steps by POSITION,
+      // so a shorter list would silently report the wrong number of rows against
+      // the wrong table — on the one operation there is no second copy of.
+      throw new Error(
+        `The ledger file was sent ${steps.length} restore steps and did not answer for all of them.`
+      );
+    }
+    const rowsAt = (index: number): number => {
+      const value: unknown = counts[index];
+      if (typeof value !== 'number' || !Number.isInteger(value)) {
+        // `countOf`'s rule, applied to a POSITION rather than to a key: "0 rows
+        // restored" and "the answer did not say" are different sentences, and
+        // this is the screen where only one of them is true.
+        throw new Error(
+          `The ledger file did not say how many rows it restored for ${steps[index].label}.`
+        );
+      }
+      return value;
+    };
+
+    const dropped = field(result, 'dropped');
+    if (Array.isArray(dropped) && dropped.length > 0) {
+      this.#logger.error(
+        `The restore stored every row, and ${dropped.length} figure(s) in them had no column in this ledger`,
+        dropped
+      );
+    }
+
+    return {
+      restored: steps.map((step, index) => ({ label: step.label, rows: rowsAt(index) })),
+      accountsRelinked: countOf(result, 'restore_backup', 'accounts_relinked'),
+      transactionsRelinked: countOf(result, 'restore_backup', 'transactions_relinked'),
+      preferencesRestored: 0,
+      preferencesFailure:
+        remapped.preferences === null
+          ? null
+          : 'This ledger cannot store settings yet, so every account, transaction, budget and goal in the file is back and the settings in it were left behind. Keep the file: signing in and restoring it there would put them back.',
+      danglingRefs,
+      // B-11. A statement, not a stub: a file on this device holds every table
+      // the format carries.
+      notStoredLocally: []
+    };
   }
 
   /**

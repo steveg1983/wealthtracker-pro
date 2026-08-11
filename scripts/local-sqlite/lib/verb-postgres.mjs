@@ -611,6 +611,21 @@ const VERBS = {
        FROM public.transactions t
       WHERE t.id = (${payloadLiteral}::jsonb->>'id')::uuid;`,
 
+  // The family's sixth, and the newest function in the schema. The third
+  // argument has a DEFAULT in SQL and the local verb defaults it in serde, so
+  // the COALESCE here is what keeps a payload that omits it meaning the same
+  // thing on both sides rather than passing SQL NULL into a text parameter.
+  repoint_transfer: (payloadLiteral) =>
+    `PERFORM public.repoint_transfer(
+               (${payloadLiteral}::jsonb->>'id')::uuid,
+               (${payloadLiteral}::jsonb->>'target_account_id')::uuid,
+               COALESCE(${payloadLiteral}::jsonb->>'disposition', 'move'),
+               NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid
+             );
+     SELECT ${ROW_JSON} INTO v_row
+       FROM public.transactions t
+      WHERE t.id = (${payloadLiteral}::jsonb->>'id')::uuid;`,
+
   clear_transfer_links: (payloadLiteral) =>
     `PERFORM public.clear_transfer_links(
                ARRAY(SELECT x::uuid

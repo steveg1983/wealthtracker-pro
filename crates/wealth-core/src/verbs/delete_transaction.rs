@@ -253,7 +253,7 @@ pub fn delete_transaction(
 ///
 /// One query rather than two: the answer is a single boolean and the two clauses
 /// are the same fact about the same table.
-fn touches_a_transfer_leg(
+pub(super) fn touches_a_transfer_leg(
     transaction: &rusqlite::Transaction<'_>,
     id: &str,
 ) -> CoreResult<bool> {

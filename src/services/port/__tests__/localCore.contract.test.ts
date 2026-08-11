@@ -41,8 +41,14 @@
  */
 
 import { afterAll } from 'vitest';
+import {
+  RESTORE_STEPS,
+  buildBackupBundle,
+  remapBackupIds,
+  rowsForStep
+} from '../../backupService';
 import { createSpawnTransport } from '../../local/coreTransport';
-import { LocalDataPort } from '../../local/localDataPort';
+import { LocalDataPort, type BackupFormat } from '../../local/localDataPort';
 import type { DataPort } from '../dataPort';
 import { runDataPortContract, type DataPortUnderTest, type PortFixture } from './contract';
 import { LedgerFiles, locateBridge, readBack, seed } from './localCore.fixtureFile';
@@ -65,6 +71,48 @@ const OWNER = '11111111-1111-1111-1111-111111111111';
 const bridge = locateBridge();
 const files = new LedgerFiles(bridge);
 
+/**
+ * The backup FILE FORMAT, supplied to the port the way the desktop shell will
+ * supply it.
+ *
+ * These are the REAL functions the cloud export and the browser export call —
+ * not stand-ins — which is the whole point: B-11 says one format is read by
+ * every edition, and a harness that handed the port its own builder would prove
+ * only that the local engine agrees with a builder written for the test.
+ *
+ * They are imported HERE rather than by the port because `backupService.ts`
+ * carries a Supabase client at module scope and a desktop bundle may not. A test
+ * is not a bundle; see `localDataPort.ts`'s `BackupFormat` for the obligation
+ * that leaves for slice 27.
+ *
+ * ── THE ONE THING THAT IS NOT PRODUCTION'S: THE ID GENERATOR ────────────────
+ *
+ * `remapBackupIds` mints one id per row and its own default is
+ * `crypto.randomUUID`, which is what the app resolves to. A fresh COUNTER per
+ * store is supplied instead, exactly as the browser-storage harness supplies
+ * `uuid: () => \`generated-${++sequence}\``, and for the same reason: the rule
+ * *"a restored ledger exports to the same file again, and again"* compares
+ * generation 2 against generation 3, and random ids would make those two files
+ * differ in every id while being the same ledger — a failure that says nothing
+ * about the conversion the rule is actually about.
+ *
+ * Shaped like a uuid rather than like `generated-3`, because these ids land in
+ * a FILE: `remapBackupIds` tells a reference from a label inside TEXT columns
+ * partly by shape, and a ledger whose ids do not look like ids is not the
+ * dataset anybody restores.
+ */
+const backupFormat = (): BackupFormat => {
+  let sequence = 0;
+  const mint = (): string =>
+    `00000000-0000-4000-8000-${String((sequence += 1)).padStart(12, '0')}`;
+  return {
+    steps: RESTORE_STEPS,
+    build: buildBackupBundle,
+    rowsForStep,
+    remapIds: bundle => remapBackupIds(bundle, mint)
+  };
+};
+
 afterAll(() => {
   files.dispose();
 });
@@ -83,6 +131,7 @@ const createLocalCorePort = async (fixture: PortFixture): Promise<DataPortUnderT
   const port: DataPort = new LocalDataPort({
     owner: OWNER,
     transport: createSpawnTransport({ binary: bridge, database: file }),
+    format: backupFormat(),
     // A LOUD logger, and deliberately not a silent one. Everything that reaches
     // it here is a read that could not happen against a file this harness has
     // just created and seeded — which is a broken harness, not an engine
@@ -114,6 +163,7 @@ const createUnreadableLocalCorePort = async (): Promise<DataPort> => {
   const port: DataPort = new LocalDataPort({
     owner: OWNER,
     transport: createSpawnTransport({ binary: bridge, database: files.missing() }),
+    format: backupFormat(),
     // Expected here, so recorded rather than shouted: these tests exist to
     // prove the failure is survived, and a stack trace per assertion would bury
     // the run's real output.

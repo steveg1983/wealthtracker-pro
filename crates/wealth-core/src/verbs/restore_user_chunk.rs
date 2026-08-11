@@ -175,26 +175,7 @@ pub fn restore_user_chunk(
     let mut dropped: Vec<Dropped> = Vec::new();
 
     for chunk in &command.chunks {
-        // The three states of p_rows, in the RPC's own order.
-        let rows: &[Value] = match &chunk.rows {
-            // SQL NULL. The guard below cannot see it in the cloud either.
-            Field::Absent => &[],
-            Field::Null => {
-                return Err(CoreError::refuse(
-                    "rows_not_an_array",
-                    "each chunk must be a JSON array of whole rows",
-                ))
-            }
-            Field::Value(value) => match value.as_array() {
-                Some(array) => array.as_slice(),
-                None => {
-                    return Err(CoreError::refuse(
-                        "rows_not_an_array",
-                        "each chunk must be a JSON array of whole rows",
-                    ))
-                }
-            },
-        };
+        let rows = rows_of(chunk)?;
 
         // An empty chunk beats BOTH the precondition and the whitelist, because
         // the length test comes before either. The entity is still a string at
@@ -204,30 +185,12 @@ pub fn restore_user_chunk(
         }
 
         if chunk.entity == Entity::Accounts.as_str() && !is_empty(&transaction, &owner)? {
-            return Err(CoreError::Refused(
-                Refusal::named(
-                    "restore_target_not_empty",
-                    "this login already holds data — clear it first, because restoring on top \
-                     would mix two datasets and silently re-date your history",
-                )
-                .with_hint("Erase everything first, or restore into a fresh login."),
-            ));
+            return Err(target_not_empty());
         }
 
-        let entity = Entity::parse(&chunk.entity)?;
-        for row in rows {
-            let Some(object) = row.as_object() else {
-                return Err(CoreError::refuse(
-                    "rows_not_an_array",
-                    "each chunk must be a JSON array of whole rows",
-                ));
-            };
-            let row: &BackupRow = object;
-            backup::insert_row(&transaction, entity, row, &owner, &mut dropped)?;
-            inserted = inserted.checked_add(1).ok_or_else(|| {
-                CoreError::refuse("amount_out_of_range", "that is more rows than this ledger can count")
-            })?;
-        }
+        inserted = inserted
+            .checked_add(insert_rows(&transaction, &chunk.entity, rows, &owner, &mut dropped)?)
+            .ok_or_else(too_many)?;
     }
 
     transaction.commit()?;
@@ -235,12 +198,79 @@ pub fn restore_user_chunk(
     Ok(RestoreUserChunkResult { answer: RestoreAnswer { inserted, dropped } })
 }
 
+/// The three states of `p_rows`, in the RPC's own order.
+///
+/// Shared with [`super::restore_backup`] rather than spelled twice: the
+/// SQL-NULL hole is a behaviour this crate reproduces on purpose, and a second
+/// copy of a deliberately odd rule is a second copy somebody will one day
+/// "fix".
+pub(super) fn rows_of(chunk: &Chunk) -> CoreResult<&[Value]> {
+    match &chunk.rows {
+        // SQL NULL. The guard below cannot see it in the cloud either.
+        Field::Absent => Ok(&[]),
+        Field::Null => Err(not_an_array()),
+        Field::Value(value) => value.as_array().map_or_else(|| Err(not_an_array()), |array| Ok(array.as_slice())),
+    }
+}
+
+fn not_an_array() -> CoreError {
+    CoreError::refuse("rows_not_an_array", "each chunk must be a JSON array of whole rows")
+}
+
+fn too_many() -> CoreError {
+    CoreError::refuse("amount_out_of_range", "that is more rows than this ledger can count")
+}
+
+/// The refusal that makes a restore safe to attempt at all.
+///
+/// Shared for a reason beyond tidiness: the sentence is what the user reads, and
+/// the two verbs refuse the same act. What differs is WHEN each asks — see
+/// [`super::restore_backup`], which asks once for the whole file rather than
+/// once per accounts chunk.
+pub(super) fn target_not_empty() -> CoreError {
+    CoreError::Refused(
+        Refusal::named(
+            "restore_target_not_empty",
+            "this login already holds data — clear it first, because restoring on top \
+             would mix two datasets and silently re-date your history",
+        )
+        .with_hint("Erase everything first, or restore into a fresh login."),
+    )
+}
+
+/// One entity's rows, inserted and counted.
+///
+/// The entity is resolved HERE rather than by the caller, and after the caller
+/// has tested emptiness, because the order of those two is part of the
+/// contract: resolving earlier would make `restore_entity_unknown` fire ahead of
+/// `restore_target_not_empty`, and the order was MEASURED against the reference
+/// cluster rather than chosen.
+pub(super) fn insert_rows(
+    transaction: &rusqlite::Transaction<'_>,
+    entity_name: &str,
+    rows: &[Value],
+    owner: &str,
+    dropped: &mut Vec<Dropped>,
+) -> CoreResult<i64> {
+    let entity = Entity::parse(entity_name)?;
+    let mut inserted = 0_i64;
+    for row in rows {
+        let Some(object) = row.as_object() else {
+            return Err(not_an_array());
+        };
+        let row: &BackupRow = object;
+        backup::insert_row(transaction, entity, row, owner, dropped)?;
+        inserted = inserted.checked_add(1).ok_or_else(too_many)?;
+    }
+    Ok(inserted)
+}
+
 /// The precondition's own question, asked inside the restore's transaction.
 ///
 /// Deliberately the same three tables [`super::user_financial_data_is_empty`]
 /// asks about, and deliberately not a call to it: that verb takes a `&Connection`
 /// and would be reading outside this transaction's view of the file.
-fn is_empty(transaction: &rusqlite::Transaction<'_>, owner: &str) -> CoreResult<bool> {
+pub(super) fn is_empty(transaction: &rusqlite::Transaction<'_>, owner: &str) -> CoreResult<bool> {
     let found: i64 = transaction.query_row(
         "SELECT EXISTS (
            SELECT 1 FROM accounts     WHERE user_id = ?1
