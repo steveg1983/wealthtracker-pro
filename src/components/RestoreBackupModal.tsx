@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useApp } from '../contexts/AppContextSupabase';
-import { dataPort } from '../services/port';
-import type { BackupRestoreOutcome } from '../services/port';
+import { dataPort } from '@data';
+import type { BackupRestoreOutcome } from '@data';
 import { transactionCache } from '../services/transactionCache';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { AlertTriangleIcon, CheckCircleIcon, RefreshCwIcon, UploadIcon } from './icons';

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { ofxImportService } from '../services/ofxImportService';
-import { dataPort, type BulkImportResult } from '../services/port';
+import { dataPort, type BulkImportResult } from '@data';
 import { summariseMissingRows, type MissingRowsSummary } from '../utils/partialImportSummary';
 import {
   planAccountDetailsBackfill,

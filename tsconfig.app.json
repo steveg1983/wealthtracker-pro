@@ -26,6 +26,13 @@
     /* Path mappings */
     "baseUrl": ".",
     "paths": {
+      /* The edition seam. This project is the WEB app, so `@data` is the web
+         app's engine. tsconfig.desktop.json maps the same specifier to the
+         device's, and compiles the desktop renderer against it — which is how
+         the substitution is checked by the compiler in both directions rather
+         than only in the one that happens to be built. See
+         docs/edition-gating.md. */
+      "@data": ["./src/services/port/index.ts"],
       "@wealthtracker/utils": ["./packages/utils/index.ts"],
       "@wealthtracker/utils/*": ["./packages/utils/*"],
       "@wealthtracker/types/*": ["./packages/types/*"],
@@ -39,6 +46,10 @@
     "src/**/*.cy.ts",
     "src/**/*.cy.tsx",
     "src/**/__tests__/**",
-    "src/test/**"
+    "src/test/**",
+    /* The desktop renderer belongs to tsconfig.desktop.json, which resolves
+       `@data` to the device engine. Compiling it here as well would compile it
+       against the wrong one. */
+    "src/desktop/**"
   ]
 }

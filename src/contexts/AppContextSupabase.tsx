@@ -13,12 +13,15 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
-// The ledger goes through the seam. `dataPort` IS the DataService singleton,
-// typed as the interface — no wrapper, no second copy, no extra bytes — so this
-// import is a statement about WHICH DOOR the app uses, not about which engine
-// answers. That is what lets a local implementation be dropped in.
-import { dataPort } from '../services/port';
-import type { DataPortCapabilities } from '../services/port';
+// The ledger goes through the seam, and `@data` is the seam's DOOR: a specifier
+// that names no edition, resolved by the build to `services/port/index.ts` in
+// the web app and to `services/local/deviceDataPort.ts` in a desktop window. In
+// this build `dataPort` IS the DataService singleton typed as the interface —
+// no wrapper, no second copy, no extra bytes — and in that one it is the port
+// over the file the person opened. Neither bundle contains the other's engine,
+// because neither bundle's graph can reach it. See docs/edition-gating.md.
+import { dataPort } from '@data';
+import type { DataPortCapabilities } from '@data';
 import AutoSyncService from '../services/autoSyncService';
 import { transactionCache } from '../services/transactionCache';
 import { userIdService } from '../services/userIdService';

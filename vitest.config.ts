@@ -6,6 +6,12 @@ export default createVitestReactConfig({
   appRoot: process.cwd(),
   defineConfig,
   alias: {
+    // The suite runs the WEB edition, so `@data` is the web edition's engine —
+    // the same file `vite.config.ts` points it at. A test that wants the device
+    // engine names `services/local/deviceDataPort` outright, because a test
+    // which had to be told which edition it was in would not be testing the
+    // seam. FIRST for the reason vite.config.ts gives: '@' would claim it.
+    '@data': path.resolve(process.cwd(), './src/services/port'),
     '@': path.resolve(process.cwd(), './src'),
     '@/contexts/AppContextSupabase': path.resolve(process.cwd(), './src/test/mocks/AppContextSupabase.ts'),
   },

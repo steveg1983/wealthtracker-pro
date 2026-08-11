@@ -54,6 +54,17 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
+      // THE EDITION SEAM. Shared UI imports `@data`; each build says which
+      // engine that is. This one is the cloud's — `services/port/index.ts`,
+      // whose one line is `DataService`. The desktop build points the same
+      // specifier at `services/local/deviceDataPort.ts` instead, which is how a
+      // window gets a file and a browser gets an account without a single
+      // component knowing which it is. See docs/edition-gating.md.
+      //
+      // FIRST, and that is load-bearing: Vite matches aliases in order by
+      // prefix, so the '@' below would otherwise claim '@data' and resolve it to
+      // `src/…data`, which does not exist.
+      '@data': path.resolve(__dirname, './src/services/port'),
       '@': path.resolve(__dirname, './src'),
       // Fix for recharts es-toolkit import issue
       // This ensures recharts gets the correct export format

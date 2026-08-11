@@ -7,7 +7,7 @@ import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, Se
 import { LoadingState } from '../../components/loading/LoadingState';
 import { createScopedLogger } from '../../loggers/scopedLogger';
 import { parseBankingOpsUrlState, replaceBrowserSearch, withBankingOpsUrlState } from '../../utils/bankingOpsUrlState';
-import { dataPort, type WipeProgress } from '../../services/port';
+import { dataPort, type WipeProgress } from '@data';
 
 const ArchiveManager = lazyWithRecovery(() => import('../../components/ArchiveManager'));
 

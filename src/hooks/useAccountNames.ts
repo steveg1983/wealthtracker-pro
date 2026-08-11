@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { dataPort } from '../services/port';
+import { dataPort } from '@data';
 import type { Account } from '../types';
 
 /**

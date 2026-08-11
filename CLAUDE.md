@@ -18,6 +18,7 @@
 | Threshold | `node scripts/verify-coverage-threshold.mjs …` | ✅ | ≥63 % statements / ≥55 % branches (recalibrated 2026-06 after dead Redux removal) |
 | Supabase smoke | `npm run test:supabase-smoke` | ✅ | Logs saved to `logs/supabase-smoke/` |
 | Build parity | `npm run build` | ✅ | Mirrors Vercel’s `vite build` via `scripts/build-web.mjs` |
+| Desktop bundle | `npm run desktop:verify` | ✅ | Builds `src/desktop` → `apps/desktop/dist`, then runs PHASE3-PLAN §5’s two bundle greps. REFUSES rather than skips when there is no build |
 | Desktop shell | `npm run desktop:check` | ✅ | clippy `-D warnings` + the shell crate's own tests (`apps/desktop/src-tauri`) |
 | Desktop build | `npm run desktop:build` | ✅ | `vite` → `apps/desktop/dist`, then `cargo build --release`. The renderer must be built first: `generate_context!` embeds it |
 
@@ -40,6 +41,17 @@ Latest Vercel preview: `wealthtracker-l514dsq11` (2025‑10‑29 21:33 UTC). B
   public browser bundle at build time; a `VITE_SUPABASE_SERVICE_ROLE_KEY` leaked the master key
   into `dist/` in June 2026. The server/CI name is `SUPABASE_SERVICE_ROLE_KEY` (no prefix) — that
   is the GitHub Actions secret and the only name `api/_lib/supabase.ts` accepts.
+
+### Editions
+- Shared UI imports the data layer as **`@data`**, never by path. The specifier is what
+  chooses the engine: `services/port/index.ts` (DataService) in the web build,
+  `services/local/deviceDataPort.ts` (the open ledger file) in a desktop window.
+  `eslint.config.js` enforces it; `docs/edition-gating.md` explains the whole mechanism.
+- A desktop-reachable module may not import Supabase, Clerk, Sentry, Stripe, the banking
+  service or the web's choosing line. Checked at three altitudes: lint, two import-graph
+  walks, and the bundle greps.
+- `src/desktop/routes.ts` must have an answer for every `path=` in `src/App.tsx`. Adding a
+  route to the web router without one fails `desktopRouter.test.tsx`.
 
 ### Collaboration Rules
 - Keep selectors stable for dashboard/import journeys; log multi-file UI refactors in the latest regression audit doc.
