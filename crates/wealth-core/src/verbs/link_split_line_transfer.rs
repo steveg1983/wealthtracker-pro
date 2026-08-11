@@ -106,7 +106,7 @@ use crate::db;
 use crate::error::{CoreError, CoreResult, Refusal};
 use crate::row::category::transfer_category_for;
 use crate::row::split::{self, SplitRow};
-use crate::row::{self, TransactionRow};
+use crate::row::{self, TransactionRow, WrittenTransaction};
 
 use super::transfer;
 
@@ -129,12 +129,12 @@ pub struct LinkSplitLineTransfer {
 #[derive(Debug, Serialize)]
 pub struct LinkSplitLineTransferResult {
     /// The row that is now the leg's other side, as stored.
-    pub transaction: TransactionRow,
+    pub transaction: WrittenTransaction,
     /// The line, as stored, now naming both the account and the row.
     pub split: SplitRow,
     /// The split parent — unchanged, and returned so the caller can see the line
     /// set it now holds.
-    pub parent: TransactionRow,
+    pub parent: WrittenTransaction,
     /// The whole line set after the write, in display order.
     pub splits: Vec<SplitRow>,
     /// Dense sequence number of the audit row written for the paired row.
@@ -247,6 +247,12 @@ pub fn link_split_line_transfer(
         Some(&with_lines(&parent, &updated_lines)?),
         &now,
     )?;
+
+    // The result projection, taken before the commit and beside the audit
+    // rather than instead of it: every `json_of` above still serialises the
+    // audit projection, and these add the one column an answer needs.
+    let paired_after = row::written(&write, paired_after)?;
+    let parent = row::written(&write, parent)?;
 
     write.commit()?;
 

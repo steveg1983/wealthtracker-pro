@@ -1,5 +1,22 @@
 import { supabase } from './api/supabaseClient';
 import { createScopedLogger } from '../loggers/scopedLogger';
+// The document half, lifted into a module with no cloud in its scope so that a
+// desktop bundle can remap the ids inside a preferences document without
+// reaching a Supabase client (slice 27). Re-exported here because every existing
+// caller imports these five names from this file, and a lift that renames its
+// callers' imports is a refactor rather than a lift.
+export {
+  EMPTY_PREFERENCES,
+  PREFERENCES_DOCUMENT_VERSION,
+  PREFERENCE_KEYS_HOLDING_IDS,
+  parsePreferencesDocument,
+  type PreferencesDocument,
+} from './preferences/document';
+import {
+  PREFERENCES_DOCUMENT_VERSION,
+  parsePreferencesDocument,
+  type PreferencesDocument,
+} from './preferences/document';
 
 /**
  * Preferences that travel with the ACCOUNT rather than with the browser.
@@ -57,53 +74,6 @@ const preferencesLogger = createScopedLogger('PreferencesService');
 
 // ── The document ────────────────────────────────────────────────────────────
 
-/**
- * The version this build writes.
- *
- * Bump it only when the MEANING of the values map changes, never for a new key
- * — new keys are the normal case and need no version at all. A document
- * claiming a version this build does not know is read anyway, values and all:
- * refusing it would lose every setting rather than the one that changed.
- */
-export const PREFERENCES_DOCUMENT_VERSION = 1;
-
-export interface PreferencesDocument {
-  version: number;
-  /** Preference key → the exact string the call site stored. */
-  values: Record<string, string>;
-}
-
-export const EMPTY_PREFERENCES: PreferencesDocument = { version: PREFERENCES_DOCUMENT_VERSION, values: {} };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-/**
- * Read a document off the wire.
- *
- * Deliberately forgiving in one direction and strict in the other: a `values`
- * entry that is not a string is DROPPED (nothing can consume it, and keeping it
- * would put a shape into the document that a later write would echo back to the
- * database), while an unrecognised VERSION is kept as it is. The first is
- * corruption; the second is a newer client, and a newer client's document must
- * come back out of an older one unharmed.
- */
-export function parsePreferencesDocument(raw: unknown): PreferencesDocument {
-  if (!isRecord(raw)) return { ...EMPTY_PREFERENCES, values: {} };
-
-  const version = typeof raw.version === 'number' && Number.isFinite(raw.version)
-    ? raw.version
-    : PREFERENCES_DOCUMENT_VERSION;
-
-  const values: Record<string, string> = {};
-  if (isRecord(raw.values)) {
-    for (const [key, value] of Object.entries(raw.values)) {
-      if (typeof value === 'string') values[key] = value;
-    }
-  }
-
-  return { version, values };
-}
 
 // ── The registry ────────────────────────────────────────────────────────────
 
@@ -210,28 +180,6 @@ export const PORTABLE_PREFERENCE_KEYS: readonly string[] = [
   'preferredLocale',
 ] as const;
 
-/**
- * Keys the preferences document holds that name ROWS in the user's data.
- *
- * They matter to exactly one caller — the restore, which mints a fresh id for
- * every row it puts back (see backupService.remapBackupIds and the reason it
- * remaps unconditionally). A preference naming accounts by id and restored
- * verbatim would come back pointing at the accounts of the login the file came
- * from: the dashboard's key accounts would silently be six accounts that no
- * longer exist, and the archive cutoffs the owner set per account would apply
- * to nothing. Both fail SILENTLY, which is what makes this worth spelling out.
- */
-export const PREFERENCE_KEYS_HOLDING_IDS = {
-  /** JSON array of account ids. */
-  idArray: [
-    'dashboardKeyAccounts',
-    'reportsAccountFilterIds',
-  ] as readonly string[],
-  /** JSON object whose KEYS are account ids. */
-  idKeyedObject: [
-    'archiveManager.overrides.v1',
-  ] as readonly string[],
-} as const;
 
 // ── Where a preference lives while the app runs ─────────────────────────────
 

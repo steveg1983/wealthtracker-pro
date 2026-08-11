@@ -28,7 +28,7 @@
  */
 
 import { afterAll, describe, it, expect } from 'vitest';
-import { createSpawnTransport } from '../../local/coreTransport';
+import { createSpawnTransport } from '../../local/spawnTransport';
 import { LedgerFiles, locateBridge } from './localCore.fixtureFile';
 
 const OWNER = '11111111-1111-1111-1111-111111111111';

@@ -61,8 +61,6 @@
  * that walks an object.
  */
 
-import { spawnSync } from 'node:child_process';
-
 /**
  * One question for an open ledger.
  *
@@ -132,7 +130,7 @@ const refusal = (body: ErrorBody): Error => {
  * "the ledger could not be read" with no indication of what was being asked is
  * the kind of message that costs an afternoon.
  */
-const fault = (verb: string, detail: string): Error =>
+export const fault = (verb: string, detail: string): Error =>
   new Error(`The ledger file could not answer ${verb}: ${detail}`);
 
 /**
@@ -168,75 +166,76 @@ const raise = (error: Error): never => {
   throw error;
 };
 
-export interface SpawnTransportOptions {
-  /** Path to a built `wealth-core-cli` (the crate's `--features cli` binary). */
-  binary: string;
-  /** The ledger file every call is asked of. */
-  database: string;
-}
+/**
+ * Tauri's `invoke`, as this module needs to see it.
+ *
+ * Injected rather than imported, and NOT because of testing. `@tauri-apps/api`
+ * is an npm package, and adding one to this repo's `package.json` for the sake
+ * of a desktop shell would mean Vercel's build container installing it on every
+ * deploy of the web app — the same objection `crates/Cargo.toml` makes about
+ * Rust in as many words (*"the cloud build never sees Rust"*). The shell's
+ * renderer takes `invoke` off the Tauri global instead (`withGlobalTauri` in
+ * `tauri.conf.json`) and hands it here, so the whole desktop edition costs the
+ * web build exactly nothing.
+ */
+export type Invoke = (command: string, args: Record<string, unknown>) => Promise<unknown>;
 
 /**
- * The CLI, driven as a process — the differential harness's transport, and NOT
- * the application's.
+ * The DESKTOP's transport: one Tauri command, in the same process as the ledger.
  *
- * ── WHY THIS EXISTS AT ALL ──────────────────────────────────────────────────
+ * This is the one D-3 chose and the one a person's machine actually runs.
+ * `createSpawnTransport` below is the harness's, and the measurements are why
+ * there are two: 0.145–0.162 ms per invoke here against 2.50 ms per spawn there,
+ * which is the difference between renaming three thousand payees in half a
+ * second and in seven and a half.
  *
- * It is the only way to drive the real crate from Node without adding a
- * native, node-gyp-compiled devDependency, which `scripts/local-sqlite/lib/
- * sqlite.mjs` rejected for this repo in as many words: it *"buys a
- * prebuild/rebuild failure mode on every `npm ci`"*. A spawned binary has zero
- * npm surface — `npm ci`, `npm run build` and `npm test` never learn Rust
- * exists.
+ * ── IT READS THE SAME ENVELOPE, BY THE SAME FUNCTION ────────────────────────
  *
- * ── AND WHY THE APPLICATION MUST NOT USE IT ─────────────────────────────────
+ * `readEnvelope` is shared with the spawn transport, and that is the whole
+ * design: the two differ ONLY in how the bytes travel. A refusal is
+ * `{ok:false,error:{…}}` from either, and its `message` reaches the caller
+ * UNCHANGED — not prefixed, not wrapped, not re-worded — because the crate wrote
+ * that sentence for a person and ~28 places in the app render an error's
+ * `.message` straight into the UI (seam rule 4).
  *
- * A spawn costs 2.50 ms median (measured, 40 runs after 3 warm-ups; see
- * `bin/wealth_core_cli.rs`), so renaming three thousand payees would be seven
- * and a half seconds of `fork`/`exec` — and, worse, each child holds the real
- * ledger for the length of its own life. That measurement is exactly why D-3
- * chose an in-process Tauri command for the shell. This one is fine for a spec
- * and wrong for a user, and saying so here is cheaper than finding out.
+ * ── A REJECTED INVOKE IS A FAULT, AND NEVER A REFUSAL ───────────────────────
  *
- * It is `spawnSync` rather than `spawn` for the same reason: a spec wants the
- * answer, not concurrency, and the shell will never call it.
+ * `main.rs` returns `Result<Response, String>`: `Ok` resolves the promise with
+ * the envelope — refusals included — and `Err` rejects it. So a rejection here
+ * means the ledger was never asked or could not answer at all: no document is
+ * open, the mutex is poisoned, storage failed. That is the shell's door for a
+ * fault, exactly as a non-zero exit is the CLI's, and it gets this module's
+ * sentence because the crate had no chance to write one.
+ *
+ * The `try` therefore holds ONLY the invoke. `readEnvelope` is outside it on
+ * purpose: a refusal it throws must not be caught and re-described as a
+ * transport failure, which would put this module's words in front of the
+ * ledger's.
  */
-export function createSpawnTransport(options: SpawnTransportOptions): CoreTransport {
+export function createInvokeTransport(invoke: Invoke): CoreTransport {
   return {
-    call(verb: string, payload: unknown): Promise<unknown> {
-      const command = JSON.stringify({ verb, payload });
-      const result = spawnSync(options.binary, ['--db', options.database], {
-        input: command,
-        encoding: 'utf8',
-        // A read verb's answer is a WHOLE LEDGER. Node's 1 MB default would
-        // truncate `load_boot` at a few thousand transactions and hand back
-        // valid-looking JSON that stops mid-row, which is the worst possible
-        // failure: 64 MB is comfortably past the 50,000-row answer measured in
-        // `tests/reads_at_scale.rs`, and overflowing it is reported as a fault
-        // rather than swallowed.
-        maxBuffer: 64 * 1024 * 1024
-      });
-
-      if (result.error) {
-        return Promise.reject(fault(verb, result.error.message));
-      }
-      if (result.status !== 0) {
-        const stderr = (result.stderr ?? '').trim().split('\n')[0];
-        return Promise.reject(fault(verb, stderr === '' ? 'the bridge exited non-zero' : stderr));
-      }
-
-      let parsed: unknown;
+    async call(verb: string, payload: unknown): Promise<unknown> {
+      let envelope: unknown;
       try {
-        parsed = JSON.parse(result.stdout);
+        envelope = await invoke('wealth_core_invoke', { verb, payload });
       } catch (error) {
-        const detail = error instanceof Error ? error.message : 'unreadable output';
-        return Promise.reject(fault(verb, detail));
+        throw fault(verb, detailOf(error));
       }
-
-      try {
-        return Promise.resolve(readEnvelope(verb, parsed));
-      } catch (error) {
-        return Promise.reject(error);
-      }
+      return readEnvelope(verb, envelope);
     }
   };
 }
+
+/**
+ * Whatever a rejected `invoke` threw, as a sentence.
+ *
+ * Tauri rejects with the command's `Err` value, which for this shell is always a
+ * string. It is read defensively anyway: an `invoke` can also reject with the
+ * IPC's own error before a command runs, and a caller shown `[object Object]`
+ * learns nothing.
+ */
+const detailOf = (error: unknown): string => {
+  if (typeof error === 'string' && error !== '') return error;
+  if (error instanceof Error && error.message !== '') return error.message;
+  return 'the shell gave no reason';
+};

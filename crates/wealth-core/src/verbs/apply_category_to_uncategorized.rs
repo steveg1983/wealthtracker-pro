@@ -132,7 +132,7 @@ use serde::{Deserialize, Serialize};
 use crate::audit::{self, Action};
 use crate::db;
 use crate::error::{CoreError, CoreResult};
-use crate::row::{self, TransactionRow};
+use crate::row::{self, WrittenTransaction};
 
 /// The command. `(p_ids, p_category, p_user_id)` as one object.
 #[derive(Debug, Deserialize)]
@@ -164,11 +164,11 @@ pub struct ApplyCategoryToUncategorizedResult {
     /// compares field by field across both engines. `None` when the caller named
     /// nothing, or named an id nobody has: unlike the unlink verb, this one does
     /// not refuse an unknown id, so an absent row here is an ordinary outcome.
-    pub transaction: Option<TransactionRow>,
+    pub transaction: Option<WrittenTransaction>,
     /// How many rows were actually filled.
     pub applied: i64,
     /// Those rows, as stored, in the order they were written (by id).
-    pub transactions: Vec<TransactionRow>,
+    pub transactions: Vec<WrittenTransaction>,
     /// Dense sequence number of the LAST audit row written, when any was.
     pub audit_seq: Option<i64>,
     /// Its chained hash.
@@ -261,7 +261,10 @@ pub fn apply_category_to_uncategorized(
             Some(&super::json_of(&after)?),
             &now,
         )?);
-        filled.push(after);
+        // The result projection, taken beside the audit rather than instead of
+        // it: `after` is what the audit above serialised and this adds the one
+        // column the answer needs and the chain does not.
+        filled.push(row::written(&write, after)?);
     }
 
     // The first id the CALLER named, not the first in id order — the client's
@@ -271,7 +274,9 @@ pub fn apply_category_to_uncategorized(
         .first()
         .map(|id| row::read_owned_transaction(&write, id, None))
         .transpose()?
-        .flatten();
+        .flatten()
+        .map(|row| row::written(&write, row))
+        .transpose()?;
 
     let applied = super::count(filled.len())?;
 

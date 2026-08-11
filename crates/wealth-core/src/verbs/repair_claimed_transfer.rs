@@ -113,7 +113,7 @@ use crate::audit::{self, Action};
 use crate::db;
 use crate::error::{CoreError, CoreResult, Refusal};
 use crate::row::category::{is_fileable_adjustment, transfer_category_for};
-use crate::row::{self, TransactionRow};
+use crate::row::{self, TransactionRow, WrittenTransaction};
 
 use super::transfer;
 
@@ -144,12 +144,12 @@ pub struct RepairClaimedTransfer {
 pub struct RepairClaimedTransferResult {
     /// The row that was stranded, now half of a transfer. The RPC's `stranded`,
     /// under the `transaction` key every result in this crate carries.
-    pub transaction: TransactionRow,
+    pub transaction: WrittenTransaction,
     /// The row that was linked to the wrong partner, now pointed at the right
     /// one.
-    pub counterpart: TransactionRow,
+    pub counterpart: WrittenTransaction,
     /// The displaced row, now an unlinked adjustment.
-    pub partner: TransactionRow,
+    pub partner: WrittenTransaction,
     /// Dense sequence number of the audit row written for the stranded row.
     pub audit_seq: i64,
     /// Its chained hash.
@@ -231,6 +231,13 @@ pub fn repair_claimed_transfer(
     audit_row(&write, &owner_id, &partner, &partner_after, &now)?;
     audit_row(&write, &owner_id, &counterpart, &counterpart_after, &now)?;
     let entry = audit_row(&write, &owner_id, &stranded, &stranded_after, &now)?;
+
+    // The result projection, taken before the commit and beside the audit
+    // rather than instead of it: every `json_of` above still serialises the
+    // audit projection, and these add the one column an answer needs.
+    let stranded_after = row::written(&write, stranded_after)?;
+    let counterpart_after = row::written(&write, counterpart_after)?;
+    let partner_after = row::written(&write, partner_after)?;
 
     write.commit()?;
 

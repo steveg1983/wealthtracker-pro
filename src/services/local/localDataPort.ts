@@ -41,25 +41,32 @@
  * rather than left holding an empty array. Every rule in the contract suite now
  * RUNS on this engine; none is skipped.
  *
- * ── WHAT A WRITE HANDS BACK, AND THE ONE COLUMN IT CANNOT ───────────────────
+ * ── WHAT A WRITE HANDS BACK, AND THE ONE COLUMN IT USED NOT TO ──────────────
  *
  * Every write below answers with the row as stored, mapped by the same
- * `toTransaction` the reads use. It is not quite the same projection: a verb's
- * result is `TransactionRow`, which IS the audit entry's shape, and the audit
- * entry does not carry `needs_review`, `created_at` or `updated_at` (see
- * `crate::row`, which says so and says why neither set is a subset of the
- * other). So a written row comes back with `needsReview: false` and no
- * timestamps, whatever the file now holds.
+ * `toTransaction` the reads use — and since slice 27 that is honest for both,
+ * because the crate answers writes with a projection of their own.
  *
- * For the two timestamps that is harmless — nothing reads them off a write's
- * answer. For `needs_review` it is a real gap with a small blast radius: an
- * update that did not mention the flag answers `false` for a row that is still
- * new work, so a caller replacing its copy with the answer would un-bold a row
- * in the register until the next read. It is NOT fixed by widening
- * `TransactionRow`, because that would change the audit payload two engines
- * compare field by field and re-chain every hash; the fix is a result
- * projection of its own, and it belongs to the commit that gives this port a
- * caller (slice 27). Written down here rather than discovered there.
+ * It did not used to be. A verb's result was `TransactionRow`, which IS the
+ * audit entry's shape, and the audit entry carries neither `needs_review` nor
+ * the two timestamps (see `crate::row`, which says so and says why no two of the
+ * three projections is a subset of another). So a written row came back with
+ * `needsReview: false` whatever the file held: an update that did not mention
+ * the flag un-bolded an imported row in the register until the next read.
+ *
+ * The fix is `crate::row::WrittenTransaction` — the audit row plus that one
+ * column — and it is a WRAPPER rather than a widening, because widening
+ * `TransactionRow` would change the audit payload two engines compare field by
+ * field and re-chain every hash. `toTransaction` reads the flag off a write's
+ * answer now exactly as it reads it off a boot's row, and there is no branch
+ * here that knows which it was given.
+ *
+ * THE TWO TIMESTAMPS ARE STILL ABSENT, and that stays a decision rather than a
+ * gap: nothing reads `createdAt` or `updatedAt` off a write's answer, and a
+ * projection that carried them would have to be compared across two engines
+ * whose clocks are two processes — `scripts/local-sqlite/verb-specs/_shared.mjs`
+ * pins them in every READ spec for exactly that reason, and a write has no
+ * moment to pin.
  *
  * The class says `implements DataPort`, and that is the alias `LocalDataPortSurface`
  * being deleted rather than a comment being updated: while the engine was
@@ -161,13 +168,18 @@ import type {
 // them: `import type` is erased at build, and these describe a file on somebody's
 // disk rather than an engine. The RUNTIME half of the same module is NOT imported
 // — it is injected. See {@link BackupFormat}.
+//
+// From `backup/format.ts` rather than from `backupService.ts` since slice 27:
+// the format was lifted into a module whose scope holds no Supabase client, and
+// naming the lifted module here means the type and the injected implementation
+// come from the same place even though only one of them is real at runtime.
 import type {
   BackupBundle,
   BackupRow,
   BuildBundleInput,
   RemapResult,
   RestoreStep
-} from '../backupService';
+} from '../backup/format';
 import type { CoreTransport } from './coreTransport';
 // The ONE encoder, for the two arguments this port sends that are not part of a
 // column table's payload: a finalize's ending balance and the two cutoff days.
@@ -246,26 +258,37 @@ import {
  * that exports what it cannot import, and the format is the only thing making a
  * backup portable between editions.
  *
- * It cannot IMPORT them. They live in `services/backupService.ts`, whose first
- * line is `import { supabase }`, and a static import here would put the cloud in
- * the desktop bundle — the exact thing PHASE3-PLAN §5's two bundle greps exist
- * to refuse, and the same reason `mappers/rows.ts` writes out six mappings whose
+ * It still does not IMPORT them, and the reason has changed shape. It used to be
+ * that they lived in `services/backupService.ts`, whose first line is
+ * `import { supabase }`, so a static import here would have put the cloud in the
+ * desktop bundle — the exact thing PHASE3-PLAN §5's two bundle greps exist to
+ * refuse, and the same reason `mappers/rows.ts` writes out six mappings whose
  * cloud twins it cannot reach.
  *
  * So the format arrives the way the logger and the transport arrive: from
  * whatever opened the document. That is not a workaround, it is the same
  * statement made three times — the port holds no opinion about how a file is
- * reached, where a fault is reported, or what a backup file looks like.
+ * reached, where a fault is reported, or what a backup file looks like. It stays
+ * injected now that the import would be safe, because an engine that reaches for
+ * a file format on its own is an engine that has an opinion about one.
  *
- * ── THE OBLIGATION THIS LEAVES ──────────────────────────────────────────────
+ * ── THE OBLIGATION THIS LEFT, AND HOW IT WAS DISCHARGED ─────────────────────
  *
- * Whoever opens a document in the DESKTOP shell (slice 27) must supply an
- * implementation that does not itself reach a Supabase client. Today that means
- * lifting the pure format half out of `backupService.ts` into a module of its
- * own, which is a FILE MOVE — and a file move is a `scripts/port-coverage`
- * manifest change, so it belongs to the commit that has a desktop bundle to
- * measure rather than to this one. The contract harness supplies the real
- * functions directly, because a test is not a bundle.
+ * It read: *"whoever opens a document in the DESKTOP shell (slice 27) must
+ * supply an implementation that does not itself reach a Supabase client. Today
+ * that means lifting the pure format half out of `backupService.ts` into a
+ * module of its own, which is a FILE MOVE — and a file move is a
+ * `scripts/port-coverage` manifest change, so it belongs to the commit that has
+ * a desktop bundle to measure."*
+ *
+ * Slice 27 is that commit. `services/backup/format.ts` is the lifted module and
+ * `services/preferences/document.ts` is the one it dragged with it (the remapper
+ * needs to know which preference keys hold ids, and that constant lived beside a
+ * Supabase transport). `backupService.ts` re-exports both, so no existing caller
+ * moved. The shell's `openLedgerDocument` supplies `BackupFormat` out of the
+ * lifted module, and `desktopBundleIsCloudFree.test.ts` walks the import graph
+ * from there and fails if a Supabase client is reachable — which is that bundle
+ * grep, executed rather than described.
  *
  * REQUIRED rather than optional, and that is R-3's discipline applied to a
  * second thing: a port constructed without a format could answer eleven reads
@@ -335,12 +358,15 @@ export interface MsMoneyPlan {
  * means. The name says "cloud" because the cloud is what first needed it; the
  * work it does is an engine-independent translation, and this port is the proof.
  *
- * It cannot be IMPORTED. It lives in `services/import/msMoney/msMoneyImport.ts`,
- * whose module scope reaches `storageAdapter` (the browser's IndexedDB writer)
- * and `createScopedLogger` (which reaches the cloud's logging service), and a
- * static import here would drag both into a desktop bundle — the same refusal
- * PHASE3-PLAN §5's bundle greps make about `backupService.ts`, for the same
- * reason, one module along.
+ * It is not IMPORTED, for the reason the format is not. It used to live in
+ * `services/import/msMoney/msMoneyImport.ts`, whose module scope reaches
+ * `storageAdapter` (the browser's IndexedDB writer) and `createScopedLogger`
+ * (which reaches the cloud's logging service), so a static import here would
+ * have dragged both into a desktop bundle — the same refusal PHASE3-PLAN §5's
+ * bundle greps make about `backupService.ts`, one module along. Slice 27 lifted
+ * the planner into `import/msMoney/cloudPlan.ts`, which reaches neither, and the
+ * shell supplies it from there; the injection stays because a port that reached
+ * for a .mny planner would be a port with an opinion about Microsoft Money.
  *
  * ── WHERE THE IDS COME FROM, AND WHY THE PORT DOES NOT MINT THEM ────────────
  *

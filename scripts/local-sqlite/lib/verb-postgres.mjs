@@ -24,10 +24,18 @@ const ROW = '__ROW__';
 const ERR = '__ERR__';
 const STATE = '__STATE__';
 
-// The canonical projection of a stored transaction. Money as a decimal string
+// The canonical projection of a WRITE'S ANSWER. Money as a decimal string
 // (numeric(20,2)::text is exact and involves no rounding function), date as
 // text, tags as a JSON array. The Rust side produces the same key set from its
 // own storage, and the runner compares the two objects field by field.
+//
+// IT IS THE TWIN OF THE RESULT PROJECTION, NOT OF THE AUDIT ONE, and since slice
+// 27 those are two different field sets. `crate::row::WrittenTransaction` is the
+// audit row plus `needs_review`; `crate::row::TransactionRow` is what the audit
+// chain records and is unchanged. This projects the first, because what these
+// specs compare is what a verb ANSWERED — and the audit payload has assertions
+// of its own (`auditedRows`, and the crate's own
+// `the_audit_payload_is_not_the_answer_and_does_not_carry_the_flag`).
 //
 // `is_reconciled` is projected as ITSELF and not through a COALESCE, and that is
 // the point of it being here: the column is three-valued on both engines — NULL
@@ -36,10 +44,13 @@ const STATE = '__STATE__';
 // have to agree about. A projection that resolved the NULL would pass whether or
 // not the port had kept it.
 //
-// Unlike `needs_review` (schema.sql amendment 6, which records why that one is
-// deliberately NOT here), this column IS in the reference cluster:
-// 20260810200000_marking_is_not_reconciling.sql is applied there, verified by
-// reading information_schema before this line was written rather than assumed.
+// It is in the reference cluster: 20260810200000_marking_is_not_reconciling.sql
+// is applied there, verified by reading information_schema before this line was
+// written rather than assumed. `needs_review` is now projected too, on the same
+// evidence — schema.sql amendment (6) records that 20260810090000 is confirmed
+// applied there — and it arrived with the result projection rather than with the
+// column, because until a write's answer carried it there was nothing on the
+// SQLite side to compare against.
 const ROW_JSON = `jsonb_build_object(
   'id', t.id,
   'user_id', t.user_id,
@@ -69,7 +80,8 @@ const ROW_JSON = `jsonb_build_object(
   'import_source_id', t.import_source_id,
   'external_transaction_id', t.external_transaction_id,
   'metadata', t.metadata,
-  'tags', COALESCE(to_jsonb(t.tags), '[]'::jsonb)
+  'tags', COALESCE(to_jsonb(t.tags), '[]'::jsonb),
+  'needs_review', t.needs_review
 )`;
 
 // ── The reads, whose oracle is a QUERY and not a function ────────────────────

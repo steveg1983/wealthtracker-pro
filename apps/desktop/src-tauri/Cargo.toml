@@ -1,0 +1,82 @@
+# The desktop shell — a body for the ledger core.
+#
+# WHY IT IS ITS OWN WORKSPACE AND NOT A MEMBER OF `crates/`
+# --------------------------------------------------------
+# `crates/Cargo.toml` exists where it does so that the cloud build never sees
+# Rust. The same reasoning, one level up, keeps this out of THAT workspace:
+#
+#   * `cargo build --release --features cli` in `crates/` is a quality gate that
+#     runs on every slice. A member here would put four hundred GUI crates —
+#     wry, tao, objc2, the whole WebView stack — into that gate's build graph
+#     for a binary it does not test;
+#   * `crates/Cargo.lock` is the lock file the ledger core's reproducibility is
+#     argued from. Merging a windowing toolkit into it makes every future
+#     "what changed" question harder for no benefit;
+#   * the dependency only ever points one way. This crate depends on
+#     `wealth-core`; nothing in `wealth-core` may ever depend on this, and two
+#     workspaces make that structural rather than a rule somebody remembers.
+#
+# The path dependency below reaches into `crates/` exactly as `wealth-core`
+# reaches out of itself for `schema.sql`: if the layout moves, this stops
+# compiling, which is the correct failure.
+
+[package]
+name = "wealthtracker-desktop"
+version = "0.1.0"
+description = "WealthTracker local edition — the desktop shell."
+edition = "2021"
+rust-version = "1.89"
+license = "UNLICENSED"
+publish = false
+
+# Its own workspace root. An empty table is how Cargo is told "stop looking
+# upwards"; without it, a future `Cargo.toml` at the repo root would silently
+# adopt this crate.
+[workspace]
+
+[[bin]]
+name = "wealthtracker-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# THE LEDGER. Everything this shell knows about money it asks this crate, over
+# `command::{parse, plan, dispatch, respond}` — the same four functions the
+# differential harness's CLI calls, and the same single match (PHASE3-PLAN D-3).
+#
+# `default-features = false` is not needed and would be misleading: the crate's
+# only optional feature is `cli`, which builds the harness bin. Cargo never
+# builds a dependency's bin targets, so the bridge cannot ship here even if the
+# feature were on.
+wealth-core = { path = "../../../crates/wealth-core" }
+
+# The same rusqlite the ledger uses. Named here because this crate holds the
+# open connection between calls and therefore names its type; the version and
+# the `bundled` feature must match `wealth-core`'s exactly or Cargo links two
+# SQLite builds into one binary and the constraint behaviour of a file depends
+# on which one opened it.
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+tauri = { version = "2", features = [] }
+# The NATIVE file chooser, and the reason the shell has file commands at all: a
+# path is not a payload. See `src/main.rs`.
+tauri-plugin-dialog = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+uuid = { version = "1", features = ["v4"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+# The ledger core's money lints, kept here too. Nothing in this crate does
+# arithmetic on money — that is the whole point of it — and these are what make
+# that a fact rather than an intention.
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+arithmetic_side_effects = "deny"
+float_arithmetic = "deny"

@@ -157,7 +157,7 @@ use crate::error::{CoreError, CoreResult, Refusal};
 use crate::money::Money;
 use crate::row::account::{self, AccountRow};
 use crate::row::category::transfer_category_for;
-use crate::row::{self, TransactionRow};
+use crate::row::{self, TransactionRow, WrittenTransaction};
 
 use super::transfer;
 
@@ -216,7 +216,11 @@ pub enum Displaced {
     /// It stayed put and stopped being half of a transfer.
     Released {
         /// The row as it now stands — uncategorised, unlinked, for review.
-        transaction: Box<TransactionRow>,
+        ///
+        /// The RESULT projection, like every other row an answer carries: a
+        /// released row is the one a person is most likely to be looking at
+        /// next, and `needs_review` is what the register bolds it by.
+        transaction: Box<WrittenTransaction>,
     },
     /// It is gone, and its account has been reversed by its amount.
     Deleted {
@@ -234,9 +238,9 @@ pub enum Displaced {
 #[derive(Debug, Serialize)]
 pub struct RepointTransferResult {
     /// The edited row, re-filed to face its new counterpart.
-    pub transaction: TransactionRow,
+    pub transaction: WrittenTransaction,
     /// The row now sitting in the target account and linked to the source.
-    pub counterpart: TransactionRow,
+    pub counterpart: WrittenTransaction,
     /// What became of the counterpart this displaced.
     pub displaced: Displaced,
     /// Dense sequence number of the audit row written for the source.
@@ -348,7 +352,12 @@ pub fn repoint_transfer(
         Disposition::Release => {
             let released = release_it(&write, &displaced, &now)?;
             let minted = mint(&write, &source, &target, &now)?;
-            (minted, Displaced::Released { transaction: Box::new(released) })
+            (
+                minted,
+                Displaced::Released {
+                    transaction: Box::new(row::written(&write, released)?),
+                },
+            )
         }
         Disposition::Delete => {
             delete_it(&write, &displaced, &now)?;
@@ -376,6 +385,12 @@ pub fn repoint_transfer(
         Some(&super::json_of(&source_after)?),
         &now,
     )?;
+
+    // The result projection, taken before the commit and beside the audit
+    // rather than instead of it: every `json_of` above still serialises the
+    // audit projection, and these add the one column an answer needs.
+    let source_after = row::written(&write, source_after)?;
+    let counterpart = row::written(&write, counterpart)?;
 
     write.commit()?;
 

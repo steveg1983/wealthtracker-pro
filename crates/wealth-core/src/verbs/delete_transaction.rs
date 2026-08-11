@@ -98,7 +98,7 @@ use serde::{Deserialize, Serialize};
 use crate::audit::{self, Action};
 use crate::db;
 use crate::error::{CoreError, CoreResult, Refusal};
-use crate::row::{self, TransactionRow};
+use crate::row::{self, WrittenTransaction};
 
 /// The command. The RPC's two arguments, `(p_id, p_user_id)`, as one object.
 #[derive(Debug, Deserialize)]
@@ -117,7 +117,7 @@ pub struct DeleteTransaction {
 pub struct DeleteTransactionResult {
     /// The row as it stood immediately before the delete — the RPC returns the
     /// same thing, and it is what `before_data` in the audit log holds.
-    pub transaction: TransactionRow,
+    pub transaction: WrittenTransaction,
     /// Dense sequence number of the audit row written for this delete.
     pub audit_seq: i64,
     /// Its chained hash.
@@ -160,7 +160,13 @@ pub fn delete_transaction(
         Err(error) => return Err(error.into()),
     }
 
-    let before = row::read_transaction(&transaction, &command.id)?;
+    // The result projection is taken HERE, while the row still exists — this is
+    // the one verb where it cannot be taken beside the audit, because by then
+    // the row is gone and `needs_review` is not a column of anything. What the
+    // answer describes is the row that WAS deleted, so the flag is read at the
+    // only moment it can be. The audit below still serialises `before.row`, the
+    // audit projection, unchanged.
+    let before = row::written(&transaction, row::read_transaction(&transaction, &command.id)?)?;
 
     // ── R-5. The leg guard, held only where the design says. ────────────────
     let guarded = touches_a_transfer_leg(&transaction, &command.id)?;
@@ -200,7 +206,12 @@ pub fn delete_transaction(
                 updated_at = ?2
           WHERE id = ?3
             AND user_id = ?4",
-        params![before.amount.minor(), now, before.account_id, before.user_id],
+        params![
+            before.row.amount.minor(),
+            now,
+            before.row.account_id,
+            before.row.user_id
+        ],
     )?;
     if restored != 1 {
         // Reachable: a transaction whose `user_id` is this caller but whose
@@ -217,12 +228,12 @@ pub fn delete_transaction(
         ));
     }
 
-    let before_json = serde_json::to_string(&before)
+    let before_json = serde_json::to_string(&before.row)
         .map_err(|error| CoreError::InvalidCommand(format!("audit payload: {error}")))?;
 
     let entry = audit::write(
         &transaction,
-        &before.user_id,
+        &before.row.user_id,
         "transaction",
         &command.id,
         Action::Delete,

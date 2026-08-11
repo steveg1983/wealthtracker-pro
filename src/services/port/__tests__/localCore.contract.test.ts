@@ -51,7 +51,7 @@ import {
   rowsForStep
 } from '../../backupService';
 import { planCloudImport } from '../../import/msMoney/msMoneyImport';
-import { createSpawnTransport } from '../../local/coreTransport';
+import { createSpawnTransport } from '../../local/spawnTransport';
 import {
   LocalDataPort,
   type BackupFormat,

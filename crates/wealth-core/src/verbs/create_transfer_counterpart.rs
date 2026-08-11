@@ -110,7 +110,7 @@ use crate::error::{CoreError, CoreResult, Refusal};
 use crate::money::Money;
 use crate::row::account::{self, AccountRow};
 use crate::row::category::transfer_category_for;
-use crate::row::{self, TransactionRow};
+use crate::row::{self, TransactionRow, WrittenTransaction};
 
 use super::transfer;
 
@@ -132,9 +132,9 @@ pub struct CreateTransferCounterpart {
 #[derive(Debug, Serialize)]
 pub struct CreateTransferCounterpartResult {
     /// The row the caller named, as stored after it became half a transfer.
-    pub transaction: TransactionRow,
+    pub transaction: WrittenTransaction,
     /// The row that was minted on the other side.
-    pub counterpart: TransactionRow,
+    pub counterpart: WrittenTransaction,
     /// Dense sequence number of the audit row written for the source.
     pub audit_seq: i64,
     /// Its chained hash.
@@ -244,6 +244,12 @@ pub fn create_transfer_counterpart(
         Some(&json_of(&target_after)?),
         &now,
     )?;
+
+    // The result projection, taken before the commit and beside the audit
+    // rather than instead of it: every `json_of` above still serialises the
+    // audit projection, and these add the one column an answer needs.
+    let source_after = row::written(&write, source_after)?;
+    let counterpart = row::written(&write, counterpart)?;
 
     write.commit()?;
 

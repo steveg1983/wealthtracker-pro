@@ -42,7 +42,47 @@ pub fn open(path: &std::path::Path) -> CoreResult<Connection> {
         OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_URI,
     )?;
     configure(&connection)?;
+    assert_journal_mode(&connection)?;
     Ok(connection)
+}
+
+/// Prove the file is in the journal mode the schema chose.
+///
+/// # Why this is not in [`configure`]
+///
+/// Everything in there is PER CONNECTION. `journal_mode` is not: `schema.sql`
+/// says so at the pragma — *"persistent (stored in the file header)"* — which
+/// means it is a property of the FILE and there is nothing to set on the way in.
+/// It is applied once, by the schema, when the file is made.
+///
+/// So this is a read-back with no set in front of it, and that is exactly what
+/// makes it worth doing: a file that came from somewhere else, or that was
+/// converted by another tool, or whose creation was interrupted, opens perfectly
+/// well in `delete` mode and behaves identically until the moment it matters.
+/// What WAL buys is that a reader does not block the writer and that a crash
+/// mid-transaction rolls back from a log rather than from a journal the
+/// filesystem may have reordered. A ledger quietly running without it has a
+/// different crash-safety story from the one the schema decided, and nothing
+/// would ever say so.
+///
+/// It is also why this lives in [`open`] rather than in [`configure`]: an
+/// in-memory database has no file header and answers `memory`, which is correct
+/// for it and would make every one of the crate's own tests fail an assertion
+/// about a property they do not have.
+///
+/// # Errors
+/// [`CoreError::Storage`] naming the mode the file is actually in.
+pub fn assert_journal_mode(connection: &Connection) -> CoreResult<()> {
+    let mode: String = connection.pragma_query_value(None, "journal_mode", |row| row.get(0))?;
+    if !mode.eq_ignore_ascii_case("wal") {
+        return Err(fault(&format!(
+            "This ledger is in journal mode '{mode}' and the schema is written for WAL. \
+             A file that was converted or half-created keeps its own mode, and in any other \
+             mode a reader blocks the writer and a crash recovers by a different route than \
+             the one this schema was designed and measured against."
+        )));
+    }
+    Ok(())
 }
 
 /// Open a brand-new in-memory file. Used by the crate's own tests; the real
@@ -163,6 +203,38 @@ mod tests {
             error.to_string().contains("foreign_keys did not take"),
             "{error}"
         );
+    }
+
+    #[test]
+    fn a_file_not_in_wal_is_refused_by_name() {
+        // The whole point of a read-back with no set in front of it: this file
+        // opens perfectly well and behaves identically right up to the crash
+        // the mode is about.
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("rollback-journal.db");
+        let made = Connection::open(&path).unwrap();
+        made.pragma_update(None, "journal_mode", "DELETE").unwrap();
+        made.execute_batch("CREATE TABLE t (x INTEGER)").unwrap();
+        drop(made);
+
+        let error = super::open(&path).expect_err("a file outside WAL must be reported");
+        assert!(error.to_string().contains("journal mode 'delete'"), "{error}");
+    }
+
+    #[test]
+    fn a_file_the_schema_made_is_in_wal_and_opens() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("ledger.db");
+        let made = Connection::open(&path).unwrap();
+        configure(&made).unwrap();
+        crate::apply_schema(&made).unwrap();
+        drop(made);
+
+        let opened = super::open(&path).expect("a schema-made file opens");
+        let journal: String = opened
+            .pragma_query_value(None, "journal_mode", |row| row.get(0))
+            .unwrap();
+        assert_eq!(journal, "wal");
     }
 
     #[test]

@@ -22,8 +22,11 @@
 //!
 //! The last row was a PORT LAG found in slice 19 and it was not merely
 //! unnoticed — it was unfindable from the differential harness, because
-//! `needs_review` is absent from [`crate::row::TransactionRow`], the projection
-//! every verb spec compares two engines on. It matters at the seam because
+//! `needs_review` was absent from [`crate::row::TransactionRow`], the projection
+//! every verb spec then compared two engines on. It is findable now: slice 27's
+//! [`crate::row::WrittenTransaction`] is what this verb answers with, `ROW_JSON`
+//! projects the column on the Postgres side, and every spec here compares it. It
+//! matters at the seam because
 //! `deny_unknown_fields` turns a missing patch field into a REFUSAL rather than
 //! a discard: the register's four save buttons send `needs_review: false`
 //! explicitly, so without this line every save in the local edition would fail
@@ -147,7 +150,7 @@ use crate::audit::{self, Action};
 use crate::db;
 use crate::error::{CoreError, CoreResult, Refusal};
 use crate::money::Money;
-use crate::row::{self, TransactionRow};
+use crate::row::{self, TransactionRow, WrittenTransaction};
 use crate::wire::{is_calendar_date, Field, Flag};
 
 /// The command.
@@ -253,7 +256,7 @@ pub struct TransactionPatch {
 #[derive(Debug, Serialize)]
 pub struct UpdateTransactionResult {
     /// The row as stored after the edit, money as decimal strings.
-    pub transaction: TransactionRow,
+    pub transaction: WrittenTransaction,
     /// Dense sequence number of the audit row written for this update.
     pub audit_seq: i64,
     /// Its chained hash.
@@ -369,10 +372,17 @@ pub fn update_transaction(
         &now,
     )?;
 
+    // The ANSWER is the result projection; the two audit payloads above are the
+    // audit projection and their lines are untouched. This verb is the one the
+    // gap was written down against: `needs_review` is settable HERE (the table
+    // above records the migration that added it), so an edit that did not
+    // mention the flag used to answer `false` for a row that was still new work.
+    let answer = row::written(&transaction, after)?;
+
     transaction.commit()?;
 
     Ok(UpdateTransactionResult {
-        transaction: after,
+        transaction: answer,
         audit_seq: entry.seq,
         audit_row_hash: entry.row_hash,
     })

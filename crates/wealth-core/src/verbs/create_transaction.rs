@@ -92,7 +92,7 @@ use crate::audit::{self, Action};
 use crate::db;
 use crate::error::{CoreError, CoreResult, Refusal};
 use crate::money::Money;
-use crate::row::{self, TransactionRow};
+use crate::row::{self, WrittenTransaction};
 use crate::wire::{is_calendar_date, null_if_empty, Flag, Ordinal};
 
 /// The command.
@@ -176,7 +176,7 @@ pub struct CreateTransaction {
 #[derive(Debug, Serialize)]
 pub struct CreateTransactionResult {
     /// The row as stored, money as decimal strings.
-    pub transaction: TransactionRow,
+    pub transaction: WrittenTransaction,
     /// Dense sequence number of the audit row written for this create.
     pub audit_seq: i64,
     /// Its chained hash.
@@ -299,10 +299,15 @@ pub fn create_transaction(
         &now,
     )?;
 
+    // The ANSWER is the result projection and the AUDIT above is not: the line
+    // that serialised `stored` is untouched, so the payload in the chain is the
+    // same bytes it has always been. See [`crate::row::WrittenTransaction`].
+    let answer = row::written(&transaction, stored)?;
+
     transaction.commit()?;
 
     Ok(CreateTransactionResult {
-        transaction: stored,
+        transaction: answer,
         audit_seq: entry.seq,
         audit_row_hash: entry.row_hash,
     })

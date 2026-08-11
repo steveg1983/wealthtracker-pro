@@ -650,3 +650,56 @@ fn an_empty_review_flag_is_refused_by_name() {
     assert_eq!(error.code(), "boolean_invalid");
     assert!(error.to_string().contains("needs_review"), "{error}");
 }
+
+#[test]
+fn an_edit_that_says_nothing_about_review_answers_with_the_stored_flag() {
+    // THE RESULT PROJECTION (slice 27), and the gap it closes.
+    //
+    // `localDataPort.ts`'s header wrote this failure down before there was a
+    // caller to suffer it: a write answered out of the AUDIT projection, which
+    // has no `needs_review`, so an edit that never mentioned the flag answered
+    // `false` for a row that was still new work — and a caller replacing its
+    // copy with the answer un-bolded an imported row in the register until the
+    // next read. The row here is imported and untouched by the patch.
+    let mut connection = fixture();
+    connection
+        .execute("UPDATE transactions SET needs_review = 1 WHERE id = ?1", [ROW])
+        .expect("arrange");
+
+    let result = run(&mut connection, patch(serde_json::json!({ "notes": "edited" })));
+
+    assert!(result.transaction.needs_review, "the answer must say what the file holds");
+    assert_eq!(review(&connection), 1, "and the file must still hold it");
+}
+
+#[test]
+fn the_audit_payload_is_not_the_answer_and_does_not_carry_the_flag() {
+    // The other half of the same decision, and the reason the projection is a
+    // wrapper rather than a wider `TransactionRow`: the audit payload is
+    // hash-chained and compared field by field against the cloud's `ROW_JSON`
+    // twin (`scripts/local-sqlite/schema.sql`, amendment 6). Widening it would
+    // re-chain history to record what the review flag already says elsewhere.
+    let mut connection = fixture();
+    connection
+        .execute("UPDATE transactions SET needs_review = 1 WHERE id = ?1", [ROW])
+        .expect("arrange");
+
+    run(&mut connection, patch(serde_json::json!({ "notes": "edited" })));
+
+    let (before, after): (String, String) = connection
+        .query_row(
+            "SELECT before_data, after_data FROM financial_audit_log
+              WHERE entity = 'transaction' ORDER BY seq DESC LIMIT 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("an audit row");
+
+    for (which, payload) in [("before", &before), ("after", &after)] {
+        let parsed: serde_json::Value = serde_json::from_str(payload).expect("audit json");
+        assert!(
+            parsed.get("needs_review").is_none(),
+            "the {which} payload widened: {payload}"
+        );
+    }
+}

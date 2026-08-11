@@ -59,6 +59,15 @@
 //!   and the metadata blob) and the boot carries THREE the audit has not got
 //!   (`needs_review`, `created_at`, `updated_at`). Neither is a subset, so
 //!   neither could serve as the other narrowed.
+//!
+//!   Since slice 27 there is a THIRD, [`WrittenTransaction`], and it is the one
+//!   projection that IS another one widened: the audit row plus `needs_review`,
+//!   which is what a write hands back. A write's answer is a different question
+//!   again from what the audit records — *what does this row look like now?*,
+//!   asked by something about to draw it — and answering it out of the audit's
+//!   field set reported every written row as reviewed. The two timestamps are
+//!   deliberately still absent: nothing reads them off a write's answer, which
+//!   `localDataPort.ts`'s header established before this projection existed.
 //! * [`split`] — the same shape again, and for the same two reasons at once:
 //!   `SplitRow` is the line set the split writer embeds in its audit entry, and
 //!   widening it to the reader's would put `created_at` into a payload two
@@ -227,6 +236,110 @@ pub fn read_transaction(connection: &Connection, id: &str) -> CoreResult<Transac
         row.tags.push(tag?);
     }
     Ok(row)
+}
+
+/// A transaction as a WRITE HANDS IT BACK: the audit projection, and the one
+/// column a write must answer truthfully that the audit does not carry.
+///
+/// # Why there is a third projection rather than a wider first one
+///
+/// [`TransactionRow`] is the AUDIT entry's field set and [`ListedTransaction`]
+/// is the boot's, and the module documentation above says why neither can serve
+/// as the other narrowed. This is the third, and it exists because a write's
+/// answer is a third question again: *what does the row look like now?*, asked
+/// by a caller that is about to put it on the screen.
+///
+/// Until this slice a write answered with [`TransactionRow`], which meant it
+/// answered `needs_review: false` for a row that was still new work — an update
+/// that did not mention the flag un-bolded an imported row in the register until
+/// the next read. `localDataPort.ts`'s header recorded that gap, and both it and
+/// `scripts/local-sqlite/schema.sql`'s amendment (6) ruled where the fix goes:
+/// *"the field's read-back home is the RESULT projection"*, and NOT a wider
+/// [`TransactionRow`], because that struct is hash-chained into every audit row
+/// and compared field by field against the cloud's `ROW_JSON` twin. Widening it
+/// would re-chain history to record what the review flag already says elsewhere.
+///
+/// So this type WRAPS the audit row rather than restating it. The wrapping is
+/// what keeps the two from drifting: a column added to [`TransactionRow`]
+/// appears here for free, and nothing here can be added to that.
+///
+/// # The audit payload cannot widen by accident, and that is structural
+///
+/// Every `audit::write` call site in the crate still serialises a
+/// [`TransactionRow`] — those lines are untouched by the projection — and this
+/// type is only ever built where an ANSWER is. A verb that forgets to build one
+/// answers narrow, and the differential harness says so on the next run:
+/// `ROW_JSON` projects `needs_review` on the Postgres side, so a Rust answer
+/// without it is reported as `row.needs_review: (absent) vs false` by
+/// `verbs.mjs`'s parity check, on every spec that verb has.
+#[derive(Debug, Clone, Serialize)]
+pub struct WrittenTransaction {
+    /// Everything the audit records, in the audit's own order.
+    #[serde(flatten)]
+    pub row: TransactionRow,
+    /// Did this row arrive from an import nobody has looked at yet?
+    ///
+    /// Last, because it is the one field this projection adds. `serde_json` is
+    /// built with `preserve_order`, so an answer's key order is this
+    /// declaration's and a reader can diff two of them.
+    pub needs_review: bool,
+}
+
+/// Reading a COLUMN off a written row reads the stored row's column.
+///
+/// The two projections differ in what they SERIALISE, which is the whole of the
+/// distinction: `Serialize` is what puts a payload in the audit chain and what
+/// puts an answer on the wire, and this trait touches neither. What it buys is
+/// that `result.transaction.amount` goes on meaning the amount — the crate's
+/// integration tests were not edited by the slice that added this type, so they
+/// are still evidence about behaviour rather than a record of a rename.
+impl std::ops::Deref for WrittenTransaction {
+    type Target = TransactionRow;
+
+    fn deref(&self) -> &Self::Target {
+        &self.row
+    }
+}
+
+/// The result projection of a row that has already been read.
+///
+/// Takes the [`TransactionRow`] rather than an id, so that a verb which audits
+/// the row it answers with reads the wide row ONCE: what this adds is a single
+/// scalar lookup on the primary key, on the connection that is already inside
+/// the verb's transaction. The alternative — a second `read_transaction` — would
+/// re-run the tag query too, which for the verbs that answer with a LIST is one
+/// extra query per row for a column that is one bit.
+///
+/// # Errors
+/// [`crate::error::CoreError::Storage`] if the read fails. The row was just
+/// read, so its absence here would mean it went between the two statements —
+/// impossible inside the verb's own transaction, and reported rather than
+/// assumed away.
+pub fn written(connection: &Connection, row: TransactionRow) -> CoreResult<WrittenTransaction> {
+    let needs_review: i64 = connection.query_row(
+        "SELECT needs_review FROM transactions WHERE id = ?1",
+        params![row.id],
+        |record| record.get(0),
+    )?;
+    Ok(WrittenTransaction {
+        row,
+        needs_review: needs_review != 0,
+    })
+}
+
+/// Every row in a list, as the result projection.
+///
+/// # Errors
+/// As [`written`].
+pub fn written_all(
+    connection: &Connection,
+    rows: Vec<TransactionRow>,
+) -> CoreResult<Vec<WrittenTransaction>> {
+    let mut answered = Vec::with_capacity(rows.len());
+    for row in rows {
+        answered.push(written(connection, row)?);
+    }
+    Ok(answered)
 }
 
 /// Read one transaction, but only if it belongs to this user — and `None` rather
@@ -537,4 +650,116 @@ fn owned_tags(connection: &Connection, user_id: &str) -> CoreResult<Vec<(String,
         tags.push(tag?);
     }
     Ok(tags)
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::{Money, TransactionRow, WrittenTransaction};
+
+    /// The audit entry's field set, in the audit entry's order.
+    ///
+    /// Written out rather than derived, because deriving it from the struct
+    /// would make this test agree with whatever the struct says — which is the
+    /// one thing it must not do. Every name here is a key in a payload that is
+    /// hash-chained into `financial_audit_log` and compared field by field
+    /// against the cloud through `lib/verb-postgres.mjs`'s `ROW_JSON`.
+    const AUDIT_KEYS: [&str; 29] = [
+        "id",
+        "user_id",
+        "account_id",
+        "description",
+        "amount",
+        "type",
+        "date",
+        "category",
+        "category_id",
+        "notes",
+        "merchant_name",
+        "location_city",
+        "location_country",
+        "payment_channel",
+        "is_recurring",
+        "is_cleared",
+        "is_reconciled",
+        "is_split",
+        "archived",
+        "statement_sequence",
+        "category_confirmed",
+        "transfer_account_id",
+        "linked_transfer_id",
+        "linked_transfer_split_id",
+        "import_source",
+        "import_source_id",
+        "external_transaction_id",
+        "metadata",
+        "tags",
+    ];
+
+    fn a_row() -> TransactionRow {
+        TransactionRow {
+            id: "11111111-1111-4111-8111-111111111111".to_owned(),
+            user_id: "22222222-2222-4222-8222-222222222222".to_owned(),
+            account_id: "33333333-3333-4333-8333-333333333333".to_owned(),
+            description: "Coffee".to_owned(),
+            amount: Money::from_minor(-250),
+            kind: "expense".to_owned(),
+            date: "2026-08-11".to_owned(),
+            category: None,
+            category_id: None,
+            notes: None,
+            merchant_name: None,
+            location_city: None,
+            location_country: None,
+            payment_channel: None,
+            is_recurring: false,
+            is_cleared: false,
+            is_reconciled: None,
+            is_split: false,
+            archived: false,
+            statement_sequence: None,
+            category_confirmed: true,
+            transfer_account_id: None,
+            linked_transfer_id: None,
+            linked_transfer_split_id: None,
+            import_source: None,
+            import_source_id: None,
+            external_transaction_id: None,
+            metadata: serde_json::Value::Null,
+            tags: Vec::new(),
+        }
+    }
+
+    fn keys(value: &serde_json::Value) -> Vec<String> {
+        value
+            .as_object()
+            .expect("a row serialises as an object")
+            .keys()
+            .cloned()
+            .collect()
+    }
+
+    #[test]
+    fn the_audit_projection_is_exactly_what_the_chain_already_records() {
+        let payload = serde_json::to_value(a_row()).unwrap();
+        assert_eq!(keys(&payload), AUDIT_KEYS.to_vec());
+    }
+
+    #[test]
+    fn the_result_projection_is_the_audit_projection_plus_the_review_flag() {
+        let written = WrittenTransaction {
+            row: a_row(),
+            needs_review: true,
+        };
+        let payload = serde_json::to_value(&written).unwrap();
+
+        let mut expected: Vec<String> = AUDIT_KEYS.iter().map(|key| (*key).to_owned()).collect();
+        expected.push("needs_review".to_owned());
+        assert_eq!(keys(&payload), expected);
+
+        // The flag is the ANSWER's, not a copy of something already in the row:
+        // reading it back off the payload is what the port's `toTransaction`
+        // does, and it is the whole point of the projection.
+        assert_eq!(payload.get("needs_review"), Some(&serde_json::json!(true)));
+    }
 }

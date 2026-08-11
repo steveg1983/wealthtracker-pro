@@ -18,6 +18,8 @@
 | Threshold | `node scripts/verify-coverage-threshold.mjs …` | ✅ | ≥63 % statements / ≥55 % branches (recalibrated 2026-06 after dead Redux removal) |
 | Supabase smoke | `npm run test:supabase-smoke` | ✅ | Logs saved to `logs/supabase-smoke/` |
 | Build parity | `npm run build` | ✅ | Mirrors Vercel’s `vite build` via `scripts/build-web.mjs` |
+| Desktop shell | `npm run desktop:check` | ✅ | clippy `-D warnings` + the shell crate's own tests (`apps/desktop/src-tauri`) |
+| Desktop build | `npm run desktop:build` | ✅ | `vite` → `apps/desktop/dist`, then `cargo build --release`. The renderer must be built first: `generate_context!` embeds it |
 
 Latest Vercel preview: `wealthtracker-l514dsq11` (2025‑10‑29 21:33 UTC). Build chunk warnings (Plotly/XLSX) tracked in `docs/bundle-optimization-plan.md`.
 
