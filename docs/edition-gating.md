@@ -99,11 +99,109 @@ Four instruments, on purpose. Each catches what the others structurally cannot.
 | `deviceDocument.cloudFree.test.ts` | the import graph from the DATA root | every test run | a cloud module pulled in through the object graph |
 | `desktopEntry.cloudFree.test.ts` | the import graph from `src/desktop/main.tsx` | every test run | a cloud module pulled in through the component tree, and a mis-pointed alias |
 | `scripts/desktop-bundle-greps.mjs` | the built bundle | `npm run desktop:verify` | anything a *dependency* drags in, and anything a plugin injects |
+| `scripts/desktop-bundle-size.mjs` | the built bundle's weight | the same | growth that is **perfectly cloud-free** — 144 modules of shared UI arriving at once, which every row above passes |
 
 The lint rule can only see specifiers it was told about. The graph walks read
 the source the way a bundler *would* have. The greps read what a bundler *did*.
-None of them is redundant, and the last one refuses rather than skips when there
-is no build to look at.
+The ratchet reads how much of it there is, which is the one question the other
+four cannot be made to answer: a renderer that doubled in size without importing
+a single forbidden module satisfies all of them. None is redundant, and the last
+two refuse rather than skip when there is no build to look at.
+
+---
+
+## What runs in CI, where, and why
+
+Everything above was enforced only on whichever machine happened to run it.
+Slice 30 wired it. Two workflows, four jobs, and one rule for deciding which
+job a check belongs in: **cost and environment, never importance.**
+
+### On every pull request — `.github/workflows/handoff-snapshot.yml`
+
+| job | runs | needs |
+| --- | --- | --- |
+| `desktop-renderer` | `desktop:ui`, `desktop:greps`, `bundle:check:desktop` | Node |
+| `local-core` | `cargo clippy`, `cargo test` (468), the release bridge, `test:local-contract` (127), `test:local-admission` (109) | Node + a Rust toolchain |
+
+Two jobs and not one, because *"which half broke"* is the first question anyone
+asks a red build and a single job cannot answer it. The renderer half also
+finishes in seconds while the core half is still compiling.
+
+**Node 22, not the 20 the web jobs use.** `node:sqlite` is how both the harness
+and the contract fixtures open a ledger file, and it does not exist before 22.5.
+The web jobs are left on 20 deliberately: their version is a build-parity
+question with Vercel and has nothing to do with this.
+
+**No third-party actions.** `rustup` and a stable toolchain ship in the runner
+image, and `actions/cache` is first-party. This repository is public; every
+extra action is another owner of a token that can read a finance codebase.
+
+**The cargo cache holds the registry, not `target/`.** Measured on an M4
+(2026-08-12): a cold `cargo test` plus a cold `cargo build --release --features
+cli` over this workspace's 65 packages is ~89 CPU-seconds and leaves a 726 MB
+target directory. Round-tripping most of a gigabyte through the cache service to
+save that is not obviously a saving, and it is a much bigger thing to go wrong.
+
+### Nightly — `.github/workflows/local-edition-nightly.yml`
+
+| job | runs | why not on a PR |
+| --- | --- | --- |
+| `differential` | `test:local-sqlite` (67), `test:local-verbs` (474) | needs a PostgreSQL cluster with 51 migrations applied — minutes of setup before one spec runs |
+| `desktop-shell` | `desktop:check`, `desktop:build`, the ratchet again | Tauri needs webkit2gtk and five more `-dev` packages on Linux, then 262 CPU-seconds to link 454 crates |
+
+The differential harness is the most load-bearing thing in the local edition and
+it is nightly anyway. It is the clearest case for the rule: the cloud's own
+schema is its oracle, and standing that oracle up costs more than everything on
+a pull request put together.
+
+The shell build proves the shell **links**. It does not open a window — nothing
+in CI can, and `apps/desktop/README.md` has always said so. A three-minute job
+proving a link step is a nightly.
+
+### Why a service container is not how the Postgres lanes get their database
+
+The obvious wiring is `services: postgres:17` and it does not fit, for three
+reasons that are all in the harness rather than in the container:
+
+* the engines connect with `-h $WT_PGDATA`, a **unix socket directory**, under
+  trust auth. A service container offers TCP with a password.
+* the cluster is not an empty Postgres. It is the **whole migration history**,
+  applied in three passes, plus three roles and the `auth.uid`/`auth.role`/
+  `auth.jwt` stand-ins that every RLS policy calls. `up.sh` is the only thing
+  that knows that recipe.
+* `up.sh` would then need a second mode, and the harness a second connection
+  shape, so that CI could use a Postgres it configures *less* well.
+
+The runner already has `initdb`. Letting the existing script do exactly what it
+does on a developer's machine is both less code and a closer match to what is
+being tested. What that needed was one real change — `pgbin.sh`, because Debian
+keeps the server binaries off `PATH` — and it is the same script either way.
+
+### What has and has not actually been run
+
+**Verified locally, 2026-08-12:** a cluster built from scratch under a separate
+`WT_PGDATA` on a separate port applied every migration (`unapplied: 0`), and
+both lanes were **67/67** and **474/474** against it. That is the nightly's
+riskiest step, done by hand.
+
+**Not verified:** these workflows have never executed on GitHub's runners, and
+cannot be from here. `actionlint` passes on both files. **Their first real run
+is the pull request that introduces them**, and the two things that can still
+surprise them are Linux-specific and commented where they occur: where Debian
+puts `initdb`, and Tauri's `-dev` package list. Both fail loudly at a named
+step rather than degrading to green.
+
+### The one thing none of the desktop jobs catches
+
+`npm run desktop:ui` **builds a renderer with type errors in it.** Measured:
+planting `const x: number = 'string'` in `src/desktop/tauriShell.ts` leaves
+`desktop:ui` at exit 0 and every check in this section green — Vite hands
+TypeScript to esbuild, which strips types without reading them.
+
+What catches it is `tsc -b` in the *web* `quality-gates` job, which reaches the
+renderer through one `references` line in the root `tsconfig.json`. Delete that
+line and `src/desktop` stops being typechecked by anything at all.
+`src/desktop/__tests__/desktopIsGated.test.ts` is that line, asserted.
 
 ---
 

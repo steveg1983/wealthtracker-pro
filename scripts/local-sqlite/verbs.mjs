@@ -13,7 +13,7 @@
 //
 // SIBLING, NOT AN EXTENSION, OF run.mjs
 // -------------------------------------
-// The 54 constraint specs prove that a schema refuses a write. A verb spec
+// The 67 constraint specs prove that a schema refuses a write. A verb spec
 // proves that two implementations of one operation agree — on what they return,
 // on what they refuse, AND on the rows they leave behind. Those are different
 // questions with different spec shapes (a constraint spec carries SQL per
@@ -21,7 +21,10 @@
 // would mean a spec file that can be either, which is a spec file that has to be
 // read twice before you know what it is.
 //
-// `npm run test:local-sqlite` is unchanged and still 54/54.
+// `npm run test:local-sqlite` is unchanged and still passes whole: 67/67 as of
+// 2026-08-12. (It said "54/54" here for eleven slices after the constraint lane
+// grew past 54, which is the argument for the sentence above this one being the
+// durable claim and the number being the perishable one.)
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

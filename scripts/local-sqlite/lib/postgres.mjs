@@ -5,8 +5,8 @@
 // harness is a shell script that runs *.test.sql files and greps their output,
 // which is the right shape for a hand-written SQL test and the wrong shape for a
 // spec that has to report accepted-vs-refused per statement. So this file talks
-// to the same cluster with the same conventions (WT_PGDATA, WT_PGPORT, LC_ALL=C,
-// the homebrew postgresql@17 PATH) and drives psql itself.
+// to the same cluster with the same conventions (WT_PGBIN, WT_PGDATA, WT_PGPORT,
+// LC_ALL=C) and drives psql itself.
 //
 // NOTHING under scripts/local-db is modified. The two harnesses share a cluster
 // and nothing else.
@@ -20,12 +20,21 @@ const SETUP_OK = '__SETUP_OK__';
 const ACTION_OK = '__ACTION_OK__';
 const VERIFY = '__V__';
 
+/**
+ * `WT_PGBIN` first, because it is what scripts/local-db/pgbin.sh exports after
+ * finding the cluster's own binaries — on Linux those are under
+ * /usr/lib/postgresql/<major>/bin and not on PATH at all. The homebrew path
+ * stays as the macOS default so a developer who never sets anything is
+ * unaffected, and PATH last so a psql already there still wins over nothing.
+ */
 function psqlEnv() {
+  const prefix = [process.env.WT_PGBIN, '/opt/homebrew/opt/postgresql@17/bin'].filter(Boolean);
   return {
     ...process.env,
-    PATH: `/opt/homebrew/opt/postgresql@17/bin:${process.env.PATH ?? ''}`,
-    // scripts/local-db/up.sh sets this and says why: without it macOS aborts the
-    // server with "postmaster became multithreaded during startup".
+    PATH: [...prefix, process.env.PATH ?? ''].join(':'),
+    // scripts/local-db/pgbin.sh sets this and says why: without it macOS aborts
+    // the server with "postmaster became multithreaded during startup", and the
+    // resulting SQL_ASCII cluster is what spec x1-* is written against.
     LC_ALL: 'C',
   };
 }

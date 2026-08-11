@@ -2,7 +2,7 @@
 
 Applies the proposed local-edition SQLite schema and the cloud's Postgres schema
 side by side, runs the same operation against both, and records what each one
-does with it. Sixty-six specs, one declarative invariant each.
+does with it. Sixty-seven specs, one declarative invariant each.
 
 **Three lanes live in this directory now**, and they ask three different
 questions. `run.mjs` asks whether a SCHEMA refuses a write; `verbs.mjs` asks
@@ -515,7 +515,7 @@ in `src/` or `api/` calls them, and `schema.sql` already carries them as C-3, C-
 and C-5. And there is **no create/update/delete-category verb because the cloud
 has no such RPC** — `PlanningService` writes the table directly
 (`planningService.ts:479`, `:567`, `:638`), so the authority for those operations
-is the table plus its constraints, which the 64 constraint specs already cover.
+is the table plus its constraints, which the 67 constraint specs already cover.
 One category RPC that DOES exist is deliberately not ported and the decision is
 written down in `verbs/mod.rs`: `migrate_categories_atomic`, the one-way door
 between the localStorage id space and the cloud's uuids, which has no meaning in
@@ -788,11 +788,17 @@ Each of these was executed, then reverted.
 
 ### Current run
 
-**459 verb specs · 459 pass · 25 declared divergences · 24 single-engine**,
-2026-08-11, against a reference cluster rebuilt from the full migration history.
-`npm run test:local-sqlite` is **67/67 for the first time since
-20260810200000 landed in the cloud** (see A-3 above),
-`npm run test:local-admission` is 109/109 and `cargo test` is **420**.
+**474 verb specs · 474 pass · 26 declared divergences · 24 single-engine**,
+2026-08-12, against a reference cluster rebuilt from the full migration history.
+`npm run test:local-sqlite` is **67/67**, `npm run test:local-admission` is
+109/109 and `cargo test` is **468**.
+
+Re-measured at slice 30 on a cluster built **from scratch** — `initdb`, then the
+whole migration history — rather than on the one that had been accumulating on
+this machine since slice 18. That distinction had never been tested before and
+it is the one CI depends on: a nightly gets a fresh cluster every time. Both
+lanes give the same numbers on both, which is the result that made the nightly
+in `.github/workflows/local-edition-nightly.yml` worth wiring.
 
 The reconciliation and archive family adds 26 — six for `set_transactions_cleared`,
 eight for `finalize_reconciliation`, four for `set_transactions_archived`, four
@@ -1550,18 +1556,30 @@ and both are places the port says MORE than its oracle.
 path and the admission surface all exist, all have executable proofs, and the
 proofs run in three lanes in this directory:
 
-| | count | oracle |
-| --- | --- | --- |
-| constraint specs (`run.mjs`) | 66 | the cloud's Postgres schema |
-| verb specs (`verbs.mjs`) | 308 | the live Postgres RPCs |
-| admission specs (`admission.mjs`) | 109 | the TypeScript modules that ship today |
-| crate tests (`cargo test`) | 270 | — |
+Counts re-measured 2026-08-12 (slice 30). They had drifted — this table said
+66 / 308 / 270 and the "current run" section above said 459 and 420 — which is
+the ordinary fate of a number typed into prose. Every figure below is now also
+printed by the command beside it, so the next drift is one `npm run` away from
+being visible.
 
-**483 specs and 29 declared divergences, every divergence pinned from both
-sides.** Of the 483, **459 actually compare two implementations**: the other 24
+| | count | oracle | where it runs |
+| --- | --- | --- | --- |
+| constraint specs (`run.mjs`) | 67 | the cloud's Postgres schema | nightly (needs the cluster) |
+| verb specs (`verbs.mjs`) | 474 | the live Postgres RPCs | nightly (needs the cluster) |
+| admission specs (`admission.mjs`) | 109 | the TypeScript modules that ship today | **every PR** |
+| crate tests (`cargo test`) | 468 | — | **every PR** |
+
+**650 specs and 30 declared divergences, every divergence pinned from both
+sides.** Of the 650, **626 actually compare two implementations**: the other 24
 are `verify_integrity`'s, which run on one engine because the cloud has no such
 function, and they are counted separately by their own runner for exactly that
 reason.
+
+The fourth column is slice 30's, and the split in it is by COST, never by
+importance — `docs/edition-gating.md` argues it out. The two lanes that need a
+PostgreSQL cluster with 51 migrations applied are the most load-bearing thing
+here and they are nightly because standing that cluster up takes longer than
+everything else on a pull request put together.
 
 That is what closed means. Here is what it does not.
 
