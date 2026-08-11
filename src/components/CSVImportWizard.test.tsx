@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CSVImportWizard from './CSVImportWizard';
 import { enhancedCsvImportService } from '../services/enhancedCsvImportService';
@@ -58,6 +58,31 @@ vi.mock('../services/port', () => ({
  * import writes it correctly; a mapping that names a column the file has not
  * got) are bugs in exactly the code a stub would replace.
  */
+/**
+ * A whole ParsedCsv, from just the headers and rows a test cares about.
+ *
+ * The wizard reads every field of this shape — the physical line each row
+ * starts on, where the headings were found, what sat above them — so a mock
+ * that answered only `headers` and `data` would be testing the component
+ * against a contract the real service does not have. Rows are numbered as a
+ * file with a one-line header and no covering block would number them, which is
+ * what these fixtures are.
+ */
+function parsedCsv(headers: string[], data: string[][]) {
+  return {
+    headers,
+    data,
+    lines: data.map((_, index) => index + 2),
+    headerLine: 1,
+    preamble: [],
+    headingCandidates: [
+      { cells: headers, line: 1, lineSpan: 1, raw: headers.join(',') }
+    ],
+    headerDetectedBecause: null,
+    unterminatedQuoteLine: null
+  };
+}
+
 vi.mock('../services/enhancedCsvImportService', async () => {
   const actual = await vi.importActual<typeof import('../services/enhancedCsvImportService')>(
     '../services/enhancedCsvImportService'
@@ -70,14 +95,19 @@ vi.mock('../services/enhancedCsvImportService', async () => {
     buildRows: real.buildRows.bind(real),
     missingRequiredFields: real.missingRequiredFields.bind(real),
     listBankTemplates: real.listBankTemplates.bind(real),
-    parseCSV: vi.fn(() => ({
-      headers: ['Date', 'Description', 'Amount', 'Account'],
-      data: [
+    // The whole ParsedCsv shape, because the wizard now uses all of it: the
+    // physical line each row starts on (printed in every refusal), where the
+    // headings were found, and what sat above them. Built by parsedCsv() below
+    // so a mock can never answer half of a contract the component relies on.
+    parseCSV: vi.fn(() => parsedCsv(
+      ['Date', 'Description', 'Amount', 'Account'],
+      [
         ['2023-01-15', 'Grocery Store', '-85.50', 'Checking'],
         ['2023-01-16', 'Salary', '2000.00', 'Checking'],
         ['2023-01-17', 'Coffee Shop', '-4.50', 'Checking'],
-      ],
-    })),
+      ]
+    )),
+    dateColumnSamples: real.dateColumnSamples.bind(real),
     suggestMappings: vi.fn(() => [
       { sourceColumn: 'Date', targetField: 'date' },
       { sourceColumn: 'Description', targetField: 'description' },
@@ -90,8 +120,9 @@ vi.mock('../services/enhancedCsvImportService', async () => {
       { sourceColumn: 'Amount', targetField: 'amount' },
     ]),
     getProfiles: vi.fn(() => [
-      { id: 'profile-1', name: 'My Bank Profile', type: 'transaction', mappings: [], lastUsed: new Date() },
+      { id: 'profile-1', name: 'My Bank Profile', mappings: [], lastUsed: new Date() },
     ]),
+    consumeDiscardedProfileNotice: vi.fn(() => []),
     saveProfile: vi.fn(),
     deleteProfile: vi.fn(() => true),
     renameProfile: vi.fn(() => true),
@@ -212,12 +243,11 @@ describe('CSVImportWizard', () => {
     vi.clearAllMocks();
   });
 
-  const renderWizard = (isOpen = true, type: 'transaction' | 'account' = 'transaction') => {
+  const renderWizard = (isOpen = true) => {
     return render(
       <CSVImportWizard
         isOpen={isOpen}
         onClose={mockOnClose}
-        type={type}
       />
     );
   };
@@ -393,6 +423,10 @@ describe('CSVImportWizard', () => {
       expect(screen.getByText('Save Current')).toBeInTheDocument();
     });
 
+    it('says nothing about removed profiles when none were removed', () => {
+      expect(screen.queryByText(/was for creating accounts from a CSV/)).not.toBeInTheDocument();
+    });
+
     it('displays column mappings', () => {
       expect(screen.getAllByText('Select CSV column...')).toHaveLength(4); // Multiple mapping rows
       expect(screen.getAllByText('Select target field...')).toHaveLength(4);
@@ -527,10 +561,9 @@ describe('CSVImportWizard', () => {
 
     const previewLloydsFile = async (): Promise<void> => {
       const user = userEvent.setup();
-      vi.mocked(enhancedCsvImportService.parseCSV).mockReturnValueOnce({
-        headers: LLOYDS_HEADERS,
-        data: LLOYDS_ROWS,
-      });
+      vi.mocked(enhancedCsvImportService.parseCSV).mockReturnValueOnce(
+        parsedCsv(LLOYDS_HEADERS, LLOYDS_ROWS)
+      );
       vi.mocked(enhancedCsvImportService.suggestMappings).mockReturnValueOnce(LLOYDS_MAPPINGS);
 
       renderWizard(true);
@@ -1096,16 +1129,73 @@ describe('CSVImportWizard', () => {
 
   describe('transaction vs account type', () => {
     it('displays transaction-specific fields for transaction import', () => {
-      renderWizard(true, 'transaction');
+      renderWizard(true);
       
       // Navigate to see target fields (would need to get to mapping step)
       expect(screen.getByTestId('modal-title')).toHaveTextContent('CSV Import Wizard');
     });
 
-    it('displays account-specific fields for account import', () => {
-      renderWizard(true, 'account');
-      
-      expect(screen.getByTestId('modal-title')).toHaveTextContent('CSV Import Wizard');
+    /**
+     * There is no account import and there never was — the branch behind the
+     * old `type='account'` prop wrote nothing at all. The mapping step offers
+     * exactly the fields a transaction has, so a column cannot be pointed at a
+     * destination that would silently discard it.
+     */
+    it('offers only the fields a transaction actually has', async () => {
+      const user = userEvent.setup();
+      renderWizard(true);
+      await user.upload(
+        screen.getByLabelText(/select file/i),
+        new File(['Date,Description,Amount\n2023-01-15,Test,-10.00'], 'test.csv', { type: 'text/csv' })
+      );
+      await waitFor(() => {
+        expect(screen.getByText('Column Mapping')).toBeInTheDocument();
+      });
+
+      const target = screen.getByRole('combobox', { name: 'Target field for mapping 1' });
+      expect(
+        within(target).getAllByRole('option').map(option => option.textContent)
+      ).toEqual([
+        'Select target field...',
+        'date',
+        'description',
+        'amount',
+        'category',
+        'accountName',
+        'type',
+        'tags',
+        'notes'
+      ]);
+    });
+  });
+
+  /**
+   * A saved profile marked for the account import could never have imported
+   * anything — the branch behind it wrote nothing. Dropping it is the honest
+   * outcome, but dropping it in SILENCE would be a second unasked-for change:
+   * the user saved that profile and is entitled to know it has gone.
+   */
+  describe('a saved profile removed because its feature never existed', () => {
+    it('says so, once, on the step where profiles live', async () => {
+      const user = userEvent.setup();
+      vi.mocked(enhancedCsvImportService.consumeDiscardedProfileNotice).mockReturnValueOnce([
+        'Account opening balances'
+      ]);
+      renderWizard(true);
+      await user.upload(
+        screen.getByLabelText(/select file/i),
+        new File(['Date,Description,Amount\n2023-01-15,Test,-10.00'], 'test.csv', { type: 'text/csv' })
+      );
+      await waitFor(() => {
+        expect(screen.getByText('Column Mapping')).toBeInTheDocument();
+      });
+
+      expect(
+        screen.getByText(
+          /The saved profile “Account opening balances” was for creating accounts from a CSV, which this app has never done/
+        )
+      ).toBeInTheDocument();
+      expect(screen.getByText(/Your transaction profiles are untouched/)).toBeInTheDocument();
     });
   });
 
@@ -1129,27 +1219,10 @@ describe('CSVImportWizard', () => {
         <CSVImportWizard
           isOpen={false}
           onClose={mockOnClose}
-          type="transaction"
         />
       );
       
       expect(screen.queryByTestId('modal')).not.toBeInTheDocument();
-    });
-
-    it('handles type prop changes', () => {
-      const { rerender } = renderWizard(true, 'transaction');
-      
-      expect(screen.getByTestId('modal')).toBeInTheDocument();
-      
-      rerender(
-        <CSVImportWizard
-          isOpen={true}
-          onClose={mockOnClose}
-          type="account"
-        />
-      );
-      
-      expect(screen.getByTestId('modal')).toBeInTheDocument();
     });
 
     it('handles empty file upload', async () => {
@@ -1255,7 +1328,6 @@ describe('CSVImportWizard', () => {
         <CSVImportWizard
           isOpen
           onClose={mockOnClose}
-          type="transaction"
           initialFile={file}
         />
       );
@@ -1289,7 +1361,7 @@ describe('CSVImportWizard', () => {
       });
 
       rerender(
-        <CSVImportWizard isOpen onClose={mockOnClose} type="transaction" initialFile={file} />
+        <CSVImportWizard isOpen onClose={mockOnClose} initialFile={file} />
       );
       rerender(
         <CSVImportWizard isOpen onClose={mockOnClose} type="transaction" initialFile={file} />

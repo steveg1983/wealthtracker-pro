@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useApp } from '../contexts/AppContextSupabase';
 import {
   enhancedCsvImportService,
+  IMPORTABLE_TRANSACTION_FIELDS,
   type BankTemplate,
   type ColumnMapping,
   type ImportProfile,
@@ -10,6 +11,17 @@ import {
 import { dataPort, type BulkImportResult } from '../services/port';
 import { summariseMissingRows, type MissingRowsSummary } from '../utils/partialImportSummary';
 import { applyMappingPrefill } from '../utils/csvMappingPrefill';
+import type { CsvRecord } from '../utils/csvTokenizer';
+import {
+  CSV_DATE_FORMATS,
+  DATE_FORMAT_LABELS,
+  DATE_FORMAT_NAMES,
+  describeAs,
+  inferDateFormat,
+  resolveDateFormat,
+  SUGGESTED_AMBIGUOUS_FORMAT,
+  type CsvDateFormatChoice
+} from '../utils/csvDateFormat';
 import type { Account, Transaction } from '../types';
 import {
   UploadIcon,
@@ -68,6 +80,15 @@ interface PrefillReport {
   notImported: string[];
   /** Nothing matched, so the file's own headings were read instead. */
   fellBackToAutoDetect: boolean;
+  /**
+   * The date format it set, or null when it set none.
+   *
+   * Named because it is the one prefilled setting that can silently change what
+   * gets WRITTEN rather than merely which column is read: a template saying
+   * month-first over a day-first file transposes the first twelve days of every
+   * month. A prefill that quiet has to be printed.
+   */
+  dateFormat: CsvDateFormatChoice | null;
 }
 
 /** Which profile dialog is open, if any. */
@@ -76,10 +97,20 @@ type ProfileDialog =
   | { kind: 'rename'; profile: ImportProfile }
   | { kind: 'delete'; profile: ImportProfile };
 
+/**
+ * ── THIS WIZARD IMPORTS TRANSACTIONS. THAT IS THE WHOLE LIST ─────────────────
+ * There used to be a `type: 'transaction' | 'account'` prop. The account half
+ * never existed: the import branch behind it was a `// TODO` that wrote
+ * nothing, and latterly an out-loud refusal telling the user to go and make the
+ * account by hand. Everything downstream of that prop — a second set of
+ * suggested mappings, a second list of target fields, a second preview table
+ * built from raw cells, a filter on the saved-profile list — existed to serve a
+ * branch that could not do anything. Both call sites always passed
+ * 'transaction'.
+ */
 interface CSVImportWizardProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'transaction' | 'account';
   /**
    * A file chosen somewhere else — the Batch Import queue hands this wizard the
    * next .csv on its list. Accepting one here is what lets that queue stay a
@@ -130,7 +161,7 @@ const isTransactionDraft = (
 ): item is Partial<Transaction> =>
   'date' in item && 'amount' in item && 'description' in item && 'type' in item;
 
-export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: CSVImportWizardProps): React.JSX.Element {
+export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImportWizardProps): React.JSX.Element {
   const {
     accounts,
     transactions,
@@ -141,6 +172,46 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
   const [csvContent, setCsvContent] = useState('');
   const [headers, setHeaders] = useState<string[]>([]);
   const [data, setData] = useState<string[][]>([]);
+  /**
+   * `lines[i]` is the PHYSICAL file line `data[i]` starts on.
+   *
+   * Carried alongside the rows rather than computed from their index, because
+   * the two stopped being the same number the moment a quoted description could
+   * contain a newline: a row on file line 40 might be the 37th row. Every
+   * refusal printed on the preview step quotes one of these, and a person uses
+   * it to find that row in a text editor.
+   */
+  const [lines, setLines] = useState<number[]>([]);
+  /** Which physical line the column headings were read from. */
+  const [headerLine, setHeaderLine] = useState(1);
+  /** The records above the headings — a bank's covering block, shown greyed. */
+  const [preamble, setPreamble] = useState<CsvRecord[]>([]);
+  /**
+   * The file's opening lines, as the heading-line picker offers them.
+   *
+   * Held from the SAME parse that produced the rows rather than recomputed:
+   * reading the file a second time to fill a ten-line list would tokenize a
+   * whole statement to show its first ten lines, and — worse — two parses can
+   * disagree, which is how the picker would end up offering a line the mapping
+   * step is not actually using.
+   */
+  const [headingCandidates, setHeadingCandidates] = useState<CsvRecord[]>([]);
+  /** Why the headings were taken from where they were, when it was not line 1. */
+  const [headerDetectedBecause, setHeaderDetectedBecause] = useState<string | null>(null);
+  /** The heading line the USER chose, overriding detection. Null while detection stands. */
+  const [headerLineChoice, setHeaderLineChoice] = useState<number | null>(null);
+  /** Whether the "which line holds the headings" panel is open. */
+  const [showHeaderPicker, setShowHeaderPicker] = useState(false);
+  /**
+   * Which way round this file's dates are read.
+   *
+   * 'auto' means "let the file decide", and it is honoured only where the file
+   * CAN decide — a column containing any day past the 12th proves its own
+   * order, and an ISO column proves itself. Where every date could be read two
+   * ways, auto is not an answer and the gate below says so: guessing there is
+   * exactly the bug this control exists to remove.
+   */
+  const [dateFormatChoice, setDateFormatChoice] = useState<CsvDateFormatChoice>('auto');
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<ImportProfile | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -162,7 +233,15 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
    * and a render that re-reads a service is a list that updates by luck.
    */
   const [profiles, setProfiles] = useState<ImportProfile[]>(() =>
-    enhancedCsvImportService.getProfiles(type)
+    enhancedCsvImportService.getProfiles()
+  );
+  /**
+   * Saved profiles thrown away on load because they were for the account import
+   * this app never performed. Read once, said once — see
+   * consumeDiscardedProfileNotice.
+   */
+  const [discardedProfiles] = useState<string[]>(() =>
+    enhancedCsvImportService.consumeDiscardedProfileNotice()
   );
   const [profileDialog, setProfileDialog] = useState<ProfileDialog | null>(null);
   /**
@@ -207,6 +286,14 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
     setCsvContent('');
     setHeaders([]);
     setData([]);
+    setLines([]);
+    setHeaderLine(1);
+    setPreamble([]);
+    setHeadingCandidates([]);
+    setHeaderDetectedBecause(null);
+    setHeaderLineChoice(null);
+    setShowHeaderPicker(false);
+    setDateFormatChoice('auto');
     setMappings([]);
     setSelectedProfile(null);
     setImportResult(null);
@@ -248,6 +335,17 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
       const rows = parsed.data;
       const namedColumns = parsed.headers.filter(header => header.trim() !== '');
 
+      // A QUOTE THAT IS NEVER CLOSED IS NOT A NEAR-MISS. Everything from it to
+      // the end of the file has been swallowed into one cell, so the rows below
+      // are ABSENT rather than wrong — and a preview showing three rows of a
+      // four-hundred-row statement, with no explanation, is how somebody
+      // imports a quarter of their year and does not find out for months.
+      if (parsed.unterminatedQuoteLine !== null) {
+        setUploadError(
+          `Line ${parsed.unterminatedQuoteLine} of ${file.name} opens a quotation mark that is never closed, so everything after it has been read as one long value. Nothing has been imported. Open the file, close or remove that quote, and try again.`
+        );
+        return;
+      }
       if (namedColumns.length === 0) {
         setUploadError(
           `${file.name} has no column headings on its first line, so there is nothing to map its columns to. Nothing was imported.`
@@ -264,6 +362,16 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
       setCsvContent(content);
       setHeaders(parsed.headers);
       setData(rows);
+      setLines(parsed.lines);
+      setHeaderLine(parsed.headerLine);
+      setPreamble(parsed.preamble);
+      setHeadingCandidates(parsed.headingCandidates);
+      setHeaderDetectedBecause(parsed.headerDetectedBecause);
+      setHeaderLineChoice(null);
+      // Opened by default only when detection actually skipped something: the
+      // user is owed a sight of the lines being ignored, and nothing at all
+      // when nothing is being ignored.
+      setShowHeaderPicker(parsed.preamble.length > 0);
       setFileName(file.name);
       setUploadError(null);
 
@@ -274,18 +382,24 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
         const fellBack = prefill.applied.length === 0;
         setMappings(
           fellBack
-            ? enhancedCsvImportService.suggestMappings(parsed.headers, type)
+            ? enhancedCsvImportService.suggestMappings(parsed.headers)
             : prefill.applied
         );
+        // A template that matched nothing has told us nothing about this file,
+        // its date format included: prefilling one off a template that turned
+        // out to be for another bank would be the confident half of a guess.
+        setDateFormatChoice(fellBack ? 'auto' : selectedTemplate.dateFormat);
         setPrefillReport({
           source: selectedTemplate.label,
           appliedCount: prefill.applied.length,
           notInFile: prefill.notInFile,
           notImported: prefill.notImported,
-          fellBackToAutoDetect: fellBack
+          fellBackToAutoDetect: fellBack,
+          dateFormat: fellBack ? null : selectedTemplate.dateFormat
         });
       } else {
-        setMappings(enhancedCsvImportService.suggestMappings(parsed.headers, type));
+        setMappings(enhancedCsvImportService.suggestMappings(parsed.headers));
+        setDateFormatChoice('auto');
         setPrefillReport(null);
       }
 
@@ -293,7 +407,7 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
     };
 
     reader.readAsText(file);
-  }, [selectedTemplate, type]);
+  }, [selectedTemplate]);
 
   /**
    * Compared by IDENTITY, not by name: re-rendering with the same File must not
@@ -372,14 +486,20 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
     const prefill = applyMappingPrefill(profile.mappings, headers);
     const fellBack = prefill.applied.length === 0;
     setMappings(
-      fellBack ? enhancedCsvImportService.suggestMappings(headers, type) : prefill.applied
+      fellBack ? enhancedCsvImportService.suggestMappings(headers) : prefill.applied
     );
+    // Same reasoning as a template: a profile that matched no column of this
+    // file is a profile for another file, and its date format is a claim about
+    // that other file.
+    const restoredFormat = fellBack ? 'auto' : profile.dateFormat ?? 'auto';
+    setDateFormatChoice(restoredFormat);
     setPrefillReport({
       source: `Profile “${profile.name}”`,
       appliedCount: prefill.applied.length,
       notInFile: prefill.notInFile,
       notImported: prefill.notImported,
-      fellBackToAutoDetect: fellBack
+      fellBackToAutoDetect: fellBack,
+      dateFormat: fellBack || profile.dateFormat === undefined ? null : profile.dateFormat
     });
     // The duplicate settings are part of the same saved decision — a profile
     // that restored only the columns restored half of what it promised.
@@ -387,13 +507,17 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
     if (profile.duplicateThreshold !== undefined) setDuplicateThreshold(profile.duplicateThreshold);
   };
 
-  /** Save the current columns AND the duplicate settings under a name. */
+  /** Save the current columns, the date format AND the duplicate settings under a name. */
   const saveProfile = (name: string) => {
     const profile: ImportProfile = {
       id: `profile-${Date.now()}`,
       name,
-      type,
       mappings,
+      // Saved because it is part of the same decision as the columns: the bank
+      // that calls a column 'Paid out' is the bank that writes 01/06/2026, and
+      // a profile that remembered only the columns would ask the same question
+      // again every month.
+      dateFormat: dateFormatChoice,
       lastUsed: new Date(),
       skipDuplicates: showDuplicates,
       duplicateThreshold,
@@ -401,14 +525,14 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
     };
 
     enhancedCsvImportService.saveProfile(profile);
-    setProfiles(enhancedCsvImportService.getProfiles(type));
+    setProfiles(enhancedCsvImportService.getProfiles());
     setSelectedProfile(profile);
     setProfileDialog(null);
   };
 
   const renameProfile = (profile: ImportProfile, name: string) => {
     enhancedCsvImportService.renameProfile(profile.id, name);
-    const refreshed = enhancedCsvImportService.getProfiles(type);
+    const refreshed = enhancedCsvImportService.getProfiles();
     setProfiles(refreshed);
     // The id survives a rename, so the selection does too.
     setSelectedProfile(refreshed.find(entry => entry.id === profile.id) ?? null);
@@ -417,7 +541,7 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
 
   const deleteProfile = (profile: ImportProfile) => {
     enhancedCsvImportService.deleteProfile(profile.id);
-    setProfiles(enhancedCsvImportService.getProfiles(type));
+    setProfiles(enhancedCsvImportService.getProfiles());
     // The columns it loaded STAY on screen: deleting the note of a mapping is
     // not the same as undoing the mapping, and silently clearing the user's
     // work would be a second, unasked-for change.
@@ -441,15 +565,121 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
     }
     const prefill = applyMappingPrefill(template.mappings, headers);
     const fellBack = prefill.applied.length === 0;
-    setMappings(fellBack ? enhancedCsvImportService.suggestMappings(headers, type) : prefill.applied);
+    setMappings(fellBack ? enhancedCsvImportService.suggestMappings(headers) : prefill.applied);
+    setDateFormatChoice(fellBack ? 'auto' : template.dateFormat);
     setPrefillReport({
       source: template.label,
       appliedCount: prefill.applied.length,
       notInFile: prefill.notInFile,
       notImported: prefill.notImported,
-      fellBackToAutoDetect: fellBack
+      fellBackToAutoDetect: fellBack,
+      dateFormat: fellBack ? null : template.dateFormat
     });
   };
+
+  /**
+   * Read the file again with the headings taken from a different line.
+   *
+   * The mappings are re-suggested rather than kept: the columns have just
+   * changed identity, so a mapping pointing at "Account Name:" now points at
+   * nothing. Keeping it would leave the step looking configured while importing
+   * blanks — the exact failure the prefill report was built to stop.
+   */
+  const chooseHeaderLine = (line: number) => {
+    const parsed = enhancedCsvImportService.parseCSV(csvContent, { headerLine: line });
+    setHeaderLineChoice(line);
+    setHeaders(parsed.headers);
+    setData(parsed.data);
+    setLines(parsed.lines);
+    setHeaderLine(parsed.headerLine);
+    setPreamble(parsed.preamble);
+    setHeadingCandidates(parsed.headingCandidates);
+    setHeaderDetectedBecause(null);
+    setMappings(enhancedCsvImportService.suggestMappings(parsed.headers));
+    setDateFormatChoice('auto');
+    setPrefillReport(null);
+    setSelectedProfile(null);
+  };
+
+  /**
+   * What the FILE says about which way round its dates are.
+   *
+   * Recomputed when the date column's mapping moves, because the evidence lives
+   * in that column and nowhere else: point the date mapping at a different
+   * column and the question is a different question.
+   */
+  const dateSamples = useMemo(
+    () => enhancedCsvImportService.dateColumnSamples(headers, data, mappings, lines),
+    [headers, data, mappings, lines]
+  );
+
+  const dateEvidence = useMemo(() => inferDateFormat(dateSamples), [dateSamples]);
+
+  /**
+   * The format the rows will actually be read under — or NULL, which is the
+   * gate: 'auto' over a file whose every date could be read two ways is not an
+   * answer, and the old parser's willingness to pretend otherwise is what
+   * transposed twelve days of every month.
+   */
+  const resolvedDateFormat = useMemo(
+    () => resolveDateFormat(dateFormatChoice, dateEvidence),
+    [dateFormatChoice, dateEvidence]
+  );
+
+  /**
+   * When the user's explicit choice disagrees with something the file PROVES.
+   *
+   * Not a gate — an explicit choice is honoured, and the rows that cannot be
+   * read under it refuse one by one with the format named. But a template
+   * prefilled from a bank that has since changed its export, or a profile
+   * loaded against the wrong month, would otherwise be obeyed in silence over
+   * a file sitting right there disproving it.
+   */
+  const dateEvidenceContradiction = useMemo((): string | null => {
+    if (dateFormatChoice === 'auto') return null;
+    if (dateEvidence.outcome !== 'decided') return null;
+    if (dateEvidence.format === dateFormatChoice) return null;
+    return `${dateEvidence.because} These dates are set to be read as ${DATE_FORMAT_NAMES[dateFormatChoice]}.`;
+  }, [dateFormatChoice, dateEvidence]);
+
+  /**
+   * The date control's own sentence: what is happening to these dates, in the
+   * words of a real cell from the file.
+   *
+   * "Dates are read as DD/MM/YYYY (day first) — 01/06/2026 is 1 Jun 2026" is
+   * the one line that lets somebody catch a transposed column in a second. A
+   * format name on its own does not, because the two names look equally
+   * plausible to anyone who has not just been bitten by them.
+   */
+  const dateFormatNote = useMemo((): { tone: 'plain' | 'warn'; text: string } | null => {
+    if (dateSamples.length === 0) return null;
+
+    if (resolvedDateFormat === null) {
+      return {
+        tone: 'warn',
+        text:
+          dateEvidence.outcome === 'conflicting'
+            ? dateEvidence.because
+            : `${dateEvidence.because} For a file from a UK bank the answer is normally ` +
+              `${DATE_FORMAT_NAMES[SUGGESTED_AMBIGUOUS_FORMAT]} — but it has to be your answer, not ours.`
+      };
+    }
+
+    // The worked example is read straight off the date column rather than out
+    // of a built row: a row can be refused for reasons that have nothing to do
+    // with its date, and this sentence is only about the date.
+    const example = dateSamples.find(sample => sample.value.trim() !== '');
+    const read = example === undefined ? null : describeAs(example.value, resolvedDateFormat);
+    const worked = example === undefined || read === null ? '' : ` — ${example.value} is ${read}`;
+
+    return {
+      tone: 'plain',
+      text:
+        dateFormatChoice === 'auto'
+          ? `${dateEvidence.because} Read as ${DATE_FORMAT_NAMES[resolvedDateFormat]}${worked}.`
+          : `Read as ${DATE_FORMAT_NAMES[resolvedDateFormat]}${worked}.`
+    };
+  }, [dateSamples, resolvedDateFormat, dateEvidence, dateFormatChoice]);
 
   /**
    * Up to three real values from a column, so a mapping can be checked against
@@ -473,8 +703,13 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
     setIsProcessing(true);
     setImportError(null);
 
+    // The gate has already refused to reach this step without one, so this
+    // fallback is unreachable; it exists because the compiler cannot see the
+    // gate, and inventing a cast to tell it so would be a lie in the type.
+    const dateFormat = resolvedDateFormat ?? SUGGESTED_AMBIGUOUS_FORMAT;
+
     try {
-      if (type === 'transaction') {
+      {
         // Create account map
         const accountMap = new Map(accounts.map(acc => [acc.name, acc.id]));
 
@@ -488,7 +723,13 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
             duplicateThreshold,
             categories: categories || [],
             autoCategorize: true,
-            categoryConfidenceThreshold: 0.7
+            categoryConfidenceThreshold: 0.7,
+            // The SAME format the preview was built with, and the same heading
+            // line. The preview and the write must read the file identically —
+            // a preview that is right about a column the write reads
+            // differently is worse than no preview.
+            dateFormat,
+            ...(headerLineChoice === null ? {} : { headerLine: headerLineChoice })
           }
         );
 
@@ -634,20 +875,6 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
           },
           reason
         });
-      } else {
-        // ── Accounts are not imported from a CSV ────────────────────────────
-        //
-        // This branch was `// TODO: Implement account import` and nothing else,
-        // so pressing Import on an account file wrote nothing, reported
-        // nothing, and moved to a result step with no result to show — a blank
-        // panel with a Done button. Said out loud instead, and the user is left
-        // on the preview with their mapping intact.
-        if (isMountedRef.current) {
-          setImportError(
-            'Creating accounts from a CSV is not something this app does yet, so nothing was written. Add the account on the Accounts page first, then import its transactions here.'
-          );
-        }
-        return;
       }
 
       if (isMountedRef.current) {
@@ -672,24 +899,23 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
   /**
    * The fields a mapping can point at.
    *
-   * 'balance' is NOT among them any more, and its absence is the point: a
-   * Transaction has no balance field, so a column mapped to it was read out of
-   * the file, carried through the parse and thrown away at the write — a
-   * dropdown entry that did nothing, offered next to ones that do. A file's
-   * running-balance column is now reported as not imported, where the user can
-   * see it, instead of appearing to be handled.
+   * 'balance' is NOT among them, and its absence is the point: a Transaction
+   * has no balance field, so a column mapped to it was read out of the file,
+   * carried through the parse and thrown away at the write — a dropdown entry
+   * that did nothing, offered next to ones that do. A file's running-balance
+   * column is now reported as not imported, where the user can see it, instead
+   * of appearing to be handled.
+   *
+   * It is the service's own list rather than a copy of it: the copy here had
+   * already drifted once, and a dropdown offering a field the import ignores is
+   * the same dead control in a different shape.
    */
-  const targetFields = type === 'transaction'
-    ? ['date', 'description', 'amount', 'category', 'accountName', 'type', 'tags', 'notes']
-    : ['name', 'type', 'balance', 'currency', 'institution'];
+  const targetFields = IMPORTABLE_TRANSACTION_FIELDS;
 
   /** Which of date/description/amount this mapping still lacks. */
   const missingRequired = useMemo(
-    () =>
-      type === 'transaction'
-        ? enhancedCsvImportService.missingRequiredFields(mappings, headers)
-        : [],
-    [type, mappings, headers]
+    () => enhancedCsvImportService.missingRequiredFields(mappings, headers),
+    [mappings, headers]
   );
 
   /**
@@ -700,9 +926,9 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
    * the number that decides whether the Import button should be offered at all.
    */
   const rowOutcomes = useMemo(() => {
-    if (type !== 'transaction' || data.length === 0) return null;
-    return enhancedCsvImportService.buildRows(headers, data, mappings);
-  }, [type, headers, data, mappings]);
+    if (data.length === 0 || resolvedDateFormat === null) return null;
+    return enhancedCsvImportService.buildRows(headers, data, mappings, resolvedDateFormat);
+  }, [headers, data, mappings, resolvedDateFormat]);
 
   const importableCount = useMemo(
     () => (rowOutcomes ? rowOutcomes.filter(outcome => outcome.ok).length : 0),
@@ -719,14 +945,19 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
     const groups = new Map<string, number[]>();
     rowOutcomes.forEach((outcome, index) => {
       if (outcome.ok) return;
-      // +2: one for the header line, one because files are counted from 1.
-      const lineNumber = index + 2;
+      // The row's own PHYSICAL line, counted by the tokenizer. It used to be
+      // `index + 2` — a header assumed to be one line long, on a file assumed
+      // to have no covering block and no multi-line field. All three of those
+      // assumptions are things real bank exports break, and once one row spans
+      // two lines every number after it is wrong by a growing amount, sending
+      // the reader to the wrong row of their own file.
+      const lineNumber = lines[index] ?? index + 2;
       const existing = groups.get(outcome.error);
       if (existing) existing.push(lineNumber);
       else groups.set(outcome.error, [lineNumber]);
     });
-    return [...groups.entries()].map(([reason, lines]) => ({ reason, lines }));
-  }, [rowOutcomes]);
+    return [...groups.entries()].map(([reason, refusedLines]) => ({ reason, lines: refusedLines }));
+  }, [rowOutcomes, lines]);
 
   /**
    * The preview, built the way the import builds it.
@@ -757,7 +988,7 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
    * cells with nothing to resolve.
    */
   const previewRows = useMemo(() => {
-    if (type !== 'transaction' || !rowOutcomes) return null;
+    if (!rowOutcomes) return null;
     return data.slice(0, PREVIEW_ROWS).map((row, index) => {
       const outcome = rowOutcomes[index];
       return {
@@ -769,7 +1000,7 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
         skippedBecause: outcome && !outcome.ok ? outcome.error : null
       };
     });
-  }, [type, data, rowOutcomes]);
+  }, [data, rowOutcomes]);
 
   /** Which optional columns the file actually maps, so none is a column of dashes. */
   const previewShowsCategory = mappings.some(m => m.targetField === 'category');
@@ -819,10 +1050,22 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
           .map(field => REQUIRED_FIELD_REASONS[field] ?? field)
           .join('; ')}.`;
       }
+      // ── THE ONE THE FILE CANNOT ANSWER FOR ITSELF ──────────────────────────
+      //
+      // A statement whose every date falls on the 1st to the 12th of a month
+      // reads identically day-first and month-first, and the two readings put
+      // the same transaction in different months. There is no evidence to be
+      // had and no default that is safe, so the wizard stops and asks. This is
+      // the whole point of the control: the old parser answered it by itself,
+      // differently for different rows of the same column, and said nothing.
+      if (resolvedDateFormat === null) {
+        return dateEvidence.outcome === 'conflicting'
+          ? `These dates cannot all be read the same way round. ${dateEvidence.because} Choose which way to read them.`
+          : `These dates could be read two ways: ${dateEvidence.because} Choose the format below.`;
+      }
       // A file with no account column of its own has to be told where it goes,
       // or every row of it is unfilable and the import writes nothing.
       if (
-        type === 'transaction' &&
         destinationAccountId === '' &&
         !mappings.some(mapping => mapping.targetField === 'accountName')
       ) {
@@ -832,7 +1075,6 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
     }
 
     if (currentStep === 'preview') {
-      if (type !== 'transaction') return null;
       if (importableCount === 0) {
         return 'There is nothing to import — no row in this file can be read with these columns.';
       }
@@ -840,7 +1082,16 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
     }
 
     return null;
-  }, [currentStep, data.length, missingRequired, importableCount, type, destinationAccountId, mappings]);
+  }, [
+    currentStep,
+    data.length,
+    missingRequired,
+    importableCount,
+    destinationAccountId,
+    mappings,
+    resolvedDateFormat,
+    dateEvidence
+  ]);
 
   /**
    * The currency to print a previewed amount in: the DESTINATION account's,
@@ -1018,6 +1269,152 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
                 </p>
               </div>
 
+              {/* ── WHICH LINE HOLDS THE HEADINGS ─────────────────────────────
+                  Plenty of banks put a covering block above the table — the
+                  account's name, its balance, the dates the download covers —
+                  and reading line 1 as the headings then gives a file with no
+                  date column and no amount column and a mapping step offering
+                  the user nothing they can use.
+
+                  What was detected is SHOWN, with the ignored lines printed
+                  greyed, because this is a guess about somebody else's file:
+                  a parser that silently skips three lines is indistinguishable
+                  from one that has misread them. */}
+              {data.length > 0 && (
+                <div className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <p className="text-sm text-gray-800 dark:text-gray-200">
+                      Column headings read from <strong>line {headerLine}</strong>
+                      {preamble.length > 0 ? (
+                        <>
+                          {' '}
+                          — the {preamble.length === 1 ? 'line' : `${preamble.length} lines`} above{' '}
+                          {preamble.length === 1 ? 'it is' : 'them are'} being ignored.
+                        </>
+                      ) : (
+                        '.'
+                      )}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowHeaderPicker(value => !value)}
+                      aria-expanded={showHeaderPicker}
+                      className="text-sm text-primary hover:text-secondary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                    >
+                      {showHeaderPicker ? 'Hide the file’s first lines' : 'Not right? Choose the heading line'}
+                    </button>
+                  </div>
+
+                  {headerDetectedBecause && (
+                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                      {headerDetectedBecause}
+                    </p>
+                  )}
+
+                  {showHeaderPicker && (
+                    <ul className="mt-3 space-y-1" aria-label="The first lines of this file">
+                      {headingCandidates.map(record => {
+                        const isHeading = record.line === headerLine;
+                        const isIgnored = record.line < headerLine;
+                        const span =
+                          record.lineSpan > 1
+                            ? `${record.line}–${record.line + record.lineSpan - 1}`
+                            : `${record.line}`;
+                        return (
+                          <li key={record.line} className="flex items-start gap-3">
+                            <button
+                              type="button"
+                              onClick={() => chooseHeaderLine(record.line)}
+                              disabled={isHeading}
+                              aria-label={`Read the column headings from line ${record.line}`}
+                              className="shrink-0 px-2 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-primary hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-100 disabled:cursor-default disabled:border-transparent disabled:text-gray-500 dark:disabled:text-gray-400"
+                            >
+                              {isHeading ? 'headings' : 'use this'}
+                            </button>
+                            <code
+                              className={`text-xs break-all ${
+                                isIgnored
+                                  ? 'text-gray-400 dark:text-gray-500'
+                                  : 'text-gray-700 dark:text-gray-300'
+                              }`}
+                            >
+                              <span className="mr-2 tabular-nums">{span}</span>
+                              {record.raw.trim()}
+                              {isIgnored && (
+                                <span className="ml-2 not-italic">(ignored)</span>
+                              )}
+                            </code>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {/* ── WHICH WAY ROUND THE DATES ARE ─────────────────────────────
+                  01/06/2026 is the 1st of June or the 6th of January, and the
+                  parser used to answer that differently for different rows of
+                  the same column: anything past the 12th fell through to a
+                  day-first branch, everything before it was caught by
+                  JavaScript's month-first one. A UK statement therefore
+                  imported with its first twelve days of every month transposed,
+                  in silence.
+
+                  Where the file settles the question, it settles it and says
+                  how. Where it cannot, this control is required and the Next
+                  button says so. */}
+              {dateSamples.length > 0 && (
+                <div className="mb-6">
+                  <label
+                    htmlFor="csv-date-format"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >
+                    How this file writes its dates
+                  </label>
+                  <select
+                    id="csv-date-format"
+                    value={dateFormatChoice}
+                    onChange={e => {
+                      const chosen = e.target.value;
+                      setDateFormatChoice(
+                        CSV_DATE_FORMATS.find(format => format === chosen) ?? 'auto'
+                      );
+                    }}
+                    aria-describedby={dateFormatNote ? 'csv-date-format-note' : undefined}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    {/* 'auto' stays the selected value until the user moves it,
+                        even when the file is ambiguous and we can name the
+                        likely answer. Preselecting that answer would BE the
+                        guess: the confirmation is the safety, not the default. */}
+                    <option value="auto">Work it out from the file</option>
+                    {CSV_DATE_FORMATS.map(format => (
+                      <option key={format} value={format}>
+                        {DATE_FORMAT_LABELS[format]}
+                      </option>
+                    ))}
+                  </select>
+                  {dateFormatNote && (
+                    <p
+                      id="csv-date-format-note"
+                      className={`mt-1 text-xs ${
+                        dateFormatNote.tone === 'warn'
+                          ? 'text-amber-700 dark:text-amber-400'
+                          : 'text-gray-500 dark:text-gray-400'
+                      }`}
+                    >
+                      {dateFormatNote.text}
+                    </p>
+                  )}
+                  {dateEvidenceContradiction && (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                      Your file says otherwise: {dateEvidenceContradiction}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* What a template or a profile actually did to this file —
                   including, and especially, what it could not find. */}
               {prefillReport && (
@@ -1056,6 +1453,13 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
                       balance or a share price has nowhere to go on a transaction.
                     </p>
                   )}
+                  {prefillReport.dateFormat && prefillReport.dateFormat !== 'auto' && (
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                      It also set the date format to{' '}
+                      {DATE_FORMAT_NAMES[prefillReport.dateFormat]} — check that against your file
+                      before importing.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -1064,32 +1468,46 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
                   account on the covering page, not in the rows. Without this,
                   every row of a normal export was unroutable and the wizard
                   ended by asking for a column the file has not got. */}
-              {type === 'transaction' && (
-                <div className="mb-6">
-                  {/* A span, not a <label>: this combobox is a button, and its
-                      accessible name is its own aria-label. The two are the
-                      same words so that "click Import these transactions into"
-                      names the thing a screen reader announces. */}
-                  <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Import these transactions into
-                  </span>
-                  <AccountSelector
-                    accounts={accounts}
-                    selectedAccountId={destinationAccountId}
-                    onAccountChange={setDestinationAccountId}
-                    placeholder="Search or select an account…"
-                    formatLabel={(account: Account) => `${account.name} (${account.type})`}
-                    className="w-full px-3 py-2 h-[42px] border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-                    usePortal
-                    required
-                    ariaLabel="Import these transactions into"
-                  />
-                  {mappings.some(m => m.targetField === 'accountName') && (
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Your file has an account column, so rows naming an account you have go
-                      there. This is where the rest go.
-                    </p>
-                  )}
+              <div className="mb-6">
+                {/* A span, not a <label>: this combobox is a button, and its
+                    accessible name is its own aria-label. The two are the
+                    same words so that "click Import these transactions into"
+                    names the thing a screen reader announces. */}
+                <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Import these transactions into
+                </span>
+                <AccountSelector
+                  accounts={accounts}
+                  selectedAccountId={destinationAccountId}
+                  onAccountChange={setDestinationAccountId}
+                  placeholder="Search or select an account…"
+                  formatLabel={(account: Account) => `${account.name} (${account.type})`}
+                  className="w-full px-3 py-2 h-[42px] border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  usePortal
+                  required
+                  ariaLabel="Import these transactions into"
+                />
+                {mappings.some(m => m.targetField === 'accountName') && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Your file has an account column, so rows naming an account you have go
+                    there. This is where the rest go.
+                  </p>
+                )}
+              </div>
+
+              {/* A saved profile that could never have worked, said once. See
+                  loadProfiles: profiles marked for the account import were kept
+                  in storage by a version that offered the feature and never
+                  performed it, so they are dropped rather than coerced into
+                  transaction profiles that would apply no columns at all. */}
+              {discardedProfiles.length > 0 && (
+                <div className="mb-6 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    {discardedProfiles.length === 1
+                      ? `The saved profile “${discardedProfiles[0]}” was for creating accounts from a CSV, which this app has never done — it could not have imported anything. It has been removed.`
+                      : `${discardedProfiles.length} saved profiles (${discardedProfiles.join(', ')}) were for creating accounts from a CSV, which this app has never done — they could not have imported anything. They have been removed.`}{' '}
+                    Your transaction profiles are untouched.
+                  </p>
                 </div>
               )}
 
@@ -1345,35 +1763,26 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
                   <caption className="sr-only">
-                    {previewRows
-                      ? 'The first rows of the file as they will be written'
-                      : 'The first rows of the file'}
+                    The first rows of the file as they will be written
                   </caption>
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      {previewRows ? (
-                        <>
-                          <th scope="col" className={previewHeadCell}>Date</th>
-                          <th scope="col" className={previewHeadCell}>Description</th>
-                          <th scope="col" className={`${previewHeadCell} text-right`}>Amount</th>
-                          <th scope="col" className={previewHeadCell}>Type</th>
-                          {previewShowsCategory && <th scope="col" className={previewHeadCell}>Category</th>}
-                          {previewShowsAccount && <th scope="col" className={previewHeadCell}>Account</th>}
-                        </>
-                      ) : (
-                        targetFields
-                          .filter(field => mappings.some(m => m.targetField === field))
-                          .map(field => (
-                            <th key={field} scope="col" className={previewHeadCell}>
-                              {field}
-                            </th>
-                          ))
-                      )}
+                      <th scope="col" className={previewHeadCell}>Date</th>
+                      <th scope="col" className={previewHeadCell}>Description</th>
+                      <th scope="col" className={`${previewHeadCell} text-right`}>Amount</th>
+                      <th scope="col" className={previewHeadCell}>Type</th>
+                      {previewShowsCategory && <th scope="col" className={previewHeadCell}>Category</th>}
+                      {previewShowsAccount && <th scope="col" className={previewHeadCell}>Account</th>}
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
-                    {previewRows
-                      ? previewRows.map(({ row, built, skippedBecause }, rowIndex) => {
+                    {/* One table, built the way the import builds it. The raw-cell
+                        fallback that used to sit here served the account-import
+                        branch, which never wrote anything; it printed
+                        `mapping.transform(cell)` per target field and so showed
+                        the FIRST of a bank's two amount columns and nothing
+                        else. */}
+                    {(previewRows ?? []).map(({ row, built, skippedBecause }, rowIndex) => {
                           const columns = 4 + (previewShowsCategory ? 1 : 0) + (previewShowsAccount ? 1 : 0);
                           if (!built) {
                             // Shown rather than dropped, WITH the builder's own
@@ -1431,34 +1840,15 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
                               )}
                             </tr>
                           );
-                        })
-                      : data.slice(0, PREVIEW_ROWS).map((row, rowIndex) => (
-                          <tr key={rowIndex}>
-                            {targetFields
-                              .filter(field => mappings.some(m => m.targetField === field))
-                              .map(field => {
-                                const mapping = mappings.find(m => m.targetField === field);
-                                const columnIndex = mapping ? headers.indexOf(mapping.sourceColumn || '') : -1;
-                                const value = columnIndex >= 0 ? row[columnIndex] : '';
-
-                                return (
-                                  <td key={field} className="px-4 py-2 text-sm text-gray-900 dark:text-white">
-                                    {mapping?.transform ? mapping.transform(value)?.toString() ?? '' : value}
-                                  </td>
-                                );
-                              })}
-                          </tr>
-                        ))}
+                        })}
                   </tbody>
                 </table>
               </div>
 
-              {previewRows && (
-                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  These are the values that will be written — a bank&apos;s separate Debit and Credit
-                  columns have already been resolved into one signed amount.
-                </p>
-              )}
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                These are the values that will be written — a bank&apos;s separate Debit and Credit
+                columns have already been resolved into one signed amount.
+              </p>
 
               {data.length > PREVIEW_ROWS && (
                 <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -1625,9 +2015,11 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
                     Rows that could not be read
                   </h4>
                   <ul className="text-sm text-red-800 dark:text-red-200 space-y-1">
-                    {importResult.parsed.errors.slice(0, 5).map((error: { row: number; error: string }, index: number) => (
+                    {/* The file's own line numbers, so the row can be found in
+                        the file rather than counted to. */}
+                    {importResult.parsed.errors.slice(0, 5).map((error: { line: number; error: string }, index: number) => (
                       <li key={index}>
-                        Row {error.row}: {error.error}
+                        Line {error.line}: {error.error}
                       </li>
                     ))}
                     {importResult.parsed.errors.length > 5 && (

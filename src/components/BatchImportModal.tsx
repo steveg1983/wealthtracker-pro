@@ -306,7 +306,6 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
               key={activeIndex}
               isOpen
               onClose={advance}
-              type="transaction"
               initialFile={active.file}
             />
           )}
