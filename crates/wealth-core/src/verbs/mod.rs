@@ -11,16 +11,16 @@
 //! * **Anything that accepts SQL.** DESIGN.md §6.4: *"Not a policy — an absence.
 //!   There is no command that accepts a SQL string. You cannot bypass what does
 //!   not exist."*
-//! * **`create_category`, `update_category`, `delete_category`.** The cloud has
-//!   no such RPC: `PlanningService` writes the table directly
-//!   (`planningService.ts:479`, `:567`, `:638`), so the authority for those
-//!   operations is the table and its constraints, and `schema.sql` already
-//!   carries every one of them.
-//!
-//!   That was once written here as *"a verb here would be a port of nothing"*,
-//!   and the sentence was true about the CLOUD and wrong about a device — see
-//!   the section below, which is the correction and the reason the account
-//!   family now exists. The category family is slice 21 and lands the same way.
+//! * ~~`create_category`, `update_category`, `delete_category`~~ — **no longer
+//!   absent.** This entry used to say that the cloud has no such RPC
+//!   (`PlanningService` writes the table directly: `planningService.ts:489`,
+//!   `:568`, `:633`) and therefore *"a verb here would be a port of nothing"*.
+//!   The sentence was true about the CLOUD and wrong about a device, for the
+//!   reason the section below gives about the account family: with no RPC and no
+//!   SQL door, no verb means the operation is unimplementable. Slice 21 landed
+//!   [`create_category`], [`create_categories`], [`update_category`],
+//!   [`delete_category`] and [`seed_categories`], whose oracles are those same
+//!   three TypeScript writers plus `ensureCategories`.
 //! * **The transfer-category lifecycle.** `create_transfer_category_for_account`,
 //!   `sync_transfer_category_for_account` and `protect_transfer_category`
 //!   (`20260708140000`) all `RETURN trigger`; nothing calls them as functions.
@@ -32,7 +32,13 @@
 //! three verbs here that port no Postgres function, because there is none to
 //! port: `accounts` is one of the tables the cloud writes DIRECTLY over
 //! PostgREST (`accountService.ts:267`, `:317`, `:357`). Every verb before them
-//! either ported an RPC or, in the case of [`reads`], ported a query.
+//! either ported an RPC or, in the case of [`reads`], ported a query. The
+//! CATEGORY family — [`create_category`], [`create_categories`],
+//! [`update_category`], [`delete_category`] and [`seed_categories`] — is the
+//! second such family and everything below applies to it unchanged, with one
+//! addition of its own: [`seed_categories`] ports a TypeScript writer that CALLS
+//! an RPC (`ensureCategories` → `migrate_categories_atomic`), so its oracle is
+//! the method's whole body and the RPC is only the third of its three steps.
 //!
 //! Two things follow, and both are worth stating once here rather than three
 //! times below.
@@ -66,12 +72,28 @@
 //! correcting its opening balance leaves no trace at all. Locally there is one
 //! door and it audits, so it does.
 //!
-//! # `migrate_categories_atomic` — OUT OF SCOPE, and this is the decision
+//! The category family's own table, in the same shape:
+//!
+//! | | the cloud's direct write | the verb |
+//! | --- | --- | --- |
+//! | a create's id | the column defaults to `gen_random_uuid()` | minted here (B-5), because the column holds slugs too and must not default |
+//! | a bulk create's ordering | one `.insert(rows)`; a child before its parent needs no parent link yet, since `parent_id` is nullable | two passes, because `parent_id` is an IMMEDIATE key in this file |
+//! | a delete's cascade | `ON DELETE CASCADE` takes the children, unseen | the subtree is walked and deleted deepest-first, so every row that goes is counted and audited |
+//! | the audit log | nothing: there is no function to write one from | one entry per create, update and delete, chained — but **none** for a seed, and [`seed_categories`] argues that |
+//! | an ordinary category with an `account_id` | stored | refused by `categories_account_only_for_transfer`, a CHECK the cloud has never had |
+//! | two semantic flags on one row | stored | refused by `categories_flags_exclusive`, likewise |
+//! | the already-seeded case | `ensureCategories` reads first and never calls the RPC; the RPC itself raises `categories_already_migrated` | ANSWERED, not refused: one crossing, and a port may not branch on a refusal code (D-3) |
+//!
+//! # `migrate_categories_atomic` — HALF of it is ported, and the half is B-4
 //!
 //! It was recorded here as *"needs a decision about what it would even do before
-//! it needs a port"*. This is that decision: **it is not ported, and it should
-//! not be.** Traced first, because "vestigial" would have been a much easier
-//! answer and it is not the true one.
+//! it needs a port"*, and then as **not ported at all**. Slice 21 amends that to
+//! the precise version, which the original trace had already argued its way to
+//! without naming: [`seed_categories`] ports the function's INSERT PASSES (2 and
+//! 3) and deliberately not its ID REMAP (1 and 4). Everything below is the
+//! original trace, unchanged, because it is what establishes which half is which
+//! — read it and then read the two paragraphs at the end of this section, which
+//! are the amendment.
 //!
 //! **It is live.** `planningService.ts:446`, from `ensureCategories`, called
 //! whenever a signed-in user's cloud category table is empty. Its live definition
@@ -98,22 +120,30 @@
 //! * a **restore** — [`restore_user_chunk`] inserts categories under the ids the
 //!   backup carries, verbatim, and X-9 puts any remapping on the client, before a
 //!   single row is sent (`crate::backup` carries that argument);
-//! * a **seed** — a brand-new file's default set is inserted under ids the local
-//!   edition generates, so there is nothing to remap and nothing to be atomic
-//!   about beyond the insert itself. `categories` has no create/update/delete
-//!   verb precisely because the cloud has none either; the table and its
-//!   constraints are the authority.
+//! * a **seed** — a brand-new file's default set is inserted under the ids it
+//!   arrives with, so there is nothing to remap and nothing to be atomic about
+//!   beyond the insert itself.
 //!
-//! Porting it anyway would put a **second** category-tree writer in the crate,
-//! one whose only distinguishing behaviour — the id remap — is a translation
-//! between two id spaces the local edition does not have. Its idempotency guard
-//! would then be the only part still doing work, and that guard is
+//! Porting it whole would put a **second** category-tree writer in the crate, one
+//! whose only distinguishing behaviour — the id remap — is a translation between
+//! two id spaces the local edition does not have. Its idempotency guard would
+//! then be the only part still doing work, and that guard is
 //! [`user_financial_data_is_empty`]'s question asked about one table.
 //!
-//! The one thing that WOULD change this: a cloud→local migration path, where a
-//! user's cloud tree is pulled into a fresh file. That is DESIGN.md §9.1's
-//! explicitly out-of-scope *"cloud↔local sync"*, and if it is ever built it wants
-//! `migrate_categories_atomic`'s shape rather than its code, because the
+//! **THE AMENDMENT.** That last sentence is exactly right and it is also the
+//! whole specification of [`seed_categories`]: the guard, the insert, and none of
+//! the remap. What the original trace got wrong was the conclusion it drew from
+//! it — that no verb was needed — because it was still reading the sentence
+//! *"the table and its constraints are the authority"*, which is a statement
+//! about the CLOUD. Locally there is no door to the table, so B-4's *"the local
+//! core seeds its defaults into the store"* is unimplementable without a verb.
+//! The tree itself stays in TypeScript and crosses in the payload, exactly as
+//! `p_categories` does, so there is one default set for three engines.
+//!
+//! The one thing that WOULD want the other half: a cloud→local migration path,
+//! where a user's cloud tree is pulled into a fresh file. That is DESIGN.md
+//! §9.1's explicitly out-of-scope *"cloud↔local sync"*, and if it is ever built
+//! it wants `migrate_categories_atomic`'s shape rather than its code, because the
 //! direction of travel is reversed and the id space that needs remapping is the
 //! destination's.
 //!
@@ -234,6 +264,10 @@
 //! | [`create_account`] | no, and proven so — the only trigger an account INSERT fires is C-3, which is wanted | no |
 //! | [`update_account`] | no, and proven so — C-4 fires, and is wanted | no |
 //! | [`close_account`] | no, same measurement — C-4 again | no |
+//! | [`create_category`] / [`create_categories`] | no — nothing on `categories` fires on an INSERT | no |
+//! | [`update_category`] | no — `trg_categories_updated_at` stands down of its own accord, and C-5 is `BEFORE DELETE` | no |
+//! | [`delete_category`] | no, and it must not — C-5 is the answer, exactly as it is for the prune | no |
+//! | [`seed_categories`] | no — an INSERT and an UPDATE of `categories`, same measurement as the two above | no |
 //!
 //! The restore family adds a **third** flag to the table, which the first twelve
 //! verbs never needed: `_rpc_guard('restore')`, held by
@@ -421,8 +455,10 @@ mod clear_transfer_links;
 mod close_account;
 mod confirm_transaction_categories;
 mod create_account;
+mod create_category;
 mod create_transaction;
 mod create_transfer_counterpart;
+mod delete_category;
 mod delete_transaction;
 mod delete_unused_categories;
 mod finalize_user_restore;
@@ -436,9 +472,11 @@ mod merge_categories;
 pub mod reads;
 mod repair_claimed_transfer;
 mod restore_user_chunk;
+mod seed_categories;
 mod set_transaction_splits_with_legs;
 mod transfer;
 mod update_account;
+mod update_category;
 mod update_transaction;
 mod user_financial_data_is_empty;
 mod verify_integrity;
@@ -459,7 +497,14 @@ pub use confirm_transaction_categories::{
     ConfirmTransactionCategoriesResult,
 };
 pub use create_account::{create_account, CreateAccount, CreateAccountResult};
+// The category family — five verbs, no RPC between them either, and the same
+// "A VERB WHOSE ORACLE IS A TYPESCRIPT WRITER" argument above.
+pub use create_category::{
+    create_categories, create_category, CategoryDraft, CreateCategories, CreateCategoriesResult,
+    CreateCategory, CreateCategoryResult, CreatedCategories,
+};
 pub use create_transaction::{create_transaction, CreateTransaction, CreateTransactionResult};
+pub use delete_category::{delete_category, DeleteAnswer, DeleteCategory, DeleteCategoryResult};
 pub use create_transfer_counterpart::{
     create_transfer_counterpart, CreateTransferCounterpart, CreateTransferCounterpartResult,
 };
@@ -507,11 +552,17 @@ pub use repair_claimed_transfer::{
 pub use restore_user_chunk::{
     restore_user_chunk, Chunk, RestoreAnswer, RestoreUserChunk, RestoreUserChunkResult,
 };
+pub use seed_categories::{
+    seed_categories, SeedCategories, SeedCategoriesResult, SeededCategories,
+};
 pub use set_transaction_splits_with_legs::{
     set_transaction_splits_with_legs, SetTransactionSplitsWithLegs,
     SetTransactionSplitsWithLegsResult,
 };
 pub use update_account::{update_account, AccountPatch, UpdateAccount, UpdateAccountResult};
+pub use update_category::{
+    update_category, CategoryPatch, UpdateCategory, UpdateCategoryResult,
+};
 pub use update_transaction::{
     update_transaction, TransactionPatch, UpdateTransaction, UpdateTransactionResult,
 };

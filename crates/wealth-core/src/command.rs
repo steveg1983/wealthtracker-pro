@@ -79,21 +79,22 @@ use crate::admission::{
 use crate::error::CoreError;
 use crate::verbs::{
     account_balances, apply_category_to_uncategorized, clear_transfer_links, close_account,
-    confirm_transaction_categories, create_account, create_transaction,
-    create_transfer_counterpart, delete_transaction, delete_unused_categories,
-    finalize_user_restore, import_bank_transactions, import_transactions, link_bank_account_snap,
-    link_split_line_transfer, link_transfer_pair, list_accounts, list_budgets, list_categories,
-    list_closed_accounts, list_goals, list_suggestion_dismissals, list_transaction_splits,
-    list_transactions, load_boot, merge_categories, repair_claimed_transfer, restore_user_chunk,
-    set_transaction_splits_with_legs, splits_for, update_account, update_transaction,
-    user_financial_data_is_empty, verify_integrity, wipe_user_financial_data,
+    confirm_transaction_categories, create_account, create_categories, create_category,
+    create_transaction, create_transfer_counterpart, delete_category, delete_transaction,
+    delete_unused_categories, finalize_user_restore, import_bank_transactions, import_transactions,
+    link_bank_account_snap, link_split_line_transfer, link_transfer_pair, list_accounts,
+    list_budgets, list_categories, list_closed_accounts, list_goals, list_suggestion_dismissals,
+    list_transaction_splits, list_transactions, load_boot, merge_categories,
+    repair_claimed_transfer, restore_user_chunk, seed_categories,
+    set_transaction_splits_with_legs, splits_for, update_account, update_category,
+    update_transaction, user_financial_data_is_empty, verify_integrity, wipe_user_financial_data,
     ApplyCategoryToUncategorized, ClearTransferLinks, CloseAccount, ConfirmTransactionCategories,
-    CreateAccount, CreateTransaction, CreateTransferCounterpart, DeleteTransaction,
-    DeleteUnusedCategories, FinalizeUserRestore, ImportBankTransactions, ImportTransactions,
-    LinkBankAccountSnap, LinkSplitLineTransfer, LinkTransferPair, MergeCategories, OwnedRead,
-    RepairClaimedTransfer, RestoreUserChunk, SetTransactionSplitsWithLegs, SplitsFor,
-    UpdateAccount, UpdateTransaction, UserFinancialDataIsEmpty, VerifyIntegrity,
-    WipeUserFinancialData,
+    CreateAccount, CreateCategories, CreateCategory, CreateTransaction, CreateTransferCounterpart,
+    DeleteCategory, DeleteTransaction, DeleteUnusedCategories, FinalizeUserRestore,
+    ImportBankTransactions, ImportTransactions, LinkBankAccountSnap, LinkSplitLineTransfer,
+    LinkTransferPair, MergeCategories, OwnedRead, RepairClaimedTransfer, RestoreUserChunk,
+    SeedCategories, SetTransactionSplitsWithLegs, SplitsFor, UpdateAccount, UpdateCategory,
+    UpdateTransaction, UserFinancialDataIsEmpty, VerifyIntegrity, WipeUserFinancialData,
 };
 
 /// A command, as a caller sends it.
@@ -153,6 +154,29 @@ pub enum Command {
     // spelling would give (see the verb's module documentation).
     /// [`crate::verbs::delete_unused_categories`].
     DeleteUnusedCategories(Box<DeleteUnusedCategories>),
+    // ── The rest of the category family ──────────────────────────────────────
+    //
+    // Five more verb strings and no function behind any of them: `categories` is
+    // written directly over PostgREST too (`planningService.ts:489`, `:568`,
+    // `:633`), so what these port is a TypeScript writer (PHASE3-PLAN D-2,
+    // argued in full at the head of [`crate::verbs`]).
+    //
+    // The two creates are two verbs rather than one taking a list, because the
+    // SEAM names two operations and the singular's answer is used on the next
+    // line as a parent id (B-5). They share one INSERT.
+    //
+    // `seed_categories` is the odd one and its name says which half of
+    // `migrate_categories_atomic` it is: it seeds, and it never remaps (B-4).
+    /// [`crate::verbs::create_category`].
+    CreateCategory(Box<CreateCategory>),
+    /// [`crate::verbs::create_categories`].
+    CreateCategories(Box<CreateCategories>),
+    /// [`crate::verbs::update_category`].
+    UpdateCategory(Box<UpdateCategory>),
+    /// [`crate::verbs::delete_category`].
+    DeleteCategory(Box<DeleteCategory>),
+    /// [`crate::verbs::seed_categories`].
+    SeedCategories(Box<SeedCategories>),
     // The restore family. Four verb strings, each spelled exactly as the
     // function it ports — including `restore_user_chunk`, whose LOCAL payload
     // carries a LIST of chunks because the whole restore is one transaction here
@@ -386,6 +410,14 @@ pub fn plan(command: Command) -> Result<Result<serde_json::Value, CoreError>, Co
 /// # Errors
 /// [`CoreError`] as the verb returns it: a [`CoreError::Refused`] is the ledger
 /// declining and the file is intact, a [`CoreError::Storage`] is a fault.
+// It passed a hundred lines when the category family landed, and the lint's
+// remedy — break it up — is the one change this function may never take. Every
+// arm is two lines and there is no logic between them to extract; splitting the
+// match into `dispatch_writes` and `dispatch_reads` would give two exhaustive
+// matches over two halves of one enum, and NEITHER would notice a variant the
+// other forgot. That is R-10, and it is the whole reason this file exists rather
+// than forty Tauri commands.
+#[allow(clippy::too_many_lines)]
 pub fn dispatch(
     connection: &mut rusqlite::Connection,
     command: Command,
@@ -430,6 +462,13 @@ pub fn dispatch(
         Command::DeleteUnusedCategories(payload) => {
             delete_unused_categories(connection, *payload).and_then(as_json)
         }
+        Command::CreateCategory(payload) => create_category(connection, *payload).and_then(as_json),
+        Command::CreateCategories(payload) => {
+            create_categories(connection, *payload).and_then(as_json)
+        }
+        Command::UpdateCategory(payload) => update_category(connection, *payload).and_then(as_json),
+        Command::DeleteCategory(payload) => delete_category(connection, *payload).and_then(as_json),
+        Command::SeedCategories(payload) => seed_categories(connection, *payload).and_then(as_json),
         // The only verb that needs no `&mut`: it opens no transaction, because
         // it writes nothing.
         Command::UserFinancialDataIsEmpty(payload) => {

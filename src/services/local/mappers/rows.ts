@@ -52,7 +52,7 @@
  */
 
 import { mapAccountFromDb } from '../../api/accountMapping';
-import { SPLIT_COLUMNS, TRANSACTION_COLUMNS, fieldsOf } from './columns';
+import { CATEGORY_COLUMNS, SPLIT_COLUMNS, TRANSACTION_COLUMNS, fieldsOf } from './columns';
 import type {
   Account,
   Budget,
@@ -110,21 +110,40 @@ const CATEGORY_LEVELS: Record<Category['level'], true> = {
   detail: true
 };
 
-export const toCategory = (row: Record<string, unknown>): Category => ({
-  id: textOr(row.id, ''),
-  name: textOr(row.name, ''),
-  type: oneOf<Category['type']>(row.type, CATEGORY_TYPES, 'expense'),
-  level: oneOf<Category['level']>(row.level, CATEGORY_LEVELS, 'detail'),
-  parentId: text(row.parent_id) ?? null,
-  color: text(row.color),
-  icon: text(row.icon),
-  isSystem: flag(row.is_system),
-  isTransferCategory: flag(row.is_transfer_category),
-  isRevaluationCategory: flag(row.is_revaluation_category),
-  isUnassignedBucket: flag(row.is_unassigned_bucket),
-  accountId: text(row.account_id),
-  isActive: flag(row.is_active)
-});
+/**
+ * A category.
+ *
+ * Through {@link CATEGORY_COLUMNS} since slice 21, which is the same list
+ * `writes.ts` serialises a new category and a patch with — so a field cannot be
+ * written under one name and read back under another. It read the row's keys by
+ * hand until the day it had a writer, which is the arrangement `columns.ts`
+ * describes and the reason the move happened in the commit that gave it one
+ * rather than in a tidy-up of its own.
+ *
+ * `parentId` is `null` rather than absent when the column is NULL, because the
+ * app's type says `string | null` and the Categories page tests it against
+ * `null` when it decides whether a row is a top-level heading. `accountId` is
+ * the opposite — `string | undefined` — and is left absent, matching
+ * `categoryFromDb`.
+ */
+export const toCategory = (row: Record<string, unknown>): Category => {
+  const value = fieldsOf(CATEGORY_COLUMNS, row);
+  return {
+    id: textOr(value.id, ''),
+    name: textOr(value.name, ''),
+    type: oneOf<Category['type']>(value.type, CATEGORY_TYPES, 'expense'),
+    level: oneOf<Category['level']>(value.level, CATEGORY_LEVELS, 'detail'),
+    parentId: text(value.parentId) ?? null,
+    color: text(value.color),
+    icon: text(value.icon),
+    isSystem: value.isSystem === true,
+    isTransferCategory: value.isTransferCategory === true,
+    isRevaluationCategory: value.isRevaluationCategory === true,
+    isUnassignedBucket: value.isUnassignedBucket === true,
+    accountId: text(value.accountId),
+    isActive: value.isActive === true
+  };
+};
 
 const TRANSACTION_TYPES: Record<Transaction['type'], true> = {
   income: true,

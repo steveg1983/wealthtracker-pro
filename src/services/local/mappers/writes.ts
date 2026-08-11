@@ -48,12 +48,33 @@
  * account update DOES drop is listed and argued at
  * {@link ACCOUNT_UPDATE_DROPS} — two of them are the cloud's own drop-list and
  * three are timestamps a caller has no business stating.
+ *
+ * THE CATEGORY PAIR IS FILTERED ON BOTH SIDES, which is neither of the two
+ * shapes above and is the third thing a cloud mapper can be. `categoryToDb` is a
+ * WHITELIST — eleven `if (c.k !== undefined)` lines and no else — so a key it
+ * has no line for never reaches the cloud's table at all. Passing one through
+ * would make the local edition refuse an edit the cloud performs, and the field
+ * it would refuse on is a real one: `Category.description` exists in the app's
+ * type and has a column in neither engine.
+ *
+ * So the rule is not "creates filter and updates do not". It is: **do what the
+ * cloud's own mapper does with a key it has never heard of.** For a transaction
+ * that is discard-on-create and send-on-update; for an account it is send in
+ * both directions; for a category it is discard in both.
  */
 
-import type { Account, AccountUpdate, Transaction, TransactionSplitInput } from '../../../types';
+import { getDefaultCategories } from '../../../data/defaultCategories';
+import type {
+  Account,
+  AccountUpdate,
+  Category,
+  Transaction,
+  TransactionSplitInput
+} from '../../../types';
 import type { Column } from './columns';
 import {
   ACCOUNT_COLUMNS,
+  CATEGORY_COLUMNS,
   SPLIT_COLUMNS,
   TRANSACTION_COLUMNS,
   encode,
@@ -263,6 +284,89 @@ export function toAccountCreatePayload(account: Omit<Account, 'id'>): Record<str
 export function toAccountUpdatePatch(updates: AccountUpdate): Record<string, unknown> {
   return whole(ACCOUNT_COLUMNS, updates as Record<string, unknown>, ACCOUNT_UPDATE_DROPS);
 }
+
+// ── Categories ──────────────────────────────────────────────────────────────
+
+/**
+ * What `create_category` accepts, out of the category's columns.
+ *
+ * `id` is absent, for the reason the transaction create gives and the account
+ * create does not: the seam's argument is `Omit<Category, 'id'>`, and the crate
+ * mints one (B-5, client-minted where the client is the file). The verb DOES
+ * accept an id — the differential harness sends one, because two engines cannot
+ * be compared on a row neither can name — and nothing in the app has one to
+ * send.
+ *
+ * Everything else `categoryToDb` can produce is here, including the three
+ * semantic flags: a RESTORE is the caller that legitimately states
+ * `isTransferCategory`, and what stops an ordinary category acquiring an
+ * `accountId` is the file's own CHECK rather than an omission here.
+ */
+const CATEGORY_CREATE_KEYS: readonly string[] = [
+  'name',
+  'type',
+  'level',
+  'parent_id',
+  'account_id',
+  'color',
+  'icon',
+  'is_system',
+  'is_transfer_category',
+  'is_revaluation_category',
+  'is_unassigned_bucket',
+  'is_active'
+];
+
+/** The same list, plus the id — because a SEED's ids are the whole point (B-4). */
+const CATEGORY_SEED_KEYS: readonly string[] = ['id', ...CATEGORY_CREATE_KEYS];
+
+/** A new category as `create_category`'s payload. */
+export const toCategoryCreatePayload = (
+  category: Omit<Category, 'id'>
+): Record<string, unknown> => payloadOf(CATEGORY_COLUMNS, { ...category }, CATEGORY_CREATE_KEYS);
+
+/**
+ * A partial edit as `update_category`'s patch.
+ *
+ * FILTERED, unlike the two update builders above it, and the header says why in
+ * one line: `categoryToDb` is a whitelist. `Partial<Category>` carries
+ * `description`, which has a column in neither engine and which the cloud's
+ * mapper silently drops — so a port that sent it would refuse an edit the cloud
+ * performs.
+ *
+ * A field stated as `null` still travels as `null`: `payloadOf` drops only what
+ * is `undefined`, and the crate's tri-state fields read a stated null as "clear
+ * this" and absence as "leave it alone". That distinction is what lets the
+ * Categories page move a leaf out of a group.
+ */
+export const toCategoryUpdatePatch = (
+  updates: Partial<Category>
+): Record<string, unknown> => payloadOf(CATEGORY_COLUMNS, { ...updates }, CATEGORY_CREATE_KEYS);
+
+/**
+ * The default category tree, as `seed_categories` takes it.
+ *
+ * THE TREE IS THE APP'S, and it crosses the seam rather than living in the
+ * crate. `src/data/defaultCategories.ts` is the one list all three engines use —
+ * browser storage answers with it unwritten, the cloud migrates it into per-user
+ * uuids, and a device seeds it — and a second copy in Rust would go stale the
+ * first time a group was added to the starter set with nothing to catch it.
+ * `migrate_categories_atomic` takes the client's list for exactly the same
+ * reason, which is why the verb's payload has the same shape.
+ *
+ * THE IDS TRAVEL, and that is divergence B-4 in one line: `'type-income'` and
+ * `'transfer-in'` are stored as themselves, because `schema.sql` puts the uuid
+ * CHECK on `users.id` alone (PHASE3-PLAN D-5) and a file has no second id space
+ * to remap into.
+ *
+ * Computed per call rather than cached: it is a pure function of a constant
+ * array, it is asked once per boot at most, and a module-level constant would be
+ * a copy that a test which mutates a category could reach.
+ */
+export const defaultCategorySeed = (): Array<Record<string, unknown>> =>
+  getDefaultCategories().map(category =>
+    payloadOf(CATEGORY_COLUMNS, { ...category }, CATEGORY_SEED_KEYS)
+  );
 
 /**
  * Every key a caller STATED, converted where this table knows the column and

@@ -11,11 +11,14 @@
  * ── WHAT THIS SLICE IMPLEMENTS, AND WHAT IT ADMITS IT DOES NOT ──────────────
  *
  * The eleven reads, the boot composite, the capability descriptor, the two
- * lifecycle no-ops, the sixteen writes slice 19 wired — and, since slice 20, the
- * three ACCOUNT writes, which are the first the crate had no Postgres function
- * to port (PHASE3-PLAN D-2: the cloud writes `accounts` directly over PostgREST,
- * so the oracle is the TypeScript writer and `schema.sql`'s constraints).
- * TWENTY-TWO operations of the seam are not here yet, and
+ * lifecycle no-ops, the sixteen writes slice 19 wired, the three ACCOUNT writes
+ * slice 20 added — the first the crate had no Postgres function to port
+ * (PHASE3-PLAN D-2: the cloud writes `accounts` directly over PostgREST, so the
+ * oracle is the TypeScript writer and `schema.sql`'s constraints) — and, since
+ * slice 21, the four CATEGORY writes and `prepareCategories`, which is the same
+ * kind of port with one addition: the writer it ports (`ensureCategories`) calls
+ * an RPC of its own, and only the third of its three steps is that RPC.
+ * SEVENTEEN operations of the seam are not here yet, and
  * that is a declared, counted, shrinking list rather than a silence: they are
  * named in `services/port/__tests__/contract.ts`'s `NOT_YET` ratchet, the
  * contract suite asserts that the operations this port is missing are EXACTLY
@@ -148,8 +151,11 @@ import {
   toTransaction
 } from './mappers/rows';
 import {
+  defaultCategorySeed,
   toAccountCreatePayload,
   toAccountUpdatePatch,
+  toCategoryCreatePayload,
+  toCategoryUpdatePatch,
   toCreatePayload,
   toImportRow,
   toSplitLine,
@@ -179,9 +185,17 @@ export type LocalDataPortSurface =
     | 'unarchiveAccount'
   > &
   Omit<DataPortTransferWrites, 'repointTransfer'> &
-  Pick<DataPortPlanningWrites, 'deleteUnusedCategories' | 'mergeCategories'> &
+  Pick<
+    DataPortPlanningWrites,
+    | 'createCategory'
+    | 'createCategories'
+    | 'updateCategory'
+    | 'deleteCategory'
+    | 'deleteUnusedCategories'
+    | 'mergeCategories'
+  > &
   Pick<DataPortBackupLifecycle, 'financialDataIsEmpty' | 'wipeAllFinancialData'> &
-  Pick<DataPortLifecycle, 'initialize' | 'subscribeToUpdates'>;
+  Pick<DataPortLifecycle, 'initialize' | 'prepareCategories' | 'subscribeToUpdates'>;
 
 /**
  * An open ledger file, as the port needs to see it.
@@ -832,6 +846,97 @@ export class LocalDataPort implements LocalDataPortSurface {
     };
   }
 
+  // ── Categories ────────────────────────────────────────────────────────────
+
+  /**
+   * One category, as somebody typed it.
+   *
+   * The draft is FILTERED to the verb's own arguments, which is what the cloud's
+   * own mapper does: `categoryToDb` is a whitelist of eleven fields, so a key it
+   * has never heard of never reaches the table. `Partial<Category>` and
+   * `Omit<Category, 'id'>` both carry `description`, which has a column in
+   * neither engine, and a port that sent it would refuse an edit the cloud
+   * performs. `writes.ts` sets out the whole rule: do what the cloud's mapper
+   * does with an unknown key, which is a different answer for each of the three
+   * entities that has one.
+   *
+   * The id comes back USABLE (B-5): the caller uses it on the next line as the
+   * value of the select it just added an option to, and as the `parentId` of the
+   * children a tree import creates in its second pass. The verb mints a uuid
+   * where the cloud's column default would, because `categories.id` in a file is
+   * TEXT with no default — it also holds the slug ids a seed writes.
+   */
+  async createCategory(category: Omit<Category, 'id'>): Promise<Category> {
+    const answer = await this.#ask('create_category', toCategoryCreatePayload(category));
+    return toCategory(rowOf(answer, 'create_category', 'answer'));
+  }
+
+  /**
+   * A tree's worth at once.
+   *
+   * NOTHING IN, NOTHING OUT, AND THE STORE IS NOT OPENED. The empty case is
+   * answered here rather than by the verb, because "nothing was written" is a
+   * statement about not crossing the seam at all — and it is the ordinary case
+   * rather than a caller's mistake: an import that only adds detail to groups the
+   * account already has plans no new groups, and asks anyway, because the plan is
+   * computed before it is known to be empty. Both cloud writers return before
+   * they look at a connection for the same reason.
+   *
+   * The answers come back in id order, which is the crate's choice and not a
+   * promise to the caller: the seam says answers are matched to requests BY NAME,
+   * never by position.
+   */
+  async createCategories(categories: Array<Omit<Category, 'id'>>): Promise<Category[]> {
+    if (categories.length === 0) return [];
+    const answer = await this.#ask('create_categories', {
+      categories: categories.map(toCategoryCreatePayload)
+    });
+    // `rowsOf`, not `rowOf` — the two list-answering writes in this family wrap
+    // their rows exactly as the READS do (`{ answer: { categories: [...] } }`),
+    // because that is the shape the differential harness compares a verb on.
+    return rowsOf(answer, 'create_categories', 'categories').map(toCategory);
+  }
+
+  /**
+   * Change a category, and hand back the whole category as it now stands.
+   *
+   * A category that is not there is refused BY NAME and the store is left
+   * exactly as it was — the verb reads the row before its first write. That is
+   * the port of one word in the cloud's query: `.single()`, which turns "matched
+   * no row" into an error. `deleteCategory` below has no such clause and is
+   * therefore a successful nothing on the same id, which is not an inconsistency
+   * but two faithful ports of two queries.
+   */
+  async updateCategory(id: string, updates: Partial<Category>): Promise<Category> {
+    const answer = await this.#ask('update_category', {
+      id,
+      patch: toCategoryUpdatePatch(updates)
+    });
+    return toCategory(rowOf(answer, 'update_category', 'answer'));
+  }
+
+  /**
+   * Remove a category, AND THE CATEGORIES UNDER IT.
+   *
+   * The cascade is the seam's rule rather than one engine's foreign key, and the
+   * file keeps it twice over: the verb walks the subtree and deletes it deepest
+   * first, and `parent_id ON DELETE CASCADE` is underneath that. The walk is
+   * what makes each removed row auditable and counted.
+   *
+   * ONE ID IS REFUSED, and it is not this port's refusal: an account's To/From
+   * category is system bookkeeping and C-5 — the same trigger in both engines —
+   * will not let one go while its account exists. The refusal arrives with the
+   * trigger's own message and is passed to the caller unaltered (seam rule 4),
+   * which is what the screen puts on the page.
+   *
+   * Answers `void`, and the verb answers with a count anyway. Discarded here for
+   * `closeAccount`'s reason: a return value nobody reads is a return value that
+   * will one day be read wrongly.
+   */
+  async deleteCategory(id: string): Promise<void> {
+    await this.#ask('delete_category', { id });
+  }
+
   // ── Categories, in bulk ───────────────────────────────────────────────────
 
   /**
@@ -916,6 +1021,56 @@ export class LocalDataPort implements LocalDataPortSurface {
    */
   async initialize(): Promise<void> {
     return Promise.resolve();
+  }
+
+  /**
+   * The categories the ledger is about to be read through — and, on a file that
+   * has none, the act of putting them there.
+   *
+   * ── B-4, AND WHY IT IS ONE CROSSING ─────────────────────────────────────
+   *
+   * The divergence table gives this engine *'seeds the defaults into the store'*,
+   * against browser storage's *'answers with the defaults and stores nothing'*
+   * and the cloud's *'migrates a set into the account and keeps it'*. The verb
+   * behind it is the port of `ensureCategories`' whole body: read, and — only if
+   * the read came back empty — write the set it was given, then answer with what
+   * is stored either way.
+   *
+   * The CLIENT makes two round trips of that and this makes one, deliberately.
+   * A file has no second session to race, so the emptiness test and the insert
+   * belong in one transaction; and the cloud's way of handling the race is a
+   * refusal (`categories_already_migrated`), which a port would have to BRANCH
+   * ON A CODE to recover from. PHASE3-PLAN D-3 forbids that in as many words.
+   *
+   * ── THE TREE IS THE APP'S, NOT THE CRATE'S ──────────────────────────────
+   *
+   * `defaultCategorySeed()` is `src/data/defaultCategories.ts`, the same list
+   * browser storage answers with and the cloud migrates — sent in the payload
+   * exactly as `p_categories` is. One list for three engines; a copy in Rust
+   * would be a second one, going stale the first time a group was added to the
+   * starter set. The ids travel as themselves, which is the whole of *'never
+   * remaps'*: `'transfer-in'` is still `'transfer-in'` when the ledger asks.
+   *
+   * ── WHO CALLS IT, AND THE OBLIGATION THAT LEAVES FOR SLICE 27 ───────────
+   *
+   * `loadBoot` does NOT, on this engine, and that is asserted rather than
+   * assumed — the contract suite spies on this method and fails the composite if
+   * it was reached. Two reasons, and they point the same way: the local boot is
+   * ONE crossing of ONE transaction (BOOT_COMPOSITION), and seeding is a
+   * deliberate act rather than a side effect of looking at a file. A `load_boot`
+   * that wrote categories would be a read verb that writes, and the day somebody
+   * opened a colleague's ledger to look at it, it would change it.
+   *
+   * So the ordering the seam states for every engine — *"this must resolve
+   * before any transaction or budget read"* — is kept by the CALL SITE here,
+   * where the cloud keeps it inside its own `loadBoot`. The device boot slice 27
+   * writes must `await port.prepareCategories()` before `port.loadBoot()`. It is
+   * idempotent, so calling it on every launch costs one crossing that answers
+   * from the file it was going to read anyway.
+   */
+  async prepareCategories(): Promise<Category[]> {
+    const answer = await this.#ask('seed_categories', { categories: defaultCategorySeed() });
+    return rowsOf(answer, 'seed_categories', 'categories').map(toCategory);
   }
 
   /**

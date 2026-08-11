@@ -31,12 +31,14 @@
  *
  * ── ONLY THE ENTITIES THAT REALLY GO BOTH WAYS ──────────────────────────────
  *
- * Transactions, split lines and — since slice 20 — accounts. Categories,
- * budgets, goals and dismissals are still read-only: their write verbs are
- * slices 21 to 23, and a one-directional mapping has nothing to disagree with,
- * so the four of them stay written out in `rows.ts` where they can be read
+ * Transactions, split lines, accounts — and, since slice 21, categories.
+ * Budgets, goals and dismissals are still read-only: their write verbs are
+ * slices 22 and 23, and a one-directional mapping has nothing to disagree with,
+ * so the three of them stay written out in `rows.ts` where they can be read
  * beside the cloud twin each one has to agree with. Each joins this table in the
- * commit that gives it a writer.
+ * commit that gives it a writer, and the category's arrival is what that promise
+ * looks like when it is kept: `toCategory` moved out of hand-written property
+ * access and into `fieldsOf` in the same commit as `toCategoryCreatePayload`.
  *
  * ACCOUNTS ARE THE ONE ENTRY HERE WHOSE READ DOES NOT COME BACK THROUGH IT, and
  * that is a stronger arrangement rather than a hole in the rule. `rows.ts`'s
@@ -211,6 +213,44 @@ export const ACCOUNT_COLUMNS: readonly Column[] = [
   { key: 'last_reconciled_date', field: 'lastReconciledDate', kind: 'day' },
   { key: 'last_reconciled_balance', field: 'lastReconciledBalance', kind: 'money' },
   { key: 'parent_account_id', field: 'parentAccountId', kind: 'text' }
+];
+
+/**
+ * A category, column by column.
+ *
+ * Thirteen of the sixteen the table has. The three that are not here are the
+ * three no direction wants: `user_id` is the port's own (`#ask` adds it and no
+ * method below could send another), and `created_at`/`updated_at` are stamped by
+ * the file's clock inside the write's transaction — a caller's copy of a
+ * timestamp is what it last read, not an instruction, which is the same rule
+ * `writes.ts` states for an account's three.
+ *
+ * `type` and `level` are plain text and NOT an enumerated kind, because the
+ * app's words and the column's words are the same words here. An account needed
+ * `accountType` for the one place they differ ('current' against 'checking');
+ * a category's `income | expense | both` and `type | sub | detail` are spelled
+ * identically on both sides of the wire, and the CHECK is what judges an unknown
+ * one — on both engines, with the same message.
+ *
+ * `is_transfer_category` is writable, which looks alarming beside C-3 and is
+ * right: a RESTORE brings a backup's own To/From rows and has to be able to say
+ * so. What stops an ordinary category acquiring one is the file, through
+ * `categories_account_only_for_transfer` — a CHECK the cloud has never had.
+ */
+export const CATEGORY_COLUMNS: readonly Column[] = [
+  { key: 'id', field: 'id', kind: 'text' },
+  { key: 'name', field: 'name', kind: 'text' },
+  { key: 'type', field: 'type', kind: 'text' },
+  { key: 'level', field: 'level', kind: 'text' },
+  { key: 'parent_id', field: 'parentId', kind: 'text' },
+  { key: 'account_id', field: 'accountId', kind: 'text' },
+  { key: 'color', field: 'color', kind: 'text' },
+  { key: 'icon', field: 'icon', kind: 'text' },
+  { key: 'is_system', field: 'isSystem', kind: 'flag' },
+  { key: 'is_transfer_category', field: 'isTransferCategory', kind: 'flag' },
+  { key: 'is_revaluation_category', field: 'isRevaluationCategory', kind: 'flag' },
+  { key: 'is_unassigned_bucket', field: 'isUnassignedBucket', kind: 'flag' },
+  { key: 'is_active', field: 'isActive', kind: 'flag' }
 ];
 
 /** One stored value on its way IN, or `undefined` where the answer said nothing. */

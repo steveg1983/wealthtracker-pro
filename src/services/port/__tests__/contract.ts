@@ -36,6 +36,13 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+// The app's own default category tree — the one list all three engines start a
+// fresh store from. Imported rather than restated because B-4's rule below is
+// about THAT list and no other: see PREPARE_CATEGORIES's `keepsTheDefaultIds`.
+// It is safe to import here for the same reason the local edition can send it
+// over the seam: the module carries data and a slug function, and imports
+// nothing but a type.
+import { getDefaultCategories } from '../../../data/defaultCategories';
 import type { BackupBundle, BackupEntity, BackupRow, BootSnapshot, DataPort } from '../dataPort';
 import type {
   Account,
@@ -264,15 +271,16 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
    * wired the sixteen operations the crate's write verbs already served; slice
    * 20 wrote the first three verbs that port no Postgres function at all — the
    * account family, whose oracle is the TypeScript writer the cloud uses to
-   * write `accounts` directly over PostgREST.
+   * write `accounts` directly over PostgREST; slice 21 did the same for the four
+   * category writes and, with them, `prepareCategories`.
    *
-   * What is left needs new Rust, in the order the plan sets out — except for
-   * one, which is here for a different reason and says so below.
+   * What is left needs new Rust, in the order the plan sets out.
    *
-   * `prepareCategories` is here rather than half-answered: divergence B-4 says
-   * the local core SEEDS its defaults into the store, and there is no
-   * `seed_categories` verb yet, so answering with unwritten defaults would be
-   * browser storage's behaviour wearing this engine's name.
+   * `prepareCategories` used to be listed here rather than half-answered,
+   * because divergence B-4 says the local core SEEDS its defaults into the store
+   * and answering with unwritten defaults would have been browser storage's
+   * behaviour wearing this engine's name. `seed_categories` is that verb, and
+   * B-4's row is now asserted rather than excused.
    */
   'local-core': [
     // Transaction writes — the five with no verb. All four are live cloud RPCs
@@ -285,19 +293,16 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
     'unarchiveAccount',
     // Transfers — `repointTransfer` has no verb in either engine's crate half.
     'repointTransfer',
-    // Planning — budgets and goals (slice 22), categories (slice 21). The two
-    // that DID have a verb, `mergeCategories` and `deleteUnusedCategories`,
-    // left this list in slice 19.
+    // Planning — budgets and goals (slice 22). The category half of this group
+    // has gone: `mergeCategories` and `deleteUnusedCategories` left in slice 19
+    // because the crate already had their verbs, and the four writes left in
+    // slice 21 with five new ones.
     'createBudget',
     'updateBudget',
     'deleteBudget',
     'createGoal',
     'updateGoal',
     'deleteGoal',
-    'createCategory',
-    'createCategories',
-    'updateCategory',
-    'deleteCategory',
     // Dismissals — no verb yet (slice 23).
     'dismissSuggestion',
     'restoreSuggestion',
@@ -330,13 +335,11 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
     //   guesses, none of them checkable until `collect_backup` closes the round
     //   trip — which is exactly what slice 25 is.
     //
-    // So it goes with its group, one slice later, and the count says 22 rather
-    // than 21. The ratchet only forbids GROWING.
+    // So it goes with its group, one slice later, and the count says 17 rather
+    // than 16. The ratchet only forbids GROWING.
     'restoreBackup',
     // Migration — composed from wipe + restore, slice 26.
-    'importMsMoney',
-    // Lifecycle — needs `seed_categories` (slice 21). See above.
-    'prepareCategories'
+    'importMsMoney'
   ]
 };
 
@@ -350,7 +353,7 @@ export const NOT_YET: Partial<Record<DataPortEngine, readonly (keyof DataPort)[]
  * on a line that exists for no other purpose.
  */
 export const NOT_YET_CEILING: Partial<Record<DataPortEngine, number>> = {
-  'local-core': 22
+  'local-core': 17
 };
 
 // ── Declared divergences ────────────────────────────────────────────────────
@@ -458,16 +461,49 @@ const SERVER_BALANCES: Record<DataPortEngine, 'empty' | 'answers'> = {
  *
  * `describes` is the sentence the test names itself with, so a new engine's row
  * is a claim someone has to write down rather than a boolean nobody reads.
+ *
+ * `keepsTheDefaultIds` is the OTHER half of B-4 and the half that was missing
+ * until slice 21: whether the ids the engine hands back are the ids
+ * `src/data/defaultCategories.ts` names. It is not a detail of the same
+ * question. `persists` alone is satisfied perfectly by an engine that seeds a
+ * tree of freshly minted uuids — it wrote something, and it answered with what
+ * it wrote — and that engine has quietly become a second id space, which is the
+ * exact thing the cloud needed `migrate_categories_atomic`'s four passes to
+ * escape from. The consequence is not cosmetic: the app resolves `'transfer-in'`
+ * and `'type-transfer'` BY NAME in its own source (the transfer sentinels the
+ * category column still legitimately holds, and the anchor C-3's trigger looks
+ * for), so an engine that renamed them would leave that code asking a file for
+ * categories it has never heard of.
  */
-const PREPARE_CATEGORIES: Record<DataPortEngine, { describes: string; persists: boolean }> = {
+const PREPARE_CATEGORIES: Record<
+  DataPortEngine,
+  { describes: string; persists: boolean; keepsTheDefaultIds: boolean }
+> = {
   // Hands back the defaults and writes nothing: the browser's copy is a cache,
-  // and a cache that invents its own contents is no longer a cache.
-  'browser-storage': { describes: 'answers with the defaults and stores nothing', persists: false },
+  // and a cache that invents its own contents is no longer a cache. It cannot
+  // renumber what it does not store.
+  'browser-storage': {
+    describes: 'answers with the defaults and stores nothing',
+    persists: false,
+    keepsTheDefaultIds: true
+  },
   // Migrates the list it was given (or the defaults) into per-user rows, and
-  // remaps every reference to it in the same database transaction.
-  supabase: { describes: 'migrates a set into the account and keeps it', persists: true },
-  // Seeds its defaults into the one store it has; nothing to remap, ever.
-  'local-core': { describes: 'seeds the defaults into the store', persists: true }
+  // remaps every reference to it in the same database transaction. Its
+  // `categories.id` is a uuid column, so the slugs CANNOT survive there and the
+  // remap is the whole reason that function exists.
+  supabase: {
+    describes: 'migrates a set into the account and keeps it',
+    persists: true,
+    keepsTheDefaultIds: false
+  },
+  // Seeds its defaults into the one store it has; nothing to remap, ever. Only
+  // `users.id` carries a uuid CHECK in a file (PHASE3-PLAN D-5), so a category
+  // keeps the id it arrived with.
+  'local-core': {
+    describes: 'seeds the defaults into the store',
+    persists: true,
+    keepsTheDefaultIds: true
+  }
 };
 
 /**
@@ -1801,7 +1837,30 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(prepared.every(category => typeof category.name === 'string' && category.name !== ''))
           .toBe(true);
 
-        // Where the engines part company: whether that set was also written.
+        // WHICH IDS, and this is the half `persists` cannot see. An engine that
+        // seeded a tree of freshly minted uuids satisfies every assertion above
+        // — it wrote something and answered with what it wrote — and has
+        // silently become a second id space. The app resolves 'transfer-in',
+        // 'transfer-out' and the Transfer anchor BY NAME in its own source, so
+        // an engine that renumbered them leaves that code asking for categories
+        // the store has never heard of, and nothing throws: the register comes
+        // up with its category column blank.
+        //
+        // The cloud is the one engine that MUST renumber — its `categories.id`
+        // is a uuid column and a slug cannot be stored in one — which is why
+        // this is a declared row rather than an equality.
+        const defaults = getDefaultCategories().map(category => category.id).sort();
+        if (PREPARE_CATEGORIES[engine].keepsTheDefaultIds) {
+          expect(prepared.map(category => category.id).sort()).toEqual(defaults);
+        } else {
+          // Renumbered, and therefore NOT the app's ids — asserted, because an
+          // engine that started keeping them would have stopped being the engine
+          // this row describes.
+          expect(prepared.map(category => category.id).sort()).not.toEqual(defaults);
+        }
+
+        // Where the engines part company again: whether that set was also
+        // written.
         const stored = (await read()).categories;
         if (PREPARE_CATEGORIES[engine].persists) {
           expect(stored.map(category => category.id).sort())
@@ -1809,6 +1868,43 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         } else {
           expect(stored).toEqual([]);
         }
+      });
+
+      rule(['prepareCategories'], 'asked again, it answers the same set and adds nothing to the store', async () => {
+        // Rule 85. THE BOOT ASKS THIS EVERY LAUNCH, and two of the three engines
+        // are allowed to WRITE while answering it — so "what does the second
+        // call do" is a question with a wrong answer, and the wrong answer is
+        // silent: a person opens the app on Tuesday and has two of every
+        // category, or the eleven they deleted on Monday are back.
+        //
+        // Asserted for all three, because all three claim it for different
+        // reasons: browser storage writes nothing at all, the cloud's migration
+        // refuses a second run outright (`categories_already_migrated`) and its
+        // caller never reaches it, and a local file gates the seed on having no
+        // categories rather than on any single id being absent. Those are three
+        // implementations of one promise, and this is the promise.
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          categories: []
+        });
+
+        const first = await port.prepareCategories();
+        const second = await port.prepareCategories();
+
+        expect(first.length).toBeGreaterThan(0);
+        expect(second.map(category => category.id).sort())
+          .toEqual(first.map(category => category.id).sort());
+
+        const stored = (await read()).categories;
+        if (PREPARE_CATEGORIES[engine].persists) {
+          expect(stored.map(category => category.id).sort())
+            .toEqual(first.map(category => category.id).sort());
+        } else {
+          expect(stored).toEqual([]);
+        }
+        // The half a set comparison cannot see: two rows sharing an id would
+        // pass every assertion above and be two rows on the page.
+        expect(new Set(stored.map(category => category.id)).size).toBe(stored.length);
       });
 
       rule(['prepareCategories', 'loadBootTransactions', 'listCategories'], 'finishes its work before a transaction read can see the rows', async () => {
