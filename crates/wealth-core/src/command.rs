@@ -83,9 +83,10 @@ use crate::verbs::{
     delete_transaction, delete_unused_categories, finalize_user_restore, import_bank_transactions,
     import_transactions, link_bank_account_snap, link_split_line_transfer, link_transfer_pair,
     list_accounts, list_budgets, list_categories, list_closed_accounts, list_goals,
-    list_suggestion_dismissals, list_transaction_splits, list_transactions, merge_categories,
-    repair_claimed_transfer, restore_user_chunk, set_transaction_splits_with_legs, splits_for,
-    update_transaction, user_financial_data_is_empty, verify_integrity, wipe_user_financial_data,
+    list_suggestion_dismissals, list_transaction_splits, list_transactions, load_boot,
+    merge_categories, repair_claimed_transfer, restore_user_chunk,
+    set_transaction_splits_with_legs, splits_for, update_transaction, user_financial_data_is_empty,
+    verify_integrity, wipe_user_financial_data,
     ApplyCategoryToUncategorized, ClearTransferLinks, ConfirmTransactionCategories,
     CreateTransaction, CreateTransferCounterpart, DeleteTransaction, DeleteUnusedCategories,
     FinalizeUserRestore, ImportBankTransactions, ImportTransactions, LinkBankAccountSnap,
@@ -184,7 +185,8 @@ pub enum Command {
     ImportBankTransactions(Box<ImportBankTransactions>),
     // ── The reads ────────────────────────────────────────────────────────────
     //
-    // Ten verbs that answer and write nothing. Nine are named for the question
+    // Ten verbs that answer and write nothing, and then an eleventh below them
+    // that is all ten of the boot's at once. Nine are named for the question
     // they answer rather than for a function they port, because there is no
     // function to port: the cloud reads those tables over PostgREST, so what is
     // ported is a QUERY — its filter and its ORDER BY, spelled out in
@@ -232,6 +234,17 @@ pub enum Command {
     SplitsFor(Box<SplitsFor>),
     /// [`crate::verbs::account_balances`].
     AccountBalances(Box<OwnedRead>),
+    // The composite, and the eleventh thing that answers without writing. It
+    // takes the same owner-only payload the reads take, because it is the same
+    // question asked six times at once — and NOT a payload of its own with
+    // `include_balances` or `since` in it, which is what a composite grows if
+    // its payload is a place things can be added to.
+    //
+    // The name is the seam's method, `loadBoot`, in this crate's spelling. It is
+    // a port of no SQL: the thing it ports is `DataServiceImpl.loadBoot`, whose
+    // body IS the six reads above.
+    /// [`crate::verbs::load_boot`].
+    LoadBoot(Box<OwnedRead>),
     // The only verb here that is NOT a port: the cloud has no verify_integrity,
     // no view and no equivalent, and the verb's module documentation carries the
     // trace that establishes it. Its payload is `{}` — it takes not even an
@@ -453,6 +466,11 @@ pub fn dispatch(
         Command::AccountBalances(payload) => {
             account_balances(&*connection, *payload).and_then(as_json)
         }
+        // The one answering verb that takes the connection by `&mut`, and the
+        // only place in this match where that is not a sign of a write: it
+        // opens a DEFERRED read transaction so its six answers are one
+        // snapshot, and a transaction needs the connection to itself.
+        Command::LoadBoot(payload) => load_boot(connection, *payload).and_then(as_json),
         // A self-check with a name, and the same shape as the split writer's
         // `split_write_inconsistent`: [`plan`] above answers every one of these
         // and returns before a file is ever opened, so nothing can arrive here.
