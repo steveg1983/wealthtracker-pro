@@ -1474,6 +1474,28 @@ export function backupCategory(overrides = {}) {
   };
 }
 
+/**
+ * The same row as an OLDER schema wrote it: the named keys REMOVED.
+ *
+ * A backup is not a message from the current schema, it is a message from a
+ * past one, and the fixtures above are written against today's — so "a file
+ * that predates this column" cannot be expressed by leaving a key out of
+ * [`backupTransaction`] and hoping nobody adds it later. That hope is exactly
+ * how the defect this exists to catch got in: `needs_review` was absent from
+ * these fixtures by accident of history, so the specs that would have caught
+ * `20260810090000` were testing the omission without saying so, and the day
+ * somebody adds it to the fixture they would silently stop.
+ *
+ * Deleting the key states the intent, and keeps stating it whatever the fixture
+ * grows. Deliberately silent when a key is already absent: the point is the
+ * shape of the result, not the diff from today.
+ */
+export function asExportedBefore(row, ...columns) {
+  const older = { ...row };
+  for (const column of columns) delete older[column];
+  return older;
+}
+
 /** One chunk of a restore, in the shape both engines are handed. */
 export function chunk(entity, rows) {
   return { entity, rows };
