@@ -98,16 +98,22 @@ import type {
  * shape here would be free to drift from the one the file is actually written
  * and validated against. A local edition inherits the format for the same
  * reason it inherits the seam.
+ *
+ * Since slice 27 the format has a module of its own — `backup/format.ts`, with
+ * no Supabase client anywhere in its scope — and these come from there. Six of
+ * the seven were always describable that way; `ExportProgress` is the odd one
+ * and stays where the export that reports it lives, because it is a statement
+ * about reading fourteen tables over a network rather than about a file.
  */
 import type {
   BackupBundle,
   BackupEntity,
   BackupRow,
   DanglingReference,
-  ExportProgress,
   RestoreOutcome,
   RestoreProgress
-} from '../backupService';
+} from '../backup/format';
+import type { ExportProgress } from '../backupService';
 /**
  * The wipe's progress, and the migration's — imported for the same reason the
  * backup format above is, and erased at build for the same reason too.

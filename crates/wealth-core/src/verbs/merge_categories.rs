@@ -154,7 +154,7 @@ use crate::row::budget::{self, BudgetRow};
 use crate::row::category::{self, CategoryRow};
 use crate::row::recurring::{self, RecurringRow};
 use crate::row::split::{self, SplitRow};
-use crate::row::{self as transaction_row, TransactionRow};
+use crate::row::{self as transaction_row, TransactionRow, WrittenTransaction};
 
 /// The command. `(p_source_id, p_target_id, p_user_id)` as one object.
 #[derive(Debug, Deserialize)]
@@ -187,7 +187,7 @@ pub struct MergeCategoriesResult {
     /// afterwards. `None` when the merge moved no whole transaction — which is
     /// an ordinary outcome, not an error: a category may be referenced only by
     /// split lines, or by nothing at all.
-    pub transaction: Option<TransactionRow>,
+    pub transaction: Option<WrittenTransaction>,
     /// `source_id` from the RPC's jsonb. Echoed because the source is gone and
     /// this is the only record of which id the caller named.
     pub source_id: String,
@@ -327,7 +327,14 @@ pub fn merge_categories(
         &now,
     )?;
 
-    let first_moved = moved_transactions.first().cloned();
+    // The result projection, taken before the commit and beside the audit
+    // rather than instead of it: every `json_of` above still serialises the
+    // audit projection, and these add the one column an answer needs.
+    let first_moved = moved_transactions
+        .first()
+        .cloned()
+        .map(|row| transaction_row::written(&write, row))
+        .transpose()?;
 
     write.commit()?;
 

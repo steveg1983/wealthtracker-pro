@@ -103,7 +103,7 @@ use serde::{Deserialize, Serialize};
 use crate::audit::{self, Action};
 use crate::db;
 use crate::error::{CoreError, CoreResult, Refusal};
-use crate::row::{self, TransactionRow};
+use crate::row::{self, WrittenTransaction};
 
 use super::transfer;
 
@@ -136,14 +136,14 @@ pub struct ClearTransferLinksResult {
     ///
     /// `None` only when the caller named nothing at all: any other call has
     /// already refused every id that does not resolve.
-    pub transaction: Option<TransactionRow>,
+    pub transaction: Option<WrittenTransaction>,
     /// The RPC's return value: how many rows were **actually** unlinked. Rows
     /// already unlinked, and rows whose link lives on a split line, are not
     /// counted, because no write happened.
     pub unlinked: i64,
     /// Those rows, as stored after the write, in the order they were written
     /// (by id, as the cloud's cursor walks them).
-    pub transactions: Vec<TransactionRow>,
+    pub transactions: Vec<WrittenTransaction>,
     /// Dense sequence number of the LAST audit row written, when any was.
     pub audit_seq: Option<i64>,
     /// Its chained hash.
@@ -239,7 +239,10 @@ pub fn clear_transfer_links(
             Some(&json_of(&after)?),
             &now,
         )?);
-        unlinked.push(after);
+        // The result projection, taken beside the audit rather than instead of
+        // it: `after` is what the audit above serialised and this adds the one
+        // column the answer needs and the chain does not.
+        unlinked.push(row::written(&write, after)?);
     }
 
     // The first id the CALLER named, not the first in id order: the client's
@@ -247,7 +250,7 @@ pub fn clear_transfer_links(
     // `p_ids->>0` for the same reason.
     let first = named
         .first()
-        .map(|id| row::read_transaction(&write, id))
+        .map(|id| row::written(&write, row::read_transaction(&write, id)?))
         .transpose()?;
 
     let count = i64::try_from(unlinked.len()).map_err(|_| {

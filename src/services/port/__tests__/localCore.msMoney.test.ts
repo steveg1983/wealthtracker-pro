@@ -52,7 +52,7 @@ import {
   type MnyExport,
   type MsMoneyImportResult
 } from '../../import/msMoney/transform';
-import { createSpawnTransport } from '../../local/coreTransport';
+import { createSpawnTransport } from '../../local/spawnTransport';
 import {
   LocalDataPort,
   type BackupFormat,

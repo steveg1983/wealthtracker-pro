@@ -82,7 +82,10 @@
     "verify:financial": "node scripts/verify-financial-safety.mjs",
     "verify:bundle": "npm run build && node scripts/bundle-size-check.mjs",
     "verify:types": "node scripts/verify-type-safety.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "desktop:ui": "vite build --config apps/desktop/vite.config.ts",
+    "desktop:build": "npm run desktop:ui && cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --release",
+    "desktop:check": "cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml"
   },
   "dependencies": {
     "@clerk/backend": "^3.6.1",

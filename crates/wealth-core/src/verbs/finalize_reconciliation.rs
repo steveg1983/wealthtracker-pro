@@ -98,7 +98,7 @@ use crate::db;
 use crate::error::{CoreError, CoreResult, Refusal};
 use crate::money::Money;
 use crate::row::account::{self, ListedAccount};
-use crate::row::{self, TransactionRow};
+use crate::row::{self, TransactionRow, WrittenTransaction};
 
 /// The command: `(p_user_id, p_account_id, p_ending_balance, p_reconciled_on)`.
 #[derive(Debug, Deserialize)]
@@ -128,7 +128,7 @@ pub struct FinalizeReconciliationResult {
     /// The account as stored afterwards.
     pub account: ListedAccount,
     /// The rows converted, as stored, in the order they were written.
-    pub transactions: Vec<TransactionRow>,
+    pub transactions: Vec<WrittenTransaction>,
     /// Dense sequence number of the LAST audit row written — the account's,
     /// which is always written, so this is never `None`.
     pub audit_seq: i64,
@@ -241,6 +241,11 @@ pub fn finalize_reconciliation(
     )?;
 
     let reconciled = super::count(converted.len())?;
+
+    // The result projection, taken before the commit and beside the audit
+    // rather than instead of it: every `json_of` above still serialises the
+    // audit projection, and these add the one column an answer needs.
+    let converted = row::written_all(&write, converted)?;
 
     write.commit()?;
 

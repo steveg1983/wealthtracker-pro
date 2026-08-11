@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.desktop.tsbuildinfo",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode — the same as tsconfig.app.json's, because the modules this
+       reaches into are the same modules. `types` is stated here and not there
+       only because that project picks `vite/client` up from src/vite-env.d.ts,
+       which is inside its own `include` and outside this one. */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": false,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "types": ["vite/client", "node"],
+
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": false,
+
+    "baseUrl": ".",
+    "paths": {
+      "@wealthtracker/utils": ["./packages/utils/index.ts"],
+      "@wealthtracker/utils/*": ["./packages/utils/*"],
+      "@wealthtracker/types/*": ["./packages/types/*"],
+      "@app-types/*": ["./src/types/*"]
+    }
+  },
+  "include": ["apps/desktop/ui", "apps/desktop/vite.config.ts"]
+}

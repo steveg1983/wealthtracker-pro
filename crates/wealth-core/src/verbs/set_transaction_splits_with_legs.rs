@@ -180,7 +180,7 @@ use crate::row::account::{self, AccountRow};
 // namespaces never collide.
 use crate::row::category::{read_filing, transfer_category_for};
 use crate::row::split::{self, SplitRow};
-use crate::row::{self, TransactionRow};
+use crate::row::{self, TransactionRow, WrittenTransaction};
 use crate::wire::{as_text, trimmed_or_none, trimmed_text};
 
 /// The command. The RPC's four arguments as one object, for the reason the
@@ -219,7 +219,7 @@ pub struct SetTransactionSplitsWithLegs {
 #[derive(Debug, Serialize)]
 pub struct SetTransactionSplitsWithLegsResult {
     /// The split parent as stored after the write.
-    pub transaction: TransactionRow,
+    pub transaction: WrittenTransaction,
     /// Always true: this writer never un-splits.
     pub is_split: bool,
     /// How many lines the split now holds.
@@ -231,7 +231,7 @@ pub struct SetTransactionSplitsWithLegsResult {
     /// The transactions minted for lines that became legs, in the order they
     /// were made — so the client updates its state, and those accounts'
     /// balances, from what the database wrote rather than what it hoped for.
-    pub counterparts: Vec<TransactionRow>,
+    pub counterparts: Vec<WrittenTransaction>,
     /// Dense sequence number of the audit row written for the PARENT.
     pub audit_seq: i64,
     /// Its chained hash.
@@ -356,6 +356,12 @@ pub fn set_transaction_splits_with_legs(
         &now,
     )?;
 
+    // The result projection, taken before the commit and beside the audit
+    // rather than instead of it: every `json_of` above still serialises the
+    // audit projection, and these add the one column an answer needs.
+    let after = row::written(&transaction, after)?;
+    let counterparts = row::written_all(&transaction, written.counterparts)?;
+
     transaction.commit()?;
 
     Ok(SetTransactionSplitsWithLegsResult {
@@ -364,7 +370,7 @@ pub fn set_transaction_splits_with_legs(
         split_count: described_count,
         amount: Money::from_minor(written.sum),
         splits: new_lines,
-        counterparts: written.counterparts,
+        counterparts,
         audit_seq: entry.seq,
         audit_row_hash: entry.row_hash,
     })

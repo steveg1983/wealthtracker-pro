@@ -71,7 +71,7 @@ use serde::{Deserialize, Serialize};
 use crate::audit::{self, Action};
 use crate::db;
 use crate::error::{CoreError, CoreResult, Refusal};
-use crate::row::{self, TransactionRow};
+use crate::row::{self, WrittenTransaction};
 use crate::wire::Flag;
 
 /// The command: `(p_ids, p_archived, p_user_id)` as one object.
@@ -95,12 +95,12 @@ pub struct SetTransactionsArchived {
 #[derive(Debug, Serialize)]
 pub struct SetTransactionsArchivedResult {
     /// The FIRST row named, as stored after the call.
-    pub transaction: Option<TransactionRow>,
+    pub transaction: Option<WrittenTransaction>,
     /// How many rows really changed. A row already in the requested state is
     /// skipped and not counted.
     pub changed: i64,
     /// Those rows, as stored, in the order they were written (by id).
-    pub transactions: Vec<TransactionRow>,
+    pub transactions: Vec<WrittenTransaction>,
     /// Dense sequence number of the LAST audit row written, when any was.
     pub audit_seq: Option<i64>,
     /// Its chained hash.
@@ -196,14 +196,19 @@ pub fn set_transactions_archived(
             Some(&super::json_of(&after)?),
             &now,
         )?);
-        written.push(after);
+        // The result projection, taken beside the audit rather than instead of
+        // it: `after` is what the audit above serialised and this adds the one
+        // column the answer needs and the chain does not.
+        written.push(row::written(&write, after)?);
     }
 
     let first = named
         .first()
         .map(|id| row::read_owned_transaction(&write, id, None))
         .transpose()?
-        .flatten();
+        .flatten()
+        .map(|row| row::written(&write, row))
+        .transpose()?;
 
     let count = super::count(written.len())?;
 

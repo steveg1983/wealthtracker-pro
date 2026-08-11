@@ -97,7 +97,7 @@ use crate::audit::{self, Action};
 use crate::db;
 use crate::error::{CoreError, CoreResult, Refusal};
 use crate::row::category::transfer_category_for;
-use crate::row::{self, TransactionRow};
+use crate::row::{self, TransactionRow, WrittenTransaction};
 
 use super::transfer;
 
@@ -126,9 +126,9 @@ pub struct LinkTransferPair {
 #[derive(Debug, Serialize)]
 pub struct LinkTransferPairResult {
     /// Side A, as stored after the write. The RPC's `a`.
-    pub transaction: TransactionRow,
+    pub transaction: WrittenTransaction,
     /// Side B, as stored after the write. The RPC's `b`.
-    pub other_side: TransactionRow,
+    pub other_side: WrittenTransaction,
     /// Dense sequence number of the audit row written for side A.
     pub audit_seq: i64,
     /// Its chained hash.
@@ -200,6 +200,12 @@ pub fn link_transfer_pair(
     // then fixes for good.
     let entry = audit_side(&write, &side_a, &after_a, &now)?;
     audit_side(&write, &side_b, &after_b, &now)?;
+
+    // The result projection, taken before the commit and beside the audit
+    // rather than instead of it: every `json_of` above still serialises the
+    // audit projection, and these add the one column an answer needs.
+    let after_a = row::written(&write, after_a)?;
+    let after_b = row::written(&write, after_b)?;
 
     write.commit()?;
 

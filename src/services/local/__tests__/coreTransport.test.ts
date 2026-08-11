@@ -28,7 +28,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { readEnvelope, type CoreTransport } from '../coreTransport';
+import { createInvokeTransport, readEnvelope, type CoreTransport } from '../coreTransport';
 import { LocalDataPort } from '../localDataPort';
 
 const OWNER = '11111111-1111-1111-1111-111111111111';
@@ -607,5 +607,123 @@ describe('the port over a transport', () => {
     // must not be able to change what the next caller is told.
     port.capabilities().realtime = true;
     expect(port.capabilities().realtime).toBe(false);
+  });
+});
+
+describe('the desktop transport — one Tauri command, in the ledger’s own process', () => {
+  /** The shell's `invoke`, with the answer a test wants and a record of the ask. */
+  const shellAnswering = (
+    answer: (verb: string, payload: unknown) => unknown
+  ): { invoke: (command: string, args: Record<string, unknown>) => Promise<unknown>; asked: unknown[] } => {
+    const asked: unknown[] = [];
+    return {
+      asked,
+      invoke: async (command, args) => {
+        asked.push({ command, args });
+        return answer(String(args.verb), args.payload);
+      }
+    };
+  };
+
+  it('sends one command, named once, with the verb and the payload beside it', async () => {
+    const shell = shellAnswering(() => ({ ok: true, result: { answer: { accounts: [] } } }));
+
+    const answer = await createInvokeTransport(shell.invoke).call('list_accounts', {
+      user_id: OWNER
+    });
+
+    // D-3's whole point: ONE command, over the crate's own dispatch. A shell
+    // with a command per verb would be a second verb set.
+    expect(shell.asked).toEqual([
+      {
+        command: 'wealth_core_invoke',
+        args: { verb: 'list_accounts', payload: { user_id: OWNER } }
+      }
+    ]);
+    expect(answer).toEqual({ answer: { accounts: [] } });
+  });
+
+  it('gives back the ledger’s refusal WORD FOR WORD', async () => {
+    // Seam rule 4. The crate wrote this sentence for a person and the app
+    // renders `.message` straight into the UI in ~28 places, so a transport
+    // that prefixed or wrapped it would be speaking over the ledger.
+    const prose =
+      'This transfer is already linked to another transaction. Unlink it first, then try again.';
+    const shell = shellAnswering(() => ({
+      ok: false,
+      error: { code: 'transfer_already_linked', message: prose, hint: 'Unlink the other side.' }
+    }));
+
+    await expect(
+      createInvokeTransport(shell.invoke).call('link_transfer_pair', {})
+    ).rejects.toThrow(prose);
+
+    const error = await createInvokeTransport(shell.invoke)
+      .call('link_transfer_pair', {})
+      .catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe(prose);
+    // Not enumerable, so it cannot reach a log, a spread or an `if` on a code.
+    expect(Object.keys(error as object)).toEqual([]);
+    expect(JSON.stringify(error)).toBe('{}');
+  });
+
+  it('turns a REJECTED invoke into a fault, because the crate never answered', async () => {
+    // `main.rs` resolves with the envelope and rejects only when the ledger was
+    // not asked at all — no document open, storage failed. The crate had no
+    // chance to write a sentence, so this module writes one, with the verb in
+    // it.
+    const shell = {
+      invoke: async (): Promise<unknown> => {
+        throw 'no ledger is open in this window, so there was nothing to ask';
+      }
+    };
+
+    await expect(createInvokeTransport(shell.invoke).call('load_boot', {})).rejects.toThrow(
+      /The ledger file could not answer load_boot: no ledger is open/
+    );
+  });
+
+  it('does not describe a refusal as a transport failure', async () => {
+    // The `try` holds the invoke and nothing else. If it held `readEnvelope`
+    // too, every refusal in the product would reach the user wearing this
+    // module's words instead of the ledger's.
+    const shell = shellAnswering(() => ({
+      ok: false,
+      error: { code: 'wipe_not_confirmed', message: 'Type DELETE EVERYTHING to confirm.' }
+    }));
+
+    await expect(
+      createInvokeTransport(shell.invoke).call('wipe_user_financial_data', {})
+    ).rejects.toThrow('Type DELETE EVERYTHING to confirm.');
+    await expect(
+      createInvokeTransport(shell.invoke).call('wipe_user_financial_data', {})
+    ).rejects.not.toThrow(/could not answer/);
+  });
+
+  it('reports an answer that is not an envelope as a broken transport', async () => {
+    // An unparseable answer is not a no. Both transports read the envelope with
+    // the same function, so both say this the same way.
+    const shell = shellAnswering(() => ({ rows: [] }));
+
+    await expect(createInvokeTransport(shell.invoke).call('list_budgets', {})).rejects.toThrow(
+      /was not in the \{ok,…\} envelope/
+    );
+  });
+
+  it('drives a real port end to end, so the two halves are known to fit', async () => {
+    const shell = shellAnswering(() => ({
+      ok: true,
+      result: { answer: { accounts: [] } }
+    }));
+
+    const port = new LocalDataPort({
+      owner: OWNER,
+      transport: createInvokeTransport(shell.invoke),
+      logger: silent
+    });
+
+    await expect(port.listAccounts()).resolves.toEqual([]);
   });
 });

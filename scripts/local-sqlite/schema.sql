@@ -138,6 +138,18 @@
 --         then the boot read (BOOT columns) is where needs_review crosses,
 --         and it does.
 --
+--         THE PARITY IS NOW REAL — slice 27 built that result projection.
+--         `crate::row::WrittenTransaction` is the audit row plus this column
+--         and is what every write ANSWERS with; `crate::row::TransactionRow`
+--         is what the chain records and is byte-for-byte what it was. ROW_JSON
+--         is the twin of the FIRST of those, so it projects needs_review and
+--         all 467 verb specs compare the two engines on it. The audit half is
+--         held by two of the crate's own tests (row.rs asserts the audit
+--         projection's exact key list; tests/update_transaction.rs reads the
+--         stored payload back and fails if the key appears). So the column now
+--         crosses on THREE paths — the boot read, a write's answer, and
+--         neither the audit nor the chain.
+--
 -- AMENDED 2026-08-11 (7), in THIS COPY ONLY, mirroring
 --         supabase/migrations/20260810200000_marking_is_not_reconciling.sql:
 --         `transactions.is_reconciled`, Microsoft Money's R — the committed
