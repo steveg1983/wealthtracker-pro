@@ -88,26 +88,27 @@ use crate::verbs::{
     import_transactions,
     link_bank_account_snap, link_split_line_transfer, link_transfer_pair, list_accounts,
     list_budgets, list_categories, list_closed_accounts, list_goals, list_suggestion_dismissals,
-    list_transaction_splits, list_transactions, load_boot, merge_categories,
+    list_transaction_splits, list_transactions, load_boot, merge_categories, read_preferences,
     repair_claimed_transfer, repoint_transfer, restore_backup, restore_suggestion,
     restore_user_chunk, seed_categories,
     set_transaction_splits_with_legs, set_transactions_archived, set_transactions_cleared,
     splits_for, unarchive_account, update_account, update_budget, update_category,
     update_goal, update_transaction, user_financial_data_is_empty, verify_integrity,
-    wipe_user_financial_data,
+    wipe_user_financial_data, write_preferences,
     ApplyCategoryToUncategorized, ArchiveTransactionsBefore, ClearTransferLinks, CloseAccount,
     CollectBackup, ConfirmTransactionCategories,
     CreateAccount, CreateBudget, CreateCategories, CreateCategory, CreateGoal, CreateTransaction,
     CreateTransferCounterpart, DeleteBudget, DeleteCategory, DeleteGoal, DeleteTransaction,
     DeleteUnusedCategories, DismissSuggestion, FinalizeReconciliation, FinalizeUserRestore,
     ImportBankTransactions, ImportTransactions, LinkBankAccountSnap, LinkSplitLineTransfer,
-    LinkTransferPair, MergeCategories, OwnedRead, RepairClaimedTransfer, RepointTransfer,
+    LinkTransferPair, MergeCategories, OwnedRead, ReadPreferences, RepairClaimedTransfer,
+    RepointTransfer,
     RestoreBackup, RestoreSuggestion,
     RestoreUserChunk,
     SeedCategories, SetTransactionSplitsWithLegs, SetTransactionsArchived, SetTransactionsCleared,
     SplitsFor, UnarchiveAccount, UpdateAccount, UpdateBudget,
     UpdateCategory, UpdateGoal, UpdateTransaction, UserFinancialDataIsEmpty, VerifyIntegrity,
-    WipeUserFinancialData,
+    WipeUserFinancialData, WritePreferences,
 };
 
 /// A command, as a caller sends it.
@@ -276,6 +277,22 @@ pub enum Command {
     CollectBackup(Box<CollectBackup>),
     /// [`crate::verbs::restore_backup`].
     RestoreBackup(Box<RestoreBackup>),
+    // ── The preferences pair ─────────────────────────────────────────────────
+    //
+    // Two more verb strings with no function behind either: `user_preferences`
+    // is written directly over PostgREST too (`preferencesService.ts:259-279`).
+    // PHASE3-PLAN D-2 a fifth time.
+    //
+    // They sit beside the backup pair rather than beside the reads because that
+    // is the shape they have — one whole document in, one whole document out —
+    // and because a backup FILE carries the same document as its own top-level
+    // section. `collect_backup` reads fourteen TABLES; this reads the fifteenth
+    // thing a file holds, which is not a table's worth of rows but one row's
+    // worth of somebody's choices.
+    /// [`crate::verbs::read_preferences`].
+    ReadPreferences(Box<ReadPreferences>),
+    /// [`crate::verbs::write_preferences`].
+    WritePreferences(Box<WritePreferences>),
     // The account snap: service-role only in the cloud, and the one function in
     // the schema that assigns an absolute balance without breaking B-1.
     /// [`crate::verbs::link_bank_account_snap`].
@@ -600,6 +617,14 @@ pub fn dispatch(
         }
         Command::CollectBackup(payload) => collect_backup(connection, *payload).and_then(as_json),
         Command::RestoreBackup(payload) => restore_backup(connection, *payload).and_then(as_json),
+        // The third verb that needs no `&mut`, and for the same reason as the
+        // first two: it writes nothing.
+        Command::ReadPreferences(payload) => {
+            read_preferences(&*connection, *payload).and_then(as_json)
+        }
+        Command::WritePreferences(payload) => {
+            write_preferences(connection, *payload).and_then(as_json)
+        }
         Command::LinkBankAccountSnap(payload) => {
             link_bank_account_snap(connection, *payload).and_then(as_json)
         }

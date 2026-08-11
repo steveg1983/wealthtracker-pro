@@ -6,18 +6,31 @@
  * What is here is the half a contract cannot state: the seam requires categories
  * to be resolved before any transaction or budget read, and on this engine that
  * ordering is kept by the CALL SITE rather than inside a verb.
+ *
+ * Slice 28 added the other two things one open document has to answer for — the
+ * IDENTITY and the SETTINGS — and both are wiring in exactly the same sense. A
+ * preferences service attached to the wrong id, or pointed at the wrong store,
+ * fails silently and much later.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   bootDeviceLedger,
   deviceBackupFormat,
   deviceMsMoneyMigration,
-  openDeviceDocument
+  openDeviceDocument,
+  type DevicePreferences
 } from '../deviceDocument';
+import {
+  currentDeviceIdentity,
+  forgetDeviceIdentity,
+  requireDeviceOwner
+} from '../deviceIdentity';
+import type { PreferencesTransport } from '../../preferences/document';
 import { RESTORE_STEPS, buildBackupBundle, rowsForStep } from '../../backup/format';
 
 const OWNER = '11111111-1111-1111-1111-111111111111';
+const SOMEBODY_ELSE = '22222222-2222-2222-2222-222222222222';
 
 /**
  * A parsed .mny file with nothing in it. The transform's four collections, in
@@ -57,10 +70,40 @@ const shellRecording = (): {
       verbs.push(verb);
       if (verb === 'seed_categories') return { ok: true, result: { answer: { categories: [] } } };
       if (verb === 'load_boot') return { ok: true, result: { answer: EMPTY_BOOT } };
+      if (verb === 'read_preferences') return { ok: true, result: { answer: { preferences: null } } };
+      if (verb === 'list_accounts') return { ok: true, result: { answer: { accounts: [] } } };
       return { ok: true, result: { answer: {} } };
     }
   };
 };
+
+/** The preferences singleton's two methods, recorded rather than performed. */
+const preferencesRecording = (): DevicePreferences & {
+  readonly stores: (PreferencesTransport | null)[];
+  readonly attached: string[];
+  readonly calls: string[];
+} => {
+  const stores: (PreferencesTransport | null)[] = [];
+  const attached: string[] = [];
+  const calls: string[] = [];
+  return {
+    stores,
+    attached,
+    calls,
+    useTransport(transport) {
+      stores.push(transport);
+      calls.push('useTransport');
+    },
+    async attach(userId) {
+      attached.push(userId);
+      calls.push('attach');
+    }
+  };
+};
+
+afterEach(() => {
+  forgetDeviceIdentity();
+});
 
 describe('the device boot', () => {
   it('resolves categories BEFORE it reads the ledger', async () => {
@@ -71,9 +114,9 @@ describe('the device boot', () => {
     // transaction and seeding is a deliberate act rather than a side effect of
     // looking at a file.
     const shell = shellRecording();
-    const port = openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke });
+    const document = openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke });
 
-    await bootDeviceLedger(port);
+    await bootDeviceLedger(document);
 
     expect(shell.verbs).toEqual(['seed_categories', 'load_boot']);
   });
@@ -106,7 +149,9 @@ describe('the device boot', () => {
   it('hands back the boot the file answered with', async () => {
     const shell = shellRecording();
 
-    const boot = await bootDeviceLedger(openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke }));
+    const boot = await bootDeviceLedger(
+      openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke })
+    );
 
     expect(boot.accounts).toEqual([]);
     expect(boot.transactions).toEqual([]);
@@ -127,6 +172,174 @@ describe('the device boot', () => {
   });
 });
 
+describe('the settings, attached to the file', () => {
+  it('points the service at THIS file and binds it to the file’s own owner', async () => {
+    // The whole of slice 28's third piece in one assertion. The store is the
+    // document's — not the cloud's, not the browser mirror — and the identity is
+    // the uuid in the file's `users` row rather than anything a session
+    // supplied.
+    const shell = shellRecording();
+    const document = openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke });
+    const preferences = preferencesRecording();
+
+    await bootDeviceLedger(document, { preferences });
+
+    expect(preferences.stores).toEqual([document.preferences]);
+    expect(preferences.attached).toEqual([OWNER]);
+  });
+
+  it('says which store before it says who, because attach reads from the store', async () => {
+    // `attach` resolves the transport when it runs. The other order would read
+    // the settings out of whatever store the previous session left configured —
+    // on a desktop that is the cloud's, which is absent, so a person's whole
+    // document would silently come back as "nothing saved yet" and the lift
+    // would overwrite the file's real settings with this window's defaults.
+    const shell = shellRecording();
+    const preferences = preferencesRecording();
+
+    await bootDeviceLedger(openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke }), {
+      preferences
+    });
+
+    expect(preferences.calls).toEqual(['useTransport', 'attach']);
+  });
+
+  it('starts the attach before the seed and still finishes it before answering', async () => {
+    // The divergence from the cloud, which fires `void attach(...)` and never
+    // waits. There is no round trip here to keep off the critical path, and
+    // awaiting buys a first paint that is the person's own rather than the
+    // defaults corrected a frame later. It is STARTED first so its crossing
+    // overlaps the seed instead of delaying it.
+    const shell = shellRecording();
+    const document = openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke });
+    const order: string[] = [];
+    const preferences: DevicePreferences = {
+      useTransport: () => {
+        order.push('useTransport');
+      },
+      attach: async () => {
+        order.push('attach started');
+        await new Promise(resolve => setTimeout(resolve, 10));
+        order.push('attach finished');
+      }
+    };
+    const port = document.port;
+    const seed = vi.spyOn(port, 'prepareCategories');
+    seed.mockImplementation(async () => {
+      order.push('seed');
+      return [];
+    });
+
+    await bootDeviceLedger(document, { preferences });
+
+    expect(order.indexOf('attach started')).toBeLessThan(order.indexOf('seed'));
+    expect(order).toContain('attach finished');
+    expect(order.indexOf('attach finished')).toBeGreaterThan(order.indexOf('seed'));
+  });
+
+  it('boots the ledger anyway when the settings cannot be attached', async () => {
+    // A ledger must never fail to open because a toggle could not be read. The
+    // real `attach` swallows its own read failure and falls back to this
+    // machine's copy — the behaviour the cloud already relies on for an offline
+    // sign-in — and this proves the boot does not undo that by awaiting it.
+    const shell = shellRecording();
+    const preferences: DevicePreferences = {
+      useTransport: () => {},
+      attach: async () => {
+        await Promise.resolve();
+      }
+    };
+
+    const boot = await bootDeviceLedger(
+      openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke }),
+      { preferences }
+    );
+
+    expect(boot.accounts).toEqual([]);
+  });
+
+  it('leaves the settings alone when nothing was given to attach', async () => {
+    // The shell's current renderer mounts no React and reads no setting, so it
+    // passes none. The absence must be a no-op rather than an error, and it must
+    // not quietly point the app at a store that is not this file.
+    const shell = shellRecording();
+
+    await expect(
+      bootDeviceLedger(openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke }))
+    ).resolves.toBeDefined();
+    expect(shell.verbs).toEqual(['seed_categories', 'load_boot']);
+  });
+
+  it('refuses to attach a document that is not the ledger this window has open', async () => {
+    // Opening a second ledger republishes the identity. Booting the FIRST one
+    // afterwards would attach that file's settings under the second file's
+    // owner, and the transport's own guard would then refuse every write at some
+    // later, quieter moment. Caught here, before anything is read.
+    const shell = shellRecording();
+    const first = openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke });
+    openDeviceDocument({
+      ledger: { path: '/Users/somebody/Theirs.db', owner: SOMEBODY_ELSE },
+      invoke: shell.invoke
+    });
+
+    await expect(
+      bootDeviceLedger(first, { preferences: preferencesRecording() })
+    ).rejects.toThrow(/has .* ledger open and was asked to boot/);
+  });
+});
+
+describe('who this window belongs to', () => {
+  it('publishes the FILE’s owner, not a constant and not a session id', async () => {
+    // The mutation this exists for: an identity wired to anything other than the
+    // uuid in the file's own users row. A device has no Clerk id and no database
+    // lookup — `userIdService` reaches a Supabase client and could not be
+    // imported here even if there were something for it to translate.
+    openDeviceDocument({ ledger: LEDGER, invoke: shellRecording().invoke });
+
+    expect(currentDeviceIdentity()).toEqual({ owner: OWNER, path: LEDGER.path });
+    expect(requireDeviceOwner()).toBe(OWNER);
+  });
+
+  it('answers nothing before a ledger is opened, and says so rather than guessing', () => {
+    expect(currentDeviceIdentity()).toBeNull();
+    expect(() => requireDeviceOwner()).toThrow(/No ledger is open/);
+  });
+
+  it('forgets it when the ledger is closed', () => {
+    openDeviceDocument({ ledger: LEDGER, invoke: shellRecording().invoke });
+
+    forgetDeviceIdentity();
+
+    expect(currentDeviceIdentity()).toBeNull();
+  });
+
+  it('replaces it when a second ledger is opened', () => {
+    // The shell holds one document per window: opening another drops the first,
+    // claim and all. The identity has to follow, or the app would go on
+    // answering with a file it no longer has open.
+    openDeviceDocument({ ledger: LEDGER, invoke: shellRecording().invoke });
+
+    openDeviceDocument({
+      ledger: { path: '/Users/somebody/Theirs.db', owner: SOMEBODY_ELSE },
+      invoke: shellRecording().invoke
+    });
+
+    expect(requireDeviceOwner()).toBe(SOMEBODY_ELSE);
+  });
+
+  it('is not published at all when the owner is not a uuid', () => {
+    // R-3, and the ORDER that makes it hold: the port refuses first, so the app
+    // above is never told an identity the engine below has already rejected.
+    expect(() =>
+      openDeviceDocument({
+        ledger: { path: '/x.db', owner: 'local-device' },
+        invoke: shellRecording().invoke
+      })
+    ).toThrow(/is not one/);
+    expect(currentDeviceIdentity()).toBeNull();
+  });
+});
+
 describe('what a device document is assembled from', () => {
   it('constructs the port with the owner the FILE stated', async () => {
     // D-5: the port is constructed with the open document's owner and caches it
@@ -140,9 +353,21 @@ describe('what a device document is assembled from', () => {
       }
     };
 
-    await openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke }).listAccounts();
+    await openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke }).port.listAccounts();
 
     expect(shell.asked[0].payload).toEqual({ user_id: OWNER });
+  });
+
+  it('gives the port and the settings the SAME transport', async () => {
+    // One connection behind one mutex. Two transports would not buy concurrency;
+    // they would buy two objects a later caller could point at two documents.
+    const shell = shellRecording();
+    const document = openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke });
+
+    await document.port.listAccounts();
+    await document.preferences.read(OWNER);
+
+    expect(shell.verbs).toEqual(['list_accounts', 'read_preferences']);
   });
 
   it('refuses a document whose owner is not a uuid, before anything is asked', () => {

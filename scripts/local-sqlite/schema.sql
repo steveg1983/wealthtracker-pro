@@ -201,6 +201,31 @@
 --         may reach it — a restore no longer can.
 --         Specs: verb-specs/restore-a-deliberate-null-*, and the crate's
 --         tests/backup_round_trip.rs.
+--
+-- AMENDED 2026-08-11 (9), in THIS COPY ONLY, and it changes NO STORAGE: the two
+--         CHECKs on `user_preferences` were anonymous and are now NAMED, with
+--         the cloud's own names —  `user_preferences_prefs_is_object` and
+--         `user_preferences_prefs_is_small` (20260809160000:176, :181). No
+--         column, no table, no trigger, no default and no admitted value
+--         changes; a document this schema accepted yesterday it accepts today.
+--
+--         WHY IT IS WORTH AN AMENDMENT ANYWAY. Slice 28 gave the table its
+--         verbs, and the first differential spec written against them could not
+--         name the refusal it was asserting: SQLite reports an anonymous CHECK
+--         as `CHECK constraint failed:` followed by the EXPRESSION, and Postgres
+--         reports the constraint's name. So one refusal needed two `expect`
+--         strings, and the harness's whole rule about naming a refusal — *"what
+--         separates 'the right rule fired' from 'something went wrong'"* —
+--         was being kept by matching on a fragment of SQL. Both engines now
+--         refuse under one name, and the spec asserts it once.
+--
+--         The trigger question, answered here because this is where somebody
+--         will look for it: `user_preferences` has NO triggers, on purpose. The
+--         cloud stamps `updated_at` with `update_user_preferences_updated_at`;
+--         this file ports four of the cloud's eleven `updated_at` triggers (see
+--         the note at that block) and `write_preferences` writes its own stamp,
+--         exactly as the planning family's six verbs do.
+--         Specs: verb-specs/preferences-*, and the crate's tests/preferences.rs.
 -- ============================================================================
 
 
@@ -1777,14 +1802,25 @@ CREATE TABLE widget_preferences (
 -- same id map every other reference goes through (see
 -- backupService.remapPreferenceIds). That is the only mechanism available and
 -- the only one needed; a preference is not a ledger entry.
+-- Both CHECKs are NAMED, and the names are the cloud's own (amendment 9). An
+-- anonymous CHECK is reported by SQLite as `CHECK constraint failed:` and the
+-- expression, and by Postgres as the constraint's name — so a differential spec
+-- asserting one refusal had to assert two different strings and would have gone
+-- on passing if either engine started refusing for a different reason.
+--
+-- NOT a trigger, and NOT an `updated_at` stamp. `user_preferences` has no
+-- triggers at all: the four ported above are the four the write paths could not
+-- do for themselves, and the preferences verb writes its own stamp exactly as
+-- the planning family's do.
 CREATE TABLE user_preferences (
   id         TEXT PRIMARY KEY,
   user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  prefs      TEXT NOT NULL DEFAULT '{}'
-             CHECK (json_valid(prefs) AND json_type(prefs) = 'object'),
+  prefs      TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  CHECK (length(prefs) <= 262144),
+  CONSTRAINT user_preferences_prefs_is_object
+    CHECK (json_valid(prefs) AND json_type(prefs) = 'object'),
+  CONSTRAINT user_preferences_prefs_is_small CHECK (length(prefs) <= 262144),
   UNIQUE (user_id)
 ) STRICT;
 

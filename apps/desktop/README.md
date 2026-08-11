@@ -20,7 +20,10 @@ apps/desktop
 
 Everything with a decision in it that can be written in TypeScript is in
 `src/services/local/deviceDocument.ts` instead, because `apps/**` is outside
-this repo's lint, typecheck and test roots — see that file's header.
+this repo's lint, typecheck and test roots — see that file's header. Its
+neighbours there are `deviceIdentity.ts` (whose ledger this is) and
+`preferencesTransport.ts` (this file's settings), and both are in that graph on
+purpose: `deviceDocument.cloudFree.test.ts` walks it.
 
 ## What it is
 
@@ -62,9 +65,10 @@ Verified on this machine, at this commit:
 | the shell crate compiles | `cargo build --release` → a 16 MB arm64 binary |
 | the shell's own tests | 12 pass: both locks, the identity flow, the refusals |
 | clippy | clean at `--all-targets`, pedantic on |
-| the renderer builds | 79.7 kB raw / 27.4 kB gzipped |
+| the renderer builds | 81.8 kB raw / 28.0 kB gzipped |
 | the renderer is cloud-free | zero occurrences of `supabase`, `indexedDB`, `storageAdapter`, `clerk`, `sentry` in the built bundle — PHASE3-PLAN §5's two bundle greps, and `deviceDocument.cloudFree.test.ts` asserts the same over the import graph on every test run |
 | the ledger path end to end | the contract suite drives all 113 rules through the real crate against real files |
+| the settings path end to end | `localCore.preferences.test.ts` writes a document into a real file, closes it, reads it back, and follows a preference's account ids through a real backup and restore |
 
 **NOT verified here, because it needs a GUI session:**
 
@@ -83,6 +87,22 @@ Verified on this machine, at this commit:
   release needs the platform set (`.icns`, `.ico`, the @2x variants), which is
   what `tauri icon` generates.
 
+## What one open file gives the app
+
+Three things, and `src/services/local/deviceDocument.ts` assembles all of them
+from one `open_ledger` answer:
+
+| | |
+| --- | --- |
+| the **engine** | `LocalDataPort` — the whole seam, over `wealth_core_invoke` |
+| the **identity** | the uuid in the file's one `users` row, published to `deviceIdentity.ts`. The cloud gets this from Clerk through `userIdService`; a device gets it from the file, and there is nothing to translate |
+| the **settings** | `localPreferencesTransport` — the choices a person made about how to READ their ledger, in the same file as the ledger, so they are in the backup and they move with it |
+
+`bootDeviceLedger` is where the ordering rules that no engine can state for
+itself are kept: categories are seeded before the ledger is read, and the
+preferences service is pointed at the file *before* it is attached to the file's
+owner.
+
 ## What it deliberately does not do yet
 
 **The React app is not mounted in it.** The port this shell builds is a
@@ -90,5 +110,14 @@ Verified on this machine, at this commit:
 slice of its own: a build of the app that is not the web build, a router with no
 cloud routes, and a first-run screen that is a file chooser rather than a sign
 in. What the current renderer proves is that the whole path works: chooser →
-locks → schema → owner → seed → boot. It says so on screen rather than
-pretending to be more.
+locks → schema → owner → seed → settings → boot. It says so on screen rather
+than pretending to be more.
+
+**What that slice owes, precisely.** `bootDeviceLedger` takes an optional
+preferences service and this renderer passes none — honestly, because it mounts
+no React and reads no setting. A window that DOES render surfaces must pass the
+one `preferences` singleton the app renders through, or those surfaces will read
+the WebView's own `localStorage`: a store that is not in the backup, does not
+travel with the file, and is thrown away by anything that clears the app's data.
+The parameter is documented at the function; this is the note that says why it
+is not optional in spirit.

@@ -2,20 +2,24 @@ import { supabase } from './api/supabaseClient';
 import { createScopedLogger } from '../loggers/scopedLogger';
 // The document half, lifted into a module with no cloud in its scope so that a
 // desktop bundle can remap the ids inside a preferences document without
-// reaching a Supabase client (slice 27). Re-exported here because every existing
-// caller imports these five names from this file, and a lift that renames its
-// callers' imports is a refactor rather than a lift.
+// reaching a Supabase client (slice 27), and — since slice 28 — so that the
+// desktop's own transport can name the interface it answers without naming this
+// file. Re-exported here because every existing caller imports these names from
+// this file, and a lift that renames its callers' imports is a refactor rather
+// than a lift.
 export {
   EMPTY_PREFERENCES,
   PREFERENCES_DOCUMENT_VERSION,
   PREFERENCE_KEYS_HOLDING_IDS,
   parsePreferencesDocument,
   type PreferencesDocument,
+  type PreferencesTransport,
 } from './preferences/document';
 import {
   PREFERENCES_DOCUMENT_VERSION,
   parsePreferencesDocument,
   type PreferencesDocument,
+  type PreferencesTransport,
 } from './preferences/document';
 
 /**
@@ -220,22 +224,12 @@ export interface LocalMirror {
   removeItem(key: string): void;
 }
 
-/**
- * The stored copy, as two verbs.
- *
- * A PORT rather than "the slice of the Supabase client we use", and that is not
- * only taste. A structural interface describing the PostgREST builder chain has
- * to be checked against `SupabaseClient<Database>`'s generics every time the
- * real client is assigned to it, and `tsc -b` gives up on that with
- * "Type instantiation is excessively deep" — the compiler's way of saying the
- * abstraction is drawn in the wrong place. Two verbs are also what a caller
- * actually needs: read this user's document, replace it. Nothing above cares
- * that it is a table.
+/*
+ * `PreferencesTransport` USED TO BE DECLARED HERE. It moved to
+ * `preferences/document.ts` in slice 28 and is re-exported above, so no caller
+ * changed — see that module's header for why: the desktop's implementation of
+ * it may not name this file, even in a type position that a build erases.
  */
-export interface PreferencesTransport {
-  read(userId: string): Promise<PreferencesDocument | null>;
-  write(userId: string, document: PreferencesDocument): Promise<void>;
-}
 
 export const USER_PREFERENCES_TABLE = 'user_preferences';
 
@@ -316,7 +310,12 @@ export class PreferencesService implements PreferenceStorage {
   private document: PreferencesDocument = { version: PREFERENCES_DOCUMENT_VERSION, values: {} };
   private readonly listeners = new Set<() => void>();
   private readonly injectedMirror: LocalMirror | null | undefined;
-  private readonly transportOverride: PreferencesTransport | null | undefined;
+  /**
+   * The store, when somebody has said which one. `undefined` means *"nobody has
+   * said, so ask the cloud"* — see {@link PreferencesService.useTransport} for
+   * why that is three states rather than two.
+   */
+  private transportOverride: PreferencesTransport | null | undefined;
   private readonly setTimeoutFn: typeof setTimeout;
   private readonly clearTimeoutFn: typeof clearTimeout;
   private readonly debounceMs: number;
@@ -354,6 +353,49 @@ export class PreferencesService implements PreferenceStorage {
   private resolveTransport(): PreferencesTransport | null {
     if (this.transportOverride !== undefined) return this.transportOverride;
     return supabasePreferencesTransport();
+  }
+
+  /**
+   * Say which store these settings live in, for the rest of this session.
+   *
+   * ── WHY THE CONSTRUCTOR WAS NOT ENOUGH ──────────────────────────────────
+   *
+   * There is ONE instance of this service and the whole application reads it
+   * through `subscribe` — that is the point of the singleton, and it is argued
+   * where the singleton is created. So a second instance pointed at a file is
+   * not an option: every surface would go on reading the first one.
+   *
+   * The cloud never needed this, because its store is a property of the BUILD
+   * (`supabasePreferencesTransport()` reads a module-scope client). A ledger
+   * file is a property of the SESSION — it is chosen, opened and closed while
+   * the program runs — so the desktop's boot says so here, once, before it
+   * attaches (`services/local/deviceDocument.ts`).
+   *
+   * ── THREE STATES, NOT TWO, AND THIS METHOD CAN ONLY REACH TWO OF THEM ───
+   *
+   * `undefined` is *"nobody has said"* and is what makes `resolveTransport`
+   * fall through to the cloud. This method takes `PreferencesTransport | null`
+   * and therefore cannot restore it: once a session has been told where the
+   * settings live, it does not go back to guessing. `null` is a real answer —
+   * *"there is no store; the browser mirror IS the store"* — and is what a demo
+   * or signed-out session already gets.
+   *
+   * ── IT DETACHES, AND THAT IS NOT TIDINESS ───────────────────────────────
+   *
+   * `scheduleWrite` resolves the transport when its TIMER FIRES, not when the
+   * change was made. So a burst of changes made a moment before this call would
+   * otherwise be delivered to the NEW store under the PREVIOUS store's user id
+   * — the same cross-account write `detach` exists to prevent on a shared
+   * browser. Changing stores is changing accounts, and it is treated as one.
+   */
+  useTransport(transport: PreferencesTransport | null): void {
+    if (this.transportOverride === transport) return;
+    if (this.userId !== null || this.loaded) {
+      this.detach();
+    } else {
+      this.cancelPendingWrite();
+    }
+    this.transportOverride = transport;
   }
 
   /**

@@ -23,6 +23,20 @@
  * and taking it from `preferencesService.ts` would have put the cloud in a
  * desktop bundle through a constant that is a list of strings.
  *
+ * Slice 28 moved one more name down here — {@link PreferencesTransport}, the
+ * interface a STORE answers — for the same reason one module along. The desktop
+ * has an implementation of it now (`services/local/preferencesTransport.ts`,
+ * the ledger file), and a transport that took its own interface from
+ * `preferencesService.ts` would name the cloud in a type position on a module
+ * whose whole promise is that it does not. That import would be erased at build
+ * and would still be wrong: `localDataPort.ts` makes the same decision about the
+ * backup format, and says why — *"the type and the injected implementation come
+ * from the same place even though only one of them is real at runtime"*.
+ *
+ * A transport is arguably not a "document", and it is here anyway: its two verbs
+ * are *read this user's document* and *replace it*, which is the document's
+ * storage contract and nothing else. Nothing in it knows there is a table.
+ *
  * `preferencesService.ts` re-exports every name below, so nothing that already
  * imported one of them changed.
  */
@@ -73,6 +87,33 @@ export function parsePreferencesDocument(raw: unknown): PreferencesDocument {
   }
 
   return { version, values };
+}
+
+/**
+ * The stored copy, as two verbs.
+ *
+ * A PORT rather than "the slice of the Supabase client we use", and that is not
+ * only taste. A structural interface describing the PostgREST builder chain has
+ * to be checked against `SupabaseClient<Database>`'s generics every time the
+ * real client is assigned to it, and `tsc -b` gives up on that with
+ * "Type instantiation is excessively deep" — the compiler's way of saying the
+ * abstraction is drawn in the wrong place. Two verbs are also what a caller
+ * actually needs: read this user's document, replace it. Nothing above cares
+ * that it is a table — which is what let the local edition answer the same
+ * interface with a file (`services/local/preferencesTransport.ts`).
+ *
+ * ── `null` IS AN ANSWER, AND IT IS NOT AN EMPTY DOCUMENT ────────────────────
+ *
+ * `read` answers `null` for *"this store has never held settings for this
+ * user"*, and `{ version, values: {} }` for *"they have everything at its
+ * default"*. `PreferencesService.attach` branches on that difference to decide
+ * whether to LIFT this machine's settings into the store, so an implementation
+ * that flattened the two would either lose somebody's years of choices or write
+ * a stale machine's over a fresh one's.
+ */
+export interface PreferencesTransport {
+  read(userId: string): Promise<PreferencesDocument | null>;
+  write(userId: string, document: PreferencesDocument): Promise<void>;
 }
 
 /**
