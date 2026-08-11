@@ -21,8 +21,12 @@
  * since slice 22, the three BUDGET writes and the three GOAL writes, which is
  * D-2's argument a third time and the first family to keep an audit trail the
  * cloud keeps for neither table (DESIGN.md §5 divergence 10, ruled in
- * PHASE1-PLAN §2.2 long before the verbs existed).
- * ELEVEN operations of the seam are not here yet, and
+ * PHASE1-PLAN §2.2 long before the verbs existed) — and, since slice 23, the
+ * two DISMISSAL writes, which is D-2's argument a fourth time and the first
+ * family to AGREE with the cloud about the audit log: divergence 10 turns on
+ * money living in four columns, and a dismissal holds no figure in either
+ * engine, so both write nothing and the agreement is argued rather than assumed.
+ * NINE operations of the seam are not here yet, and
  * that is a declared, counted, shrinking list rather than a silence: they are
  * named in `services/port/__tests__/contract.ts`'s `NOT_YET` ratchet, the
  * contract suite asserts that the operations this port is missing are EXACTLY
@@ -115,6 +119,7 @@ import type {
   Budget,
   Category,
   CategoryMergeResult,
+  DismissalKind,
   Goal,
   SplitWriteResult,
   SuggestionDismissal,
@@ -134,6 +139,7 @@ import type {
   DataPortBulkWrites,
   DataPortCapabilities,
   DataPortCapabilityDescriptor,
+  DataPortDismissalWrites,
   DataPortLifecycle,
   DataPortPlanningWrites,
   DataPortReads,
@@ -163,6 +169,8 @@ import {
   toCategoryCreatePayload,
   toCategoryUpdatePatch,
   toCreatePayload,
+  toDismissalKey,
+  toDismissalPayload,
   toGoalCreatePayload,
   toGoalUpdatePatch,
   toImportRow,
@@ -177,9 +185,24 @@ import {
  * claimed. Deleted at slice 25, when the class says `implements DataPort` and
  * the compiler checks all fifty-six.
  *
- * The planning group is now an `Omit` of two rather than a `Pick` of six, which
- * is the shape that says the group is nearly whole: the two that are left are
- * the dismissals, and they are slice 23.
+ * The planning group is whole, and so is the dismissal group beside it — which
+ * this slice had to ADD, because it was never here.
+ *
+ * WORTH READING BEFORE TRUSTING AN `Omit` AGAIN. Until slice 23 this line said
+ * `Omit<DataPortPlanningWrites, 'dismissSuggestion' | 'restoreSuggestion'>`, and
+ * it read as *"the planning group minus the two that are left"*. It was not:
+ * those two operations live in `DataPortDismissalWrites`, a separate interface,
+ * and `DataPortPlanningWrites` has never had either key. So the `Omit` removed
+ * nothing, and the two operations were excluded not by it but by the whole
+ * dismissal interface being absent from this intersection.
+ *
+ * **`Omit<T, K>` does not require `K` to be a key of `T`.** The compiler accepts
+ * a name that is not there and says nothing, so an `Omit` naming operations is a
+ * comment that TypeScript does not check — which is the same class of thing
+ * `contract.ts`'s `NOT_YET` list exists to replace, and the reason the ratchet is
+ * a runtime list rather than a type. The two `Omit`s left above are real: their
+ * names are keys of the interfaces they narrow, and the day one stops being one
+ * this note is what says how to notice.
  */
 export type LocalDataPortSurface =
   DataPortReads &
@@ -197,7 +220,8 @@ export type LocalDataPortSurface =
     | 'unarchiveAccount'
   > &
   Omit<DataPortTransferWrites, 'repointTransfer'> &
-  Omit<DataPortPlanningWrites, 'dismissSuggestion' | 'restoreSuggestion'> &
+  DataPortPlanningWrites &
+  DataPortDismissalWrites &
   Pick<DataPortBackupLifecycle, 'financialDataIsEmpty' | 'wipeAllFinancialData'> &
   Pick<DataPortLifecycle, 'initialize' | 'prepareCategories' | 'subscribeToUpdates'>;
 
@@ -995,6 +1019,70 @@ export class LocalDataPort implements LocalDataPortSurface {
    */
   async deleteGoal(id: string): Promise<void> {
     await this.#ask('delete_goal', { id });
+  }
+
+  // ── Dismissals ────────────────────────────────────────────────────────────
+
+  /**
+   * Record that the user does not want a suggestion offered again.
+   *
+   * IDEMPOTENT, AND "FIRST WINS" RATHER THAN "LAST WINS". Refusing something
+   * already refused answers with the record that is already there — its id, its
+   * date and ITS subjects — and writes nothing. That is the cloud's own
+   * behaviour (insert, catch the unique violation, return what it finds) rather
+   * than an upsert, and the difference is reachable: an upsert would move
+   * `dismissedAt`, which the table's own migration says must go on meaning *when
+   * you first said no*, and would replace the subject ids the "Dismissed" list
+   * describes the refusal back to the user with.
+   *
+   * The answer is the whole dismissal, so the caller can put it straight into
+   * state without re-reading — which is what `AppContextSupabase` does, keyed by
+   * `(kind, subjectKey)` exactly as the table's unique constraint is.
+   *
+   * `subjectIds` ARE TRANSACTIONS, and this engine means it: they are a foreign
+   * key in a file where the cloud has only a column comment claiming as much. A
+   * refusal about a row that does not exist is therefore refused here and stored
+   * there — a declared divergence, argued in the verb, and one nothing a user
+   * does can reach, because a sweep only ever offers rows it has just read.
+   *
+   * The three payee kinds go through this same door with NO subject ids at all:
+   * their `subjectKey` is percent-encoded payee text, and the emptiness is what
+   * keeps the prune trigger off them. The file's `kind` CHECK admitted four of
+   * the seven until slice 23, which would have made Settings → Payee cleanup
+   * unable to save on a local ledger; the CHECK is where that was fixed.
+   */
+  async dismissSuggestion(
+    kind: DismissalKind,
+    subjectKey: string,
+    subjectIds: string[]
+  ): Promise<SuggestionDismissal> {
+    const answer = await this.#ask(
+      'dismiss_suggestion',
+      toDismissalPayload(kind, subjectKey, subjectIds)
+    );
+    return toDismissal(rowOf(answer, 'dismiss_suggestion', 'answer'));
+  }
+
+  /**
+   * Undo a refusal; the suggestion is offered again from the next scan.
+   *
+   * THE ROW IS DELETED. There is no flag and no soft delete — the cloud has no
+   * UPDATE policy on the table for the same reason, and the file has a trigger
+   * that would ABORT one — so "restore" restores the SUGGESTION rather than
+   * un-marking the dismissal. The subjects go with it by the key.
+   *
+   * Keyed by `(kind, subjectKey)` and never by id, because the screen offering
+   * "undo" is looking at a suggestion and has never seen a dismissal row. BOTH
+   * halves matter: the same rows can legitimately be refused as a transfer pair
+   * AND as a duplicate, and undoing one must not un-hide the other, whose
+   * consequence is deleting a row rather than linking two.
+   *
+   * Undoing something nobody refused is a no-op rather than an error — the same
+   * rule `dismissSuggestion` keeps at the other end, and the case a second
+   * device produces.
+   */
+  async restoreSuggestion(kind: DismissalKind, subjectKey: string): Promise<void> {
+    await this.#ask('restore_suggestion', toDismissalKey(kind, subjectKey));
   }
 
   // ── Categories ────────────────────────────────────────────────────────────

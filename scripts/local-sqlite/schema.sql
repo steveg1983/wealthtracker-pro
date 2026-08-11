@@ -1504,7 +1504,42 @@ BEGIN SELECT RAISE(ABORT,'audit_immutable'); END;
 CREATE TABLE suggestion_dismissals (
   id           TEXT PRIMARY KEY,
   user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  kind         TEXT NOT NULL CHECK (kind IN ('transfer-pair','transfer-leg','stranded','duplicate')),
+
+  -- SEVEN, not the four this file admitted until slice 23.
+  --
+  -- 20260806180000:99-100 created the constraint with four kinds;
+  -- 20260808120000 added payee-merchant and payee-line, and 20260808190000
+  -- added payee-hidden, both by DROP + ADD of the whole constraint. This mirror
+  -- predated those two, and the gap was RECORDED rather than closed in three
+  -- places (crate `row/dismissal.rs`, `mappers/rows.ts`'s DISMISSAL_KINDS, and
+  -- the read spec's notes) because nothing that existed could reach it: a read
+  -- returns what is stored, and a payee dismissal could not be stored.
+  --
+  -- It is closed HERE, by exactly the argument that closed
+  -- `last_reconciled_balance_minor` above: `dismissSuggestion(kind:
+  -- DismissalKind, …)` is the seam's own signature, `DismissalKind` names all
+  -- seven, and a value the seam's own type carries that this file cannot hold
+  -- is a write the local edition would have to refuse while the cloud accepts
+  -- it. Settings → Payee cleanup drives all three of the payee kinds through
+  -- that one door (PayeeCleanup.tsx:433, :449, :491), so the four-kind CHECK
+  -- was not a theoretical gap — it was that whole screen refusing to save on a
+  -- local file. The restore path is the second half: a cloud backup carrying
+  -- one payee dismissal would have been refused WHOLE, which is
+  -- `restore_user_chunk`'s all-or-nothing rule doing exactly what it says.
+  --
+  -- The payee kinds are the same table and the same policies with two habits of
+  -- their own, both of which this schema already supports without a change:
+  -- `subject_key` holds ROLE-TAGGED, PERCENT-ENCODED PAYEE TEXT rather than ids
+  -- (so a restore's id remapping cannot rewrite a payee name), and subject_ids
+  -- is EMPTY — which is why the prune trigger below never removes one. That
+  -- emptiness is correct rather than untidy: delete every transaction carrying
+  -- the wording, re-import the statement, and the same wording arrives on brand
+  -- new ids, so a refusal that expired with the rows would put the payee the
+  -- user struck off straight back on the screen (20260808190000:57-61).
+  kind         TEXT NOT NULL CHECK (kind IN (
+                 'transfer-pair','transfer-leg','stranded','duplicate',
+                 'payee-merchant','payee-line','payee-hidden')),
+
   subject_key  TEXT NOT NULL CHECK (trim(subject_key) <> ''),
   dismissed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   CONSTRAINT suggestion_dismissals_unique_subject UNIQUE (user_id, kind, subject_key)

@@ -89,6 +89,7 @@ import type {
   AccountUpdate,
   Budget,
   Category,
+  DismissalKind,
   Goal,
   Transaction,
   TransactionSplitInput
@@ -98,6 +99,7 @@ import {
   ACCOUNT_COLUMNS,
   BUDGET_COLUMNS,
   CATEGORY_COLUMNS,
+  DISMISSAL_COLUMNS,
   GOAL_COLUMNS,
   SPLIT_COLUMNS,
   TRANSACTION_COLUMNS,
@@ -625,3 +627,61 @@ function metadataOf(goal: Partial<Goal>): Record<string, unknown> {
   if (goal.contributionAmount !== undefined) stated.contributionAmount = goal.contributionAmount;
   return Object.keys(stated).length === 0 ? {} : { metadata: stated };
 }
+
+// ── Dismissals ──────────────────────────────────────────────────────────────
+
+/**
+ * What `dismiss_suggestion` accepts: the four keys the cloud's own insert
+ * carries, and not one more.
+ *
+ * ```text
+ * .insert({ user_id, kind, subject_key: subjectKey, subject_ids: subjectIds })
+ * ```
+ *
+ * `id` is absent for the reason every create here gives — the seam's argument
+ * list does not carry one and the crate mints one (B-5) where the cloud's column
+ * default would. `dismissed_at` is absent for a DIFFERENT reason worth keeping
+ * separate: it is not the caller's to state at all. Both engines default the
+ * column to the instant of the write, so a port that sent one would be
+ * overwriting a figure the table had already decided, and "when you first said
+ * no" would become "when this client's clock said so".
+ *
+ * NOT FILTERED against a whitelist, unlike the category, budget and goal
+ * patches, and the difference is the seam's rather than this file's: those three
+ * take an app OBJECT with fields that have no columns, so a filter is what stops
+ * `createdAt` reaching a verb. This one takes three arguments — a kind, a key
+ * and a list of ids — so there is nothing to filter out. The column table is
+ * still what serialises them, because a value that crossed one way through the
+ * table and the other way by hand is precisely the drift the table exists to
+ * prevent.
+ */
+const DISMISSAL_KEYS: readonly string[] = ['kind', 'subject_key', 'subject_ids'];
+
+/**
+ * A refusal as `dismiss_suggestion`'s payload.
+ *
+ * `subjectIds` is ALWAYS sent, including empty. It is not an optional field with
+ * a default: an empty list is what the three payee kinds mean by "this is about
+ * wording, not rows", and dropping the key would make that indistinguishable
+ * from a caller who forgot to say.
+ */
+export const toDismissalPayload = (
+  kind: DismissalKind,
+  subjectKey: string,
+  subjectIds: string[]
+): Record<string, unknown> =>
+  payloadOf(DISMISSAL_COLUMNS, { kind, subjectKey, subjectIds }, DISMISSAL_KEYS);
+
+/**
+ * The natural key `restore_suggestion` deletes by.
+ *
+ * `(kind, subject_key)` and no ids: the screen offering "undo" is looking at a
+ * SUGGESTION rather than at a dismissal row, so it has never seen one. Through
+ * the same table as the payload above, so the two verbs cannot come to spell
+ * `subject_key` differently.
+ */
+export const toDismissalKey = (
+  kind: DismissalKind,
+  subjectKey: string
+): Record<string, unknown> =>
+  payloadOf(DISMISSAL_COLUMNS, { kind, subjectKey }, ['kind', 'subject_key']);

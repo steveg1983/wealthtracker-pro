@@ -82,20 +82,22 @@ use crate::verbs::{
     confirm_transaction_categories, create_account, create_budget, create_categories,
     create_category, create_goal, create_transaction, create_transfer_counterpart, delete_budget,
     delete_category, delete_goal, delete_transaction,
-    delete_unused_categories, finalize_user_restore, import_bank_transactions, import_transactions,
+    delete_unused_categories, dismiss_suggestion, finalize_user_restore, import_bank_transactions,
+    import_transactions,
     link_bank_account_snap, link_split_line_transfer, link_transfer_pair, list_accounts,
     list_budgets, list_categories, list_closed_accounts, list_goals, list_suggestion_dismissals,
     list_transaction_splits, list_transactions, load_boot, merge_categories,
-    repair_claimed_transfer, restore_user_chunk, seed_categories,
+    repair_claimed_transfer, restore_suggestion, restore_user_chunk, seed_categories,
     set_transaction_splits_with_legs, splits_for, update_account, update_budget, update_category,
     update_goal, update_transaction, user_financial_data_is_empty, verify_integrity,
     wipe_user_financial_data,
     ApplyCategoryToUncategorized, ClearTransferLinks, CloseAccount, ConfirmTransactionCategories,
     CreateAccount, CreateBudget, CreateCategories, CreateCategory, CreateGoal, CreateTransaction,
     CreateTransferCounterpart, DeleteBudget, DeleteCategory, DeleteGoal, DeleteTransaction,
-    DeleteUnusedCategories, FinalizeUserRestore,
+    DeleteUnusedCategories, DismissSuggestion, FinalizeUserRestore,
     ImportBankTransactions, ImportTransactions, LinkBankAccountSnap, LinkSplitLineTransfer,
-    LinkTransferPair, MergeCategories, OwnedRead, RepairClaimedTransfer, RestoreUserChunk,
+    LinkTransferPair, MergeCategories, OwnedRead, RepairClaimedTransfer, RestoreSuggestion,
+    RestoreUserChunk,
     SeedCategories, SetTransactionSplitsWithLegs, SplitsFor, UpdateAccount, UpdateBudget,
     UpdateCategory, UpdateGoal, UpdateTransaction, UserFinancialDataIsEmpty, VerifyIntegrity,
     WipeUserFinancialData,
@@ -202,6 +204,21 @@ pub enum Command {
     UpdateGoal(Box<UpdateGoal>),
     /// [`crate::verbs::delete_goal`].
     DeleteGoal(Box<DeleteGoal>),
+    // ── The dismissal pair ───────────────────────────────────────────────────
+    //
+    // Two more verb strings with no function behind either: `suggestion_
+    // dismissals` is written directly over PostgREST too
+    // (`suggestionDismissalService.ts:98-100`, `:126-131`). PHASE3-PLAN D-2 a
+    // fourth time.
+    //
+    // The first family here that does NOT audit, and it is a decision rather
+    // than a gap: `20260806180000:75-79` argues it on the merits — the trail
+    // answers "what happened to this money", and a dismissal holds no figure in
+    // either engine. [`crate::verbs::dismiss_suggestion`] carries it in full.
+    /// [`crate::verbs::dismiss_suggestion`].
+    DismissSuggestion(Box<DismissSuggestion>),
+    /// [`crate::verbs::restore_suggestion`].
+    RestoreSuggestion(Box<RestoreSuggestion>),
     // The restore family. Four verb strings, each spelled exactly as the
     // function it ports — including `restore_user_chunk`, whose LOCAL payload
     // carries a LIST of chunks because the whole restore is one transaction here
@@ -500,6 +517,12 @@ pub fn dispatch(
         Command::CreateGoal(payload) => create_goal(connection, *payload).and_then(as_json),
         Command::UpdateGoal(payload) => update_goal(connection, *payload).and_then(as_json),
         Command::DeleteGoal(payload) => delete_goal(connection, *payload).and_then(as_json),
+        Command::DismissSuggestion(payload) => {
+            dismiss_suggestion(connection, *payload).and_then(as_json)
+        }
+        Command::RestoreSuggestion(payload) => {
+            restore_suggestion(connection, *payload).and_then(as_json)
+        }
         // The only verb that needs no `&mut`: it opens no transaction, because
         // it writes nothing.
         Command::UserFinancialDataIsEmpty(payload) => {

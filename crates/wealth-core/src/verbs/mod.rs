@@ -97,6 +97,21 @@
 //! | a goal's contributions on a delete | `ON DELETE CASCADE` takes them | the same, and deliberately NOT walked — [`delete_goal`] argues why this family answers the cascade question the opposite way to [`delete_category`] |
 //! | a refusal's words | `PGRST116: JSON object requested, multiple (or no) rows returned` | `Budget not found` / `Goal not found`, which is the app's OWN sentence for the same case — the first refusal here the cloud has no prose for |
 //!
+//! And the DISMISSAL pair's, which is the fourth — [`dismiss_suggestion`] and
+//! [`restore_suggestion`], whose oracles are `suggestionDismissalService`'s two
+//! direct writes. It is the first of the four families that AGREES with the cloud
+//! about the audit log, and the agreement is argued rather than inherited:
+//!
+//! | | the cloud's direct write | the verb |
+//! | --- | --- | --- |
+//! | the audit log | nothing, and `20260806180000:75-79` gives the reason on the merits | nothing either — divergence 10 turns on money living in four columns, and a dismissal has no figure in either engine |
+//! | a repeat refusal | INSERT, catch `23505`, answer with the row already there | the same OUTCOME by a read-then-insert, which one `IMMEDIATE` transaction makes indistinguishable — first wins, so the date and the subjects stay the first ones |
+//! | the subjects | `uuid[]` on the row, ordered by position | `suggestion_dismissal_subjects` ordered by `role_order`, written in the caller's order and read back in it |
+//! | a subject naming no transaction | stored: the column comment's *"resolves in exactly one table"* is a promise | refused — `schema.sql` makes it a foreign key, and argues that is the better shape |
+//! | the three payee kinds | admitted since `20260808120000` / `20260808190000` | admitted since slice 23 widened the CHECK, for `last_reconciled_balance`'s reason: the seam's own type carries all seven |
+//! | undoing a refusal | `.delete()`, never a flag — there is no UPDATE policy | a DELETE, never a flag — `trg_dismissals_no_update` would ABORT one |
+//! | the subjects on that delete | nothing to cascade: they were an array in the row | `ON DELETE CASCADE`, deliberately not walked — [`delete_goal`]'s decision, not [`delete_category`]'s |
+//!
 //! # `migrate_categories_atomic` — HALF of it is ported, and the half is B-4
 //!
 //! It was recorded here as *"needs a decision about what it would even do before
@@ -478,6 +493,7 @@ mod delete_category;
 mod delete_goal;
 mod delete_transaction;
 mod delete_unused_categories;
+mod dismiss_suggestion;
 mod finalize_user_restore;
 mod import_bank_transactions;
 mod import_transactions;
@@ -488,6 +504,7 @@ mod load_boot;
 mod merge_categories;
 pub mod reads;
 mod repair_claimed_transfer;
+mod restore_suggestion;
 mod restore_user_chunk;
 mod seed_categories;
 mod set_transaction_splits_with_legs;
@@ -526,6 +543,18 @@ pub use delete_budget::{delete_budget, DeleteBudget, DeleteBudgetResult};
 pub use delete_goal::{delete_goal, DeleteGoal, DeleteGoalResult};
 pub use update_budget::{update_budget, BudgetPatch, UpdateBudget, UpdateBudgetResult};
 pub use update_goal::{update_goal, GoalPatch, UpdateGoal, UpdateGoalResult};
+// The dismissal pair — two more verbs with no RPC behind either, and the same
+// "A VERB WHOSE ORACLE IS A TYPESCRIPT WRITER" argument. What they do NOT
+// inherit from the planning family is divergence 10: that argument turns on
+// money living in four columns the cloud audits nowhere, and a dismissal has no
+// figure in either engine. [`dismiss_suggestion`] carries the reasoning, which is
+// the cloud's own and is on the merits rather than an omission.
+pub use dismiss_suggestion::{
+    dismiss_suggestion, DismissSuggestion, DismissSuggestionResult,
+};
+pub use restore_suggestion::{
+    restore_suggestion, RestoreSuggestion, RestoreSuggestionResult,
+};
 // The category family — five verbs, no RPC between them either, and the same
 // "A VERB WHOSE ORACLE IS A TYPESCRIPT WRITER" argument above.
 pub use create_category::{

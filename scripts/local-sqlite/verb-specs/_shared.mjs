@@ -2465,6 +2465,39 @@ export const twoDismissals = {
        ARRAY['${SECOND_ROW}','${CORNER_SHOP}']::uuid[], '${DISMISSED_LATER}');`,
 };
 
+/**
+ * ONE subject key, refused under TWO kinds.
+ *
+ * Not a contrived pair. `20260806180000:41-46` says the case out loud: the same
+ * two rows are a transfer pair to one scan and a duplicate to another, the
+ * unique constraint carries `kind` so both can be on record at once, and
+ * *"refusing one offer must not silently suppress the other, whose consequence
+ * is completely different (linking two rows changes their filing; deleting one
+ * destroys it)"*.
+ *
+ * Both dismissals name the same transaction, which is also the point: undoing
+ * one must not take the other's subjects with it.
+ */
+export const AS_A_PAIR = 'd0000000-0000-0000-0000-0000000000e5';
+export const AS_A_DUPLICATE = 'd0000000-0000-0000-0000-0000000000e6';
+export const ONE_KEY = 'the same two rows';
+
+export const sameKeyTwoKinds = {
+  sqlite: `
+    INSERT INTO suggestion_dismissals (id, user_id, kind, subject_key, dismissed_at) VALUES
+      ('${AS_A_PAIR}',      '${USER}', 'transfer-pair', '${ONE_KEY}', '2024-04-01T09:00:00.000Z'),
+      ('${AS_A_DUPLICATE}', '${USER}', 'duplicate',     '${ONE_KEY}', '2024-04-01T09:00:00.000Z');
+    INSERT INTO suggestion_dismissal_subjects (dismissal_id, transaction_id, role_order) VALUES
+      ('${AS_A_PAIR}',      '${CORNER_SHOP}', 0),
+      ('${AS_A_DUPLICATE}', '${CORNER_SHOP}', 0);`,
+  postgres: `
+    INSERT INTO public.suggestion_dismissals (id, user_id, kind, subject_key, subject_ids, dismissed_at) VALUES
+      ('${AS_A_PAIR}',      '${USER}', 'transfer-pair', '${ONE_KEY}',
+       ARRAY['${CORNER_SHOP}']::uuid[], '2024-04-01T09:00:00.000Z'),
+      ('${AS_A_DUPLICATE}', '${USER}', 'duplicate',     '${ONE_KEY}',
+       ARRAY['${CORNER_SHOP}']::uuid[], '2024-04-01T09:00:00.000Z');`,
+};
+
 // ── The rows a read spec expects, with the fixture's defaults filled in ─────
 //
 // A read returns whole rows, and a spec that spelled all twenty-five keys of
@@ -3380,6 +3413,131 @@ export function auditTrailFor(entity, expect) {
                 WHERE entity = '${entity}' ORDER BY seq)), 'NONE')`,
     postgres: `SELECT COALESCE((SELECT string_agg(action, ',' ORDER BY ctid)
                  FROM public.financial_audit_log WHERE entity = '${entity}'), 'NONE')`,
+    expect,
+  };
+}
+
+// ── Dismissals ──────────────────────────────────────────────────────────────
+//
+// Every probe below has to bridge the one structural difference between the two
+// engines: `subject_ids` is a `uuid[]` ON the dismissal in the cloud and the
+// child table `suggestion_dismissal_subjects` here. A probe that read only one
+// of them would be a probe that could only run on one engine, and the whole
+// point of these specs is that the two shapes hold the SAME fact.
+
+/** A dismissal the specs create, so both engines name one row. */
+export const NEW_DISMISSAL = 'd0000000-0000-0000-0000-0000000000e1';
+/** A second id, sent by a REPEAT refusal that must not be allowed to win. */
+export const SECOND_ATTEMPT = 'd0000000-0000-0000-0000-0000000000e2';
+
+/**
+ * One dismissal as one canonical string: `kind:subject_key:<n> subjects`, or
+ * `GONE`.
+ *
+ * Keyed by the NATURAL key, not the id, because that is what both verbs take and
+ * because a repeat refusal deliberately sends a different id — a probe that
+ * looked the row up by id could not see the row that actually survived.
+ *
+ * `dismissed_at` is NOT in the string: it is the column's default on two clocks
+ * in two transactions. Where a spec needs it, it plants a known value first and
+ * asserts THAT with [`dismissalDate`], which is a comparison of a literal rather
+ * than of an instant.
+ */
+export function dismissalShape(kind, subjectKey, expect) {
+  const build = (engine) => {
+    const table = engine === 'sqlite' ? 'suggestion_dismissals' : 'public.suggestion_dismissals';
+    const subjects = engine === 'sqlite'
+      ? `(SELECT COUNT(*) FROM suggestion_dismissal_subjects s WHERE s.dismissal_id = d.id)`
+      : `COALESCE(array_length(d.subject_ids, 1), 0)`;
+    const row = `d.kind || ':' || d.subject_key || ':' || ${subjects}`;
+    return `SELECT COALESCE((SELECT ${row} FROM ${table} d
+                              WHERE d.kind = '${kind}' AND d.subject_key = '${subjectKey}'), 'GONE')`;
+  };
+  return {
+    name: `dismissal_shape_${kind}_${subjectKey.slice(0, 12)}`,
+    sqlite: build('sqlite'),
+    postgres: build('postgres'),
+    expect,
+  };
+}
+
+/**
+ * A dismissal's subjects, last four characters each, IN ROLE ORDER.
+ *
+ * The array's own positions on one side and `ORDER BY role_order` on the other,
+ * never sorted: the positions are ROLES — for a transfer pair, which row was the
+ * out and which the in — so a set would be a different fact. This is the same
+ * comparison `read-dismissals-the-subjects-come-back-as-an-array-in-role-order`
+ * makes about the READ, asked here about what a WRITE stored.
+ */
+export function subjectsInRoleOrder(kind, subjectKey, expect) {
+  const found = (engine) => (engine === 'sqlite'
+    ? `SELECT id FROM suggestion_dismissals WHERE kind = '${kind}' AND subject_key = '${subjectKey}'`
+    : `SELECT id FROM public.suggestion_dismissals WHERE kind = '${kind}' AND subject_key = '${subjectKey}'`);
+  return {
+    name: `subjects_in_role_order_${kind}_${subjectKey.slice(0, 12)}`,
+    sqlite: `SELECT COALESCE((SELECT group_concat(t, ',') FROM (
+               SELECT substr(transaction_id, -4) AS t
+                 FROM suggestion_dismissal_subjects
+                WHERE dismissal_id = (${found('sqlite')})
+                ORDER BY role_order)), 'NONE')`,
+    postgres: `SELECT COALESCE((SELECT string_agg(right(u.id::text, 4), ',' ORDER BY u.position)
+                 FROM public.suggestion_dismissals d,
+                      unnest(d.subject_ids) WITH ORDINALITY AS u(id, position)
+                WHERE d.kind = '${kind}' AND d.subject_key = '${subjectKey}'), 'NONE')`,
+    expect,
+  };
+}
+
+/**
+ * The `dismissed_at` a dismissal is holding, as a day.
+ *
+ * Only ever asked of a PLANTED value. "First wins" means a repeat refusal leaves
+ * the original date alone, and the only way to see that is to know what the
+ * original was — so the fixture writes one and this compares against it. A day
+ * rather than the instant, because that is the resolution a planted literal and
+ * two engines' text formats can agree on without a cast that means something
+ * different on each.
+ */
+export function dismissalDate(kind, subjectKey, expect) {
+  return {
+    name: `dismissal_date_${kind}_${subjectKey.slice(0, 12)}`,
+    sqlite: `SELECT COALESCE((SELECT substr(dismissed_at, 1, 10) FROM suggestion_dismissals
+                               WHERE kind = '${kind}' AND subject_key = '${subjectKey}'), 'GONE')`,
+    postgres: `SELECT COALESCE((SELECT to_char(dismissed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+                                  FROM public.suggestion_dismissals
+                                 WHERE kind = '${kind}' AND subject_key = '${subjectKey}'), 'GONE')`,
+    expect,
+  };
+}
+
+/** How many refusals one login has on record. */
+export function dismissalsOwnedBy(userId, expect) {
+  return {
+    name: `dismissals_owned_by_${userId.slice(-4)}`,
+    sqlite: `SELECT COUNT(*) FROM suggestion_dismissals WHERE user_id = '${userId}'`,
+    postgres: `SELECT COUNT(*) FROM public.suggestion_dismissals WHERE user_id = '${userId}'`,
+    expect,
+  };
+}
+
+/**
+ * Every subject row still in the file, across ALL dismissals.
+ *
+ * The measurement `restore_suggestion` owes: the child rows leave by
+ * `ON DELETE CASCADE`, which is a DECLARATION, and `delete_goal` set the
+ * precedent that a cascade a verb chose not to walk must be measured actually
+ * happening rather than trusted. The cloud has nothing to cascade — the subjects
+ * were an array in the deleted row — so on that side this counts the array
+ * elements that remain, and the two engines are asserted to reach the same
+ * total by different machinery.
+ */
+export function subjectRowsInTotal(expect) {
+  return {
+    name: 'subject_rows_in_total',
+    sqlite: 'SELECT COUNT(*) FROM suggestion_dismissal_subjects',
+    postgres: `SELECT COALESCE((SELECT SUM(COALESCE(array_length(subject_ids, 1), 0))
+                                  FROM public.suggestion_dismissals), 0)`,
     expect,
   };
 }

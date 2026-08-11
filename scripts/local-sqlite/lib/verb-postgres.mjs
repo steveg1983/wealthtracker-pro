@@ -1496,6 +1496,76 @@ const VERBS = {
      GET DIAGNOSTICS v_count = ROW_COUNT;
      SELECT jsonb_build_object('deleted', v_count) INTO v_row;`,
 
+  // ── The dismissal pair ─────────────────────────────────────────────────────
+  //
+  // `SuggestionDismissalService.dismiss:88-118`, transcribed including its
+  // CONTROL FLOW, which is the part that matters:
+  //
+  //   .insert({ user_id, kind, subject_key, subject_ids }).select(…).single()
+  //   if (error && error.code === '23505') return (await find(…)) ?? throw
+  //
+  // `23505` is `unique_violation`, and the constraint it can only be is
+  // `suggestion_dismissals_unique_subject UNIQUE (user_id, kind, subject_key)`.
+  // The client does NOT update on conflict — it answers with the row already
+  // there — so `dismissed_at` goes on meaning "when you first said no" and the
+  // subjects stay the FIRST caller's. An `ON CONFLICT DO UPDATE` written here
+  // would be a different feature quietly passing as a transcription.
+  //
+  // The sub-block's implicit savepoint is what makes the catch possible at all:
+  // without it the failed INSERT would poison the surrounding transaction and
+  // the SELECT after it could not run.
+  //
+  // `id` IS accepted, where the real client sends none and lets
+  // `DEFAULT gen_random_uuid()` fire. Same arrangement as `create_goal` above
+  // and for the same reason: the harness has to name one row on two engines.
+  dismiss_suggestion: (payloadLiteral) => {
+    const text = (key) => `${payloadLiteral}::jsonb->>'${key}'`;
+    const owner = `(${text('user_id')})::uuid`;
+    return `BEGIN
+       INSERT INTO public.suggestion_dismissals (id, user_id, kind, subject_key, subject_ids)
+       VALUES (
+         COALESCE(NULLIF(${text('id')},'')::uuid, uuid_generate_v4()),
+         ${owner},
+         ${text('kind')},
+         ${text('subject_key')},
+         -- '{}' when the key is absent, which is what the three payee kinds
+         -- send: their subject_key holds payee text and they name no rows.
+         COALESCE(
+           (SELECT array_agg(value::uuid ORDER BY ordinality)
+              FROM jsonb_array_elements_text(
+                     COALESCE(${payloadLiteral}::jsonb->'subject_ids', '[]'::jsonb)
+                   ) WITH ORDINALITY AS s(value, ordinality)),
+           ARRAY[]::uuid[]));
+     EXCEPTION WHEN unique_violation THEN
+       NULL;
+     END;
+     SELECT ${DISMISSAL_JSON} INTO v_row
+       FROM public.suggestion_dismissals d
+      WHERE d.user_id = ${owner}
+        AND d.kind = ${text('kind')}
+        AND d.subject_key = ${text('subject_key')};`;
+  },
+
+  // `.delete().eq('user_id',…).eq('kind',…).eq('subject_key',…)` and nothing
+  // else. No `.single()`, no count reported to the caller, no flag anywhere: the
+  // ROW GOES. The count is ROW_COUNT for the harness's benefit — the seam
+  // discards it, but "nothing happened" and "one row went" are the two outcomes
+  // a spec has to be able to tell apart.
+  //
+  // There is no cascade to state here: the subjects were an array IN the row, so
+  // they leave with it. The local engine reaches the same state through
+  // `suggestion_dismissal_subjects.dismissal_id ON DELETE CASCADE`, and that
+  // difference of machinery is exactly what a spec measuring the child rows is
+  // for.
+  restore_suggestion: (payloadLiteral) =>
+    `DELETE FROM public.suggestion_dismissals d
+      WHERE (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
+             OR d.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid)
+        AND d.kind = ${payloadLiteral}::jsonb->>'kind'
+        AND d.subject_key = ${payloadLiteral}::jsonb->>'subject_key';
+     GET DIAGNOSTICS v_count = ROW_COUNT;
+     SELECT jsonb_build_object('deleted', v_count) INTO v_row;`,
+
   // The snap returns the whole accounts row. Projected into the same eight
   // fields crate::row::account::AccountRow serialises, money as a decimal string
   // on both sides — numeric::text is exact and involves no rounding function.

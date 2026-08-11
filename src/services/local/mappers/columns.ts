@@ -31,14 +31,16 @@
  *
  * ── ONLY THE ENTITIES THAT REALLY GO BOTH WAYS ──────────────────────────────
  *
- * Transactions, split lines, accounts, categories — and, since slice 22,
- * budgets and goals. Dismissals are the last one still read-only: their write
- * verbs are slice 23, and a one-directional mapping has nothing to disagree
- * with, so they stay written out in `rows.ts` where they can be read beside the
- * cloud twin they have to agree with. Each entity joins this table in the commit
- * that gives it a writer, and the promise has now been kept three times running:
- * `toCategory`, `toBudget` and `toGoal` each moved out of hand-written property
- * access and into `fieldsOf` in the same commit as their own create payload.
+ * Transactions, split lines, accounts, categories, budgets, goals — and, since
+ * slice 23, dismissals, which were the last entity still read-only and were
+ * written out in `rows.ts` for exactly as long as a one-directional mapping had
+ * nothing to disagree with. Each entity joins this table in the commit that
+ * gives it a writer, and the promise has now been kept four times running:
+ * `toCategory`, `toBudget`, `toGoal` and `toDismissal` each moved out of
+ * hand-written property access and into `fieldsOf` in the same commit as their
+ * own write payload. THE LIST IS NOW COMPLETE — every entity the seam carries
+ * goes both ways, so the next entity to join is a new one rather than a
+ * postponed one.
  *
  * ── WHAT A ROW HERE CANNOT SAY, AND WHERE THAT LIVES INSTEAD ────────────────
  *
@@ -132,7 +134,24 @@ export type Kind =
   | 'instant'
   | 'flag'
   | 'whole'
-  | 'tags'
+  /**
+   * A list of strings, in the order it is in — `Transaction.tags` and, since
+   * slice 23, `SuggestionDismissal.subjectIds`.
+   *
+   * CALLED `strings` RATHER THAN `tags`, which is what it was called while one
+   * column used it. The two columns are the same kind and nothing else about
+   * them is alike: tags are a set the user typed, subject ids are ROLES whose
+   * positions are the fact being stored. A kind named after the first column
+   * that needed it is a kind the next reader assumes is only for that column —
+   * and the way that mistake ends is a second, identical kind beside it, which
+   * is exactly the duplication this table exists to prevent.
+   *
+   * ORDER IS PRESERVED IN BOTH DIRECTIONS and that is not decoration here: the
+   * crate reads the subjects `ORDER BY role_order` and writes them at the
+   * position they arrived at, so a mapper that sorted would answer a different
+   * question about which row was the out and which the in.
+   */
+  | 'strings'
   /**
    * An account's type, which the app and the column spell differently: the app
    * says 'current' everywhere and `accounts_type_check` allows 'checking'.
@@ -176,7 +195,7 @@ export const TRANSACTION_COLUMNS: readonly Column[] = [
   { key: 'category_confirmed', field: 'categoryConfirmed', kind: 'flag' },
   { key: 'needs_review', field: 'needsReview', kind: 'flag' },
   { key: 'type', field: 'type', kind: 'text' },
-  { key: 'tags', field: 'tags', kind: 'tags' },
+  { key: 'tags', field: 'tags', kind: 'strings' },
   { key: 'notes', field: 'notes', kind: 'text' },
   { key: 'is_cleared', field: 'cleared', kind: 'flag' },
   { key: 'is_recurring', field: 'isRecurring', kind: 'flag' },
@@ -360,6 +379,42 @@ export const GOAL_COLUMNS: readonly Column[] = [
   { key: 'color', field: 'color', kind: 'text' }
 ];
 
+/**
+ * A dismissal, column by column — the five the cloud's own read names, and
+ * `user_id` is not among them.
+ *
+ * `suggestionDismissalService.list` does not `select('*')`: it names
+ * `id, kind, subject_key, subject_ids, dismissed_at`, its `toDismissal` reads
+ * exactly those, and `dismiss`'s `.select()` names the same five again. So the
+ * two directions really are one list here, which is the cleanest case this table
+ * has: nothing is assembled, nothing is folded, and there is no column with no
+ * field or field with no column.
+ *
+ * `subject_ids` IS in the table even though the two engines keep it in different
+ * shapes — `uuid[]` on the row in the cloud, the child table
+ * `suggestion_dismissal_subjects` in a file. That difference is the CRATE's to
+ * hide and it does hide it: the verb writes the array at its own positions into
+ * `role_order` and the read joins it back, so what crosses this boundary is an
+ * array in role order either way. A port that had to know about a child table
+ * would be a port that knows about SQLite.
+ *
+ * `dismissed_at` is `instant` in both directions, and unlike `Goal.completedAt`
+ * it really is a Date on the app's side (`SuggestionDismissal.dismissedAt`), so
+ * no string passes through untouched here.
+ *
+ * `kind` is plain `text`. The seven values are enumerated by a CHECK in both
+ * engines and this table holds no second copy of them — `rows.ts` narrows the
+ * string to the app's union on the way in, which is the only place a list of
+ * them is needed and the only place one appears.
+ */
+export const DISMISSAL_COLUMNS: readonly Column[] = [
+  { key: 'id', field: 'id', kind: 'text' },
+  { key: 'kind', field: 'kind', kind: 'text' },
+  { key: 'subject_key', field: 'subjectKey', kind: 'text' },
+  { key: 'subject_ids', field: 'subjectIds', kind: 'strings' },
+  { key: 'dismissed_at', field: 'dismissedAt', kind: 'instant' }
+];
+
 /** One stored value on its way IN, or `undefined` where the answer said nothing. */
 const decode = (kind: Kind, value: unknown): unknown => {
   switch (kind) {
@@ -388,7 +443,7 @@ const decode = (kind: Kind, value: unknown): unknown => {
       return flag(value);
     case 'whole':
       return whole(value);
-    case 'tags':
+    case 'strings':
       return strings(value);
   }
 };
@@ -444,7 +499,7 @@ export const encode = (kind: Kind, value: unknown): unknown => {
       return value;
     case 'whole':
       return value;
-    case 'tags':
+    case 'strings':
       return Array.isArray(value) ? value.filter(entry => typeof entry === 'string') : value;
   }
 };
