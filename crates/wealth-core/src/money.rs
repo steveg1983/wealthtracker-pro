@@ -228,21 +228,42 @@ impl Money {
     /// Render as the decimal string this type deserialises from. Exact: no
     /// float ever exists on this path.
     #[must_use]
-    // The divisor is the literal 100 and the dividend is a u64, so neither
-    // division can divide by zero nor overflow. Spelled out rather than
-    // switching the lint off, because the next person to add arithmetic here
-    // should have to justify it too.
-    #[allow(clippy::arithmetic_side_effects)]
     pub fn to_decimal_string(self) -> String {
-        let negative = self.0 < 0;
-        // i64::MIN has no positive counterpart; unsigned_abs is the only
-        // correct way to take the magnitude.
-        let magnitude = self.0.unsigned_abs();
-        let major = magnitude / 100;
-        let minor = magnitude % 100;
-        let sign = if negative { "-" } else { "" };
-        format!("{sign}{major}.{minor:02}")
+        hundredths_to_decimal_string(self.0)
     }
+}
+
+/// A count of hundredths, rendered as a two-place decimal string. Exact: no
+/// float ever exists on this path.
+///
+/// [`Money::to_decimal_string`] IS this function, and it is spelled separately
+/// for one reason: `budgets.alert_threshold_bp` is stored as hundredths of a
+/// percent (8000 meaning 80.00%) and the cloud stores the same quantity as
+/// `numeric(5,2)`, which casts to text as `"80.00"`. A read that hands the app
+/// the raw 8000 forces a division on the far side of the boundary — and
+/// `/ 100` under `src/services/local/` is exactly what R-7's grep exists to
+/// catch, whether or not the quantity is money.
+///
+/// So the rendering happens here, once, in the module whose entire purpose is
+/// that a fixed-point quantity never meets a float. What must NOT follow is a
+/// [`Money`] holding a percentage: the threshold is not money, `schema.sql`
+/// says so in capitals at the column, and giving it money's type would make it
+/// eligible for every arithmetic this crate reserves for amounts.
+#[must_use]
+// The divisor is the literal 100 and the dividend is a u64, so neither
+// division can divide by zero nor overflow. Spelled out rather than
+// switching the lint off, because the next person to add arithmetic here
+// should have to justify it too.
+#[allow(clippy::arithmetic_side_effects)]
+pub fn hundredths_to_decimal_string(hundredths: i64) -> String {
+    let negative = hundredths < 0;
+    // i64::MIN has no positive counterpart; unsigned_abs is the only
+    // correct way to take the magnitude.
+    let magnitude = hundredths.unsigned_abs();
+    let whole = magnitude / 100;
+    let fraction = magnitude % 100;
+    let sign = if negative { "-" } else { "" };
+    format!("{sign}{whole}.{fraction:02}")
 }
 
 impl fmt::Debug for Money {
