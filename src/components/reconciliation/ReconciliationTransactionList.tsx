@@ -7,18 +7,57 @@ import type { Transaction, Category } from '../../types';
 /**
  * What the list is showing.
  *
- * The vocabulary is the model: 'marked' is the WORKING set — ticked in this
- * session or a previous one, and not yet finalized — which is exactly what
- * Finalize would commit, so it doubles as "show me what I am about to sign
- * for". Rows reconciled in an earlier session are neither marked nor unmarked
- * work; they show under 'all' and nowhere else.
+ * The vocabulary is the model, and the middle one is the whole reconciliation:
+ *
+ *   'unreconciled' — everything this reconciliation still has to settle,
+ *       ticked or not. THE WORKING LIST, and the default. A row does not leave
+ *       it by being marked; it leaves it by being reconciled, which only
+ *       Finalize does.
+ *   'marked' — the C rows only: what Finalize would commit if pressed now, and
+ *       the exact set "Unmark all" acts on. A strict narrowing of the working
+ *       list, for the last look before signing.
+ *   'all' — plus the rows finished reconciliations already committed.
+ *
+ * The middle filter used to be 'unmarked', and marking a row dropped it out of
+ * the view: press "Mark all" and the list the user was working emptied itself,
+ * which read as "that's the reconciliation done" — the very lie the C/R split
+ * exists to kill. Ticking a row is progress THROUGH this list, not an exit
+ * from it, so the badge changes and the row stays put.
+ *
+ * ── WHY "To reconcile" AND NOT "Outstanding" ────────────────────────────────
+ * Because this is a finance app and the domain already owns that word:
+ * outstanding items, in bank reconciliation, are the ones that have NOT yet
+ * cleared the bank — which is the unmarked SUBSET of this set, not the set. A
+ * label that names a superset with the trade's word for one of its parts is a
+ * trap for exactly the user who knows what he is doing. "To reconcile" says
+ * what is true of every row here and nothing that is not: this is the work.
  */
-type FilterMode = 'all' | 'unmarked' | 'marked';
+type FilterMode = 'all' | 'unreconciled' | 'marked';
 
 const FILTER_LABELS: Record<FilterMode, string> = {
   all: 'All',
-  unmarked: 'Unmarked',
+  unreconciled: 'To reconcile',
   marked: 'Marked',
+};
+
+/** What each view is, said where the choice is made. */
+const FILTER_TITLES: Record<FilterMode, string> = {
+  all: 'Every transaction on this account, including ones already reconciled.',
+  unreconciled: 'Everything this reconciliation still has to settle. Marked rows stay here, showing C, until you finalize.',
+  marked: 'The rows marked C — what Finalize would reconcile if you pressed it now.',
+};
+
+/**
+ * An empty view says which emptiness it is.
+ *
+ * "No transactions found" is a search result, and reading it after finalizing —
+ * when the truth is that the account is finished — invites the user to go
+ * looking for rows the app has not lost.
+ */
+const FILTER_EMPTY_MESSAGES: Record<FilterMode, string> = {
+  all: 'This account has no transactions yet.',
+  unreconciled: 'Nothing left to reconcile on this account.',
+  marked: 'Nothing is marked yet. Tick the rows that appear on your statement.',
 };
 
 interface ReconciliationTransactionListProps {
@@ -59,7 +98,10 @@ export default function ReconciliationTransactionList({
   onVisibleOrderChange,
 }: ReconciliationTransactionListProps): React.JSX.Element {
   const { formatCurrency } = useCurrencyDecimal();
-  const [filterMode, setFilterMode] = useState<FilterMode>('all');
+  // Opens on the work. An account is opened here to reconcile it, so the first
+  // thing on screen is what there is to reconcile — not a history the user
+  // would have to filter down before starting. 'all' is one click away.
+  const [filterMode, setFilterMode] = useState<FilterMode>('unreconciled');
   const [searchTerm, setSearchTerm] = useState('');
 
   const getCategoryName = useCallback((categoryId: string): string => {
@@ -93,8 +135,11 @@ export default function ReconciliationTransactionList({
   const filteredTransactions = useMemo(() => {
     let list = sortedTransactions;
 
-    if (filterMode === 'unmarked') {
-      list = list.filter(t => !t.cleared);
+    if (filterMode === 'unreconciled') {
+      // Not `!t.cleared`: a mark is not an exit. The predicate is the one every
+      // other surface counts with, so this list and the "N unreconciled" badges
+      // elsewhere can never disagree about what is left to do.
+      list = list.filter(t => !isReconciled(t));
     } else if (filterMode === 'marked') {
       list = list.filter(isMarkedAwaitingFinalize);
     }
@@ -117,8 +162,15 @@ export default function ReconciliationTransactionList({
     onVisibleOrderChange?.(filteredTransactions.map(t => t.id));
   }, [filteredTransactions, onVisibleOrderChange]);
 
+  /**
+   * Mark acts on the unticked rows in view — and, like its opposite below,
+   * never on a finished reconciliation. Committed rows arrive here already
+   * ticked so the second clause is belt and braces, but the two bulk helpers
+   * now state the same rule in the same shape, which is the point: neither one
+   * reaches into a settled statement.
+   */
   const visibleUnmarkedIds = useMemo(
-    () => filteredTransactions.filter(t => t.cleared !== true).map(t => t.id),
+    () => filteredTransactions.filter(t => t.cleared !== true && !isReconciled(t)).map(t => t.id),
     [filteredTransactions]
   );
   /**
@@ -164,11 +216,12 @@ export default function ReconciliationTransactionList({
 
         {/* Filter buttons */}
         <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg p-0.5">
-          {(['all', 'unmarked', 'marked'] as FilterMode[]).map(mode => (
+          {(['all', 'unreconciled', 'marked'] as FilterMode[]).map(mode => (
             <button
               key={mode}
               onClick={() => setFilterMode(mode)}
               aria-pressed={filterMode === mode}
+              title={FILTER_TITLES[mode]}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 filterMode === mode
                   ? 'bg-[#1a2332] text-white'
@@ -187,7 +240,7 @@ export default function ReconciliationTransactionList({
           onClick={handleMarkAll}
           disabled={visibleUnmarkedIds.length === 0}
           className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-          title="Tick every transaction shown. Nothing is reconciled until you finalize."
+          title="Tick every unmarked transaction shown. They stay in this list, showing C, until you finalize."
         >
           Mark all
         </button>
@@ -226,7 +279,9 @@ export default function ReconciliationTransactionList({
         <div className="max-h-[600px] overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
           {filteredTransactions.length === 0 ? (
             <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-              No transactions found
+              {searchTerm
+                ? `No transactions match “${searchTerm}”.`
+                : FILTER_EMPTY_MESSAGES[filterMode]}
             </div>
           ) : (
             filteredTransactions.map(t => {

@@ -1,17 +1,26 @@
 /**
- * "This yellow is why that yellow."
+ * "The yellow is wherever your next action is."
  *
- * The balance bar's closing-balance affordance and the header's Finalize
- * Reconciliation button are refusing for ONE reason: the figure has not been
- * confirmed. The design says the eye should be able to follow that from one to
- * the other, which only works if they are literally the same yellow.
+ * ── THE DESIGN, IN ONE LINE ─────────────────────────────────────────────────
+ * While the closing balance is unconfirmed the app is ASKING, so the balance
+ * bar's closing-balance affordance wears the yellow and Finalize sits dimmed
+ * and disabled. Agree to the figure and the bar goes quiet while Finalize
+ * lights up in the same yellow, because pressing it is now the only thing left
+ * to do. The colour travels from the question to the action.
  *
- * So these tests are structural, not cosmetic. They do not check that either
- * control is amber-100; they check that the amber vocabulary on each is
- * EXACTLY the shared token's, which is a claim two hand-maintained class lists
- * cannot satisfy for long. Hardcode a near-miss on either side and the
- * comparison goes red before anyone has to notice the shades drifting apart on
+ * It used to sit on BOTH at once, meaning "blocked". Live testing killed that:
+ * two amber controls read as two separate refusals, and the user's actual next
+ * step — Confirm, in quiet blue on the bar — was the least visible thing on
  * screen.
+ *
+ * ── WHY THESE TESTS ARE SHAPED LIKE THIS ────────────────────────────────────
+ * They are structural, not cosmetic. They do not check that anything is
+ * amber-100; they check WHICH element carries the shared token's exact amber
+ * vocabulary, and that the other carries NONE — asserted as one object per
+ * state so a failure names both sides at once. Two hand-maintained class lists
+ * cannot satisfy that for long: hardcode a near-miss, forget to drop the token
+ * on one branch, or paint both at once, and the comparison goes red before the
+ * screen has to.
  *
  * Every name and figure here is invented: this repo is public.
  */
@@ -25,9 +34,9 @@ import { ToastProvider } from '../../contexts/ToastContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import Reconciliation from '../Reconciliation';
 import {
-  UNCONFIRMED_YELLOW,
+  NEXT_ACTION_YELLOW,
   CONFIRM_BALANCE_HINT_ID,
-} from '../../components/reconciliation/unconfirmedYellow';
+} from '../../components/reconciliation/nextActionYellow';
 import { __setAppContextValue, __resetAppContextValue } from '../../test/mocks/AppContextSupabase';
 import type { Account, Transaction } from '../../types';
 
@@ -84,11 +93,35 @@ const openAccount = (account: Account = ACCOUNT): void => {
 const amber = (el: Element): string[] =>
   el.className.split(/\s+/).filter(cls => cls.includes('amber-')).sort();
 
-const TOKEN = UNCONFIRMED_YELLOW.split(/\s+/).filter(Boolean).sort();
+const TOKEN = NEXT_ACTION_YELLOW.split(/\s+/).filter(Boolean).sort();
+const WEARING = TOKEN.join(' ');
+const BARE = '';
 
 const finalizeButton = (): HTMLElement =>
   screen.getByRole('button', { name: /Finalize Reconciliation/ });
 const figure = (): HTMLElement => screen.getByTitle('Click to change or remove');
+
+/**
+ * Whatever the closing-balance cell is currently offering: the figure, the open
+ * editor, or the invitation to type one. All three are the same affordance in
+ * different states, and the yellow belongs to whichever is on screen.
+ */
+const closingBalanceAffordance = (): HTMLElement =>
+  screen.queryByTitle('Click to change or remove')
+  ?? screen.queryByLabelText('Closing balance')
+  ?? screen.getByRole('button', { name: 'Enter balance' });
+
+/**
+ * Who is wearing the yellow, both sides read at once.
+ *
+ * Compared as ONE object rather than two assertions so that a failure prints
+ * the whole state — "both are yellow" and "neither is" are the two ways this
+ * design breaks, and neither is legible from a single-element assertion.
+ */
+const yellowState = (): Record<string, string> => ({
+  'closing balance': amber(closingBalanceAffordance()).join(' '),
+  Finalize: amber(finalizeButton()).join(' '),
+});
 
 beforeEach(() => {
   localStorage.clear();
@@ -98,7 +131,7 @@ afterEach(() => {
   __resetAppContextValue();
 });
 
-describe('Reconciliation — the yellow thread', () => {
+describe('Reconciliation — the yellow that travels', () => {
   it('the shared token is a real treatment: border, text and wash, in both themes', () => {
     // Without this guard the comparisons below could be satisfied by emptying
     // the token — two elements agreeing that neither is yellow at all.
@@ -111,27 +144,44 @@ describe('Reconciliation — the yellow thread', () => {
     expect(has(/^dark:border-amber-/)).toBe(true);
   });
 
-  it('HEADLINE: the unconfirmed figure and the refusing Finalize wear the SAME yellow', () => {
+  it('HEADLINE: unconfirmed, the yellow is on the question — and only there', () => {
     openAccount();
 
-    expect(amber(figure())).toEqual(TOKEN);
-    expect(amber(finalizeButton())).toEqual(TOKEN);
-    // Said the other way round as well, because THAT is the design: not "both
-    // happen to be amber" but "both are the one yellow".
-    expect(amber(figure())).toEqual(amber(finalizeButton()));
+    expect(yellowState()).toEqual({ 'closing balance': WEARING, Finalize: BARE });
     expect(finalizeButton()).toBeDisabled();
   });
 
-  it('confirming resolves both yellows together, and opens the gate', () => {
+  it('HEADLINE: confirmed, the yellow has moved to the action — and only there', () => {
     openAccount();
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
-    expect(amber(figure())).toEqual([]);
-    expect(amber(finalizeButton())).toEqual([]);
+    expect(yellowState()).toEqual({ 'closing balance': BARE, Finalize: WEARING });
     expect(finalizeButton()).toBeEnabled();
   });
 
-  it('Enter in the box resolves both in one keystroke', () => {
+  it('the two are never both yellow, and never both quiet, across the whole transition', () => {
+    // The exclusivity said as a sequence rather than as two separate states,
+    // because the failure this guards against is a branch that sets the token
+    // without the other branch clearing it.
+    openAccount();
+    const seen = [yellowState()];
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    seen.push(yellowState());
+    fireEvent.click(figure());
+    fireEvent.change(screen.getByLabelText('Closing balance'), { target: { value: '55' } });
+    seen.push(yellowState());
+
+    expect(seen).toEqual([
+      { 'closing balance': WEARING, Finalize: BARE },
+      { 'closing balance': BARE, Finalize: WEARING },
+      { 'closing balance': WEARING, Finalize: BARE },
+    ]);
+    seen.forEach(state => {
+      expect(Object.values(state).filter(worn => worn === WEARING)).toHaveLength(1);
+    });
+  });
+
+  it('Enter in the box moves the yellow in one keystroke', () => {
     // The commonest path: read the statement, type the figure, press Enter.
     openAccount();
     fireEvent.click(figure());
@@ -139,37 +189,46 @@ describe('Reconciliation — the yellow thread', () => {
     fireEvent.change(box, { target: { value: '61.25' } });
     fireEvent.keyDown(box, { key: 'Enter' });
 
-    expect(amber(figure())).toEqual([]);
-    expect(amber(finalizeButton())).toEqual([]);
+    expect(yellowState()).toEqual({ 'closing balance': BARE, Finalize: WEARING });
     expect(finalizeButton()).toBeEnabled();
   });
 
-  it('editing after confirming brings both yellows back', () => {
+  it('editing after confirming hands the yellow back to the box, and fades Finalize again', () => {
     openAccount();
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
-    expect(amber(finalizeButton())).toEqual([]);
+    expect(amber(finalizeButton())).toEqual(TOKEN);
 
     fireEvent.click(figure());
     fireEvent.change(screen.getByLabelText('Closing balance'), { target: { value: '55' } });
 
-    // The box the user is typing in is the affordance now, and it is yellow
-    // again alongside Finalize — the agreement lapsed with the keystroke.
-    expect(amber(screen.getByLabelText('Closing balance'))).toEqual(TOKEN);
-    expect(amber(finalizeButton())).toEqual(TOKEN);
-    expect(amber(screen.getByLabelText('Closing balance'))).toEqual(amber(finalizeButton()));
+    // The box the user is typing in is the affordance now, and the agreement
+    // lapsed with the keystroke: the question is open again, so the yellow is
+    // back on it and Finalize has gone quiet and disabled.
+    expect(yellowState()).toEqual({ 'closing balance': WEARING, Finalize: BARE });
     expect(finalizeButton()).toBeDisabled();
   });
 
-  it('an account with no figure at all invites one in the same yellow', () => {
+  it('an account with no figure at all is asked in the same yellow', () => {
     openAccount({ ...ACCOUNT, bankBalance: null, bankBalanceDate: null });
 
-    const invitation = screen.getByRole('button', { name: 'Enter balance' });
-    expect(amber(invitation)).toEqual(TOKEN);
-    expect(amber(finalizeButton())).toEqual(TOKEN);
+    expect(screen.getByRole('button', { name: 'Enter balance' })).toBeInTheDocument();
+    expect(yellowState()).toEqual({ 'closing balance': WEARING, Finalize: BARE });
     expect(finalizeButton()).toBeDisabled();
   });
 
-  it('the yellow is never the only signal: both controls point at the same printed reason', () => {
+  it('the quiet Finalize is the app’s ordinary dimmed primary, not a faded yellow', () => {
+    // A half-strength amber would still read as yellow, which is exactly the
+    // ambiguity this design removed. Dimmed the way every other disabled
+    // primary in this codebase is dimmed, and carrying no amber at all.
+    openAccount();
+
+    const finalize = finalizeButton();
+    expect(amber(finalize)).toEqual([]);
+    expect(finalize).toHaveClass('bg-[#1a2332]', 'text-white');
+    expect(finalize).toHaveClass('disabled:opacity-50', 'disabled:cursor-not-allowed');
+  });
+
+  it('the yellow is never the only signal: the refusal is spoken and structural', () => {
     openAccount();
 
     expect(figure()).toHaveAttribute('aria-describedby', CONFIRM_BALANCE_HINT_ID);
@@ -191,10 +250,10 @@ describe('Reconciliation — the yellow thread', () => {
 
   it('Finalize keeps its border width in both states, so the gate opening cannot resize it', () => {
     openAccount();
-    expect(finalizeButton()).toHaveClass('border');
+    expect(finalizeButton()).toHaveClass('border', 'border-transparent');
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
-    expect(finalizeButton()).toHaveClass('border', 'border-transparent');
+    expect(finalizeButton()).toHaveClass('border', 'border-amber-300');
   });
 });
 
