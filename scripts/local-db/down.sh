@@ -1,5 +1,6 @@
 #!/bin/bash
-export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"
+# shellcheck source=scripts/local-db/pgbin.sh
+. "$(cd "$(dirname "$0")" && pwd)/pgbin.sh"
 D=${WT_PGDATA:-/tmp/wtpg}
 pg_ctl -D "$D" stop >/dev/null 2>&1
 rm -rf "$D"

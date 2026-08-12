@@ -1,9 +1,9 @@
 #!/bin/bash
 set -u
-export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"
-export LC_ALL=C
-D=${WT_PGDATA:-/tmp/wtpg}; PORT=${WT_PGPORT:-55432}
 here="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=scripts/local-db/pgbin.sh
+. "$here/pgbin.sh"
+D=${WT_PGDATA:-/tmp/wtpg}; PORT=${WT_PGPORT:-55432}
 rc=0
 for t in "$here"/*.test.sql; do
   echo "── $(basename "$t")"

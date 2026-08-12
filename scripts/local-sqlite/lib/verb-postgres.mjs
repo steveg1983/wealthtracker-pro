@@ -1812,10 +1812,12 @@ END
 $wtblock$;`;
 }
 
+/** `WT_PGBIN` first — see lib/postgres.mjs's copy for why. */
 function psqlEnv() {
+  const prefix = [process.env.WT_PGBIN, '/opt/homebrew/opt/postgresql@17/bin'].filter(Boolean);
   return {
     ...process.env,
-    PATH: `/opt/homebrew/opt/postgresql@17/bin:${process.env.PATH ?? ''}`,
+    PATH: [...prefix, process.env.PATH ?? ''].join(':'),
     LC_ALL: 'C',
   };
 }

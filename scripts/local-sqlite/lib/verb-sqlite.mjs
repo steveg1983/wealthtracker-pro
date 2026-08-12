@@ -18,7 +18,7 @@
 // WHO OWNS THE FILE
 // -----------------
 // Node creates the temp database, applies scripts/local-sqlite/schema.sql and
-// the shared fixture through node:sqlite — the same code path the 54 constraint
+// the shared fixture through node:sqlite — the same code path the 67 constraint
 // specs use — then hands the *path* to Rust, then re-opens the file on a fresh
 // connection to run the state assertions. So:
 //

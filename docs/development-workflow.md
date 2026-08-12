@@ -76,7 +76,7 @@ Each run writes a timestamped log to `logs/supabase-smoke/<ISO>_supabase-smoke.l
 - `VITE_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` (no `VITE_` prefix — server-side only)
 
-The workflow is guarded so it silently skips when any secret is missing. Coordinate with DevOps before enabling it in production to manage costs and rate limits.
+**The workflow does not skip when a secret is missing — it fails, loudly, exit 1.** (This paragraph said the opposite until 2026-08-12, contradicting both the table above it and the workflow itself.) Silent skipping is precisely what went wrong before: the job reported success for months with no service-role key, which is the comment now standing at the top of `supabase-smoke.yml`. A nightly that cannot go red is theatre. The local behaviour in the table above is the deliberate exception, and it is never silent either.
 
 ## Supabase migrations
 
@@ -125,20 +125,77 @@ Only skip the hook for critical hotfixes. Preferred options:
 
 Follow up every bypass with the full lint + smoke suite before merging.
 
+## The local edition's lanes
+
+The desktop/local edition has its own commands, its own test-runner config and
+its own CI jobs. They are separate from everything above because they share no
+infrastructure with the web app: no browser, no Supabase, no Clerk.
+
+| command | what it is | what it needs |
+| --- | --- | --- |
+| `npm run test:local-contract` | 127 checks in five files, driving the real Rust ledger against real SQLite files through the `DataPort` contract | the release bridge binary |
+| `npm run test:local-admission` | 109 specs: the shipping TypeScript admission modules against the Rust port of them | the bridge binary |
+| `npm run test:local-sqlite` | 67 constraint specs — does the local schema refuse a write the way the cloud's does? | the bridge **and** a Postgres cluster |
+| `npm run test:local-verbs` | 474 verb specs — do the Rust command layer and the live Postgres RPC agree on the answer *and* on the rows left behind? | the bridge **and** a Postgres cluster |
+| `npm run desktop:verify` | build the renderer, grep it for the cloud, weigh it against its ratchet | Node only |
+| `npm run desktop:check` | clippy (`-D warnings`) and the shell's 12 tests | a Rust toolchain |
+| `npm run desktop:build` | the renderer, then a release build of the Tauri shell | a Rust toolchain, plus webkit2gtk on Linux |
+| `cargo test --manifest-path crates/Cargo.toml --all-features` | 468 tests, the ledger core itself | a Rust toolchain |
+
+Two prerequisites, both of which the lanes **refuse to run without** rather than
+skipping to green:
+
+```sh
+# the bridge binary (release: these lanes are dominated by process spawns)
+cargo build --manifest-path crates/Cargo.toml --features cli --release
+
+# the throwaway Postgres, for the two differential lanes only
+bash scripts/local-db/up.sh     # …/down.sh to remove it
+```
+
+**Node 22 or newer.** The SQLite side of every one of these is `node:sqlite`,
+the runtime's own binding, which does not exist before 22.5. The web app's own
+jobs still run Node 20, deliberately: their version is a build-parity question
+with Vercel and has nothing to do with this.
+
+Which of these run on a pull request and which run nightly — and why — is in
+`docs/edition-gating.md`. `scripts/local-sqlite/README.md` and
+`scripts/local-db/README.md` document the two harnesses.
+
 ## CI gate coverage
 
-- `ci.yml` quality job now runs `npm run typecheck:strict` before the baseline `tsc --noEmit`.
-- Unit test job executes the focused LoadingScreen suite (`npm run test -- --run src/components/LoadingScreen.test.tsx`) alongside the broader mocks.
-- Build stage runs `npm run bundle:check` immediately after producing `dist/` to surface bundle regressions.
-- Optional Supabase job triggers `npm run test:supabase-smoke` under `continue-on-error` until the RLS policy fixes ship.
+The workflows are `.github/workflows/handoff-snapshot.yml` (every PR, and push
+to `main`), `supabase-smoke.yml` and `local-edition-nightly.yml` (nightly), plus
+`dependency-audit.yml`, `gitleaks.yml` and `nightly-backup.yml`. There is no
+`ci.yml`; an earlier version of this section described one.
+
+`handoff-snapshot.yml` runs four jobs:
+
+- **`check-snapshots`** — `npm run handoff:update` must leave the tree clean.
+- **`quality-gates`** — `typecheck:strict` (`tsc -b`, which is also the only
+  thing that typechecks the desktop renderer), lint, smoke, realtime, coverage
+  and its threshold, Supabase migration lint, `build:check`, `bundle:check`.
+- **`desktop-renderer`** — the renderer built, grepped for the cloud, weighed.
+- **`local-core`** — clippy and 468 Rust tests on the ledger core, then the
+  contract and admission lanes.
+
+Only one step in the whole file is `continue-on-error`: the Supabase migration
+lint, which needs a secret. Nothing else may become one —
+`src/desktop/__tests__/desktopIsGated.test.ts` fails if a second appears.
 
 ### Coverage thresholds
 
-Unit coverage is now treated as a gate. After `npm run test:coverage`, CI executes:
+Unit coverage is a gate. After `npm run test:coverage`, CI executes:
 
 ```sh
-  node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=75 --branches=55
+  node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=63 --branches=55
   # The script autogenerates coverage/coverage-final.json by merging Vitest shards from coverage/.tmp
 ```
 
-If either percentage drops below the threshold the workflow fails. Run the same command locally whenever you touch shared services to confirm you're still above **75 % statements / 55 % branches** before pushing.
+If either percentage drops below the threshold the workflow fails. The floor is
+**63 % statements / 55 % branches**, not the 75 % this document claimed until
+2026-08-12. It was recalibrated in June 2026, when deleting the dead Redux store
+removed ~6.5K lines of heavily-tested dead code that had been inflating the
+global ratio; live-code coverage did not regress. The number here, in
+`package.json`'s `verify:full`, in the pre-push hook and in the workflow is one
+number, and must stay one number.

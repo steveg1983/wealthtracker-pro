@@ -320,7 +320,7 @@ import {
  * needs to know which preference keys hold ids, and that constant lived beside a
  * Supabase transport). `backupService.ts` re-exports both, so no existing caller
  * moved. The shell's `openLedgerDocument` supplies `BackupFormat` out of the
- * lifted module, and `desktopBundleIsCloudFree.test.ts` walks the import graph
+ * lifted module, and `deviceDocument.cloudFree.test.ts` walks the import graph
  * from there and fails if a Supabase client is reachable — which is that bundle
  * grep, executed rather than described.
  *

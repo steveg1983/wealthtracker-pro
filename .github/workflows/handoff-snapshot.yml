@@ -113,3 +113,129 @@ jobs:
 
       - name: Run bundle check
         run: npm run bundle:check
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # THE LOCAL EDITION, ON EVERY PR.
+  #
+  # Two jobs rather than one, because "which half broke" is the first question
+  # anybody asks a red build and a single job cannot answer it. The renderer half
+  # needs Node and two seconds; the core half needs a Rust toolchain and a couple
+  # of minutes. Splitting them also means the fast one reports while the slow one
+  # is still compiling.
+  #
+  # What is deliberately NOT here runs nightly — see local-edition-nightly.yml,
+  # which states the reason for each.
+  # ────────────────────────────────────────────────────────────────────────────
+
+  desktop-renderer:
+    name: Desktop renderer (cloud-free + size)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # 22, not the 20 the web jobs use. The local edition's suites open
+          # SQLite files through `node:sqlite`, which does not exist before
+          # 22.5. This job does not itself need it; it is pinned to the same
+          # version as `local-core` so the two never drift apart and start
+          # disagreeing about what "the local edition's Node" is.
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the desktop renderer
+        run: npm run desktop:ui
+
+      # `npm run desktop:verify` is these three in order. They are separate steps
+      # on purpose: the Actions UI names the step that failed, and "the bundle
+      # reached the cloud" and "the bundle got fat" want different people.
+      - name: Bundle greps — the desktop build reaches no cloud
+        run: npm run desktop:greps
+
+      - name: Bundle size ratchet
+        run: npm run bundle:check:desktop
+
+  local-core:
+    name: Local core (Rust, contract, admission)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # See desktop-renderer: `node:sqlite`, so 22 and not 20. The contract
+          # suite's fixtures open real ledger files with it.
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # No third-party action for either the toolchain or the cache, deliberately.
+      # `rustup`, `cargo` and a stable toolchain ship in the ubuntu runner image,
+      # and this repository is public: every extra action is another owner of a
+      # token that can see a finance codebase. `actions/cache` is first-party.
+      - name: Tool versions
+        run: |
+          rustup show active-toolchain || rustup default stable
+          cargo --version
+          rustc --version
+          node --version
+
+      # Registry and git checkouts only — NOT `crates/target`. Measured on an M4
+      # (2026-08-12): a cold `cargo test` plus a cold `cargo build --release
+      # --features cli` for this workspace is ~89 CPU-seconds over 65 packages,
+      # and the target directory it leaves behind is 726 MB. Round-tripping most
+      # of a gigabyte through the cache service to save a minute and a half of
+      # compilation is not obviously a saving, and it is definitely a bigger
+      # thing to go wrong. The registry cache is tens of MB and saves the
+      # downloads, which is the part that is pure latency.
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-local-core-${{ runner.os }}-${{ hashFiles('crates/Cargo.lock') }}
+          restore-keys: cargo-local-core-${{ runner.os }}-
+
+      # The money lints live in crates/wealth-core/Cargo.toml — unwrap_used,
+      # expect_used, panic, arithmetic_side_effects and float_arithmetic all
+      # `deny`. Clippy is how they are enforced; without this step they are a
+      # comment.
+      - name: Clippy — the ledger core's money lints
+        run: cargo clippy --manifest-path crates/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Rust tests — the ledger core
+        run: cargo test --manifest-path crates/Cargo.toml --all-features
+
+      # `--release`, not debug. Both lanes below are dominated by process spawns
+      # rather than by CPU (the harness spawns the bridge once per spec, 236
+      # times between them), and a debug SQLite is slow enough to change the
+      # shape of the job. `--features cli` is what builds the bridge at all: it
+      # is `required-features`, so an ordinary `cargo build` does not produce it.
+      - name: Build the ledger bridge
+        run: cargo build --manifest-path crates/Cargo.toml --features cli --release
+
+      # Needs the binary above and nothing else — no Postgres, no browser, no
+      # cloud. It REFUSES to skip when the binary is missing (R-8), so a broken
+      # build step cannot present as a green suite.
+      - name: Local contract suite
+        env:
+          CI: true
+        run: npm run test:local-contract
+
+      # TypeScript against Rust: the shipping admission modules are the oracle,
+      # so this lane needs no database either.
+      - name: Admission parity (TypeScript vs Rust)
+        run: npm run test:local-admission

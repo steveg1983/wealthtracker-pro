@@ -63,20 +63,51 @@ other and why the kernel holds the second rather than a row in the file.
 ## Building it
 
 ```bash
-npm run desktop:ui       # vite → apps/desktop/dist  (the binary embeds this)
-npm run desktop:greps    # PHASE3-PLAN §5's two bundle greps, over that build
-npm run desktop:verify   # the two above, in that order
-npm run desktop:build    # desktop:ui, then cargo build --release
-npm run desktop:check    # clippy -D warnings, and the shell's own tests
+npm run desktop:ui             # vite → apps/desktop/dist  (the binary embeds this)
+npm run desktop:greps          # PHASE3-PLAN §5's two bundle greps, over that build
+npm run bundle:check:desktop   # the renderer's size ratchet, over the same build
+npm run desktop:verify         # the three above, in that order
+npm run desktop:build          # desktop:ui, then cargo build --release
+npm run desktop:check          # clippy -D warnings, and the shell's own tests
 ```
 
 `cargo build` needs `dist/` to exist first: `tauri::generate_context!` embeds the
 renderer at compile time.
 
-`desktop:greps` REFUSES rather than skips when there is no build to look at. A
-grep that passes because it found nothing to read is the kind of gate that stops
-meaning anything, and this repository has ruled on that once already (R-8, in
-the local contract suite).
+`desktop:greps` and `bundle:check:desktop` both REFUSE rather than skip when
+there is no build to look at. A gate that passes because it found nothing to
+read is the kind of gate that stops meaning anything, and this repository has
+ruled on that once already (R-8, in the local contract suite).
+
+**The ratchet gates RAW bytes, not gzip**, which is the opposite of the web's
+`bundle:check` and for a reason: nothing here is downloaded. These bytes are
+embedded in the binary and parsed when the window opens, so compression never
+enters it. Gzip is measured too, because this README quotes it and because it is
+the only figure directly comparable with the web bundle's.
+
+The binary's size is **recorded and never gated** — CI's Linux binary and this
+arm64 macOS one are different artefacts and neither is the other's regression.
+
+## Where these run
+
+| | on every PR | nightly |
+| --- | --- | --- |
+| `desktop:ui`, `desktop:greps`, `bundle:check:desktop` | ✅ | |
+| `cargo test` / `clippy` on `crates/wealth-core` | ✅ | |
+| `test:local-contract`, `test:local-admission` | ✅ | |
+| `test:local-sqlite`, `test:local-verbs` | | needs the Postgres cluster |
+| `desktop:check`, `desktop:build` | | needs webkit2gtk + 262 CPU-seconds |
+
+`.github/workflows/handoff-snapshot.yml` and `local-edition-nightly.yml`.
+`docs/edition-gating.md` argues the split; `src/desktop/__tests__/
+desktopIsGated.test.ts` fails if a step is dropped from either.
+
+**A type error in `src/desktop` does not fail any of the desktop commands.**
+Vite hands TypeScript to esbuild, which strips types without checking them —
+measured, exit 0 on a renderer that does not typecheck. `npm run
+typecheck:strict` is what catches it, via the root `tsconfig.json`'s reference
+to `tsconfig.desktop.json`, and that reference is now asserted by a test because
+it is the only thing standing between this renderer and being untyped.
 
 ## What has been verified, and what has not
 
@@ -84,12 +115,12 @@ Verified on this machine, at this commit:
 
 | | |
 | --- | --- |
-| the shell crate compiles | `cargo build --release` → a 16 MB arm64 binary |
+| the shell crate compiles | `cargo build --release` → a 16.1 MB arm64 binary (15.3 MiB). Cold, from an empty target directory: 45 s wall, 262 CPU-seconds, 454 packages, 991 MB of build artefacts |
 | the shell's own tests | 12 pass: both locks, the identity flow, the refusals |
 | clippy | clean at `--all-targets`, pedantic on |
-| the renderer builds | 263.7 kB raw / 87.8 kB gzipped — React, React DOM and the router, mounted (slice 29). It was 81.8 kB / 28.0 kB when it was one screen of vanilla DOM |
+| the renderer builds | 259.3 KiB raw / 86.7 KiB gzipped over three files — React, React DOM and the router, mounted (slice 29). It was 81.8 kB / 28.0 kB when it was one screen of vanilla DOM. `npm run bundle:check:desktop` is that measurement as a command, with budgets ~10 % above it |
 | the renderer is cloud-free | zero occurrences of `supabase`, `storageAdapter` — PHASE3-PLAN §5's two bundle greps — and of `indexedDB`, `clerk`, `sentry`, `stripe`. `npm run desktop:greps` is that check, as a command, over the built bundle; two import-graph walks assert the same on every test run, from the data root and from the entry |
-| the ledger path end to end | the contract suite drives all 113 rules through the real crate against real files |
+| the ledger path end to end | the contract suite drives 127 checks in five files through the real crate against real files (`npm run test:local-contract`) |
 | the settings path end to end | `localCore.preferences.test.ts` writes a document into a real file, closes it, reads it back, and follows a preference's account ids through a real backup and restore |
 
 **NOT verified here, because it needs a GUI session:**

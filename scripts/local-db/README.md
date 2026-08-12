@@ -14,11 +14,24 @@ discovered in production.
 ## Use
 
 ```bash
-brew install postgresql@17     # once
+brew install postgresql@17     # once, on macOS
 bash scripts/local-db/up.sh    # init + start + apply every migration
 bash scripts/local-db/test.sh  # run the SQL tests
 bash scripts/local-db/down.sh  # stop and delete the cluster
 ```
+
+`WT_PGDATA` (default `/tmp/wtpg`) and `WT_PGPORT` (default `55432`) pick the
+cluster, so a second one can be stood up beside the first without disturbing it
+— which is how the from-scratch run below was checked.
+
+**Finding the binaries.** `pgbin.sh` is sourced by all three scripts and locates
+`initdb`/`pg_ctl` itself: `WT_PGBIN` if set, then homebrew's
+`postgresql@17`, then Debian's `/usr/lib/postgresql/<major>/bin` (highest
+version). This used to be one hardcoded homebrew path in three places, which was
+true on one machine. CI runs on Linux, where those are *server* binaries and
+Debian deliberately keeps them off `PATH`. `up.sh` refuses with instructions if
+none is found; `down.sh` does not, because it must still be able to clean up on
+a machine where Postgres has since been removed.
 
 ## Caveats, so the harness is not mistaken for the real thing
 
@@ -28,8 +41,25 @@ bash scripts/local-db/down.sh  # stop and delete the cluster
 - **RLS is created but never exercised** — psql connects as superuser, which
   bypasses it. These tests prove logic, not isolation. Row-level isolation is
   still only provable against a real Supabase (`npm run test:supabase-smoke`).
-- **Four migrations do not apply**: two early subscription files and two RLS
-  files that depend on Supabase-managed roles. They do not affect the tables
-  under test. `up.sh` reports them rather than hiding them.
 - Migrations are applied in **three passes** because filename order is not
-  dependency order — the baseline dump sorts after some files it contains.
+  dependency order — the baseline dump sorts after some files it contains, so a
+  file can fail on pass 1 for want of something a later file creates.
+- **Every migration applies.** Measured 2026-08-12 on a cluster built from
+  scratch: `unapplied: 0`.
+
+  This README said "four migrations do not apply" for months and the script
+  agreed with it, reporting seven. **Both were an accounting bug.** A migration
+  that succeeded on pass 1 was re-run on passes 2 and 3, where it failed with
+  *"already exists"* on its own work, and the number printed was the last pass's
+  failures — so every non-idempotent migration in the history counted as
+  unapplied. Three of the seven were the local edition's own
+  (`rows_cannot_name_a_foreign_account`, `preferences_that_travel`,
+  `repoint_transfer`) and all three were present in the catalog the whole time.
+  `up.sh` now skips what has already succeeded, so *unapplied* means unapplied.
+
+  The reason this mattered enough to fix: a nightly builds this cluster from
+  nothing every run, and a line reading `unapplied: 7` in a CI log is one that
+  has to be investigated by hand before anyone can tell whether it is a problem.
+- **`up.sh` exits 0 even so, on purpose.** It is not the gate. If a migration
+  that matters ever fails, a spec in `scripts/local-sqlite` goes red and names
+  the constraint it wanted — a better error than any count printed here.
