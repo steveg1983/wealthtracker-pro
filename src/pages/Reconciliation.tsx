@@ -450,15 +450,34 @@ export default function Reconciliation() {
   if (!selectedAccountId) {
     return (
       <div className="flex flex-col h-full">
+        {/* Heading → figure → content, the page anatomy the design pass settled
+            on (P7). What this page is FOR is the count of work outstanding, and
+            it was set in 14px grey under the title — smaller than the account
+            names below it, and the only number on the screen that describes the
+            whole screen. It reads at `display` now, with the words that explain
+            it demoted to a subhead: the figure first, then what it counts. */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Reconciliation
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {totalUnreconciledCount > 0
-              ? `${totalUnreconciledCount} unreconciled transactions across all accounts`
-              : 'All accounts are up to date'}
-          </p>
+          {totalUnreconciledCount > 0 ? (
+            <>
+              <p className="mt-1 text-display font-semibold text-primary dark:text-white tabular-nums">
+                {totalUnreconciledCount.toLocaleString()}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                unreconciled {totalUnreconciledCount === 1 ? 'transaction' : 'transactions'} across all accounts
+              </p>
+            </>
+          ) : (
+            // No headline figure when the figure is zero. A 32px "0" would be
+            // the loudest thing on a page with nothing to do on it — the app's
+            // rule is that a count of nothing renders as nothing, and what is
+            // worth saying here is the reassurance, not the number.
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              All accounts are up to date
+            </p>
+          )}
         </div>
 
         {/* Group + sort controls — mirrors the Accounts page */}

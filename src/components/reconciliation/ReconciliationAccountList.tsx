@@ -14,6 +14,52 @@ interface ReconciliationAccountListProps {
   onSelectAccount: (accountId: string) => void;
 }
 
+/**
+ * The figure that is absent, rather than a word claiming it is unavailable.
+ *
+ * "N/A" reads as a refusal — as though the app could not work the number out.
+ * It can: there is simply no statement balance entered yet, and the row says so
+ * underneath in the one place the remedy belongs (P6 — say the consequence,
+ * then the remedy).
+ */
+const ABSENT_FIGURE = '—';
+
+/**
+ * The per-row metric labels, printed only where the columns wrap.
+ *
+ * Below `md` the row's cells wrap under the account name and each figure needs
+ * its own label, because there is no column above it to inherit one from. From
+ * `md` up the group's header strip carries the labels once and these go
+ * `sr-only` — visually silent, still announced, so a screen reader on a desktop
+ * hears "Bank Balance £220.00" rather than three unlabelled numbers. Deleting
+ * them outright would have made the strip a sighted-only affordance.
+ */
+const ROW_LABEL_CLASS =
+  'text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 md:sr-only';
+
+/** The column heading over each figure, once per group, from `md` up. */
+const STRIP_LABEL_CLASS =
+  'flex-none text-right text-label uppercase font-medium text-gray-500 dark:text-gray-400';
+
+/**
+ * The three figure columns' widths from `md` up — ONE definition, worn by both
+ * the header strip and the row cells beneath it.
+ *
+ * Shared rather than repeated because a strip whose columns are a different
+ * width from the rows' is a strip that labels the wrong figure, and two
+ * matching literals in two places is exactly the drift that produces one.
+ *
+ * 132px is not arbitrary: "Account Balance" sets 128px at `text-label`, and a
+ * column narrower than its own heading grows to fit the heading — which pushed
+ * the neighbouring column 2px out of true, measured in the browser. The widest
+ * heading plus a little air is the floor.
+ */
+const COLUMN_WIDTH = {
+  bankBalance: 'md:min-w-[132px]',
+  accountBalance: 'md:min-w-[132px]',
+  difference: 'md:min-w-[100px]',
+} as const;
+
 export default function ReconciliationAccountList({
   groups,
   onSelectAccount,
@@ -40,6 +86,34 @@ export default function ReconciliationAccountList({
               ({group.summaries.length})
             </span>
           </h2>
+          {/* ONE label strip per group instead of three labels per row.
+              BANK BALANCE / ACCOUNT BALANCE / DIFFERENCE printed on every card
+              was six words repeated down the page, competing with the figures
+              they name (P1 — the figure is the interface).
+
+              It mirrors the row card's box metrics exactly — the same 2px
+              border (transparent here), the same md padding, the same gap and
+              the same column widths — so the headings sit over the columns they
+              name. The rows' three cells are flex-none and the chevron cannot
+              shrink, which leaves the flex-1 spacer as the only elastic part of
+              a row: the right-hand columns stay pinned to the right edge no
+              matter how long an account name runs, and this strip pins to the
+              same edge the same way.
+
+              aria-hidden because it is a second voice for labels the rows still
+              carry themselves (see ROW_LABEL_CLASS) — announced twice, it would
+              read as six columns rather than three. */}
+          <div
+            aria-hidden="true"
+            className="hidden md:flex w-full items-center gap-4 border-2 border-transparent px-5 pb-1"
+          >
+            <div className="flex-1" />
+            <p className={`${STRIP_LABEL_CLASS} ${COLUMN_WIDTH.bankBalance}`}>Bank Balance</p>
+            <p className={`${STRIP_LABEL_CLASS} ${COLUMN_WIDTH.accountBalance}`}>Account Balance</p>
+            <p className={`${STRIP_LABEL_CLASS} ${COLUMN_WIDTH.difference}`}>Difference</p>
+            {/* The chevron's column, so the labels clear it. */}
+            <div className="w-5 ml-2 flex-shrink-0" />
+          </div>
           <div className="grid gap-3">
             {group.summaries.map(({ account, unreconciledCount, bankBalance, accountBalance, difference }) => {
               const hasDifference = difference != null && Math.abs(difference) > 0.005;
@@ -97,32 +171,56 @@ export default function ReconciliationAccountList({
 
                     <div className="hidden md:block flex-1" />
 
-                    <div className="text-right flex-1 min-w-[84px] md:flex-none md:min-w-[120px]">
-                      <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Bank Balance</p>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white tabular-nums">
-                        {bankBalance != null
-                          ? formatCurrency(bankBalance, account.currency)
-                          : 'N/A'}
-                      </p>
+                    <div className={`text-right flex-1 min-w-[84px] md:flex-none ${COLUMN_WIDTH.bankBalance}`}>
+                      <p className={ROW_LABEL_CLASS}>Bank Balance</p>
+                      {bankBalance != null ? (
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white tabular-nums">
+                          {formatCurrency(bankBalance, account.currency)}
+                        </p>
+                      ) : (
+                        <>
+                          <p className="text-sm font-semibold text-gray-400 dark:text-gray-500 tabular-nums">
+                            {ABSENT_FIGURE}
+                          </p>
+                          {/* The remedy, on the row that needs it.
+                              A span rather than a nested control, and that is
+                              not a compromise: the whole card already opens
+                              this account's reconciliation view, which is where
+                              the closing balance is typed, so a button here
+                              would be a second tab stop to the identical
+                              destination — and a button inside a button is
+                              invalid markup besides. It wears the quiet-text
+                              role the balance bar's own "Enter balance"
+                              affordance wears (P7), never amber: on this page
+                              amber belongs to the travelling thread alone
+                              (P3). */}
+                          <span className="block text-[11px] font-medium text-primary dark:text-blue-400">
+                            Enter bank balance
+                          </span>
+                        </>
+                      )}
                     </div>
-                    <div className="text-right flex-1 min-w-[84px] md:flex-none md:min-w-[120px]">
-                      <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Account Balance</p>
+                    <div className={`text-right flex-1 min-w-[84px] md:flex-none ${COLUMN_WIDTH.accountBalance}`}>
+                      <p className={ROW_LABEL_CLASS}>Account Balance</p>
                       <p className="text-sm font-semibold text-gray-900 dark:text-white tabular-nums">
                         {formatCurrency(accountBalance, account.currency)}
                       </p>
                     </div>
-                    <div className="text-right flex-1 min-w-[84px] md:flex-none md:min-w-[100px]">
-                      <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Difference</p>
+                    <div className={`text-right flex-1 min-w-[84px] md:flex-none ${COLUMN_WIDTH.difference}`}>
+                      <p className={ROW_LABEL_CLASS}>Difference</p>
+                      {/* No second remedy here. The difference is missing for
+                          exactly the reason the bank balance is, and the row
+                          has already said what to do about it once. */}
                       <p className={`text-sm font-bold tabular-nums ${
                         difference == null
-                          ? 'text-gray-400'
+                          ? 'text-gray-400 dark:text-gray-500'
                           : Math.abs(difference) < 0.005
                           ? 'text-blue-600 dark:text-blue-400'
                           : 'text-red-600 dark:text-red-400'
                       }`}>
                         {difference != null
                           ? formatCurrency(difference, account.currency)
-                          : 'N/A'}
+                          : ABSENT_FIGURE}
                       </p>
                     </div>
                     <ChevronRightIcon size={20} className="text-gray-400 flex-shrink-0 ml-2" />
