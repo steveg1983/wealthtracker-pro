@@ -23,7 +23,8 @@
  *   {@link DESKTOP_ROUTES}       mounted in this window today;
  *   {@link NEVER_ON_A_DESKTOP}   a decision, with the reason it was made;
  *   {@link AWAITING_THE_MOUNT}   admitted in principle, and blocked by a
- *                                MEASURED coupling that is named.
+ *                                MEASURED coupling that is named. EMPTY as of
+ *                                slice 31 — see its own note.
  *
  * ── THE PATHS ARE App.tsx's TOKENS, VERBATIM ────────────────────────────────
  *
@@ -90,9 +91,26 @@ export interface DesktopRoute {
  *
  * `@session` was that blocker's answer and `@service` was the answer to the
  * handful of bank-feed and billing surfaces sitting inside otherwise local
- * pages. Thirty-one routes are mounted here now, they are the SAME pages the web
+ * pages. Thirty-one routes were mounted then, they are the SAME pages the web
  * app serves — not copies — and a walk from this window's entry still reaches no
  * cloud at all.
+ *
+ * THIRTY-FOUR NOW. Slice 31 took the last three off {@link AWAITING_THE_MOUNT}
+ * by answering the two measured couplings that held them, and both answers were
+ * seam work rather than router work:
+ *
+ *   `investments` — holdings went through `dataPort` (five operations, both
+ *   engines, differential coverage), so the page stopped calling
+ *   `services/api/investmentService` and a Supabase client with it. Two chains
+ *   had to go, not one: the second, `components/PortfolioManager`, was invisible
+ *   behind the first and reached the same client at RUNTIME for a dropdown's
+ *   list of asset kinds.
+ *
+ *   `enhanced-import` and `data` — `RestoreBackupModal` stopped describing the
+ *   BROWSER's store from outside it. Its preview now asks
+ *   `capabilities().cannotKeep`, its format types come from the lifted
+ *   `backup/format`, and the boot-snapshot cache it was clearing by hand went
+ *   back into the engine that owns it.
  *
  * The chooser is still first, and `''` is still it: a window with no file open
  * has nothing else it could show.
@@ -112,6 +130,7 @@ export const DESKTOP_ROUTES = [
   { path: 'reports', at: 'reports', title: 'Reports' },
   { path: 'reports/:reportId', at: 'reports/:reportId', title: 'Reports' },
   { path: 'goals', at: 'goals', title: 'Goals' },
+  { path: 'investments', at: 'investments', title: 'Investments' },
   { path: 'analytics', at: 'analytics', title: 'Reports' },
   { path: 'summaries', at: 'summaries', title: 'Summaries' },
   { path: 'ai-analytics', at: 'ai-analytics', title: 'Reports' },
@@ -122,6 +141,7 @@ export const DESKTOP_ROUTES = [
   { path: 'business-features', at: 'business-features', title: 'Dashboard' },
   { path: 'financial-planning', at: 'financial-planning', title: 'Reports' },
   { path: 'data-intelligence', at: 'data-intelligence', title: 'Reports' },
+  { path: 'enhanced-import', at: 'enhanced-import', title: 'Import' },
   { path: 'export-manager', at: 'export-manager', title: 'Export' },
   { path: 'documents', at: 'documents', title: 'Documents' },
   { path: 'performance', at: 'performance', title: 'Dashboard' },
@@ -131,6 +151,7 @@ export const DESKTOP_ROUTES = [
   { path: 'categories', at: 'settings/categories', title: 'Categories' },
   { path: 'tags', at: 'settings/tags', title: 'Tags' },
   { path: 'payees', at: 'settings/payees', title: 'Payees' },
+  { path: 'data', at: 'settings/data', title: 'Data' },
   { path: 'security', at: 'settings/security', title: 'Security' },
   { path: 'security/audit-logs', at: 'settings/security/audit-logs', title: 'Audit log' },
   { path: 'forecasting', at: 'forecasting', title: 'Budget' },
@@ -285,44 +306,35 @@ export interface OwedRoute {
  * a file with a cloud one were split out: the demo sample rows, the backup file
  * format's download helper, and the bank-link mapping.
  *
- * ── WHAT IS LEFT, AND WHY EACH IS A SLICE RATHER THAN A LINE ────────────────
+ * ── AND IT IS NOW EMPTY ─────────────────────────────────────────────────────
  *
- * Three, and they are two problems. Both are real work in a service this slice
- * had no business rewriting while it was mounting a router on top of it; both
- * are named here with the exact chain and the exact fix, which is what this list
- * is for.
+ * Slice 31 answered the last two problems, which were three routes.
+ *
+ * `investments` said: *"holdings are the one part of the ledger that never went
+ * through the seam, so this page talks to Supabase DIRECTLY rather than through
+ * `@data`… The fix is port verbs for holdings and prices, on both engines, with
+ * differential coverage — a slice of its own, and the last unported region of
+ * the data layer."* That is what happened: five operations
+ * (`listInvestments`, `createInvestment`, `updateInvestment`,
+ * `deleteInvestment`, `applyInvestmentPrices`), four crate verbs and a read
+ * behind them, and the whole contract suite run on both engines.
+ *
+ * `enhanced-import` and `data` said the preview was the problem rather than the
+ * restore, and that *"the fix is a port question ('what can you not hold?')
+ * rather than a split, because the answer genuinely differs per engine."* That
+ * is `DataPortCapabilities.cannotKeep`, and it was a latent BUG as this entry
+ * predicted: a device would have been told a file's budgets could not be kept by
+ * a file that keeps all fourteen tables.
+ *
+ * ── THE LIST IS KEPT, EMPTY, ON PURPOSE ─────────────────────────────────────
+ *
+ * `contract.ts`'s NOT_YET ratchet was DELETED when it reached zero, and the
+ * argument for deleting it does not apply here. That one was an EXCEPTION to a
+ * rule — a way for a suite to pass while an engine was unfinished — so an empty
+ * one was a hole nobody was using. This is one of three ANSWERS a route can
+ * have, and the router's own test requires every path in `src/App.tsx` to carry
+ * one of them. `src/App.tsx` gains an address every few months; the next one
+ * will arrive blocked by something, and its author needs somewhere to write the
+ * chain down that is not a comment.
  */
-export const AWAITING_THE_MOUNT: readonly OwedRoute[] = [
-  {
-    path: 'investments',
-    blockedBy:
-      'Investments → services/api/investmentService → services/api/supabaseClient, and → ' +
-      'services/userIdService. The page is not the problem: holdings are the one part of the ' +
-      'ledger that never went through the seam, so this page talks to Supabase DIRECTLY rather ' +
-      'than through `@data`. Mounting it in a window would mean a page that renders and then ' +
-      'silently shows nothing, over a network the edition promises not to use. The fix is port ' +
-      'verbs for holdings and prices, on both engines, with differential coverage — a slice of ' +
-      'its own, and the last unported region of the data layer.'
-  },
-  {
-    path: 'enhanced-import',
-    blockedBy:
-      'EnhancedImport → RestoreBackupModal → services/localBackupService → storageAdapter, and → ' +
-      'services/backupService → supabaseClient. The restore itself already goes through ' +
-      '`dataPort`; what does not is the PREVIEW — "this file holds rows your store cannot keep" ' +
-      '— which reads LOCAL_BACKUP_BINDINGS, a description of the BROWSER\'s store. That is also ' +
-      'a latent bug for this edition rather than only a coupling: the dialog picks that list ' +
-      'whenever `backupTarget !== \'login\'`, so a device would be told a file\'s budgets cannot ' +
-      'be kept when the file keeps all fourteen tables. The fix is a port question ("what can ' +
-      'you not hold?") rather than a split, because the answer genuinely differs per engine.'
-  },
-  {
-    path: 'data',
-    blockedBy:
-      '/settings/data — DataManagement → RestoreBackupModal, exactly as enhanced-import above; ' +
-      'nothing else on the page is coupled any more. Worth naming what goes with it: this is ' +
-      'where `dataPort.wipeAllFinancialData` is called from, so until the restore dialog is ' +
-      'answered, a desktop window has no delete-everything button. That is the right way round ' +
-      '— a destructive act should arrive with the dialog that explains it, not before'
-  }
-];
+export const AWAITING_THE_MOUNT: readonly OwedRoute[] = [];

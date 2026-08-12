@@ -3,9 +3,20 @@ import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useApp } from '../contexts/AppContextSupabase';
 import { dataPort } from '@data';
 import type { BackupRestoreOutcome } from '@data';
-import { transactionCache } from '../services/transactionCache';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { AlertTriangleIcon, CheckCircleIcon, RefreshCwIcon, UploadIcon } from './icons';
+// THE FILE FORMAT, from the module that IS the file format.
+//
+// These came from `services/backupService` until slice 31 — which re-exports
+// them, and whose first lines reach a Supabase client. That import is what kept
+// this dialog, and therefore `/enhanced-import` and `/settings/data`, out of a
+// device window: a walk from either page reached the cloud at IMPORT TIME,
+// through a component that had no need of it. Slice 27 had already lifted the
+// pure half into `backup/format.ts` precisely so that a reader could name it
+// without the client; this is a reader taking it up on that.
+//
+// Nothing moved and nothing was re-declared: `backupService` still re-exports
+// every one of these, so no other importer changed.
 import {
   BACKUP_ENTITIES,
   RestoreFailedError,
@@ -14,11 +25,7 @@ import {
   validateBackupBundle,
   type BackupBundle,
   type RestoreProgress,
-} from '../services/backupService';
-import {
-  LOCAL_BACKUP_BINDINGS,
-  LocalRestoreRefusedError,
-} from '../services/localBackupService';
+} from '../services/backup/format';
 
 /**
  * Restore a backup file into this login, or into this browser.
@@ -130,15 +137,34 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
   );
 
   /**
-   * What a local restore of THIS file would have to leave behind — told before
-   * the user commits, not discovered afterwards.
+   * What a restore of THIS file into THIS store would have to leave behind —
+   * told before the user commits, not discovered afterwards.
+   *
+   * ── IT ASKS THE ENGINE NOW, AND THAT IS A BUG FIX ─────────────────────────
+   *
+   * This used to read `LOCAL_BACKUP_BINDINGS` — a description of the BROWSER's
+   * store — whenever `backupTarget !== 'login'`. A device edition matches that
+   * condition and keeps all fourteen tables the format carries, so it would have
+   * been told that a file's budgets, goals and dismissed suggestions could not
+   * be restored. Not a cosmetic slip: a warning about DATA LOSS, false, shown to
+   * somebody deciding whether to press a button.
+   *
+   * The question — *"what can this store not hold?"* — is a property of the
+   * engine, so the engine answers it: `capabilities().cannotKeep`, which every
+   * implementation fills from its own schema. There is no branch on
+   * `backupTarget` left here at all, which is the other half of the fix: the
+   * condition was never really about where a backup goes.
+   *
+   * `cannotKeep` is also the same shape, and asserted by the contract suite to
+   * name the same tables, as `BackupRestoreOutcome.notStoredLocally` below — so
+   * the warning before the restore and the report after it cannot disagree.
    */
   const unstorable = useMemo(() => {
-    if (!bundle || isCloudRestore) return [];
-    return BACKUP_ENTITIES
-      .filter((entity) => bundle.counts[entity] > 0 && !LOCAL_BACKUP_BINDINGS[entity].stored)
-      .map((entity) => ({ label: LOCAL_BACKUP_BINDINGS[entity].label, rows: bundle.counts[entity] }));
-  }, [bundle, isCloudRestore]);
+    if (!bundle) return [];
+    return capabilities.cannotKeep
+      .filter((entry) => bundle.counts[entry.entity] > 0)
+      .map((entry) => ({ label: entry.label, rows: bundle.counts[entry.entity] }));
+  }, [bundle, capabilities]);
   const unstorableRows = unstorable.reduce((total, entry) => total + entry.rows, 0);
   const unstorableLabels = unstorable.map((entry) => entry.label.toLowerCase()).join(', ');
 
@@ -210,10 +236,12 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
       // longer carried down to an engine — the seam's wipe supplies whatever
       // its own store demands, which is what lets this file stop choosing
       // between two of them (and stop holding the identity it chose with).
+      // The engine's own boot snapshot — which now describes history that no
+      // longer exists — is dropped INSIDE this call, and has been since the
+      // mount slice moved it there out of `AppContextSupabase`. This dialog was
+      // clearing it a second time, which was harmless and was still a component
+      // holding a fact about one implementation. The duplicate is gone.
       await dataPort.wipeAllFinancialData();
-      // The local snapshot now describes history that no longer exists. Drop it
-      // before anything reads it back and merges the dead rows in.
-      await transactionCache.clear();
       setTargetIsEmpty(await dataPort.financialDataIsEmpty());
       setWipeConfirmText('');
       setPhase('ready');
@@ -234,8 +262,12 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
     setFailure(null);
     setProgress(null);
     try {
+      // The engine's own boot-snapshot cache is dropped INSIDE this call now
+      // (see `DataServiceImpl.restoreBackup`). This dialog used to clear it
+      // here, which meant a component holding a fact about one implementation —
+      // and, measurably, the last cloud module a device window could reach from
+      // `/enhanced-import` and `/settings/data`.
       const result = await dataPort.restoreBackup(bundle, { onProgress: setProgress });
-      await transactionCache.clear();
       await refreshAccountsAndTransactions();
       await refreshCategories();
       setOutcome(result);
@@ -246,12 +278,24 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
       const message = error instanceof RestoreFailedError
         ? error.serverMessage
         : error instanceof Error ? error.message : String(error);
-      // A local restore is one IndexedDB transaction: it either landed or it
-      // did not, so there is never a half-filled device to warn about.
+      // A restore that is not aimed at a login is ONE transaction — one
+      // IndexedDB write in a browser, one SQLite transaction on a device — so it
+      // either landed or it did not, and there is never a half-filled target to
+      // warn about. That is divergence B-10, and `backupTarget` is the whole of
+      // it.
+      //
+      // There used to be a second conjunct here, `!(error instanceof
+      // LocalRestoreRefusedError)`, and it was DEAD: that error is thrown only by
+      // the device backup engine, which `DataServiceImpl.restoreBackup` reaches
+      // only on the branch where `backupTarget` is 'device' — so the `&&` had
+      // already short-circuited every time it could have mattered. Removing it
+      // is also what let this file stop importing `localBackupService`, whose
+      // module scope reaches the browser's storage adapter and which a device
+      // window has no use for.
       setFailure({
         step,
         message,
-        partiallyRestored: isCloudRestore && !(error instanceof LocalRestoreRefusedError),
+        partiallyRestored: isCloudRestore,
       });
       setPhase('failed');
     }

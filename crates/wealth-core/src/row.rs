@@ -74,7 +74,17 @@
 //!   engines compare field by field.
 //!
 //! And two entities are here for the reader alone, with no audit twin, because
-//! no verb in either engine audits one: [`goal`] and [`dismissal`].
+//! no verb in either engine audits one: [`goal`] and [`dismissal`]. (The first
+//! of those stopped being true at slice 22 and its own module says so; the
+//! sentence is kept because the DISTINCTION it draws is what a reader needs.)
+//!
+//! [`investment`] is the newest, and it is the third entity — after budgets and
+//! goals — whose local verbs keep an audit trail the cloud keeps for neither.
+//! The reason is the reason PHASE1-PLAN §2.2 gave for the other two: a holding's
+//! quantity and cost are figures a person will one day ask *"what changed
+//! that?"* about, and U-1 exists to answer exactly that question. One type
+//! serves the reader and the log, as it does for a goal, because the cloud's own
+//! `SELECTED_COLUMNS` and an entry's `before`/`after` want the same set.
 
 pub mod account;
 pub mod balance;
@@ -82,6 +92,7 @@ pub mod budget;
 pub mod category;
 pub mod dismissal;
 pub mod goal;
+pub mod investment;
 pub mod recurring;
 pub mod split;
 

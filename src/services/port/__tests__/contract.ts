@@ -44,6 +44,11 @@ import { describe, it, expect, vi } from 'vitest';
 // nothing but a type.
 import { getDefaultCategories } from '../../../data/defaultCategories';
 import type { BackupBundle, BackupEntity, BackupRow, BootSnapshot, DataPort } from '../dataPort';
+import type { InvestmentHolding } from '../../investments/holding';
+// The app's own decimal, because a holding's quantity and its two unit prices
+// are `DecimalInstance` rather than `number` — the one place this seam does not
+// say `MoneyNumber`, and `DataPortInvestmentWrites` argues why.
+import { toDecimal } from '../../../utils/decimal';
 import type {
   Account,
   Budget,
@@ -69,6 +74,15 @@ export interface PortFixture {
   categories?: Category[];
   budgets?: Budget[];
   goals?: Goal[];
+  /**
+   * Positions, for an engine that has somewhere to keep one.
+   *
+   * An engine that has NOT — see {@link INVESTMENT_STORAGE} — seeds nothing and
+   * reads back nothing, which is the honest translation of a fixture into a
+   * store with no holdings table rather than a gap in the harness. Every rule
+   * that uses this branches on that table and asserts BOTH branches.
+   */
+  investments?: InvestmentHolding[];
   dismissals?: SuggestionDismissal[];
 }
 
@@ -84,6 +98,7 @@ export interface PortStoreState {
   categories: Category[];
   budgets: Budget[];
   goals: Goal[];
+  investments: InvestmentHolding[];
   dismissals: SuggestionDismissal[];
 }
 
@@ -169,6 +184,7 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   'listGoals',
   'listCategories',
   'listSuggestionDismissals',
+  'listInvestments',
   // The boot, in one answer
   'loadBoot',
   // Account writes
@@ -210,6 +226,11 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   'deleteCategory',
   'deleteUnusedCategories',
   'mergeCategories',
+  // Investment writes
+  'createInvestment',
+  'updateInvestment',
+  'deleteInvestment',
+  'applyInvestmentPrices',
   // Dismissal writes
   'dismissSuggestion',
   'restoreSuggestion',
@@ -548,6 +569,46 @@ const BACKUP_COVERAGE: Record<
   // exists: it is meant to hold the whole ledger. The day it cannot hold a
   // table, this row says which, and the restore starts saying so too.
   'local-core': { notStored: [] }
+};
+
+/**
+ * B-12 — WHETHER THIS ENGINE HAS ANYWHERE TO KEEP A HOLDING.
+ *
+ * Holdings were the last region of the ledger outside this seam, and they joined
+ * it with one engine that genuinely cannot serve them. That is not a shortfall
+ * to be fixed in a later slice, it is what browser storage has always been:
+ * `investments` has been `stored: false` in `LOCAL_BACKUP_BINDINGS` since that
+ * table was written, there is no storage key, no writer and no reader, and
+ * `pages/Investments.tsx` used to say "Sign in to save holdings." at every write
+ * for exactly that reason.
+ *
+ * So the divergence is DECLARED rather than levelled, and the rules below assert
+ * BOTH branches rather than skipping one:
+ *
+ *   `keeps` — a create lands, the read lists it, an edit moves it, a delete
+ *   removes it.
+ *
+ *   `has nowhere to keep them` — the READ answers an empty list (there are
+ *   none, because there is nowhere to keep them, which is a true statement about
+ *   the portfolio) and every WRITE refuses in words. Those two are deliberately
+ *   different: an empty list is a true answer, and a create that resolved
+ *   successfully having stored nothing would be a false one.
+ *
+ * An engine that answers `has nowhere to keep them` must also SAY SO through
+ * `capabilities().cannotKeep`, and the rule below checks the two agree — because
+ * a store that quietly answers `[]` and a store that has no holdings look
+ * identical to a screen otherwise, and the Investments page would render an
+ * empty portfolio with no explanation.
+ */
+const INVESTMENT_STORAGE: Record<DataPortEngine, 'keeps' | 'has nowhere to keep them'> = {
+  // No key, no writer, no reader — and never has been. See above.
+  'browser-storage': 'has nowhere to keep them',
+  // `public.investments`, since the initial schema.
+  supabase: 'keeps',
+  // `investments` in `schema.sql`, with quantity and both unit prices at 1e8
+  // rather than the cloud's old `numeric(10,2)` — the bug migration
+  // 20260809120000 fixed in the cloud was fixed in this schema before it shipped.
+  'local-core': 'keeps'
 };
 
 /**
@@ -996,6 +1057,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
 
         expect(Object.keys(capabilities).sort()).toEqual([
           'backupTarget',
+          'cannotKeep',
           'edition',
           'maxConcurrentWrites',
           'realtime',
@@ -1018,6 +1080,20 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         // the only copy — so the implication is asserted rather than assumed.
         if (capabilities.backupTarget === 'login') {
           expect(capabilities.session).toBe('ready');
+        }
+
+        // WHAT THIS STORE CANNOT KEEP is a list, always — empty is a statement
+        // ("I hold every table the format carries") rather than a shrug, and a
+        // screen has to be able to render `[]` without a null check. Every entry
+        // names a table, gives it a word a person uses, and says WHY, because a
+        // warning that a restore will lose something and does not say what is a
+        // warning nobody can act on. Which tables, per engine, is B-11 and is
+        // asserted against the restore's own answer in the backup rules below.
+        expect(Array.isArray(capabilities.cannotKeep)).toBe(true);
+        for (const entry of capabilities.cannotKeep) {
+          expect(typeof entry.entity).toBe('string');
+          expect(entry.label.length).toBeGreaterThan(0);
+          expect(entry.absence.length).toBeGreaterThan(0);
         }
       });
     });
@@ -2121,6 +2197,223 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         await port.deleteGoal('goal-1');
 
         expect((await read()).goals).toEqual([]);
+      });
+    });
+
+    describe('holdings', () => {
+      /**
+       * The whole of B-12 in one rule, both branches asserted.
+       *
+       * An engine that keeps holdings stores what it was told and lists it back;
+       * one that does not answers an EMPTY LIST from the read and REFUSES the
+       * write in words. The asymmetry is the point and is stated on the
+       * divergence table: an empty list is a true answer about a portfolio, and
+       * a create that resolved having stored nothing would be a false one.
+       */
+      rule(
+        ['createInvestment', 'listInvestments'],
+        `B-12: this engine ${INVESTMENT_STORAGE[engine]}`,
+        async () => {
+          const { port, read } = await harness.create({ accounts: threeAccounts() });
+
+          const draft = {
+            accountId: ACCOUNT_B,
+            symbol: 'aaaa.l',
+            name: 'A Listed Company plc',
+            quantity: toDecimal('100'),
+            averageCost: toDecimal('32.775'),
+            currency: 'GBP',
+            assetType: 'stock' as const
+          };
+
+          if (INVESTMENT_STORAGE[engine] === 'has nowhere to keep them') {
+            await expect(port.createInvestment(draft)).rejects.toThrow();
+            // …and the read is not a rejection. A screen has to be able to draw
+            // an empty portfolio without a full-page error.
+            await expect(port.listInvestments()).resolves.toEqual([]);
+            // And it SAYS so, rather than leaving the emptiness unexplained.
+            expect(
+              port.capabilities().cannotKeep.map(entry => entry.entity)
+            ).toContain('investments');
+            return;
+          }
+
+          const created = await port.createInvestment(draft);
+          // THE SYMBOL IS UPPER-CASED before either engine sees it, so both
+          // agree, and a portfolio cannot hold `aaaa.l` and `AAAA.L` as two
+          // securities one quote can only reach half of.
+          expect(created.symbol).toBe('AAAA.L');
+          expect(created.quantity.toFixed()).toBe('100');
+          // DERIVED, never stated: 100 × 32.775 = 3277.50. No draft anywhere
+          // carries a cost of its own, because two numbers that must agree are
+          // two numbers that will not.
+          expect(created.costBasis.toFixed(2)).toBe('3277.50');
+          // A position nobody has fetched a price for is NEVER PRICED, which is
+          // a different thing from worth nothing.
+          expect(created.currentPrice).toBeNull();
+          expect(created.marketValue).toBeNull();
+
+          const listed = await port.listInvestments();
+          expect(listed.map(holding => holding.symbol)).toEqual(['AAAA.L']);
+
+          // The independent witness: it really landed in the store, at the
+          // figures the port answered with.
+          const stored = (await read()).investments;
+          expect(stored.map(holding => holding.symbol)).toEqual(['AAAA.L']);
+          expect(stored[0].costBasis.toFixed(2)).toBe('3277.50');
+          expect(stored[0].quantity.toFixed()).toBe('100');
+        }
+      );
+
+      rule(
+        ['createInvestment', 'updateInvestment', 'listInvestments'],
+        'moves a position’s cost when either figure behind it moves, and leaves it alone otherwise',
+        async () => {
+          if (INVESTMENT_STORAGE[engine] === 'has nowhere to keep them') return;
+          const { port, read } = await harness.create({ accounts: threeAccounts() });
+
+          const created = await port.createInvestment({
+            accountId: ACCOUNT_B,
+            symbol: 'AAAA.L',
+            name: 'A Listed Company plc',
+            quantity: toDecimal('100'),
+            averageCost: toDecimal('32.775'),
+            currency: 'GBP'
+          });
+
+          // QUANTITY ALONE. The stored unit cost supplies the other half, or the
+          // row would describe a position that was never held — the cloud's own
+          // sentence, and the reason this is a rule rather than an engine's
+          // habit.
+          await port.updateInvestment(created.id, { quantity: toDecimal('200') });
+          expect((await read()).investments[0].costBasis.toFixed(2)).toBe('6555.00');
+
+          // A field that is neither leaves the cost exactly as it was.
+          await port.updateInvestment(created.id, { name: 'A Listed Company' });
+          const after = (await read()).investments[0];
+          expect(after.costBasis.toFixed(2)).toBe('6555.00');
+          expect(after.name).toBe('A Listed Company');
+        }
+      );
+
+      rule(['updateInvestment'], 'refuses to change a holding that is not there, and leaves the store exactly as it was', async () => {
+        if (INVESTMENT_STORAGE[engine] === 'has nowhere to keep them') return;
+        const { port, read } = await harness.create({ accounts: threeAccounts() });
+        const created = await port.createInvestment({
+          accountId: ACCOUNT_B,
+          symbol: 'AAAA.L',
+          name: 'A Listed Company plc',
+          quantity: toDecimal('10'),
+          averageCost: toDecimal('5.00'),
+          currency: 'GBP'
+        });
+        const before = (await read()).investments;
+
+        await expect(
+          port.updateInvestment('holding-nowhere', { name: 'Nothing' })
+        ).rejects.toThrow();
+
+        const now = (await read()).investments;
+        expect(now).toHaveLength(before.length);
+        expect(now[0].id).toBe(created.id);
+        expect(now[0].name).toBe('A Listed Company plc');
+      });
+
+      rule(['deleteInvestment'], 'treats deleting a holding that has already gone as done, not as an error', async () => {
+        if (INVESTMENT_STORAGE[engine] === 'has nowhere to keep them') return;
+        const { port, read } = await harness.create({ accounts: threeAccounts() });
+        const created = await port.createInvestment({
+          accountId: ACCOUNT_B,
+          symbol: 'AAAA.L',
+          name: 'A Listed Company plc',
+          quantity: toDecimal('10'),
+          averageCost: toDecimal('5.00'),
+          currency: 'GBP'
+        });
+
+        await expect(port.deleteInvestment('holding-nowhere')).resolves.toBeUndefined();
+        expect((await read()).investments).toHaveLength(1);
+
+        await port.deleteInvestment(created.id);
+        await port.deleteInvestment(created.id);
+        expect((await read()).investments).toEqual([]);
+      });
+
+      rule(
+        ['createInvestment', 'applyInvestmentPrices', 'listInvestments'],
+        'prices every row of a symbol, counts the rows rather than the quotes, and computes the value it does not store',
+        async () => {
+          if (INVESTMENT_STORAGE[engine] === 'has nowhere to keep them') return;
+          const { port, read } = await harness.create({ accounts: threeAccounts() });
+
+          // The same security in two accounts — an ISA and a dealing account is
+          // the ordinary case, and it is why a quote is matched by SYMBOL.
+          for (const accountId of [ACCOUNT_B, ACCOUNT_C]) {
+            await port.createInvestment({
+              accountId,
+              symbol: 'AAAA.L',
+              name: 'A Listed Company plc',
+              quantity: toDecimal('10'),
+              averageCost: toDecimal('5.00'),
+              currency: 'GBP'
+            });
+          }
+
+          const repriced = await port.applyInvestmentPrices([
+            { symbol: 'AAAA.L', price: '32.775', asOf: '2026-08-11T16:35:00.000Z' },
+            // A symbol nobody holds contributes ZERO, which is what makes
+            // "3 of 5 updated" an honest sentence rather than a claim.
+            { symbol: 'NOBODY.L', price: '1.00', asOf: '2026-08-11T16:35:00.000Z' }
+          ]);
+          expect(repriced).toBe(2);
+
+          const listed = await port.listInvestments();
+          expect(listed).toHaveLength(2);
+          for (const holding of listed) {
+            expect(holding.currentPrice?.toFixed()).toBe('32.775');
+            // COMPUTED, not stored: 10 × 32.775 = 327.75. No engine keeps a
+            // market value, because a stored copy of a derived number is a copy
+            // that goes stale — so a holding can never show a value its own
+            // price contradicts.
+            expect(holding.marketValue?.toFixed(2)).toBe('327.75');
+            // And the user's own figures were not touched by a price refresh.
+            expect(holding.quantity.toFixed()).toBe('10');
+            expect(holding.costBasis.toFixed(2)).toBe('50.00');
+          }
+          expect((await read()).investments).toHaveLength(2);
+        }
+      );
+
+      rule(['applyInvestmentPrices'], 'writes nothing at all when there are no quotes', async () => {
+        // The ordinary case rather than a caller's mistake: every symbol may
+        // have failed to fetch. Asserted on EVERY engine, including the one with
+        // nowhere to keep a holding — an empty sweep must not be the thing that
+        // raises "sign in" at somebody who pressed nothing.
+        const { port, read } = await harness.create({ accounts: threeAccounts() });
+        await expect(port.applyInvestmentPrices([])).resolves.toBe(0);
+        expect((await read()).investments).toEqual([]);
+      });
+
+      rule(['createInvestment', 'listInvestments'], 'answers for the owner it resolved itself, and only that owner', async () => {
+        if (INVESTMENT_STORAGE[engine] === 'has nowhere to keep them') return;
+        // Two stores, and neither may see the other's positions. A holding rolls
+        // up into a portfolio figure, so one filed against a stranger's account
+        // moves a number nobody can explain — which is why `schema.sql` gives
+        // this table the R-12 composite key as well.
+        const mine = await harness.create({ accounts: threeAccounts() });
+        const theirs = await harness.create({ accounts: threeAccounts() });
+
+        await mine.port.createInvestment({
+          accountId: ACCOUNT_B,
+          symbol: 'MINE.L',
+          name: 'Mine',
+          quantity: toDecimal('1'),
+          averageCost: toDecimal('1.00'),
+          currency: 'GBP'
+        });
+
+        expect((await mine.port.listInvestments()).map(h => h.symbol)).toEqual(['MINE.L']);
+        expect(await theirs.port.listInvestments()).toEqual([]);
       });
     });
 
@@ -3572,6 +3865,30 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           // Every one of them carries a sentence, not a count.
           for (const entry of outcome.notStoredLocally) {
             expect(entry.rows).toBe(1);
+            expect(entry.absence.length).toBeGreaterThan(0);
+          }
+
+          // ── AND THE WARNING BEFORE IT SAYS THE SAME THING ─────────────────
+          //
+          // The rule this pair exists for, and it is a bug fix with a date on
+          // it. `RestoreBackupModal` warns, BEFORE a restore begins, that a file
+          // holds rows the target cannot keep — and it built that warning from
+          // `LOCAL_BACKUP_BINDINGS`, a description of the BROWSER's store,
+          // chosen by `backupTarget !== 'login'`. A device edition matches that
+          // condition and keeps all fourteen tables, so it would have been told
+          // its own file's budgets and goals could not be restored. A false
+          // warning about data loss, in front of somebody deciding whether to
+          // press a button.
+          //
+          // The question is a property of the ENGINE, so the engine answers it.
+          // Asserting the two agree is stronger than asserting either alone: an
+          // engine could satisfy one by describing a store it does not have, and
+          // it cannot satisfy both.
+          expect(target.port.capabilities().cannotKeep.map(entry => entry.entity).sort())
+            .toEqual(unstorable.map(entry => entry.entity).sort());
+          expect(target.port.capabilities().cannotKeep.map(entry => entry.label).sort())
+            .toEqual(outcome.notStoredLocally.map(entry => entry.label).sort());
+          for (const entry of target.port.capabilities().cannotKeep) {
             expect(entry.absence.length).toBeGreaterThan(0);
           }
         }

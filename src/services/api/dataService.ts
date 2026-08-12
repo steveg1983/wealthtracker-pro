@@ -19,6 +19,11 @@ import { SuggestionDismissalService } from './suggestionDismissalService';
 import { isSupabaseConfigured, supabase } from './supabaseClient';
 import { getSupabaseAccessToken, hasSupabaseTokenGetter } from '../../lib/supabaseToken';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
+// The seven tables the browser's store has nowhere for, and the sentence each
+// one is owed. A module of TYPES and one frozen array — see its header for why
+// it is not declared here and not read out of `localBackupService`, which
+// reaches the storage adapter, Decimal and fourteen row mappers.
+import { BROWSER_CANNOT_KEEP } from '../backup/browserCoverage';
 import { userIdService } from '../userIdService';
 // This engine's own boot-snapshot cache. See `wipeAllFinancialData`.
 import { transactionCache } from '../transactionCache';
@@ -44,7 +49,11 @@ import type {
   ExportProgress,
   ImportProgress,
   ImportSourceKind,
+  InvestmentChanges,
+  InvestmentDraft,
+  InvestmentHolding,
   MsMoneyImportResult,
+  QuoteWriteback,
   ReconciliationOutcome,
   RestoreProgress,
   WipeProgress
@@ -126,6 +135,17 @@ type PlanningServiceLike = Pick<typeof PlanningService,
   Partial<Pick<typeof PlanningService, 'getBudgets' | 'getGoals' | 'ensureCategories'>>;
 type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
   'list' | 'dismiss' | 'restore'>;
+/**
+ * The holdings service, narrowed to the five entry points the seam routes to.
+ *
+ * Derived from the real module rather than re-declared, for the reason the
+ * backup engines below are: the QUERIES stay theirs. This class decides which
+ * engine answers a holding question; it does not know what `SELECTED_COLUMNS`
+ * contains, and adding a column to `investments` must never mean editing this
+ * file.
+ */
+type InvestmentServiceLike = Pick<typeof import('./investmentService').InvestmentService,
+  'list' | 'create' | 'update' | 'remove' | 'applyQuotes'>;
 type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
 /**
@@ -184,6 +204,7 @@ export interface DataServiceOptions {
   transactionService?: TransactionServiceLike;
   planningService?: PlanningServiceLike;
   suggestionDismissalService?: SuggestionDismissalServiceLike;
+  investmentService?: InvestmentServiceLike;
   userService?: typeof UserService;
   userIdService?: UserIdServiceLike;
   storageAdapter?: StorageAdapterLike;
@@ -228,11 +249,23 @@ export interface DataServiceOptions {
   authTokenProvider?: AuthTokenProvider;
 }
 
+/**
+ * What a holdings write says when there is nowhere to put one.
+ *
+ * `pages/Investments.tsx`'s own sentence, moved rather than rewritten. It threw
+ * this at every write while it was calling `InvestmentService` directly, and
+ * seam rule 4 makes `error.message` the prose a user reads — so a re-route that
+ * reworded it would have changed what somebody sees for a reason that had not
+ * changed at all.
+ */
+const HOLDINGS_NEED_A_LOGIN = 'Sign in to save holdings.';
+
 class DataServiceImpl implements DataPort {
   private readonly accountService: AccountServiceLike;
   private readonly transactionService: TransactionServiceLike;
   private readonly planningService: PlanningServiceLike;
   private readonly suggestionDismissalService: SuggestionDismissalServiceLike;
+  private readonly injectedInvestmentService: InvestmentServiceLike | null;
   private readonly userService: typeof UserService;
   private readonly userIdService: UserIdServiceLike;
   private readonly storage: StorageAdapterLike;
@@ -255,6 +288,7 @@ class DataServiceImpl implements DataPort {
     this.planningService = options.planningService ?? PlanningService;
     this.suggestionDismissalService =
       options.suggestionDismissalService ?? SuggestionDismissalService;
+    this.injectedInvestmentService = options.investmentService ?? null;
     this.userService = options.userService ?? UserService;
     this.userIdService = options.userIdService ?? userIdService;
     this.storage = options.storageAdapter ?? storageAdapter;
@@ -1135,7 +1169,33 @@ class DataServiceImpl implements DataPort {
     });
   }
 
-  /** Pour a file back into an empty store. */
+  /**
+   * Pour a file back into an empty store.
+   *
+   * ── IT DROPS THIS ENGINE'S OWN READ CACHE ─────────────────────────────────
+   *
+   * `wipeAllFinancialData`'s argument, word for word, one operation along:
+   * `transactionCache` is the boot snapshot this engine keeps in IndexedDB, a
+   * restore only ever runs into a store that was EMPTY, and a snapshot taken
+   * before that emptiness describes rows the restore has just replaced. The next
+   * boot would hydrate from it and merge a dead history in beside the file
+   * somebody has just put back.
+   *
+   * That clear used to live in `RestoreBackupModal`, and moving it here is the
+   * same correction the wipe's was: the cache belongs to THIS engine and to no
+   * other, so a dialog that reached for it was a dialog holding a fact about one
+   * implementation. It was also the last thing keeping that dialog — and
+   * therefore `/enhanced-import` and `/settings/data` — out of a device window,
+   * because `services/transactionCache` is one of the modules a desktop bundle
+   * may not contain.
+   *
+   * BOTH BRANCHES, unlike the wipe's, and deliberately: the wipe clears only on
+   * the cloud branch because the browser branch erases the store the browser
+   * boots from anyway, whereas a restore can legitimately run in a browser that
+   * WAS signed in earlier in the session and still has that login's snapshot.
+   * Clearing something that is not there costs nothing; leaving it costs a
+   * ledger.
+   */
   async restoreBackup(
     bundle: BackupBundle,
     options: { onProgress?: (progress: RestoreProgress) => void } = {}
@@ -1146,6 +1206,7 @@ class DataServiceImpl implements DataPort {
       const outcome = await restoreBackupBundle(bundle, userId, {
         onProgress: options.onProgress
       });
+      await transactionCache.clear();
       // A login holds every table the format carries, so nothing in the file
       // was left behind. An empty list here is that statement, not a stub.
       return { ...outcome, notStoredLocally: [] };
@@ -1154,6 +1215,7 @@ class DataServiceImpl implements DataPort {
     this.guardBackupIdentity(
       'This session has no database identity yet, so a restore cannot be scoped to your login. Reload the page and try again.'
     );
+    await transactionCache.clear();
     const { restoreLocalBackupBundle } = await this.deviceBackupEngine();
     return restoreLocalBackupBundle(bundle, {
       onProgress: options.onProgress,
@@ -2623,6 +2685,126 @@ class DataServiceImpl implements DataPort {
     );
   }
 
+  // ── Holdings ──────────────────────────────────────────────────────────────
+  //
+  // The last region of the data layer to reach this class, and the one whose
+  // BROWSER branch is an absence rather than a store.
+  //
+  // Every other family here has two real halves: a cloud service and a
+  // collection under a storage key. There has never been a browser-local
+  // holdings store — no key, no writer, no reader, and `LOCAL_BACKUP_BINDINGS`
+  // has said `stored: false` about `investments` since it was written. So the
+  // browser branch is declared as divergence B-12 rather than invented: the read
+  // answers an EMPTY LIST (there are none, because there is nowhere to keep
+  // them) and the four writes REFUSE BY NAME.
+  //
+  // That is exactly what a signed-out browser did before this slice, and it is
+  // deliberately unchanged: `InvestmentService.list` returned `[]` with no
+  // client, and `pages/Investments.tsx` threw 'Sign in to save holdings.' at
+  // every write. Inventing a second holdings engine in the commit that ported
+  // the first would have been a behaviour change smuggled in beside a re-route.
+
+  /**
+   * The holdings service, fetched the first time a holding question is asked.
+   *
+   * FETCHED RATHER THAN IMPORTED, unlike the four services beside it, and the
+   * reason is MEASURED rather than stylistic. `investmentService.ts` reaches
+   * `supabaseClient`, which builds `@supabase/supabase-js` — and at HEAD nothing
+   * in the boot chunk did: the SDK was tree-shaken out of the entry and lived
+   * only in the lazy chunks that actually talk to it. A static import here put
+   * 168 KiB raw / 46 KiB gzip of Postgrest, GoTrue, Realtime and Storage into the
+   * chunk that decides how long a cold start takes, for a service ONE lazy page
+   * uses.
+   *
+   * (The other four are static and stay static: `AccountService`,
+   * `TransactionService`, `PlanningService` and `SuggestionDismissalService` are
+   * all on the boot path, so nothing would be saved by deferring them.)
+   *
+   * So this follows the arrangement the backup engines and the .mny importer
+   * already have, four methods down: absent means "fetch the real one when it is
+   * needed" rather than "do without", because there is no honest fallback for a
+   * write.
+   */
+  private async investmentEngine(): Promise<InvestmentServiceLike> {
+    if (this.injectedInvestmentService) return this.injectedInvestmentService;
+    return (await import('./investmentService')).InvestmentService;
+  }
+
+  /**
+   * The owner's holdings. Same branch and same null rule as `listGoals` above.
+   *
+   * B-12: the browser answers `[]`, and `capabilities().cannotKeep` is where a
+   * screen finds out that the emptiness is a property of the store rather than
+   * of the portfolio.
+   */
+  async listInvestments(): Promise<InvestmentHolding[]> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).list(userId);
+    }
+    return [];
+  }
+
+  /**
+   * Record a position.
+   *
+   * The cloud branch delegates unchanged — including the `costBasis = quantity ×
+   * averageCost` the service computes, which is why no draft anywhere carries a
+   * cost of its own.
+   *
+   * The browser branch refuses, and the WORDS are the ones the page used to
+   * throw itself. Seam rule 4 makes `.message` the sentence on the screen, so
+   * moving the refusal from the page into the engine had to move the sentence
+   * with it or the user would have seen a different one for the same reason.
+   */
+  async createInvestment(draft: InvestmentDraft): Promise<InvestmentHolding> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).create(userId, draft);
+    }
+    this.guardCloudWrite();
+    throw new Error(HOLDINGS_NEED_A_LOGIN);
+  }
+
+  /** Change a position. Same branch, same refusal, as `createInvestment`. */
+  async updateInvestment(id: string, changes: InvestmentChanges): Promise<InvestmentHolding> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).update(userId, id, changes);
+    }
+    this.guardCloudWrite();
+    throw new Error(HOLDINGS_NEED_A_LOGIN);
+  }
+
+  /** Remove a position. Same branch, same refusal. */
+  async deleteInvestment(id: string): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).remove(userId, id);
+    }
+    this.guardCloudWrite();
+    throw new Error(HOLDINGS_NEED_A_LOGIN);
+  }
+
+  /**
+   * Write fetched prices back onto this owner's rows.
+   *
+   * NOTHING IN, ZERO OUT, AND NO BRANCH TAKEN — checked before the owner is even
+   * resolved, exactly as the service checks it before asking for a client. An
+   * empty sweep is the ordinary case (every symbol failed to fetch), not a
+   * caller's mistake, and it must not be the thing that raises "Sign in to fetch
+   * and store prices" at somebody who is signed out and pressed nothing.
+   */
+  async applyInvestmentPrices(quotes: readonly QuoteWriteback[]): Promise<number> {
+    if (quotes.length === 0) return 0;
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).applyQuotes(userId, quotes);
+    }
+    this.guardCloudWrite();
+    throw new Error(HOLDINGS_NEED_A_LOGIN);
+  }
+
   /**
    * Create a category.
    *
@@ -2947,7 +3129,14 @@ class DataServiceImpl implements DataPort {
       // no longer has to know which engine it is talking to in order to loop
       // safely over a few thousand rows.
       maxConcurrentWrites: ready ? 8 : 1,
-      backupTarget: ready ? 'login' : 'device'
+      backupTarget: ready ? 'login' : 'device',
+      // The one field on this descriptor that is not derived from `ready` alone
+      // — it is derived from which STORE is answering, which happens to be the
+      // same predicate today and is a different question. A login holds every
+      // table the backup format carries, because the format was read off the
+      // database; the browser's store holds seven of the fourteen. See
+      // `BROWSER_CANNOT_KEEP`.
+      cannotKeep: ready ? [] : BROWSER_CANNOT_KEEP
     };
   }
 }
@@ -3195,6 +3384,26 @@ export class DataService {
 
   static deleteGoal(id: string): Promise<void> {
     return this.service.deleteGoal(id);
+  }
+
+  static listInvestments(): Promise<InvestmentHolding[]> {
+    return this.service.listInvestments();
+  }
+
+  static createInvestment(draft: InvestmentDraft): Promise<InvestmentHolding> {
+    return this.service.createInvestment(draft);
+  }
+
+  static updateInvestment(id: string, changes: InvestmentChanges): Promise<InvestmentHolding> {
+    return this.service.updateInvestment(id, changes);
+  }
+
+  static deleteInvestment(id: string): Promise<void> {
+    return this.service.deleteInvestment(id);
+  }
+
+  static applyInvestmentPrices(quotes: readonly QuoteWriteback[]): Promise<number> {
+    return this.service.applyInvestmentPrices(quotes);
   }
 
   static createCategory(category: Omit<Category, 'id'>): Promise<Category> {

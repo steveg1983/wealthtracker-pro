@@ -41,7 +41,11 @@
  * ── Scope ────────────────────────────────────────────────────────────────
  *
  * This is the seam as it stands, not as it will end: the operations below are
- * exactly the ones DataService owns today. Bulk import has joined it (the CSV
+ * exactly the ones DataService owns today. HOLDINGS joined at slice 31 and were
+ * the last region of the data layer outside it — the Investments page called
+ * `services/api/investmentService` and a Supabase client directly, which is the
+ * measurement `src/desktop/routes.ts` recorded as the reason its route could not
+ * be mounted in a window. Bulk import has joined it (the CSV
  * and OFX importers write through `importTransactions`), and so have the
  * backup, the emptiness check, the restore, the wipe and the Microsoft Money
  * migration. The capability descriptor has joined too, and with it went the
@@ -133,6 +137,34 @@ import type { ExportProgress } from '../backupService';
  */
 import type { ImportProgress, WipeProgress } from '../import/msMoney/msMoneyImport';
 import type { MsMoneyImportResult } from '../import/msMoney/transform';
+/**
+ * A HOLDING, and the three shapes that write one.
+ *
+ * Imported for the reason the backup format above is, and from a module chosen
+ * for the same reason: `services/investments/holding.ts` has no Supabase client
+ * in its scope. `services/api/investmentService.ts` — which re-exports every one
+ * of these — does, in its first line.
+ *
+ * The types are the APP's rather than a column set, exactly as `Account` and
+ * `Transaction` are, and the one place they differ in KIND from everything else
+ * this seam carries is deliberate: a holding's `quantity`, `currentPrice` and
+ * `purchasePrice` are `DecimalInstance` and not `MoneyNumber`. See
+ * {@link DataPortInvestmentWrites} for why, which is the same argument
+ * {@link MoneyNumber} makes in the opposite direction.
+ */
+import type {
+  InvestmentChanges,
+  InvestmentDraft,
+  InvestmentHolding,
+  QuoteWriteback
+} from '../investments/holding';
+
+export type {
+  InvestmentChanges,
+  InvestmentDraft,
+  InvestmentHolding,
+  QuoteWriteback
+};
 
 export type {
   BackupBundle,
@@ -343,6 +375,18 @@ export interface DataPortReads {
   listGoals(): Promise<Goal[]>;
   listCategories(): Promise<Category[]>;
   listSuggestionDismissals(): Promise<SuggestionDismissal[]>;
+  /**
+   * Every position this owner holds, by symbol.
+   *
+   * **Divergence B-12**: an engine with nowhere to keep a holding answers with
+   * an EMPTY LIST rather than rejecting, and says so through
+   * {@link DataPortCapabilities.cannotKeep} so that a screen can explain the
+   * emptiness instead of showing a portfolio that looks lost. Browser storage is
+   * that engine — local mode has never had a holdings store, a writer or a
+   * reader — and the empty list is the honest answer there rather than a stub:
+   * there are none, because there is nowhere to keep them.
+   */
+  listInvestments(): Promise<InvestmentHolding[]>;
 }
 
 export interface DataPortAccountWrites {
@@ -964,6 +1008,137 @@ export interface DataPortPlanningWrites {
   mergeCategories(sourceId: string, targetId: string): Promise<CategoryMergeResult>;
 }
 
+/**
+ * Holdings — the last region of the ledger to reach this seam.
+ *
+ * ── WHY IT IS A GROUP OF ITS OWN ────────────────────────────────────────────
+ *
+ * Not because there are four of them, but because a holding is not a ledger
+ * entry and must never be totalled with one. `investmentService.ts` states the
+ * rule this group exists to protect: the Investments page's headline figures
+ * come from the LEDGER — the investment↔cash account pair, opening balance plus
+ * transactions — and holdings × price is a SECOND, clearly-labelled opinion
+ * about the same money. Adding the two counts it twice. Putting the holdings
+ * beside `createTransaction` in the transaction group would have been an
+ * invitation to do exactly that.
+ *
+ * ── THE ONE PLACE THIS SEAM DOES NOT SAY `MoneyNumber` ──────────────────────
+ *
+ * Rule 2 says money crosses as {@link MoneyNumber}, which is `number`, because
+ * *"the app's own types say `number`, so the seam says `number`"*. The app's own
+ * type for a holding says `DecimalInstance`, so the seam says `DecimalInstance`
+ * — the same rule, reaching the opposite answer because the app reached it
+ * first, and rightly:
+ *
+ *   `quantity` is not money. Fund units and crypto are fractional to eight
+ *   places, and a `number` cannot hold 0.00000001 of anything reliably.
+ *
+ *   `currentPrice` and `purchasePrice` are RATES, not amounts. Rounding a rate
+ *   before multiplying it by a quantity is how a portfolio comes to disagree
+ *   with the broker, and it is not hypothetical: `numeric(10,2)` turned a
+ *   £32.775 LSE price into £32.78 on every write until migration
+ *   20260809120000 widened the column — half a penny a share, every night, in
+ *   the same direction.
+ *
+ * `costBasis` IS money and is a `DecimalInstance` too, because it lives on the
+ * same object; what matters is that no implementation may reach it by float
+ * arithmetic.
+ *
+ * **Divergence M-2**: a figure with more than eight decimal places is kept
+ * verbatim by browser storage (which stores none of these at all, so the
+ * question is moot there), silently rounded by a `numeric(20,8)` column, and
+ * refused outright by the local core. M-1's rule one scale out, and declared for
+ * the same reason: the difference is recorded rather than discovered.
+ *
+ * ── WHAT IS NOT HERE ────────────────────────────────────────────────────────
+ *
+ * `investment_transactions` — the buys, sells and dividends. The table exists in
+ * both schemas and in the backup format, and NOTHING in this app has ever
+ * written a row to it: no screen, no service, no importer. A seam operation for
+ * a table with no writer would be an operation with no behaviour to agree about,
+ * so the table is carried by the backup and by nothing else. What a delete does
+ * to those rows is still decided — every engine cascades — because a restore can
+ * bring them.
+ */
+export interface DataPortInvestmentWrites {
+  /**
+   * Record a position.
+   *
+   * ── `costBasis` IS DERIVED, WHICH IS WHY THE DRAFT HAS NO FIELD FOR IT ────
+   *
+   * `quantity × averageCost`, computed by the implementation. The cloud's
+   * writer says why in one line — *"two numbers that must agree are two numbers
+   * that will not"* — and the consequence of letting a caller state both is a
+   * row describing a position nobody ever held. Every engine computes it, and
+   * the contract suite asserts they compute the same figure to the penny,
+   * including the half that rounds away from zero.
+   *
+   * The ownership rule stated at length on `createBudget` applies word for word.
+   *
+   * **Divergence B-12**: an engine with nowhere to keep a holding REJECTS, in
+   * words, rather than pretending to store one. That is not the same statement
+   * the read makes: an empty list is a true answer about what is held, and a
+   * successful create that stored nothing would be a false one.
+   */
+  createInvestment(draft: InvestmentDraft): Promise<InvestmentHolding>;
+  /**
+   * Change a position, and hand back the whole holding as it now stands (the
+   * caller replaces its copy with this, so a partial answer would blank the
+   * fields it left out).
+   *
+   * QUANTITY AND UNIT COST MOVE `costBasis` TOGETHER OR NOT AT ALL. Naming
+   * either one recomputes it from the pair, taking the half that was not stated
+   * from the stored row. An implementation that wrote one without the other
+   * would leave a holding whose cost contradicts its own figures, and nothing on
+   * screen would say so.
+   *
+   * A holding that is not there is refused BY NAME rather than created, and the
+   * refusal leaves the store exactly as it was — the rule the budget, goal and
+   * category updates keep.
+   *
+   * IT CANNOT SET A PRICE. `currentPrice` is not in {@link InvestmentChanges}
+   * and no engine may accept one here: a price comes from an exchange through
+   * {@link DataPortInvestmentWrites.applyInvestmentPrices}, and an edit box that
+   * could set one would be a way to make a holding claim a price that was never
+   * printed.
+   */
+  updateInvestment(id: string, changes: InvestmentChanges): Promise<InvestmentHolding>;
+  /**
+   * Remove a position.
+   *
+   * A REAL delete, unlike an account's close: no transaction is filed against a
+   * holding and no balance is derived from one, so removing it leaves no hole in
+   * the ledger. Its `investment_transactions` go with it, in every engine.
+   *
+   * Removing one that is already gone is a NO-OP, not an error — the rule
+   * `deleteBudget` and `deleteGoal` keep, for the same reason: a double-click,
+   * or a second device that got there first, must not turn a decision into an
+   * error message.
+   */
+  deleteInvestment(id: string): Promise<void>;
+  /**
+   * Write fetched prices onto the rows they are about, and say how many moved.
+   *
+   * BY SYMBOL, NOT BY ID. A quote is about a SECURITY: the same fund held in an
+   * ISA and a dealing account is two rows and one price, and pricing them
+   * separately would leave the second stale whenever the first fetch failed.
+   *
+   * ONLY THE PRICE AND ITS DATE MOVE. Quantity, cost basis and account are the
+   * user's data and a price refresh has no business touching them. No engine
+   * stores a market value: it is quantity × price, and a stored copy of a
+   * derived number is a copy that goes stale, so the screen computes it and a
+   * holding can never display a value its own price contradicts.
+   *
+   * THE COUNT IS ROWS REPRICED, never quotes offered — a symbol nobody holds
+   * contributes zero. The caller renders it ("3 of 5 updated"), so an engine
+   * that returned `quotes.length` would be putting a claim it did not verify in
+   * front of somebody.
+   *
+   * Nothing in, zero out, nothing written.
+   */
+  applyInvestmentPrices(quotes: readonly QuoteWriteback[]): Promise<number>;
+}
+
 export interface DataPortDismissalWrites {
   /**
    * Record that the user does not want a suggestion offered again. Idempotent:
@@ -1257,13 +1432,29 @@ export type Edition = 'cloud' | 'device';
 export type SessionState = 'ready' | 'connecting' | 'anonymous';
 
 /**
+ * One table of the backup format this store has nowhere to put, and why.
+ *
+ * The same three fields `BackupRestoreOutcome.notStoredLocally` reports AFTER a
+ * restore, asked BEFORE one — which is the whole point of it existing, and is
+ * explained at {@link DataPortCapabilities.cannotKeep}.
+ */
+export interface UnstorableEntity {
+  /** The table, as the backup format names it. */
+  entity: BackupEntity;
+  /** What a person calls it — 'Investments', 'Goal contributions'. */
+  label: string;
+  /** The reason, in the form somebody reading a warning deserves. */
+  absence: string;
+}
+
+/**
  * What this implementation can do, answered SYNCHRONOUSLY.
  *
  * Synchronous is a requirement rather than a convenience: every consumer is a
  * render — copy on a card, a batch size chosen on the tick of a write, a gate
  * on opening a subscription — and an async capability check would put a
  * loading state in front of a sentence, or a promise in the middle of a for
- * loop. An implementation that cannot answer these five without I/O is being
+ * loop. An implementation that cannot answer these six without I/O is being
  * asked the wrong question; each one is a property of the engine, not of the
  * data in it.
  *
@@ -1315,6 +1506,41 @@ export interface DataPortCapabilities {
    * suite asserts the implication.
    */
   backupTarget: 'login' | 'device';
+  /**
+   * What a backup file could carry that THIS store has nowhere to put.
+   *
+   * ── WHY THIS IS A CAPABILITY AND NOT A LIST A SCREEN KEEPS ────────────────
+   *
+   * Because the screen that needs it was keeping the wrong one, and the bug had
+   * a shape worth remembering. `RestoreBackupModal` warns, before a restore
+   * begins, that a file holds rows the target cannot keep — and it built that
+   * warning from `LOCAL_BACKUP_BINDINGS`, which is a description of the
+   * BROWSER's store, chosen by `backupTarget !== 'login'`. A device edition
+   * matches that condition and keeps all fourteen tables, so it would have been
+   * told its own file's budgets, goals and dismissals could not be restored.
+   * Not a cosmetic error: it is a warning about data loss, shown to somebody
+   * deciding whether to press a button, and it would have been false.
+   *
+   * The question — *"what can this store not hold?"* — is a property of the
+   * ENGINE, which is what this descriptor is for, and the answer genuinely
+   * differs per engine rather than per edition-name. So each implementation
+   * describes its own store, and no screen may infer one from `edition` or from
+   * `backupTarget` (the rule {@link Edition} states, enforced by the same grep).
+   *
+   * ── AND IT IS THE SAME ANSWER THE RESTORE GIVES ───────────────────────────
+   *
+   * `BackupRestoreOutcome.notStoredLocally` reports, afterwards, what was
+   * actually left behind. These two must name the same tables, or the dialog
+   * warns about one thing and then reports another. The contract suite asserts
+   * exactly that — the capability's entities against the outcome's, for a file
+   * carrying rows in every table — which is a stronger check than either alone
+   * and is why the shapes are one type.
+   *
+   * EMPTY IS A STATEMENT. An engine that holds every table the format carries
+   * says so with `[]` rather than by staying quiet, and the screen then shows no
+   * warning because there is nothing to warn about.
+   */
+  cannotKeep: readonly UnstorableEntity[];
 }
 
 export interface DataPortCapabilityDescriptor {
@@ -1335,6 +1561,7 @@ export interface DataPort extends
   DataPortTransferWrites,
   DataPortSplitWrites,
   DataPortPlanningWrites,
+  DataPortInvestmentWrites,
   DataPortDismissalWrites,
   DataPortBackupLifecycle,
   DataPortMigration,

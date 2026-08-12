@@ -594,6 +594,7 @@
 //! contradicts its module's header is a verb somebody will read wrongly.
 
 mod apply_category_to_uncategorized;
+mod apply_investment_prices;
 mod archive_transactions_before;
 mod clear_transfer_links;
 mod close_account;
@@ -605,9 +606,11 @@ mod create_category;
 mod create_transaction;
 mod create_transfer_counterpart;
 mod create_goal;
+mod create_investment;
 mod delete_budget;
 mod delete_category;
 mod delete_goal;
+mod delete_investment;
 mod delete_transaction;
 mod delete_unused_categories;
 mod dismiss_suggestion;
@@ -637,6 +640,7 @@ mod update_account;
 mod update_budget;
 mod update_category;
 mod update_goal;
+mod update_investment;
 mod update_transaction;
 mod user_financial_data_is_empty;
 mod verify_integrity;
@@ -687,6 +691,28 @@ pub use delete_budget::{delete_budget, DeleteBudget, DeleteBudgetResult};
 pub use delete_goal::{delete_goal, DeleteGoal, DeleteGoalResult};
 pub use update_budget::{update_budget, BudgetPatch, UpdateBudget, UpdateBudgetResult};
 pub use update_goal::{update_goal, GoalPatch, UpdateGoal, UpdateGoalResult};
+// The investment family — four verbs, no RPC between them either, and the sixth
+// group whose oracle is a TypeScript writer. Holdings are the LAST region of the
+// data layer to reach the seam: `services/api/investmentService.ts` talked to
+// Supabase directly until this slice, which is why `src/desktop/routes.ts` kept
+// the Investments page in `AWAITING_THE_MOUNT` with that chain written out.
+//
+// They inherit divergence 10 from the planning family rather than the
+// dismissals' exemption, and with the sharpest version of its reason: a
+// holding's quantity, its cost and its price are three figures whose last edit
+// decides what a portfolio is worth, and U-1 exists to answer "what changed
+// that". [`create_investment`] carries the argument.
+pub use apply_investment_prices::{
+    apply_investment_prices, ApplyInvestmentPrices, ApplyInvestmentPricesResult, QuoteWriteback,
+    RepricedAnswer,
+};
+pub use create_investment::{
+    create_investment, CreateInvestment, CreateInvestmentResult, InvestmentDraft,
+};
+pub use delete_investment::{delete_investment, DeleteInvestment, DeleteInvestmentResult};
+pub use update_investment::{
+    update_investment, InvestmentPatch, UpdateInvestment, UpdateInvestmentResult,
+};
 // The dismissal pair — two more verbs with no RPC behind either, and the same
 // "A VERB WHOSE ORACLE IS A TYPESCRIPT WRITER" argument. What they do NOT
 // inherit from the planning family is divergence 10: that argument turns on
@@ -744,9 +770,10 @@ pub use merge_categories::{merge_categories, MergeCategories, MergeCategoriesRes
 // its documentation is where the ordering and the query plans live.
 pub use reads::{
     account_balances, list_accounts, list_budgets, list_categories, list_closed_accounts,
-    list_goals, list_suggestion_dismissals, list_transaction_splits, list_transactions, splits_for,
-    AccountBalances, Accounts, Answered, Budgets, Categories, ClosedAccounts, Goals, OwnedRead,
-    Splits, SplitsFor, SuggestionDismissals, TransactionSplits, Transactions,
+    list_goals, list_investments, list_suggestion_dismissals, list_transaction_splits,
+    list_transactions, splits_for,
+    AccountBalances, Accounts, Answered, Budgets, Categories, ClosedAccounts, Goals, Investments,
+    OwnedRead, Splits, SplitsFor, SuggestionDismissals, TransactionSplits, Transactions,
 };
 // The preferences pair — two more verbs with no RPC behind either, and the
 // fifth family whose oracle is a TypeScript writer. They are the only verbs in

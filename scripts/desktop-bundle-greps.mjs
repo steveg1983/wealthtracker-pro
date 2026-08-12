@@ -87,7 +87,47 @@ const AND_THREE_MORE = [
     pattern: /(?<![a-z0-9])stripe(?![a-z0-9])/i,
     word: 'stripe',
     is: 'payments',
-    costs: 'a subscription, in an edition that is not one'
+    costs: 'a subscription, in an edition that is not one',
+    /**
+     * THE ONE OCCURRENCE THAT IS NOT PAYMENTS, named rather than grepped around.
+     *
+     * `enhancedCsvImportService`'s bank presets include a column mapping for a
+     * Stripe PAYOUT STATEMENT — `Created (UTC)`, `Available Balance` — in the
+     * same list as Monzo, Wise and Coinbase. It arrived in the desktop bundle
+     * at slice 31, with `/enhanced-import`, and it is exactly the kind of thing
+     * this edition is FOR: a statement a person exports and imports themselves,
+     * from a route the product controls, in a program that promises no bank
+     * feed.
+     *
+     * It is also, unmistakeably, the word this grep hunts. So the answer is
+     * neither to weaken the pattern (a leak looks like `js.stripe.com`, and a
+     * pattern narrowed to that is a pattern that misses the next SDK's own
+     * spelling) nor to drop the preset (which would remove a real feature to
+     * satisfy a check about a different thing).
+     *
+     * It is an ALLOWANCE with three properties, and each one is what stops it
+     * becoming a way to opt out:
+     *
+     *   IT NAMES THE EXACT TEXT. Any other stripe occurrence in the same file
+     *   still fails, because only these characters are subtracted from the
+     *   count.
+     *
+     *   IT IS SELF-CHECKED. {@link INSTRUMENT_CHECK} asserts that the allowed
+     *   text really does contain the word (an allowance that matched nothing
+     *   would be silently doing nothing) and that removing it from a leak
+     *   sample does NOT hide the leak.
+     *
+     *   IT IS REPORTED. The run prints how many occurrences it forgave and
+     *   where, so a person reading the output sees the exception rather than a
+     *   clean line.
+     */
+    allow: {
+      text: 'id:"stripe",label:"Stripe",region:"Payments"',
+      why:
+        "enhancedCsvImportService's CSV column mapping for a Stripe payout statement — "
+        + 'a file a person exports and imports, in the same list as Monzo and Coinbase, '
+        + 'and not a payment this program takes'
+    }
   }
 ];
 
@@ -161,6 +201,35 @@ const INSTRUMENT_CHECK = [
 ];
 
 /**
+ * An allowance is only safe if it really matches, and only honest if it cannot
+ * hide anything else.
+ *
+ * Both halves are checked here, for {@link INSTRUMENT_CHECK}'s reason one level
+ * up: an allowance that matched nothing would forgive nothing and read as though
+ * it had, and an allowance broad enough to swallow a real leak would be the
+ * over-narrowing this whole apparatus exists to prevent — arriving by a
+ * different door.
+ */
+const ALLOWANCE_CHECK = entry => {
+  const problems = [];
+  const { allow, pattern, word } = entry;
+  if (!allow) return problems;
+  const matcher = pattern ?? new RegExp(word, 'i');
+  if (!matcher.test(allow.text)) {
+    problems.push(
+      `the ${word} allowance does not contain the word it forgives, so it forgives nothing: ` +
+        `"${allow.text}"`
+    );
+  }
+  for (const leak of INSTRUMENT_CHECK.find(check => check.word === word)?.finds ?? []) {
+    if (leak.split(allow.text).length - 1 > 0) {
+      problems.push(`the ${word} allowance would hide a real leak: "${leak}"`);
+    }
+  }
+  return problems;
+};
+
+/**
  * A word this bundle MUST contain.
  *
  * Without it the whole check passes on an empty directory, a failed build, or a
@@ -199,9 +268,27 @@ const sources = files.map(file => ({
   text: readFileSync(file, 'utf8')
 }));
 
+/**
+ * How many occurrences a file really has, with a named allowance subtracted.
+ *
+ * The allowance is removed from the TEXT before counting rather than from the
+ * count afterwards, so an allowed string cannot mask an unallowed one that
+ * happens to sit beside it — and so the arithmetic is a property of the input
+ * rather than a subtraction somebody has to get right.
+ */
 const countIn = (text, entry) => {
-  if (entry.pattern) return (text.match(new RegExp(entry.pattern.source, 'gi')) ?? []).length;
-  return text.toLowerCase().split(entry.word.toLowerCase()).length - 1;
+  const readable = entry.allow ? text.split(entry.allow.text).join('') : text;
+  if (entry.pattern) return (readable.match(new RegExp(entry.pattern.source, 'gi')) ?? []).length;
+  return readable.toLowerCase().split(entry.word.toLowerCase()).length - 1;
+};
+
+/** How many occurrences an allowance forgave, so the run can say so out loud. */
+const forgivenIn = (text, entry) => {
+  if (!entry.allow) return 0;
+  const removed = text.split(entry.allow.text).length - 1;
+  if (removed === 0) return 0;
+  const matcher = new RegExp(entry.pattern?.source ?? entry.word, 'gi');
+  return removed * ((entry.allow.text.match(matcher) ?? []).length);
 };
 
 const occurrences = entry => {
@@ -223,6 +310,12 @@ say(`  files             ${sources.length}, ${(totalBytes / 1024).toFixed(1)} kB
 
 const failures = [];
 
+// The allowances, before anything is grepped: one that matches nothing, or one
+// broad enough to swallow a real leak, would make every line below a lie.
+for (const entry of [...THE_TWO, ...AND_THREE_MORE]) {
+  for (const problem of ALLOWANCE_CHECK(entry)) failures.push(`  ${problem}`);
+}
+
 if (!sources.some(source => source.text.includes(MUST_CONTAIN))) {
   failures.push(
     `  the bundle does not contain ${MUST_CONTAIN}, so there is nothing here to check.\n` +
@@ -240,7 +333,9 @@ const report = (heading, group) => {
     const { word, is, costs } = entry;
     const hits = occurrences(entry);
     const found = hits.reduce((sum, hit) => sum + hit.count, 0);
-    say(`    ${found === 0 ? 'clean' : 'FOUND'}  ${word.padEnd(26)} ${is}`);
+    const forgiven = sources.reduce((sum, source) => sum + forgivenIn(source.text, entry), 0);
+    const note = forgiven > 0 ? ` (${forgiven} allowed: ${entry.allow.why})` : '';
+    say(`    ${found === 0 ? 'clean' : 'FOUND'}  ${word.padEnd(26)} ${is}${note}`);
     if (found > 0) {
       failures.push(
         `  a desktop build contains ${is} — ${costs}.\n` +

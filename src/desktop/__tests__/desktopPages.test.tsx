@@ -47,6 +47,7 @@ const LEDGER = { path: '/Users/somebody/Household.db', owner: OWNER };
 
 const CURRENT = 'aaaaaaaa-0000-4000-8000-000000000001';
 const SAVINGS = 'aaaaaaaa-0000-4000-8000-000000000002';
+const DEALING = 'aaaaaaaa-0000-4000-8000-000000000003';
 
 /**
  * A ledger with money in it, in the crate's own row shapes.
@@ -80,6 +81,52 @@ const ACCOUNTS = [
     institution: 'A Bank',
     is_active: true,
     initial_balance: '8000.00'
+  },
+  {
+    id: DEALING,
+    name: 'Dealing Account',
+    type: 'investment',
+    // No transactions, so the ledger figure is the opening balance. The MARKET
+    // view below is a second opinion about the same money and the page must
+    // never add the two — `investmentService.ts` states that rule and
+    // `utils/portfolioSummary` keeps it.
+    balance: '5000.00',
+    currency: 'GBP',
+    institution: 'A Broker',
+    is_active: true,
+    initial_balance: '5000.00'
+  }
+];
+
+/**
+ * One position, in the crate's own row shape.
+ *
+ * The three figures that are NOT money are eight-place decimal STRINGS, which is
+ * what `numeric(20,8)::text` prints and what `crate::scaled` renders — 100 units
+ * at £32.775, which the file stores as `quantity_e8` and `purchase_price_e8` and
+ * this fixture writes the way a verb answers. `cost_basis` is money at two
+ * places and is DERIVED by whichever engine wrote the row (100 × 32.775 =
+ * 3277.50), never stated by a caller.
+ *
+ * `market_value` is deliberately absent: no engine stores one, because a stored
+ * copy of quantity × price goes stale the moment the price does. The screen
+ * computes it, through the same `toHolding` the signed-in page uses.
+ */
+const INVESTMENTS = [
+  {
+    id: 'inv-1',
+    account_id: DEALING,
+    symbol: 'AAAA.L',
+    name: 'A Listed Company plc',
+    asset_type: 'stock',
+    currency: 'GBP',
+    quantity: '100.00000000',
+    cost_basis: '3277.50',
+    current_price: '40.00000000',
+    purchase_date: '2024-06-01',
+    purchase_price: '32.77500000',
+    last_updated: '2026-08-11T16:35:00.000Z',
+    notes: null
   }
 ];
 
@@ -186,11 +233,16 @@ const ledgerShell = (): { invoke: Invoke; verbs: string[] } => {
         return answer({ transactions: TRANSACTIONS });
       case 'list_transaction_splits':
         return answer({ transaction_splits: [] });
+      case 'list_investments':
+        return answer({ investments: INVESTMENTS });
+      case 'user_financial_data_is_empty':
+        return answer({ empty: false });
       case 'account_balances':
         return answer({
           account_balances: [
             { account_id: CURRENT, balance: '2450.25', as_of: '2025-01-20' },
-            { account_id: SAVINGS, balance: '8300.00', as_of: '2025-01-20' }
+            { account_id: SAVINGS, balance: '8300.00', as_of: '2025-01-20' },
+            { account_id: DEALING, balance: '5000.00', as_of: '2025-01-20' }
           ]
         });
       case 'read_preferences':
@@ -247,7 +299,7 @@ describe('the desktop window, with a ledger open', () => {
     expect(await screen.findByRole('navigation', { name: /main/i }, PAGE)).toBeInTheDocument();
     // The index screen: the ledger's own counts, read out of `useApp()` rather
     // than out of a boot snapshot fetched specially for it.
-    expect(await screen.findByText(/2 accounts, 4 transactions, 4 categories/, {}, PAGE)).toBeInTheDocument();
+    expect(await screen.findByText(/3 accounts, 4 transactions, 4 categories/, {}, PAGE)).toBeInTheDocument();
     // …and the sentence that is only true of a device.
     expect(screen.getByText(/This file is the only copy/)).toBeInTheDocument();
 
@@ -271,10 +323,10 @@ describe('the desktop window, with a ledger open', () => {
     await openTheLedger('#/dashboard');
     // £1,450.25 + £8,300.00. Formatted by the shared `formatCurrency`, from
     // rows the real LocalDataPort parsed out of the crate's money strings.
-    // £2,450.25 + £8,300.00, each derived from an opening balance and the rows,
-    // every figure of which came out of the crate's money STRINGS through the
-    // real mappers. Formatted by the shared `formatCurrency`.
-    expect((await screen.findAllByText('£10,750.25', {}, PAGE)).length).toBeGreaterThan(0);
+    // £2,450.25 + £8,300.00 + £5,000.00, each derived from an opening balance
+    // and the rows, every figure of which came out of the crate's money STRINGS
+    // through the real mappers. Formatted by the shared `formatCurrency`.
+    expect((await screen.findAllByText('£15,750.25', {}, PAGE)).length).toBeGreaterThan(0);
     expect(screen.getAllByText('£2,450.25').length).toBeGreaterThan(0);
     expect(screen.getAllByText('£8,300.00').length).toBeGreaterThan(0);
   });
@@ -300,6 +352,59 @@ describe('the desktop window, with a ledger open', () => {
     expect(screen.getAllByText('Rent To Landlord').length).toBeGreaterThan(0);
     // The other account's row is not in this register.
     expect(screen.queryByText('Standing Order In')).toBeNull();
+  });
+
+  it('renders INVESTMENTS, with the file’s own holding priced', async () => {
+    await openTheLedger('#/investments');
+
+    // The Portfolio tab is where the MARKET view lives — holdings × price, which
+    // the page keeps deliberately apart from the ledger figures on Overview.
+    // `investmentService.ts` states the rule the separation exists for: the two
+    // are a second opinion about the same money and adding them counts it twice.
+    await userEvent.click(await screen.findByRole('button', { name: /portfolio/i }, PAGE));
+
+    // The holding reaches the screen through `dataPort.listInvestments()` — the
+    // route slice 30 could not mount, because this page called
+    // `services/api/investmentService`, and a Supabase client with it, directly.
+    expect(await screen.findAllByText(/A Listed Company plc/, {}, PAGE)).not.toHaveLength(0);
+    // 100 units × £40.00. NOT a stored figure: no engine keeps a market value,
+    // and this one was computed by the same `toHolding` the signed-in page uses,
+    // out of two EIGHT-PLACE decimal strings the crate answered with. A holding
+    // whose quantity had gone through a `number` on the way here would not
+    // arrive at this figure by accident.
+    expect(screen.getAllByText('£4,000.00').length).toBeGreaterThan(0);
+  });
+
+  it('renders ENHANCED IMPORT, whose restore dialog no longer describes a browser', async () => {
+    await openTheLedger('#/enhanced-import');
+
+    expect(await screen.findAllByRole('heading', { name: /import/i }, PAGE)).not.toHaveLength(0);
+  });
+
+  it('renders SETTINGS ▸ DATA, which is where the delete-everything button lives', async () => {
+    await openTheLedger('#/settings/data');
+
+    // The page `routes.ts` named as the thing that came WITH the restore
+    // dialog: *"this is where `dataPort.wipeAllFinancialData` is called from, so
+    // until the restore dialog is answered, a desktop window has no
+    // delete-everything button."* It has one now.
+    expect(await screen.findAllByText(/clear all data/i, {}, PAGE)).not.toHaveLength(0);
+  });
+
+  it('tells a device the truth about what its own file can keep', async () => {
+    // THE BUG THIS SLICE FIXED, asserted from the window rather than from a
+    // unit test. The restore preview used to read `LOCAL_BACKUP_BINDINGS` — a
+    // description of the BROWSER's store — whenever `backupTarget !== 'login'`,
+    // which a device matches. It now asks `capabilities().cannotKeep`, and a
+    // file keeps all fourteen tables, so there is nothing to warn about.
+    //
+    // Asserted as an ABSENCE with the specific words, because the false warning
+    // named the tables it was wrong about.
+    await openTheLedger('#/settings/data');
+    await screen.findAllByText(/clear all data/i, {}, PAGE);
+
+    expect(screen.queryByText(/cannot be restored/i)).toBeNull();
+    expect(screen.queryByText(/only tracked when you are signed in/i)).toBeNull();
   });
 
   it('renders REPORTS', async () => {
@@ -332,7 +437,7 @@ describe('the desktop window, with a ledger open', () => {
     // the router has no such route, so the catch-all takes it.
     await openTheLedger('#/open-banking');
 
-    expect(await screen.findByText(/2 accounts, 4 transactions/, {}, PAGE)).toBeInTheDocument();
+    expect(await screen.findByText(/3 accounts, 4 transactions/, {}, PAGE)).toBeInTheDocument();
     expect(screen.queryByText(/connect your bank/i)).toBeNull();
   });
 
@@ -363,9 +468,15 @@ describe('the manifest, against what is actually mounted', () => {
   it('was measured with a real fixture, not an empty one', () => {
     // The assertions above are all satisfied by a ledger of nothing rendering
     // nothing. This is the arm that says the fixture has money in it.
-    expect(ACCOUNTS).toHaveLength(2);
+    expect(ACCOUNTS).toHaveLength(3);
     expect(TRANSACTIONS).toHaveLength(4);
     expect(TRANSACTIONS.every(row => typeof row.amount === 'string')).toBe(true);
+    // And the holding's three non-money figures are eight-place decimal
+    // STRINGS, which is what the crate answers and what makes the market view
+    // below a test of the real mapper rather than of a convenient object.
+    expect(INVESTMENTS).toHaveLength(1);
+    expect(INVESTMENTS[0].quantity).toBe('100.00000000');
+    expect(INVESTMENTS[0].current_price).toBe('40.00000000');
   });
 });
 

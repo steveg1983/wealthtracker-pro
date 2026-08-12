@@ -178,8 +178,12 @@ import type {
   // name them without importing the importer, whose module scope reaches the
   // browser's storage adapter and the app's cloud-bound logger.
   ImportProgress,
+  InvestmentChanges,
+  InvestmentDraft,
+  InvestmentHolding,
   MoneyNumber,
   MsMoneyImportResult,
+  QuoteWriteback,
   ReconciliationOutcome
 } from '../port/dataPort';
 // The FILE FORMAT's own types, imported for the reason `dataPort.ts` imports
@@ -214,6 +218,15 @@ import type {
 // is the lifted half, and its module scope holds no Supabase client — which
 // `deviceDocument.cloudFree.test.ts` walks this graph to prove on every run.
 import { parsePreferencesDocument, type PreferencesDocument } from '../preferences/document';
+// A MAPPER, imported at runtime for `parsePreferencesDocument`'s exact reason:
+// it turns the `unknown` a verb hands back into the shape the app holds. It is
+// also, and unusually, the CLOUD's own mapper — `services/api/investmentService`
+// re-exports it — which is safe because slice 31 lifted it into
+// `services/investments/holding.ts`, whose module scope holds no Supabase
+// client. The alternative was a seventh hand-written row mapping in `rows.ts`,
+// and a second interpretation of one table is the thing `columns.ts` exists to
+// prevent.
+import { toHolding, toHoldings } from '../investments/holding';
 import type { CoreTransport } from './coreTransport';
 // The ONE encoder, for the two arguments this port sends that are not part of a
 // column table's payload: a finalize's ending balance and the two cutoff days.
@@ -247,6 +260,8 @@ import {
   toGoalCreatePayload,
   toGoalUpdatePatch,
   toImportRow,
+  toInvestmentCreatePayload,
+  toInvestmentUpdatePatch,
   toSplitLine,
   toUpdatePatch
 } from './mappers/writes';
@@ -479,7 +494,22 @@ const DEVICE_CAPABILITIES: DataPortCapabilities = {
   // The file IS the only copy. That is a materially different thing to tell
   // somebody before they close the window, and the two backup screens say it
   // from here.
-  backupTarget: 'device'
+  backupTarget: 'device',
+  // EMPTY IS A STATEMENT HERE, not a stub. `schema.sql` holds all fourteen
+  // tables a backup file carries — including the three a browser has never had
+  // (`investments`, `investment_transactions`, `goal_contributions`) — so a file
+  // restored from a login loses nothing at all.
+  //
+  // This field exists because a screen used to answer that question by reading
+  // `LOCAL_BACKUP_BINDINGS`, the browser's own table, chosen by `backupTarget
+  // !== 'login'`. A device matches that condition, so `RestoreBackupModal` would
+  // have warned somebody that their file's budgets and goals could not be kept —
+  // by a file that keeps them. Reading it from the ENGINE is what makes the
+  // answer come from the thing being asked about.
+  //
+  // `restoreBackup` below answers `notStoredLocally: []` for the same reason and
+  // from the same fact, and the contract suite asserts the two agree.
+  cannotKeep: []
 };
 
 /** The two words this port's boot stats are allowed to use. See the header. */
@@ -1414,6 +1444,129 @@ export class LocalDataPort implements DataPort {
    */
   async deleteGoal(id: string): Promise<void> {
     await this.#ask('delete_goal', { id });
+  }
+
+  // ── Holdings ──────────────────────────────────────────────────────────────
+  //
+  // The last region of the ledger to reach this file, and the one that arrived
+  // with a SECOND fixed-point scale. Everything else here crosses money as a
+  // two-place decimal string read once by `values.money`; a holding's quantity
+  // and its two unit prices cross at EIGHT places and are never turned into a
+  // `number` at all — `DataPortInvestmentWrites` argues why, and the short
+  // version is that a share price is a rate rather than an amount, and
+  // `numeric(10,2)` rounding one to £32.78 invented half a penny a share every
+  // night until migration 20260809120000.
+  //
+  // The read comes back through the CLOUD's own `toHolding` (see `holding.ts`),
+  // which is the arrangement `toAccount` already has: not another interpretation
+  // of a column table, literally the same function the signed-in page uses.
+  // Which is possible because the crate's `list_investments` answers with the
+  // cloud's own `SELECTED_COLUMNS` — the two engines hand that mapper the same
+  // keys, differing only in whether a figure arrives as text or as a JSON
+  // number, and it accepts either through `Decimal` in both cases.
+
+  /**
+   * Every position this file holds, by symbol.
+   *
+   * B-12's other branch: this engine HAS somewhere to keep them, so an empty
+   * answer here means an empty portfolio, and `capabilities().cannotKeep` is
+   * empty to say so.
+   */
+  async listInvestments(): Promise<InvestmentHolding[]> {
+    const answer = await this.#ask('list_investments');
+    return toHoldings(rowsOf(answer, 'list_investments', 'investments'));
+  }
+
+  /**
+   * Record a position.
+   *
+   * `cost_basis` IS NOT SENT and there is no key for one: the verb derives it
+   * from `quantity × purchase_price` in i128 and rounds it half-away-from-zero,
+   * which is what `numeric(10,2)` does to the product the cloud's writer
+   * computes with `Decimal`. Two engines, one figure, and no caller able to
+   * state a cost that contradicts the position.
+   *
+   * B-3 applies word for word: see `createBudget` above.
+   */
+  async createInvestment(draft: InvestmentDraft): Promise<InvestmentHolding> {
+    const answer = await this.#ask('create_investment', toInvestmentCreatePayload(draft));
+    return this.#holding('create_investment', answer);
+  }
+
+  /**
+   * Change a position, and hand back the whole holding as it now stands.
+   *
+   * QUANTITY AND UNIT COST MOVE THE COST TOGETHER. The verb reads the stored row
+   * INSIDE the transaction that writes, so the half the patch did not state
+   * comes from the file rather than from whatever this caller last read — the
+   * cloud's second round trip without its race, and the same reason
+   * `updateGoal`'s metadata merge lives in the verb rather than here.
+   *
+   * A holding that is not there is refused by name, and the store is left
+   * exactly as it was.
+   */
+  async updateInvestment(id: string, changes: InvestmentChanges): Promise<InvestmentHolding> {
+    const answer = await this.#ask('update_investment', {
+      id,
+      patch: toInvestmentUpdatePatch(changes)
+    });
+    return this.#holding('update_investment', answer);
+  }
+
+  /**
+   * Remove a position, and the buys and sells filed against it.
+   *
+   * The cascade is the FILE's — `investment_transactions.investment_id` is `ON
+   * DELETE CASCADE` in both schemas — and the verb deliberately does not walk
+   * it, which is `deleteGoal`'s decision about contributions and is argued at
+   * the verb.
+   *
+   * Removing one that is already gone is a no-op, not an error.
+   */
+  async deleteInvestment(id: string): Promise<void> {
+    await this.#ask('delete_investment', { id });
+  }
+
+  /**
+   * Write fetched prices onto the rows they are about.
+   *
+   * ONE CROSSING WHERE THE CLOUD MAKES N. `InvestmentService.applyQuotes` loops
+   * a PostgREST update per quote; this sends the list and the verb writes them
+   * in one transaction. What the seam compares is the PROMISE — the rows carry
+   * the prices, the count is rows repriced and never quotes offered — and the
+   * differential spec drives both engines from the same list.
+   *
+   * Nothing in, zero out, and the file is not opened for it: the check is here
+   * as well as in the verb because the seam says an empty sweep is the ordinary
+   * case, and a crossing that does nothing is still a crossing.
+   */
+  async applyInvestmentPrices(quotes: readonly QuoteWriteback[]): Promise<number> {
+    if (quotes.length === 0) return 0;
+    const answer = await this.#ask('apply_investment_prices', {
+      quotes: quotes.map(quote => ({
+        symbol: quote.symbol,
+        price: quote.price,
+        as_of: quote.asOf
+      }))
+    });
+    return countOf(field(answer, 'answer'), 'apply_investment_prices', 'repriced');
+  }
+
+  /**
+   * A write verb's answer as the app's holding.
+   *
+   * `toHolding` returns `null` for a row it cannot read — no symbol, no quantity
+   * — and here that can only mean the file answered something this port does not
+   * understand. A null passed on would be a holding that vanished from the page
+   * after a save the user watched succeed, so it is a fault with a sentence on
+   * it instead, exactly as `rowOf` and `countOf` are for the same reason.
+   */
+  #holding(verb: string, answer: unknown): InvestmentHolding {
+    const holding = toHolding(rowOf(answer, verb, 'answer'));
+    if (!holding) {
+      throw new Error(`The ledger file answered ${verb} with a holding it could not describe.`);
+    }
+    return holding;
   }
 
   // ── Dismissals ────────────────────────────────────────────────────────────

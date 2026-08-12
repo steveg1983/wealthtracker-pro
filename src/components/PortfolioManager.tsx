@@ -7,11 +7,17 @@ import StockSymbolSearch from './StockSymbolSearch';
 import { PlusIcon, EditIcon, DeleteIcon, CheckIcon } from './icons';
 import { Modal } from './common/Modal';
 import { LoadingButton } from './loading/LoadingState';
+// From the LIFTED module, not from `services/api/investmentService` — which
+// re-exports all three and whose first line builds a Supabase client. This is a
+// RUNTIME import (`INVESTMENT_ASSET_TYPES` is a value), so the old path put the
+// cloud in a desktop bundle through a dropdown's list of asset kinds. Measured:
+// it was one of the two chains left keeping the Investments route out of a
+// window after the page itself went through the seam.
 import {
   INVESTMENT_ASSET_TYPES,
   type InvestmentAssetType,
   type InvestmentHolding
-} from '../services/api/investmentService';
+} from '../services/investments/holding';
 
 /**
  * Add, change and remove holdings — and actually keep them.

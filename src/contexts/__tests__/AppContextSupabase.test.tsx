@@ -232,6 +232,12 @@ describe('AppContextSupabase live provider', () => {
         realtime: false,
         maxConcurrentWrites: 1,
         backupTarget: 'device',
+        // Seven names, because this is the BROWSER's store rather than a file
+        // — a device edition answers `[]` here and the difference is what the
+        // restore dialog's warning is built from.
+        cannotKeep: expect.arrayContaining([
+          expect.objectContaining({ entity: 'investments' }),
+        ]),
       });
       // Default categories are seeded even with empty storage.
       expect(result.current.categories.length).toBeGreaterThan(0);

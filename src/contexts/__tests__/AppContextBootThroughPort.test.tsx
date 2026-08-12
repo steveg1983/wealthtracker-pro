@@ -215,6 +215,12 @@ vi.mock('../../services/port', () => {
     listGoals: answer('listGoals', seam.goals),
     listCategories: answer('listCategories', seam.categories),
     listSuggestionDismissals: answer('listSuggestionDismissals', []),
+    // A read the boot must NOT make: holdings are the Investments page's own,
+    // fetched when that page mounts. It is in the stub because the surface rule
+    // requires the whole seam — and it LOGS, so a boot that started reaching for
+    // a portfolio would show up in the call list below rather than as a slower
+    // launch nobody could account for.
+    listInvestments: answer('listInvestments', []),
     /**
      * The composite, answering with all six at once — which is exactly what an
      * engine is free to do, and what the local edition will do from one
@@ -254,9 +260,14 @@ vi.mock('../../services/port', () => {
       realtime: false,
       maxConcurrentWrites: 1,
       backupTarget: 'device' as const,
+      cannotKeep: [],
     }),
     // Writes: none of them belong to a boot, so each one says so rather than
     // quietly succeeding. A boot that wrote anything would fail by name here.
+    createInvestment: refuse('createInvestment'),
+    updateInvestment: refuse('updateInvestment'),
+    deleteInvestment: refuse('deleteInvestment'),
+    applyInvestmentPrices: refuse('applyInvestmentPrices'),
     createAccount: refuse('createAccount'),
     updateAccount: refuse('updateAccount'),
     closeAccount: refuse('closeAccount'),

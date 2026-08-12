@@ -73,6 +73,10 @@ import type {
   Transaction,
   TransactionSplit
 } from '../../../types';
+import type { InvestmentHolding } from '../../investments/holding';
+// The app's own decimal, for the three figures a holding keeps that are not
+// money. `toDecimal` PARSES rather than computes; nothing here multiplies.
+import { toDecimal, type DecimalInstance } from '../../../utils/decimal';
 import type { PortFixture, PortStoreState } from './contract';
 
 // ── The bridge ──────────────────────────────────────────────────────────────
@@ -125,7 +129,23 @@ type Kind =
   | 'day'
   | 'dayText'
   | 'instant'
-  | 'accountType';
+  | 'accountType'
+  /**
+   * A fixed-point figure at 1e8 that the APP keeps as a `Decimal` — a holding's
+   * `quantity` and the two unit prices beside it.
+   *
+   * Its own kind rather than `money` for the reason `percent` is its own kind:
+   * the scaling differs (1e8, not 100), the QUANTITY differs (units and rates,
+   * not amounts), and a `Money` that held a share price would be eligible for
+   * arithmetic this repo reserves for amounts. `crate::scaled` argues it in
+   * full and this is the fixture's half of the same line.
+   *
+   * The conversion goes through `Decimal`'s own text at BOTH ends, never
+   * through `Number(x) * 1e8` — a float multiply is exactly what an eight-place
+   * scale cannot survive, and this witness is supposed to catch that class of
+   * error rather than share it.
+   */
+  | 'scaled8';
 
 interface Column {
   /** The SQLite column. */
@@ -176,6 +196,46 @@ const fromMinorUnits = (minor: number): number => {
   const whole = (absolute - (absolute % 100)) / 100;
   const text = `${negative ? '-' : ''}${whole}.${String(absolute % 100).padStart(2, '0')}`;
   return Number(text);
+};
+
+/**
+ * A `Decimal` as the count of hundred-millionths the column stores.
+ *
+ * Through the number's own DECIMAL TEXT, digit by digit, and never through
+ * `times(1e8)` — the crate does the same in `scaled::from_decimal_string`, and
+ * for the same reason: a witness that arrived at the stored integer by a float
+ * multiply would share whatever error it is meant to detect.
+ *
+ * A ninth decimal place is refused BY NAME here as well as in the crate, which
+ * is what makes a fixture that states one a finding rather than a silent
+ * rounding — divergence M-2, from the fixture's side.
+ */
+const toScaled8 = (value: unknown, where: string): number => {
+  const text =
+    value !== null && typeof value === 'object' && 'toFixed' in value
+      ? (value as { toFixed: (places?: number) => string }).toFixed()
+      : String(value);
+  if (!/^-?\d*(\.\d+)?$/.test(text) || text === '' || text === '-') {
+    throw new Error(`${where}: ${text} is not a plain decimal figure`);
+  }
+  const negative = text.startsWith('-');
+  const [whole, fraction = ''] = text.replace('-', '').split('.');
+  if (fraction.length > 8) {
+    throw new Error(
+      `${where}: ${text} has more than eight decimal places, and a local ledger refuses one (M-2).`
+    );
+  }
+  const raw = Number(`${whole || '0'}${fraction.padEnd(8, '0')}`);
+  return negative ? -raw : raw;
+};
+
+/** Hundred-millionths back to the app's `Decimal`, by the same route reversed. */
+const fromScaled8 = (raw: number): DecimalInstance => {
+  const negative = raw < 0;
+  const digits = String(Math.abs(raw)).padStart(9, '0');
+  const whole = digits.slice(0, digits.length - 8);
+  const fraction = digits.slice(digits.length - 8);
+  return toDecimal(`${negative ? '-' : ''}${whole}.${fraction}`);
 };
 
 /** A calendar day, from whatever the app holds. */
@@ -233,6 +293,8 @@ const toColumn = (kind: Kind, value: unknown, where: string): string | number | 
       return toDay(value, where);
     case 'instant':
       return toInstant(value, where);
+    case 'scaled8':
+      return toScaled8(value, where);
   }
 };
 
@@ -261,6 +323,8 @@ const fromColumn = (kind: Kind, value: unknown): unknown => {
       return typeof value === 'string' ? value : undefined;
     case 'instant':
       return typeof value === 'string' ? new Date(value) : undefined;
+    case 'scaled8':
+      return typeof value === 'number' ? fromScaled8(value) : undefined;
   }
 };
 
@@ -396,6 +460,21 @@ const ENTITIES = {
     { column: 'created_at', field: 'createdAt', kind: 'instant' },
     { column: 'updated_at', field: 'updatedAt', kind: 'instant' }
   ],
+  investments: [
+    { column: 'id', field: 'id', kind: 'text' },
+    { column: 'account_id', field: 'accountId', kind: 'text' },
+    { column: 'symbol', field: 'symbol', kind: 'text' },
+    { column: 'name', field: 'name', kind: 'text' },
+    { column: 'asset_type', field: 'assetType', kind: 'text' },
+    { column: 'currency', field: 'currency', kind: 'text' },
+    { column: 'quantity_e8', field: 'quantity', kind: 'scaled8' },
+    { column: 'cost_basis_minor', field: 'costBasis', kind: 'money' },
+    { column: 'current_price_e8', field: 'currentPrice', kind: 'scaled8' },
+    { column: 'purchase_date', field: 'purchaseDate', kind: 'day' },
+    { column: 'purchase_price_e8', field: 'purchasePrice', kind: 'scaled8' },
+    { column: 'last_updated', field: 'lastUpdated', kind: 'instant' },
+    { column: 'notes', field: 'notes', kind: 'text' }
+  ],
   suggestion_dismissals: [
     { column: 'id', field: 'id', kind: 'text' },
     { column: 'kind', field: 'kind', kind: 'text' },
@@ -523,6 +602,15 @@ export function seed(file: string, fixture: PortFixture, owner: string): void {
         metadata: JSON.stringify({ type: goal.type })
       });
     }
+    for (const holding of fixture.investments ?? []) {
+      insert(database, 'investments', holding, {
+        user_id: owner,
+        // NOT NULL in both schemas with no default, and a fixture that stated
+        // no asset kind is stating a HOLDING rather than a classification. The
+        // writer's own default ('stock') is the honest fill.
+        asset_type: holding.assetType ?? 'stock'
+      });
+    }
     for (const dismissal of fixture.dismissals ?? []) {
       insert(database, 'suggestion_dismissals', dismissal, { user_id: owner });
       dismissal.subjectIds.forEach((transactionId, index) => {
@@ -558,6 +646,32 @@ const asNumber = (value: unknown, fallback = 0): number =>
   typeof value === 'number' ? value : fallback;
 const asDate = (value: unknown): Date => (value instanceof Date ? value : new Date(0));
 const asFlag = (value: unknown): boolean => value === true;
+/**
+ * One of a holding's figures as the app's `Decimal`, whichever kind read it.
+ *
+ * TWO SHAPES ARRIVE HERE and the difference is the point: `scaled8` already
+ * answers a `Decimal` (a quantity and the two unit prices), and `money` answers
+ * a `number` (the cost basis, which really is an amount and shares its reader
+ * with every other amount in this file). Both are wrapped rather than one of
+ * them being special-cased at the call site, because the alternative — reading
+ * `costBasis` off a `money` column and treating it as a Decimal — silently
+ * produced ZERO, which every assertion about a derived cost then failed on with
+ * no hint about why.
+ */
+const asDecimalValue = (value: unknown): DecimalInstance => {
+  if (value !== null && typeof value === 'object' && 'toFixed' in value) {
+    return value as DecimalInstance;
+  }
+  return typeof value === 'number' ? toDecimal(value) : toDecimal(0);
+};
+
+/** One of the eight `investments_asset_type_check` allows. */
+const assetTypeOf = (value: unknown): InvestmentHolding['assetType'] => {
+  const allowed: readonly InvestmentHolding['assetType'][] = [
+    'stock', 'bond', 'etf', 'mutual_fund', 'crypto', 'commodity', 'real_estate', 'other'
+  ];
+  return allowed.find(kind => kind === value) ?? 'other';
+};
 
 /**
  * The store as the app would see it.
@@ -766,6 +880,47 @@ export function readBack(file: string): PortStoreState {
       };
     });
 
+    /**
+     * The holdings, as the app's own object.
+     *
+     * `averageCost` and `marketValue` are DERIVED here rather than read, which
+     * is the same derivation `toHolding` performs on the other side of the
+     * seam — and it has to be, because neither is a column: no engine stores a
+     * market value (a stored copy of quantity × price goes stale the moment the
+     * price does) and `averageCost` is `costBasis ÷ quantity`.
+     *
+     * That is NOT the witness agreeing with the port for free. What this reads
+     * out of the file is the four stored figures; what the suite compares is
+     * whether those four are what a write put there.
+     */
+    const investments: InvestmentHolding[] = all(
+      'SELECT * FROM investments ORDER BY rowid'
+    ).map(row => {
+      const value = fieldsOf('investments', row);
+      const quantity = asDecimalValue(value.quantity);
+      const costBasis = asDecimalValue(value.costBasis);
+      const currentPrice =
+        value.currentPrice === undefined ? null : asDecimalValue(value.currentPrice);
+      return {
+        id: asText(value.id),
+        accountId: typeof value.accountId === 'string' ? value.accountId : null,
+        symbol: asText(value.symbol),
+        name: asText(value.name),
+        quantity,
+        costBasis,
+        averageCost: quantity.isZero() ? toDecimal(0) : costBasis.dividedBy(quantity),
+        currentPrice,
+        marketValue: currentPrice === null ? null : currentPrice.times(quantity),
+        currency: asText(value.currency, 'GBP'),
+        assetType: assetTypeOf(value.assetType),
+        purchaseDate: value.purchaseDate instanceof Date ? value.purchaseDate : null,
+        purchasePrice:
+          value.purchasePrice === undefined ? null : asDecimalValue(value.purchasePrice),
+        lastUpdated: value.lastUpdated instanceof Date ? value.lastUpdated : null,
+        notes: typeof value.notes === 'string' ? value.notes : ''
+      };
+    });
+
     const dismissals: SuggestionDismissal[] = all(
       'SELECT * FROM suggestion_dismissals ORDER BY rowid'
     ).map(row => {
@@ -780,7 +935,7 @@ export function readBack(file: string): PortStoreState {
       };
     });
 
-    return { accounts, transactions, splits, categories, budgets, goals, dismissals };
+    return { accounts, transactions, splits, categories, budgets, goals, investments, dismissals };
   } finally {
     database.close();
   }
