@@ -363,6 +363,32 @@ export const WIPE_TABLE_ORDER: readonly string[] = [
  */
 export const WIPE_CHUNK_SIZE = 2000;
 
+/**
+ * Ids per REQUEST — a different limit, from a different failure.
+ *
+ * The same 51,343-row account, chunked exactly as above, then answered
+ * `Failed while clearing transactions: Bad Request`. Nothing had timed out.
+ * PostgREST puts an `in` list in the QUERY STRING — `?id=in.(uuid,uuid,…)` —
+ * and a chunk of 2,000 UUIDs encodes to 78,071 bytes of request line, so the
+ * edge refused it with a 400 before Postgres ever saw a statement. Chunking had
+ * made each statement small and each URL enormous.
+ *
+ * 150 ids encode to 5,921 bytes against a Supabase project URL, comfortably
+ * inside the 8 KB request line the proxies in the path allow, with room to spare
+ * for a longer host or a table name twice the length. 200 measures 7,871 —
+ * inside the limit, and outside the point of having one.
+ *
+ * This bounds the WRITE only. The SELECT that feeds each pass filters on
+ * `user_id` and is a few hundred bytes however many ids it returns, so the wipe
+ * still pages at WIPE_CHUNK_SIZE and still reports progress a chunk at a time.
+ * It simply spends several requests emptying each chunk.
+ *
+ * (The architectural alternative is a server-side wipe RPC, which carries no id
+ * list at all. That surface exists and authenticates differently; this is not
+ * the change that moves the wipe onto it.)
+ */
+export const WIPE_REQUEST_IDS = 150;
+
 /** What a wipe is doing right now, for a caller with a progress bar. */
 export interface WipeProgress {
   table: string;
@@ -398,15 +424,24 @@ export interface WipeStore {
   idsFor(table: string, userId: string, limit: number): Promise<string[]>;
   /** Up to `limit` ids of this user's transactions that still carry a transfer link. */
   linkedTransferIds(userId: string, limit: number): Promise<string[]>;
-  /** Null both transfer-link columns on exactly these rows. */
+  /**
+   * Null both transfer-link columns on exactly these rows, in ONE request.
+   * Keeping the list short enough to BE one request is the caller's job, not
+   * this verb's — see WIPE_REQUEST_IDS.
+   */
   unlinkTransfers(ids: string[]): Promise<void>;
-  /** Delete exactly these rows from `table`. */
+  /** Delete exactly these rows from `table`, in one request. Same bargain. */
   deleteByIds(table: string, ids: string[]): Promise<void>;
 }
 
 export interface WipeOptions {
   onProgress?: (progress: WipeProgress) => void;
   chunkSize?: number;
+  /**
+   * Ids per write request. Overridable for the same reason `chunkSize` is: so a
+   * test can drive the batching arithmetic without shipping a different number.
+   */
+  idsPerRequest?: number;
   /** Overridable so a test can run the loop against a store it can inspect. */
   store?: WipeStore;
 }
@@ -460,11 +495,15 @@ export function supabaseWipeStore(supabase: SupabaseClient): WipeStore {
 
 /**
  * Delete ALL of the user's financial data under the authenticated client, in
- * chunks small enough that no single statement can time out.
+ * chunks small enough that no single statement can time out, sent in requests
+ * short enough that the edge will carry them.
  *
- * ── WHY CHUNKED ─────────────────────────────────────────────────────────────
- * See WIPE_CHUNK_SIZE. One statement per table died on a real 51k-row account
- * and left the login half-wiped.
+ * ── WHY CHUNKED, AND THEN BATCHED ───────────────────────────────────────────
+ * See WIPE_CHUNK_SIZE: one statement per table died on a real 51k-row account
+ * and left the login half-wiped. Then see WIPE_REQUEST_IDS: the chunks that
+ * fixed it were sent as one URL each, and 2,000 ids do not fit in a URL. Two
+ * limits, two failures, and neither one implies the other — a chunk is how much
+ * work a statement does, a batch is how much text a request is.
  *
  * ── WHAT A FAILURE LEAVES BEHIND ────────────────────────────────────────────
  * Chunks commit as they go, so a failure part-way through leaves the user with
@@ -487,6 +526,23 @@ export async function wipeCloudData(
 }
 
 /**
+ * One chunk's ids, split into request-sized batches.
+ *
+ * This is the function that keeps the URL under 8 KB, so what matters about it
+ * is what it does NOT do: it never reorders, drops or dedupes. The batches
+ * concatenate back to exactly the ids handed in, which is what lets each pass
+ * still clear the whole of the column it selected on — the property the loops
+ * below terminate by.
+ */
+function requestBatches(ids: readonly string[], size: number): string[][] {
+  const batches: string[][] = [];
+  for (let from = 0; from < ids.length; from += size) {
+    batches.push(ids.slice(from, from + size));
+  }
+  return batches;
+}
+
+/**
  * The wipe itself, over the port.
  *
  * Split from `wipeCloudData` so the loop can be exercised against a real
@@ -501,6 +557,7 @@ export async function runWipe(
   options: Omit<WipeOptions, 'store'> = {}
 ): Promise<void> {
   const chunkSize = Math.max(1, options.chunkSize ?? WIPE_CHUNK_SIZE);
+  const idsPerRequest = Math.max(1, options.idsPerRequest ?? WIPE_REQUEST_IDS);
   const stepCount = WIPE_TABLE_ORDER.length + 1; // +1 for the unlink pass
 
   // ── Step 1: break the transfer links ──────────────────────────────────────
@@ -509,7 +566,9 @@ export async function runWipe(
   // time out on its own, so it is chunked like everything else.
   //
   // The loop terminates because each pass clears the very column it selects on:
-  // a row updated here can never be returned by the next read.
+  // a row updated here can never be returned by the next read. Splitting a chunk
+  // across several requests does not weaken that — every batch commits before
+  // the next read happens, and the batches cover the chunk exactly.
   {
     const total = await store.count('transactions', userId);
     let unlinked = 0;
@@ -519,7 +578,12 @@ export async function runWipe(
       try {
         ids = await store.linkedTransferIds(userId, chunkSize);
         if (ids.length === 0) break;
-        await store.unlinkTransfers(ids);
+        // Sequentially, not Promise.all: these are writes against the rows the
+        // next read depends on, and a burst of them is how you turn a request
+        // that was too long into a database that is too busy.
+        for (const batch of requestBatches(ids, idsPerRequest)) {
+          await store.unlinkTransfers(batch);
+        }
       } catch (error) {
         throw new Error(`Failed while unlinking transfers: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -540,11 +604,16 @@ export async function runWipe(
       try {
         ids = await store.idsFor(table, userId, chunkSize);
         if (ids.length === 0) break;
-        await store.deleteByIds(table, ids);
+        for (const batch of requestBatches(ids, idsPerRequest)) {
+          await store.deleteByIds(table, batch);
+        }
       } catch (error) {
         throw new Error(`Failed while clearing ${table}: ${error instanceof Error ? error.message : String(error)}`);
       }
       deleted += ids.length;
+      // Once per chunk, not once per request: the count is of rows actually
+      // gone either way, and 343 events where there were 26 is a progress bar
+      // that costs more than it tells.
       options.onProgress?.({ table, deleted, total, step, stepCount });
     }
   }
