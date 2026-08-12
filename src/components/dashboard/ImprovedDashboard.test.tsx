@@ -5,7 +5,7 @@
  *    reader, in the same words (they used to be written by two different rules,
  *    and the on-screen half went blank for any threshold but £500);
  *  - the account picker can start from everything or from nothing;
- *  - the two halves of "Your Reports" keep their own clocks;
+ *  - the whole page reads over ONE period, declared once under the heading;
  *  - it ends in figures, not in a second copy of the navigation.
  *
  * Every account name, figure and institution here is invented.
@@ -233,51 +233,74 @@ describe('Key Account Balances — select all / clear all', () => {
   });
 });
 
-describe('Your Reports — two columns, two clocks', () => {
+/**
+ * ONE clock for the page.
+ *
+ * This block used to be called "two columns, two clocks" and pinned the
+ * opposite arrangement: a period control per column of the reports box, plus a
+ * third on Performance, each governing only what it sat beside. Three
+ * identically-styled controls meant none of them declared its scope, so the
+ * design pass collapsed them into a single page-level bar under the heading
+ * (DESIGN_PASS_2026-08 §3.4, whose stated test exposure is exactly this).
+ *
+ * What is asserted here is therefore the inverse of what it was, and
+ * deliberately so: the page has one period, everything below the bar obeys it,
+ * and the storage key it remembers survived the merge.
+ */
+describe('the dashboard reads over one period', () => {
   beforeEach(() => {
     mocks.app.accounts = [account({ id: 'acc-a', name: 'Feed Account A', openingBalance: 100 })];
     localStorage.setItem('dashboardPinnedReports', JSON.stringify(['net-worth', 'expense-categories']));
   });
 
-  const assetsPills = (): HTMLElement => screen.getByRole('group', { name: 'Period for net worth reports' });
-  const flowsPills = (): HTMLElement => screen.getByRole('group', { name: 'Period for income and spending reports' });
+  const periodBar = (): HTMLElement => screen.getByRole('group', { name: 'Period for this dashboard' });
 
-  it('gives each column its own period, and leaves the other one alone', () => {
+  it('is the only period control on the page', () => {
     render(<ImprovedDashboard />);
 
-    fireEvent.click(within(assetsPills()).getByRole('button', { name: 'All time' }));
-    const netWorthWindow = screen.getByTestId('net-worth-widget').textContent;
-    expect(netWorthWindow).toBe('none..none');
-
-    fireEvent.click(within(flowsPills()).getByRole('button', { name: 'Last month' }));
-
-    // The left column is untouched by the right column's choice.
-    expect(screen.getByTestId('net-worth-widget').textContent).toBe(netWorthWindow);
-    expect(screen.getByTestId('expense-categories-widget').textContent).not.toBe('none..none');
-
-    expect(within(assetsPills()).getByRole('button', { name: 'All time' })).toHaveAttribute('aria-pressed', 'true');
-    expect(within(flowsPills()).getByRole('button', { name: 'Last month' })).toHaveAttribute('aria-pressed', 'true');
+    // One control, not one per section. The two the reports box carried were
+    // feet apart and identical in style to Performance's.
+    expect(screen.getAllByRole('group', { name: /period/i })).toHaveLength(1);
+    expect(screen.queryByRole('group', { name: 'Period for net worth reports' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Period for income and spending reports' })).toBeNull();
   });
 
-  it('remembers the two choices under separate keys', () => {
+  it('moves every report on the page together', () => {
     render(<ImprovedDashboard />);
 
-    fireEvent.click(within(assetsPills()).getByRole('button', { name: 'All time' }));
-    fireEvent.click(within(flowsPills()).getByRole('button', { name: 'Last month' }));
+    fireEvent.click(within(periodBar()).getByRole('button', { name: 'All time' }));
+
+    // Both halves of the reports box, on the one window the bar declares.
+    expect(screen.getByTestId('net-worth-widget').textContent).toBe('none..none');
+    expect(screen.getByTestId('expense-categories-widget').textContent).toBe('none..none');
+
+    fireEvent.click(within(periodBar()).getByRole('button', { name: 'Last month' }));
+
+    const lastMonth = screen.getByTestId('net-worth-widget').textContent;
+    expect(lastMonth).not.toBe('none..none');
+    expect(screen.getByTestId('expense-categories-widget').textContent).toBe(lastMonth);
+    expect(within(periodBar()).getByRole('button', { name: 'Last month' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('remembers the choice under the key the page has always used', () => {
+    render(<ImprovedDashboard />);
+
+    fireEvent.click(within(periodBar()).getByRole('button', { name: 'All time' }));
 
     expect(localStorage.getItem('dashboardReports')).toBe('all');
-    expect(localStorage.getItem('dashboardReportsFlows')).toBe('last-month');
   });
 
-  it('carries an existing choice over to the column that used to share it', () => {
-    // The split must not silently reset half of what the user had chosen.
+  it('opens on a choice made before the three controls became one', () => {
+    // The merge keeps the original storage key rather than minting a new one,
+    // so nobody's stored dashboard moves underneath them.
     localStorage.setItem('dashboardReports', 'all');
     localStorage.setItem('dashboardReportsExplicit', 'true');
 
     render(<ImprovedDashboard />);
 
-    expect(within(assetsPills()).getByRole('button', { name: 'All time' })).toHaveAttribute('aria-pressed', 'true');
-    expect(within(flowsPills()).getByRole('button', { name: 'All time' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(periodBar()).getByRole('button', { name: 'All time' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('net-worth-widget').textContent).toBe('none..none');
+    expect(screen.getByTestId('expense-categories-widget').textContent).toBe('none..none');
   });
 
   it('keeps the account distribution beside the reports, on today’s figures', () => {

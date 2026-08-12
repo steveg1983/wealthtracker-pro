@@ -72,6 +72,13 @@ export interface VirtualizedTableProps<T> {
   sortColumn?: string;
   sortDirection?: 'asc' | 'desc';
   emptyMessage?: string;
+  /**
+   * What stands where the rows would be when there are none. Richer than
+   * emptyMessage, which stays for callers that only want a line of text: an
+   * empty state that names a consequence and offers the remedy is a block, not
+   * a sentence (DESIGN_PASS §4).
+   */
+  emptyContent?: ReactNode;
   isLoading?: boolean;
   onLoadMore?: () => void;
   hasMore?: boolean;
@@ -103,6 +110,30 @@ export interface VirtualizedTableProps<T> {
   rowDomId?: (rowKey: string) => string;
   /** See RowDetail — an editor drawn under one row, pushing the rest down. */
   rowDetail?: RowDetail<T> | null;
+
+  /* ── How the table is DRESSED ───────────────────────────────────────────
+   * Four opt-ins, each defaulting to exactly what this component drew before
+   * they existed. A table that is a card on a page keeps the card; a table
+   * that IS the page's content can now say so, which is what the register's
+   * chrome reduction needed (DESIGN_PASS §3.1) and what a list of rows on a
+   * white page needs generally. */
+
+  /**
+   * 'card' (default) — the rounded, shadowed panel.
+   * 'flat' — no radius, no shadow: the table is the content, and the page
+   * around it is the surface. Per §2.5, one hairline does what a shadow was
+   * doing.
+   */
+  surface?: 'card' | 'flat';
+  /** Alternating row backgrounds. Default true. */
+  striped?: boolean;
+  /** The 1px rule between rows. */
+  rowBorderClassName?: string;
+  /** The header cell's own type — size and weight. */
+  headerCellClassName?: string;
+  /** Hover colour for a sortable header's button, when the default (which
+   * assumes a dark header wherever headerClassName is set) is wrong. */
+  headerSortHoverClassName?: string;
 }
 
 // Table header component
@@ -119,10 +150,14 @@ const TableHeader = memo(function TableHeader<T>({
   sortDirection,
   onColumnReorder,
   onColumnResize,
-  gridSemantics = false
+  gridSemantics = false,
+  headerCellClassName = 'font-medium text-sm',
+  headerSortHoverClassName
 }: {
   columns: Column<T>[];
   headerClassName?: string;
+  headerCellClassName?: string;
+  headerSortHoverClassName?: string;
   showCheckbox?: boolean;
   selectedItems?: Set<string>;
   items: T[];
@@ -240,13 +275,18 @@ const TableHeader = memo(function TableHeader<T>({
               setOverKey(null);
             } : undefined}
             onDragEnd={reorderable ? () => { setDragKey(null); setOverKey(null); } : undefined}
-            className={`relative px-3 py-2 font-medium text-sm ${headerClassName ? '' : 'text-gray-700 dark:text-gray-300'} ${column.headerClassName || ''} ${reorderable ? 'cursor-move select-none' : ''} ${isDropTarget ? 'border-l-2 border-blue-400' : ''} ${dragKey === column.key ? 'opacity-50' : ''}`}
+            className={`relative px-3 py-2 ${headerCellClassName} ${headerClassName ? '' : 'text-gray-700 dark:text-gray-300'} ${column.headerClassName || ''} ${reorderable ? 'cursor-move select-none' : ''} ${isDropTarget ? 'border-l-2 border-blue-400' : ''} ${dragKey === column.key ? 'opacity-50' : ''}`}
             style={{ width: column.width }}
           >
             {column.sortable && onSort ? (
               <button
                 onClick={() => handleSort(column.key)}
-                className={`inline-flex items-center gap-1 ${headerClassName ? 'hover:text-gray-100' : 'hover:text-gray-900 dark:hover:text-gray-100'}`}
+                // The button IS the header's text, so it wears the header's
+                // type: a <button> does not inherit text-transform from its
+                // cell (the UA stylesheet resets it), which had the sortable
+                // columns reading in sentence case beside a capitalised
+                // Balance — one header row in two voices.
+                className={`inline-flex items-center gap-1 ${headerCellClassName} ${headerSortHoverClassName ?? (headerClassName ? 'hover:text-gray-100' : 'hover:text-gray-900 dark:hover:text-gray-100')}`}
               >
                 {column.header}
                 {sortColumn === column.key && (
@@ -292,6 +332,7 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
   sortColumn,
   sortDirection,
   emptyMessage = 'No data available',
+  emptyContent,
   isLoading = false,
   onLoadMore,
   hasMore = false,
@@ -303,8 +344,17 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
   scrollToToken,
   scrollToBottomToken,
   rowDomId,
-  rowDetail
+  rowDetail,
+  surface = 'card',
+  striped = true,
+  rowBorderClassName = 'border-gray-200 dark:border-gray-700',
+  headerCellClassName,
+  headerSortHoverClassName
 }: VirtualizedTableProps<T>) {
+  // 'card' is what this component has always drawn; 'flat' is the opt-out.
+  const shellClass = surface === 'flat'
+    ? 'bg-white dark:bg-gray-900 overflow-hidden flex flex-col'
+    : 'bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden flex flex-col';
   // Resolve the deep-link key to its position in the CURRENT row order, so
   // the list can centre it regardless of sort or filters.
   const scrollToIndex = useMemo(() => {
@@ -405,14 +455,16 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
     const isEditorRow = !!rowDetail && index === detailIndex;
     const detail = isEditorRow && rowDetail ? rowDetail.render(item) : null;
 
-    const baseRowClass = 'flex items-center border-b border-gray-200 dark:border-gray-700 transition-colors duration-150';
+    const baseRowClass = `flex items-center border-b ${rowBorderClassName} transition-colors duration-150`;
     const clickableClass = onRowClick ? 'cursor-pointer select-none' : '';
     // Only apply hover effects if not selected. No scale: these rows sit in
     // an overflow-clipped table, and a 1.01 scale pushed the rightmost
     // column's digits past the edge — the shadow and z-lift suffice.
     const hoverClass = onRowClick && !isSelected ? 'hover:shadow-[0_-6px_10px_-2px_rgba(0,0,0,0.15),0_6px_10px_-2px_rgba(0,0,0,0.15)] hover:z-10 hover:bg-gray-50 dark:hover:bg-gray-800' : '';
-    // Don't apply stripe classes to selected rows
-    const stripeClass = !isSelected && index % 2 === 1 ? 'bg-gray-100 dark:bg-gray-800/50' : !isSelected ? 'bg-white dark:bg-gray-900' : '';
+    // Don't apply stripe classes to selected rows. Unstriped, every unselected
+    // row wears the plain background the even ones already wore — the stripe
+    // is what goes, not the surface.
+    const stripeClass = !isSelected && striped && index % 2 === 1 ? 'bg-gray-100 dark:bg-gray-800/50' : !isSelected ? 'bg-white dark:bg-gray-900' : '';
 
     // With a detail below it the row no longer owns react-window's slot: the
     // wrapper does, and the row keeps exactly its own height so the detail gets
@@ -514,17 +566,21 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
     detailIndex,
     rowHeight,
     rowGestureProps,
-    isSelectionTail
+    isSelectionTail,
+    striped,
+    rowBorderClassName
   ]);
 
   
   // Empty state
   if (items.length === 0 && !isLoading) {
     return (
-      <div className={`bg-white dark:bg-gray-900 rounded-lg shadow ${className}`}>
+      <div className={`${surface === 'flat' ? 'bg-white dark:bg-gray-900' : 'bg-white dark:bg-gray-900 rounded-lg shadow'} ${className}`}>
         <TableHeader
           columns={columns as Column<unknown>[]}
           headerClassName={headerClassName}
+          headerCellClassName={headerCellClassName}
+          headerSortHoverClassName={headerSortHoverClassName}
           showCheckbox={showCheckbox}
           selectedItems={selectedItems}
           items={items as unknown[]}
@@ -537,18 +593,22 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
           onColumnResize={onColumnResize}
           gridSemantics={!!rowDomId}
         />
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          {emptyMessage}
-        </div>
+        {emptyContent ?? (
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+            {emptyMessage}
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    <div className={`bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden flex flex-col ${className}`}>
+    <div className={`${shellClass} ${className}`}>
       <TableHeader
         columns={columns as Column<unknown>[]}
         headerClassName={headerClassName}
+        headerCellClassName={headerCellClassName}
+        headerSortHoverClassName={headerSortHoverClassName}
         showCheckbox={showCheckbox}
         selectedItems={selectedItems}
         items={items as unknown[]}

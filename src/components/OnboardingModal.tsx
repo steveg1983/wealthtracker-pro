@@ -66,12 +66,19 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
       >
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Welcome to WealthTracker!
+            Welcome to WealthTracker
           </h2>
         </div>
 
+        {/* The one moment to say what this is. The copy here used to be
+            friendly-generic ("let's personalize your experience"), which
+            describes any app at all — so the first thing a new user read told
+            them nothing about the one they had just opened
+            (DESIGN_PASS_2026-08 §3.4). Each field now also says what the app
+            DOES with the answer. */}
         <p className="text-gray-600 dark:text-gray-400 mb-6">
-          Let's personalize your experience with a few quick settings.
+          Two answers and you're in. This is a dense, keyboard-driven ledger:
+          your figures stay yours, and every report says what it leaves out.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -89,7 +96,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
               autoFocus
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              This will be used to personalize your dashboard
+              It greets you on the dashboard. That is all it is used for.
             </p>
           </div>
 
@@ -110,7 +117,8 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
               ))}
             </select>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Choose your preferred base currency to display your net worth in
+              Every total is shown in this currency — net worth, group totals,
+              reports. Individual accounts keep their own.
             </p>
           </div>
 
@@ -126,7 +134,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
 
         <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <p className="text-xs text-blue-800 dark:text-blue-200">
-            💡 You can change these settings anytime in Settings → App Settings
+            Both can be changed later in Settings → App Settings.
           </p>
         </div>
       </div>

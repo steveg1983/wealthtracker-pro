@@ -130,31 +130,16 @@ interface PeriodSelection {
   explicit: boolean;
 }
 
-/**
- * Carry a stored selection over to a second key, once.
- *
- * When one control is split into two, the half that keeps the old key keeps
- * the user's choice and the new half would silently start from its default —
- * so a dashboard set to "All time" would come back half on "All time" and half
- * on twelve months, with nothing said. Copying the selection (and its explicit
- * flag and custom bounds) the first time the new key is read means the split
- * changes the layout and nothing else. A no-op once the new key exists.
+/*
+ * `seedPeriodSelection` was here: it carried a stored selection over to a
+ * second key the first time that key was read, so SPLITTING one period control
+ * into two did not silently reset half of an existing choice. Its only caller
+ * was the Dashboard, whose three period controls have since been collapsed back
+ * into one page-level bar (DESIGN_PASS_2026-08 §3.4) — and that merge keeps the
+ * original storage key rather than introducing a new one, so there is nothing
+ * left to seed. Deleted with its caller rather than left as an export nobody
+ * imports.
  */
-export function seedPeriodSelection(
-  fromKey: string,
-  toKey: string,
-  storage: PeriodStorage = preferences
-): void {
-  if (storage.getItem(toKey) !== null) return;
-  const stored = storage.getItem(fromKey);
-  if (stored === null) return;
-
-  storage.setItem(toKey, stored);
-  for (const suffix of ['Explicit', 'CustomStart', 'CustomEnd']) {
-    const value = storage.getItem(`${fromKey}${suffix}`);
-    if (value !== null) storage.setItem(`${toKey}${suffix}`, value);
-  }
-}
 
 function readStoredSelection(
   storageKey: string,

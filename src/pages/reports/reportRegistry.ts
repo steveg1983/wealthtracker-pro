@@ -30,6 +30,16 @@ export interface ReportGroup {
   id: ReportGroupId;
   title: string;
   description: string;
+  /**
+   * What these reports LEAVE OUT, stated permanently under the heading.
+   *
+   * This lived in the gallery's dismissible tip. A rule that decides whether
+   * the totals below are the whole story is not a tip — someone who dismissed
+   * it once would read every spending figure afterwards as complete, and the
+   * honesty about uncategorised rows is the thing this product is built on
+   * (DESIGN_PASS_2026-08 §3.5).
+   */
+  note?: string;
 }
 
 export const REPORT_GROUPS: ReportGroup[] = [
@@ -42,6 +52,7 @@ export const REPORT_GROUPS: ReportGroup[] = [
     id: 'spending',
     title: 'Spending',
     description: 'Where the money goes, when it goes, and who it goes to.',
+    note: 'A transaction with no category is left out of these totals, so nothing is counted under the wrong heading. Each report lists those rows for filing.',
   },
   {
     id: 'custom',

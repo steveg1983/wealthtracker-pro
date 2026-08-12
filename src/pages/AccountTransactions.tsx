@@ -6,6 +6,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useIdentityKey } from '@identity';
 import { useApp } from '../contexts/AppContextSupabase';
 import { parseMoneyInput, toDecimal } from '../utils/decimal';
+import type { DecimalInstance } from '../utils/decimal';
 import { isReconciled } from '../utils/transactionReconciliation';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -35,7 +36,10 @@ import { usePreferences } from '../contexts/PreferencesContext';
 import { useToast } from '../contexts/ToastContext';
 import { VirtualizedTable, type Column, type RowDetail } from '../components/VirtualizedTable';
 import { InfiniteScrollTransactionList } from '../components/InfiniteScrollTransactionList';
-import { LoadingState } from '../components/loading/LoadingState';
+import { TableSkeleton } from '../components/loading/TableSkeleton';
+import { useDelayedFlag } from '../hooks/useDelayedFlag';
+import EmptyState from '../components/EmptyState';
+import FilteredEmptyState from '../components/FilteredEmptyState';
 import { compareChronological, compareTransactions, type TransactionSortField } from '../utils/transactionSort';
 import { createCategoryLabeller } from '../utils/categoryLabel';
 import { orderColumnKeys, moveColumnKey } from '../utils/columnLayout';
@@ -193,6 +197,25 @@ const QUICK_EDIT_COLUMN_FIELDS: Readonly<Record<string, QuickEditField>> = {
 
 // Friendly labels for the View dropdown's column checkboxes.
 const COLUMN_LABELS: Record<string, string> = { reconciled: 'Reconciled (R)' };
+
+/**
+ * ONE quiet outline for every toolbar control that is not the primary action
+ * (DESIGN_PASS §3.1 QUIET, and P7: four button roles in the building, a fifth
+ * is a bug report).
+ *
+ * Search & filters, View, Expand table and the two toggles were four different
+ * outlines with three border colours between them, which made the row read as
+ * four ranks of thing when it is one rank of thing and one primary. Written
+ * once, here, so the next control added to this toolbar has nowhere else to
+ * get its clothes from.
+ */
+const TOOLBAR_QUIET_BUTTON =
+  'flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm border rounded transition-colors duration-state';
+const TOOLBAR_QUIET_IDLE =
+  'border-line-strong dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-surface-tertiary dark:hover:bg-gray-700';
+/** The same button, switched on. A state of the one style, not a second style. */
+const TOOLBAR_QUIET_ACTIVE =
+  'border-[#1a2332] dark:border-blue-500 text-[#1a2332] dark:text-blue-400 bg-surface-secondary dark:bg-gray-700';
 
 /** The sortable columns, named as their headers name them. */
 const SORT_FIELD_LABELS: Record<TransactionSortField, string> = {
@@ -354,10 +377,41 @@ export default function AccountTransactions() {
   const account = accounts.find(acc => acc.id === accountId);
   const accountIsOpen = account !== undefined;
 
+  /**
+   * ONE CURRENCY FOR THIS REGISTER, resolved once, before anything is drawn.
+   *
+   * A register is a column of figures that add up: the header total, the
+   * running balance and every payment in between are the same money, so a
+   * table that prints two symbols in one column is not a formatting slip, it
+   * is an arithmetic claim that cannot be true. It happened because the
+   * currency was passed at each call site — some with the account's, some with
+   * none at all, which silently means the user's display currency
+   * (see useCurrencyDecimal) — so agreement was a thing to remember rather
+   * than a thing that held. (DESIGN_PASS §3.1 FIX.)
+   *
+   * Everything the register prints about THIS account now goes through here.
+   * Figures about OTHER accounts — the transfer picker's list of balances —
+   * deliberately do not: they wear their own account's currency, because that
+   * is what they are.
+   */
+  const registerCurrency = account?.currency;
+  const formatRegisterMoney = useCallback(
+    (amount: DecimalInstance | number) => formatCurrency(amount, registerCurrency),
+    [formatCurrency, registerCurrency]
+  );
+
   // Asked for only on a miss, and only once the open list has arrived, so an
   // ordinary register costs no extra request.
   const [closedLookup, setClosedLookup] = useState<ClosedAccountLookup>({ status: 'idle' });
   const [reopening, setReopening] = useState(false);
+
+  /**
+   * Whether the wait has gone on long enough to be worth showing. Under 200ms
+   * the register shows NOTHING rather than a flash of grey bars — see
+   * useDelayedFlag, and DESIGN_PASS §4.
+   */
+  const registerIsResolving = !account && (isLoading || closedLookup.status !== 'done');
+  const showRegisterSkeleton = useDelayedFlag(registerIsResolving);
 
   useEffect(() => {
     if (isLoading || accountIsOpen) return;
@@ -865,6 +919,47 @@ export default function AccountTransactions() {
     [accountTransactions, reviewOnly]
   );
 
+  /**
+   * EVERY FILTER CURRENTLY HOLDING SOMETHING BACK, named the way the user set
+   * it — the list that turns "my transactions are gone" back into "they are
+   * hidden, by these" (DESIGN_PASS §4).
+   *
+   * Named from the same state the controls are bound to, so a filter that
+   * cannot be seen in the toolbar (the View menu's date window, the archive
+   * toggle) is still accounted for. A filtered-empty register that omitted one
+   * would be worse than saying nothing: it would send the user looking in the
+   * wrong place.
+   */
+  const activeFilterNames = useMemo<string[]>(() => {
+    const names: string[] = [];
+    if (searchTerm) names.push(`Search: ${searchTerm}`);
+    if (typeFilter !== 'all') {
+      names.push(`Type: ${typeFilter.charAt(0).toUpperCase()}${typeFilter.slice(1)}`);
+    }
+    if (dateFrom || dateTo) names.push('the date range');
+    if (archive.range !== 'all') {
+      const preset = ARCHIVE_PRESETS.find(p => p.value === archive.range);
+      names.push(`Show: ${preset?.label ?? archive.range}`);
+    }
+    if (reviewOnly) names.push('To Review only');
+    if (hasArchivedHere && !showArchived) names.push('archived rows being hidden');
+    return names;
+  }, [searchTerm, typeFilter, dateFrom, dateTo, archive.range, reviewOnly, hasArchivedHere, showArchived]);
+
+  /** Puts every one of the above away — the remedy the filtered-empty offers. */
+  const clearAllFilters = useCallback((): void => {
+    setSearchTerm('');
+    setTypeFilter('all');
+    setDateFrom('');
+    setDateTo('');
+    setArchive(prev => ({ ...prev, range: 'all' }));
+    setReviewOnly(false);
+    // "Clear filters" has to mean it: if archived rows are among what is
+    // hidden, a button that left them hidden would empty the register again
+    // and read as broken.
+    if (hasArchivedHere) setShowArchived(true);
+  }, [hasArchivedHere]);
+
   // Calculate running balance
   const transactionsWithBalance = useMemo<TransactionWithBalance[]>(() => {
     if (!account) return [] as TransactionWithBalance[];
@@ -902,6 +997,12 @@ export default function AccountTransactions() {
   // Build display rows with virtual Opening Balance as first entry
   const displayRows = useMemo<DisplayRow[]>(() => {
     if (!account) return [];
+
+    // Nothing visible means nothing for a lead line to lead. A register whose
+    // only row is "Brought forward" is the shape that made "my transactions
+    // are gone" plausible — it looks like a register that lost its contents.
+    // Empty, the table can say what is actually true instead (DESIGN_PASS §4).
+    if (transactionsWithBalance.length === 0) return [];
 
     const openingBalance = account.openingBalance ?? 0;
 
@@ -1005,11 +1106,11 @@ export default function AccountTransactions() {
       balanceOf: () => computedAccountBalance,
       linkOf: (id) => links.get(id),
       autoSyncMode: identityKey ? loadAutoSyncPrefs(identityKey).mode : 'off',
-      formatMoney: formatCurrency,
+      formatMoney: formatRegisterMoney,
       now: new Date(),
     });
     return item?.reason ?? null;
-  }, [account, bankConnections, computedAccountBalance, identityKey, formatCurrency]);
+  }, [account, bankConnections, computedAccountBalance, identityKey, formatRegisterMoney]);
 
   /**
    * What to say when the register is not in date order.
@@ -2406,7 +2507,17 @@ export default function AccountTransactions() {
           >
             C
           </span>
-        ) : null
+        ) : (
+          // THE COLUMN'S BASELINE. Unmarked used to be nothing at all, which
+          // left a law-bearing column reading as an empty gutter — and with
+          // nothing to change FROM, a C or an R arriving in it registered as
+          // "something in the gap" rather than as a state changing. A dimmed
+          // dot gives the column a floor: the eye learns where the marks live
+          // before there are any. Decorative, so it is hidden from a screen
+          // reader, which is told the truth by the absence of C or R.
+          // (DESIGN_PASS §3.1 FIX, TEST-GATED.)
+          <span aria-hidden="true" className="text-line-strong dark:text-gray-600">·</span>
+        )
       ),
       className: 'text-center',
       headerClassName: 'text-center'
@@ -2505,11 +2616,15 @@ export default function AccountTransactions() {
       // 130px fits a 7-figure amount with pennies; Description is the flex
       // column, so the extra width comes out of it automatically.
       width: '130px',
-      // Money out — the magnitude (no sign), in red, like MS Money's Payment column.
+      // Money out — the magnitude (no sign), in red, like MS Money's Payment
+      // column. WEIGHT 400: colour already says which direction this is, and
+      // the column that carries the weight is Balance (DESIGN_PASS §3.1
+      // PROMOTE). The token, not text-red-600, so the AA-instrumented value is
+      // the one on screen.
       accessor: (transaction) => (
         transaction.amount < 0 ? (
-          <span className="text-sm font-medium text-red-600 dark:text-red-400">
-            {formatCurrency(Math.abs(transaction.amount), account?.currency)}
+          <span className="text-sm font-normal text-expense dark:text-red-400">
+            {formatRegisterMoney(Math.abs(transaction.amount))}
           </span>
         ) : null
       ),
@@ -2521,11 +2636,12 @@ export default function AccountTransactions() {
       key: 'deposit',
       header: 'Deposit',
       width: '130px',
-      // Money in — in green, like MS Money's Deposit column.
+      // Money in — in green, like MS Money's Deposit column. Weight 400, as
+      // Payment above.
       accessor: (transaction) => (
         transaction.amount > 0 ? (
-          <span className="text-sm font-medium text-green-600 dark:text-green-400">
-            {formatCurrency(transaction.amount, account?.currency)}
+          <span className="text-sm font-normal text-income dark:text-green-400">
+            {formatRegisterMoney(transaction.amount)}
           </span>
         ) : null
       ),
@@ -2539,14 +2655,14 @@ export default function AccountTransactions() {
       header: 'Amount',
       width: '120px',
       accessor: (transaction) => (
-        <span className={`text-sm font-medium ${
+        <span className={`text-sm font-normal ${
           transaction.amount > 0
-            ? 'text-green-600 dark:text-green-400'
+            ? 'text-income dark:text-green-400'
             : transaction.amount < 0
-            ? 'text-red-600 dark:text-red-400'
+            ? 'text-expense dark:text-red-400'
             : 'text-gray-900 dark:text-gray-100'
         }`}>
-          {formatCurrency(transaction.amount, account?.currency)}
+          {formatRegisterMoney(transaction.amount)}
         </span>
       ),
       className: 'text-right',
@@ -2581,19 +2697,25 @@ export default function AccountTransactions() {
         // account is to read the figures off in rendered order.
         <span
           data-testid="register-balance"
+          // THE LINE PEOPLE ACTUALLY TRACK, and until now the hardest of the
+          // three money columns to find: all of them shared one weight, so
+          // the running balance was just more figures. 500 in the navy-900
+          // family — colour says direction, weight says "this is the line"
+          // (DESIGN_PASS §3.1 PROMOTE). Negative still reads red, because an
+          // overdrawn balance is a fact about the money and not a decoration.
           className={`text-sm font-medium ${
             transaction.balance < 0
-              ? 'text-red-600 dark:text-red-400'
-              : 'text-gray-900 dark:text-gray-100'
+              ? 'text-expense dark:text-red-400'
+              : 'text-primary dark:text-gray-100'
           }`}
         >
-          {formatCurrency(transaction.balance, account?.currency)}
+          {formatRegisterMoney(transaction.balance)}
         </span>
       ),
       className: 'text-right',
       headerClassName: 'text-right'
     }
-  ], [formatCurrency, account?.currency, categoryLabel]);
+  ], [formatRegisterMoney, categoryLabel]);
 
   // Apply the persisted order + widths on top of the base definitions.
   const columns: Column<DisplayRow>[] = useMemo(() => {
@@ -2660,8 +2782,19 @@ export default function AccountTransactions() {
     // Still finding out which of the three it is — the open list may not have
     // arrived, or the closed lookup may be in flight. Saying "not found" here
     // would flash an error at an account that exists.
+    // Spelled out rather than read off registerIsResolving, which carries the
+    // same answer but does not narrow closedLookup for the branches below it.
     if (isLoading || closedLookup.status !== 'done') {
-      return <LoadingState message="Loading account…" />;
+      // SHAPE, NOT SPINNER — and only once the wait has earned it. The rows
+      // are drawn at the height and the column widths the real ones will
+      // have, so the register does not jump when they arrive (DESIGN_PASS §4).
+      return showRegisterSkeleton
+        ? (
+          <div className="hidden lg:block">
+            <TableSkeleton columns={columns} rowHeight={compactView ? 36 : 44} />
+          </div>
+        )
+        : null;
     }
 
     // Closed: an honest page, not an error. Its history is intact; what it
@@ -2733,6 +2866,34 @@ export default function AccountTransactions() {
     ? formatCardNumberForDisplay(storedAccountNumber)
     : storedAccountNumber;
 
+  /**
+   * What stands where the rows would be — and the two cases are NOT the same
+   * state (DESIGN_PASS §4).
+   *
+   * An account with nothing in it is a beginning, and wants the two ways of
+   * putting something in it. An account whose rows are all behind a filter is
+   * an alarm — the register looks exactly like one that has lost its contents
+   * — and wants the count that proves they still exist, the filters holding
+   * them back by name, and the one control that lets go.
+   */
+  const registerEmptyState = fullAccountTransactions.length === 0 ? (
+    <EmptyState
+      title="No transactions in this account yet"
+      description={`Its balance stays at ${formatRegisterMoney(computedAccountBalance)}, and this account adds nothing to your reports until something lands here.`}
+      action={{ label: 'Add transaction', onClick: () => setShowAddTransaction(true) }}
+      secondaryAction={{
+        label: 'Import a statement',
+        onClick: () => navigate(preserveDemoParam('/enhanced-import', location.search))
+      }}
+    />
+  ) : (
+    <FilteredEmptyState
+      hiddenCount={fullAccountTransactions.length}
+      filters={activeFilterNames}
+      onClear={clearAllFilters}
+    />
+  );
+
   return (
     <div className="flex flex-col h-full">
       {/* The way back.
@@ -2794,7 +2955,7 @@ export default function AccountTransactions() {
                 ? 'text-green-600 dark:text-green-400'
                 : 'text-red-600 dark:text-red-400'
             }`}>
-              {formatCurrency(computedAccountBalance, account.currency)}
+              {formatRegisterMoney(computedAccountBalance)}
             </span>
           </div>
 
@@ -2807,14 +2968,14 @@ export default function AccountTransactions() {
                   : 'text-red-600 dark:text-red-400'
                 : 'text-gray-400 dark:text-gray-500'
             }`}>
-              {bankBalance != null ? formatCurrency(bankBalance, account.currency) : 'N/A'}
+              {bankBalance != null ? formatRegisterMoney(bankBalance) : 'N/A'}
             </span>
           </div>
 
           <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3 justify-between lg:justify-normal">
             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Unreconciled</span>
             <span className="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap">
-              {formatCurrency(unreconciledTotal, account.currency)}
+              {formatRegisterMoney(unreconciledTotal)}
             </span>
           </div>
 
@@ -2828,7 +2989,7 @@ export default function AccountTransactions() {
                     ? 'text-blue-600 dark:text-blue-400'
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {formatCurrency(difference, account.currency)}
+                  {formatRegisterMoney(difference)}
                 </span>
               );
             })() : (
@@ -2854,10 +3015,13 @@ export default function AccountTransactions() {
       <div className="flex flex-col gap-3">
       {/* Toolbar: what the register SHOWS on the left, what it DOES on the
           right — Add last, in the rightmost seat, the way every other page in
-          the app puts its primary action. On a phone the buttons share the row
-          in equal thirds with short labels — the full wording wrapped inside
-          the buttons and gave each a different height — and a fourth wraps to
-          the next line, exactly as Show archived already does. */}
+          the app puts its primary action, and since DESIGN_PASS §3.1 the only
+          thing in that seat. Everything else is one quiet outline (see
+          TOOLBAR_QUIET_BUTTON), grouped left at 8px. On a phone the buttons
+          share the row in equal thirds with short labels — the full wording
+          wrapped inside the buttons and gave each a different height — and a
+          fourth wraps to the next line, exactly as Show archived already
+          does. */}
       <div className="grid grid-cols-3 items-stretch gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
         {/* display:contents on phones dissolves this wrapper so every button
             inside it is an equal grid cell of the row above; from sm it is the
@@ -2865,7 +3029,7 @@ export default function AccountTransactions() {
         <div className="contents sm:flex sm:items-center sm:gap-2">
         <button
           onClick={() => setShowFilters(prev => !prev)}
-          className="flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className={`${TOOLBAR_QUIET_BUTTON} ${TOOLBAR_QUIET_IDLE}`}
         >
           <FilterIcon size={14} />
           <span className="sm:hidden">Filters</span>
@@ -2880,11 +3044,7 @@ export default function AccountTransactions() {
         {hasArchivedHere && (
           <button
             onClick={() => setShowArchived(prev => !prev)}
-            className={`flex items-center gap-2 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
-              showArchived
-                ? 'border-[#1a2332] dark:border-blue-500 text-[#1a2332] dark:text-blue-400 bg-gray-50 dark:bg-gray-700'
-                : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
+            className={`${TOOLBAR_QUIET_BUTTON} ${showArchived ? TOOLBAR_QUIET_ACTIVE : TOOLBAR_QUIET_IDLE}`}
             title="Archived transactions are hidden from the live list but never deleted"
           >
             <EyeIcon size={14} />
@@ -2896,7 +3056,7 @@ export default function AccountTransactions() {
         <div className="relative flex" ref={viewRef}>
           <button
             onClick={() => setShowView(prev => !prev)}
-            className="flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className={`${TOOLBAR_QUIET_BUTTON} ${TOOLBAR_QUIET_IDLE}`}
           >
             <EyeIcon size={14} />
             View
@@ -2998,11 +3158,7 @@ export default function AccountTransactions() {
             type="button"
             onClick={() => setReviewOnly(prev => !prev)}
             aria-pressed={reviewOnly}
-            className={`flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
-              reviewOnly
-                ? 'border-[#1a2332] dark:border-blue-500 text-[#1a2332] dark:text-blue-400 bg-gray-50 dark:bg-gray-700'
-                : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
+            className={`${TOOLBAR_QUIET_BUTTON} ${reviewOnly ? TOOLBAR_QUIET_ACTIVE : TOOLBAR_QUIET_IDLE}`}
             title={
               reviewOnly
                 ? 'Showing only transactions that have arrived and not been dealt with. Click to show them all again.'
@@ -3022,21 +3178,25 @@ export default function AccountTransactions() {
             </span>
           </button>
         )}
-        </div>
-        {/* The right cluster: the same `contents` trick as the left one, so on
-            a phone these two are grid cells like the rest and from sm they are
-            a pair pushed to the right edge by the container's
-            justify-between. */}
-        <div className="contents sm:flex sm:items-center sm:gap-2">
+
+        {/* Expand table sits with the other quiet controls rather than in the
+            right-hand seat: it changes what the register SHOWS, which is what
+            this whole cluster does. The right-hand seat is for the one thing
+            that changes the ledger. (DESIGN_PASS §3.1 QUIET.) */}
         <button
           onClick={() => setTableExpanded(prev => !prev)}
-          className="flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className={`${TOOLBAR_QUIET_BUTTON} ${tableExpanded ? TOOLBAR_QUIET_ACTIVE : TOOLBAR_QUIET_IDLE}`}
           title={tableExpanded ? 'Shrink the table and show the add/edit bar' : 'Expand the table over the add/edit bar'}
         >
           {tableExpanded ? <MinimizeIcon size={14} /> : <MaximizeIcon size={14} />}
           <span className="sm:hidden">{tableExpanded ? 'Shrink' : 'Expand'}</span>
           <span className="hidden sm:inline">{tableExpanded ? 'Standard view' : 'Expand table'}</span>
         </button>
+        </div>
+        {/* The right cluster: the same `contents` trick as the left one, so on
+            a phone Add is a grid cell like the rest and from sm it is pushed to
+            the right edge by the container's justify-between. */}
+        <div className="contents sm:flex sm:items-center sm:gap-2">
         {/* THE FULL ADD, on this account. The dock at the foot of the page is
             deliberately six fields wide — date, type, payee, category, amount —
             and there was no way at all from this page to reach the rest of a
@@ -3051,7 +3211,7 @@ export default function AccountTransactions() {
         <button
           type="button"
           onClick={() => setShowAddTransaction(true)}
-          className="flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors shadow-sm"
+          className="flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium bg-[#1a2332] text-white rounded hover:bg-[#2d3a4d] transition-colors duration-state"
           title={`Add a transaction to ${account.name} on the full form — notes, the whole category tree, and a transfer's other side. The bar at the foot of the register is the quick way in.`}
         >
           <PlusIcon size={14} />
@@ -3185,7 +3345,7 @@ export default function AccountTransactions() {
           // that offers neither — a report, a Find result — gets the default
           // and says nothing.
           markNewArrivals
-          formatCurrency={(n) => formatCurrency(n, account.currency)}
+          formatCurrency={formatRegisterMoney}
           onEdit={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setIsEditModalOpen(true); }}
           onView={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setIsEditModalOpen(true); }}
           onDelete={(id) => {
@@ -3236,7 +3396,18 @@ export default function AccountTransactions() {
         ref={tableWrapRef}
         data-transaction-table
         style={{ height: tableHeight }}
-        className="hidden lg:block overflow-hidden rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
+        // No radius here any more: the table is the page's content, not a card
+        // sitting on it, and the corner was only ever there to clip the ring
+        // that has gone (DESIGN_PASS §3.1 QUIET). The focus ring stays — it is
+        // the one border with a meaning.
+        //
+        // A REFETCH DIMS, IT NEVER BLANKS: figures already on screen stay put
+        // at 60% while the same figures are fetched again. Blanking a register
+        // to reload it is indistinguishable, for the half-second it lasts,
+        // from losing the data (DESIGN_PASS §4).
+        className={`hidden lg:block overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 ${
+          isLoading ? 'opacity-60 transition-opacity duration-enter' : ''
+        }`}
         role="grid"
         aria-label={`${account.name} transactions`}
         // The header row counts, which is what puts the first transaction on
@@ -3280,9 +3451,25 @@ export default function AccountTransactions() {
           onColumnReorder={handleColumnReorder}
           onColumnResize={handleColumnResize}
           emptyMessage="No transactions found"
+          // Where the rows would be, when there are none: what is absent, what
+          // follows from that, and the control that fixes it — never a blank
+          // table (DESIGN_PASS §4).
+          emptyContent={registerEmptyState}
           threshold={50}
-          className="virtualized-table bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3] h-full"
-          headerClassName="bg-[#1a2332] dark:bg-gray-700 text-white"
+          /* ONE TREATMENT, not four. The navy fill, the blue-grey ring, the
+             drop shadow and the zebra were four ways of saying "this is a
+             table" over the top of each other, and every one of them cost
+             either contrast or a row. What is left is a hairline under a
+             label-sized header and a hairline between rows — the table reads
+             as the page's content, which is what it is (DESIGN_PASS §3.1
+             QUIET, P1/P4). */
+          surface="flat"
+          striped={false}
+          rowBorderClassName="border-b border-line-soft dark:border-gray-700"
+          className="virtualized-table bg-white dark:bg-gray-800 h-full border-0"
+          headerClassName="bg-surface-secondary dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-b border-line"
+          headerCellClassName="font-medium text-label uppercase"
+          headerSortHoverClassName="hover:text-gray-900 dark:hover:text-gray-100"
           rowClassName={(row: DisplayRow) => {
             if (isOpeningBalanceRow(row)) {
               return 'bg-blue-50/60 dark:bg-blue-900/20 italic';
@@ -3472,7 +3659,7 @@ export default function AccountTransactions() {
                   onAccountChange={(accountId) => { clearQuickAddError(); setQuickAddForm({ ...quickAddForm, category: accountId }); }}
                   placeholder="Account..."
                   searchPlaceholder="Search accounts…"
-                  formatLabel={(acc) => `${acc.name} (${formatCurrency(acc.balance)})`}
+                  formatLabel={(acc) => `${acc.name} (${formatCurrency(acc.balance, acc.currency)})`}
                   size="compact"
                   usePortal
                   ariaLabel="To Account"

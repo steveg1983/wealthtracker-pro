@@ -150,15 +150,20 @@ describe('the Reports heading is the app’s heading', () => {
   });
 });
 
-describe('the period control is a control, in a box of its own', () => {
-  it('sits below the heading, in a card, and still governs the report', () => {
+describe('the period control is a control, directly under the heading', () => {
+  it('sits below the heading with no card around it, and still governs the report', () => {
     renderHub('/reports');
 
     const group = screen.getByRole('group', { name: 'Reporting period' });
-    // A content card, like everything else stacked under a page heading.
-    const card = group.closest('.rounded-2xl');
-    expect(card).not.toBeNull();
-    expect(card?.className).toContain('bg-white');
+
+    // It used to be wrapped in a full-width white card: about 90px of chrome
+    // around a 36px control, which is decoration charged against the reports
+    // below it (DESIGN_PASS_2026-08 §3.5, P1). The pills sit directly under the
+    // heading now — the POSITION is what says this governs the page, and a box
+    // around it added nothing to that. The Dashboard borrows the same bar, so
+    // this assertion is what keeps the card from creeping back on either page.
+    expect(group.closest('.rounded-2xl')).toBeNull();
+    expect(group.closest('.bg-white')).toBeNull();
 
     // Below the heading, not beside it inside the header.
     const heading = screen.getByRole('heading', { level: 1, name: 'Reports' });
