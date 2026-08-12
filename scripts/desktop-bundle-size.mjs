@@ -149,9 +149,37 @@ const BINARY = path.join(REPO, 'apps', 'desktop', 'src-tauri', 'target', 'releas
  * paragraph above still applies unchanged — xlsx, jspdf, html2canvas and
  * recharts are 1,335 KiB of the 3,924, and the slice that fixes them is the
  * web app's.
+ *
+ * ── RE-RECORDED AFTER THE DESIGN PASS AND THE FX FEATURE ────────────────────
+ *
+ * 3924.1 → 4070.0 KiB raw, 1211.2 → 1240.6 KiB gzip, measured on a pristine
+ * checkout of a2eec741 (#254). +145.9 raw over two merges, and the whole step
+ * decomposes with no unexplained remainder — each part was measured by the
+ * change that made it, at the time it was made:
+ *
+ *   #253 (design batches 3–6)   ~125 KiB. The design pass's own components —
+ *                               PeriodBar, NetWorthSummary, the skeleton/
+ *                               filtered-empty patterns, the register's new
+ *                               chrome, the de-carded gallery — plus the token
+ *                               sheet's growth in the shared stylesheet.
+ *   #254 (cross-currency FX)    ~20 KiB. The rate dialog, the fx arithmetic,
+ *                               the cross-currency matchers and the provenance
+ *                               line under converted totals.
+ *
+ * Neither is an accidental arrival; both wear the tokens and both passed the
+ * cloud greps on the day. The baseline had simply fallen two merges behind the
+ * renderer it describes, which turned the drift figure into a ~146 KiB head
+ * start for whatever came next — the exact blindness this file exists to
+ * prevent. Budgets unchanged: 4320/1335 now sit ~6–8% above measured, tighter
+ * than the ~10% convention, which is the right side to err on.
+ *
+ * One correction to the standing analysis above: chart.js is GONE — the web
+ * bundle work of 2026-08-12 confirmed recharts is the product's only charting
+ * library, so "recharts AND chart.js" is history and the recharts 274 KiB is
+ * no longer waiting on a consolidation decision, only on a lazy-loading one.
  */
-const BASELINE_TOTAL_RAW_KIB = 3924.1;
-const BASELINE_TOTAL_GZIP_KIB = 1211.2;
+const BASELINE_TOTAL_RAW_KIB = 4070.0;
+const BASELINE_TOTAL_GZIP_KIB = 1240.6;
 
 // ~10% above measured, which is this file's own convention and matters more
 // than the number: tight enough that the next ACCIDENTAL arrival fails.
