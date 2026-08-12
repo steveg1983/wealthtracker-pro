@@ -52,10 +52,10 @@ export class SecureStorageAdapter implements StorageAdapter {
 
     this.localStorageRef = options.localStorage ?? defaultLocalStorage;
     this.sessionStorageRef = options.sessionStorage ?? defaultSessionStorage;
-    this.setIntervalFn = options.setIntervalFn ?? setInterval;
-    this.clearIntervalFn = options.clearIntervalFn ?? clearInterval;
-    this.setTimeoutFn = options.setTimeoutFn ?? setTimeout;
-    this.clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout;
+    this.setIntervalFn = options.setIntervalFn ?? setInterval.bind(globalThis);
+    this.clearIntervalFn = options.clearIntervalFn ?? clearInterval.bind(globalThis);
+    this.setTimeoutFn = options.setTimeoutFn ?? setTimeout.bind(globalThis);
+    this.clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout.bind(globalThis);
     const defaultLogger = typeof console !== 'undefined'
       ? console
       : { log: () => {}, warn: () => {}, error: () => {} };
