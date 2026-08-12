@@ -25,11 +25,19 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
+        # --ignore-scripts, deliberately, in THIS job only: the snapshot check
+        # runs no tests and compiles nothing, but a plain `npm ci` still builds
+        # `canvas` (jsdom's test-time dependency) from source whenever its
+        # prebuilt-binary fetch flakes — and the runner image carries no pixman/
+        # cairo headers, so the whole job dies for a native module it never
+        # uses (twice on 2026-08-12). Skipping lifecycle scripts sidesteps
+        # node-gyp entirely. quality-gates keeps its full `npm ci`: its tests
+        # DO need the postinstalls (esbuild among them).
         run: |
           if [ -f package-lock.json ]; then
-            npm ci
+            npm ci --ignore-scripts
           else
-            npm install
+            npm install --ignore-scripts
           fi
 
       - name: Run handoff snapshot update
