@@ -1,9 +1,9 @@
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeftIcon, CalendarIcon } from '../components/icons';
+import { ArrowLeftIcon } from '../components/icons';
 import PageTip from '../components/PageTip';
 import PageWrapper from '../components/PageWrapper';
-import PeriodPicker from '../components/PeriodPicker';
+import PeriodBar from '../components/PeriodBar';
 import { SkeletonCard } from '../components/loading/Skeleton';
 import { usePeriod, type PeriodKey } from '../hooks/usePeriod';
 import { preserveDemoParam } from '../utils/navigation';
@@ -141,15 +141,13 @@ export default function ReportsHub(): React.JSX.Element {
         }
         contentClassName="space-y-6"
       >
+        {/* Named for a screen reader even though it is the only period control
+            on the page: out of the header it is no longer read straight after
+            the report's title, so it has to say what it governs on its own.
+
+            No card around it any more — see components/PeriodBar. */}
         {(report?.usesPeriod ?? true) && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 flex items-center gap-2">
-            <CalendarIcon className="text-gray-500 flex-shrink-0" size={18} />
-            {/* Named for a screen reader even though it is the only period
-                control on the page: out of the header it is no longer read
-                straight after the report's title, so it has to say what it
-                governs on its own. */}
-            <PeriodPicker picker={picker} label="Reporting period" />
-          </div>
+          <PeriodBar picker={picker} label="Reporting period" />
         )}
 
         {ReportView ? (
@@ -160,13 +158,17 @@ export default function ReportsHub(): React.JSX.Element {
           <ReportGallery />
         )}
 
-        {/* One tip per page is the pattern, so the gallery's tip also carries the
-            rule people otherwise read as missing money. id bumped from
-            `reports-gallery` because that second half is new. */}
+        {/* What this tip used to carry in its second half — that uncategorised
+            rows are left out of the totals — is no longer here. A rule that
+            decides whether the figures are the whole story cannot live behind a
+            dismiss button, so it is now a permanent line under the Spending
+            heading in the gallery (§3.5). The id is deliberately NOT bumped:
+            this content is a strict subset of what it already said, so anyone
+            who dismissed it has read all of it. */}
         <PageTip
           id="reports-gallery-2"
-          title="Reports, and what they leave out"
-          description="Pick a report — net worth, balances, spending by category or payee, period comparisons — and the period you choose follows you from one to the next. A transaction with no category is left out of income and expense totals altogether, so nothing is counted under the wrong heading; the amber band on each report lists those rows for filing."
+          title="The period follows you"
+          description="Pick a report — net worth, balances, spending by category or payee, period comparisons — and the period you choose follows you from one to the next."
         />
       </PageWrapper>
     </>

@@ -44,6 +44,17 @@ export const isDemoMode = (): boolean => {
 // bookmarked /accounts/:id links) silently pointed at an account that no
 // longer existed. Demo sessions should behave like real ones, where an
 // account keeps its identity.
+// ─ WHY EVERY ACCOUNT CARRIES BOTH `updatedAt` AND `lastUpdated` ─────────────
+// `updatedAt` is the database column's name; `lastUpdated` is the name the app's
+// own Account type uses, and it is the one the Accounts list renders. The cloud
+// mapper (services/api/accountMapping) derives one from the other, but demo
+// accounts never go through a mapper — they are written to local storage and
+// read back by dataService.readCollection, which is a bare cast with no date
+// rehydration (transactions get normalizeTransactionDates; accounts were never
+// given the equivalent). So the field was simply absent, `new Date(undefined)`
+// gave Invalid Date, and every demo account read "Last updated: Invalid Date".
+// The list no longer prints a parser artefact whatever arrives, but the missing
+// field was the thing actually producing it, so it is filled in here too.
 export const demoAccounts = [
   {
     id: 'demo-account-checking',
@@ -56,6 +67,7 @@ export const demoAccounts = [
     isActive: true,
     createdAt: new Date('2024-01-01').toISOString(),
     updatedAt: new Date().toISOString(),
+    lastUpdated: new Date().toISOString(),
   },
   {
     id: 'demo-account-savings',
@@ -68,6 +80,7 @@ export const demoAccounts = [
     isActive: true,
     createdAt: new Date('2024-01-01').toISOString(),
     updatedAt: new Date().toISOString(),
+    lastUpdated: new Date().toISOString(),
   },
   {
     id: 'demo-account-investment',
@@ -80,6 +93,7 @@ export const demoAccounts = [
     isActive: true,
     createdAt: new Date('2024-01-01').toISOString(),
     updatedAt: new Date().toISOString(),
+    lastUpdated: new Date().toISOString(),
     holdings: [
       {
         id: 'demo-holding-aapl',
@@ -166,6 +180,7 @@ export const demoAccounts = [
     isActive: true,
     createdAt: new Date('2024-01-01').toISOString(),
     updatedAt: new Date().toISOString(),
+    lastUpdated: new Date().toISOString(),
   },
 ];
 

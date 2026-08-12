@@ -7,6 +7,8 @@ import { preserveDemoParam } from '../utils/navigation';
 import AddAccountModal from '../components/AddAccountModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import AccountBreakdownModal, { type AccountBreakdownView } from '../components/AccountBreakdownModal';
+import NetWorthSummary from '../components/NetWorthSummary';
+import { formatDate } from '../utils/dateFormatter';
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
 import { ArchiveIcon, SettingsIcon, WalletIcon, CheckCircleIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon, SearchIcon } from '../components/icons';
@@ -788,6 +790,41 @@ export default function Accounts() {
     selectedAccountId === accountId ? ACCOUNT_ROW_SELECTED_CLASS : unselected;
 
   /**
+   * A row's ROUTINE actions, out of the way until they are wanted.
+   *
+   * Twelve outlined icon boxes on a four-account screen is a wall of chrome in
+   * front of the figures the page exists to show, and the destructive one was
+   * drawn as loudly as the routine ones (DESIGN_PASS_2026-08 §3.3). They are
+   * revealed on hover or when anything in the row takes the focus.
+   *
+   * ─ WHY NOT display:none ────────────────────────────────────────────────────
+   * A hidden button is not reachable by Tab. These stay in the DOM and in the
+   * tab order at all times, at zero opacity; tabbing to one puts the focus
+   * inside the row, which is what `group-focus-within/row` is reading, so it
+   * fades in as it is reached. Nothing is removed from anybody — it is only
+   * quiet until it is asked for.
+   *
+   * ─ WHY THE MEDIA QUERY ─────────────────────────────────────────────────────
+   * A touch screen has no hover. Gated on `hover: hover`, so where hovering is
+   * impossible the buttons never fade at all and a phone shows the row exactly
+   * as it always did. (Tailwind's own `hover:` is a plain `:hover` here —
+   * `hoverOnlyWhenSupported` is not enabled — so the query is written out.)
+   *
+   * ─ WHY ONE RULE AND NOT TWO ────────────────────────────────────────────────
+   * The obvious spelling is "hide, then reveal on hover/focus": an `opacity-0`
+   * plus `group-hover/row:opacity-100`. It was measured in the browser and it
+   * does NOT work here — the reveal is the more specific selector of the two
+   * and still loses to the hider, so a keyboard user tabbed to a control that
+   * stayed invisible. Rather than escalate a cascade fight nobody can read
+   * later, the hidden state is expressed as the only declaration: opacity is
+   * left alone (1) and zeroed ONLY while the row is neither hovered nor holding
+   * the focus. One rule, nothing to outrank, and the keyboard case falls out of
+   * it for free.
+   */
+  const ROW_ACTION_REVEAL_CLASS =
+    'transition-opacity duration-state [@media(hover:hover)]:group-[:not(:hover):not(:focus-within)]/row:opacity-0';
+
+  /**
    * "Agree this account with the bank" — the same control for every row.
    *
    * One function rather than one per row type, because a nested cash account
@@ -804,7 +841,7 @@ export default function Accounts() {
     <button
       type="button"
       onClick={() => navigate(preserveDemoParam(`/reconciliation?account=${account.id}&from=accounts`, location.search))}
-      className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
+      className={`p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg relative group ${ROW_ACTION_REVEAL_CLASS}`}
       title={`Reconcile ${account.name}`}
       aria-label={`Reconcile ${account.name}`}
     >
@@ -823,14 +860,27 @@ export default function Accounts() {
     const syncing = isAccountSyncing(account.id);
     const TypeIcon = getAccountTypeIcon(account.type);
     const typeColor = getAccountTypeColor(account.type);
+    // '' when the date is absent or unparseable — formatDate answers that way
+    // rather than throwing or handing back "Invalid Date".
+    const lastUpdated = formatDate(account.lastUpdated);
                   return (
                   <div
                     key={account.id}
                     ref={isArrivalRow(account.id) ? arrivalRowRef : undefined}
                     {...rowProps(account.id)}
-                    className={`p-3 sm:p-4 rounded-2xl border transition-all duration-300 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${rowSkin(
+                    // `group/row` is what reveals the row's action buttons on
+                    // hover and on focus — named, because each button already
+                    // owns an unnamed `group` for its tooltip.
+                    //
+                    // A ROW, NOT A CARD, when it is not selected: no shadow and
+                    // no visible border, so the ONLY lifted thing on the page is
+                    // the selected row, which is what makes that lift read
+                    // (§3.3). The rounding stays and is simply invisible while
+                    // the row is white on white — it is there for the selected
+                    // state, whose wash and ring do show it.
+                    className={`group/row p-3 sm:p-4 rounded-2xl border border-b-line dark:border-b-gray-700 last:border-b-transparent transition-all duration-300 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${rowSkin(
                       account.id,
-                      'bg-white dark:bg-gray-800 shadow-lg border-gray-100 dark:border-gray-700 hover:shadow-xl hover:border-gray-200'
+                      'bg-white dark:bg-gray-800 border-transparent hover:bg-surface-secondary dark:hover:bg-gray-700/40'
                     )}`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -879,8 +929,23 @@ export default function Accounts() {
                             {account.institution}
                           </p>
                         )}
+                        {/* This line read "Last updated: Invalid Date" for any
+                            account whose date was absent — a raw
+                            `new Date(x).toLocaleDateString()` printing the
+                            parser's failure straight onto a page about money
+                            (§3.3). Two things were wrong with it, and both are
+                            fixed here: it never went through formatDate(), the
+                            app's own formatter, which is null-safe AND pins the
+                            UK dd/mm/yyyy this app formats every other date in
+                            (a bare toLocaleDateString takes the BROWSER's
+                            locale); and an absent date has a plain-English
+                            answer, so it gets one instead of a parser artefact.
+
+                            `Account.lastUpdated` is typed as a required Date but
+                            is not one at runtime on every path — see the note in
+                            utils/demoData, where the field was simply missing. */}
                         <p className="text-xs text-gray-500 dark:text-gray-300">
-                          Last updated: {new Date(account.lastUpdated).toLocaleDateString()}
+                          {lastUpdated ? `Last updated: ${lastUpdated}` : 'Not yet synced'}
                         </p>
                         {bankLink && (
                           <p className="text-xs text-gray-500 dark:text-gray-300">
@@ -946,7 +1011,7 @@ export default function Accounts() {
                                 {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
                                 <button
                                   onClick={() => setPortfolioAccountId(account.id)}
-                                  className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-purple-100/50 dark:hover:bg-purple-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
+                                  className={`p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-purple-700 dark:text-gray-400 dark:hover:text-purple-300 hover:bg-purple-100/50 dark:hover:bg-purple-900/30 rounded-lg relative group ${ROW_ACTION_REVEAL_CLASS}`}
                                   title="View Portfolio"
                                 >
                                   <PieChartIcon size={16} />
@@ -974,14 +1039,18 @@ export default function Accounts() {
                                     </span>
                                   </div>
                                 ) : (
-                                  <div className="relative group">
+                                  // Routine, so it fades with the rest. A sync
+                                  // in flight is not routine — it is something
+                                  // happening to this account right now, so a
+                                  // spinning icon stays visible.
+                                  <div className={`relative group ${syncing ? '' : ROW_ACTION_REVEAL_CLASS}`}>
                                     <IconButton
                                       onClick={() => void syncAccount(account.id)}
                                       icon={<RefreshCwIcon size={20} className={syncing ? 'animate-spin' : ''} />}
                                       variant="ghost"
                                       size="md"
                                       disabled={syncing}
-                                      className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 min-w-[48px] min-h-[48px]"
+                                      className="text-gray-500 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 min-w-[48px] min-h-[48px]"
                                       title="Sync bank data"
                                     />
                                     <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
@@ -991,7 +1060,7 @@ export default function Accounts() {
                                 ))}
                               </AccountRowActionSlot>
                               <AccountRowActionSlot>
-                                <div className="relative group">
+                                <div className={`relative group ${ROW_ACTION_REVEAL_CLASS}`}>
                                   <IconButton
                                     onClick={() => setSettingsAccountId(account.id)}
                                     icon={<SettingsIcon size={20} />}
@@ -1007,13 +1076,18 @@ export default function Accounts() {
                               </AccountRowActionSlot>
                               <AccountRowActionSlot>{renderReconcileButton(account)}</AccountRowActionSlot>
                               <AccountRowActionSlot>
-                                <div className="relative group">
+                                {/* Neutral until it is hovered. It is the
+                                    destructive one, and drawing it permanently
+                                    red made it the loudest thing on a row of
+                                    routine controls — the colour belongs to
+                                    the moment the pointer is actually on it. */}
+                                <div className={`relative group ${ROW_ACTION_REVEAL_CLASS}`}>
                                   <IconButton
                                     onClick={() => handleClose(account.id)}
                                     icon={<ArchiveIcon size={20} />}
                                     variant="ghost"
                                     size="md"
-                                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100/50 dark:hover:bg-red-900/30 min-w-[48px] min-h-[48px]"
+                                    className="text-gray-500 hover:text-expense dark:text-gray-400 dark:hover:text-red-300 hover:bg-red-100/50 dark:hover:bg-red-900/30 min-w-[48px] min-h-[48px]"
                                     title={`Close ${account.name}`}
                                   />
                                   <span className="absolute bottom-full right-0 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
@@ -1052,7 +1126,7 @@ export default function Accounts() {
                           key={child.id}
                           ref={isArrivalRow(child.id) ? arrivalRowRef : undefined}
                           {...rowProps(child.id)}
-                          className={`mt-3 ml-6 sm:ml-9 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-xl border border-dashed pl-3 pr-3 sm:pr-0 py-2.5 cursor-pointer select-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${rowSkin(
+                          className={`group/row mt-3 ml-6 sm:ml-9 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-xl border border-dashed pl-3 pr-3 sm:pr-0 py-2.5 cursor-pointer select-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${rowSkin(
                             child.id,
                             'border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-700/60 hover:border-gray-400 dark:hover:border-gray-400'
                           )}`}
@@ -1150,13 +1224,21 @@ export default function Accounts() {
     const regionId = groupRegionId(group.kind, group.label);
 
     return (
-      <div key={`${group.kind}:${group.label}`} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+      // NOT A CARD. This used to be a white bordered, shadowed box containing a
+      // grey band containing white rows — three nested containers to say one
+      // thing (DESIGN_PASS_2026-08 §3.3). Per P4 a group is separated by WEIGHT
+      // and SPACE before it is separated by a box: the heading is a quiet caps
+      // label on #f8f9fb with the band's total opposite it, the rows sit
+      // directly on white below, and the 24px between one band and the next is
+      // the `gap-6` of the grid this returns into. One border and one shadow
+      // fewer per group.
+      <div key={`${group.kind}:${group.label}`}>
         <button
           type="button"
           onClick={() => toggleGroupCollapsed(collapseKeyFor(group.kind, group.label))}
           aria-expanded={isExpanded}
           aria-controls={regionId}
-          className="w-full bg-gray-100 dark:bg-gray-700/70 border-b border-gray-300 dark:border-gray-500 px-4 sm:px-6 py-3 sm:py-4 text-left hover:bg-gray-200/70 dark:hover:bg-gray-700 transition-colors"
+          className="w-full bg-surface-secondary dark:bg-gray-700/50 border-b border-line dark:border-gray-700 px-4 sm:px-6 py-2.5 text-left transition-colors duration-state hover:bg-surface-tertiary dark:hover:bg-gray-700"
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-2 md:gap-3">
@@ -1165,19 +1247,23 @@ export default function Accounts() {
                 className={`flex-shrink-0 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
               />
               {bandHeadingIcon(group)}
-              <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">{group.title}</h2>
-              <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
+              {/* Caps label, not a heading-sized title: the band's name is a
+                  label for the figure beside it, and the figure is the thing
+                  worth reading (P1). Still an h2 — the outline, and the way a
+                  screen-reader user walks this page, are unchanged. */}
+              <h2 className="text-label uppercase font-semibold text-gray-600 dark:text-gray-300">{group.title}</h2>
+              <span className="text-dense text-gray-400 dark:text-gray-500">
                 ({group.accounts.length} {group.accounts.length === 1 ? 'account' : 'accounts'})
               </span>
             </div>
-            <p className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
+            <p className="text-card font-semibold text-primary dark:text-white">
               {formatDisplayCurrency(totalForBand(group.accounts))}
             </p>
           </div>
         </button>
 
         {isExpanded && (
-          <div id={regionId} className="p-3 sm:p-4 space-y-3">
+          <div id={regionId} className="bg-white dark:bg-gray-800">
             {subBands
               ? subBands.map(sub => {
                   // Count and total describe the WHOLE sub-band, as the section
@@ -1192,16 +1278,17 @@ export default function Accounts() {
                       key={sub.label}
                       role="group"
                       aria-label={`${sub.title}, ${countLabel}, total ${subTotal}`}
-                      className="space-y-3"
                     >
-                      <div className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-100 dark:border-gray-700 px-3 py-1.5">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 truncate">
+                      {/* The same treatment as the band above it, one step
+                          quieter: a line, not a pill with a border of its own. */}
+                      <div className="flex items-center justify-between gap-2 border-b border-line dark:border-gray-700 bg-surface-secondary/60 dark:bg-gray-700/30 px-4 sm:px-6 py-1.5">
+                        <p className="text-label uppercase font-semibold text-gray-500 dark:text-gray-400 truncate">
                           {sub.title}
                           <span className="ml-2 font-normal normal-case tracking-normal text-gray-400 dark:text-gray-500">
                             ({countLabel})
                           </span>
                         </p>
-                        <p className="shrink-0 text-xs font-semibold tabular-nums text-gray-600 dark:text-gray-300">
+                        <p className="shrink-0 text-dense font-semibold text-gray-600 dark:text-gray-300">
                           {subTotal}
                         </p>
                       </div>
@@ -1301,39 +1388,27 @@ export default function Accounts() {
           })
           .reduce((sum, a) => sum + Math.abs(computeAccountBalance(a.id)), 0);
 
-        // One column on a phone: these are eight-digit figures at text-2xl,
-        // and a grid cell will not shrink below an unbreakable number — three
-        // abreast forced the whole page to scroll sideways at 375px.
-        // Each figure drills into the accounts behind it.
+        // ONE card, three columns, hairline dividers — not a navy slab and two
+        // white cards, which read as one important thing and two afterthoughts
+        // when it is one figure and the two halves it is made of
+        // (DESIGN_PASS_2026-08 §3.3). The same component draws the Dashboard's,
+        // so the two surfaces cannot disagree about what net worth looks like.
+        //
+        // All three are formatted WITHOUT an account currency, i.e. in the
+        // display currency: a total over accounts that need not share a
+        // currency belongs to none of them in particular. The rows below keep
+        // showing each account's own — which is what settles the mismatch the
+        // two rows of cards used to have between them.
+        //
+        // Each figure still drills into the accounts behind it.
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <button
-              type="button"
-              onClick={() => setBreakdownView('net')}
-              className="flex flex-col items-start bg-[#1a2332] dark:bg-gray-700 rounded-xl p-4 text-white text-left hover:bg-[#2d3a4d] dark:hover:bg-gray-600 transition-colors"
-              title="See the accounts behind this figure"
-            >
-              <p className="text-xs text-white/60 uppercase tracking-wider font-medium">Net Worth</p>
-              <p className="text-2xl font-bold mt-1">{formatDisplayCurrency(totalBalance)}</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setBreakdownView('assets')}
-              className="flex flex-col items-start bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 text-left hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-md transition-all"
-              title="See the accounts behind this figure"
-            >
-              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Assets</p>
-              <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">{formatDisplayCurrency(totalAssets)}</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setBreakdownView('liabilities')}
-              className="flex flex-col items-start bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 text-left hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-md transition-all"
-              title="See the accounts behind this figure"
-            >
-              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Liabilities</p>
-              <p className="text-2xl font-bold mt-1 text-red-600">{formatDisplayCurrency(totalLiabilities)}</p>
-            </button>
+          <div className="mb-6">
+            <NetWorthSummary
+              netWorth={formatDisplayCurrency(totalBalance)}
+              assets={formatDisplayCurrency(totalAssets)}
+              liabilities={formatDisplayCurrency(totalLiabilities)}
+              onSelect={figure => setBreakdownView(figure)}
+            />
           </div>
         );
       })()}
@@ -1504,8 +1579,9 @@ export default function Accounts() {
             <SkeletonCard className="h-48" />
           </>
         ) : displayedList.mode === 'flat' ? (
-          /* Both switches off: one list, no band chrome at all. */
-          <div className="space-y-3">
+          /* Both switches off: one list, no band chrome at all — the rows on
+             white, separated by the same hairline the banded views use. */
+          <div className="bg-white dark:bg-gray-800">
             {displayedList.accounts.map(renderAccountCard)}
           </div>
         ) : (

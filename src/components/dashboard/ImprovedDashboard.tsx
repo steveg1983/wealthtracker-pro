@@ -6,14 +6,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 // last cloud root a walk from this page could find once `@session` took the
 // state layer's preamble away.
 import { useIdentityKey } from '@identity';
-import { 
-  TrendingUpIcon, 
-  TrendingDownIcon, 
-  BanknoteIcon, 
+import {
+  TrendingUpIcon,
+  TrendingDownIcon,
   AlertCircleIcon,
   ChevronRightIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
   WalletIcon,
   PieChartIcon,
   SettingsIcon,
@@ -27,8 +24,9 @@ import { preserveDemoParam } from '../../utils/navigation';
 import EditTransactionModal from '../EditTransactionModal';
 import IncomeExpenseBreakdownModal from '../IncomeExpenseBreakdownModal';
 import { Modal, ModalBody } from '../common/Modal';
-import PeriodPicker from '../../components/PeriodPicker';
-import { PERIOD_LABELS, seedPeriodSelection, usePeriod } from '../../hooks/usePeriod';
+import PeriodBar from '../../components/PeriodBar';
+import NetWorthSummary from '../../components/NetWorthSummary';
+import { PERIOD_LABELS, usePeriod } from '../../hooks/usePeriod';
 import { customReportService } from '../../services/customReportService';
 import {
   NetWorthWidget,
@@ -54,9 +52,18 @@ import { buildAccountBankLinks } from '../../hooks/accountBankLinks';
 import { useBankConnectionSnapshot } from '@service';
 import { preferences } from '../../services/preferencesService';
 
-/** Where each half of the reports box remembers its period. */
-const ASSETS_PERIOD_KEY = 'dashboardReports';
-const FLOWS_PERIOD_KEY = 'dashboardReportsFlows';
+/**
+ * Where this page remembers the window it is being read over.
+ *
+ * The ORIGINAL key, deliberately. The dashboard has had three period controls
+ * at various times — one for Performance, one for each half of the reports box
+ * — and this is the one that predates all of them, so collapsing back to a
+ * single page-level control keeps the choice the user already made rather than
+ * starting them somewhere new. (`dashboardReportsFlows` and
+ * `dashboardPerformance` are no longer read; a stored value under either is
+ * simply ignored.)
+ */
+const DASHBOARD_PERIOD_KEY = 'dashboardReports';
 
 /**
  * Improved Dashboard with better information hierarchy
@@ -90,20 +97,22 @@ export function ImprovedDashboard() {
     return ['net-worth'];
   });
   const [showReportPicker, setShowReportPicker] = useState(false);
-  // Two clocks, because the two halves of the reports box answer different
-  // questions: what a life is worth is read over years, what a month cost is
-  // read over a month. One control for both forced net worth into last
-  // month's window to see last month's spending.
-  //
-  // The assets side keeps the original storage key, and the flows side is
-  // seeded from it once (before usePeriod reads storage below), so splitting
-  // the control does not quietly reset half of an existing choice.
-  useMemo(() => seedPeriodSelection(ASSETS_PERIOD_KEY, FLOWS_PERIOD_KEY), []);
-  const assetsPeriod = usePeriod(ASSETS_PERIOD_KEY, 'last-12-months');
-  const flowsPeriod = usePeriod(FLOWS_PERIOD_KEY, 'last-12-months');
-  // Performance keeps its OWN period (and storage key) so changing what the
-  // pinned reports cover never silently rewrites the headline income figure.
-  const performancePeriod = usePeriod('dashboardPerformance', 'this-month');
+  /**
+   * ONE clock for the whole page.
+   *
+   * There were three, in the same style, each governing only the section it
+   * happened to sit in — so none of them declared what it covered and two of
+   * them were feet apart on screen (DESIGN_PASS_2026-08 §3.4). A page-level bar
+   * under the heading says what it governs by WHERE IT IS, which is the thing
+   * the section-local pickers could not do at any size.
+   *
+   * Twelve months is the default because it is the window that reads on every
+   * figure below: net worth over a single month is a dot, while income and
+   * spending over a year is a perfectly ordinary question to ask. It is also
+   * the default this storage key already had, so nobody's stored dashboard
+   * moves underneath them.
+   */
+  const period = usePeriod(DASHBOARD_PERIOD_KEY, 'last-12-months');
   // The Account Distribution card lives here rather than in
   // DashboardReportWidgets, so it reaches for the same click-through as its
   // neighbours instead of growing a second one that drifts.
@@ -213,9 +222,7 @@ export function ImprovedDashboard() {
       budgetStatus,
       totalBudgeted,
       totalSpentOnBudgets,
-      overallBudgetPercent,
-      netWorthChange: 0, // Will be calculated from actual historical data when available
-      netWorthChangePercent: 0 // Will be calculated from actual historical data when available
+      overallBudgetPercent
     };
   }, [accounts, accountBalanceMap, transactions, transactionSplits, budgets]);
 
@@ -225,7 +232,7 @@ export function ImprovedDashboard() {
   // movement never decides the bucket. The cards and the breakdown modal read
   // these same totals, so both always describe one and the same window.
   const performance = useMemo(() => {
-    const { from, to } = performancePeriod.range;
+    const { from, to } = period.range;
     const flows = computeIncomeExpense(transactions, transactionSplits, categories, {
       from: from ?? undefined,
       to: to ?? undefined,
@@ -236,7 +243,7 @@ export function ImprovedDashboard() {
       incomeRows: flows.incomeRows,
       expenseRows: flows.expenseRows,
     };
-  }, [transactions, transactionSplits, categories, performancePeriod.range]);
+  }, [transactions, transactionSplits, categories, period.range]);
 
   // Generate net worth data for chart - ONLY REAL DATA
   const netWorthData = useMemo(() => {
@@ -341,8 +348,9 @@ export function ImprovedDashboard() {
   );
   const clearAllAccounts = useCallback(() => persistSelection([]), [persistSelection]);
 
-  // Which pinned reports belong to which column. Assets read over years,
-  // spending over months — see the two period keys above.
+  // Which pinned reports belong to which column: what you are worth on the
+  // left, what moved on the right. A layout split, not a period one — both
+  // columns read over the page's period.
   const assetsReports = pinnedReports.filter(id => id === 'net-worth');
   const flowsReports = pinnedReports.filter(
     id => id === 'income-expense-trend' || id === 'expense-categories'
@@ -355,62 +363,24 @@ export function ImprovedDashboard() {
 
   return (
     <div className="space-y-4 max-w-[1400px] mx-auto">
-      {/* Primary Focus: Net Worth Hero Card */}
-      <section 
-        aria-labelledby="net-worth-heading"
-        className="bg-[#1a2332] rounded-2xl p-6 sm:p-8 text-white shadow-xl"
+      {/* The one control that says what window this page is being read over.
+          Directly under the page heading, so its position states its scope. */}
+      <PeriodBar picker={period} label="Period for this dashboard" />
+
+      {/* Net worth and the two figures it is made of — one card, three
+          columns. The navy slab this replaces put a second heavy horizontal
+          under the nav bar and needed a whole white-on-navy text system to
+          itself; the figure was already the largest thing on the page without
+          it. See components/NetWorthSummary. */}
+      <section
+        data-testid="dashboard-grid"
+        aria-label="Net worth, assets and liabilities"
       >
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <h2 id="net-worth-heading" className="text-lg sm:text-xl opacity-90 font-medium">Your Net Worth</h2>
-            <div className="mt-2 flex items-baseline gap-3">
-              <span className="text-3xl sm:text-4xl lg:text-5xl font-bold">
-                {formatCurrencyWithSymbol(metrics.netWorth)}
-              </span>
-              {/* Only show change when we have historical data */}
-              {metrics.netWorthChange !== 0 && (
-                metrics.netWorthChange > 0 ? (
-                  <span className="flex items-center gap-1 text-green-300 text-sm sm:text-base">
-                    <ArrowUpIcon size={16} />
-                    +{formatDecimal(metrics.netWorthChangePercent, 1)}%
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-red-300 text-sm sm:text-base">
-                    <ArrowDownIcon size={16} />
-                    {formatDecimal(metrics.netWorthChangePercent, 1)}%
-                  </span>
-                )
-              )}
-            </div>
-            {metrics.netWorthChange !== 0 && (
-              <p className="mt-3 opacity-80 text-sm sm:text-base">
-                vs last month: {formatCurrencyWithSymbol(metrics.netWorthChange)}
-              </p>
-            )}
-          </div>
-          <BanknoteIcon size={48} className="opacity-50 hidden sm:block" />
-        </div>
-        
-        {/* Quick stats */}
-        <div 
-          data-testid="dashboard-grid" 
-          className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-white/20"
-          role="group"
-          aria-label="Assets and liabilities summary"
-        >
-          <div>
-            <p className="text-sm opacity-70">Assets</p>
-            <p className="text-xl font-semibold text-green-300">
-              {formatCurrencyWithSymbol(metrics.totalAssets)}
-            </p>
-          </div>
-          <div>
-            <p className="text-sm opacity-70">Liabilities</p>
-            <p className="text-xl font-semibold text-red-300">
-              {formatCurrencyWithSymbol(metrics.totalLiabilities)}
-            </p>
-          </div>
-        </div>
+        <NetWorthSummary
+          netWorth={formatCurrencyWithSymbol(metrics.netWorth)}
+          assets={formatCurrencyWithSymbol(metrics.totalAssets)}
+          liabilities={formatCurrencyWithSymbol(metrics.totalLiabilities)}
+        />
       </section>
 
       {/* Secondary Focus: Performance over the chosen period */}
@@ -418,13 +388,15 @@ export function ImprovedDashboard() {
         aria-labelledby="performance-heading"
         className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
       >
+        {/* No picker of its own: this card reads over the page's period, like
+            everything else below the bar at the top. */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <h3 id="performance-heading" className="text-lg font-semibold text-gray-900 dark:text-white">
             Performance
           </h3>
-          <div className="ml-auto">
-            <PeriodPicker picker={performancePeriod} />
-          </div>
+          <span className="text-body text-gray-500 dark:text-gray-400">
+            {PERIOD_LABELS[period.period]}
+          </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -462,17 +434,16 @@ export function ImprovedDashboard() {
           Same shared maths as the full Reports hub — the glance and the full
           view can never disagree.
 
-          Two columns, two clocks: what a life is worth on the left, what a
-          month cost on the right, each with its own period. They were one
-          control, which meant reading last month's spending dragged net worth
-          down to a single month with it. */}
-      <section
-        aria-labelledby="pinned-reports-heading"
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
-      >
-        {/* The gear lives on the title row so the period pickers below get
-            the card's full width — beside a picker it was stealing the exact
-            space the wrapped pill needed on a phone. */}
+          NOT A CARD. "Your Reports" is a section heading, and the report cards
+          below are cards — wrapping them in one more card put two borders and
+          two shadows around every chart (P7, §3.4). It stays a <section> with
+          an accessible name, which is what makes it a landmark; only the box
+          around it is gone.
+
+          Both columns read over the page's period now. They used to carry a
+          picker each, feet apart and identical in style to the one on
+          Performance above them. */}
+      <section aria-labelledby="pinned-reports-heading">
         <div className="flex items-center justify-between gap-3 mb-3">
           <h3 id="pinned-reports-heading" className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <BarChart3Icon size={24} className="text-gray-500" />
@@ -494,12 +465,7 @@ export function ImprovedDashboard() {
         <div className={`grid grid-cols-1 gap-6 ${showAssetsColumn && showFlowsColumn ? 'lg:grid-cols-2' : ''}`}>
           {showAssetsColumn && (
             <div className="space-y-4">
-              {assetsReports.length > 0 && (
-                <>
-                  <PeriodPicker picker={assetsPeriod} label="Period for net worth reports" />
-                  {assetsReports.map(id => <NetWorthWidget key={id} picker={assetsPeriod} />)}
-                </>
-              )}
+              {assetsReports.map(id => <NetWorthWidget key={id} picker={period} />)}
 
               {/* Account distribution: a snapshot of TODAY, sitting under a
                   period control it deliberately ignores — so it says so.
@@ -586,11 +552,10 @@ export function ImprovedDashboard() {
 
           {showFlowsColumn && (
             <div className="space-y-4">
-              <PeriodPicker picker={flowsPeriod} label="Period for income and spending reports" />
               {flowsReports.map(id => (
                 id === 'income-expense-trend'
-                  ? <IncomeExpenseTrendWidget key={id} picker={flowsPeriod} />
-                  : <ExpenseCategoriesWidget key={id} picker={flowsPeriod} />
+                  ? <IncomeExpenseTrendWidget key={id} picker={period} />
+                  : <ExpenseCategoriesWidget key={id} picker={period} />
               ))}
             </div>
           )}
@@ -662,7 +627,7 @@ export function ImprovedDashboard() {
       <IncomeExpenseBreakdownModal
         isOpen={breakdownType !== null}
         onClose={() => setBreakdownType(null)}
-        title={`${breakdownType === 'income' ? 'Income' : 'Expenses'} — ${PERIOD_LABELS[performancePeriod.period]}`}
+        title={`${breakdownType === 'income' ? 'Income' : 'Expenses'} — ${PERIOD_LABELS[period.period]}`}
         bucket={breakdownType ?? 'income'}
         rows={breakdownType === 'income' ? performance.incomeRows : performance.expenseRows}
         total={breakdownType === 'income' ? performance.income : performance.expenses}
