@@ -34,6 +34,14 @@
          provides, so a component that only typechecks against DataService is a
          build error in this project rather than a discovery at run time. */
       "@data": ["./src/services/local/deviceDataPort.ts"],
+      /* The mount slice's four seams, device halves. Layout is not mounted in
+         this project yet — that is part 2 — but the halves themselves are
+         compiled here against the contracts in `src/editions/`, which is what
+         makes them substitutable rather than merely present. */
+      "@chrome": ["./src/desktop/editions/chrome.tsx"],
+      "@identity": ["./src/desktop/editions/identity.ts"],
+      "@prefs-store": ["./src/desktop/editions/preferencesStore.ts"],
+      "@telemetry": ["./src/desktop/editions/telemetry.ts"],
       "@wealthtracker/utils": ["./packages/utils/index.ts"],
       "@wealthtracker/utils/*": ["./packages/utils/*"],
       "@wealthtracker/types/*": ["./packages/types/*"],

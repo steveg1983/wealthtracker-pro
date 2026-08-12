@@ -12,6 +12,12 @@ export default createVitestReactConfig({
     // which had to be told which edition it was in would not be testing the
     // seam. FIRST for the reason vite.config.ts gives: '@' would claim it.
     '@data': path.resolve(process.cwd(), './src/services/port'),
+    // The mount slice's four, likewise the WEB halves: the suite renders the
+    // browser's Layout, with a Clerk button and a search box that searches.
+    '@chrome': path.resolve(process.cwd(), './src/editions/cloud/chrome'),
+    '@identity': path.resolve(process.cwd(), './src/editions/cloud/identity'),
+    '@prefs-store': path.resolve(process.cwd(), './src/editions/cloud/preferencesStore'),
+    '@telemetry': path.resolve(process.cwd(), './src/editions/cloud/telemetry'),
     '@': path.resolve(process.cwd(), './src'),
     '@/contexts/AppContextSupabase': path.resolve(process.cwd(), './src/test/mocks/AppContextSupabase.ts'),
   },

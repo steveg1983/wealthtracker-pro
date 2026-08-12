@@ -1,14 +1,28 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
-import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 
-const AddTransactionModal = lazyWithRecovery(() => import('./AddTransactionModal'));
-import { UserButton } from '@clerk/clerk-react';
+// THE FRAME'S EDITION-VARYING FURNITURE, through a specifier that names no
+// edition. Everything here used to be imported by path — a Clerk button, a bank
+// feed's scheduler, a demo banner, and four surfaces that reach the web's state
+// layer — and between them they were five of the six cloud roots a walk from
+// this file used to find. `editions/chrome.ts` declares what each one is;
+// `docs/edition-gating.md` explains why the choice is the build's rather than a
+// runtime branch's.
+import {
+  BackgroundWork,
+  DemoBanner,
+  GlobalSearch,
+  IdentityMenu,
+  MobileBreadcrumb,
+  NotificationBell,
+  QuickAddTransaction,
+  RealtimeDot,
+  type GlobalSearchHandle
+} from '@chrome';
 import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, TargetIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon, UsersIcon } from '../components/icons';
 import { SidebarLink, TopNavItem, TopNavDropdown } from './layout/NavComponents';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
-import { MobileBreadcrumb } from './layout/Breadcrumbs';
 import { EnhancedSkipLinks, FocusIndicator, RouteAnnouncer } from './layout/AccessibilityImprovements';
 import OfflineIndicator from './OfflineIndicator';
 import { OfflineStatus } from './OfflineStatus';
@@ -20,25 +34,23 @@ import { OfflineIndicator as PWAOfflineIndicator } from './pwa/OfflineIndicator'
 import { QuickAddOfflineButton } from './pwa/QuickAddOfflineButton';
 import { EnhancedConflictResolutionModal } from './pwa/EnhancedConflictResolutionModal';
 import { useConflictResolution } from '../hooks/useConflictResolution';
-import GlobalSearch, { type GlobalSearchHandle } from './GlobalSearch';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
 import { useKeyboardShortcutsHelp } from '../hooks/useKeyboardShortcutsHelp';
-import EnhancedNotificationBell from './EnhancedNotificationBell';
 import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import KeyboardSequenceIndicator from './KeyboardSequenceIndicator';
-import { RealtimeStatusDot } from './RealtimeStatusIndicator';
 import MobileBottomNav from './MobileBottomNav';
 import { useSwipeGestures } from '../hooks/useSwipeGestures';
-import { useAutoBankSync } from '../hooks/useAutoBankSync';
-import DemoModeIndicator from './DemoModeIndicator';
 import ViewportDebugOverlay from './ViewportDebugOverlay';
 import SyncStatusIndicator from './SyncStatusIndicator';
 import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
 
 /**
  * The vertical room the demo banner needs, or nothing at all when it is not
- * showing. Set by DemoModeIndicator, which is the only thing that can measure
- * it — see the comment on BANNER_HEIGHT_VAR there.
+ * showing. Set by whatever `@chrome` resolves `DemoBanner` to, which is the only
+ * thing that can measure it — see the comment on BANNER_HEIGHT_VAR in
+ * `components/DemoModeIndicator.tsx`. An edition with no demo mode publishes
+ * nothing and every consumer here falls back to 0px, which is exactly what a
+ * browser outside demo mode already does.
  */
 const DEMO_BANNER_OFFSET = 'var(--wt-demo-banner-height, 0px)';
 
@@ -90,10 +102,6 @@ export default function Layout(): React.JSX.Element {
   
   // Initialize global keyboard shortcuts
   const { activeSequence } = useGlobalKeyboardShortcuts(openHelp);
-
-  // Scheduled bank-feed refresh (on sign-in / daily at a set time) — the
-  // schedule itself lives in Settings; signed-out sessions do nothing.
-  useAutoBankSync();
 
   // Simple page navigation helper. Swipe walks the PAGES a phone browses;
   // Find is a question you ask, not somewhere you swipe into, so it is not
@@ -232,7 +240,12 @@ export default function Layout(): React.JSX.Element {
     // normal flow beside main. That rule is fixed too — block layout stays
     // because main's width should never be negotiable in the first place.
     <div className="min-h-screen bg-[#f8f9fb] dark:bg-gray-900">
-      <DemoModeIndicator />
+      {/* Whatever this edition starts once and never speaks to again, drawing
+          nothing. In a browser it is the scheduled bank-feed refresh (on
+          sign-in / daily at a set time — the schedule lives in Settings, and
+          signed-out sessions do nothing); on a device there is no feed. */}
+      <BackgroundWork />
+      <DemoBanner />
       <EnhancedSkipLinks />
       <FocusIndicator />
       <RouteAnnouncer />
@@ -256,10 +269,10 @@ export default function Layout(): React.JSX.Element {
       <nav
         id="main-navigation"
         className="hidden md:block fixed top-0 left-0 right-0 z-40 bg-[#1a2332] shadow-md"
-        // Sits BELOW the demo banner rather than under it. DemoModeIndicator
-        // publishes its measured height into this variable while demo mode is
-        // on, and removes it otherwise — so outside demo mode this resolves to
-        // 0px and is exactly the `top-0` it overrides.
+        // Sits BELOW the demo banner rather than under it. The banner publishes
+        // its measured height into this variable while demo mode is on, and
+        // removes it otherwise — so outside demo mode this resolves to 0px and
+        // is exactly the `top-0` it overrides.
         style={{ top: DEMO_BANNER_OFFSET }}
         role="navigation"
         aria-label="Main navigation"
@@ -373,8 +386,8 @@ export default function Layout(): React.JSX.Element {
                 />
               </div>
             </div>
-            <EnhancedNotificationBell />
-            <RealtimeStatusDot />
+            <NotificationBell />
+            <RealtimeDot />
             <div className="relative">
               <button
                 onClick={() => setOpenDropdown(openDropdown === 'help' ? null : 'help')}
@@ -429,16 +442,7 @@ export default function Layout(): React.JSX.Element {
                 );
               })()}
             </div>
-            <UserButton
-              afterSignOutUrl="/"
-              appearance={{
-                elements: {
-                  avatarBox: "w-8 h-8",
-                  userButtonPopoverCard: "shadow-xl",
-                  userButtonPopoverActions: "mt-2"
-                }
-              }}
-            />
+            <IdentityMenu />
           </div>
         </div>
       </nav>
@@ -465,7 +469,7 @@ export default function Layout(): React.JSX.Element {
           
           <div className="flex items-center gap-2">
             <SyncStatusIndicator variant="compact" className="mr-1" />
-            <EnhancedNotificationBell />
+            <NotificationBell />
             <button
               onClick={() => {
                 if (isMobileSearchVisible) {
@@ -479,16 +483,7 @@ export default function Layout(): React.JSX.Element {
             >
               <SearchIcon size={20} className="text-gray-700 dark:text-gray-200" />
             </button>
-            <UserButton 
-              afterSignOutUrl="/"
-              appearance={{
-                elements: {
-                  avatarBox: "w-8 h-8",
-                  userButtonPopoverCard: "shadow-xl",
-                  userButtonPopoverActions: "mt-2"
-                }
-              }}
-            />
+            <IdentityMenu />
           </div>
         </div>
       </header>
@@ -702,7 +697,7 @@ export default function Layout(): React.JSX.Element {
       {/* Global Add Transaction Modal (Alt+N from any page) */}
       {showGlobalAddTransaction && (
         <Suspense fallback={null}>
-          <AddTransactionModal
+          <QuickAddTransaction
             isOpen={showGlobalAddTransaction}
             onClose={() => setShowGlobalAddTransaction(false)}
           />

@@ -33,8 +33,8 @@ interface LoggingDependencies {
     enableConsoleBridge?: boolean;
   };
   console?: ConsoleLike;
-  captureException?: typeof captureException;
-  captureMessage?: typeof captureMessage;
+  captureException?: CaptureException;
+  captureMessage?: CaptureMessage;
   storage?: StorageLike | null;
   userAgentProvider?: () => string;
   urlProvider?: () => string;
@@ -42,14 +42,20 @@ interface LoggingDependencies {
   maxHistorySize?: number;
 }
 
-import { captureException, captureMessage } from '../lib/sentry';
+// WHERE A CAUGHT ERROR GOES, as a specifier that names no edition. This line
+// used to be `from '../lib/sentry'`, and it is the reason `scopedLogger` — which
+// sixty-seven modules import, most of them shared UI — was a module a desktop
+// bundle could not contain. Logging is fine on a device; reporting to a server
+// is not. See `editions/telemetry.ts`.
+import { captureException, captureMessage } from '@telemetry';
+import type { CaptureException, CaptureMessage } from '../editions/telemetry';
 
 class LoggingService {
   private readonly isDevelopment: boolean;
   private readonly isTest: boolean;
   private readonly consoleLike: ConsoleLike;
-  private readonly captureExceptionFn: typeof captureException;
-  private readonly captureMessageFn: typeof captureMessage;
+  private readonly captureExceptionFn: CaptureException;
+  private readonly captureMessageFn: CaptureMessage;
   private readonly storage: StorageLike | null;
   private readonly userAgentProvider: () => string;
   private readonly urlProvider: () => string;

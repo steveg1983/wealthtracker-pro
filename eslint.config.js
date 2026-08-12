@@ -29,6 +29,33 @@ const PORT_INDEX_MESSAGE =
   'import `@data`; a desktop-only module names `services/local/deviceDataPort` outright. See ' +
   'docs/edition-gating.md.'
 
+/**
+ * The four seams the mount slice added beside `@data`, as their specifiers.
+ *
+ * They are listed once and used twice — banned in desktop-only code (which
+ * names the device half outright, for the reason `@data` does) and required of
+ * shared UI (which may not name either half by path). The messages differ
+ * because the two mistakes are different mistakes.
+ */
+const EDITION_SEAMS = ['@chrome', '@identity', '@prefs-store', '@telemetry']
+
+/**
+ * The CLOUD halves of those four, as a path — `editions/cloud/anything`.
+ *
+ * A group rather than a regex, unlike `PORT_INDEX`, because there is nothing
+ * beneath this directory that a shared surface may legitimately import: the
+ * seams' contracts live one level up in `src/editions/`, and a component that
+ * wants a type imports it from the specifier along with the value.
+ */
+const CLOUD_EDITION = ['**/editions/cloud/*', '**/editions/cloud/**']
+
+const CLOUD_EDITION_MESSAGE =
+  'This is a seam’s CLOUD half — the Clerk button, the bank feed’s scheduler, the ' +
+  '`user_preferences` row, Sentry. Importing it by path picks an edition on behalf of every ' +
+  'edition, exactly as importing `services/port` by path does, and the damage appears on the day ' +
+  'the importing component is mounted in a window. Import the specifier instead (`@chrome`, ' +
+  '`@identity`, `@prefs-store`, `@telemetry`) and let the build choose. See docs/edition-gating.md.'
+
 export default tseslint.config([
   globalIgnores([
     'dist',
@@ -107,13 +134,33 @@ export default tseslint.config([
               '(services/local/deviceDataPort). `@data` is the edition-BLIND door, for surfaces ' +
               'that are shared with the web app; reaching through it from code that only ever ' +
               'runs in a window asks the build a question this file already knows the answer to.'
-          }
+          },
+          // The mount slice's four, the same rule as `@data`'s. The device
+          // halves live in `src/desktop/editions/`, so a module in this glob is
+          // either one of them or a neighbour of one, and either way naming the
+          // file is shorter, truer and impossible to mis-resolve.
+          ...EDITION_SEAMS.map(name => ({
+            name,
+            message:
+              `A desktop-only module names the device half of ${name} directly ` +
+              '(src/desktop/editions/…). The specifier is the edition-BLIND door, for surfaces ' +
+              'shared with the web app; reaching through it from code that only ever runs in a ' +
+              'window asks the build a question this file already knows the answer to.'
+          }))
         ],
         patterns: [
           {
             group: [
               '@clerk/*', '@supabase/*', '@sentry/*', '@stripe/*',
               '**/services/api/supabaseClient', '**/api/supabaseClient',
+              // The app's OWN wrappers around two of those packages, which the
+              // patterns above do not match: `lib/sentry` imports `@sentry/react`
+              // and `lib/supabase` imports `@supabase/supabase-js`, and a
+              // desktop-only module importing either was silent here until a
+              // mutation went looking. The graph walks caught it; a lint rule
+              // that only bans the package and not the one-line file in front of
+              // it is a rule that catches the obvious mistake and not the easy one.
+              '**/lib/sentry', '**/lib/supabase',
               '**/services/api/dataService', '**/api/dataService',
               '**/services/storageAdapter', '**/storageAdapter',
               '**/loggers/scopedLogger', '**/scopedLogger',
@@ -121,7 +168,11 @@ export default tseslint.config([
               '**/services/preferencesService', '**/preferencesService',
               '**/services/banking/**', '**/banking/**',
               '**/services/stripeService', '**/stripeService',
-              '**/contexts/AuthContext', '**/contexts/SubscriptionContext'
+              '**/contexts/AuthContext', '**/contexts/SubscriptionContext',
+              // …and the four seams' CLOUD halves, which are the same cloud
+              // reached through a new door. `editions/cloud/telemetry` is
+              // `lib/sentry`; `editions/cloud/chrome` is a Clerk button.
+              ...CLOUD_EDITION
             ],
             message:
               'A desktop-reachable module may not import the cloud. This bundle promises that ' +
@@ -172,9 +223,20 @@ export default tseslint.config([
               'Nothing above the seam names an ENGINE. `dataPort` from `@data` is the door; ' +
               'DataService is what happens to be behind it in one of the two editions. See ' +
               'docs/edition-gating.md.'
-          }
+          },
+          { group: CLOUD_EDITION, message: CLOUD_EDITION_MESSAGE }
         ]
       }]
     }
+  },
+  {
+    // The seams' own halves, which name what they are the half OF.
+    //
+    // `editions/cloud/telemetry.ts` imports `lib/sentry` and that is its entire
+    // job; the rule above would ban it, and a rule that has to be argued with is
+    // a rule people learn to route around. `src/desktop/editions/**` is left in
+    // the desktop glob, where the ban is real and correct.
+    files: ['src/editions/cloud/**/*.{ts,tsx}'],
+    rules: { 'no-restricted-imports': 'off' }
   }
 ])

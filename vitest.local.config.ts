@@ -27,7 +27,16 @@ export default defineConfig({
     // resolved its engine from a build config would be testing the config — but
     // the mapping is here so that the two runs never disagree about what the
     // word means, which is the failure a second alias would eventually cause.
-    alias: { '@data': path.resolve(process.cwd(), './src/services/local/deviceDataPort') }
+    alias: {
+      '@data': path.resolve(process.cwd(), './src/services/local/deviceDataPort'),
+      // The mount slice's four, device halves, and here for the same reason
+      // `@data` is: nothing in this suite imports them today, and the day one
+      // does it must mean what it means everywhere else in this edition.
+      '@chrome': path.resolve(process.cwd(), './src/desktop/editions/chrome'),
+      '@identity': path.resolve(process.cwd(), './src/desktop/editions/identity'),
+      '@prefs-store': path.resolve(process.cwd(), './src/desktop/editions/preferencesStore'),
+      '@telemetry': path.resolve(process.cwd(), './src/desktop/editions/telemetry')
+    }
   },
   test: {
     environment: 'node',

@@ -31,6 +31,15 @@ export default defineConfig({
       // graph can reach it — which is the only way both greps below can pass.
       // See docs/edition-gating.md.
       '@data': path.join(REPO, 'src', 'services', 'local', 'deviceDataPort'),
+      // THE MOUNT SLICE'S FOUR, pointed at what a device answers: the open
+      // ledger's name where a browser has a sign-out menu, the file's own owner
+      // where it has a signed-in user, nothing where it has a bank feed and a
+      // demo banner, the file's own settings where it has a `user_preferences`
+      // row, and this machine's console where it has Sentry.
+      '@chrome': path.join(REPO, 'src', 'desktop', 'editions', 'chrome'),
+      '@identity': path.join(REPO, 'src', 'desktop', 'editions', 'identity'),
+      '@prefs-store': path.join(REPO, 'src', 'desktop', 'editions', 'preferencesStore'),
+      '@telemetry': path.join(REPO, 'src', 'desktop', 'editions', 'telemetry'),
       '@app-types': path.join(REPO, 'src', 'types')
     }
   },

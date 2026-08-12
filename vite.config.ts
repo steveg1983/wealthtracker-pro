@@ -63,8 +63,16 @@ export default defineConfig({
       //
       // FIRST, and that is load-bearing: Vite matches aliases in order by
       // prefix, so the '@' below would otherwise claim '@data' and resolve it to
-      // `src/…data`, which does not exist.
+      // `src/…data`, which does not exist. The same goes for the four seams
+      // below it.
       '@data': path.resolve(__dirname, './src/services/port'),
+      // THE MOUNT SLICE'S FOUR. The shared Layout used to reach Clerk, a bank
+      // feed, a Supabase client and Sentry; these are what it reaches instead,
+      // and each build says which half it gets. See docs/edition-gating.md.
+      '@chrome': path.resolve(__dirname, './src/editions/cloud/chrome'),
+      '@identity': path.resolve(__dirname, './src/editions/cloud/identity'),
+      '@prefs-store': path.resolve(__dirname, './src/editions/cloud/preferencesStore'),
+      '@telemetry': path.resolve(__dirname, './src/editions/cloud/telemetry'),
       '@': path.resolve(__dirname, './src'),
       // Fix for recharts es-toolkit import issue
       // This ensures recharts gets the correct export format
