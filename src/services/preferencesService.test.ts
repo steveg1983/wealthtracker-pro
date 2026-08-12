@@ -298,6 +298,45 @@ describe('write-through', () => {
     expect(store.row?.values.reportsAccountFilterIds).toBeUndefined();
   });
 
+  /**
+   * A preference the document never held is still a preference the BROWSER
+   * holds, and `getItem` reads the browser for anything the document is missing
+   * until the account's row lands. So a removal that skipped the mirror did not
+   * remove anything — it hid the key for this session and handed it back on the
+   * next boot.
+   *
+   * The dashboard's period pins are where this drew blood. Releasing a pinned
+   * card removes the five keys it owns, and the pin FLAG is removed last; when
+   * the flag was in the browser but not in this session's document — a boot
+   * that read before `attach` resolved, an offline boot, a session whose writes
+   * never reached the server — the four keys carrying the WINDOW went and the
+   * flag stayed. The card came back declaring itself pinned with no window to
+   * be pinned to, which renders as a pin that changes nothing.
+   */
+  it('removes a preference the browser holds but the document never did', async () => {
+    const browser = mirror({ 'dashboardReports.pin.net-worthPinned': 'true' });
+    const store = transport({ version: 1, values: {} });
+    const service = new PreferencesService({ mirror: browser, transport: store, ...immediate });
+    await service.attach('user-1');
+
+    service.removeItem('dashboardReports.pin.net-worthPinned');
+
+    expect(browser.values['dashboardReports.pin.net-worthPinned']).toBeUndefined();
+    expect(service.getItem('dashboardReports.pin.net-worthPinned')).toBeNull();
+  });
+
+  /** …and the same before the row has landed, where the mirror IS the store. */
+  it('removes a browser-only preference before the account has spoken', () => {
+    const browser = mirror({ 'dashboardReports.pin.net-worthPinned': 'true' });
+    const service = new PreferencesService({ mirror: browser, transport: null });
+
+    expect(service.getItem('dashboardReports.pin.net-worthPinned')).toBe('true');
+    service.removeItem('dashboardReports.pin.net-worthPinned');
+
+    expect(service.getItem('dashboardReports.pin.net-worthPinned')).toBeNull();
+    expect(browser.values['dashboardReports.pin.net-worthPinned']).toBeUndefined();
+  });
+
   it('does not write at all before a user is attached', async () => {
     const store = transport(null);
     const service = new PreferencesService({ mirror: mirror(), transport: store, ...immediate });

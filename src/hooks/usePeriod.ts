@@ -122,8 +122,14 @@ export type PeriodStorage = PreferenceStorage;
 /** Where the "the user picked this themselves" flag lives, per surface. */
 const explicitStorageKey = (storageKey: string): string => `${storageKey}Explicit`;
 
-/** Storage holds whatever an older build (or the user) put there. */
-const isPeriodKey = (value: string): value is PeriodKey => value in PERIOD_LABELS;
+/**
+ * Storage holds whatever an older build (or the user) put there.
+ *
+ * Exported for `useCardPeriod`, which reads a card's pinned window out of
+ * storage itself rather than through `readStoredSelection` below — see the note
+ * there on why a card's pin is trusted where a bare `reportsPeriod` is not.
+ */
+export const isPeriodKey = (value: string): value is PeriodKey => value in PERIOD_LABELS;
 
 interface PeriodSelection {
   period: PeriodKey;

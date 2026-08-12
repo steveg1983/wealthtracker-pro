@@ -14,8 +14,9 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import type { Category, Transaction } from '../../../types';
-import { resolvePeriod, type PeriodKey, type UsePeriodResult } from '../../../hooks/usePeriod';
-import type { CardPeriodPin } from '../../../hooks/useCardPeriod';
+import { resolvePeriod, usePeriod, type PeriodKey, type UsePeriodResult } from '../../../hooks/usePeriod';
+import { cardPeriodKey, useCardPeriod, type CardPeriodPin } from '../../../hooks/useCardPeriod';
+import { periodPinKey } from '../../../services/preferencesService';
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -253,5 +254,107 @@ describe('a report card’s period pin', () => {
 
     expect(screen.queryByText(/^pinned ·/)).toBeNull();
     expect(screen.queryByRole('button', { name: /period follows the page/ })).toBeNull();
+  });
+});
+
+/**
+ * WHAT A PIN IS FOR: THE FIGURES, NOT THE LABEL.
+ *
+ * Every test above this point hands the card a `picker` and a `pin` built by
+ * hand, side by side, already agreeing with each other. That is the right shape
+ * for asking what the CONTROL does — and it is exactly why the shipped suite
+ * could be green while the owner's dashboard was not. Nothing above ever asked
+ * the question he was asking: *does the chart move?*
+ *
+ * It did not. A card's pin is filed as two facts — the flag saying it has a
+ * window of its own, and the window itself — and they were read back under two
+ * different rules. `usePeriod` distrusts a stored period that carries no
+ * `…Explicit` flag beside it and falls back to the default it was handed, which
+ * was the PAGE's window; the flag was read raw. So a store where those two
+ * disagreed rendered a card that said "pinned · All time" in the resting-state
+ * declaration and drew THIS MONTH underneath it — the pin announcing itself and
+ * changing nothing, silently, because the label and the chart both read the one
+ * picker and the picker was the page's.
+ *
+ * So these drive the REAL hook against a REAL store and assert the rendered
+ * DATA, with the page clock held still. The row below exists only outside the
+ * page's window: if the card is reading the page's clock the legend cannot name
+ * it, whatever the label says.
+ */
+const PAGE_KEY = 'dashboardReports';
+const CARD_KEY = cardPeriodKey(PAGE_KEY, 'expense-categories');
+
+/** A spend on a given day, so a window can include or exclude it. */
+const spendOn = (id: string, amount: number, date: Date): Transaction =>
+  ({ ...spend(id, amount), date } as unknown as Transaction);
+
+/**
+ * The composition the Dashboard actually builds: one page clock, one card
+ * hanging off it, and the card's own picker driving the real widget.
+ */
+function PageAndPinnedCard({ pageOn }: { pageOn: PeriodKey }): React.JSX.Element {
+  const page = usePeriod(PAGE_KEY, pageOn, localStorage);
+  const card = useCardPeriod(CARD_KEY, page, localStorage);
+  return (
+    <>
+      <span data-testid="page-window">{page.period}</span>
+      <ExpenseCategoriesWidget picker={card.picker} pin={card.pin} />
+    </>
+  );
+}
+
+describe('a pinned card’s FIGURES', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    // Last year's spending, and nothing since: "This month" must find nothing
+    // here, and "All time" must find this.
+    const lastYear = new Date();
+    lastYear.setFullYear(lastYear.getFullYear() - 1);
+    mocks.app.transactions = [spendOn('t-old', -40, lastYear)];
+  });
+
+  it('is read over the PINNED window, not the page’s, when the page is elsewhere', () => {
+    localStorage.setItem(CARD_KEY, 'all');
+    localStorage.setItem(`${CARD_KEY}Explicit`, 'true');
+    localStorage.setItem(periodPinKey(CARD_KEY), 'true');
+
+    render(<PageAndPinnedCard pageOn="this-month" />);
+
+    // The DATA: last year's category is on the card, which can only be true if
+    // the card was read over All time.
+    expect(screen.getByRole('button', { name: /Groceries/ })).toBeInTheDocument();
+    expect(screen.queryByText('No categorised spending in this period')).toBeNull();
+    // …and the page clock did not move to get it there.
+    expect(screen.getByTestId('page-window')).toHaveTextContent('this-month');
+    expect(screen.getByText('pinned · All time')).toBeInTheDocument();
+  });
+
+  /**
+   * THE OWNER'S BUG, held down at the level it actually showed: a stored pin
+   * whose window carries no `…Explicit` flag beside it. The card used to
+   * declare the pin and quietly draw the page's window; the figures are what
+   * says whether it still does.
+   */
+  it('honours a stored pin whose window was never flagged as a choice', () => {
+    localStorage.setItem(CARD_KEY, 'all');
+    localStorage.setItem(periodPinKey(CARD_KEY), 'true');
+
+    render(<PageAndPinnedCard pageOn="this-month" />);
+
+    expect(screen.getByRole('button', { name: /Groceries/ })).toBeInTheDocument();
+    expect(screen.queryByText('No categorised spending in this period')).toBeNull();
+    expect(screen.getByTestId('page-window')).toHaveTextContent('this-month');
+    // The declaration names the window the figures were actually read over —
+    // the two cannot drift apart, because there is only one picker.
+    expect(screen.getByText('pinned · All time')).toBeInTheDocument();
+  });
+
+  /** The other direction, so the assertion above cannot pass by accident. */
+  it('shows the page’s figures while it is NOT pinned', () => {
+    render(<PageAndPinnedCard pageOn="this-month" />);
+
+    expect(screen.getByText('No categorised spending in this period')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Groceries/ })).toBeNull();
+    expect(screen.queryByText(/^pinned ·/)).toBeNull();
   });
 });

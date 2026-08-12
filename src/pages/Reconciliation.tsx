@@ -4,8 +4,14 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { ArrowLeftIcon, CheckCircleIcon } from '../components/icons';
 import { useReconciliation } from '../hooks/useReconciliation';
-import ReconciliationAccountList, { type ReconciliationGroup } from '../components/reconciliation/ReconciliationAccountList';
-import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSections';
+import ReconciliationAccountList from '../components/reconciliation/ReconciliationAccountList';
+import {
+  groupReconciliationSummaries,
+  readStoredReconciliationGrouping,
+  writeReconciliationGrouping,
+  type ReconciliationGrouping,
+} from '../components/reconciliation/reconciliationGrouping';
+import type { AccountGroupingOptions } from '../utils/accountGrouping';
 import ReconciliationBalanceBar, { CONFIRM_BALANCE_CONSEQUENCE } from '../components/reconciliation/ReconciliationBalanceBar';
 import { NEXT_ACTION_YELLOW, CONFIRM_BALANCE_HINT_ID } from '../components/reconciliation/nextActionYellow';
 import ReconciliationTransactionList from '../components/reconciliation/ReconciliationTransactionList';
@@ -34,18 +40,20 @@ export default function Reconciliation() {
   // Arriving via an Accounts-page reconcile button means "done" and "Back"
   // both return THERE, not to this page's own account list.
   const [cameFromAccounts] = useState<boolean>(() => searchParams.get('from') === 'accounts');
-  // Group + sort for the account list — the same controls (and persistence
-  // keys pattern) as the Accounts page, so the two pages always feel the same.
-  const [groupBy, setGroupBy] = useState<'type' | 'institution'>(() =>
-    (preferences.getItem('reconciliationGroupBy') as 'type' | 'institution') || 'type'
-  );
+  // Group + sort for the account list — the same controls, the same module
+  // behind them and the same persistence shape as the Accounts page, so the two
+  // pages always feel the same. Two INDEPENDENT switches, never an either/or:
+  // this page held its own `'type' | 'institution'` state behind two buttons
+  // that looked exactly like the Accounts page's pair, and the owner found the
+  // difference by trying to turn both on.
+  const [grouping, setGrouping] = useState<AccountGroupingOptions>(readStoredReconciliationGrouping);
   const [sortMode, setSortMode] = useState<'default' | 'name' | 'balance-desc' | 'balance-asc'>(() => {
     const stored = preferences.getItem('reconciliationSortMode');
     return stored === 'name' || stored === 'balance-desc' || stored === 'balance-asc' ? stored : 'default';
   });
-  const handleGroupByChange = useCallback((value: 'type' | 'institution') => {
-    setGroupBy(value);
-    try { preferences.setItem('reconciliationGroupBy', value); } catch { /* storage unavailable */ }
+  const handleGroupingChange = useCallback((next: AccountGroupingOptions) => {
+    setGrouping(next);
+    writeReconciliationGrouping(next);
   }, []);
   const handleSortChange = useCallback((value: 'default' | 'name' | 'balance-desc' | 'balance-asc') => {
     setSortMode(value);
@@ -118,8 +126,15 @@ export default function Reconciliation() {
     [reconciliationDetails]
   );
 
-  // Build the grouped, sorted account list (same sections as the Accounts page).
-  const accountGroups = useMemo<ReconciliationGroup[]>(() => {
+  // Build the banded, sorted account list. The banding is the Accounts page's,
+  // decided by the one shared module, so a 'mortgage' account reconciles under
+  // Loans here exactly as it files under Loans there — and both switches nest
+  // here exactly as they nest there.
+  //
+  // The `Needs attention only` filter runs FIRST and on the rows alone: it
+  // drops accounts, never sections, and a band left with nothing in it drops
+  // out on its own because the grouper omits empty bands.
+  const accountGrouping = useMemo<ReconciliationGrouping>(() => {
     const visibleDetails = onlyAttention
       ? reconciliationDetails.filter(
           s => s.unreconciledCount > 0 || (s.difference != null && s.difference !== 0)
@@ -134,29 +149,8 @@ export default function Reconciliation() {
       return sorted;
     };
 
-    if (groupBy === 'institution') {
-      const byInstitution = new Map<string, typeof reconciliationDetails>();
-      for (const s of visibleDetails) {
-        const key = s.account.institution || 'Other Accounts';
-        (byInstitution.get(key) ?? byInstitution.set(key, []).get(key)!).push(s);
-      }
-      return [...byInstitution.entries()]
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([title, summaries]) => ({ title, summaries: sortSummaries(summaries) }));
-    }
-
-    // Same aliasing as the Accounts page (sectionTypeForAccount), so a
-    // 'mortgage' account reconciles under Loans there AND here — this page's
-    // old local catch-all put it under "Other" while Accounts showed it under
-    // Loans, and the module exists precisely so the two cannot diverge.
-    const groups: ReconciliationGroup[] = ALL_ACCOUNT_SECTIONS.map(section => ({
-      title: section.title,
-      summaries: sortSummaries(
-        visibleDetails.filter(s => sectionTypeForAccount(s.account.type) === section.type)
-      ),
-    })).filter(g => g.summaries.length > 0);
-    return groups;
-  }, [reconciliationDetails, groupBy, sortMode, onlyAttention]);
+    return groupReconciliationSummaries(visibleDetails, grouping, sortSummaries);
+  }, [reconciliationDetails, grouping, sortMode, onlyAttention]);
 
   // Selected account data
   const selectedAccount = useMemo(
@@ -480,25 +474,58 @@ export default function Reconciliation() {
           )}
         </div>
 
-        {/* Group + sort controls — mirrors the Accounts page */}
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-4">
+        {/* Group + sort controls — the Accounts page's, down to the class
+            names, because they ARE the same controls: same words, same
+            behaviour, same shared module underneath.
+
+            gap-x-8 rather than 6 for the reason the Accounts page carries the
+            same number: with the Group by pills borderless, 24px would leave
+            the Institution pill closer to the words "Sort:" than that label is
+            to its own buttons, and it would read as Institution's caption. */}
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-2 mb-4">
           <div className="w-full sm:w-auto flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400 w-20 shrink-0">Group by:</span>
-            <div className="grid grid-flow-col auto-cols-fr flex-1 sm:flex-none sm:inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
-              {([['type', 'Account Type'], ['institution', 'Institution']] as const).map(([value, label]) => (
-                <button key={value} onClick={() => handleGroupByChange(value)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    groupBy === value
-                      ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
-                  }`}>
-                  {label}
-                </button>
-              ))}
+            <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 w-20 sm:w-auto shrink-0">Group by:</span>
+            {/* TWO SWITCHES, NOT A CHOICE. Each is a toggle in its own right —
+                aria-pressed, not a radio — so "Account Type on, Institution
+                on" is a state the page can be in: institution sub-bands nested
+                inside the type sections. Off and off is one flat list. The
+                owner's report was precisely that this page refused the
+                combination its twin allows. */}
+            <div className="grid grid-flow-col auto-cols-fr flex-1 sm:flex-none sm:inline-flex gap-2 p-0.5">
+              <button
+                type="button"
+                onClick={() => handleGroupingChange({ ...grouping, byType: !grouping.byType })}
+                aria-pressed={grouping.byType}
+                title="Band the list into account-type sections"
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                  grouping.byType
+                    ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                Account Type
+              </button>
+              <button
+                type="button"
+                onClick={() => handleGroupingChange({ ...grouping, byInstitution: !grouping.byInstitution })}
+                aria-pressed={grouping.byInstitution}
+                title="Band the list by institution"
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                  grouping.byInstitution
+                    ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                Institution
+              </button>
             </div>
           </div>
           <div className="w-full sm:w-auto flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400 w-20 shrink-0">Sort:</span>
+            {/* Same weight as "Group by:" beside it. It was the quieter of the
+                two only because the Group by label had not been through the
+                design pass yet; leaving it grey now would make one row of
+                controls carry two different captions for the same job. */}
+            <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 w-20 sm:w-auto shrink-0">Sort:</span>
             <div className="grid grid-flow-col auto-cols-fr flex-1 sm:flex-none sm:inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
               <button onClick={() => handleSortChange('default')}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
@@ -545,7 +572,7 @@ export default function Reconciliation() {
         </div>
 
         <ReconciliationAccountList
-          groups={accountGroups}
+          grouping={accountGrouping}
           onSelectAccount={handleSelectAccount}
         />
       </div>
