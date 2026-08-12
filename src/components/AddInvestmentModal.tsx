@@ -92,15 +92,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
           category: 'cat-27', // Investment category
           accountId: data.selectedAccountId,
           notes: data.notes ? `${structuredNotes}\n\nAdditional Notes: ${data.notes}` : structuredNotes,
-          tags: ['investment', data.investmentType, data.stockCode].filter(Boolean),
-          investmentData: {
-            symbol: data.stockCode,
-            quantity: unitsNum,
-            pricePerShare: priceNum,
-            transactionFee: feesNum,
-            stampDuty: stampDutyNum,
-            totalCost: total
-          }
+          tags: ['investment', data.investmentType, data.stockCode].filter(Boolean)
         });
       },
       onClose

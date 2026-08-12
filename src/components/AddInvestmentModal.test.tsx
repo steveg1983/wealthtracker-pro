@@ -377,15 +377,7 @@ describe('AddInvestmentModal', () => {
         category: 'cat-27',
         accountId: '1',
         notes: expect.stringContaining('Investment Type: share'),
-        tags: ['investment', 'share', 'AAPL'],
-        investmentData: {
-          symbol: 'AAPL',
-          quantity: 10,
-          pricePerShare: 150,
-          transactionFee: 5,
-          stampDuty: 0,
-          totalCost: 1505
-        }
+        tags: ['investment', 'share', 'AAPL']
       });
     });
 
