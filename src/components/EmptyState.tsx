@@ -1,22 +1,49 @@
 import React from 'react';
 import { PlusIcon } from './icons';
 
-interface EmptyStateProps {
+/**
+ * A remedy the user can actually press. Two of them at most: past two, the
+ * state is a menu and the writing has stopped saying which one to choose.
+ */
+interface EmptyStateAction {
+  label: string;
+  onClick: () => void;
   icon?: React.ReactNode;
-  title: string;
-  description?: string;
-  action?: {
-    label: string;
-    onClick: () => void;
-    icon?: React.ReactNode;
-  };
-  secondaryAction?: {
-    label: string;
-    onClick: () => void;
-  };
+}
+
+interface EmptyStateProps {
+  /**
+   * Kept for callers that still pass one, and passed by nothing in the app:
+   * DESIGN_PASS §4 rules out illustrations, and a decorative tile above a
+   * sentence is the "friendly" register of a consumer app rather than the
+   * plain one this product uses.
+   */
+  icon?: React.ReactNode;
+  /** Sentence 1 — WHAT IS ABSENT. A node, so a count can be emphasised. */
+  title: React.ReactNode;
+  /** Sentence 2 — THE CONSEQUENCE of it being absent. */
+  description?: React.ReactNode;
+  action?: EmptyStateAction;
+  secondaryAction?: EmptyStateAction;
   className?: string;
 }
 
+/**
+ * The empty state, in the one shape the app uses everywhere (DESIGN_PASS §4).
+ *
+ * LEFT-ALIGNED, never centred with an icon. A centred block with a picture is
+ * a greeting; what somebody looking at an empty register needs is the same
+ * thing a warning gives them — P6, say the consequence, then the remedy — and
+ * that reads down the left edge like the rest of the page.
+ *
+ *   No transactions in this account yet
+ *   Its balance will read £0.00 and it won't appear in reports until
+ *   something lands here.
+ *   [Add transaction] [Import a statement]
+ *
+ * The remedy is a REAL CONTROL, not a sentence telling the user where to find
+ * one: the whole cost of an empty state is the trip it saves.
+ */
 export default function EmptyState({
   icon,
   title,
@@ -26,40 +53,53 @@ export default function EmptyState({
   className = ''
 }: EmptyStateProps): React.JSX.Element {
   return (
-    <div className={`flex flex-col items-center justify-center py-16 px-8 text-center ${className}`}>
+    <div className={`flex flex-col items-start px-6 py-10 ${className}`}>
       {icon && (
-        <div className="mb-6 w-16 h-16 rounded-2xl bg-gray-50 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500">
+        <div className="mb-4 text-gray-400 dark:text-gray-500">
           {icon}
         </div>
       )}
 
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+      <h3 className="text-card font-semibold text-gray-900 dark:text-white">
         {title}
       </h3>
 
       {description && (
-        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mb-8 leading-relaxed">
+        <p className="mt-1 max-w-2xl text-body text-gray-600 dark:text-gray-400">
           {description}
         </p>
       )}
 
-      {action && (
-        <button
-          onClick={action.onClick}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1a2332] text-white text-sm font-medium rounded-lg hover:bg-[#2d3a4d] transition-colors shadow-sm"
-        >
-          {action.icon || <PlusIcon size={18} />}
-          {action.label}
-        </button>
-      )}
+      {(action || secondaryAction) && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {action && (
+            <button
+              type="button"
+              onClick={action.onClick}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[#1a2332] text-white text-body font-medium hover:bg-[#2d3a4d] transition-colors duration-state"
+            >
+              {/* undefined is "no opinion", and gets the default plus; null is
+                  "this remedy is not an add" — Clear filters takes something
+                  away, and a + in front of it says the opposite. */}
+              {action.icon === undefined ? <PlusIcon size={16} /> : action.icon}
+              {action.label}
+            </button>
+          )}
 
-      {secondaryAction && (
-        <button
-          onClick={secondaryAction.onClick}
-          className="mt-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-        >
-          {secondaryAction.label}
-        </button>
+          {/* The second remedy is the SAME rank of thing as the first — per P7
+              a secondary outline, beside it, not a quiet link underneath it
+              that reads as an afterthought. */}
+          {secondaryAction && (
+            <button
+              type="button"
+              onClick={secondaryAction.onClick}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded border border-line-strong dark:border-gray-600 text-body font-medium text-gray-700 dark:text-gray-300 hover:bg-surface-secondary dark:hover:bg-gray-700 transition-colors duration-state"
+            >
+              {secondaryAction.icon}
+              {secondaryAction.label}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

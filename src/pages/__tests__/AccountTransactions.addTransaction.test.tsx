@@ -21,8 +21,9 @@ import type { Account, Category, Transaction } from '../../types';
  * editor the Transactions page opens, opened on THIS account.
  *
  * So the four things asserted here are the four things that make it that:
- *   1. it sits in the rightmost seat of the toolbar, with Expand table beside
- *      it — the seat every other page in the app gives its primary action;
+ *   1. it sits in the rightmost seat of the toolbar, on its own — the seat
+ *      every other page in the app gives its primary action, and since
+ *      DESIGN_PASS §3.1 the only button in it;
  *   2. it opens the app's one full add editor, already pointed at this account
  *      (the prefill: drop it and tests 2 and 3 both go red);
  *   3. what it saves is in the register a moment later, without a reload;
@@ -198,12 +199,20 @@ afterEach(() => {
 });
 
 describe('Account register — the toolbar has an Add', () => {
-  it('puts it in the rightmost seat, with Expand table beside it', async () => {
+  it('puts it in the rightmost seat, alone, with the quiet controls grouped left', async () => {
     await openRegister();
 
-    // Beside it, and to its LEFT: Expand table is the element immediately
-    // before Add, in the same cluster.
-    expect(addButton().previousElementSibling).toBe(expandButton());
+    // Expand table has moved in with the other controls that change what the
+    // register SHOWS: per DESIGN_PASS §3.1 the quiet outlines are grouped
+    // left, and the right-hand seat belongs to the one control that changes
+    // the ledger. So Add now stands alone in its cluster…
+    expect(addButton().previousElementSibling).toBeNull();
+    expect(expandButton().parentElement).not.toBe(addButton().parentElement);
+    // …and the register still offers exactly one Expand table, beside Search &
+    // filters rather than beside Add.
+    expect(expandButton().parentElement).toBe(
+      screen.getByRole('button', { name: /Search & filters/ }).parentElement
+    );
 
     // Nothing to the right of it: Add ends its cluster, and that cluster ends
     // the toolbar row.

@@ -55,6 +55,10 @@ export default {
         line: {
           DEFAULT: '#e2e6ed',
           strong: '#cdd4e0',
+          // The quietest of the three, for a rule REPEATED down a dense list:
+          // forty of #e2e6ed between register rows reads as a grid, which is
+          // the chrome the register is losing. (DESIGN_PASS §3.1.)
+          soft: '#eef1f6',
         },
 
         // Navigation
@@ -126,6 +130,10 @@ export default {
       },
       animation: {
         'in': 'fade-in 0.2s ease-out, zoom-in-95 0.2s ease-out, slide-in-from-bottom-4 0.2s ease-out',
+        // The ONLY animation a skeleton gets (DESIGN_PASS §4): it fades in
+        // once and then holds still. Named rather than written inline so the
+        // 200ms is the same 200ms as the delay that decides to show it.
+        'fade-in': 'fade-in 200ms ease-out',
       },
     },
   },

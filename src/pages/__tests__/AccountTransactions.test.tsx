@@ -165,22 +165,27 @@ describe('Account register — open, closed, and gone', () => {
 
     renderRegister('/accounts/acc-closed');
 
-    // In flight: no verdict either way.
-    expect(await screen.findByText('Loading account…')).toBeInTheDocument();
+    // In flight: no verdict either way. The wait is now the register's own
+    // skeleton rather than a spinner with a caption — and it is deliberately
+    // not there for the first 200ms, so this waits for it (DESIGN_PASS §4,
+    // useDelayedFlag). What matters to this test is unchanged: while the
+    // question is open, neither answer is on screen.
+    expect(screen.queryByText('This account no longer exists')).not.toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'Loading transactions' })).toBeInTheDocument();
     expect(screen.queryByText('This account no longer exists')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Re-open and view' })).not.toBeInTheDocument();
 
     release([CLOSED_ACCOUNT]);
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Retired Savings' })).toBeInTheDocument();
-    expect(screen.queryByText('Loading account…')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Loading transactions' })).not.toBeInTheDocument();
   });
 
   it('waits while the open list is still arriving', async () => {
     __setAppContextValue({ accounts: [], isLoading: true });
     renderRegister('/accounts/acc-open');
 
-    expect(await screen.findByText('Loading account…')).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'Loading transactions' })).toBeInTheDocument();
     // Nothing is decided yet, so nothing is asked of the server either.
     expect(DataService.listClosedAccounts).not.toHaveBeenCalled();
   });
