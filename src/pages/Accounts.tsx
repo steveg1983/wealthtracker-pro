@@ -1042,9 +1042,31 @@ export default function Accounts() {
                     // (§3.3). The rounding stays and is simply invisible while
                     // the row is white on white — it is there for the selected
                     // state, whose wash and ring do show it.
-                    className={`group/row p-3 sm:p-4 rounded-2xl border border-b-line dark:border-b-gray-700 last:border-b-transparent transition-all duration-300 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${rowSkin(
+                    //
+                    // THE BASE OWNS THE BORDER'S WIDTH, EACH STATE ITS COLOUR.
+                    // 1px on all four sides at all times is geometry: take it
+                    // away for one state and the card moves 1px as it is picked
+                    // out. The COLOUR is a different question with a different
+                    // answer per state, so the divider hairline travels with the
+                    // unselected skin below and the selected skin names its own
+                    // (transparent — the ring is its only stroke). It used to
+                    // live here, on both states at once, which meant a selected
+                    // row drew the divider AND Tailwind's default #e5e7eb on the
+                    // other three sides underneath the ring: the two-tone border
+                    // this comment exists to keep from coming back.
+                    className={`group/row p-3 sm:p-4 rounded-2xl border transition-all duration-300 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${rowSkin(
                       account.id,
-                      'bg-white dark:bg-gray-800 border-transparent hover:bg-surface-secondary dark:hover:bg-gray-700/40'
+                      // `dark:last:` as well as `last:`, and it is not
+                      // belt-and-braces. Both `dark:border-b-gray-700` and
+                      // `last:border-b-transparent` set border-bottom-color at
+                      // equal specificity, so the winner is decided by the order
+                      // Tailwind happens to emit them in — and `dark:` is
+                      // emitted last, so in DARK MODE the band's final row drew
+                      // a divider under it while light mode correctly drew
+                      // none. Stacking the two variants raises the suppression
+                      // above the plain `dark:` rule instead of hoping the
+                      // generator keeps its current order.
+                      'bg-white dark:bg-gray-800 border-transparent border-b-line dark:border-b-gray-700 last:border-b-transparent dark:last:border-b-transparent hover:bg-surface-secondary dark:hover:bg-gray-700/40'
                     )}`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -1799,7 +1821,25 @@ export default function Accounts() {
 
       </div>{/* end pinned chrome */}
 
-      <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+      {/* THE SCROLL REGION CLIPS SIDEWAYS TOO, WHICH IS WHY IT IS PADDED.
+          `overflow-y: auto` cannot be had on its own: CSS promotes the other
+          axis from `visible` to `auto` whenever one axis is not visible, so this
+          box clips horizontally whether or not anything asked it to. The rows
+          inside it are the full width of its content box, and the selected row's
+          ring is a box-shadow drawn 1px OUTSIDE its border box — off the end of
+          the content box, and therefore cut away. Measured at 1280px: the row
+          and the content box both began at x=32, so the ring's left stroke had
+          nowhere to land and vanished, while `pr-1` on the right had always
+          given that side 4px to paint into. One edge of the ring missing is the
+          "the border disappears on the left" half of the same bug report.
+
+          `-ml-1 pl-1` buys the missing room WITHOUT moving anything: the box
+          grows 4px leftward into the page gutter (32px of it there, and no
+          clipping ancestor above — checked) and pads the 4px straight back, so
+          every row stays at exactly the x it had. 4px is the figure the right
+          side already uses and it covers the ring (1px) with room to spare for
+          the lift, whose horizontal reach is ~4.5px at its widest layer. */}
+      <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:-ml-1 lg:pl-1 lg:pr-1">
       {/* Accounts grid */}
       <div className="grid gap-6">
         {isLoading ? (

@@ -61,9 +61,27 @@ export const ACCOUNT_ROW_COLUMNS_CLASS =
  * `font-weight: 600` would embolden every word on the card rather than mark it.
  * What is left — colour, ring, lift — is the part that means "this one", and it
  * is what is copied here.
+ *
+ * ─ WHY `border-transparent` IS IN A LIST OF SELECTION COLOURS ───────────────
+ * Because a row wears a 1px `border` at every moment of its life — the width is
+ * geometry, held constant so a card cannot jump 1px as it is picked out — and a
+ * border with no colour of its own does not stay invisible. Tailwind's preflight
+ * gives every element `border-color: #e5e7eb`, so a selected row that named no
+ * colour drew that near-white hairline on three sides while the fourth kept the
+ * list's divider (#e2e6ed light, gray-700 dark) — a second and third tone packed
+ * against the ring, which is the "two colours in the border" the owner saw. It
+ * is worst in dark mode, where #e5e7eb is a light-mode grey sitting on a dark
+ * card. Naming the colour transparent here leaves the ring as the only stroke
+ * the row draws, uniform on all four sides.
+ *
+ * This is a state's OWN colour rather than a fight with the base class: the row
+ * that is NOT selected names `border-transparent border-b-line …` for itself
+ * (see Accounts.tsx). Neither state has to outrank the other in a cascade whose
+ * order between `border-*`, `border-b-*`, `last:` and `dark:` is Tailwind's to
+ * decide and not ours to depend on.
  */
 export const ACCOUNT_ROW_SELECTED_CLASS =
-  'relative z-10 bg-blue-50/80 dark:bg-blue-900/30 ' +
+  'relative z-10 bg-blue-50/80 dark:bg-blue-900/30 border-transparent ' +
   'ring-1 ring-[#6B86B3]/50 dark:ring-[#6B86B3]/70 ' +
   'shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_10px_15px_-3px_rgba(0,0,0,0.1)] ' +
   'dark:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3),0_10px_15px_-3px_rgba(0,0,0,0.3)]';
