@@ -11,7 +11,12 @@ export default {
         // Wealth/finance brand palette
         primary: 'var(--color-primary, #1a2332)',
         secondary: 'var(--color-secondary, #2d3a4d)',
+        // Gold is a FILL colour only (chips, marks, the yellow thread's box).
+        // As text on white it measures 2.21:1 — that is what accent-text is
+        // for. (DESIGN_PASS_2026-08 §2.1, instrumented 2026-08-12.)
         accent: '#d4a843',
+        'accent-text': '#8a6a19', // 5.05:1 on #fff, 4.80:1 on #f8f9fb
+        'navy-400': '#6B86B3', // selection ring, R marker
 
         // Surface colors
         surface: {
@@ -33,12 +38,24 @@ export default {
           DEFAULT: '#1a2332',
         },
 
-        // Financial semantic colors
-        income: '#0d9f6f',
-        expense: '#d94052',
-        success: '#0d9f6f',
-        danger: '#d94052',
+        // Financial semantic colors — every text pair here is pinned ≥4.5:1 by
+        // src/design-system/__tests__/semantic-contrast.test.ts, measured with
+        // the repo's own harness, on BOTH light surfaces (#fff cards and the
+        // #f8f9fb page). income-fill is the brighter chart/series green; it is
+        // not a text colour (3.38:1 on white — passes only the 3:1 graphics
+        // bar, which is all a chart series needs).
+        income: '#0a7d57', // 5.14:1 on #fff (was #0d9f6f, 3.38:1)
+        'income-fill': '#0d9f6f', // chart series only
+        expense: '#c9304a', // 5.24:1 on #fff (was #d94052, 4.37:1)
+        success: '#0a7d57',
+        danger: '#c9304a',
         warning: '#e5a00d',
+
+        // Hairlines (DESIGN_PASS §2.2) — the border that replaces shadows.
+        line: {
+          DEFAULT: '#e2e6ed',
+          strong: '#cdd4e0',
+        },
 
         // Navigation
         nav: {
@@ -58,6 +75,40 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+      },
+      // The design pass's six-step type scale (DESIGN_PASS §2.3). The named
+      // sizes are the vocabulary later batches adopt surface by surface; the
+      // 2xl/3xl/4xl redefinitions keep Tailwind's default sizes but add the
+      // optical tracking large Inter needs — that part lands everywhere now.
+      fontSize: {
+        label: ['11px', { lineHeight: '16px', letterSpacing: '0.07em' }],
+        dense: ['12px', { lineHeight: '16px' }],
+        body: ['14px', { lineHeight: '20px' }],
+        card: ['16px', { lineHeight: '22px' }],
+        page: ['24px', { lineHeight: '32px', letterSpacing: '-0.02em' }],
+        display: ['32px', { lineHeight: '36px', letterSpacing: '-0.03em' }],
+        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.02em' }],
+        '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.03em' }],
+        '4xl': ['2.25rem', { lineHeight: '2.5rem', letterSpacing: '-0.03em' }],
+      },
+      // 6 controls · 8 cards · 10 modals (DESIGN_PASS §2.5). DEFAULT moves
+      // 4→6 and xl 12→10; md/lg restate Tailwind's own values so the whole
+      // scale reads in one place.
+      borderRadius: {
+        DEFAULT: '6px',
+        md: '6px',
+        lg: '8px',
+        xl: '10px',
+      },
+      // The only two shadows with a meaning: overlays float, the selected row
+      // lifts. Everything else is a hairline border's job.
+      boxShadow: {
+        overlay: '0 8px 24px -8px rgb(26 35 50 / 0.18)',
+        row: '0 1px 3px rgb(26 35 50 / 0.10)',
+      },
+      transitionDuration: {
+        state: '120ms',
+        enter: '200ms',
       },
       keyframes: {
         'fade-in': {

@@ -10,7 +10,12 @@
 }
 
 .text-red-600 {
-  color: #b91c1c !important; /* red-700 - even better contrast */
+  /* The brand expense red, not a Tailwind stock red — this rule is what
+     actually paints every text-red-600 amount, so the semantic token lands
+     here or nowhere. 5.24:1 on #fff, 4.98:1 on the #f8f9fb page (instrumented;
+     pinned by src/design-system/__tests__/semantic-contrast.test.ts, and must
+     equal --color-expense in index.css + `expense` in tailwind.config.js). */
+  color: #c9304a !important;
 }
 
 /* Dark mode red colors */
@@ -28,7 +33,11 @@
 }
 
 .text-green-600 {
-  color: #047857 !important; /* green-700 - even better contrast */
+  /* The brand income green — same story as .text-red-600 above: this remap is
+     the rendered truth for amounts. 5.14:1 on #fff, 4.88:1 on #f8f9fb
+     (instrumented; pinned by semantic-contrast.test.ts, and must equal
+     --color-income in index.css + `income` in tailwind.config.js). */
+  color: #0a7d57 !important;
 }
 
 /* Dark mode green colors */
