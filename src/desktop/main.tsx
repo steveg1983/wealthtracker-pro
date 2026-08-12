@@ -17,10 +17,17 @@
  * ── WHAT IS DELIBERATELY NOT HERE YET ───────────────────────────────────────
  *
  * The app's own screens. `routes.ts`'s `AWAITING_THE_MOUNT` says what stands in
- * the way, in measurements rather than intentions: five cloud roots reachable
- * from `components/Layout` alone, none of them a page's own fault. The alias,
- * the router, the lint rule and the greps this slice built are what that mount
- * will be held to when it comes.
+ * the way, in measurements rather than intentions — and the measurement changed
+ * with the mount slice's first half. The five cloud roots reachable from
+ * `components/Layout` are gone: four seams (`@chrome`, `@identity`,
+ * `@prefs-store`, `@telemetry`) joined `@data`, and a walk from the frame now
+ * reaches 65 modules and no cloud at all
+ * (`__tests__/layoutIsDesktopClean.test.ts`).
+ *
+ * What is left is one context — `contexts/AppContextSupabase`, the web's state
+ * layer, which twenty of the twenty-five owed pages reach — plus three pages with
+ * a cloud import of their own. Two owed routes are already clean and are waiting
+ * only for a `<Route>`. That is part 2, and this file is where it will land.
  */
 
 import { StrictMode } from 'react';

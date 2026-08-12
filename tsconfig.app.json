@@ -33,6 +33,14 @@
          than only in the one that happens to be built. See
          docs/edition-gating.md. */
       "@data": ["./src/services/port/index.ts"],
+      /* The mount slice's four seams, cloud halves. tsconfig.desktop.json maps
+         the same four specifiers at the device halves, so a shared surface that
+         only typechecks against one edition's furniture is a compile error in
+         whichever project it broke. */
+      "@chrome": ["./src/editions/cloud/chrome.tsx"],
+      "@identity": ["./src/editions/cloud/identity.ts"],
+      "@prefs-store": ["./src/editions/cloud/preferencesStore.ts"],
+      "@telemetry": ["./src/editions/cloud/telemetry.ts"],
       "@wealthtracker/utils": ["./packages/utils/index.ts"],
       "@wealthtracker/utils/*": ["./packages/utils/*"],
       "@wealthtracker/types/*": ["./packages/types/*"],

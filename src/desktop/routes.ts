@@ -151,9 +151,13 @@ export interface OwedRoute {
   /**
    * What its page reaches at IMPORT TIME that a desktop bundle may not contain.
    *
-   * Measured, not guessed: these are the chains
-   * `desktopEntry.cloudFree.test.ts`'s walker finds from `components/Layout`
-   * and from the pages themselves.
+   * Measured, not guessed: these are the chains the shared walker
+   * (`services/local/__tests__/importGraph.ts`) finds from each page with the
+   * seams resolved as `apps/desktop/vite.config.ts` resolves them. Until the
+   * mount slice most of them said `Layout → @clerk/clerk-react`, because the
+   * FRAME was the first thing every page reached; the frame is clean now
+   * (`__tests__/layoutIsDesktopClean.test.ts`) and each entry names what its own
+   * page reaches instead.
    */
   readonly blockedBy: string;
 }
@@ -161,49 +165,67 @@ export interface OwedRoute {
 /**
  * Admitted in principle. Not mounted yet, and the reason is a MEASUREMENT.
  *
- * ── WHAT WAS MEASURED, AND WHY THIS LIST IS NOT A TO-DO LIST ────────────────
+ * ── WHAT WAS MEASURED IN SLICE 29, AND WHAT IS TRUE NOW ─────────────────────
  *
- * Slice 29 set out to mount the app's own shell in this window with the local
- * port under it. It cannot be done yet, and the number that says so is this: a
- * runtime import walk from `components/Layout` reaches 144 modules, and among
- * them are FIVE independent cloud roots, none of which is a page's own fault —
+ * Slice 29 set out to mount the app's own shell in this window and could not,
+ * and wrote the reason down as a number: a runtime import walk from
+ * `components/Layout` reached **144 modules and five independent cloud roots**,
+ * none of which was any page's own fault — a Clerk button in the header, a bank
+ * feed in the chrome, a Supabase client behind the preferences context, Sentry
+ * behind the logger, and the browser's store behind the demo banner.
  *
- *   Layout          → @clerk/clerk-react          (the UserButton in the header)
- *   Layout          → useAutoBankSync             (a bank feed, in the chrome)
- *   PreferencesContext → preferencesService       → a Supabase client
- *   any logging     → loggers/scopedLogger        → lib/sentry → @sentry/react
- *   DemoModeIndicator  → utils/demoData           → services/storageAdapter
- *   Breadcrumbs     → AppContextSupabase          → useUser(), and Clerk again
+ * The mount slice's first half is what answered them. Four seams — `@chrome`,
+ * `@identity`, `@prefs-store`, `@telemetry` — joined `@data`, each a specifier
+ * the BUILD resolves to one of two files, and the same walk now reaches
+ * **65 modules and ZERO cloud roots**. `desktop/__tests__/layoutIsDesktopClean.
+ * test.ts` is that measurement, executed, with an arm that points each seam back
+ * at its cloud half and requires the cloud to reappear.
  *
- * Every one of those is a shared surface, and each has to become
- * edition-blind the way the data layer just did — a seam, a supplied
- * dependency, or a second entry — before ANY page can be mounted here. That is
- * a programme of work, not an oversight, and it is what the shell's README has
- * always called "the mount slice". This manifest is what makes it a bounded
- * one: the list of what is owed, and the exact reason each item is owed.
+ * So the frame is no longer what stands in the way of anything, and every entry
+ * below that said `Layout → @clerk/clerk-react` was corrected rather than
+ * deleted. What replaced it is what a walk from each PAGE actually finds today,
+ * which is a much shorter story than the old table told:
  *
- * What this slice built instead is the machinery that mount will need and could
- * not safely be added afterwards: the `@data` alias, the router's decisions, a
- * lint rule that refuses the imports, and two greps over the built bundle.
+ * Twenty-five of the entries below have a page of their own; the rest are
+ * redirects into one of those. Of the twenty-five:
+ *
+ *   * TWENTY reach `contexts/AppContextSupabase` — the WEB's state layer, and now
+ *     the single blocker of substance. It is one context, it is imported by 70
+ *     modules, and it reaches Clerk, the id translator, the browser store, the
+ *     demo data and the auto-sync service between them. It is the mount's second
+ *     half;
+ *   * THREE reach a cloud module of their own and nothing else — a subscription
+ *     card, a bank-feed setting, a danger zone;
+ *   * **two are already clean**: `documents` and `security/audit-logs` reach no
+ *     cloud at all under a desktop's resolution. They are what part 2 can mount
+ *     on the day it starts.
+ *
+ * The redirects are unchanged and are honest as they stand: a redirect cannot be
+ * less blocked than the route it redirects into.
  */
 export const AWAITING_THE_MOUNT: readonly OwedRoute[] = [
-  { path: 'dashboard', blockedBy: 'Layout → @clerk/clerk-react; ImprovedDashboard → @clerk/clerk-react' },
-  { path: 'accounts', blockedBy: 'Layout → @clerk/clerk-react; AppContextSupabase → useUser()' },
-  { path: 'accounts/:accountId', blockedBy: 'AccountTransactions → @clerk/clerk-react' },
-  { path: 'find', blockedBy: 'Layout → @clerk/clerk-react' },
+  { path: 'dashboard', blockedBy: 'ImprovedDashboard → AppContextSupabase' },
+  { path: 'accounts', blockedBy: 'Accounts → AppContextSupabase' },
+  { path: 'accounts/:accountId', blockedBy: 'AccountTransactions → AppContextSupabase' },
+  { path: 'find', blockedBy: 'Find → AppContextSupabase' },
   { path: 'transactions', blockedBy: 'a redirect into find, which is itself owed' },
   { path: 'transactions-comparison', blockedBy: 'a redirect into find, which is itself owed' },
-  { path: 'reconciliation', blockedBy: 'Layout → @clerk/clerk-react' },
-  { path: 'categorisation', blockedBy: 'Layout → @clerk/clerk-react' },
-  { path: 'investments', blockedBy: 'Layout → @clerk/clerk-react' },
-  { path: 'budget', blockedBy: 'Layout → @clerk/clerk-react' },
-  { path: 'calendar', blockedBy: 'Layout → @clerk/clerk-react' },
-  { path: 'reports', blockedBy: 'Layout → @clerk/clerk-react' },
-  { path: 'reports/:reportId', blockedBy: 'Layout → @clerk/clerk-react' },
-  { path: 'goals', blockedBy: 'Layout → @clerk/clerk-react' },
+  { path: 'reconciliation', blockedBy: 'Reconciliation → AppContextSupabase' },
+  { path: 'categorisation', blockedBy: 'Categorisation → AppContextSupabase' },
+  { path: 'investments', blockedBy: 'Investments → AppContextSupabase' },
+  { path: 'budget', blockedBy: 'Budget → AppContextSupabase' },
+  { path: 'calendar', blockedBy: 'Calendar → AppContextSupabase' },
+  { path: 'reports', blockedBy: 'ReportsHub → AppContextSupabase' },
+  { path: 'reports/:reportId', blockedBy: 'ReportsHub → AppContextSupabase' },
+  { path: 'goals', blockedBy: 'Goals → AppContextSupabase' },
   { path: 'analytics', blockedBy: 'a redirect into reports, which is itself owed' },
-  { path: 'custom-reports', blockedBy: 'ProtectedSuspense requirePremium → SubscriptionContext → Clerk' },
-  { path: 'summaries', blockedBy: 'Layout → @clerk/clerk-react' },
+  {
+    path: 'custom-reports',
+    blockedBy:
+      'CustomReports → AppContextSupabase; and its ProtectedSuspense asks requirePremium, which ' +
+      'is a subscription question a device edition does not have — see NEVER_ON_A_DESKTOP'
+  },
+  { path: 'summaries', blockedBy: 'FinancialSummaries → AppContextSupabase' },
   { path: 'ai-analytics', blockedBy: 'a redirect into reports, which is itself owed' },
   { path: 'ai-features', blockedBy: 'a redirect into reports, which is itself owed' },
   { path: 'tax-planning', blockedBy: 'a redirect into reports, which is itself owed' },
@@ -212,19 +234,35 @@ export const AWAITING_THE_MOUNT: readonly OwedRoute[] = [
   { path: 'business-features', blockedBy: 'a redirect into dashboard, which is itself owed' },
   { path: 'financial-planning', blockedBy: 'a redirect into reports, which is itself owed' },
   { path: 'data-intelligence', blockedBy: 'a redirect into reports, which is itself owed' },
-  { path: 'export-manager', blockedBy: 'Layout → @clerk/clerk-react' },
-  { path: 'enhanced-import', blockedBy: 'Layout → @clerk/clerk-react' },
-  { path: 'documents', blockedBy: 'Layout → @clerk/clerk-react' },
+  { path: 'export-manager', blockedBy: 'ExportManager → AppContextSupabase' },
+  { path: 'enhanced-import', blockedBy: 'EnhancedImport → AppContextSupabase' },
+  {
+    path: 'documents',
+    blockedBy:
+      'NOTHING but the mount itself. A walk from `pages/Documents` with a desktop’s resolution ' +
+      'reaches 13 modules and no cloud at all. Part 2 mounts this one first.'
+  },
   { path: 'performance', blockedBy: 'a redirect into dashboard, which is itself owed' },
   { path: 'advanced', blockedBy: 'a redirect into dashboard, which is itself owed' },
-  { path: 'settings', blockedBy: 'Layout → @clerk/clerk-react' },
-  { path: 'app', blockedBy: '/settings/app — Layout → @clerk/clerk-react' },
-  { path: 'data', blockedBy: '/settings/data — RestoreBackupModal is ready; its Layout is not' },
-  { path: 'categories', blockedBy: '/settings/categories — Layout → @clerk/clerk-react' },
-  { path: 'tags', blockedBy: '/settings/tags — Layout → @clerk/clerk-react' },
-  { path: 'payees', blockedBy: '/settings/payees — Layout → @clerk/clerk-react' },
+  {
+    path: 'settings',
+    blockedBy:
+      '/settings — Settings → SubscriptionStatus → SubscriptionContext → Clerk. Not the state ' +
+      'layer: the settings index shows a billing card, which is a region this edition does not have'
+  },
+  { path: 'app', blockedBy: '/settings/app — AppSettings → BankFeedRefreshSettings → Clerk' },
+  { path: 'data', blockedBy: '/settings/data — DataManagement → AppContextSupabase' },
+  { path: 'categories', blockedBy: '/settings/categories — Categories → AppContextSupabase' },
+  { path: 'tags', blockedBy: '/settings/tags — Tags → AppContextSupabase' },
+  { path: 'payees', blockedBy: '/settings/payees — PayeeCleanup → AppContextSupabase' },
   { path: 'security', blockedBy: '/settings/security — DangerZone → @clerk/clerk-react' },
-  { path: 'security/audit-logs', blockedBy: '/settings/security/audit-logs — Layout → @clerk/clerk-react' },
+  {
+    path: 'security/audit-logs',
+    blockedBy:
+      '/settings/security/audit-logs — NOTHING but the mount itself. Nine modules, no cloud. The ' +
+      'second route part 2 can mount, and the more interesting of the two: a device edition owes ' +
+      'an audit trail exactly as much as a hosted one does'
+  },
   { path: 'forecasting', blockedBy: 'a redirect into budget, which is itself owed' },
   { path: '*', blockedBy: 'the web router’s catch-all; this window has its own (see DesktopApp)' }
 ];

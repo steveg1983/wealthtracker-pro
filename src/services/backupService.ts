@@ -1,9 +1,14 @@
 import { supabase } from './api/supabaseClient';
 import { createScopedLogger } from '../loggers/scopedLogger';
-import {
-  supabasePreferencesTransport,
-  type PreferencesDocument,
-  type PreferencesTransport,
+// The cloud's preferences store, by path rather than through `@prefs-store`.
+// This module is the CLOUD's backup service — it opens with a Supabase client of
+// its own — so asking the build which store to use would be asking a question
+// this file already knows the answer to. It is the same rule `src/desktop/**`
+// follows in the other direction (see docs/edition-gating.md's table).
+import { supabasePreferencesTransport } from './preferences/cloudTransport';
+import type {
+  PreferencesDocument,
+  PreferencesTransport,
 } from './preferencesService';
 
 // ── The FORMAT, which is no longer here ─────────────────────────────────────

@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useUser } from '@clerk/clerk-react';
+// WHOSE SESSION THIS IS, through a specifier that names no edition. This line
+// used to be `useUser` from Clerk, which put a sign-in provider behind the count
+// on a nav badge — the last cloud root a walk from `components/Layout` could
+// find. The question this hook actually asks is "what do I file these under",
+// and both editions have an answer to that. See `editions/identity.ts`.
+import { useIdentityKey } from '@identity';
 
 /**
  * The keys these notifications used to live under — ONE flat localStorage
@@ -38,19 +43,20 @@ interface ActivityCounts {
 }
 
 export function useActivityTracking() {
-  // Keyed by the signed-in user, so alerts can never survive onto someone
-  // else's session on a shared device. No user (public pages, demo mode) →
-  // no persistence: the feed still works, in memory only.
-  const { user } = useUser();
+  // Keyed by whoever this session belongs to, so alerts can never survive onto
+  // someone else's session on a shared device. No owner (public pages, demo
+  // mode, a window with no ledger open) → no persistence: the feed still works,
+  // in memory only.
+  const owner = useIdentityKey();
   const keys = useMemo(
     () =>
-      user
-        ? {
-            activities: `recentActivities:${user.id}`,
-            lastCheck: `lastActivityCheck:${user.id}`,
-          }
-        : null,
-    [user]
+      owner === null
+        ? null
+        : {
+            activities: `recentActivities:${owner}`,
+            lastCheck: `lastActivityCheck:${owner}`,
+          },
+    [owner]
   );
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [counts, setCounts] = useState<ActivityCounts>({
