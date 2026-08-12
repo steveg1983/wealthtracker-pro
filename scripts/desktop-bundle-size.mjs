@@ -124,12 +124,39 @@ const BINARY = path.join(REPO, 'apps', 'desktop', 'src-tauri', 'target', 'releas
  * actually do it. Lower these the day one of those lands. Raising them further
  * is allowed and is a decision that belongs in a commit message — not a number
  * quietly nudged until the build goes green.
+ *
+ * ── RAISED AT SLICE 31, AND WHAT FOR ────────────────────────────────────────
+ *
+ * 3273.1 → 3924.1 KiB raw, 1006.5 → 1211.2 KiB gzip. That is +651 KiB raw and
+ * +205 KiB gzip, and it is THREE WHOLE ROUTES arriving rather than a module
+ * turning up by accident — which is the distinction this ratchet exists to draw,
+ * so the growth is named here rather than absorbed:
+ *
+ *   `investments`      the portfolio page and its charts, which the router
+ *                      could not mount until holdings went through the seam.
+ *   `enhanced-import`  the CSV wizard, and `xlsx` with it — a spreadsheet
+ *                      writer this bundle already carried for the Export page,
+ *                      now also read by the import side.
+ *   `data`             settings ▸ Data, which is where the delete-everything
+ *                      button and the restore dialog live.
+ *
+ * `src/desktop/routes.ts`'s `AWAITING_THE_MOUNT` is now EMPTY, so this is the
+ * last increase of this shape there can be: every address the web app serves has
+ * a desktop answer, and the next raise would have to be a page that did not
+ * exist before.
+ *
+ * The four biggest chunks are STILL not this edition's own code and the
+ * paragraph above still applies unchanged — xlsx, jspdf, html2canvas and
+ * recharts are 1,335 KiB of the 3,924, and the slice that fixes them is the
+ * web app's.
  */
-const BASELINE_TOTAL_RAW_KIB = 3273.1;
-const BASELINE_TOTAL_GZIP_KIB = 1006.5;
+const BASELINE_TOTAL_RAW_KIB = 3924.1;
+const BASELINE_TOTAL_GZIP_KIB = 1211.2;
 
-const MAX_TOTAL_RAW_KIB = Number(process.env.DESKTOP_MAX_TOTAL_RAW_KIB ?? 3600);
-const MAX_TOTAL_GZIP_KIB = Number(process.env.DESKTOP_MAX_TOTAL_GZIP_KIB ?? 1110);
+// ~10% above measured, which is this file's own convention and matters more
+// than the number: tight enough that the next ACCIDENTAL arrival fails.
+const MAX_TOTAL_RAW_KIB = Number(process.env.DESKTOP_MAX_TOTAL_RAW_KIB ?? 4320);
+const MAX_TOTAL_GZIP_KIB = Number(process.env.DESKTOP_MAX_TOTAL_GZIP_KIB ?? 1335);
 
 const isReport = process.argv.includes('--report');
 

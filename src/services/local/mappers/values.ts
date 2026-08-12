@@ -27,6 +27,11 @@
  * inputs, which is a different number and a wrong one.
  */
 
+// The app's own decimal, for the ONE kind of figure this seam does not carry as
+// a `number` — see `exact` below, and `DataPortInvestmentWrites` for the
+// argument. `utils/decimal` is a wrapper over decimal.js and reaches no cloud.
+import { toDecimal, type DecimalInstance } from '../../../utils/decimal';
+
 /** A JSON object, and nothing that merely looks like one. */
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -188,6 +193,34 @@ export const day = (value: unknown): Date | undefined => {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
   const parsed = new Date(`${value}T12:00:00.000Z`);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+};
+
+/**
+ * A fixed-point figure that is NOT money, as the app's own `Decimal`.
+ *
+ * The reader for `columns.ts`'s `exact` kind, and the reason it is here rather
+ * than beside `money` above: this one does NOT produce a `number`. A holding's
+ * quantity is exact to eight places and a unit price is a rate, so turning
+ * either into a double at this boundary would be the same mistake `money`'s
+ * whole header is about, made on the fields where it costs a portfolio rather
+ * than a penny.
+ *
+ * `toDecimal` PARSES; it does not compute. R-7's greppable rule — no `/ 100`
+ * and no `* 100` anywhere under `src/services/local/` — is untouched by it.
+ *
+ * `undefined` for anything that is not a decimal string, rather than zero, for
+ * `money`'s reason: zero units is a real position (a holding sold down to
+ * nothing, kept for its history) and "no figure" must not share a value with it.
+ *
+ * Unused in production today — a holding is read back through the CLOUD's own
+ * `toHolding` — and written anyway, because `columns.ts` states that a kind
+ * whose two directions are not inverses is a kind that will one day be used in
+ * the direction nobody implemented.
+ */
+export const exact = (value: unknown): DecimalInstance | undefined => {
+  if (typeof value !== 'string' || value.trim() === '') return undefined;
+  const parsed = toDecimal(value);
+  return parsed.isNaN() ? undefined : parsed;
 };
 
 /** A list of strings — `tags`, `subject_ids` — with anything else dropped. */

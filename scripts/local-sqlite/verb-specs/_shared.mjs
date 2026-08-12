@@ -3,7 +3,14 @@
 // All data is invented. This repo is public: no real payee, account number or
 // figure appears anywhere in it.
 
-import { accountBalance, balanceIdentity, minorToDecimal, numericToDecimal } from '../lib/money-sql.mjs';
+import {
+  accountBalance,
+  balanceIdentity,
+  minorToDecimal,
+  numericToDecimal,
+  scaledNumericToDecimal,
+  scaledToDecimal,
+} from '../lib/money-sql.mjs';
 
 export const USER = '11111111-1111-1111-1111-111111111111';
 export const EVERYDAY = 'a0000000-0000-0000-0000-000000000001';
@@ -3326,12 +3333,21 @@ export function goalShape(goalId, expect) {
       : "CASE WHEN g.auto_contribute THEN 'auto' ELSE 'manual' END";
     // `::text` is Postgres-only — see [`budgetShape`].
     const asText = (column) => (engine === 'sqlite' ? column : `${column}::text`);
+    // THE LAST FOUR CHARACTERS, spelled per engine. SQLite's `substr(x, -4)`
+    // counts from the END; Postgres's counts from a position before the start
+    // and therefore returns the WHOLE uuid. This read `substr(…, -4)` on both
+    // sides until slice 31 and was green only because no goal spec had asserted
+    // a shape with a real `account_id` in it — `transferShape` and
+    // `accountsAudited` had the right spelling all along.
+    const goalAccountTail = engine === 'sqlite'
+      ? "COALESCE(substr(g.account_id, -4), '-')"
+      : "COALESCE(right(g.account_id::text, 4), '-')";
     const row = `g.name || ':' || ${target} || ':' || ${current}
                  || ':' || COALESCE(${asText('g.target_date')}, '-')
                  || ':' || g.status
                  || ':' || CASE WHEN g.completed_at IS NULL THEN '-' ELSE 'stamped' END
                  || ':' || COALESCE(g.priority, '-')
-                 || ':' || COALESCE(substr(${asText('g.account_id')}, -4), '-')
+                 || ':' || ${goalAccountTail}
                  || ':' || COALESCE(g.contribution_frequency, '-')
                  || ':' || ${auto}
                  || ':' || COALESCE(g.category, '-')`;
@@ -3746,6 +3762,178 @@ export function settingOf(userId, key, expect) {
                FROM user_preferences WHERE user_id = '${userId}'`,
     postgres: `SELECT COALESCE(prefs->'values'->>'${key}', '(none)')
                  FROM public.user_preferences WHERE user_id = '${userId}'`,
+    expect,
+  };
+}
+
+
+// ── Holdings ────────────────────────────────────────────────────────────────
+//
+// The last family to join this harness, and the only one whose rows carry TWO
+// fixed-point scales. `cost_basis` is money at 1e2; `quantity`,
+// `current_price` and `purchase_price` are at 1e8 — `crate::scaled` argues why,
+// and the short version is that a share price is a RATE rather than an amount,
+// and rounding a rate before multiplying it by a quantity is how a portfolio
+// comes to disagree with the broker.
+//
+// Both engines therefore render three columns with the EIGHT-place helper and
+// one with the two-place one, and a spec that mixed them up would compare
+// '32.775' against '32.77500000' and call the engines divergent.
+
+/** The two positions the read specs list. */
+export const LISTED_HOLDING = 'd0000000-0000-0000-0000-00000000d001';
+export const SECOND_HOLDING = 'd0000000-0000-0000-0000-00000000d002';
+/** A holding a WRITE spec creates, so both engines can name one row. */
+export const NEW_HOLDING = 'd0000000-0000-0000-0000-00000000d0f1';
+
+/**
+ * Two positions in one investment account, one priced and one never priced.
+ *
+ * `everydayIsAnInvestment` is NOT applied here: `investments.account_id` has no
+ * type constraint in either schema (a holding filed against a savings account
+ * is a data error the product prevents upstream, not a rule the store keeps), so
+ * a fixture that re-typed the account would be testing a rule that does not
+ * exist. What the specs DO exercise is R-12 — the composite key that stops a
+ * holding naming a stranger's account — which is a rule both schemas really
+ * carry.
+ *
+ * The unpriced row is the case a UI has to be able to tell from a worthless one:
+ * `current_price` NULL means "never priced", and a store that answered 0 there
+ * would show a position worth nothing.
+ */
+export const twoHoldings = {
+  sqlite: `
+    INSERT INTO investments (id, user_id, account_id, symbol, name, asset_type, currency,
+                             quantity_e8, cost_basis_minor, current_price_e8, purchase_date,
+                             purchase_price_e8, last_updated, notes, created_at, updated_at) VALUES
+      ('${LISTED_HOLDING}', '${USER}', '${EVERYDAY}', 'AAAA.L', 'A Listed Company plc',
+       'stock', 'GBP', 10000000000, 327750, 4000000000, '2024-06-01',
+       3277500000, '2024-06-30T17:00:00.000Z', 'held in the ISA',
+       '${OPENED_FIRST}', '${OPENED_FIRST}'),
+      ('${SECOND_HOLDING}', '${USER}', '${EVERYDAY}', 'BBBB.L', 'Another Company plc',
+       'etf', 'GBP', 500000000, 25000, NULL, NULL,
+       NULL, NULL, NULL, '${OPENED_SECOND}', '${OPENED_SECOND}');`,
+  postgres: `
+    INSERT INTO public.investments (id, user_id, account_id, symbol, name, asset_type, currency,
+                                    quantity, cost_basis, current_price, purchase_date,
+                                    purchase_price, last_updated, notes, created_at, updated_at) VALUES
+      ('${LISTED_HOLDING}', '${USER}', '${EVERYDAY}', 'AAAA.L', 'A Listed Company plc',
+       'stock', 'GBP', 100.00000000, 3277.50, 40.00000000, '2024-06-01',
+       32.77500000, '2024-06-30T17:00:00.000Z', 'held in the ISA',
+       '${OPENED_FIRST}', '${OPENED_FIRST}'),
+      ('${SECOND_HOLDING}', '${USER}', '${EVERYDAY}', 'BBBB.L', 'Another Company plc',
+       'etf', 'GBP', 5.00000000, 250.00, NULL, NULL,
+       NULL, NULL, NULL, '${OPENED_SECOND}', '${OPENED_SECOND}');`,
+};
+
+/** A holding belonging to the SECOND user, so a read can prove it is not listed. */
+export const strangersHolding = {
+  sqlite: `
+    INSERT INTO investments (id, user_id, symbol, name, asset_type, currency,
+                             quantity_e8, cost_basis_minor)
+      VALUES ('d0000000-0000-0000-0000-00000000d009', '${STRANGER}', 'AAAA.L', 'Theirs',
+              'stock', 'GBP', 100000000, 10000);`,
+  postgres: `
+    INSERT INTO public.investments (id, user_id, symbol, name, asset_type, currency,
+                                    quantity, cost_basis)
+      VALUES ('d0000000-0000-0000-0000-00000000d009', '${STRANGER}', 'AAAA.L', 'Theirs',
+              'stock', 'GBP', 1.00000000, 100.00);`,
+};
+
+/** One holding, in the fourteen keys `crate::row::investment::InvestmentRow` serialises. */
+export function listedInvestment(fields) {
+  return {
+    id: '',
+    user_id: USER,
+    account_id: null,
+    symbol: '',
+    name: '',
+    asset_type: 'stock',
+    currency: 'GBP',
+    quantity: '0.00000000',
+    cost_basis: '0.00',
+    current_price: null,
+    purchase_date: null,
+    purchase_price: null,
+    last_updated: null,
+    notes: null,
+    ...fields,
+  };
+}
+
+/**
+ * One holding as a colon-joined shape, so a whole row is one comparison.
+ *
+ * `budgetShape` and `goalShape`'s arrangement, with the one addition this family
+ * needs: THREE of the six figures are rendered at eight places and one at two,
+ * because that is what the columns are. A shape that rendered them all with the
+ * money helper would report `32.775` for the cloud and `32.77` for the file and
+ * call it a divergence.
+ */
+export function investmentShape(holdingId, expect) {
+  const build = (engine) => {
+    const sqlite = engine === 'sqlite';
+    const table = sqlite ? 'investments' : 'public.investments';
+    const quantity = sqlite ? scaledToDecimal('i.quantity_e8') : scaledNumericToDecimal('i.quantity');
+    const cost = sqlite ? minorToDecimal('i.cost_basis_minor') : numericToDecimal('i.cost_basis');
+    const price = sqlite
+      ? `COALESCE(${scaledToDecimal('i.current_price_e8')}, '-')`
+      : `COALESCE(${scaledNumericToDecimal('i.current_price')}, '-')`;
+    const unit = sqlite
+      ? `COALESCE(${scaledToDecimal('i.purchase_price_e8')}, '-')`
+      : `COALESCE(${scaledNumericToDecimal('i.purchase_price')}, '-')`;
+    // `::text` is Postgres-only — see [`budgetShape`].
+    const asText = (column) => (sqlite ? column : `${column}::text`);
+    // THE LAST FOUR CHARACTERS, spelled per engine, and it is not a style
+    // choice: SQLite's `substr(x, -4)` counts from the END and Postgres's counts
+    // from a position BEFORE the start, so the same expression answers the last
+    // four on one engine and the whole uuid on the other. `transferShape` and
+    // `accountsAudited` already spell it this way; `goalShape` does not, and it
+    // is only green because no goal spec has yet asserted a shape with a real
+    // `account_id` in it.
+    const last4 = (column) => (sqlite
+      ? `COALESCE(substr(${column}, -4), '-')`
+      : `COALESCE(right(${column}::text, 4), '-')`);
+    const row = `i.symbol || ':' || i.name || ':' || ${quantity} || ':' || ${cost}
+                 || ':' || ${price} || ':' || ${unit}
+                 || ':' || i.asset_type || ':' || i.currency
+                 || ':' || COALESCE(${asText('i.purchase_date')}, '-')
+                 || ':' || ${last4('i.account_id')}
+                 || ':' || COALESCE(i.notes, '-')`;
+    return `SELECT COALESCE((SELECT ${row} FROM ${table} i WHERE i.id = '${holdingId}'), 'GONE')`;
+  };
+  return {
+    name: `investment_shape_${holdingId.slice(-4)}`,
+    sqlite: build('sqlite'),
+    postgres: build('postgres'),
+    expect,
+  };
+}
+
+/** How many holdings one login has. */
+export function holdingsOwnedBy(userId, expect) {
+  return {
+    name: `holdings_owned_by_${userId.slice(-4)}`,
+    sqlite: `SELECT COUNT(*) FROM investments WHERE user_id = '${userId}'`,
+    postgres: `SELECT COUNT(*) FROM public.investments WHERE user_id = '${userId}'`,
+    expect,
+  };
+}
+
+/**
+ * Whether a holding stores a MARKET VALUE, which neither engine may.
+ *
+ * The column exists in both schemas and nothing writes it, on purpose: it is
+ * quantity × price, and a stored copy of a derived number is a copy that goes
+ * stale — so a holding could display a value its own price contradicts. Asserted
+ * rather than assumed, because `schema.sql`'s own comment anticipated storing it
+ * and a later reader could take that as an instruction.
+ */
+export function marketValuesStored(expect) {
+  return {
+    name: 'market_values_stored',
+    sqlite: 'SELECT COUNT(*) FROM investments WHERE market_value_minor IS NOT NULL',
+    postgres: 'SELECT COUNT(*) FROM public.investments WHERE market_value IS NOT NULL',
     expect,
   };
 }

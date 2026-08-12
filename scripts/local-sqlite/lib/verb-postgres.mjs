@@ -133,6 +133,19 @@ const ROW_JSON = `jsonb_build_object(
 const money = (expr) => `(${expr})::text`;
 
 /**
+ * A `numeric(20,8)` column as the eight-place decimal string the crate answers.
+ *
+ * Identical to {@link money} in body and separate in NAME on purpose: `::text`
+ * on a scaled numeric yields the COLUMN's scale, so which spelling you get
+ * depends on which column you asked. A quantity rendered with the money helper
+ * still comes back with eight places and still compares correctly — until
+ * somebody widens or narrows a column, at which point one call site is right and
+ * the other is wrong and nothing says which. Naming them apart is what makes the
+ * scale a decision at the call site.
+ */
+const scaled = (expr) => `(${expr})::text`;
+
+/**
  * A timestamptz as the local edition spells a timestamp.
  *
  * Both engines store the same instant; they render it differently (PostgREST
@@ -257,6 +270,41 @@ const GOAL_JSON = `jsonb_build_object(
   'metadata', g.metadata,
   'created_at', ${stamp('g.created_at')},
   'updated_at', ${stamp('g.updated_at')}
+)`;
+
+/**
+ * One `investments` row, in the fourteen keys `InvestmentRow` serialises.
+ *
+ * The cloud's own `SELECTED_COLUMNS` (`investmentService.ts`) plus `user_id`,
+ * which every row struct under `crate::row` carries so that an audit entry can
+ * say whose row it was.
+ *
+ * THREE SCALES, AND `money()` IS USED FOR ONLY ONE OF THEM. `cost_basis` is
+ * `numeric(10,2)` and is an AMOUNT; `quantity`, `current_price` and
+ * `purchase_price` are `numeric(20,8)` and are units and rates. `::text` on a
+ * scaled numeric prints the column's OWN scale, so the same helper would answer
+ * `'3277.50'` for one and `'32.77500000'` for another — which is correct, and is
+ * exactly why the two are named apart at the call site rather than left to
+ * whoever reads this next.
+ *
+ * `market_value` and `exchange` are deliberately absent: neither client has ever
+ * written or read either, and the crate's projection does not carry them.
+ */
+const INVESTMENT_JSON = `jsonb_build_object(
+  'id', i.id,
+  'user_id', i.user_id,
+  'account_id', i.account_id,
+  'symbol', i.symbol,
+  'name', i.name,
+  'asset_type', i.asset_type,
+  'currency', i.currency,
+  'quantity', ${scaled('i.quantity')},
+  'cost_basis', ${money('i.cost_basis')},
+  'current_price', ${scaled('i.current_price')},
+  'purchase_date', i.purchase_date::text,
+  'purchase_price', ${scaled('i.purchase_price')},
+  'last_updated', ${stamp('i.last_updated')},
+  'notes', i.notes
 )`;
 
 /**
@@ -397,6 +445,22 @@ const READS = {
     json: CATEGORY_JSON,
     from: (p) => `public.categories c WHERE c.user_id = ${ownerOf(p)}`,
     order: 'c.level, c.name',
+  },
+
+  // InvestmentService.list:
+  //   .from('investments').select(SELECTED_COLUMNS).eq('user_id', userId)
+  //   .order('symbol', { ascending: true })
+  //
+  // No filter beyond the owner, and no `account_id` narrowing: the page groups
+  // by account in memory, which is `dataPort.ts`'s rule for every read here.
+  // `id` behind `symbol` is the crate's own tie-break — the cloud states none,
+  // and two positions in one security is the ordinary case rather than a
+  // curiosity, so leaving it unstated would make the answer an artefact of a
+  // query plan.
+  investments: {
+    json: INVESTMENT_JSON,
+    from: (p) => `public.investments i WHERE i.user_id = ${ownerOf(p)}`,
+    order: 'i.symbol, i.id',
   },
 
   // planningService.getBudgets:
@@ -1000,6 +1064,8 @@ const VERBS = {
   list_budgets: (payloadLiteral) => listed('budgets', payloadLiteral),
 
   list_goals: (payloadLiteral) => listed('goals', payloadLiteral),
+
+  list_investments: (payloadLiteral) => listed('investments', payloadLiteral),
 
   list_suggestion_dismissals: (payloadLiteral) =>
     listed('suggestion_dismissals', payloadLiteral),
@@ -1673,6 +1739,149 @@ const VERBS = {
      GET DIAGNOSTICS v_count = ROW_COUNT;
      SELECT jsonb_build_object('deleted', v_count) INTO v_row;`,
 
+
+  // ── THE INVESTMENT FAMILY, WHOSE ORACLE IS A TYPESCRIPT WRITER TOO ────────
+  //
+  // Four verbs, no function behind any of them: `investments` is written
+  // straight over PostgREST (PHASE3-PLAN D-2, a sixth time), so the oracle is
+  // again the WRITE the client builds — `InvestmentService.create`, `.update`,
+  // `.remove` and `.applyQuotes` — transcribed line for line.
+  //
+  // FOUR THINGS ARE TRANSCRIBED THAT LOOK LIKE THE HARNESS BEING CLEVER, and
+  // every one of them is a line of the writer:
+  //
+  //   * `cost_basis` is `quantity.times(averageCost)` — DERIVED, never taken
+  //     from the payload, because *"two numbers that must agree are two numbers
+  //     that will not"*. It is `numeric(10,2)` here, so Postgres rounds the
+  //     product half-away-from-zero on the way in; the crate does the same in
+  //     i128 and `crate::scaled::market_value_minor` says why the rounding mode
+  //     is that one and not half-up.
+  //   * `name` is `draft.name.trim() || symbol` — FALSY, so an empty name is the
+  //     ticker rather than a blank.
+  //   * an update recomputes `cost_basis` whenever EITHER figure moves, taking
+  //     the half it was not given from the stored row. `COALESCE` on the patch
+  //     is that read.
+  //   * `applyQuotes` is a LOOP in the client — one update per quote, matched by
+  //     `(user_id, symbol)` — and its answer is the number of ROWS the loop
+  //     touched, not the number of quotes it was given.
+  //
+  // `id` is supplied by the payload where the client leaves the column default
+  // to answer, for the reason every write spec needs: two engines cannot be
+  // compared on a row neither can name.
+  create_investment: (payloadLiteral) => {
+    const text = (key) => `${payloadLiteral}::jsonb->>'${key}'`;
+    const symbol = `NULLIF(${text('symbol')}, '')`;
+    return `IF ${symbol} IS NULL THEN
+       RAISE EXCEPTION 'investment_symbol_required: A holding needs a symbol — there is nothing to price it under.';
+     END IF;
+     INSERT INTO public.investments (
+       id, user_id, account_id, symbol, name, asset_type, currency,
+       quantity, cost_basis, current_price, purchase_date, purchase_price,
+       last_updated, notes
+     ) VALUES (
+       COALESCE(NULLIF(${text('id')},'')::uuid, uuid_generate_v4()),
+       (${text('user_id')})::uuid,
+       -- "|| null": falsy, so an empty string is not an account.
+       NULLIF(${text('account_id')},'')::uuid,
+       ${symbol},
+       -- draft.name.trim() || symbol.
+       COALESCE(NULLIF(${text('name')},''), ${symbol}),
+       COALESCE(NULLIF(${text('asset_type')},''), 'stock'),
+       COALESCE(NULLIF(${text('currency')},''), 'GBP'),
+       COALESCE((${text('quantity')})::numeric, 0),
+       -- THE DERIVED FIGURE. numeric(10,2) rounds the product on the way in.
+       COALESCE((${text('quantity')})::numeric, 0)
+         * COALESCE((${text('purchase_price')})::numeric, 0),
+       -- A price comes from an exchange, never from a create.
+       NULL,
+       NULLIF(${text('purchase_date')},'')::date,
+       (${text('purchase_price')})::numeric,
+       NULL,
+       ${text('notes')}
+     );
+     SELECT ${INVESTMENT_JSON} INTO v_row
+       FROM public.investments i
+      WHERE i.id = (${text('id')})::uuid;`;
+  },
+
+  // The writer's `columns` object behind `.eq().eq().select().single()`. The
+  // `.single()` is transcribed for the reason `update_category`'s entry gives at
+  // length: without it the oracle would answer "fine, nothing happened" for a
+  // case the cloud refuses.
+  update_investment: (payloadLiteral) => {
+    const patch = `COALESCE(${payloadLiteral}::jsonb->'patch', '{}'::jsonb)`;
+    const has = (key) => `${patch} ? '${key}'`;
+    const text = (key) => `${patch}->>'${key}'`;
+    const set = (column, value, key = column) =>
+      `${column} = CASE WHEN ${has(key)} THEN ${value} ELSE ${column} END`;
+    // The two figures that move `cost_basis` together or not at all, as they
+    // WILL be — the stated one, or the stored one when the patch says nothing.
+    const nextQuantity = `CASE WHEN ${has('quantity')}
+                               THEN (${text('quantity')})::numeric ELSE i.quantity END`;
+    const nextPrice = `CASE WHEN ${has('purchase_price')}
+                            THEN (${text('purchase_price')})::numeric
+                            ELSE i.purchase_price END`;
+    return `UPDATE public.investments i SET
+       ${set('symbol', text('symbol'))},
+       ${set('name', text('name'))},
+       ${set('quantity', `(${text('quantity')})::numeric`)},
+       ${set('purchase_price', `(${text('purchase_price')})::numeric`)},
+       ${set('currency', text('currency'))},
+       ${set('asset_type', text('asset_type'))},
+       ${set('notes', text('notes'))},
+       -- Recomputed whenever EITHER figure is named, and left alone otherwise.
+       cost_basis = CASE WHEN ${has('quantity')} OR ${has('purchase_price')}
+                         THEN ${nextQuantity} * COALESCE(${nextPrice}, 0)
+                         ELSE i.cost_basis END,
+       updated_at = now()
+     WHERE i.id = (${payloadLiteral}::jsonb->>'id')::uuid
+       AND (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
+            OR i.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid);
+     IF NOT FOUND THEN
+       RAISE EXCEPTION 'PGRST116: JSON object requested, multiple (or no) rows returned';
+     END IF;
+     SELECT ${INVESTMENT_JSON} INTO v_row
+       FROM public.investments i
+      WHERE i.id = (${payloadLiteral}::jsonb->>'id')::uuid;`;
+  },
+
+  // `.delete().eq('id',…).eq('user_id',…)`. No `.single()`, so an id naming
+  // nothing is a successful nothing and the count is 0. The
+  // `investment_transactions` cascade is the DATABASE's on both engines and is
+  // deliberately not counted here — a buy is a different entity from the thing
+  // being deleted, so counting it would make one number mean two things.
+  delete_investment: (payloadLiteral) =>
+    `DELETE FROM public.investments i
+      WHERE i.id = (${payloadLiteral}::jsonb->>'id')::uuid
+        AND (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
+             OR i.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid);
+     GET DIAGNOSTICS v_count = ROW_COUNT;
+     SELECT jsonb_build_object('deleted', v_count) INTO v_row;`,
+
+  // The one verb of this family whose SHAPE differs from the writer's, and the
+  // difference is declared rather than hidden: `applyQuotes` makes N round trips
+  // and the crate makes one transaction. What is compared is what the writer
+  // PROMISES — the rows carry the prices, and the count is rows repriced.
+  //
+  // Written as one statement over the whole list rather than a PL/pgSQL loop,
+  // which is the same set of rows the loop touches: each quote matches on
+  // `(user_id, symbol)`, and a symbol nobody holds matches nothing and
+  // contributes zero.
+  apply_investment_prices: (payloadLiteral) => {
+    const quotes = `jsonb_array_elements(
+       COALESCE(${payloadLiteral}::jsonb->'quotes', '[]'::jsonb))`;
+    return `WITH quotes AS (SELECT q FROM ${quotes} AS q),
+          moved AS (
+       UPDATE public.investments i SET
+         current_price = (q.q->>'price')::numeric,
+         last_updated  = (q.q->>'as_of')::timestamptz,
+         updated_at    = now()
+         FROM quotes q
+        WHERE i.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid
+          AND i.symbol  = q.q->>'symbol'
+       RETURNING i.id)
+     SELECT jsonb_build_object('repriced', COUNT(*)) INTO v_row FROM moved;`;
+  },
   // ── The dismissal pair ─────────────────────────────────────────────────────
   //
   // `SuggestionDismissalService.dismiss:88-118`, transcribed including its

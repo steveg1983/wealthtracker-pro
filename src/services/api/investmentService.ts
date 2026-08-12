@@ -7,6 +7,21 @@
  * anyone ever entered was discarded the moment the modal closed. This service
  * is where a holding actually goes.
  *
+ * ── IT IS NOW THE PORT'S CLOUD HALF, NOT THE PAGE'S SERVICE ─────────────────
+ *
+ * `pages/Investments.tsx` used to call these four methods directly, with a
+ * `userIdService` lookup at every call site — the last region of the data layer
+ * that had never gone through `dataPort`. `src/desktop/routes.ts` recorded the
+ * consequence as a measurement rather than an opinion: *"holdings are the one
+ * part of the ledger that never went through the seam, so this page talks to
+ * Supabase DIRECTLY"*, which is what kept the Investments route out of a device
+ * window.
+ *
+ * The queries below are UNCHANGED — the same columns, the same `.eq()` pairs,
+ * the same refusals, byte for byte. What changed is who calls them:
+ * `DataServiceImpl` does, on its cloud branch, exactly as it delegates budgets
+ * and goals to `PlanningService`. The page asks the seam.
+ *
  * ── WHAT A HOLDING IS AND IS NOT ────────────────────────────────────────────
  * A row here is a POSITION: a symbol, how many units, what they cost. It is NOT
  * the value of the account. The Investments page's headline figures come from
@@ -15,6 +30,14 @@
  * truth and this table must never be added to it. Holdings × price is a
  * separate, clearly-labelled MARKET view that sits alongside the ledger figure.
  * Adding the two would count the same money twice.
+ *
+ * ── THE SHAPES LIVE NEXT DOOR, AND THIS FILE RE-EXPORTS THEM ────────────────
+ *
+ * `services/investments/holding.ts` holds the types, the asset-type list and
+ * `toHolding`, because this module's first line is `import { supabase }` and a
+ * desktop bundle may not contain one. Every name is re-exported here so that no
+ * importer moved — the same arrangement `backupService.ts` has with
+ * `backup/format.ts` since slice 27, and for the same reason.
  *
  * ── SECURITY ────────────────────────────────────────────────────────────────
  * RLS does the enforcing: investments_all_own (FOR ALL TO authenticated, USING
@@ -30,83 +53,26 @@
 
 import { supabase, handleSupabaseError } from './supabaseClient';
 import { createScopedLogger } from '../../loggers/scopedLogger';
-import { toDecimal, type DecimalInstance } from '../../utils/decimal';
+import { toHolding, toHoldings, type InvestmentHolding } from '../investments/holding';
 
-/** The asset kinds public.investments admits (investments_asset_type_check). */
-export const INVESTMENT_ASSET_TYPES = [
-  'stock',
-  'bond',
-  'etf',
-  'mutual_fund',
-  'crypto',
-  'commodity',
-  'real_estate',
-  'other'
-] as const;
+export {
+  INVESTMENT_ASSET_TYPES,
+  toHolding,
+  toHoldings
+} from '../investments/holding';
+export type {
+  InvestmentAssetType,
+  InvestmentChanges,
+  InvestmentDraft,
+  InvestmentHolding,
+  QuoteWriteback
+} from '../investments/holding';
 
-export type InvestmentAssetType = (typeof INVESTMENT_ASSET_TYPES)[number];
-
-export interface InvestmentHolding {
-  id: string;
-  /** Nullable in the schema; every row this service writes names an account. */
-  accountId: string | null;
-  symbol: string;
-  name: string;
-  quantity: DecimalInstance;
-  /** What the whole position cost. */
-  costBasis: DecimalInstance;
-  /** costBasis ÷ quantity, or zero for a zero-quantity row. */
-  averageCost: DecimalInstance;
-  /**
-   * Last known price of ONE unit, in `currency`'s MAJOR unit — pence are
-   * normalised to pounds at the proxy (api/_lib/quotes.ts), never here.
-   * null means "never priced", which the UI must say rather than show 0.
-   */
-  currentPrice: DecimalInstance | null;
-  /** quantity × currentPrice, or null when there is no price. */
-  marketValue: DecimalInstance | null;
-  currency: string;
-  assetType: InvestmentAssetType;
-  purchaseDate: Date | null;
-  purchasePrice: DecimalInstance | null;
-  /** When the price was taken from the exchange. null when never priced. */
-  lastUpdated: Date | null;
-  notes: string;
-}
-
-/** A new holding, as the user describes it. */
-export interface InvestmentDraft {
-  accountId: string;
-  symbol: string;
-  name: string;
-  quantity: DecimalInstance;
-  /** Per unit. costBasis is derived from it so the two can never disagree. */
-  averageCost: DecimalInstance;
-  currency: string;
-  assetType?: InvestmentAssetType;
-  purchaseDate?: Date | null;
-  notes?: string;
-}
-
-/** Fields an edit may change. Absent means "leave alone". */
-export interface InvestmentChanges {
-  symbol?: string;
-  name?: string;
-  quantity?: DecimalInstance;
-  averageCost?: DecimalInstance;
-  currency?: string;
-  assetType?: InvestmentAssetType;
-  notes?: string;
-}
-
-/** One price to write back, as /api/quotes returned it. */
-export interface QuoteWriteback {
-  symbol: string;
-  /** Decimal string in the major unit. */
-  price: string;
-  /** ISO 8601. */
-  asOf: string;
-}
+import type {
+  InvestmentChanges,
+  InvestmentDraft,
+  QuoteWriteback
+} from '../investments/holding';
 
 /**
  * ONE STRING LITERAL, not a concatenation: supabase-js parses this at the type
@@ -114,70 +80,6 @@ export interface QuoteWriteback {
  * result to GenericStringError. Keep it on one line however long it gets.
  */
 const SELECTED_COLUMNS = 'id, account_id, symbol, name, quantity, cost_basis, current_price, currency, asset_type, purchase_date, purchase_price, last_updated, notes';
-
-const asText = (value: unknown): string | null =>
-  typeof value === 'string' && value.trim() !== '' ? value : null;
-
-/**
- * A numeric column as a Decimal. PostgREST sends `numeric` as a JSON number,
- * but a string is accepted too — the wire format is not worth trusting on the
- * one field that decides what a portfolio is worth.
- */
-const asDecimal = (value: unknown): DecimalInstance | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) return toDecimal(value);
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = toDecimal(value);
-    return parsed.isNaN() ? null : parsed;
-  }
-  return null;
-};
-
-const asDate = (value: unknown): Date | null => {
-  const text = asText(value);
-  if (text === null) return null;
-  const date = new Date(text);
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const asAssetType = (value: unknown): InvestmentAssetType =>
-  INVESTMENT_ASSET_TYPES.find((type) => type === value) ?? 'other';
-
-const ZERO = toDecimal(0);
-
-/**
- * A stored row as the app's holding, or null when it is unreadable.
- *
- * A row with no symbol or no quantity cannot be valued or priced, so it is
- * dropped rather than shown as a zero — a holding that reads "0 units" is a
- * statement about the portfolio, and it would be a false one.
- */
-function toHolding(row: Record<string, unknown>): InvestmentHolding | null {
-  const id = asText(row.id);
-  const symbol = asText(row.symbol);
-  const quantity = asDecimal(row.quantity);
-  if (!id || !symbol || quantity === null) return null;
-
-  const costBasis = asDecimal(row.cost_basis) ?? ZERO;
-  const currentPrice = asDecimal(row.current_price);
-
-  return {
-    id,
-    accountId: asText(row.account_id),
-    symbol,
-    name: asText(row.name) ?? symbol,
-    quantity,
-    costBasis,
-    averageCost: quantity.isZero() ? ZERO : costBasis.dividedBy(quantity),
-    currentPrice,
-    marketValue: currentPrice === null ? null : currentPrice.times(quantity),
-    currency: asText(row.currency) ?? 'GBP',
-    assetType: asAssetType(row.asset_type),
-    purchaseDate: asDate(row.purchase_date),
-    purchasePrice: asDecimal(row.purchase_price),
-    lastUpdated: asDate(row.last_updated),
-    notes: asText(row.notes) ?? ''
-  };
-}
 
 const requireClient = (action: string) => {
   if (!supabase) {
@@ -213,12 +115,7 @@ export class InvestmentService {
       throw new Error(handleSupabaseError(error));
     }
 
-    const holdings: InvestmentHolding[] = [];
-    for (const row of data ?? []) {
-      const holding = toHolding(row);
-      if (holding) holdings.push(holding);
-    }
-    return holdings;
+    return toHoldings(data ?? []);
   }
 
   static async create(userId: string, draft: InvestmentDraft): Promise<InvestmentHolding> {

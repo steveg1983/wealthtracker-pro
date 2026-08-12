@@ -24,13 +24,53 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { buildBackupBundle, type BackupBundle } from '../../services/backupService';
 import type { DataPortCapabilities } from '../../services/port';
 
-/** A device with nobody signed in — this suite's default target. */
+/**
+ * A BROWSER with nobody signed in — this suite's default target.
+ *
+ * Renamed in spirit rather than in name at slice 31, and the distinction it now
+ * carries is the whole of this file's newest test. `backupTarget: 'device'` used
+ * to be the only thing the dialog knew about a store, and it decided the
+ * "cannot be kept" warning by reading `LOCAL_BACKUP_BINDINGS` whenever the
+ * target was not a login — a description of THIS store, applied to any store
+ * that was not a login, including a ledger FILE that holds all fourteen tables.
+ *
+ * So the seven names below are a property of the browser's store, they come
+ * from the engine now, and {@link A_FILE} is the other store that answers the
+ * same `backupTarget` and a different `cannotKeep`.
+ */
 const DEVICE: DataPortCapabilities = {
   edition: 'device',
   session: 'anonymous',
   realtime: false,
   maxConcurrentWrites: 1,
   backupTarget: 'device',
+  cannotKeep: [
+    { entity: 'goal_contributions', label: 'Goal contributions', absence: 'contributions towards a goal are only recorded when you are signed in' },
+    { entity: 'investments', label: 'Investments', absence: 'holdings are only tracked when you are signed in' },
+    { entity: 'investment_transactions', label: 'Investment transactions', absence: 'buys and sells are only recorded when you are signed in' },
+    { entity: 'recurring_transactions', label: 'Recurring transactions', absence: 'repeating templates are only kept when you are signed in' },
+    { entity: 'notifications', label: 'Notifications', absence: 'alerts are short-lived and are not part of a backup' },
+    { entity: 'dashboard_layouts', label: 'Dashboard layouts', absence: 'dashboard arrangements are only saved when you are signed in' },
+    { entity: 'widget_preferences', label: 'Widget preferences', absence: 'widget settings are only saved when you are signed in' },
+  ],
+};
+
+/**
+ * A LEDGER FILE on a device — the same `backupTarget`, and nothing it cannot
+ * keep.
+ *
+ * The store this dialog was lying to. `schema.sql` holds every table the backup
+ * format carries, so a file restored from a login loses none of it; the dialog
+ * would have said otherwise, from {@link DEVICE}'s list, because the condition
+ * it branched on was `backupTarget !== 'login'` and this store matches it.
+ */
+const A_FILE: DataPortCapabilities = {
+  edition: 'device',
+  session: 'anonymous',
+  realtime: false,
+  maxConcurrentWrites: 1,
+  backupTarget: 'device',
+  cannotKeep: [],
 };
 
 /** A resolved login: chunked restore, so a failure can leave it partly full. */
@@ -40,6 +80,8 @@ const LOGIN: DataPortCapabilities = {
   realtime: true,
   maxConcurrentWrites: 8,
   backupTarget: 'login',
+  // The format was read off this database, so there is nothing it cannot keep.
+  cannotKeep: [],
 };
 
 /**
@@ -53,6 +95,7 @@ const CONNECTING: DataPortCapabilities = {
   realtime: false,
   maxConcurrentWrites: 1,
   backupTarget: 'device',
+  cannotKeep: [],
 };
 
 const appValue = {
@@ -327,6 +370,23 @@ describe('RestoreBackupModal', () => {
 
       await screen.findByText(/is empty, so the backup can go straight in/i);
       expect(screen.queryByText(/cannot be kept on this device/i)).not.toBeInTheDocument();
+    });
+
+    it('says nothing about them to a FILE that can keep them, which is the bug', async () => {
+      // THE ONE THIS PAIR EXISTS FOR. `A_FILE` and `DEVICE` answer the same
+      // `backupTarget` and different `cannotKeep`, which is exactly the case the
+      // old code could not tell apart: it read the BROWSER's bindings whenever
+      // the target was not a login, so a ledger file — which holds all fourteen
+      // tables — would have been warned that its own investments could not be
+      // restored. A false warning about data loss, in front of somebody deciding
+      // whether to press a button.
+      appValue.capabilities = A_FILE;
+      open();
+      await pickFile(bundleWith({ investments: [{ id: 'inv-1', symbol: 'ABC' }] }));
+
+      await screen.findByText(/is empty, so the backup can go straight in/i);
+      expect(screen.queryByText(/cannot be kept on this device/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/only tracked when you are signed in/i)).not.toBeInTheDocument();
     });
   });
 });

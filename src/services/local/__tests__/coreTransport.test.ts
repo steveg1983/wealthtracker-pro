@@ -601,7 +601,11 @@ describe('the port over a transport', () => {
       // One connection behind a mutex is a QUEUE, not concurrency.
       maxConcurrentWrites: 1,
       // The file is the only copy, which is what the backup screens say.
-      backupTarget: 'device'
+      backupTarget: 'device',
+      // NOTHING, and that is a statement rather than a stub: `schema.sql` holds
+      // all fourteen tables a backup file carries, so a file restored from a
+      // login loses none of it. The browser's store answers seven names here.
+      cannotKeep: []
     });
     // A snapshot, not a live view: a caller that mutated what it was handed
     // must not be able to change what the next caller is told.

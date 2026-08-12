@@ -1,7 +1,8 @@
 //! The reads — the questions the app asks a file it has already opened.
 //!
-//! Ten of them here. Six are light — the accounts, the closed accounts, the
-//! categories, the budgets, the goals and the suggestion dismissals — and four
+//! Eleven of them here. Seven are light — the accounts, the closed accounts, the
+//! categories, the budgets, the goals, the holdings and the suggestion
+//! dismissals — and four
 //! are the ones that run over a person's whole history: the transactions, every
 //! split line, one parent's split lines, and the balances. They write nothing,
 //! they audit nothing, and they open no transaction, for the reason
@@ -80,6 +81,7 @@
 //! list_categories             level, name             planningService.ensureCategories
 //! list_budgets                created_at              planningService.getBudgets
 //! list_goals                  created_at              planningService.getGoals
+//! list_investments            symbol                  InvestmentService.list
 //! list_suggestion_dismissals  dismissed_at DESC       suggestionDismissalService.list
 //! list_transactions           date DESC, id DESC      transactionService.fetchTransactionPage
 //! list_transaction_splits     transaction_id, sort_order
@@ -126,6 +128,8 @@
 //! list_categories            SEARCH categories USING INDEX idx_categories_user (user_id=?)
 //! list_budgets               SEARCH budgets USING INDEX idx_budgets_user (user_id=?)
 //! list_goals                 SEARCH goals USING INDEX idx_goals_user (user_id=?)
+//! list_investments           SEARCH investments USING INDEX idx_investments_symbol
+//!                                   (user_id=?)
 //! list_suggestion_dismissals SEARCH suggestion_dismissals USING INDEX
 //!                                   sqlite_autoindex_suggestion_dismissals_2 (user_id=?)
 //!   its subjects             SEARCH suggestion_dismissal_subjects USING PRIMARY KEY
@@ -137,8 +141,10 @@
 //! against 3.46ms indexed on the transactions table — *"index design carries
 //! ~640× the leverage of transport design"*.
 //!
-//! **Each of the six also reports `USE TEMP B-TREE FOR ORDER BY`, and that is
-//! accepted rather than overlooked.** The sort happens after the index has cut
+//! **Each of them also reports a temp B-tree for the ORDER BY, and that is
+//! accepted rather than overlooked.** (`list_investments` reports the narrower
+//! `USE TEMP B-TREE FOR LAST TERM OF ORDER BY`, because its index is
+//! `(user_id, symbol)` and only the `id` tie-break is left to sort.) The sort happens after the index has cut
 //! the table down to one owner's rows, and on these five tables that is tens to
 //! low hundreds — a person has a dozen accounts, a few hundred categories, a
 //! handful of budgets and goals. Adding `(user_id, created_at, id)` covering
@@ -242,6 +248,7 @@ use crate::row::budget::{self, ListedBudget};
 use crate::row::category::{self, CategoryRow};
 use crate::row::dismissal::{self, DismissalRow};
 use crate::row::goal::{self, GoalRow};
+use crate::row::investment::{self, InvestmentRow};
 use crate::row::split::{self, ListedSplit};
 use crate::row::{self as transaction, ListedTransaction};
 
@@ -313,6 +320,13 @@ pub struct Categories {
 pub struct Budgets {
     /// Every budget, oldest first, paused ones included.
     pub budgets: Vec<ListedBudget>,
+}
+
+/// The positions a login holds.
+#[derive(Debug, Serialize)]
+pub struct Investments {
+    /// Every holding, by symbol then id.
+    pub investments: Vec<InvestmentRow>,
 }
 
 /// What a login is saving towards.
@@ -421,6 +435,22 @@ pub fn list_budgets(connection: &Connection, command: OwnedRead) -> CoreResult<A
 pub fn list_goals(connection: &Connection, command: OwnedRead) -> CoreResult<Answered<Goals>> {
     Ok(Answered {
         answer: Goals { goals: goal::list_all(connection, &command.user_id)? },
+    })
+}
+
+/// Every holding this login has, by symbol.
+///
+/// # Errors
+/// [`crate::error::CoreError::Storage`] if the read fails. This verb has no
+/// refusal: an owner with no holdings has an empty list, which is an answer —
+/// and is the answer a person who has never opened the Investments page gets.
+#[allow(clippy::needless_pass_by_value)]
+pub fn list_investments(
+    connection: &Connection,
+    command: OwnedRead,
+) -> CoreResult<Answered<Investments>> {
+    Ok(Answered {
+        answer: Investments { investments: investment::list_all(connection, &command.user_id)? },
     })
 }
 

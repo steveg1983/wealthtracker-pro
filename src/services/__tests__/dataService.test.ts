@@ -3651,7 +3651,10 @@ describe('DataService.capabilities (what this engine says it can do)', () => {
       session: 'ready',
       realtime: true,
       maxConcurrentWrites: 8,
-      backupTarget: 'login'
+      backupTarget: 'login',
+      // A login holds every table the backup format carries, because the format
+      // was read off the database. Empty is the statement, not a stub.
+      cannotKeep: []
     });
   });
 
@@ -3681,7 +3684,20 @@ describe('DataService.capabilities (what this engine says it can do)', () => {
       session: 'anonymous',
       realtime: false,
       maxConcurrentWrites: 1,
-      backupTarget: 'device'
+      backupTarget: 'device',
+      // The BROWSER's store, which holds seven of the fourteen. Asserted by
+      // name here rather than by count: this list is what `RestoreBackupModal`
+      // warns a person with before a restore, and a table that quietly left it
+      // would be rows lost in silence.
+      cannotKeep: [
+        { entity: 'goal_contributions', label: 'Goal contributions', absence: expect.any(String) },
+        { entity: 'investments', label: 'Investments', absence: expect.any(String) },
+        { entity: 'investment_transactions', label: 'Investment transactions', absence: expect.any(String) },
+        { entity: 'recurring_transactions', label: 'Recurring transactions', absence: expect.any(String) },
+        { entity: 'notifications', label: 'Notifications', absence: expect.any(String) },
+        { entity: 'dashboard_layouts', label: 'Dashboard layouts', absence: expect.any(String) },
+        { entity: 'widget_preferences', label: 'Widget preferences', absence: expect.any(String) }
+      ]
     });
   });
 

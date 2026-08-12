@@ -73,7 +73,14 @@ const createStore = (fixture: PortFixture) => {
       categories: collection(STORAGE_KEYS.CATEGORIES),
       budgets: collection(STORAGE_KEYS.BUDGETS),
       goals: collection(STORAGE_KEYS.GOALS),
-      dismissals: collection(STORAGE_KEYS.SUGGESTION_DISMISSALS)
+      dismissals: collection(STORAGE_KEYS.SUGGESTION_DISMISSALS),
+      // ALWAYS EMPTY, and that is the witness telling the truth rather than the
+      // harness giving up: browser storage has no holdings key, no writer and no
+      // reader, and never has had (`LOCAL_BACKUP_BINDINGS` has said so about
+      // `investments` since it was written). B-12 declares it and the contract's
+      // holdings rules assert BOTH branches of it, so this `[]` is the thing
+      // being checked rather than a gap being papered over.
+      investments: []
     })
   };
 };
@@ -125,6 +132,31 @@ const refusingPlanningService = () => {
   };
 };
 
+/**
+ * The same trap for holdings, and it catches a different mistake.
+ *
+ * `InvestmentService` reaches a Supabase client at module scope, so a
+ * browser-storage engine that took its cloud branch here would not merely answer
+ * wrongly — with no client configured, `InvestmentService.list` answers `[]` and
+ * `create` throws "Not connected", which reads exactly like B-12's declared
+ * refusal. The two are different faults with the same symptom, and only a
+ * double that SAYS which one happened can tell them apart.
+ */
+const refusingInvestmentService = () => {
+  const refuse = async (): Promise<never> => {
+    throw new Error(
+      'The browser-storage engine must not reach InvestmentService — this call took the cloud branch'
+    );
+  };
+  return {
+    list: vi.fn(refuse),
+    create: vi.fn(refuse),
+    update: vi.fn(refuse),
+    remove: vi.fn(refuse),
+    applyQuotes: vi.fn(refuse)
+  };
+};
+
 const createBrowserStoragePort = async (fixture: PortFixture): Promise<DataPortUnderTest> => {
   const store = createStore(fixture);
   let sequence = 0;
@@ -135,6 +167,7 @@ const createBrowserStoragePort = async (fixture: PortFixture): Promise<DataPortU
     hasCloudSession: () => false,
     storageAdapter: store.adapter,
     planningService: refusingPlanningService(),
+    investmentService: refusingInvestmentService(),
     logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
     now: () => new Date('2025-06-01T09:00:00.000Z'),
     uuid: () => `generated-${++sequence}`,
@@ -165,6 +198,7 @@ const createUnreadableBrowserStoragePort = async (): Promise<DataPort> => {
     hasCloudSession: () => false,
     storageAdapter: { get: vi.fn(refuse), set: vi.fn(refuse), setMany: vi.fn(refuse) },
     planningService: refusingPlanningService(),
+    investmentService: refusingInvestmentService(),
     logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
     now: () => new Date('2025-06-01T09:00:00.000Z'),
     uuid: () => 'generated-1',

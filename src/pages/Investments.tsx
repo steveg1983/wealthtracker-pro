@@ -14,8 +14,18 @@ import { formatDecimal } from '../utils/decimal-format';
 import PageWrapper from '../components/PageWrapper';
 import GroupedAccountOptions from '../components/common/GroupedAccountOptions';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
-import { InvestmentService, type InvestmentHolding } from '../services/api/investmentService';
-import { userIdService } from '../services/userIdService';
+// THE SEAM, not the service. This page called `InvestmentService` — and, through
+// it, a Supabase client — directly until slice 31, with a `userIdService` lookup
+// at every one of its five call sites. That is the coupling `src/desktop/routes.ts`
+// recorded as the reason this route could not be mounted in a device window, and
+// re-routing it through `@data` is what let that entry move to DESKTOP_ROUTES.
+//
+// Nothing about what the page DOES changed. The cloud half of the port delegates
+// to the same service, with the same queries; the identity it used to resolve
+// here is resolved inside the implementation, which is seam rule 1 and is the
+// rule that stops "which user?" leaking into a component.
+import { dataPort } from '@data';
+import type { InvestmentHolding } from '@data';
 import { fetchQuotes } from '../services/stockPriceService';
 
 export default function Investments() {
@@ -42,15 +52,13 @@ export default function Investments() {
   const [quotedAccountId, setQuotedAccountId] = useState<string | null>(null);
 
   const reloadHoldings = useCallback(async (): Promise<void> => {
-    const userId = userIdService.getCurrentDatabaseUserId();
-    if (!userId) {
-      // Local-only session: there is no row to read, and saying "no holdings"
-      // is honest — there are none, because there is nowhere to keep them.
-      setHoldings([]);
-      return;
-    }
     try {
-      setHoldings(await InvestmentService.list(userId));
+      // An engine with nowhere to keep a holding answers with an empty list
+      // rather than rejecting (divergence B-12), which is honest: there are
+      // none, because there is nowhere to keep them. The page used to reach
+      // that answer by checking for a database id, which meant asking the
+      // question "who is signed in?" in order to learn something about a STORE.
+      setHoldings(await dataPort.listInvestments());
       setHoldingsError(null);
     } catch (error) {
       setHoldingsError(
@@ -75,11 +83,6 @@ export default function Investments() {
     symbols: readonly string[]
   ): Promise<void> => {
     setQuotedAccountId(accountId);
-    const userId = userIdService.getCurrentDatabaseUserId();
-    if (!userId) {
-      setQuoteError('Sign in to fetch and store prices.');
-      return;
-    }
     if (symbols.length === 0) return;
 
     setIsUpdatingQuotes(true);
@@ -90,8 +93,11 @@ export default function Investments() {
       setSymbolErrors(batch.errors);
 
       if (batch.quotes.size > 0) {
-        await InvestmentService.applyQuotes(
-          userId,
+        // A store with nowhere to keep a price refuses BY NAME, and seam rule 4
+        // makes that refusal's own sentence the one on screen — which is why
+        // this no longer checks for a session first and no longer words the
+        // refusal itself. The engine knows why it cannot; this page does not.
+        await dataPort.applyInvestmentPrices(
           [...batch.quotes.values()].map((quote) => ({
             symbol: quote.symbol,
             price: quote.price.toString(),
@@ -121,11 +127,7 @@ export default function Investments() {
 
   const handleAddHolding = useCallback(
     async (accountId: string, currency: string, values: HoldingFormValues): Promise<void> => {
-      const userId = userIdService.getCurrentDatabaseUserId();
-      if (!userId) {
-        throw new Error('Sign in to save holdings.');
-      }
-      await InvestmentService.create(userId, {
+      await dataPort.createInvestment({
         accountId,
         symbol: values.symbol,
         name: values.name,
@@ -141,11 +143,7 @@ export default function Investments() {
 
   const handleEditHolding = useCallback(
     async (id: string, values: HoldingFormValues): Promise<void> => {
-      const userId = userIdService.getCurrentDatabaseUserId();
-      if (!userId) {
-        throw new Error('Sign in to save holdings.');
-      }
-      await InvestmentService.update(userId, id, {
+      await dataPort.updateInvestment(id, {
         symbol: values.symbol,
         name: values.name,
         quantity: values.quantity,
@@ -159,11 +157,7 @@ export default function Investments() {
 
   const handleDeleteHolding = useCallback(
     async (id: string): Promise<void> => {
-      const userId = userIdService.getCurrentDatabaseUserId();
-      if (!userId) {
-        throw new Error('Sign in to change holdings.');
-      }
-      await InvestmentService.remove(userId, id);
+      await dataPort.deleteInvestment(id);
       await reloadHoldings();
     },
     [reloadHoldings]

@@ -3,7 +3,10 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { RefreshCwIcon, AlertCircleIcon, InfoIcon } from './icons';
-import type { InvestmentHolding } from '../services/api/investmentService';
+// Type-only, so this one costs a bundle nothing either way — and it is moved
+// with its neighbour anyway, because the next person to need a VALUE from this
+// module should find the lifted path already in front of them.
+import type { InvestmentHolding } from '../services/investments/holding';
 
 /**
  * What the holdings are worth AT THE LAST PRICE WE FETCHED.

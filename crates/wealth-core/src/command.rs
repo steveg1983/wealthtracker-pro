@@ -78,27 +78,33 @@ use crate::admission::{
 };
 use crate::error::CoreError;
 use crate::verbs::{
-    account_balances, apply_category_to_uncategorized, archive_transactions_before,
+    account_balances, apply_category_to_uncategorized, apply_investment_prices,
+    archive_transactions_before,
     clear_transfer_links, close_account, collect_backup,
     confirm_transaction_categories, create_account, create_budget, create_categories,
-    create_category, create_goal, create_transaction, create_transfer_counterpart, delete_budget,
-    delete_category, delete_goal, delete_transaction,
+    create_category, create_goal, create_investment, create_transaction,
+    create_transfer_counterpart, delete_budget,
+    delete_category, delete_goal, delete_investment, delete_transaction,
     delete_unused_categories, dismiss_suggestion, finalize_reconciliation, finalize_user_restore,
     import_bank_transactions,
     import_transactions,
     link_bank_account_snap, link_split_line_transfer, link_transfer_pair, list_accounts,
-    list_budgets, list_categories, list_closed_accounts, list_goals, list_suggestion_dismissals,
+    list_budgets, list_categories, list_closed_accounts, list_goals, list_investments,
+    list_suggestion_dismissals,
     list_transaction_splits, list_transactions, load_boot, merge_categories, read_preferences,
     repair_claimed_transfer, repoint_transfer, restore_backup, restore_suggestion,
     restore_user_chunk, seed_categories,
     set_transaction_splits_with_legs, set_transactions_archived, set_transactions_cleared,
     splits_for, unarchive_account, update_account, update_budget, update_category,
-    update_goal, update_transaction, user_financial_data_is_empty, verify_integrity,
+    update_goal, update_investment, update_transaction, user_financial_data_is_empty,
+    verify_integrity,
     wipe_user_financial_data, write_preferences,
-    ApplyCategoryToUncategorized, ArchiveTransactionsBefore, ClearTransferLinks, CloseAccount,
+    ApplyCategoryToUncategorized, ApplyInvestmentPrices, ArchiveTransactionsBefore,
+    ClearTransferLinks, CloseAccount,
     CollectBackup, ConfirmTransactionCategories,
     CreateAccount, CreateBudget, CreateCategories, CreateCategory, CreateGoal, CreateTransaction,
-    CreateTransferCounterpart, DeleteBudget, DeleteCategory, DeleteGoal, DeleteTransaction,
+    CreateInvestment, CreateTransferCounterpart, DeleteBudget, DeleteCategory, DeleteGoal,
+    DeleteInvestment, DeleteTransaction,
     DeleteUnusedCategories, DismissSuggestion, FinalizeReconciliation, FinalizeUserRestore,
     ImportBankTransactions, ImportTransactions, LinkBankAccountSnap, LinkSplitLineTransfer,
     LinkTransferPair, MergeCategories, OwnedRead, ReadPreferences, RepairClaimedTransfer,
@@ -107,7 +113,8 @@ use crate::verbs::{
     RestoreUserChunk,
     SeedCategories, SetTransactionSplitsWithLegs, SetTransactionsArchived, SetTransactionsCleared,
     SplitsFor, UnarchiveAccount, UpdateAccount, UpdateBudget,
-    UpdateCategory, UpdateGoal, UpdateTransaction, UserFinancialDataIsEmpty, VerifyIntegrity,
+    UpdateCategory, UpdateGoal, UpdateInvestment, UpdateTransaction, UserFinancialDataIsEmpty,
+    VerifyIntegrity,
     WipeUserFinancialData, WritePreferences,
 };
 
@@ -239,6 +246,28 @@ pub enum Command {
     UpdateGoal(Box<UpdateGoal>),
     /// [`crate::verbs::delete_goal`].
     DeleteGoal(Box<DeleteGoal>),
+    // ── The investment family ────────────────────────────────────────────────
+    //
+    // Four more verb strings with no function behind any of them: `investments`
+    // is written straight over PostgREST too (`investmentService.ts:231`,
+    // `:287`, `:305`, `:336`). PHASE3-PLAN D-2, a sixth time.
+    //
+    // The last region of the data layer to reach the seam at all: until this
+    // slice the app's Investments page called `InvestmentService` DIRECTLY, so
+    // holdings had no port, no second engine and no differential coverage —
+    // which is what kept that page out of the desktop router with the chain
+    // written out in `src/desktop/routes.ts`.
+    //
+    // They audit, inheriting the planning family's divergence 10 rather than the
+    // dismissals' exemption. [`crate::verbs::create_investment`] says why.
+    /// [`crate::verbs::create_investment`].
+    CreateInvestment(Box<CreateInvestment>),
+    /// [`crate::verbs::update_investment`].
+    UpdateInvestment(Box<UpdateInvestment>),
+    /// [`crate::verbs::delete_investment`].
+    DeleteInvestment(Box<DeleteInvestment>),
+    /// [`crate::verbs::apply_investment_prices`].
+    ApplyInvestmentPrices(Box<ApplyInvestmentPrices>),
     // ── The dismissal pair ───────────────────────────────────────────────────
     //
     // Two more verb strings with no function behind either: `suggestion_
@@ -357,6 +386,8 @@ pub enum Command {
     ListBudgets(Box<OwnedRead>),
     /// [`crate::verbs::list_goals`].
     ListGoals(Box<OwnedRead>),
+    /// [`crate::verbs::list_investments`].
+    ListInvestments(Box<OwnedRead>),
     /// [`crate::verbs::list_suggestion_dismissals`].
     ListSuggestionDismissals(Box<OwnedRead>),
     // The heavy four. They differ from the six above in what they run over —
@@ -460,6 +491,17 @@ pub fn parse(input: &str) -> Result<Command, Response> {
 /// the caller can tell the difference.
 fn boundary_code(message: &str) -> String {
     if let Some(code) = crate::money::BOUNDARY_CODES
+        .iter()
+        .find(|code| message.contains(*code))
+    {
+        return (*code).to_owned();
+    }
+    // The same recovery for the OTHER fixed-point boundary. A quantity sent as
+    // a JSON number, or a unit price with nine decimal places, is a named and
+    // decided refusal (divergence M-2) and would otherwise be reported as a
+    // generic `invalid_command` — indistinguishable from a typo, which is the
+    // exact failure this function exists to prevent for money.
+    if let Some(code) = crate::scaled::SCALED_BOUNDARY_CODES
         .iter()
         .find(|code| message.contains(*code))
     {
@@ -595,6 +637,18 @@ pub fn dispatch(
         Command::CreateGoal(payload) => create_goal(connection, *payload).and_then(as_json),
         Command::UpdateGoal(payload) => update_goal(connection, *payload).and_then(as_json),
         Command::DeleteGoal(payload) => delete_goal(connection, *payload).and_then(as_json),
+        Command::CreateInvestment(payload) => {
+            create_investment(connection, *payload).and_then(as_json)
+        }
+        Command::UpdateInvestment(payload) => {
+            update_investment(connection, *payload).and_then(as_json)
+        }
+        Command::DeleteInvestment(payload) => {
+            delete_investment(connection, *payload).and_then(as_json)
+        }
+        Command::ApplyInvestmentPrices(payload) => {
+            apply_investment_prices(connection, *payload).and_then(as_json)
+        }
         Command::DismissSuggestion(payload) => {
             dismiss_suggestion(connection, *payload).and_then(as_json)
         }
@@ -658,6 +712,9 @@ pub fn dispatch(
         }
         Command::ListBudgets(payload) => list_budgets(&*connection, *payload).and_then(as_json),
         Command::ListGoals(payload) => list_goals(&*connection, *payload).and_then(as_json),
+        Command::ListInvestments(payload) => {
+            list_investments(&*connection, *payload).and_then(as_json)
+        }
         Command::ListSuggestionDismissals(payload) => {
             list_suggestion_dismissals(&*connection, *payload).and_then(as_json)
         }

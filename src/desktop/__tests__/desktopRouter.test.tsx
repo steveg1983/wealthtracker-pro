@@ -162,14 +162,20 @@ describe('the desktop router', () => {
     expect(untitled).toEqual([]);
   });
 
-  it('mounts the pages, and leaves nothing owed that it also serves', () => {
+  it('mounts the pages, and owes nothing at all', () => {
     // The count is here to make a REMOVAL visible. Slice 29's router mounted one
     // route and every page in the product was owed behind a measurement; the
-    // mount's second half answered all but three of them. A change that quietly
-    // dropped a page would otherwise pass every other assertion in this file.
-    expect(mounted.length).toBe(37);
-    expect(owed.length).toBe(3);
-    expect(owed.sort()).toEqual(['data', 'enhanced-import', 'investments']);
+    // mount's second half answered all but three of them, and slice 31 answered
+    // those. A change that quietly dropped a page would otherwise pass every
+    // other assertion in this file.
+    expect(mounted.length).toBe(40);
+
+    // EMPTY, and the list is kept rather than deleted — `routes.ts` says why:
+    // this is one of three ANSWERS a route can have, not an exception to a rule,
+    // and `src/App.tsx` gains an address every few months. What this assertion
+    // holds now is that nothing has JOINED it without a measurement, which is
+    // the state the two answers below describe.
+    expect(owed).toEqual([]);
   });
 
   it('shows the chooser, and sends an excluded address home', () => {

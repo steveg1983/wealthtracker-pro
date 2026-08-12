@@ -94,6 +94,10 @@ import type {
   Transaction,
   TransactionSplitInput
 } from '../../../types';
+import type {
+  InvestmentChanges,
+  InvestmentDraft
+} from '../../investments/holding';
 import type { Column } from './columns';
 import {
   ACCOUNT_COLUMNS,
@@ -101,6 +105,7 @@ import {
   CATEGORY_COLUMNS,
   DISMISSAL_COLUMNS,
   GOAL_COLUMNS,
+  INVESTMENT_COLUMNS,
   SPLIT_COLUMNS,
   TRANSACTION_COLUMNS,
   encode,
@@ -685,3 +690,91 @@ export const toDismissalKey = (
   subjectKey: string
 ): Record<string, unknown> =>
   payloadOf(DISMISSAL_COLUMNS, { kind, subjectKey }, ['kind', 'subject_key']);
+
+
+// ── Holdings ────────────────────────────────────────────────────────────────
+
+/**
+ * The ten keys `create_investment` accepts.
+ *
+ * `cost_basis` IS NOT ONE OF THEM, and neither engine takes one: it is
+ * `quantity × averageCost`, derived by whoever is writing, because *"two numbers
+ * that must agree are two numbers that will not"* (`investmentService.ts`).
+ * `current_price` and `last_updated` are not here either — a price comes from an
+ * exchange, never from a create.
+ */
+const INVESTMENT_CREATE_KEYS: readonly string[] = [
+  'id',
+  'account_id',
+  'symbol',
+  'name',
+  'quantity',
+  'purchase_price',
+  'purchase_date',
+  'currency',
+  'asset_type',
+  'notes'
+];
+
+/**
+ * The seven a `update_investment` patch may carry — `InvestmentChanges` mapped
+ * to columns, and `id` is not among them: the row being edited is named beside
+ * the patch, not inside it.
+ */
+const INVESTMENT_PATCH_KEYS: readonly string[] = [
+  'symbol',
+  'name',
+  'quantity',
+  'purchase_price',
+  'currency',
+  'asset_type',
+  'notes'
+];
+
+/**
+ * A new holding as `create_investment`'s payload.
+ *
+ * THE SYMBOL IS TRIMMED AND UPPER-CASED HERE, because that is where the cloud
+ * does it: `InvestmentService.create` sends `draft.symbol.trim().toUpperCase()`,
+ * and the crate stores the text it is given for `columns.ts`'s stated reason —
+ * *"a verb that renamed it would be a second opinion about what a payload
+ * means"*, the same rule that keeps `accountTypeToDb`'s 'current' → 'checking'
+ * on the client. A file that upper-cased it too would be a second implementation
+ * of one decision; a file that did not, with a port that did not either, would
+ * price `shel.l` and `SHEL.L` as two securities.
+ *
+ * The NAME is left exactly as the caller typed it, empty string included: both
+ * engines fall back to the symbol for a blank one, and doing it here as well
+ * would put the fallback in three places.
+ */
+export function toInvestmentCreatePayload(draft: InvestmentDraft): Record<string, unknown> {
+  const symbol = draft.symbol.trim().toUpperCase();
+  return payloadOf(
+    INVESTMENT_COLUMNS,
+    { ...draft, symbol },
+    INVESTMENT_CREATE_KEYS
+  );
+}
+
+/**
+ * A partial edit as `update_investment`'s patch.
+ *
+ * The same symbol rule as the create, and for the same reason — the cloud's
+ * update does `changes.symbol.trim().toUpperCase()` on exactly the branch that
+ * mentions it, so an unstated symbol stays unstated rather than becoming `''`.
+ *
+ * FILTERED by `INVESTMENT_PATCH_KEYS` rather than passed through, because both
+ * of the crate's investment payloads are `deny_unknown_fields` whitelists and so
+ * is `InvestmentService.update`'s own `columns` object: a key neither writer has
+ * a line for reaches neither engine.
+ */
+export function toInvestmentUpdatePatch(changes: InvestmentChanges): Record<string, unknown> {
+  // `Partial<…>` rather than the interface itself, and not for the optionality
+  // (every field already is). A mapped type carries an implicit index signature
+  // and a declared interface does not, so this is what lets `payloadOf` read it
+  // by key — the same shape `toGoalUpdatePatch`'s `Partial<Goal>` has, which is
+  // why that one never had to say so.
+  const folded: Partial<InvestmentChanges> = { ...changes };
+  if (changes.symbol !== undefined) folded.symbol = changes.symbol.trim().toUpperCase();
+  return payloadOf(INVESTMENT_COLUMNS, folded, INVESTMENT_PATCH_KEYS);
+}

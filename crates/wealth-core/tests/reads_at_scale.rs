@@ -41,9 +41,10 @@ use rusqlite::Connection;
 use tempfile::TempDir;
 use wealth_core::db;
 use wealth_core::row;
+use wealth_core::row::investment;
 use wealth_core::verbs::{
-    account_balances, list_transaction_splits, list_transactions, load_boot, splits_for, OwnedRead,
-    SplitsFor,
+    account_balances, list_investments, list_transaction_splits, list_transactions, load_boot,
+    splits_for, OwnedRead, SplitsFor,
 };
 
 const OWNER: &str = "11111111-1111-1111-1111-111111111111";
@@ -56,6 +57,18 @@ const ACCOUNTS: usize = 12;
 const TAGGED: usize = 3_000;
 const SPLIT_PARENTS: usize = 4_000;
 const ARCHIVED: usize = 1_000;
+/// Positions, at the size a real portfolio has rather than a real ledger.
+///
+/// 400 rather than 50,000, and the number is the finding rather than a
+/// shortcut: a person holds tens of securities across a handful of accounts, so
+/// a holdings read is a LIGHT read whatever the ledger beside it weighs. What
+/// this fixture is for is the SHAPE of the plan, not the time — and the shape is
+/// what breaks when somebody drops an index or reorders an ORDER BY.
+///
+/// Across `ACCOUNTS` accounts and 40 distinct symbols, so the sweep's
+/// `(user_id, symbol)` lookup has more than one row to find and the list has
+/// duplicates for its `id` tie-break to settle.
+const HOLDINGS: usize = 400;
 
 /// The ledger, built ONCE and opened per test.
 ///
@@ -132,6 +145,25 @@ fn build_the_ledger() -> (TempDir, PathBuf) {
                     i64::from(index < ARCHIVED),
                 ])
                 .expect("transaction");
+        }
+
+        let mut holding = connection
+            .prepare(
+                "INSERT INTO investments (id, user_id, account_id, symbol, name, asset_type,
+                                          currency, quantity_e8, cost_basis_minor)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 'stock', 'GBP', 100000000, 10000)",
+            )
+            .expect("prepare holding");
+        for index in 0..HOLDINGS {
+            holding
+                .execute(rusqlite::params![
+                    format!("d0000000-0000-0000-0000-{:012}", index),
+                    OWNER,
+                    account_id(index % ACCOUNTS),
+                    format!("SYM{}.L", index % 40),
+                    format!("Company {}", index % 40),
+                ])
+                .expect("holding");
         }
 
         let mut tag = connection
@@ -264,6 +296,47 @@ fn the_transaction_read_searches_an_index_and_never_sorts() {
     assert!(plan.contains("SEARCH transactions USING INDEX idx_txn_user_page"), "{plan}");
     assert!(!plan.contains("SCAN transactions"), "{plan}");
     assert!(!plan.contains("TEMP B-TREE"), "{plan}");
+}
+
+#[test]
+fn the_holdings_read_searches_its_index_and_sorts_only_the_tie_break() {
+    // R-12 for the family that joined the crate last, at the scale a ledger
+    // really has beside it. A holdings read is LIGHT — a portfolio is tens of
+    // rows — but it runs in a FILE holding 50,000 transactions, and the failure
+    // this asserts against is a plan that walks a table rather than an index:
+    // that failure does not care how many rows it is walking until the day
+    // somebody restores a two-login file.
+    let connection = a_real_sized_ledger();
+
+    let started = Instant::now();
+    let answered = list_investments(&connection, OwnedRead { user_id: OWNER.to_owned() })
+        .expect("read");
+    let elapsed = started.elapsed();
+    let listed = plan(&connection, &investment::list_all_sql(), &[OWNER]);
+    report("list_investments", elapsed, answered.answer.investments.len(), &listed);
+
+    assert_eq!(answered.answer.investments.len(), HOLDINGS);
+
+    let listed = listed.join(" | ");
+    assert!(listed.contains("SEARCH investments USING INDEX idx_investments_symbol"), "{listed}");
+    assert!(!listed.contains("SCAN investments"), "{listed}");
+    // `USE TEMP B-TREE FOR LAST TERM OF ORDER BY` is expected and accepted: the
+    // index is `(user_id, symbol)`, so it delivers the symbol order and only the
+    // `id` tie-break is left to sort — over one portfolio. What is refused is
+    // the FULL sort, which would mean the symbol ordering had stopped coming
+    // from the index and the read had started ordering 400 rows itself.
+    assert!(
+        !listed.contains("USE TEMP B-TREE FOR ORDER BY"),
+        "the symbol order must come from the index: {listed}"
+    );
+
+    // AND THE SWEEP'S OWN QUESTION, which is asked once per quote. A plan that
+    // walked the portfolio here would walk it fifty times on a fifty-symbol
+    // refresh — the reason `list_of_symbol` is a query rather than a filter over
+    // the list above.
+    let swept = plan(&connection, &investment::list_of_symbol_sql(), &[OWNER, "SYM7.L"]).join(" | ");
+    assert!(swept.contains("SEARCH investments USING INDEX idx_investments_symbol"), "{swept}");
+    assert!(!swept.contains("SCAN investments"), "{swept}");
 }
 
 #[test]

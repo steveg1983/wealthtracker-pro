@@ -94,7 +94,7 @@
  * should never have arrived at.
  */
 
-import { day, flag, instant, money, strings, text, whole } from './values';
+import { day, exact, flag, instant, money, strings, text, whole } from './values';
 
 /**
  * The database's word for a current account (`accounts_type_check`, migration
@@ -180,7 +180,37 @@ export type Kind =
    * update — so the crate stores what it is given and the CHECK judges it. A
    * verb that renamed it would be a second opinion about what a payload means.
    */
-  | 'accountType';
+  | 'accountType'
+  /**
+   * A fixed-point figure the APP keeps as a `Decimal` rather than as a number —
+   * a holding's `quantity` and the two unit prices beside it.
+   *
+   * The one kind here whose app-side type is not a JavaScript primitive, and it
+   * is the app's own choice rather than this table's: `InvestmentHolding` says
+   * `DecimalInstance` because eight decimal places of a fund unit, and a share
+   * price of £32.775, do not survive being a `number` through arithmetic. The
+   * seam repeats it (`DataPortInvestmentWrites` argues it at length) and this
+   * kind carries it across the wire.
+   *
+   * WRITTEN WITH `toFixed()`, NOT `toString()`, and the difference is a real
+   * refusal rather than a preference. `Decimal.toString()` switches to
+   * exponential notation below 1e-7, so a holding of `0.00000001` units — which
+   * is inside the eight places the schema chose, and is real for crypto —
+   * crosses as `"1e-8"`. Postgres accepts that; the crate's grammar refuses an
+   * exponent by name, and a caller would see a malformed-figure error for a
+   * figure that is not malformed. `toFixed()` never uses exponential notation.
+   *
+   * NOT `money`. That kind writes `String(amount)` and reads through
+   * `values.money`, which produces a `number` — the one conversion the seam
+   * allows for an AMOUNT (rule 2). Sending a quantity through it would put a
+   * float on the path this kind exists to keep off it.
+   *
+   * READ-ONLY IN ONE DIRECTION, like the account rows: a holding comes back
+   * through `services/investments/holding.ts`'s `toHolding`, which is the CLOUD's
+   * own mapper and is therefore literally the same function the signed-in page
+   * uses. So what this table owns for a holding is the WRITE.
+   */
+  | 'exact';
 
 export interface Column {
   /** The key on the wire, the same in both directions. */
@@ -437,6 +467,44 @@ export const DISMISSAL_COLUMNS: readonly Column[] = [
   { key: 'dismissed_at', field: 'dismissedAt', kind: 'instant' }
 ];
 
+/**
+ * A holding, column by column, for the WRITE direction.
+ *
+ * The account arrangement exactly: the READ comes back through
+ * `services/investments/holding.ts`'s `toHolding` — the CLOUD's own mapper,
+ * shared rather than reinterpreted — so what this table owns is the write, the
+ * wire key and the conversion.
+ *
+ * `cost_basis` IS NOT HERE, and its absence is the point. It is `quantity ×
+ * averageCost`, computed by whichever engine is writing, and the cloud writer
+ * says why in one line: *"two numbers that must agree are two numbers that will
+ * not."* A row in this table would be a way for a caller to state one.
+ *
+ * `current_price` and `last_updated` are not here either: a price arrives from
+ * an exchange through `applyInvestmentPrices` and never through an edit.
+ *
+ * `averageCost` → `purchase_price` is the one field whose app name and column
+ * name are different words for one thing — what ONE unit cost. `toHolding`
+ * DERIVES `averageCost` as `costBasis ÷ quantity` on the way back, which is why
+ * this is a write-direction table rather than a correspondence: the two are the
+ * same figure for every row either engine wrote, and the column is the one a
+ * person typed.
+ */
+export const INVESTMENT_COLUMNS: readonly Column[] = [
+  { key: 'id', field: 'id', kind: 'text' },
+  { key: 'account_id', field: 'accountId', kind: 'text' },
+  { key: 'symbol', field: 'symbol', kind: 'text' },
+  { key: 'name', field: 'name', kind: 'text' },
+  { key: 'quantity', field: 'quantity', kind: 'exact' },
+  { key: 'purchase_price', field: 'averageCost', kind: 'exact' },
+  // A string in the app's own type on the way back and a Date on the way out,
+  // which is `day`'s whole job (divergence D-8 decides which day).
+  { key: 'purchase_date', field: 'purchaseDate', kind: 'day' },
+  { key: 'currency', field: 'currency', kind: 'text' },
+  { key: 'asset_type', field: 'assetType', kind: 'text' },
+  { key: 'notes', field: 'notes', kind: 'text' }
+];
+
 /** One stored value on its way IN, or `undefined` where the answer said nothing. */
 const decode = (kind: Kind, value: unknown): unknown => {
   switch (kind) {
@@ -473,6 +541,12 @@ const decode = (kind: Kind, value: unknown): unknown => {
       return whole(value);
     case 'strings':
       return strings(value);
+    case 'exact':
+      // Unused today — a holding is read back through `toHolding`, the cloud's
+      // own mapper — and written out rather than thrown, for the reason
+      // `accountType` above is: a kind whose two directions are not inverses is
+      // a kind that will one day be used in the direction nobody implemented.
+      return exact(value);
   }
 };
 
@@ -534,7 +608,33 @@ export const encode = (kind: Kind, value: unknown): unknown => {
       return value;
     case 'strings':
       return Array.isArray(value) ? value.filter(entry => typeof entry === 'string') : value;
+    case 'exact':
+      // `toFixed()` and never `toString()`: see the kind's own documentation.
+      // A plain string passes through for the reason `asDay` passes one
+      // through — a caller holding text has already answered the question.
+      return typeof value === 'string' ? value : asExact(value);
   }
+};
+
+/**
+ * A `Decimal` as the plain decimal text the crate's grammar accepts.
+ *
+ * `toFixed()` with no argument, which decimal.js documents as "no exponential
+ * notation" — the property this function exists for. `toString()` produces
+ * `1e-8` for a quantity of one hundred-millionth, which Postgres accepts and
+ * the crate refuses BY NAME, so a figure inside the eight places the schema
+ * chose would fail on one engine and not the other.
+ *
+ * Anything that is not a Decimal is passed through untouched, so the crate's own
+ * boundary is what judges it — the same arrangement `money` has above, and the
+ * reason there is no `Number(...)` anywhere on this path.
+ */
+const asExact = (value: unknown): unknown => {
+  if (value !== null && typeof value === 'object' && 'toFixed' in value) {
+    const decimal = value as { toFixed: (places?: number) => string };
+    return decimal.toFixed();
+  }
+  return value;
 };
 
 /**

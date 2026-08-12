@@ -1,4 +1,5 @@
 import { storageAdapter, STORAGE_KEYS } from './storageAdapter';
+import { browserAbsence } from './backup/browserCoverage';
 import { toDecimal } from '../utils/decimal';
 import { preferences, type PreferencesDocument } from './preferencesService';
 import {
@@ -619,6 +620,33 @@ interface NotStoredLocally {
 export type LocalEntityBinding = StoredLocally | NotStoredLocally;
 
 /**
+ * One table this store has nowhere for, with its reason.
+ *
+ * The seven sentences live in `backup/browserCoverage.ts` rather than here, and
+ * the arrow points that way rather than this way, because the SEAM needs the
+ * same list SYNCHRONOUSLY in a render: `capabilities().cannotKeep` is what
+ * `RestoreBackupModal` asks now, instead of reading this table directly.
+ *
+ * That change is a bug fix rather than a tidy-up, and it is worth naming here
+ * because this table is what the bug read. The dialog picked these bindings
+ * whenever `backupTarget !== 'login'` — a description of the BROWSER's store,
+ * chosen by a condition a DEVICE edition also matches — so a device would have
+ * been warned that a file's budgets, goals and dismissals could not be kept, by
+ * a file that keeps all fourteen tables. A false warning about data loss, shown
+ * to somebody deciding whether to press a button.
+ *
+ * A second copy of the seven sentences would have been free to drift from this
+ * one, which is the same failure one level down. So there is one copy, it is in
+ * the light module, and both readers take the `label` from it too — so the
+ * warning a person reads BEFORE a restore and the one they read after it are
+ * the same words.
+ */
+const absent = (entity: BackupEntity): NotStoredLocally => {
+  const { label, absence } = browserAbsence(entity);
+  return { stored: false, label, absence };
+};
+
+/**
  * THE single source of truth for what local backup and restore touch.
  *
  * Keyed by BackupEntity, so a table added to BACKUP_ENTITIES without a decision
@@ -661,40 +689,13 @@ export const LOCAL_BACKUP_BINDINGS: Readonly<Record<BackupEntity, LocalEntityBin
     stored: true, storageKey: STORAGE_KEYS.SUGGESTION_DISMISSALS, label: 'Dismissed suggestions',
     toRow: dismissalToRow, fromRow: dismissalFromRow,
   },
-  goal_contributions: {
-    stored: false, label: 'Goal contributions',
-    absence: 'contributions towards a goal are only recorded when you are signed in',
-  },
-  investments: {
-    stored: false, label: 'Investments',
-    absence: 'holdings are only tracked when you are signed in',
-  },
-  investment_transactions: {
-    stored: false, label: 'Investment transactions',
-    absence: 'buys and sells are only recorded when you are signed in',
-  },
-  recurring_transactions: {
-    stored: false, label: 'Recurring transactions',
-    // wealthtracker_recurring is written by the demo seed and by nothing else,
-    // in a shape that is not a recurring_transactions row, and read by nothing
-    // at all. Backing that up would put rows in the file that no restore —
-    // local or cloud — could use.
-    absence: 'repeating templates are only kept when you are signed in',
-  },
-  notifications: {
-    stored: false, label: 'Notifications',
-    // NotificationContext keeps at most twenty of these for at most a week, in
-    // plain localStorage. They are alerts about the data, not the data.
-    absence: 'alerts are short-lived and are not part of a backup',
-  },
-  dashboard_layouts: {
-    stored: false, label: 'Dashboard layouts',
-    absence: 'dashboard arrangements are only saved when you are signed in',
-  },
-  widget_preferences: {
-    stored: false, label: 'Widget preferences',
-    absence: 'widget settings are only saved when you are signed in',
-  },
+  goal_contributions: absent('goal_contributions'),
+  investments: absent('investments'),
+  investment_transactions: absent('investment_transactions'),
+  recurring_transactions: absent('recurring_transactions'),
+  notifications: absent('notifications'),
+  dashboard_layouts: absent('dashboard_layouts'),
+  widget_preferences: absent('widget_preferences'),
 };
 
 // A binding missing at runtime would mean an entity silently vanished from

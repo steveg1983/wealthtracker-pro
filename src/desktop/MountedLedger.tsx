@@ -77,6 +77,14 @@ const Calendar = lazyWithPreload(() => import(/* webpackChunkName: "calendar" */
 const ReportsHub = lazyWithPreload(() => import(/* webpackChunkName: "reports-hub" */ '../pages/ReportsHub'));
 const Goals = lazyWithPreload(() => import(/* webpackChunkName: "goals" */ '../pages/Goals'));
 const FinancialSummaries = lazyWithPreload(() => import(/* webpackChunkName: "financial-summaries" */ '../pages/FinancialSummaries'));
+// The three slice 31 took off `AWAITING_THE_MOUNT`. Each was blocked by a
+// MEASURED import chain rather than by a decision, and each chain is gone: the
+// Investments page asks `@data` instead of `services/api/investmentService`, and
+// the restore dialog behind the other two asks `capabilities().cannotKeep`
+// instead of describing the browser's store from outside it.
+const Investments = lazyWithPreload(() => import(/* webpackChunkName: "investments" */ '../pages/Investments'));
+const EnhancedImport = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-import" */ '../pages/EnhancedImport'));
+const DataManagement = lazyWithPreload(() => import(/* webpackChunkName: "data-management" */ '../pages/settings/DataManagement'));
 const ExportManager = lazyWithPreload(() => import(/* webpackChunkName: "export-manager" */ '../pages/ExportManager'));
 const Documents = lazyWithPreload(() => import(/* webpackChunkName: "documents" */ '../pages/Documents'));
 const SettingsPage = lazyWithPreload(() => import(/* webpackChunkName: "settings" */ '../pages/Settings'));
@@ -226,6 +234,7 @@ export default function MountedLedger(): ReactElement {
     reports: page(<ReportsHub />),
     'reports/:reportId': page(<ReportsHub />),
     goals: page(<Goals />),
+    investments: page(<Investments />),
     analytics: <RedirectWithSearch to="/reports" />,
     summaries: page(<FinancialSummaries />),
     'ai-analytics': <RedirectWithSearch to="/reports" />,
@@ -236,6 +245,7 @@ export default function MountedLedger(): ReactElement {
     'business-features': <RedirectWithSearch to="/dashboard" />,
     'financial-planning': <RedirectWithSearch to="/reports" />,
     'data-intelligence': <RedirectWithSearch to="/reports" />,
+    'enhanced-import': page(<EnhancedImport />),
     'export-manager': page(<ExportManager />),
     documents: page(<Documents />),
     performance: <RedirectWithSearch to="/dashboard" />,
@@ -245,6 +255,7 @@ export default function MountedLedger(): ReactElement {
     categories: page(<Categories />),
     tags: page(<Tags />),
     payees: page(<PayeeCleanup />),
+    data: page(<DataManagement />),
     security: page(<SecuritySettings />),
     'security/audit-logs': page(<AuditLogs />),
     forecasting: <RedirectWithSearch to="/budget" />,

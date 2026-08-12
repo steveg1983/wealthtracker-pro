@@ -78,6 +78,7 @@ export type {
   DataPortCapabilityDescriptor,
   DataPortDismissalWrites,
   DataPortLifecycle,
+  DataPortInvestmentWrites,
   DataPortMigration,
   DataPortPlanningWrites,
   DataPortReads,
@@ -88,11 +89,16 @@ export type {
   ExportProgress,
   ImportProgress,
   ImportSourceKind,
+  InvestmentChanges,
+  InvestmentDraft,
+  InvestmentHolding,
   MoneyNumber,
   MsMoneyImportResult,
+  QuoteWriteback,
   ReconciliationOutcome,
   RestoreProgress,
   SessionState,
+  UnstorableEntity,
   WipeProgress
 } from '../port/dataPort';
 
