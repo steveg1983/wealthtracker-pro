@@ -168,16 +168,23 @@ describe('Find — what it matches', () => {
     expect(within(results()).queryByText('Pellam Tyres')).not.toBeInTheDocument();
   });
 
-  it('says so plainly when nothing matches', async () => {
+  it('says so plainly when nothing matches — and says the rows are still there', async () => {
     openFind();
 
     type('ironmongers of nowhere');
 
     await waitFor(() => {
-      expect(screen.getByText(/Nothing matches/)).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { level: 3, name: 'No transactions match these filters' })
+      ).toBeInTheDocument();
     });
-    // And states what it looked at, so "no matches" means something.
-    expect(screen.getByText(/Find looks at descriptions and amounts/)).toBeInTheDocument();
+    // THE COUNT AND THE CULPRIT. "Nothing matches X" told the user what did not
+    // happen; on a page that searches every account at once, what they need to
+    // know is that all of it is still there and this search is what is over it
+    // (DESIGN_PASS §4).
+    expect(screen.getByText(/are hidden by/)).toBeInTheDocument();
+    expect(screen.getByText('Search: ironmongers of nowhere')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument();
   });
 
   it('shows the row the way the register does — C, R, the account, the bold', async () => {

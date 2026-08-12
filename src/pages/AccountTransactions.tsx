@@ -3419,7 +3419,14 @@ export default function AccountTransactions() {
           they shrink into each other and the headers paint on top of one
           another. A register is also read differently on a phone: tap a row to
           see or change everything. */}
-      <div className="lg:hidden bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div
+        // The phone's half of the register, named so a test can ask it what it
+        // is showing separately from the table's. Both are in the DOM at once
+        // and CSS decides which one a person sees, so "the register says X" is
+        // only a true claim when it is asked of one viewport at a time.
+        data-testid="register-phone-list"
+        className="lg:hidden bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden"
+      >
         <InfiniteScrollTransactionList
           transactions={transactionsWithBalance}
           accounts={[]}
@@ -3429,6 +3436,14 @@ export default function AccountTransactions() {
           // that offers neither — a report, a Find result — gets the default
           // and says nothing.
           markNewArrivals
+          // THE SAME NODE THE DESKTOP TABLE GETS. The phone used to answer both
+          // kinds of nothing with one sentence that told a user with an empty
+          // register to adjust filters and a user with a filter to add
+          // transactions; passing the register's own split state means the two
+          // viewports cannot drift into disagreeing about what happened to the
+          // rows (DESIGN_PASS §4).
+          emptyContent={registerEmptyState}
+          isLoading={isLoading}
           formatCurrency={formatRegisterMoney}
           onEdit={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setIsEditModalOpen(true); }}
           onView={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setIsEditModalOpen(true); }}
@@ -3534,10 +3549,11 @@ export default function AccountTransactions() {
           sortDirection={sortDirection}
           onColumnReorder={handleColumnReorder}
           onColumnResize={handleColumnResize}
-          emptyMessage="No transactions found"
           // Where the rows would be, when there are none: what is absent, what
           // follows from that, and the control that fixes it — never a blank
-          // table (DESIGN_PASS §4).
+          // table (DESIGN_PASS §4). No emptyMessage beside it: emptyContent
+          // always wins, so a string here would be unreachable copy that a
+          // later reader could mistake for what the register says.
           emptyContent={registerEmptyState}
           threshold={50}
           /* ONE TREATMENT, not four. The navy fill, the blue-grey ring, the

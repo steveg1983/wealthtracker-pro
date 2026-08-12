@@ -87,6 +87,13 @@ const renderRegister = (transactions: Transaction[] = ROWS): void => {
 
 const grid = (): HTMLElement => screen.getByRole('grid', { name: 'Synthetic Chrome transactions' });
 
+/**
+ * The phone's card list. Both viewports are in the DOM at once and CSS picks
+ * one, so every claim about what the register SAYS has to be addressed to a
+ * viewport — an unscoped query would match twice and pass for the wrong reason.
+ */
+const phoneList = (): HTMLElement => screen.getByTestId('register-phone-list');
+
 /** Which cell of a row holds the named column, read off the header itself. */
 const columnIndex = (header: string): number => {
   const headers = Array.from(grid().querySelectorAll('[role="columnheader"]'));
@@ -198,15 +205,27 @@ describe('a register with nothing in it', () => {
     renderRegister([]);
     await screen.findByRole('heading', { level: 1, name: 'Synthetic Chrome' });
 
-    expect(screen.getByRole('heading', { level: 3, name: 'No transactions in this account yet' })).toBeInTheDocument();
+    expect(within(grid()).getByRole('heading', { level: 3, name: 'No transactions in this account yet' })).toBeInTheDocument();
     // The consequence, in the account's own currency.
-    expect(screen.getByText(/Its balance stays at \$100\.00/)).toBeInTheDocument();
-    expect(screen.getByText(/adds nothing to your reports/)).toBeInTheDocument();
+    expect(within(grid()).getByText(/Its balance stays at \$100\.00/)).toBeInTheDocument();
+    expect(within(grid()).getByText(/adds nothing to your reports/)).toBeInTheDocument();
     // Remedies as real controls, not directions to find one — and IN THE
     // TABLE, where the rows are missing, rather than only in the toolbar the
     // user has just failed to notice.
     expect(within(grid()).getByRole('button', { name: 'Add transaction' })).toBeInTheDocument();
     expect(within(grid()).getByRole('button', { name: 'Import a statement' })).toBeInTheDocument();
+  });
+
+  it('says the same thing on a phone, which used to be told to adjust filters it had not set', async () => {
+    renderRegister([]);
+    await screen.findByRole('heading', { level: 1, name: 'Synthetic Chrome' });
+
+    const phone = within(phoneList());
+    expect(phone.getByRole('heading', { level: 3, name: 'No transactions in this account yet' })).toBeInTheDocument();
+    expect(phone.getByRole('button', { name: 'Add transaction' })).toBeInTheDocument();
+    // The sentence the card list used to end on, gone: it was the advice for
+    // the OTHER state, given to everybody.
+    expect(phone.queryByText(/Try adjusting your filters/)).not.toBeInTheDocument();
   });
 });
 
@@ -224,10 +243,31 @@ describe('a register emptied by a filter is not an empty register', () => {
 
     searchFor('Quenchless');
 
-    expect(screen.getByRole('heading', { level: 3, name: 'No transactions match these filters' })).toBeInTheDocument();
+    const table = within(grid());
+    expect(table.getByRole('heading', { level: 3, name: 'No transactions match these filters' })).toBeInTheDocument();
     // THE COUNT IS THE POINT: it is the sentence that says the rows still exist.
-    expect(screen.getByText('3')).toBeInTheDocument();
-    expect(screen.getByText('Search: Quenchless')).toBeInTheDocument();
+    expect(table.getByText('3')).toBeInTheDocument();
+    expect(table.getByText('Search: Quenchless')).toBeInTheDocument();
+  });
+
+  it('is a DIFFERENT state from an empty register, in both viewports', async () => {
+    renderRegister();
+    await screen.findByRole('heading', { level: 1, name: 'Synthetic Chrome' });
+
+    searchFor('Quenchless');
+
+    // The distinguishing words, either way round: the filtered state names the
+    // count and the filter and offers to let go; the empty one names the
+    // balance and offers the two ways in. Neither may wear the other's voice.
+    for (const scope of [within(grid()), within(phoneList())]) {
+      expect(scope.getByRole('heading', { level: 3, name: 'No transactions match these filters' })).toBeInTheDocument();
+      expect(scope.getByText('Search: Quenchless')).toBeInTheDocument();
+      expect(scope.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument();
+
+      expect(scope.queryByRole('heading', { name: 'No transactions in this account yet' })).not.toBeInTheDocument();
+      expect(scope.queryByRole('button', { name: 'Add transaction' })).not.toBeInTheDocument();
+      expect(scope.queryByText(/Its balance stays at/)).not.toBeInTheDocument();
+    }
   });
 
   it('offers one control that gives them back, and it gives them back', async () => {
@@ -237,7 +277,7 @@ describe('a register emptied by a filter is not an empty register', () => {
     searchFor('Quenchless');
     expect(dataRows()).toHaveLength(0);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    fireEvent.click(within(grid()).getByRole('button', { name: 'Clear filters' }));
 
     expect(dataRows()).toHaveLength(3);
     expect(screen.queryByRole('heading', { name: 'No transactions match these filters' })).not.toBeInTheDocument();

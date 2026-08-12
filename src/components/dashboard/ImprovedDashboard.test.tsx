@@ -228,8 +228,40 @@ describe('Key Account Balances — select all / clear all', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
 
     expect(screen.queryByTestId('account-balance-card')).not.toBeInTheDocument();
-    expect(screen.getByText('No accounts selected')).toBeInTheDocument();
+    // A SELECTION IS A FILTER, so the panel says what it is hiding and how
+    // much of it, rather than pointing at a settings icon (DESIGN_PASS §4).
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'No accounts are selected for the dashboard' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('the dashboard’s account selection')).toBeInTheDocument();
     expect(localStorage.getItem('dashboardKeyAccounts')).toBe('[]');
+  });
+
+  it('offers one control that brings every account back, and it does', () => {
+    localStorage.setItem('dashboardKeyAccounts', JSON.stringify([]));
+    render(<ImprovedDashboard />);
+
+    expect(screen.queryByTestId('account-balance-card')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show all accounts' }));
+
+    expect(screen.getAllByTestId('account-balance-card')).toHaveLength(3);
+  });
+
+  it('a dashboard with no accounts AT ALL is a different state from one with none selected', () => {
+    mocks.app.accounts = [];
+    mocks.app.isLoading = false;
+    render(<ImprovedDashboard />);
+
+    // The first run: what this panel will hold, and the control that starts it
+    // — never the selection sentence, which would send a brand-new user
+    // hunting for accounts to tick that do not exist.
+    expect(screen.getByRole('heading', { level: 3, name: 'No accounts yet' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add Account' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'No accounts are selected for the dashboard' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show all accounts' })).not.toBeInTheDocument();
   });
 });
 

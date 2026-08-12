@@ -57,7 +57,9 @@ import {
   selectTopLevelAccounts,
 } from '../utils/accountNesting';
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
-import { SkeletonCard } from '../components/loading/Skeleton';
+import EmptyState from '../components/EmptyState';
+import FilteredEmptyState from '../components/FilteredEmptyState';
+import { TableSkeleton, type TableSkeletonColumn } from '../components/loading/TableSkeleton';
 import {
   AccountRowColumns,
   AccountBalanceCell,
@@ -77,6 +79,31 @@ import {
   withProvenance,
   type ProvenanceState,
 } from '../utils/navigationProvenance';
+
+/**
+ * What an account row is shaped like, for the placeholder that waits in its
+ * place (DESIGN_PASS §4).
+ *
+ * Two tracks, because that is what a row is at a glance: the name taking the
+ * flexible track on the left, and the figures right-aligned in the fixed ones
+ * ACCOUNT_ROW_COLUMNS_CLASS lays out. The second figure hides below `sm`
+ * exactly as AccountBalanceCell's `smOnly` cell does, so the placeholder is one
+ * column narrower on a phone in the same place the real row is.
+ */
+const ACCOUNT_SKELETON_COLUMNS: TableSkeletonColumn[] = [
+  { key: 'name', className: 'flex-1' },
+  { key: 'balance', width: '6.5rem' },
+  { key: 'secondary', width: '7.5rem', className: 'hidden sm:block' },
+];
+
+/**
+ * What a row measures: `p-3 sm:p-4` around the name, the institution line and
+ * the row of figures. MEASURED in the running app at 1280px rather than added
+ * up from the classes — the arithmetic said 88 and the DOM says 98, and a
+ * placeholder 10px short of the row it stands in for is the layout shift this
+ * pattern exists to prevent.
+ */
+const ACCOUNT_ROW_HEIGHT = 98;
 
 /**
  * The two "Group by" switches as stored. Read through the shared parser, which
@@ -1776,11 +1803,14 @@ export default function Accounts() {
       {/* Accounts grid */}
       <div className="grid gap-6">
         {isLoading ? (
-          <>
-            <SkeletonCard className="h-48" />
-            <SkeletonCard className="h-48" />
-            <SkeletonCard className="h-48" />
-          </>
+          /* SHAPE, NOT SPINNER (DESIGN_PASS §4). Three rows at the height an
+             account row actually is, in the two tracks it actually has — the
+             name on the left, the balance right-aligned — so the list does not
+             jump when the accounts arrive. It replaced three 192px cards that
+             matched no row on this page and breathed while they waited. */
+          <div className="bg-white dark:bg-gray-800">
+            <TableSkeleton columns={ACCOUNT_SKELETON_COLUMNS} rowHeight={ACCOUNT_ROW_HEIGHT} />
+          </div>
         ) : displayedList.mode === 'flat' ? (
           /* Both switches off: one list, no band chrome at all — the rows on
              white, separated by the same hairline the banded views use. */
@@ -1792,21 +1822,38 @@ export default function Accounts() {
         )}
       </div>
 
-      {/* An active search that matches nothing gets a plain-spoken empty state
-          rather than a blank frame — the count above already reads "0 of N". */}
+      {/* A SEARCH THAT HIDES EVERY ACCOUNT IS NOT AN EMPTY ACCOUNT LIST
+          (DESIGN_PASS §4). On a finance app the two look identical and one of
+          them is terrifying, so this one names how many accounts are still
+          there, what is hiding them, and the control that gives them back.
+          Search is the only thing on this page that hides a row: the group and
+          sort switches rearrange the list, and closed accounts have their own
+          section below rather than being filtered out of this one. */}
       {!isLoading && isSearching && matchedTopLevelCount === 0 && openAccounts.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 text-center">
-          <p className="text-gray-500 dark:text-gray-400">
-            No accounts match “{accountSearch.trim()}”.
-          </p>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+          <FilteredEmptyState
+            title="No accounts match your search"
+            hiddenCount={topLevelAccounts.length}
+            scope="of your accounts"
+            filters={[`Search: ${accountSearch.trim()}`]}
+            onClear={() => setAccountSearch('')}
+          />
         </div>
       )}
 
-      {openAccounts.length === 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 text-center">
-          <p className="text-gray-500 dark:text-gray-400">
-            No accounts yet. Click "Add Account" to get started!
-          </p>
+      {/* Gated on !isLoading, which it was not. The window is small — this
+          page's isLoading is local and drops on the first effect pass — but
+          for that first paint "No accounts yet" rendered directly beneath the
+          loading placeholder, which is the page contradicting itself about
+          whether the user has any accounts. The two are now mutually exclusive
+          by construction rather than by how fast an effect runs. */}
+      {!isLoading && openAccounts.length === 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+          <EmptyState
+            title="No accounts yet"
+            description="Every balance, report and budget in WealthTracker is built up from accounts, so until there is one here the rest of the app has nothing to show."
+            action={{ label: 'Add Account', onClick: () => setIsAddModalOpen(true) }}
+          />
         </div>
       )}
 

@@ -4,6 +4,8 @@ import { useToast } from '../../contexts/ToastContext';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import PageWrapper from '../../components/PageWrapper';
 import { VirtualizedTable, type Column } from '../../components/VirtualizedTable';
+import EmptyState from '../../components/EmptyState';
+import FilteredEmptyState from '../../components/FilteredEmptyState';
 import RenamePayeesModal from '../../components/RenamePayeesModal';
 import DismissSuggestionPrompt from '../../components/sweeps/DismissSuggestionPrompt';
 import DismissedPayeeSuggestions from '../../components/DismissedPayeeSuggestions';
@@ -1010,12 +1012,49 @@ export default function PayeeCleanup(): React.JSX.Element {
             rowClassName={(payee: PayeeSummary) =>
               selected.has(payee.description) ? 'bg-blue-50 dark:bg-blue-900/30' : ''
             }
-            emptyMessage={
-              everyPayee.length === 0
-                ? 'No transactions yet, so there are no payees to tidy.'
-                : payees.length === 0
-                  ? 'Every payee is hidden. Bring one back from “Dismissed suggestions” below.'
-                  : 'No payee matches that search.'
+            // Three different nothings, and they are not interchangeable
+            // (DESIGN_PASS §4): a ledger with no payees in it yet, a list whose
+            // payees have all been put away, and a search that matched none of
+            // the payees sitting right there.
+            emptyContent={
+              everyPayee.length === 0 ? (
+                <EmptyState
+                  // No remedy control, for the same reason the audit trail has
+                  // none: this page does not CREATE payees, it tidies the ones
+                  // your transactions already carry. The button that fixes this
+                  // is on another screen entirely, and a page that grew a
+                  // router dependency to point at it would be decorating the
+                  // sentence rather than shortening the trip.
+                  title="No payees to tidy yet"
+                  description="Payees are the descriptions on your transactions, gathered up and counted. Until something lands in an account there is nothing here to merge or rename."
+                />
+              ) : payees.length === 0 ? (
+                <EmptyState
+                  // Not a FilteredEmptyState: there is no ONE control that
+                  // undoes this. Dismissals are let go of individually, in the
+                  // "Dismissed suggestions" section already on this page, so
+                  // the count is what this state owes the user — a [Clear] that
+                  // restored everything would be a bulk action invented for the
+                  // sake of a button.
+                  title="Every payee is hidden"
+                  description={
+                    <>
+                      <span className="font-medium text-gray-900 dark:text-gray-100 tabular-nums">
+                        {everyPayee.length.toLocaleString()}
+                      </span>
+                      {` ${everyPayee.length === 1 ? 'payee is' : 'payees are'} still on your transactions — they are just off this page. Bring one back from “Dismissed suggestions” below.`}
+                    </>
+                  }
+                />
+              ) : (
+                <FilteredEmptyState
+                  title="No payees match your search"
+                  hiddenCount={payees.length}
+                  scope="payees"
+                  filters={[`Search: ${query.trim()}`]}
+                  onClear={() => setQuery('')}
+                />
+              )
             }
           />
         </div>

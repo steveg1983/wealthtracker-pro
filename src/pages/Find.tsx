@@ -4,6 +4,11 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useDebounce } from '../hooks/useDebounce';
 import PageWrapper from '../components/PageWrapper';
+import EmptyState from '../components/EmptyState';
+import FilteredEmptyState from '../components/FilteredEmptyState';
+import { TableSkeleton, type TableSkeletonColumn } from '../components/loading/TableSkeleton';
+import { useDelayedFlag } from '../hooks/useDelayedFlag';
+import { preserveDemoParam } from '../utils/navigation';
 import { SearchIcon, XIcon } from '../components/icons';
 import { transactionRowDomId } from '../components/transactionRowDomId';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
@@ -64,6 +69,31 @@ export const FIND_ROW_SELECTED_CLASS =
   '[&>td]:border-y [&>td]:border-[#6B86B3]/50 dark:[&>td]:border-[#6B86B3]/70 ' +
   '[&>td:first-child]:border-l [&>td:last-child]:border-r';
 
+/**
+ * The results table's geometry, for the placeholder that stands in for it.
+ *
+ * The table below is hand-written `<th>`s rather than a `Column[]`, so this is
+ * the one place the two could drift apart — and a placeholder of the wrong
+ * shape is a layout shift with extra steps. Find.emptyStates.test.tsx counts
+ * the placeholder's cells against the real header's in the rendered DOM, so a
+ * column added to one and not the other fails rather than quietly misaligning.
+ *
+ * The `hidden sm:block` / `hidden md:block` pairs mirror the header's own
+ * `hidden sm:table-cell` / `hidden md:table-cell`: at 375px the real table
+ * draws four columns, so the placeholder must draw four too.
+ */
+const FIND_SKELETON_COLUMNS: TableSkeletonColumn[] = [
+  { key: 'date', width: '14%' },
+  { key: 'cr', width: '6%' },
+  { key: 'account', width: '18%', className: 'hidden sm:block' },
+  { key: 'description', width: '32%' },
+  { key: 'category', width: '16%', className: 'hidden md:block' },
+  { key: 'amount', width: '14%' },
+];
+
+/** `py-2` over `text-sm`'s 20px line — the height a result row actually is. */
+const FIND_ROW_HEIGHT = 36;
+
 /** How a day is written in the range chip — the app's date style, spelled out. */
 const DAY_FORMAT = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -75,7 +105,7 @@ function formatDay(day: string): string {
 }
 
 export default function Find(): React.JSX.Element {
-  const { transactions, accounts, categories } = useApp();
+  const { transactions, accounts, categories, isLoading } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -255,6 +285,52 @@ export default function Find(): React.JSX.Element {
     setSearchParams(params, { replace: true });
   }, [setSearchParams]);
 
+  /**
+   * Everything the search is currently asking for, let go of at once — the
+   * remedy the filtered-empty state offers.
+   *
+   * The box is cleared as well as the URL: the box is what the user is looking
+   * at, and a "Clear" that emptied the results while leaving the query sitting
+   * in the field would read as the search having broken.
+   */
+  const clearSearch = useCallback((): void => {
+    setText('');
+    const params = new URLSearchParams(latestSearch.current);
+    params.delete('q');
+    params.delete('dateFrom');
+    params.delete('dateTo');
+    setSearchParams(params, { replace: true });
+  }, [setSearchParams]);
+
+  /**
+   * The filters holding every result back, named the way the user set them
+   * (DESIGN_PASS §4). "Gone" and "hidden" look identical on a search page, and
+   * only the count and these names tell them apart.
+   */
+  const activeFilterNames = useMemo<string[]>(() => {
+    const names: string[] = [];
+    const typed = debouncedText.trim();
+    if (typed) names.push(`Search: ${typed}`);
+    if (dateFrom || dateTo) names.push('the date range');
+    return names;
+  }, [debouncedText, dateFrom, dateTo]);
+
+  /**
+   * NOTHING TO SEARCH, versus NOTHING FOUND — and the difference is the whole
+   * reason this page can be trusted.
+   *
+   * Find reads the rows already in memory, so before they arrive every search
+   * legitimately matches nothing. Saying "Nothing matches Ferrier" at that
+   * moment is a FALSE NEGATIVE about the user's own money: they conclude the
+   * transaction is not there and go looking somewhere else. So a load that has
+   * not finished shows the shape of the table instead, and only once it has —
+   * and only once 200ms have passed, or a quick load flashes grey bars for
+   * nothing (useDelayedFlag).
+   */
+  const stillArriving = isLoading && transactions.length === 0;
+  const showResultsSkeleton = useDelayedFlag(stillArriving);
+  const nothingToSearch = !isLoading && transactions.length === 0;
+
   const rangeLabel = dateFrom && dateTo && dateFrom !== dateTo
     ? `${formatDay(dateFrom)} – ${formatDay(dateTo)}`
     : formatDay(dateFrom || dateTo);
@@ -294,30 +370,66 @@ export default function Find(): React.JSX.Element {
         )}
       </div>
 
-      {nothingAsked ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-          <SearchIcon size={32} className="mx-auto mb-3 text-gray-400" />
-          <p className="text-base font-medium text-gray-900 dark:text-white">Find looks through every account at once</p>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 max-w-prose mx-auto">
+      {stillArriving ? (
+        // SHAPE, NOT SPINNER — and nothing at all under 200ms. Never the words
+        // "Nothing matches" while the rows are still on their way.
+        showResultsSkeleton ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <TableSkeleton columns={FIND_SKELETON_COLUMNS} rowHeight={FIND_ROW_HEIGHT} />
+          </div>
+        ) : null
+      ) : nothingToSearch ? (
+        // There is nothing in the ledger at all, so no query could ever match.
+        // Saying "Nothing matches Ferrier" here would blame the search for the
+        // absence of the data.
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <EmptyState
+            title="There are no transactions to search yet"
+            description="Find looks through every account at once — so until something lands in one of them, every search here comes back empty."
+            action={{
+              label: 'Import a statement',
+              onClick: () => navigate(preserveDemoParam('/enhanced-import', location.search))
+            }}
+            secondaryAction={{
+              label: 'Go to Accounts',
+              onClick: () => navigate(preserveDemoParam('/accounts', location.search))
+            }}
+          />
+        </div>
+      ) : nothingAsked ? (
+        // Not an empty state: nothing is missing and nothing is hidden. It is
+        // the page explaining itself before it has been asked anything — so it
+        // keeps its own voice, but reads down the left edge like everything
+        // else now, without the decorative glyph §4 rules out.
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 px-6 py-10">
+          <h3 className="text-card font-semibold text-gray-900 dark:text-white">Find looks through every account at once</h3>
+          <p className="mt-1 max-w-2xl text-body text-gray-600 dark:text-gray-400">
             Type part of a description, or an amount as your statement prints it — 141.50 finds it
             whichever way the money went. Click a result to open that transaction in its own
             account&rsquo;s register, which is where you can change it.
           </p>
         </div>
       ) : outcome.total === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-          <p className="text-base font-medium text-gray-900 dark:text-white">
-            {debouncedText.trim() === ''
-              ? 'Nothing was recorded in that date range'
-              : `Nothing matches “${debouncedText.trim()}”`}
-          </p>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            Find looks at descriptions and amounts. Categories, tags and notes are searched inside
-            an account&rsquo;s own register.
-          </p>
+        // The rows ARE there — this search is what is hiding them. Say how
+        // many, say what is doing it, and offer the one control that undoes it.
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <FilteredEmptyState
+            hiddenCount={transactions.length}
+            scope="across your accounts"
+            filters={activeFilterNames}
+            onClear={clearSearch}
+          />
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        // A REFETCH DIMS, IT NEVER BLANKS: results already on screen stay where
+        // they are at 60% while the ledger is fetched again. Blanking them is
+        // indistinguishable, for as long as it lasts, from losing them
+        // (DESIGN_PASS §4).
+        <div
+          className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden ${
+            isLoading ? 'opacity-60 transition-opacity duration-enter' : ''
+          }`}
+        >
           <p className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
             {outcome.capped
               ? `Showing the first ${FIND_RESULT_CAP} of ${outcome.total} matches — narrow the search.`

@@ -70,8 +70,14 @@ export default function EmptyState({
         </p>
       )}
 
+      {/* THE REMEDIES CLEAR 44px WHERE A FINGER IS THE POINTER, and keep the
+          register's own control height where a mouse is (the project's mobile
+          rule; `lg` is the same breakpoint the register switches from the table
+          to the phone's card list at). text-body's 20px line over py-2 is 36px,
+          which is a comfortable button under a cursor and a miss under a
+          thumb. */}
       {(action || secondaryAction) && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex flex-wrap items-center gap-2 [&>button]:min-h-[44px] lg:[&>button]:min-h-0">
           {action && (
             <button
               type="button"

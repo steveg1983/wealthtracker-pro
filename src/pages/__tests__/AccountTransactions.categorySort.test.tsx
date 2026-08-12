@@ -428,6 +428,12 @@ describe('Account register — searching finds what the Category column says', (
     // is the empty string, and the empty string must go on matching nothing
     // rather than everything.
     expect(columnInOrder('Description')).toEqual([]);
-    expect(screen.getAllByText('No transactions found').length).toBeGreaterThan(0);
+    // And says so as a FILTERED-empty, in both viewports: the rows are behind
+    // the search, not missing (DESIGN_PASS §4). This used to read
+    // 'No transactions found', which was the same words for both cases.
+    expect(
+      screen.getAllByRole('heading', { level: 3, name: 'No transactions match these filters' })
+    ).toHaveLength(2);
+    expect(screen.getAllByText('Search: Quenchless').length).toBeGreaterThan(0);
   });
 });
