@@ -41,7 +41,10 @@ import {
 type AccountSortMode = 'default' | 'name' | 'balance-desc' | 'balance-asc';
 import { IconButton } from '../components/icons/IconButton';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { useConvertedNetWorth } from '../hooks/useConvertedNetWorth';
+import {
+  useConvertedNetWorth,
+  type AccountBalanceEntry,
+} from '../hooks/useConvertedNetWorth';
 import { useReconciliation } from '../hooks/useReconciliation';
 import { countAwaitingReviewByAccount } from '../utils/transactionReview';
 import { useAccountBankSync } from '@service';
@@ -141,6 +144,33 @@ interface DisplayedBand {
   displayed: Account[];
   subBands: DisplayedSubBand[] | null;
   isExpanded: boolean;
+}
+
+/**
+ * Where a band's converted total is filed.
+ *
+ * Module-level so the pass that BUILDS the totals and the pass that draws them
+ * cannot drift into two different spellings of the same band. It happens to
+ * read like `collapseKeyFor`; that is a coincidence of format, not a shared
+ * meaning, and the two are deliberately not the same function.
+ */
+const bandTotalKey = (kind: AccountGroupKind, label: string): string => `${kind}:${label}`;
+const subBandTotalKey = (kind: AccountGroupKind, label: string, subLabel: string): string =>
+  `${kind}:${label}::${subLabel}`;
+
+/** Stable identity for the single-currency case: no groups, so no conversion. */
+const NO_GROUP_ENTRIES: ReadonlyMap<string, readonly AccountBalanceEntry[]> = new Map();
+
+/**
+ * A group total, ready to print, and the same thing said out loud.
+ *
+ * The two differ in exactly one place: `≈` is a glyph screen readers do not
+ * reliably announce, so the spoken form says "approximately" and the visible
+ * form keeps the mark the design pass asked for.
+ */
+interface BandTotalFigure {
+  text: string;
+  spoken: string;
 }
 
 type DisplayedList =
@@ -373,7 +403,9 @@ export default function Accounts() {
     [netWorthEntries, displayCurrency]
   );
 
-  const convertedNetWorth = useConvertedNetWorth(netWorthEntries, displayCurrency);
+  // The conversion itself is set up below, once the band decomposition it also
+  // feeds (`groupCurrencyEntries`) exists — one pass converts the card and every
+  // group header together. See `totalForBand`.
 
   // The open list's bands, straight from the two switches — type sections,
   // institution bands, type sections with institution sub-bands, or one flat
@@ -418,6 +450,77 @@ export default function Accounts() {
       decimalTransactions
     );
   }, [decimalAccounts, decimalTransactions, topLevelIdByAccountId]);
+
+  /**
+   * The same band total as above, split into one line per currency HELD.
+   *
+   * Deliberately the same decomposition: identical account expansion, identical
+   * `calculateTotalBalance`, merely partitioned by currency first. Because that
+   * partition is a plain sum, these lines add back up to exactly the figure
+   * `totalForBand` returns — so a converted band total is the band total this
+   * page has always shown, converted, and never a second opinion about what the
+   * band is worth.
+   *
+   * A nested account contributes its OWN currency, not its parent's: a dollar
+   * cash sleeve inside a sterling investment account is still dollars.
+   */
+  const currencySubtotalsForBand = useCallback(
+    (bandAccounts: readonly Account[]): AccountBalanceEntry[] => {
+      const ids = new Set(bandAccounts.map(a => a.id));
+      const inBand = decimalAccounts.filter(a => ids.has(topLevelIdByAccountId.get(a.id) ?? a.id));
+      const buckets = new Map<string, typeof inBand>();
+      for (const account of inBand) {
+        const currency = account.currency || displayCurrency;
+        const bucket = buckets.get(currency);
+        if (bucket) bucket.push(account);
+        else buckets.set(currency, [account]);
+      }
+      return [...buckets].map(([currency, bucket]) => ({
+        balance: calculateTotalBalance(bucket, decimalTransactions),
+        currency,
+      }));
+    },
+    [decimalAccounts, decimalTransactions, topLevelIdByAccountId, displayCurrency]
+  );
+
+  /**
+   * Every band and sub-band on the page, decomposed for the one conversion pass.
+   *
+   * Empty — and therefore free — whenever the ledger reads in one currency,
+   * which is the common case: no decomposition, no map, no conversion, and the
+   * headers below fall through to the untouched `totalForBand` path.
+   */
+  const groupCurrencyEntries = useMemo<ReadonlyMap<string, readonly AccountBalanceEntry[]>>(() => {
+    if (!spansCurrencies || accountBands.mode !== 'grouped') return NO_GROUP_ENTRIES;
+    const entries = new Map<string, readonly AccountBalanceEntry[]>();
+    for (const group of accountBands.groups) {
+      entries.set(bandTotalKey(group.kind, group.label), currencySubtotalsForBand(group.accounts));
+      for (const sub of group.subGroups ?? []) {
+        entries.set(
+          subBandTotalKey(group.kind, group.label, sub.label),
+          currencySubtotalsForBand(sub.accounts)
+        );
+      }
+    }
+    return entries;
+  }, [spansCurrencies, accountBands, currencySubtotalsForBand]);
+
+  /**
+   * ONE conversion for the whole page: the net-worth card's three figures and
+   * every group header's total, off one rate table, resolved in one state
+   * update.
+   *
+   * That single call is what makes the ruling's coherence requirement
+   * structural rather than aspirational. A group total cannot look confident
+   * while the card above it reads degraded, because neither figure has a
+   * provenance of its own to disagree with — there is one, and the `≈` on a
+   * group total is a pointer to it (`ConvertedTotalNote`, under the card).
+   */
+  const convertedNetWorth = useConvertedNetWorth(
+    netWorthEntries,
+    displayCurrency,
+    groupCurrencyEntries
+  );
 
   // The shared account-type sections (same groupings everywhere), catch-all
   // last — a type without a section renders under "Other Accounts", never
@@ -1254,8 +1357,62 @@ export default function Accounts() {
   //
   // What is IN the band was decided by `displayedList` — the same answer the
   // arrow keys walk, so the two can never differ about which rows exist.
+  /**
+   * A group header's total, and how it declares that a rate was applied.
+   *
+   * Three outcomes, in the order they are checked:
+   *
+   *  1. **Whole in the display currency** — the plain figure this page has
+   *     always printed, from the untouched `totalForBand` path, with no mark.
+   *     Nothing was converted, so there is nothing to disclose and no reason for
+   *     a single-currency ledger to grow a symbol it cannot explain.
+   *  2. **A currency in the band has no rate at all** — the FAILURE state. There
+   *     is no honest single figure, so the band reports the unsummed pair
+   *     ("£X + $Y"). Never the default: it only appears where a rate is
+   *     genuinely unresolvable, and the card above it is saying so at the same
+   *     moment, out of the same `unconverted` list.
+   *  3. **Converted** — the figure, marked `≈`. The mark is the whole
+   *     disclosure: WHICH rate and WHEN is stated once per page, by
+   *     `ConvertedTotalNote` under the net-worth card, and repeating it per
+   *     group would make the scanning aid the widest thing on the row.
+   */
+  const bandTotalFigure = (key: string, bandAccounts: readonly Account[]): BandTotalFigure => {
+    const converted = convertedNetWorth.groupTotals.get(key);
+
+    if (!converted?.isConverted) {
+      const plain = formatDisplayCurrency(totalForBand(bandAccounts));
+      return { text: plain, spoken: plain };
+    }
+
+    if (converted.unconverted.length > 0) {
+      const pair = converted.byCurrency
+        .map(line => formatDisplayCurrency(line.amount, line.currency))
+        .join(' + ');
+      return { text: pair, spoken: pair };
+    }
+
+    const figure = formatDisplayCurrency(converted.total);
+    return { text: `≈ ${figure}`, spoken: `approximately ${figure}` };
+  };
+
+  /**
+   * The figure as a node. An unmarked total renders as the bare string it
+   * always was — same DOM, same textContent — and only a marked one splits into
+   * a seen glyph and a spoken word, because `≈` is not reliably announced.
+   */
+  const bandTotalNode = (figure: BandTotalFigure): ReactNode =>
+    figure.text === figure.spoken ? (
+      figure.text
+    ) : (
+      <>
+        <span aria-hidden="true">{figure.text}</span>
+        <span className="sr-only">{figure.spoken}</span>
+      </>
+    );
+
   const renderAccountBand = ({ group, displayed, subBands, isExpanded }: DisplayedBand): ReactNode => {
     const regionId = groupRegionId(group.kind, group.label);
+    const bandTotal = bandTotalFigure(bandTotalKey(group.kind, group.label), group.accounts);
 
     return (
       // NOT A CARD. This used to be a white bordered, shadowed box containing a
@@ -1291,7 +1448,7 @@ export default function Accounts() {
               </span>
             </div>
             <p className="text-card font-semibold text-primary dark:text-white">
-              {formatDisplayCurrency(totalForBand(group.accounts))}
+              {bandTotalNode(bandTotal)}
             </p>
           </div>
         </button>
@@ -1303,7 +1460,10 @@ export default function Accounts() {
                   // Count and total describe the WHOLE sub-band, as the section
                   // header does — a search narrows the rows, not the figures.
                   const countLabel = `${sub.accounts.length} ${sub.accounts.length === 1 ? 'account' : 'accounts'}`;
-                  const subTotal = formatDisplayCurrency(totalForBand(sub.accounts));
+                  const subTotal = bandTotalFigure(
+                    subBandTotalKey(group.kind, group.label, sub.label),
+                    sub.accounts
+                  );
                   return (
                     // A sub-band is a group, not a heading: the outline stays
                     // section (h2) → account name (h3), and screen readers get
@@ -1311,7 +1471,7 @@ export default function Accounts() {
                     <div
                       key={sub.label}
                       role="group"
-                      aria-label={`${sub.title}, ${countLabel}, total ${subTotal}`}
+                      aria-label={`${sub.title}, ${countLabel}, total ${subTotal.spoken}`}
                     >
                       {/* The same treatment as the band above it, one step
                           quieter: a line, not a pill with a border of its own. */}
@@ -1323,7 +1483,9 @@ export default function Accounts() {
                           </span>
                         </p>
                         <p className="shrink-0 text-dense font-semibold text-gray-600 dark:text-gray-300">
-                          {subTotal}
+                          {/* The container already carries the spoken form in
+                              its group label, so the mark is decoration here. */}
+                          <span aria-hidden="true">{subTotal.text}</span>
                         </p>
                       </div>
                       {sub.displayed.map(renderAccountCard)}
