@@ -1,90 +1,21 @@
-/* Enhanced borders and shadows for better visual definition */
-
-/* Card and container borders */
-.bg-white,
-.dark\:bg-gray-800,
-.bg-white\/70,
-.dark\:bg-gray-800\/70,
-.bg-white\/50,
-.dark\:bg-gray-800\/50 {
-  border-width: 2px !important;
-}
-
-/* Enhanced shadows for all elements */
-.shadow-sm {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06) !important;
-}
-
-.shadow {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06) !important;
-}
-
-.shadow-md {
-  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.1) !important;
-}
-
-.shadow-lg {
-  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2), 0 4px 6px rgba(0, 0, 0, 0.1) !important;
-}
-
-.shadow-xl {
-  box-shadow: 0 20px 25px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.12) !important;
-}
-
-/* Dark mode shadow adjustments */
-.dark .shadow-sm {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2) !important;
-}
-
-.dark .shadow {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2) !important;
-}
-
-.dark .shadow-md {
-  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4), 0 3px 6px rgba(0, 0, 0, 0.3) !important;
-}
-
-.dark .shadow-lg {
-  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5), 0 4px 6px rgba(0, 0, 0, 0.3) !important;
-}
-
-.dark .shadow-xl {
-  box-shadow: 0 20px 25px rgba(0, 0, 0, 0.6), 0 10px 10px rgba(0, 0, 0, 0.4) !important;
-}
-
-/* Border width enhancements */
-.border {
-  border-width: 2px !important;
-}
-
-.border-t {
-  border-top-width: 2px !important;
-}
-
-.border-b {
-  border-bottom-width: 2px !important;
-}
-
-.border-l {
-  border-left-width: 2px !important;
-}
-
-.border-r {
-  border-right-width: 2px !important;
-}
-
-/* Enhance specific components */
-.rounded-lg,
-.rounded-xl,
-.rounded-2xl {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
-}
-
-.dark .rounded-lg,
-.dark .rounded-xl,
-.dark .rounded-2xl {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
-}
+/* Overlay shadows and a few components that genuinely float.
+ *
+ * This file used to be the opposite of what it is now: an "enhanced borders
+ * and shadows" layer that forced border-width: 2px !important onto every
+ * .border*, every white/gray-800 surface, every input and every .divide-y
+ * row, amplified every Tailwind shadow, and painted an ambient shadow onto
+ * every rounded-lg/xl/2xl and every non-circular button in the product.
+ * DESIGN_PASS_2026-08 §2.5 is one sentence and it is the whole argument
+ * against all of that: "Shadows come off; one hairline border does the work.
+ * Shadow survives in exactly two places: overlays and the floating selected
+ * row, where lift IS the meaning." A 1px hairline was literally impossible
+ * to render anywhere in the app while the forcings stood — both design-pass
+ * implementation agents hit the same wall from different surfaces.
+ *
+ * What remains below is only what §2.5 protects: overlays (modals,
+ * dropdowns, tooltips), the draggable grid items whose lift signals
+ * drag-ability, and the collapsed-sidebar reset. Everything else now renders
+ * exactly the borders and shadows its component declares. */
 
 /* Modal and dropdown shadows - only for specific components */
 .fixed.inset-0 + div {
@@ -106,23 +37,6 @@
 .dark .tooltip-shadow,
 .dark .modal-shadow {
   box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5), 0 4px 6px rgba(0, 0, 0, 0.3);
-}
-
-/* Button shadows - excluding rounded-full buttons */
-button:not(.rounded-full) {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-button:not(.rounded-full):hover {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
-}
-
-.dark button:not(.rounded-full) {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.dark button:not(.rounded-full):hover {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
 }
 
 /* Circular button shadows - use drop-shadow to respect border radius */
@@ -148,18 +62,6 @@ button.rounded-full:hover {
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
   border: none !important;
   outline: none !important;
-}
-
-/* Input and form field borders */
-input,
-textarea,
-select {
-  border-width: 2px !important;
-}
-
-/* Table borders */
-.divide-y > * {
-  border-width: 2px !important;
 }
 
 /* Grid item shadows (for draggable components) */
