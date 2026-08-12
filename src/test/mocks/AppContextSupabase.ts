@@ -65,6 +65,16 @@ const baseValue = {
   budgets,
   categories,
   goals,
+  /**
+   * Reports somebody built, and an empty list is a real answer.
+   *
+   * Present at all for the reason `capabilities` above is: the dashboard's
+   * report picker maps over this DURING RENDER (it is built inline in a modal
+   * body, so the JSX is evaluated whether or not the modal is open), and an
+   * undefined list is not a missing card — it is a TypeError thrown out of a
+   * component that has nothing to do with reports.
+   */
+  customReports: [],
   tags: [],
   isLoading: false,
   capabilities: deviceCapabilities,
@@ -79,6 +89,8 @@ const baseValue = {
     budgets: 0,
     goals: 0
   }),
+  saveCustomReport: async () => { throw new Error('not available in mock'); },
+  deleteCustomReport: asyncNoop,
   addAccount: noop,
   updateAccount: noop,
   closeAccount: noop,

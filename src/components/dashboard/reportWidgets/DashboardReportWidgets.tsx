@@ -18,7 +18,6 @@ import { buildNetWorthSnapshots, netWorthPointToken } from '../../../utils/netWo
 import { computeExpenseCategoryNetTotals } from '../../../utils/categoryNetting';
 import { expandSplitTransactions } from '../../../utils/transactionSplits';
 import { formatDecimal } from '../../../utils/decimal-format';
-import { customReportService } from '../../../services/customReportService';
 import type { UsePeriodResult } from '../../../hooks/usePeriod';
 import type { CardPeriodPin } from '../../../hooks/useCardPeriod';
 import { TrendingUpIcon, PieChartIcon, BarChart3Icon, FileTextIcon } from '../../icons';
@@ -312,9 +311,15 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
  */
 export function CustomReportWidget({ reportId }: { reportId: string }): React.JSX.Element | null {
   const openReport = useReportDrill();
+  // The list comes from the context, which holds what the boot snapshot
+  // answered with. That is what makes this `useMemo` possible at all: reports
+  // used to be read from `localStorage` synchronously here, and a store that is
+  // a network away has no synchronous read to replace it with — so they ride the
+  // boot instead and this resolves against state. See `BootSnapshot`.
+  const { customReports } = useApp();
   const report = useMemo(
-    () => customReportService.getCustomReports().find(r => r.id === reportId) ?? null,
-    [reportId]
+    () => customReports.find(r => r.id === reportId) ?? null,
+    [customReports, reportId]
   );
   if (!report) return null;
 

@@ -54,20 +54,22 @@ export const BACKUP_FORMAT = 'wealthtracker-backup-v2';
 
 /**
  * The newest migration timestamp at the moment this format was written —
- * 20260809160000_preferences_that_travel.sql, which added the one table a
- * backup carries outside the fourteen below.
+ * 20260812140000_reports_outlive_the_browser.sql, which created
+ * `public.custom_reports` and gave `restore_user_chunk` a branch for it.
  *
  * It is stamped into the file so a restore can be told which schema the rows
  * were shaped by. Bump it when a migration changes what a backed-up row looks
  * like, not on every migration: its job is to date the ROW SHAPE, and a file
  * claiming a shape it does not have is worse than one claiming an old one.
  *
- * Bumped from 20260807083000 because a backup now carries something it did not
- * before. Informational only — nothing gates on it, and a file stamped with the
- * older value restores exactly as it always did (its `preferences` section is
- * simply absent, which reads as "this file has none").
+ * Bumped from 20260809160000 for the reason that value was bumped from
+ * 20260807083000: a backup now carries something it did not before, and this
+ * time it is a fifteenth TABLE rather than a section beside them. Informational
+ * only — nothing gates on it, and a file stamped with either older value
+ * restores exactly as it always did (its `custom_reports` array is simply
+ * absent, which `validateBackupBundle` already reads as "this file has none").
  */
-export const BACKUP_SCHEMA_VERSION = '20260809160000';
+export const BACKUP_SCHEMA_VERSION = '20260812140000';
 
 /** Rows travel exactly as the database returned them. No mapping, no reshaping. */
 export type BackupRow = Record<string, unknown>;
@@ -95,6 +97,13 @@ export const BACKUP_ENTITIES = [
   'dashboard_layouts',
   'widget_preferences',
   'suggestion_dismissals',
+  // LAST, and it is the read order rather than a ranking: a report references
+  // accounts and categories from inside a jsonb blob with no foreign key behind
+  // it, so nothing about it constrains where it sits in this list — and the
+  // restore order, which IS constrained, is stated separately in RESTORE_STEPS.
+  // Appending rather than inserting also keeps every older file's `counts`
+  // consistent with the list this build walks.
+  'custom_reports',
 ] as const;
 
 export type BackupEntity = (typeof BACKUP_ENTITIES)[number];
@@ -552,7 +561,7 @@ export function transactionDateRange(bundle: BackupBundle): { first: string; las
  * planningService.goalToDb parks `linkedAccountIds` there, because goals has no
  * column for them. So a goal's linked accounts survived a restore still naming
  * the accounts of the login the file came from — wrong on both storage engines,
- * and invisible because nothing constrains a jsonb key. See `metadataIdArrays`.
+ * and invisible because nothing constrains a jsonb key. See `jsonbIdArrays`.
  */
 interface EntityReferences {
   /** Columns typed uuid whose value is another backed-up row's id. */
@@ -578,14 +587,36 @@ interface EntityReferences {
   /** uuid[] columns where every element is a row id. */
   readonly uuidArray?: readonly string[];
   /**
-   * Keys INSIDE the `metadata` jsonb holding an array of row ids.
+   * Arrays of row ids that live INSIDE a jsonb column, named column by column
+   * and then key by key.
    *
-   * Only one exists — goals.metadata.linkedAccountIds — and it exists because
-   * goals has no column for it. Handled by key rather than by sweeping the
-   * whole jsonb: metadata also carries a user's own free text, and rewriting
-   * anything there that happened to match an id would corrupt it.
+   * ── WHY IT IS SHAPED LIKE THIS AND NOT LIKE A LIST OF KEYS ────────────────
+   *
+   * It was `metadataIdArrays: readonly string[]` — a list of keys, with the
+   * COLUMN hard-coded as `metadata` in the remapper — because for a while
+   * exactly one such array existed: `goals.metadata.linkedAccountIds`, parked in
+   * a blob because goals has no column for it.
+   *
+   * Custom reports made that shape wrong rather than merely cramped.
+   * `custom_reports.filters` holds `accounts` and `categories` — both arrays of
+   * row ids, in a column that is not called `metadata` — and the honest choices
+   * were to generalise this field or to grow a second one beside it. A second
+   * one is the worse answer for a reason this file has a scar about: two
+   * mechanisms doing one job means the next id-carrying blob is added to
+   * whichever of the two its author happens to read, and the one that is missed
+   * fails SILENTLY, because nothing constrains a key inside a jsonb value on
+   * either engine. There is one mechanism, so there is one place to add to.
+   *
+   * ── AND STILL BY KEY, NEVER BY SWEEPING THE COLUMN ────────────────────────
+   *
+   * The rule the old field stated survives the generalisation unchanged, and it
+   * is the important half. `metadata` also carries a user's own free text, and
+   * `filters` carries `tags` — labels somebody typed, which are deliberately NOT
+   * here. Rewriting anything inside one of these columns that happened to match
+   * an id in the file would corrupt it, and a person whose tag is a uuid-shaped
+   * string is a person nobody is going to think about again.
    */
-  readonly metadataIdArrays?: readonly string[];
+  readonly jsonbIdArrays?: Readonly<Record<string, readonly string[]>>;
 }
 
 const ENTITY_REFERENCES: Readonly<Record<BackupEntity, EntityReferences>> = {
@@ -604,7 +635,11 @@ const ENTITY_REFERENCES: Readonly<Record<BackupEntity, EntityReferences>> = {
     textId: ['category'],
   },
   budgets: { uuid: ['category_id'], textId: ['category'] },
-  goals: { uuid: ['account_id'], textId: ['category'], metadataIdArrays: ['linkedAccountIds'] },
+  goals: {
+    uuid: ['account_id'],
+    textId: ['category'],
+    jsonbIdArrays: { metadata: ['linkedAccountIds'] },
+  },
   goal_contributions: { uuid: ['goal_id', 'transaction_id'] },
   investments: { uuid: ['account_id'] },
   investment_transactions: { uuid: ['investment_id'] },
@@ -614,6 +649,33 @@ const ENTITY_REFERENCES: Readonly<Record<BackupEntity, EntityReferences>> = {
   widget_preferences: {},
   // subject_key is handled separately below — it is a composite, not a plain id.
   suggestion_dismissals: { uuidArray: ['subject_ids'] },
+  /**
+   * A report's filters name the rows it is ABOUT, and two of the three lists in
+   * there are ids.
+   *
+   * `filters.accounts` and `filters.categories` hold account and category ids,
+   * put there by the builder's multi-selects. Restored verbatim into a login
+   * whose rows have been given fresh ids, a report filtered to "the current
+   * account and the joint account" would be filtered to two accounts that no
+   * longer exist — so it would generate, successfully, over NO transactions, and
+   * present an empty report as the answer. Nothing would say anything: no
+   * constraint watches the inside of a jsonb column, and an empty report is a
+   * perfectly ordinary thing for a report to be.
+   *
+   * `filters.tags` is deliberately absent. Tags are LABELS the user typed, never
+   * ids — `Transaction.tags` is a text array and the report generator matches
+   * them as strings — so remapping one would replace somebody's word with a
+   * uuid and quietly stop the filter matching anything.
+   *
+   * `components` is absent for a stronger reason: nothing in it is a row id at
+   * all. A component's `id` is its own position marker inside the report
+   * (`component-<timestamp>`, minted by the builder and unique only within the
+   * report), and its `config` holds metrics, limits and sort keys. The backup's
+   * id map is keyed by primary keys of backed-up ROWS, so a component id could
+   * never collide with one — but sweeping the blob would be the shape this
+   * spec's own documentation refuses.
+   */
+  custom_reports: { jsonbIdArrays: { filters: ['accounts', 'categories'] } },
 };
 
 /**
@@ -858,26 +920,34 @@ export function remapBackupIds(
         });
       }
 
-      // The one jsonb column carrying references. Rewritten key by key, and
-      // only for the keys named in the spec, so everything else the user has
-      // in metadata travels through untouched.
-      const metadataKeys = spec.metadataIdArrays ?? [];
-      if (metadataKeys.length > 0 && isPlainObject(row.metadata)) {
-        const metadata: Record<string, unknown> = { ...row.metadata };
-        for (const key of metadataKeys) {
-          const value = metadata[key];
+      // The jsonb columns carrying references — `goals.metadata` and
+      // `custom_reports.filters` today. Rewritten column by column and then key
+      // by key, and only for the keys the spec names, so everything else in
+      // those blobs (a user's own free text in metadata, a report's tags)
+      // travels through untouched. See `jsonbIdArrays` for why the column is
+      // named in the spec rather than hard-coded here.
+      for (const [column, keys] of Object.entries(spec.jsonbIdArrays ?? {})) {
+        const stored = row[column];
+        if (!isPlainObject(stored)) continue;
+        const document: Record<string, unknown> = { ...stored };
+        for (const key of keys) {
+          const value = document[key];
           if (!Array.isArray(value)) continue;
-          metadata[key] = value.map((element) => {
+          document[key] = value.map((element) => {
             if (typeof element !== 'string') return element;
             const replacement = lookup(element);
             if (replacement === undefined) {
-              note(`metadata.${key}`, element);
+              // The field is reported as `<column>.<key>` rather than as the
+              // bare key, because a restore can now report a dangling reference
+              // from either of two blobs and "linkedAccountIds" alone would not
+              // say which row of which table to look at.
+              note(`${column}.${key}`, element);
               return element;
             }
             return replacement;
           });
         }
-        next.metadata = metadata;
+        next[column] = document;
       }
 
       if (entity === 'suggestion_dismissals') {
@@ -953,6 +1023,14 @@ export interface RestoreStep {
  *    same-named details under different parents cannot trip the unique key.
  *  • parents before children everywhere else (goals before goal_contributions,
  *    investments before investment_transactions, transactions before splits).
+ *
+ * Custom reports go LAST, and unlike everything above it that is a choice rather
+ * than a constraint. A report names accounts and categories from inside a jsonb
+ * column with no foreign key behind it, so the database would accept it first —
+ * but a step that lands before the rows it points at is a step whose failure
+ * leaves a login holding reports about nothing, and the cheapest thing to lose
+ * when a restore stops halfway is the thing that can be rebuilt from a screen in
+ * two minutes.
  */
 export const RESTORE_STEPS: readonly RestoreStep[] = [
   { entity: 'accounts', label: 'Accounts' },
@@ -971,6 +1049,7 @@ export const RESTORE_STEPS: readonly RestoreStep[] = [
   { entity: 'dashboard_layouts', label: 'Dashboard layouts' },
   { entity: 'widget_preferences', label: 'Widget preferences' },
   { entity: 'suggestion_dismissals', label: 'Dismissed suggestions' },
+  { entity: 'custom_reports', label: 'Custom reports' },
 ];
 
 /** The rows one step sends, in the order the file holds them. */

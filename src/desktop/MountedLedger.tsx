@@ -75,6 +75,11 @@ const Categorisation = lazyWithPreload(() => import(/* webpackChunkName: "catego
 const Budget = lazyWithPreload(() => import(/* webpackChunkName: "budget" */ '../pages/Budget'));
 const Calendar = lazyWithPreload(() => import(/* webpackChunkName: "calendar" */ '../pages/Calendar'));
 const ReportsHub = lazyWithPreload(() => import(/* webpackChunkName: "reports-hub" */ '../pages/ReportsHub'));
+// Mounted rather than excluded as of the gating decision `routes.ts` records:
+// the local edition is a one-time purchase and its buyer is on the only tier
+// there is. The page was already reachable in this window through the hub's
+// registry, so this gives it the address it was already answering at.
+const CustomReports = lazyWithPreload(() => import(/* webpackChunkName: "custom-reports" */ '../pages/CustomReports'));
 const Goals = lazyWithPreload(() => import(/* webpackChunkName: "goals" */ '../pages/Goals'));
 const FinancialSummaries = lazyWithPreload(() => import(/* webpackChunkName: "financial-summaries" */ '../pages/FinancialSummaries'));
 // The three slice 31 took off `AWAITING_THE_MOUNT`. Each was blocked by a
@@ -233,6 +238,7 @@ export default function MountedLedger(): ReactElement {
     calendar: page(<Calendar />),
     reports: page(<ReportsHub />),
     'reports/:reportId': page(<ReportsHub />),
+    'custom-reports': page(<CustomReports />),
     goals: page(<Goals />),
     investments: page(<Investments />),
     analytics: <RedirectWithSearch to="/reports" />,

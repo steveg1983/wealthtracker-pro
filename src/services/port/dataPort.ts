@@ -81,6 +81,7 @@ import type {
   Budget,
   Category,
   CategoryMergeResult,
+  CustomReport,
   DismissalKind,
   Goal,
   SplitWriteResult,
@@ -250,6 +251,19 @@ export interface AccountBalanceSnapshot {
  * work actually happens. The app prints it on one console line, so a slow load
  * can be attributed from the console of any environment, production included.
  * An implementation names its own phases; nothing branches on the keys.
+ *
+ * ── WHY THE CUSTOM REPORTS ARE IN HERE AND NOT FETCHED WHERE THEY ARE DRAWN ─
+ *
+ * Because two of their readers are SYNCHRONOUS. `CustomReportWidget` resolves a
+ * pinned report inside a `useMemo` during render, and the dashboard's report
+ * picker lists them inline in a modal body — neither has an await to put a fetch
+ * in, and giving them one would mean a pinned widget that renders nothing on
+ * first paint and pops into place a moment later, every load.
+ *
+ * They ride the boot for the reason the goals do: they are a small, bounded list
+ * the app wants in hand before it draws anything, and a seventh round trip for
+ * them would cost every signed-in boot a crossing in exchange for a list that is
+ * almost always shorter than the accounts.
  */
 export interface BootSnapshot {
   accounts: Account[];
@@ -259,6 +273,7 @@ export interface BootSnapshot {
   splits: TransactionSplit[];
   budgets: Budget[];
   goals: Goal[];
+  customReports: CustomReport[];
   /** Milliseconds per phase, named by the implementation. Diagnostic only. */
   phases: Record<string, number>;
 }
@@ -373,6 +388,15 @@ export interface DataPortReads {
   listTransactionSplitsFor(transactionId: string): Promise<TransactionSplit[]>;
   listBudgets(): Promise<Budget[]>;
   listGoals(): Promise<Goal[]>;
+  /**
+   * Every report this owner has built, oldest first.
+   *
+   * The whole report, not a summary: `components` and `filters` come back as the
+   * caller stored them, because the only thing anybody does with a report is
+   * generate it, and a generator handed half a definition would draw half a
+   * report without saying so.
+   */
+  listCustomReports(): Promise<CustomReport[]>;
   listCategories(): Promise<Category[]>;
   listSuggestionDismissals(): Promise<SuggestionDismissal[]>;
   /**
@@ -1009,6 +1033,99 @@ export interface DataPortPlanningWrites {
 }
 
 /**
+ * Custom reports — a group of their own, and the only entity on this seam that
+ * holds no money at all.
+ *
+ * ── WHY IT IS NOT FILED WITH THE PLANNING WRITES ────────────────────────────
+ *
+ * A budget and a goal are amounts somebody committed to; the page beside them
+ * compares each one against a Decimal sum of real rows, which is why every rule
+ * on {@link DataPortPlanningWrites} is ultimately about a penny. A report is a
+ * QUESTION about the ledger — which components, over which accounts, for which
+ * period — and every figure it shows is recomputed from the transactions at the
+ * moment it is generated. Nothing here is ever added to anything.
+ *
+ * That difference decides the two rules below that have no analogue in the
+ * planning group: `components` and `filters` REPLACE WHOLESALE, and a report's
+ * ids are the caller's to state.
+ *
+ * ── WHY IT REACHED THIS SEAM AT ALL ─────────────────────────────────────────
+ *
+ * Until slice 32 a report's only home was
+ * `localStorage['money_management_custom_reports']`. So a report built on the
+ * laptop did not exist on the phone, clearing browser data deleted it with no
+ * warning and no undo, a backup did not carry it, and on a desktop it lived in
+ * the WebView's storage rather than in the ledger file the user chose — which
+ * means copying that file to a new machine left every report behind. None of
+ * those failures says anything on screen: the reports page simply comes up
+ * empty, which reads exactly like never having made one.
+ */
+export interface DataPortReportWrites {
+  /**
+   * Save a report somebody built.
+   *
+   * The ownership rule stated at length on `createBudget` applies word for word.
+   * A report is not money and losing one is a smaller loss than losing a budget
+   * — it is also a completely silent one, because an empty reports page and a
+   * page whose reports went to the wrong store look identical.
+   *
+   * ── THE ID IS THE STORE'S (divergence B-5, unchanged) ────────────────────
+   *
+   * `Omit<CustomReport, 'id'>`, so the engine mints it, exactly as it does for a
+   * category. The builder used to mint one itself (`report-${Date.now()}`) and
+   * that id could not be kept: it is not a uuid, and the cloud's column is. The
+   * caller uses the id it gets back immediately — it is what the reports list is
+   * keyed by and what a dashboard pin points at — so the same rule
+   * `createCategory` states applies here: final on the next line, never a
+   * placeholder an implementation intends to replace.
+   *
+   * `createdAt` and `updatedAt` are NOT honoured, exactly as a new budget's are
+   * not: every engine stamps its own, because a caller's copy of a timestamp is
+   * what it last read rather than an instruction. The one place that costs
+   * something is the adoption out of browser storage — reports built years ago
+   * arrive dated the day they were carried across — and it is accepted rather
+   * than fixed on one side, because the cloud's INSERT could honour a stated
+   * date and a ledger file's verb cannot: honouring it in one edition and not
+   * the other would be two engines disagreeing about when somebody did
+   * something.
+   */
+  createCustomReport(report: Omit<CustomReport, 'id'>): Promise<CustomReport>;
+  /**
+   * Change a report, and hand back the whole report as it now stands (the caller
+   * replaces its copy with this, so a partial answer would blank the fields it
+   * left out).
+   *
+   * A report that is not there is refused BY NAME rather than created, and the
+   * refusal leaves the store exactly as it was — the rule the budget, goal and
+   * category updates keep.
+   *
+   * ── `components` AND `filters` REPLACE, THEY DO NOT MERGE ────────────────
+   *
+   * The one rule an implementation must not improvise, and the one place this
+   * group differs from a goal's `metadata` — which DOES merge, in the verb's own
+   * transaction, because three unrelated fields share that one column and
+   * rebuilding it from a partial update once deleted a goal's linked accounts.
+   *
+   * Nothing shares these two columns. A report's components are the ARRAY the
+   * builder just handed over, in the order it handed them over, and its filters
+   * are the whole filter object: an engine that merged either one would make
+   * removing a component impossible — the deleted component would survive every
+   * save, and no screen would explain why.
+   */
+  updateCustomReport(id: string, updates: Partial<CustomReport>): Promise<CustomReport>;
+  /**
+   * Remove a report.
+   *
+   * A real delete, like a budget's: a report holds no money and nothing is filed
+   * against it, so removing one leaves no hole in the ledger. Removing one that
+   * is already gone is a NO-OP, not an error — the rule `deleteBudget` and
+   * `deleteGoal` keep, for the same reason: a double-click, or a second device
+   * that got there first, must not turn a decision into an error message.
+   */
+  deleteCustomReport(id: string): Promise<void>;
+}
+
+/**
  * Holdings — the last region of the ledger to reach this seam.
  *
  * ── WHY IT IS A GROUP OF ITS OWN ────────────────────────────────────────────
@@ -1561,6 +1678,7 @@ export interface DataPort extends
   DataPortTransferWrites,
   DataPortSplitWrites,
   DataPortPlanningWrites,
+  DataPortReportWrites,
   DataPortInvestmentWrites,
   DataPortDismissalWrites,
   DataPortBackupLifecycle,

@@ -82,28 +82,32 @@ use crate::verbs::{
     archive_transactions_before,
     clear_transfer_links, close_account, collect_backup,
     confirm_transaction_categories, create_account, create_budget, create_categories,
-    create_category, create_goal, create_investment, create_transaction,
+    create_category, create_custom_report, create_goal, create_investment, create_transaction,
     create_transfer_counterpart, delete_budget,
-    delete_category, delete_goal, delete_investment, delete_transaction,
+    delete_category, delete_custom_report, delete_goal, delete_investment, delete_transaction,
     delete_unused_categories, dismiss_suggestion, finalize_reconciliation, finalize_user_restore,
     import_bank_transactions,
     import_transactions,
     link_bank_account_snap, link_split_line_transfer, link_transfer_pair, list_accounts,
-    list_budgets, list_categories, list_closed_accounts, list_goals, list_investments,
+    list_budgets, list_categories, list_closed_accounts, list_custom_reports, list_goals,
+    list_investments,
     list_suggestion_dismissals,
     list_transaction_splits, list_transactions, load_boot, merge_categories, read_preferences,
     repair_claimed_transfer, repoint_transfer, restore_backup, restore_suggestion,
     restore_user_chunk, seed_categories,
     set_transaction_splits_with_legs, set_transactions_archived, set_transactions_cleared,
     splits_for, unarchive_account, update_account, update_budget, update_category,
+    update_custom_report,
     update_goal, update_investment, update_transaction, user_financial_data_is_empty,
     verify_integrity,
     wipe_user_financial_data, write_preferences,
     ApplyCategoryToUncategorized, ApplyInvestmentPrices, ArchiveTransactionsBefore,
     ClearTransferLinks, CloseAccount,
     CollectBackup, ConfirmTransactionCategories,
-    CreateAccount, CreateBudget, CreateCategories, CreateCategory, CreateGoal, CreateTransaction,
-    CreateInvestment, CreateTransferCounterpart, DeleteBudget, DeleteCategory, DeleteGoal,
+    CreateAccount, CreateBudget, CreateCategories, CreateCategory, CreateCustomReport,
+    CreateGoal, CreateTransaction,
+    CreateInvestment, CreateTransferCounterpart, DeleteBudget, DeleteCategory,
+    DeleteCustomReport, DeleteGoal,
     DeleteInvestment, DeleteTransaction,
     DeleteUnusedCategories, DismissSuggestion, FinalizeReconciliation, FinalizeUserRestore,
     ImportBankTransactions, ImportTransactions, LinkBankAccountSnap, LinkSplitLineTransfer,
@@ -113,7 +117,8 @@ use crate::verbs::{
     RestoreUserChunk,
     SeedCategories, SetTransactionSplitsWithLegs, SetTransactionsArchived, SetTransactionsCleared,
     SplitsFor, UnarchiveAccount, UpdateAccount, UpdateBudget,
-    UpdateCategory, UpdateGoal, UpdateInvestment, UpdateTransaction, UserFinancialDataIsEmpty,
+    UpdateCategory, UpdateCustomReport, UpdateGoal, UpdateInvestment, UpdateTransaction,
+    UserFinancialDataIsEmpty,
     VerifyIntegrity,
     WipeUserFinancialData, WritePreferences,
 };
@@ -246,6 +251,25 @@ pub enum Command {
     UpdateGoal(Box<UpdateGoal>),
     /// [`crate::verbs::delete_goal`].
     DeleteGoal(Box<DeleteGoal>),
+    // Three more with no function behind them, and a table that had no HOME
+    // behind them either until `20260812140000_reports_outlive_the_browser.sql`:
+    // the report builder saved its work to `window.localStorage`, so the cloud
+    // wrote it nowhere and the desktop edition — whose whole promise is that the
+    // FILE is everything — kept it in the WebView's storage instead of the
+    // ledger. PHASE3-PLAN D-2 a seventh time.
+    //
+    // They audit, and NOT by inheriting the planning family's reason: PHASE1-PLAN
+    // §2.2 audits budgets and goals because four FIGURES needed a "what changed
+    // that?", and a custom report holds no figure at all. What it holds is work
+    // the person authored, in the file's only copy of it, and the question the
+    // entries answer is "where did my report go?".
+    // [`crate::verbs::create_custom_report`] argues it.
+    /// [`crate::verbs::create_custom_report`].
+    CreateCustomReport(Box<CreateCustomReport>),
+    /// [`crate::verbs::update_custom_report`].
+    UpdateCustomReport(Box<UpdateCustomReport>),
+    /// [`crate::verbs::delete_custom_report`].
+    DeleteCustomReport(Box<DeleteCustomReport>),
     // ── The investment family ────────────────────────────────────────────────
     //
     // Four more verb strings with no function behind any of them: `investments`
@@ -315,7 +339,7 @@ pub enum Command {
     // They sit beside the backup pair rather than beside the reads because that
     // is the shape they have — one whole document in, one whole document out —
     // and because a backup FILE carries the same document as its own top-level
-    // section. `collect_backup` reads fourteen TABLES; this reads the fifteenth
+    // section. `collect_backup` reads fifteen TABLES; this reads the sixteenth
     // thing a file holds, which is not a table's worth of rows but one row's
     // worth of somebody's choices.
     /// [`crate::verbs::read_preferences`].
@@ -361,20 +385,25 @@ pub enum Command {
     ImportBankTransactions(Box<ImportBankTransactions>),
     // ── The reads ────────────────────────────────────────────────────────────
     //
-    // Ten verbs that answer and write nothing, and then an eleventh below them
-    // that is all ten of the boot's at once. Nine are named for the question
+    // Eleven verbs that answer and write nothing, and then a twelfth below them
+    // that is seven of theirs at once. Ten are named for the question
     // they answer rather than for a function they port, because there is no
     // function to port: the cloud reads those tables over PostgREST, so what is
     // ported is a QUERY — its filter and its ORDER BY, spelled out in
     // [`crate::verbs::reads`] alongside the plan each one was measured to use.
+    //
+    // `list_custom_reports` is the newest and the one whose ORDER BY is NOT the
+    // cloud's: its page lists reports by `updated_at DESC`, and a key that moves
+    // under the reader reshuffles a drawn list. Declared, and argued at the
+    // read.
     //
     // `list_closed_accounts` is a second verb rather than a flag on the first,
     // and that is the naming discipline rather than an accident: two questions
     // get two names, and a payload with `{"open": false}` in it is a payload
     // that will one day be sent by mistake.
     //
-    // Nine of the ten share ONE payload type — an owner, and nothing else. The
-    // dispatch stays exhaustive over VARIANTS, so an eleventh read still has to
+    // Ten of the eleven share ONE payload type — an owner, and nothing else. The
+    // dispatch stays exhaustive over VARIANTS, so a twelfth read still has to
     // be armed below or the crate does not compile.
     /// [`crate::verbs::list_accounts`].
     ListAccounts(Box<OwnedRead>),
@@ -386,6 +415,8 @@ pub enum Command {
     ListBudgets(Box<OwnedRead>),
     /// [`crate::verbs::list_goals`].
     ListGoals(Box<OwnedRead>),
+    /// [`crate::verbs::list_custom_reports`].
+    ListCustomReports(Box<OwnedRead>),
     /// [`crate::verbs::list_investments`].
     ListInvestments(Box<OwnedRead>),
     /// [`crate::verbs::list_suggestion_dismissals`].
@@ -412,15 +443,15 @@ pub enum Command {
     SplitsFor(Box<SplitsFor>),
     /// [`crate::verbs::account_balances`].
     AccountBalances(Box<OwnedRead>),
-    // The composite, and the eleventh thing that answers without writing. It
+    // The composite, and the twelfth thing that answers without writing. It
     // takes the same owner-only payload the reads take, because it is the same
-    // question asked six times at once — and NOT a payload of its own with
+    // question asked seven times at once — and NOT a payload of its own with
     // `include_balances` or `since` in it, which is what a composite grows if
     // its payload is a place things can be added to.
     //
     // The name is the seam's method, `loadBoot`, in this crate's spelling. It is
     // a port of no SQL: the thing it ports is `DataServiceImpl.loadBoot`, whose
-    // body IS the six reads above.
+    // body IS seven of the reads above.
     /// [`crate::verbs::load_boot`].
     LoadBoot(Box<OwnedRead>),
     // The only verb here that is NOT a port: the cloud has no verify_integrity,
@@ -637,6 +668,15 @@ pub fn dispatch(
         Command::CreateGoal(payload) => create_goal(connection, *payload).and_then(as_json),
         Command::UpdateGoal(payload) => update_goal(connection, *payload).and_then(as_json),
         Command::DeleteGoal(payload) => delete_goal(connection, *payload).and_then(as_json),
+        Command::CreateCustomReport(payload) => {
+            create_custom_report(connection, *payload).and_then(as_json)
+        }
+        Command::UpdateCustomReport(payload) => {
+            update_custom_report(connection, *payload).and_then(as_json)
+        }
+        Command::DeleteCustomReport(payload) => {
+            delete_custom_report(connection, *payload).and_then(as_json)
+        }
         Command::CreateInvestment(payload) => {
             create_investment(connection, *payload).and_then(as_json)
         }
@@ -712,6 +752,12 @@ pub fn dispatch(
         }
         Command::ListBudgets(payload) => list_budgets(&*connection, *payload).and_then(as_json),
         Command::ListGoals(payload) => list_goals(&*connection, *payload).and_then(as_json),
+        // Answers with the whole report — components and filters as stored —
+        // because the only thing anybody does with a report is generate it, and
+        // a generator handed half a definition draws half a report in silence.
+        Command::ListCustomReports(payload) => {
+            list_custom_reports(&*connection, *payload).and_then(as_json)
+        }
         Command::ListInvestments(payload) => {
             list_investments(&*connection, *payload).and_then(as_json)
         }

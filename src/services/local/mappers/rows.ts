@@ -1,7 +1,7 @@
 /**
  * A crate answer's rows as the app's own objects.
  *
- * Seven translations, one per entity the seam reads, and each one is the ONLY
+ * Eight translations, one per entity the seam reads, and each one is the ONLY
  * place that entity crosses from the file into the application. They are here
  * rather than beside the port for the reason `accountMapping.ts` gives at
  * length about the two account mappers that once existed: *"an account has ONE
@@ -39,6 +39,16 @@
  * contract suite, which asks both engines the same questions and compares
  * app-shaped answers.
  *
+ * CUSTOM REPORTS ARE THE EXCEPTION, and they were written the other way round
+ * from the start. Their two JSON columns are the only values in this app stored
+ * as free-form JSON and read back as a CLOSED type, so nothing in either store
+ * constrains what is inside them and a round-trip test cannot see a reader that
+ * is wrong in the same way at both ends. Two readers would draw two different
+ * reports from one definition. So the reading lives in
+ * `services/reports/document.ts` — a module of two type imports, safe in a
+ * desktop bundle for the reason `preferences/document.ts` is — and both engines
+ * call it. See {@link toCustomReport}.
+ *
  * ── WHAT THE FILE CANNOT ANSWER, STATED RATHER THAN GUESSED ────────────────
  *
  * This paragraph named three fields and is down to one. `Transaction.reconciled`
@@ -61,16 +71,19 @@ import { mapAccountFromDb } from '../../api/accountMapping';
 import {
   BUDGET_COLUMNS,
   CATEGORY_COLUMNS,
+  CUSTOM_REPORT_COLUMNS,
   DISMISSAL_COLUMNS,
   GOAL_COLUMNS,
   SPLIT_COLUMNS,
   TRANSACTION_COLUMNS,
   fieldsOf
 } from './columns';
+import { parseReportComponents, parseReportFilters } from '../../reports/document';
 import type {
   Account,
   Budget,
   Category,
+  CustomReport,
   Goal,
   SuggestionDismissal,
   Transaction,
@@ -367,6 +380,43 @@ export const toGoal = (row: Record<string, unknown>): Goal => {
 };
 
 /**
+ * A custom report.
+ *
+ * THE ONE MAPPING HERE WHOSE HARD PART IS SHARED WITH ITS CLOUD TWIN, and the
+ * exception is deliberate rather than lucky. The header above explains why the
+ * other six had to be written out — `budgetFromDb` and `goalFromDb` live inside
+ * a module that reaches a Supabase client on its first line — and it names the
+ * guard against drift as the contract suite rather than as care.
+ *
+ * That guard is not strong enough for this entity. `components` and `filters`
+ * are free JSON on both engines, so nothing in either store constrains what is
+ * inside them, and two independent readers would not disagree about a FIELD —
+ * they would draw DIFFERENT REPORTS from one stored definition, which is the
+ * kind of difference a round-trip test agrees with itself about. So the reading
+ * of the two blobs lives in `services/reports/document.ts`, a module that
+ * imports two types and nothing else, and the cloud's `customReportFromDb` calls
+ * exactly the same two functions.
+ *
+ * What is left here is ASSEMBLY, and it is the same three decisions
+ * `customReportFromDb` takes: a nullable `description` reads as '' because the
+ * app's type says a report always has one, and the two timestamps fall back to
+ * the epoch rather than to `new Date()` the way every other mapper in this file
+ * does — a row whose clock could not be read is not a row created now.
+ */
+export const toCustomReport = (row: Record<string, unknown>): CustomReport => {
+  const value = fieldsOf(CUSTOM_REPORT_COLUMNS, row);
+  return {
+    id: textOr(value.id, ''),
+    name: textOr(value.name, ''),
+    description: textOr(value.description, ''),
+    components: parseReportComponents(value.components),
+    filters: parseReportFilters(value.filters),
+    createdAt: instant(row.created_at) ?? new Date(0),
+    updatedAt: instant(row.updated_at) ?? new Date(0)
+  };
+};
+
+/**
  * Every kind the APP knows, and — since slice 23 — every kind the file can
  * store.
  *
@@ -423,7 +473,7 @@ export const toDismissal = (row: Record<string, unknown>): SuggestionDismissal =
 /**
  * What became of the counterpart a re-point displaced.
  *
- * The eighth translation, and the only one that is a UNION rather than a row:
+ * The ninth translation, and the only one that is a UNION rather than a row:
  * the crate tags it `{"kind": "moved" | "released" | "deleted"}` and the app's
  * `TransferDisplacedOutcome` is the same three shapes in camelCase. The tag is
  * read first and the rest of the object only after, so a shape this file has

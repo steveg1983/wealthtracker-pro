@@ -473,6 +473,29 @@ const SUGGESTION_DISMISSALS: &[Column] = &[
             stamp("dismissed_at"),
 ];
 
+        // The two blobs are `jsonb` in the cloud and TEXT-with-`json_valid`
+        // here, so they travel as [`Kind::Json`] exactly as `metadata` does —
+        // and unlike `metadata` they can never carry money, because the money
+        // CHECK's whole subject is the transaction blob and a report holds no
+        // figure at all (`crate::row::custom_report` argues it).
+        //
+        // The account and category ids INSIDE `filters` are the reason this
+        // entity is declared to `remapBackupIds` on the TypeScript side, and the
+        // reason nothing here touches them: this module translates rows and the
+        // remapper rewrites references, and the header above says why that line
+        // is not crossed. A file whose `filters` still named the exporter's
+        // accounts would restore into a report that narrows to nothing — wrong,
+        // and wrong in a way that is visible on the page rather than in a total.
+const CUSTOM_REPORTS: &[Column] = &[
+            text("id"),
+            text("name"),
+            text("description"),
+            json("components"),
+            json("filters"),
+            stamp("created_at"),
+            stamp("updated_at"),
+];
+
 // ── The columns a restore will not insert, and a collect must still write ───
 //
 // Three columns form the cycles `finalize_user_restore` exists to close, so
@@ -531,6 +554,10 @@ pub enum Entity {
     WidgetPreferences,
     /// Carried so a cloud backup restores whole.
     SuggestionDismissals,
+    /// The saved reports. The newest entity the format carries, and the one that
+    /// makes this list fifteen — added by `20260812140000`, which is also where
+    /// the cloud's `restore_user_chunk` grew its fifteenth branch.
+    CustomReports,
 }
 
 impl Entity {
@@ -542,7 +569,7 @@ impl Entity {
     /// walks it, and so does the exhaustiveness test below. A file whose
     /// sections came out in a different order from the cloud's would be a
     /// different file for no reason a reader could see.
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 15] = [
         Self::Accounts,
         Self::Categories,
         Self::Transactions,
@@ -557,6 +584,7 @@ impl Entity {
         Self::DashboardLayouts,
         Self::WidgetPreferences,
         Self::SuggestionDismissals,
+        Self::CustomReports,
     ];
 
     /// The table this entity is stored in.
@@ -577,6 +605,7 @@ impl Entity {
             Self::DashboardLayouts => "dashboard_layouts",
             Self::WidgetPreferences => "widget_preferences",
             Self::SuggestionDismissals => "suggestion_dismissals",
+            Self::CustomReports => "custom_reports",
         }
     }
 
@@ -606,6 +635,7 @@ impl Entity {
             "dashboard_layouts" => Self::DashboardLayouts,
             "widget_preferences" => Self::WidgetPreferences,
             "suggestion_dismissals" => Self::SuggestionDismissals,
+            "custom_reports" => Self::CustomReports,
             other => {
                 return Err(CoreError::refuse(
                     "restore_entity_unknown",
@@ -637,12 +667,13 @@ impl Entity {
             Self::DashboardLayouts => DASHBOARD_LAYOUTS,
             Self::WidgetPreferences => WIDGET_PREFERENCES,
             Self::SuggestionDismissals => SUGGESTION_DISMISSALS,
+            Self::CustomReports => CUSTOM_REPORTS,
         }
     }
 
     /// The columns a COLLECT writes and a RESTORE will not insert.
     ///
-    /// Empty for twelve of the fourteen. See the two lists above for why the
+    /// Empty for thirteen of the fifteen. See the two lists above for why the
     /// other two are asymmetric on purpose.
     #[must_use]
     pub const fn deferred(self) -> &'static [Column] {
@@ -1576,7 +1607,7 @@ mod tests {
         // `ALL` is what the collector walks, so an entity missing from it would
         // be a table exported by nobody — the silent half of the same mistake
         // the exhaustive `columns()` match catches on the way in.
-        assert_eq!(Entity::ALL.len(), 14);
+        assert_eq!(Entity::ALL.len(), 15);
         let mut seen = std::collections::BTreeSet::new();
         for entity in Entity::ALL {
             assert!(seen.insert(entity.as_str()), "{} is in ALL twice", entity.as_str());

@@ -273,6 +273,30 @@ const GOAL_JSON = `jsonb_build_object(
 )`;
 
 /**
+ * One `custom_reports` row, in the eight keys the crate's report row serialises.
+ *
+ * `components` and `filters` are projected AS THEMSELVES — no `::text`, no
+ * `jsonb_pretty`. They are jsonb here and parsed JSON on the Rust side, so what
+ * the runner compares is two JSON VALUES; rendering either one to text would
+ * compare Postgres's key ordering against serde's, which is a difference about
+ * neither engine's behaviour.
+ *
+ * `description` is projected raw rather than through a COALESCE, because the
+ * column is nullable on both engines and "the report has no description" and
+ * "it has an empty one" are two states a spec is allowed to tell apart.
+ */
+const CUSTOM_REPORT_JSON = `jsonb_build_object(
+  'id', r.id,
+  'user_id', r.user_id,
+  'name', r.name,
+  'description', r.description,
+  'components', r.components,
+  'filters', r.filters,
+  'created_at', ${stamp('r.created_at')},
+  'updated_at', ${stamp('r.updated_at')}
+)`;
+
+/**
  * One `investments` row, in the fourteen keys `InvestmentRow` serialises.
  *
  * The cloud's own `SELECTED_COLUMNS` (`investmentService.ts`) plus `user_id`,
@@ -481,6 +505,19 @@ const READS = {
     order: 'g.created_at',
   },
 
+  // planningService.getCustomReports:
+  //   .from('custom_reports').select('*')
+  //   .eq('user_id', userId).order('created_at', { ascending: true })
+  //
+  // Oldest first, like the budgets and the goals above: the reports page shows
+  // the list somebody built in the order they built it, so a new report appears
+  // at the bottom rather than jumping to the top of a list they were reading.
+  custom_reports: {
+    json: CUSTOM_REPORT_JSON,
+    from: (p) => `public.custom_reports r WHERE r.user_id = ${ownerOf(p)}`,
+    order: 'r.created_at',
+  },
+
   // suggestionDismissalService.list:
   //   .from('suggestion_dismissals')
   //   .select('id, kind, subject_key, subject_ids, dismissed_at')
@@ -592,6 +629,7 @@ const BOOT_READS = [
   'transaction_splits',
   'budgets',
   'goals',
+  'custom_reports',
 ];
 
 /**
@@ -1064,6 +1102,8 @@ const VERBS = {
   list_budgets: (payloadLiteral) => listed('budgets', payloadLiteral),
 
   list_goals: (payloadLiteral) => listed('goals', payloadLiteral),
+
+  list_custom_reports: (payloadLiteral) => listed('custom_reports', payloadLiteral),
 
   list_investments: (payloadLiteral) => listed('investments', payloadLiteral),
 
@@ -1736,6 +1776,87 @@ const VERBS = {
       WHERE g.id = (${payloadLiteral}::jsonb->>'id')::uuid
         AND (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
              OR g.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid);
+     GET DIAGNOSTICS v_count = ROW_COUNT;
+     SELECT jsonb_build_object('deleted', v_count) INTO v_row;`,
+
+
+  // ── THE REPORT FAMILY, WHOSE ORACLE IS A TYPESCRIPT WRITER TOO ────────────
+  //
+  // Four verbs, no function behind any of them: `custom_reports` is written
+  // straight over PostgREST (PHASE3-PLAN D-2 again), so the oracle is the WRITE
+  // the client builds — `planningService.createCustomReport`, `.update…`,
+  // `.delete…` — transcribed line for line.
+  //
+  // THE TWO JSONB COLUMNS ARE SET, NEVER MERGED, and that is the one line of
+  // this family that is not inherited from the goals above. `update_goal`'s
+  // `metadata` is `stored || stated` because three unrelated app fields share
+  // that column; nothing shares these two, so `||` here would make removing a
+  // component impossible on one engine and possible on the other.
+  //
+  // The two timestamps are NOT arguments, on either engine. `CustomReportDraft`
+  // has five fields and none of them is a clock, and `customReportToDb` is a
+  // whitelist with no line for either column — so both sides take the column's
+  // own default, which is what makes the adoption's reports arrive dated the day
+  // they were carried across on BOTH engines rather than on one.
+  create_custom_report: (payloadLiteral) => {
+    const text = (key) => `${payloadLiteral}::jsonb->>'${key}'`;
+    // Parenthesised for the reason `create_goal` above states at length: every
+    // non-built-in operator in Postgres shares one precedence and associates
+    // LEFT, so `a || b->'k'` parses as `(a || b)->'k'`.
+    const json = (key) => `(${payloadLiteral}::jsonb->'${key}')`;
+    return `INSERT INTO public.custom_reports (
+       id, user_id, name, description, components, filters
+     ) VALUES (
+       COALESCE(NULLIF(${text('id')},'')::uuid, uuid_generate_v4()),
+       (${text('user_id')})::uuid,
+       ${text('name')},
+       ${text('description')},
+       COALESCE(${json('components')}, '[]'::jsonb),
+       COALESCE(${json('filters')}, '{}'::jsonb)
+     );
+     SELECT ${CUSTOM_REPORT_JSON} INTO v_row
+       FROM public.custom_reports r
+      WHERE r.id = (${text('id')})::uuid;`;
+  },
+
+  // `.update(customReportToDb(updates)).eq().eq().select().single()`, with the
+  // `updated_at` the writer stamps itself.
+  update_custom_report: (payloadLiteral) => {
+    const patch = `COALESCE(${payloadLiteral}::jsonb->'patch', '{}'::jsonb)`;
+    const has = (key) => `${patch} ? '${key}'`;
+    const text = (key) => `${patch}->>'${key}'`;
+    const json = (key) => `(${patch}->'${key}')`;  // parenthesised — see create_goal
+    const set = (column, value, key = column) =>
+      `${column} = CASE WHEN ${has(key)} THEN ${value} ELSE ${column} END`;
+    return `UPDATE public.custom_reports r SET
+       ${set('name', text('name'))},
+       ${set('description', text('description'))},
+       -- SET, never a jsonb concatenation: these columns are replaced whole.
+       -- See the note above. (Spelled in words rather than in the operator,
+       -- because this is inside a JS template literal and a backtick here ends
+       -- the string — silently, since what follows still parses as JavaScript.)
+       ${set('components', json('components'))},
+       ${set('filters', json('filters'))},
+       updated_at = now()
+     WHERE r.id = (${payloadLiteral}::jsonb->>'id')::uuid
+       AND (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
+            OR r.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid);
+     IF NOT FOUND THEN
+       RAISE EXCEPTION 'PGRST116: JSON object requested, multiple (or no) rows returned';
+     END IF;
+     SELECT ${CUSTOM_REPORT_JSON} INTO v_row
+       FROM public.custom_reports r
+      WHERE r.id = (${payloadLiteral}::jsonb->>'id')::uuid;`;
+  },
+
+  // `.delete().eq('id',…).eq('user_id',…)`. No `.single()`, so an id naming
+  // nothing is a successful nothing and the count is 0. Nothing cascades: a
+  // report is not filed against by anything.
+  delete_custom_report: (payloadLiteral) =>
+    `DELETE FROM public.custom_reports r
+      WHERE r.id = (${payloadLiteral}::jsonb->>'id')::uuid
+        AND (NULLIF(${payloadLiteral}::jsonb->>'user_id','') IS NULL
+             OR r.user_id = (${payloadLiteral}::jsonb->>'user_id')::uuid);
      GET DIAGNOSTICS v_count = ROW_COUNT;
      SELECT jsonb_build_object('deleted', v_count) INTO v_row;`,
 

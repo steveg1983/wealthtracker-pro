@@ -25,6 +25,10 @@ const mocks = vi.hoisted(() => ({
     transactions: [] as Transaction[],
     transactionSplits: [] as unknown[],
     categories: [] as Category[],
+    // `CustomReportWidget` resolves its report out of this list during render.
+    // It used to read `localStorage` there, which is exactly why a pinned report
+    // existed on one machine only.
+    customReports: [] as unknown[],
   },
 }));
 
@@ -45,10 +49,6 @@ vi.mock('react-router-dom', async () => {
     useLocation: () => ({ pathname: '/dashboard', search: '', hash: '', state: null, key: 'test' }),
   };
 });
-
-vi.mock('../../../services/customReportService', () => ({
-  customReportService: { getCustomReports: () => [] },
-}));
 
 const {
   ExpenseCategoriesWidget,

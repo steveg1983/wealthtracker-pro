@@ -82,6 +82,7 @@ export type {
   DataPortMigration,
   DataPortPlanningWrites,
   DataPortReads,
+  DataPortReportWrites,
   DataPortSplitWrites,
   DataPortTransactionWrites,
   DataPortTransferWrites,

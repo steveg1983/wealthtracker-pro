@@ -53,6 +53,7 @@ import type {
   Account,
   Budget,
   Category,
+  CustomReport,
   Goal,
   SuggestionDismissal,
   Transaction,
@@ -74,6 +75,16 @@ export interface PortFixture {
   categories?: Category[];
   budgets?: Budget[];
   goals?: Goal[];
+  /**
+   * Reports somebody built.
+   *
+   * No per-engine table beside this one, unlike {@link PortFixture.investments}:
+   * every engine the seam has keeps custom reports, because the browser branch
+   * grew a storage key for them in the same slice that gave the cloud a table.
+   * The failure this entity exists to end was a report living in ONE browser, so
+   * an engine that could not hold one would be the bug rather than a divergence.
+   */
+  customReports?: CustomReport[];
   /**
    * Positions, for an engine that has somewhere to keep one.
    *
@@ -98,6 +109,7 @@ export interface PortStoreState {
   categories: Category[];
   budgets: Budget[];
   goals: Goal[];
+  customReports: CustomReport[];
   investments: InvestmentHolding[];
   dismissals: SuggestionDismissal[];
 }
@@ -182,6 +194,7 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   'listTransactionSplitsFor',
   'listBudgets',
   'listGoals',
+  'listCustomReports',
   'listCategories',
   'listSuggestionDismissals',
   'listInvestments',
@@ -226,6 +239,10 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   'deleteCategory',
   'deleteUnusedCategories',
   'mergeCategories',
+  // Report writes
+  'createCustomReport',
+  'updateCustomReport',
+  'deleteCustomReport',
   // Investment writes
   'createInvestment',
   'updateInvestment',
@@ -860,6 +877,76 @@ const aNewGoal = (
   currentAmount: 0,
   targetDate: AT('2026-01-01'),
   isActive: true,
+  createdAt: AT('2025-01-01'),
+  updatedAt: AT('2025-01-01'),
+  ...rest
+});
+
+/**
+ * A report as it sits in a store: one component, and filters naming a real
+ * account and a real category.
+ *
+ * The filters are populated on purpose rather than left empty. They are the
+ * whole reason a report is more than a name — and `filters.accounts` and
+ * `filters.categories` are ids, which is what `backup/format.ts`'s
+ * `jsonbIdArrays` has to remap on a restore. A fixture whose filters were `{}`
+ * would round-trip perfectly through an engine that threw the column away.
+ */
+const aCustomReport = (id: string, name: string, rest: Partial<CustomReport> = {}): CustomReport => ({
+  id,
+  name,
+  description: 'What went where',
+  components: [
+    {
+      id: 'component-1',
+      type: 'summary-stats',
+      title: 'Key metrics',
+      config: { metrics: ['income', 'expenses'] },
+      width: 'full'
+    }
+  ],
+  filters: {
+    dateRange: 'month',
+    accounts: [ACCOUNT_A],
+    categories: ['cat-everyday'],
+    tags: ['holiday']
+  },
+  createdAt: AT('2025-01-01'),
+  updatedAt: AT('2025-01-01'),
+  ...rest
+});
+
+/**
+ * A report as a CALLER supplies one — no id, because the id is the store's to
+ * mint and the caller's to use immediately afterwards (B-5).
+ *
+ * The two timestamps are the caller's own — the builder puts them on every
+ * report it hands back — and every engine is free to stamp its own over them,
+ * exactly as `aNewBudget` above says of a budget's. Nothing asserts them,
+ * because nothing may: `create_custom_report`'s draft has no clock in it and the
+ * cloud's writer has no line for either column.
+ */
+const aNewCustomReport = (
+  name: string,
+  rest: Partial<Omit<CustomReport, 'id'>> = {}
+): Omit<CustomReport, 'id'> => ({
+  name,
+  description: 'What went where',
+  components: [
+    {
+      id: 'component-1',
+      type: 'summary-stats',
+      title: 'Key metrics',
+      config: { metrics: ['income', 'expenses'] },
+      width: 'full'
+    }
+  ],
+  filters: {
+    dateRange: 'month',
+    accounts: [ACCOUNT_A],
+    categories: ['cat-everyday'],
+    tags: ['holiday']
+  },
   createdAt: AT('2025-01-01'),
   updatedAt: AT('2025-01-01'),
   ...rest
@@ -1919,8 +2006,11 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
       });
     });
 
-    describe('budgets and goals', () => {
-      rule(['listBudgets', 'listGoals'], 'answers for the owner it resolved itself, and only that owner', async () => {
+    describe('budgets, goals and custom reports', () => {
+      rule(
+        ['listBudgets', 'listGoals', 'listCustomReports'],
+        'answers for the owner it resolved itself, and only that owner',
+        async () => {
         // Rule 1 of the seam: no read takes a user id, every implementation
         // resolves its own owner. That rule has teeth precisely because
         // getting it wrong is SILENT — the wrong owner's budgets are a
@@ -1931,19 +2021,24 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         const mine = await harness.create({
           accounts: threeAccounts(),
           budgets: [aBudget('budget-mine', 'cat-everyday', 200)],
-          goals: [aGoal('goal-mine', 'New boiler', 1500)]
+          goals: [aGoal('goal-mine', 'New boiler', 1500)],
+          customReports: [aCustomReport('report-mine', 'Where it went')]
         });
         const theirs = await harness.create({
           accounts: threeAccounts(),
           budgets: [aBudget('budget-theirs', 'cat-bills', 75)],
-          goals: [aGoal('goal-theirs', 'Someone else’s holiday', 900)]
+          goals: [aGoal('goal-theirs', 'Someone else’s holiday', 900)],
+          customReports: [aCustomReport('report-theirs', 'Someone else’s question')]
         });
 
         expect((await mine.port.listBudgets()).map(budget => budget.id)).toEqual(['budget-mine']);
         expect((await mine.port.listGoals()).map(goal => goal.id)).toEqual(['goal-mine']);
+        expect((await mine.port.listCustomReports()).map(report => report.id)).toEqual(['report-mine']);
         expect((await theirs.port.listBudgets()).map(budget => budget.id)).toEqual(['budget-theirs']);
         expect((await theirs.port.listGoals()).map(goal => goal.id)).toEqual(['goal-theirs']);
-      });
+        expect((await theirs.port.listCustomReports()).map(report => report.id)).toEqual(['report-theirs']);
+        }
+      );
 
       rule(['listBudgets', 'listGoals'], 'hands back the amounts it was given, to the penny', async () => {
         // A budget and a goal are money on a page. 0.1 + 0.2 territory again:
@@ -2198,6 +2293,171 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
 
         expect((await read()).goals).toEqual([]);
       });
+    });
+
+    describe('writing a custom report', () => {
+      rule(
+        ['createCustomReport', 'listCustomReports', 'updateCustomReport'],
+        'round-trips a report through a create and an edit',
+        async () => {
+          // The five rules the budget and goal blocks above keep, asked of the
+          // one entity on this seam that holds no money — so what is checked is
+          // not a penny but a DEFINITION, which is the thing a report is.
+          const { port } = await harness.create({ accounts: threeAccounts() });
+
+          const created = await port.createCustomReport(aNewCustomReport('Where it went'));
+
+          expect(created.id).toBeTruthy();
+          expect(created.name).toBe('Where it went');
+          expect((await port.listCustomReports()).map(report => [report.id, report.name]))
+            .toEqual([[created.id, 'Where it went']]);
+
+          const edited = await port.updateCustomReport(created.id, { name: 'Where it really went' });
+
+          // The whole report comes back, not just the field that moved: the
+          // caller replaces its copy with this answer, so a partial one would
+          // blank the components it did not mention.
+          expect(edited).toMatchObject({ id: created.id, name: 'Where it really went' });
+          expect(edited.components).toHaveLength(1);
+          expect((await port.listCustomReports())[0].name).toBe('Where it really went');
+        }
+      );
+
+      rule(
+        ['createCustomReport', 'listCustomReports', 'updateCustomReport'],
+        'keeps a report’s components and filters intact, and REPLACES them rather than merging',
+        async () => {
+          // The rule with no analogue in the planning writes, and the one an
+          // engine is most likely to improvise: `updateGoal` MERGES its jsonb
+          // (three unrelated fields share that column), and these two columns
+          // must not be merged. An engine that merged `components` would make
+          // removing a component impossible — the removed one would survive
+          // every save, and no screen would explain why it kept coming back.
+          const { port } = await harness.create({ accounts: threeAccounts() });
+
+          const created = await port.createCustomReport(aNewCustomReport('Where it went', {
+            components: [
+              {
+                id: 'component-1',
+                type: 'summary-stats',
+                title: 'Key metrics',
+                config: { metrics: ['income', 'expenses'], limit: 10, showLegend: true },
+                width: 'full'
+              },
+              {
+                id: 'component-2',
+                type: 'pie-chart',
+                title: 'By category',
+                config: { dataType: 'expenses-by-category' },
+                width: 'half'
+              }
+            ]
+          }));
+
+          // Everything survived the crossing — the order, the nested config, the
+          // scalar types inside it, and the two filter lists.
+          const stored = (await port.listCustomReports())[0];
+          expect(stored.components.map(component => component.id)).toEqual(['component-1', 'component-2']);
+          expect(stored.components[0].config).toEqual({
+            metrics: ['income', 'expenses'], limit: 10, showLegend: true
+          });
+          expect(stored.components[1]).toMatchObject({ type: 'pie-chart', width: 'half' });
+          expect(stored.filters).toMatchObject({
+            dateRange: 'month',
+            accounts: [ACCOUNT_A],
+            categories: ['cat-everyday'],
+            tags: ['holiday']
+          });
+
+          // One component removed, and the filters narrowed to a different
+          // account. A merge would leave two components and both accounts.
+          const edited = await port.updateCustomReport(created.id, {
+            components: [stored.components[1]],
+            filters: { dateRange: 'year', accounts: [ACCOUNT_B] }
+          });
+
+          expect(edited.components.map(component => component.id)).toEqual(['component-2']);
+          expect(edited.filters.accounts).toEqual([ACCOUNT_B]);
+          expect(edited.filters.dateRange).toBe('year');
+          // The categories and tags the old filters carried are GONE, because
+          // the object replaced rather than merged.
+          expect(edited.filters.categories).toBeUndefined();
+          expect(edited.filters.tags).toBeUndefined();
+
+          const reread = (await port.listCustomReports())[0];
+          expect(reread.components.map(component => component.id)).toEqual(['component-2']);
+          expect(reread.filters.accounts).toEqual([ACCOUNT_B]);
+        }
+      );
+
+      rule(
+        ['createCustomReport', 'listCustomReports'],
+        `B-3 for reports: a report is filed under ${OWNERSHIP[engine]}`,
+        async () => {
+          // The same pair of rules the budget and goal writes are held to, asked
+          // again of operations that did not exist when it was asked before —
+          // because both halves of B-3 are per-operation. The arity check cannot
+          // be inherited: a new write is exactly where a `(userId, report)`
+          // signature creeps back in.
+          const mine = await harness.create({ accounts: threeAccounts() });
+          const theirs = await harness.create({ accounts: threeAccounts() });
+
+          expect(mine.port.createCustomReport.length).toBe(1);
+          expect(mine.port.updateCustomReport.length).toBe(2);
+          expect(mine.port.deleteCustomReport.length).toBe(1);
+
+          const created = await mine.port.createCustomReport(aNewCustomReport('Where it went'));
+
+          expect((await mine.read()).customReports.map(report => report.id)).toEqual([created.id]);
+          expect((await theirs.read()).customReports).toEqual([]);
+          expect(await theirs.port.listCustomReports()).toEqual([]);
+        }
+      );
+
+      rule(
+        ['updateCustomReport'],
+        'refuses to change a report that is not there, and leaves the store exactly as it was',
+        async () => {
+          // Two rules in one ask, because they are the same moment: an id that
+          // names nothing is a bug upstream (a stale page, a save submitted
+          // after a delete on another device) and must not quietly become a new
+          // report nobody built — and the judgement happens before the first
+          // write, so the refusal is never a half-applied edit. Rule 4 of the
+          // seam means the sentence is asserted too, not merely the rejection.
+          const { port, read } = await harness.create({
+            accounts: threeAccounts(),
+            customReports: [aCustomReport('report-1', 'Where it went')]
+          });
+          const before = asComparable(await read());
+
+          await expect(port.updateCustomReport('report-nowhere', { name: 'Nothing' }))
+            .rejects.toThrow(/custom report not found/i);
+
+          expect(asComparable(await read())).toBe(before);
+        }
+      );
+
+      rule(
+        ['deleteCustomReport'],
+        'treats deleting a report that has already gone as done, not as an error',
+        async () => {
+          // Same rule as the budget and goal deletes: a double-click, or a
+          // second device that got there first, must not turn a decision into an
+          // error message.
+          const { port, read } = await harness.create({
+            accounts: threeAccounts(),
+            customReports: [aCustomReport('report-1', 'Where it went')]
+          });
+
+          await expect(port.deleteCustomReport('report-nowhere')).resolves.toBeUndefined();
+          expect((await read()).customReports.map(report => report.id)).toEqual(['report-1']);
+
+          await port.deleteCustomReport('report-1');
+          await port.deleteCustomReport('report-1');
+
+          expect((await read()).customReports).toEqual([]);
+        }
+      );
     });
 
     describe('holdings', () => {
@@ -4004,7 +4264,8 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           aTransaction('txn-2', { amount: -20, category: 'cat-bills' })
         ],
         budgets: [aBudget('budget-1', 'cat-everyday', 200)],
-        goals: [aGoal('goal-1', 'New boiler', 1500)]
+        goals: [aGoal('goal-1', 'New boiler', 1500)],
+        customReports: [aCustomReport('report-1', 'Where it went')]
       });
 
       rule(['loadBoot'], `does not read a transaction until the categories are settled — ${BOOT_COMPOSITION[engine].describes}`, async () => {
@@ -4095,6 +4356,12 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           .toEqual(['txn-1', 'txn-2']);
         expect(boot.budgets.map(budget => budget.id)).toEqual(['budget-1']);
         expect(boot.goals.map(goal => goal.id)).toEqual(['goal-1']);
+        // The reports are in the SNAPSHOT and not fetched where they are drawn,
+        // and that is load-bearing rather than tidy: two of their readers are
+        // synchronous renders (`BootSnapshot` argues it), so an engine that left
+        // them out would leave a pinned dashboard widget drawing nothing on
+        // every first paint.
+        expect(boot.customReports.map(report => report.id)).toEqual(['report-1']);
         // The stats describe the array beside them, exactly as they do when the
         // transaction read is asked on its own: the boot-timing line prints
         // this figure, and the next slowness report starts from it.
@@ -4181,6 +4448,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(boot.splits).toEqual([]);
         expect(boot.budgets).toEqual([]);
         expect(boot.goals).toEqual([]);
+        expect(boot.customReports).toEqual([]);
         expect(boot.transactionStats.total).toBe(0);
         expect(typeof boot.transactionStats.fullFetchReason).toBe('string');
         expect(boot.transactionStats.fullFetchReason).not.toBe('');

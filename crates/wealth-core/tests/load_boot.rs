@@ -2,7 +2,7 @@
 //! counterpart to be differential about.
 //!
 //! `scripts/local-sqlite/verb-specs/boot-*.spec.mjs` holds the other half: seven
-//! specs running one `load_boot` payload against the six queries
+//! specs running one `load_boot` payload against the queries
 //! `DataServiceImpl.loadBoot` composes, and comparing the two answers list by
 //! list. What is here is what that comparison cannot reach:
 //!
@@ -22,7 +22,7 @@
 //!    composed.
 //! 4. **A file holding two logins**, which is a local possibility with no cloud
 //!    equivalent: there is no RLS behind a file, and the owner in the payload is
-//!    the whole gate — six times over in this verb.
+//!    the whole gate — seven times over in this verb.
 //! 5. **The transaction**, in the one respect a single-threaded test can prove:
 //!    that it is finished rather than leaked.
 //!
@@ -35,7 +35,8 @@ use rusqlite::Connection;
 use wealth_core::command::{parse, Command};
 use wealth_core::db;
 use wealth_core::verbs::{
-    account_balances, list_accounts, list_budgets, list_categories, list_goals, list_transactions,
+    account_balances, list_accounts, list_budgets, list_categories, list_custom_reports, list_goals,
+    list_transactions,
     list_transaction_splits, load_boot, OwnedRead,
 };
 
@@ -72,7 +73,8 @@ fn fixture() -> Connection {
 /// Two accounts opened in the SAME instant (the tie the crate's own key
 /// settles), three transactions on TWO days (so the ledger's order is
 /// observable and its tie-break is exercised), one of them a split parent with
-/// two lines, a budget and a goal. Every balance is what B-1 says it should be.
+/// two lines, a budget, a goal and a saved report. Every balance is what B-1
+/// says it should be.
 ///
 /// The two days matter more than they look. With every row on one date, Rust's
 /// stable sort makes a mutation that re-orders the ledger by date alone a
@@ -105,7 +107,10 @@ fn a_whole_ledger(connection: &Connection) {
                VALUES ('b0000000-0000-0000-0000-000000000001', '{OWNER}', 'Food', 12345,
                        'monthly', '2024-01-01');
              INSERT INTO goals (id, user_id, name, target_amount_minor)
-               VALUES ('90000000-0000-0000-0000-000000000001', '{OWNER}', 'New boiler', 150000);"
+               VALUES ('90000000-0000-0000-0000-000000000001', '{OWNER}', 'New boiler', 150000);
+             INSERT INTO custom_reports (id, user_id, name, components)
+               VALUES ('a1000000-0000-0000-0000-000000000001', '{OWNER}', 'Where it went',
+                       '[{{\"id\":\"one\",\"type\":\"summary\"}}]');"
         ))
         .expect("ledger");
 }
@@ -113,7 +118,7 @@ fn a_whole_ledger(connection: &Connection) {
 // ── The shape of the answer, which is where R-4 lives ───────────────────────
 
 #[test]
-fn the_boot_answers_with_six_lists_and_no_balance_map() {
+fn the_boot_answers_with_seven_lists_and_no_balance_map() {
     let mut connection = fixture();
     a_whole_ledger(&connection);
 
@@ -126,8 +131,9 @@ fn the_boot_answers_with_six_lists_and_no_balance_map() {
         .map(String::as_str)
         .collect();
 
-    // R-4, as a key set. `account_balances` is the seam's parallel SEVENTH read
-    // and the whole value of it is that it arrives BEFORE the ledger does: the
+    // R-4, as a key set. `account_balances` is the seam's PARALLEL read — the
+    // one deliberately outside the sequence — and the whole value of it is that
+    // it arrives BEFORE the ledger does: the
     // seeding rule fires only while `transactions.length === 0`, so a map that
     // arrives WITH the transactions has nothing left to seed and every account
     // reads zero for the whole boot. Folding it in here is not a bigger answer,
@@ -145,7 +151,12 @@ fn the_boot_answers_with_six_lists_and_no_balance_map() {
             "transactions",
             "transaction_splits",
             "budgets",
-            "goals"
+            "goals",
+            // The seventh, and the one presence the verb has to argue rather
+            // than inherit: the dashboard draws pinned custom reports in its
+            // first paint, so a boot without them paints the pinned widgets
+            // missing and fills them in afterwards.
+            "custom_reports"
         ]
     );
 }
@@ -190,7 +201,7 @@ fn the_stored_balance_crosses_the_boot_untouched_while_the_derived_one_is_asked_
 }
 
 #[test]
-fn a_new_file_answers_with_six_empty_arrays_and_not_six_nulls() {
+fn a_new_file_answers_with_seven_empty_arrays_and_not_seven_nulls() {
     let mut connection = fixture();
     connection
         .execute_batch(&format!("DELETE FROM categories WHERE user_id = '{OWNER}';"))
@@ -198,13 +209,13 @@ fn a_new_file_answers_with_six_empty_arrays_and_not_six_nulls() {
 
     let answered = load_boot(&mut connection, owner(OWNER)).expect("boot");
 
-    // The far side maps all six by name, and `null` under any of them is a
+    // The far side maps all seven by name, and `null` under any of them is a
     // different bug from `[]`: one says "nothing here yet", which is what a file
     // on the day it is made legitimately says, and the other says "this read
     // does not work".
     assert_eq!(
         serde_json::to_string(&answered).expect("json"),
-        r#"{"answer":{"accounts":[],"categories":[],"transactions":[],"transaction_splits":[],"budgets":[],"goals":[]}}"#
+        r#"{"answer":{"accounts":[],"categories":[],"transactions":[],"transaction_splits":[],"budgets":[],"goals":[],"custom_reports":[]}}"#
     );
 }
 
@@ -220,7 +231,7 @@ fn every_list_in_the_boot_is_the_read_of_the_same_name_asked_on_its_own() {
         serde_json::to_value(rows).expect("json")
     }
 
-    // Six assertions of the same shape, and together they are the claim the
+    // Seven assertions of the same shape, and together they are the claim the
     // module makes structurally: this verb runs no query of its own. A composite
     // that grew one — for speed, for a join, for a column somebody wanted —
     // would drift from the read it was copied from while every EXPLAIN
@@ -254,6 +265,15 @@ fn every_list_in_the_boot_is_the_read_of_the_same_name_asked_on_its_own() {
     assert_eq!(
         value(&boot.answer.goals),
         value(&list_goals(&connection, owner(OWNER)).expect("read").answer.goals)
+    );
+    assert_eq!(
+        value(&boot.answer.custom_reports),
+        value(
+            &list_custom_reports(&connection, owner(OWNER))
+                .expect("read")
+                .answer
+                .custom_reports
+        )
     );
 }
 
@@ -309,7 +329,7 @@ fn the_same_file_booted_twice_answers_in_the_same_order() {
 // ── A file holding two logins ───────────────────────────────────────────────
 
 #[test]
-fn a_second_logins_rows_are_in_the_file_and_in_none_of_the_boots_six_lists() {
+fn a_second_logins_rows_are_in_the_file_and_in_none_of_the_boots_seven_lists() {
     let mut connection = fixture();
     a_whole_ledger(&connection);
     connection
@@ -335,15 +355,17 @@ fn a_second_logins_rows_are_in_the_file_and_in_none_of_the_boots_six_lists() {
                VALUES ('b0000000-0000-0000-0000-0000000000f9', '{STRANGER}', 'Not yours', 100,
                        'monthly', '2024-01-01');
              INSERT INTO goals (id, user_id, name, target_amount_minor)
-               VALUES ('90000000-0000-0000-0000-0000000000f9', '{STRANGER}', 'Not yours', 100);"
+               VALUES ('90000000-0000-0000-0000-0000000000f9', '{STRANGER}', 'Not yours', 100);
+             INSERT INTO custom_reports (id, user_id, name)
+               VALUES ('a1000000-0000-0000-0000-0000000000f9', '{STRANGER}', 'Not yours');"
         ))
         .expect("stranger");
 
     let boot = load_boot(&mut connection, owner(OWNER)).expect("boot");
 
-    // Six chances to forget the owner, which is the composite's own new risk:
+    // Seven chances to forget the owner, which is the composite's own new risk:
     // each list below would be one row longer if this verb had passed the owner
-    // to five reads and not the sixth. There is no RLS in a file to narrow the
+    // to six reads and not the seventh. There is no RLS in a file to narrow the
     // answer afterwards, and a restored two-login file is exactly what the
     // required owner exists for.
     assert!(boot.answer.accounts.iter().all(|row| row.user_id == OWNER));
@@ -352,6 +374,7 @@ fn a_second_logins_rows_are_in_the_file_and_in_none_of_the_boots_six_lists() {
     assert!(boot.answer.transaction_splits.iter().all(|row| row.user_id == OWNER));
     assert!(boot.answer.budgets.iter().all(|row| row.user_id == OWNER));
     assert!(boot.answer.goals.iter().all(|row| row.user_id == OWNER));
+    assert!(boot.answer.custom_reports.iter().all(|row| row.user_id == OWNER));
 
     // And the other half of the same property: a file with two logins answers
     // each of them correctly. Scoping is a filter, not a refusal.
@@ -359,6 +382,7 @@ fn a_second_logins_rows_are_in_the_file_and_in_none_of_the_boots_six_lists() {
     assert_eq!(theirs.answer.accounts.len(), 1);
     assert_eq!(theirs.answer.transactions.len(), 1);
     assert_eq!(theirs.answer.transaction_splits.len(), 1);
+    assert_eq!(theirs.answer.custom_reports.len(), 1);
 }
 
 // ── The transaction ─────────────────────────────────────────────────────────
@@ -375,7 +399,7 @@ fn the_boot_finishes_its_transaction_instead_of_leaving_one_open() {
     // read transaction holds a SHARED lock for the life of the document — every
     // later write on any connection would wait out `busy_timeout` and then fail
     // — so this assertion is worth more than its length. What it cannot prove is
-    // that a write cannot land in the MIDDLE of the six reads; that needs a
+    // that a write cannot land in the MIDDLE of the seven reads; that needs a
     // second thread whose timing decides the result, and a flaky test teaches
     // people to re-run tests until they pass. The verb's module documentation
     // says which is which rather than leaving the gap to be discovered.
@@ -409,8 +433,8 @@ fn a_boot_with_no_owner_is_refused_before_a_file_is_opened() {
     let refusal = parse(r#"{"verb":"load_boot","payload":{}}"#).expect_err("refused");
     let json = serde_json::to_string(&refusal).expect("json");
 
-    // Six reads with the owner left off would answer with every login in the
-    // file — the reads' own reasoning, multiplied by six.
+    // Seven reads with the owner left off would answer with every login in the
+    // file — the reads' own reasoning, multiplied by seven.
     assert!(json.contains("missing field"), "{json}");
     assert!(json.contains("user_id"), "{json}");
 }

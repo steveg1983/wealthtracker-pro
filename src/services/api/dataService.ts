@@ -76,7 +76,7 @@ import type * as DeviceBackupService from '../localBackupService';
 // two-pass transfer linking, the chunked writer — and exactly the people who
 // press Import once ever should be the people who download it.
 import type * as MsMoneyImportService from '../import/msMoney/msMoneyImport';
-import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal, TransferDisplacedDisposition, TransferDisplacedOutcome, TransferRepointResult } from '../../types';
+import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, CustomReport, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal, TransferDisplacedDisposition, TransferDisplacedOutcome, TransferRepointResult } from '../../types';
 // The crossover rule a linked pair is filed by — each side's To/From category
 // names the OTHER account. Written down once so the browser-storage mirror and
 // repoint_transfer cannot drift apart on the one thing that is easy to get
@@ -130,9 +130,10 @@ type TransactionServiceLike = Pick<typeof TransactionService,
 type PlanningServiceLike = Pick<typeof PlanningService,
   'mergeCategories' | 'createBudget' | 'updateBudget' | 'deleteBudget'
   | 'createGoal' | 'updateGoal' | 'deleteGoal'
+  | 'createCustomReport' | 'updateCustomReport' | 'deleteCustomReport'
   | 'createCategory' | 'createCategories' | 'updateCategory' | 'deleteCategory'
   | 'deleteUnusedCategories'> &
-  Partial<Pick<typeof PlanningService, 'getBudgets' | 'getGoals' | 'ensureCategories'>>;
+  Partial<Pick<typeof PlanningService, 'getBudgets' | 'getGoals' | 'getCustomReports' | 'ensureCategories'>>;
 type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
   'list' | 'dismiss' | 'restore'>;
 /**
@@ -500,6 +501,7 @@ class DataServiceImpl implements DataPort {
       splits: [],
       budgets: [],
       goals: [],
+      customReports: [],
       phases
     };
 
@@ -540,11 +542,21 @@ class DataServiceImpl implements DataPort {
       }
       markPhase('splits');
 
-      // ONE Promise.all: two independent reads with no reason to queue behind
-      // each other.
-      const [budgets, goals] = await Promise.all([this.listBudgets(), this.listGoals()]);
+      // ONE Promise.all: three independent reads with no reason to queue behind
+      // each other. The custom reports joined the other two rather than getting
+      // a crossing of their own, and that is the whole reason they are in the
+      // snapshot at all — two of their readers are SYNCHRONOUS renders (see
+      // BootSnapshot), so a report that arrived a round trip later than the
+      // boot would be a pinned dashboard widget that draws nothing on first
+      // paint and appears a moment afterwards, every load.
+      const [budgets, goals, customReports] = await Promise.all([
+        this.listBudgets(),
+        this.listGoals(),
+        this.listCustomReports()
+      ]);
       snapshot.budgets = budgets;
       snapshot.goals = goals;
+      snapshot.customReports = customReports;
       markPhase('planning');
     } catch (error) {
       this.logger.error('Error loading the boot snapshot:', error as Error);
@@ -2710,6 +2722,111 @@ class DataServiceImpl implements DataPort {
     );
   }
 
+  // ── Custom reports ────────────────────────────────────────────────────────
+  //
+  // The one family here that arrived because a feature was LOSING data rather
+  // than because a screen was being written. Until slice 32 a report's only home
+  // was plain `localStorage['money_management_custom_reports']`, so it did not
+  // sync, did not survive clearing browser data, was not in a backup, and on a
+  // desktop lived in the WebView's storage rather than in the ledger file the
+  // person chose. `customReportService.adoptLegacyReports` is what carries the
+  // old key's contents through this branch, once per device.
+
+  /** The owner's reports. Same branch, same null rule, as `listGoals` above. */
+  async listCustomReports(): Promise<CustomReport[]> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker() && this.planningService.getCustomReports) {
+      return this.planningService.getCustomReports(userId);
+    }
+    if (this.isCloudSessionPending()) return [];
+    return this.readCollection<CustomReport>(STORAGE_KEYS.CUSTOM_REPORTS);
+  }
+
+  /**
+   * Save a report somebody built.
+   *
+   * Branch, owner rule, delegation and unwrapped promise exactly as `createGoal`
+   * above, where they are argued at length — including the pending-session
+   * refusal, which matters here for a reason specific to this entity: a report
+   * written into the browser's copy while a sign-in is still resolving is a
+   * report the adoption has ALREADY finished with, so it would sit in a store
+   * nothing reads again and the person would watch it appear and then vanish at
+   * the next boot with nothing on screen to say why.
+   *
+   * The id is minted here in the browser branch and by the database column in
+   * the cloud one — divergence B-5, the same split a category has. The builder
+   * used to mint it (`report-${Date.now()}`) and no longer does, because that id
+   * is not a uuid and the cloud's column is.
+   */
+  async createCustomReport(report: Omit<CustomReport, 'id'>): Promise<CustomReport> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.createCustomReport(userId, report);
+    }
+    this.guardCloudWrite();
+
+    const created: CustomReport = {
+      ...report,
+      id: this.generateId()
+    };
+    const reports = await this.readCollection<CustomReport>(STORAGE_KEYS.CUSTOM_REPORTS);
+    await this.persistCollection(STORAGE_KEYS.CUSTOM_REPORTS, [...reports, created]);
+    return created;
+  }
+
+  /**
+   * Change a report, and hand back the whole report as it now stands.
+   *
+   * Same branch, same owner rule and same pending-session refusal as
+   * `createCustomReport` above. A report that is not there is refused by name
+   * rather than created, and because the lookup happens before the first write,
+   * the refusal leaves the store exactly as it was.
+   *
+   * THE SPREAD IS THE REPLACE RULE. `{ ...reports[index], ...updates }` puts the
+   * stated `components` array in place of the stored one wholesale, which is
+   * what the seam promises and what makes deleting a component work: a merge
+   * would keep the removed component alive through every save, and no screen
+   * would explain why it kept coming back.
+   */
+  async updateCustomReport(id: string, updates: Partial<CustomReport>): Promise<CustomReport> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.updateCustomReport(userId, id, updates);
+    }
+    this.guardCloudWrite();
+
+    const reports = await this.readCollection<CustomReport>(STORAGE_KEYS.CUSTOM_REPORTS);
+    const index = reports.findIndex(report => report.id === id);
+    if (index === -1) throw new Error('Custom report not found');
+
+    const updated: CustomReport = { ...reports[index], ...updates, updatedAt: this.nowProvider() };
+    await this.persistCollection(
+      STORAGE_KEYS.CUSTOM_REPORTS,
+      reports.map((report, position) => (position === index ? updated : report))
+    );
+    return updated;
+  }
+
+  /**
+   * Remove a report.
+   *
+   * Same branch, same owner rule and same pending-session refusal as the two
+   * above, and the same silence when it is already gone.
+   */
+  async deleteCustomReport(id: string): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.deleteCustomReport(userId, id);
+    }
+    this.guardCloudWrite();
+
+    const reports = await this.readCollection<CustomReport>(STORAGE_KEYS.CUSTOM_REPORTS);
+    await this.persistCollection(
+      STORAGE_KEYS.CUSTOM_REPORTS,
+      reports.filter(report => report.id !== id)
+    );
+  }
+
   // ── Holdings ──────────────────────────────────────────────────────────────
   //
   // The last region of the data layer to reach this class, and the one whose
@@ -3409,6 +3526,22 @@ export class DataService {
 
   static deleteGoal(id: string): Promise<void> {
     return this.service.deleteGoal(id);
+  }
+
+  static listCustomReports(): Promise<CustomReport[]> {
+    return this.service.listCustomReports();
+  }
+
+  static createCustomReport(report: Omit<CustomReport, 'id'>): Promise<CustomReport> {
+    return this.service.createCustomReport(report);
+  }
+
+  static updateCustomReport(id: string, updates: Partial<CustomReport>): Promise<CustomReport> {
+    return this.service.updateCustomReport(id, updates);
+  }
+
+  static deleteCustomReport(id: string): Promise<void> {
+    return this.service.deleteCustomReport(id);
   }
 
   static listInvestments(): Promise<InvestmentHolding[]> {

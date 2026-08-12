@@ -394,6 +394,23 @@ describe('the port over a transport', () => {
               created_at: '2025-01-01T09:00:00.000Z',
               updated_at: '2025-01-01T09:00:00.000Z'
             }
+          ],
+          // The boot's seventh list. `components` and `filters` arrive as real
+          // JSON — an array and an object, never strings — because that is what
+          // `row/custom_report.rs` serialises after parsing the stored TEXT.
+          custom_reports: [
+            {
+              id: 'report-1',
+              user_id: OWNER,
+              name: 'Where it went',
+              description: 'last quarter',
+              components: [
+                { id: 'one', type: 'summary-stats', title: 'Key figures', config: {}, width: 'full' }
+              ],
+              filters: { dateRange: 'quarter', accounts: ['account-1'] },
+              created_at: '2025-01-01T09:00:00.000Z',
+              updated_at: '2025-01-01T09:00:00.000Z'
+            }
           ]
         }
       }
@@ -464,6 +481,19 @@ describe('the port over a transport', () => {
       achieved: false,
       contributionFrequency: 'monthly'
     });
+    // The seventh list, through the same mapper the dashboard reads. It rides
+    // the boot because two of its readers resolve a report DURING render and
+    // have no await to put a fetch in.
+    expect(boot.customReports[0]).toMatchObject({
+      id: 'report-1',
+      name: 'Where it went',
+      description: 'last quarter'
+    });
+    // The two blobs arrive as structures, not as strings. A report whose
+    // components came back as a string containing JSON would render as an empty
+    // report and say nothing about why.
+    expect(boot.customReports[0].components).toHaveLength(1);
+    expect(boot.customReports[0].filters.accounts).toEqual(['account-1']);
   });
 
   it('folds a dismissal’s subjects back into the array the app holds', async () => {
@@ -535,7 +565,8 @@ describe('the port over a transport', () => {
           transactions: [],
           transaction_splits: [],
           budgets: [],
-          goals: []
+          goals: [],
+          custom_reports: []
         }
       }
     }));
@@ -603,7 +634,7 @@ describe('the port over a transport', () => {
       // The file is the only copy, which is what the backup screens say.
       backupTarget: 'device',
       // NOTHING, and that is a statement rather than a stub: `schema.sql` holds
-      // all fourteen tables a backup file carries, so a file restored from a
+      // all fifteen tables a backup file carries, so a file restored from a
       // login loses none of it. The browser's store answers seven names here.
       cannotKeep: []
     });

@@ -1,7 +1,8 @@
 //! The reads — the questions the app asks a file it has already opened.
 //!
-//! Eleven of them here. Seven are light — the accounts, the closed accounts, the
-//! categories, the budgets, the goals, the holdings and the suggestion
+//! Twelve of them here. Eight are light — the accounts, the closed accounts, the
+//! categories, the budgets, the goals, the holdings, the saved reports and the
+//! suggestion
 //! dismissals — and four
 //! are the ones that run over a person's whole history: the transactions, every
 //! split line, one parent's split lines, and the balances. They write nothing,
@@ -82,6 +83,7 @@
 //! list_budgets                created_at              planningService.getBudgets
 //! list_goals                  created_at              planningService.getGoals
 //! list_investments            symbol                  InvestmentService.list
+//! list_custom_reports         created_at              NOT the cloud's — below
 //! list_suggestion_dismissals  dismissed_at DESC       suggestionDismissalService.list
 //! list_transactions           date DESC, id DESC      transactionService.fetchTransactionPage
 //! list_transaction_splits     transaction_id, sort_order
@@ -101,6 +103,17 @@
 //! and "nothing at all" in SQLite means whatever the sorter did last time —
 //! which is a visible reshuffle on a page nobody touched, and an unrepeatable
 //! differential spec.
+//!
+//! **[`list_custom_reports`] is the one read whose ORDER BY is not ported at
+//! all**, tie-break included, and it is a third case rather than a variant of
+//! the two below. The cloud has an order and this read declines it: its index is
+//! `(user_id, updated_at DESC)` because the reports page lists newest-edited
+//! first. `updated_at` moves under the reader's hands — renaming one report
+//! reshuffles the whole list — and the argument two paragraphs up is exactly
+//! about a list that gets re-drawn. So it orders by `created_at, id` like every
+//! other light read here, and the divergence is DECLARED rather than discovered:
+//! the two engines answer the same rows in different orders, and the oracle for
+//! this verb has to say so.
 //!
 //! **Two of this slice's four are exceptions, in opposite directions.**
 //!
@@ -130,6 +143,8 @@
 //! list_goals                 SEARCH goals USING INDEX idx_goals_user (user_id=?)
 //! list_investments           SEARCH investments USING INDEX idx_investments_symbol
 //!                                   (user_id=?)
+//! list_custom_reports        SEARCH custom_reports USING INDEX
+//!                                   idx_custom_reports_user (user_id=?)
 //! list_suggestion_dismissals SEARCH suggestion_dismissals USING INDEX
 //!                                   sqlite_autoindex_suggestion_dismissals_2 (user_id=?)
 //!   its subjects             SEARCH suggestion_dismissal_subjects USING PRIMARY KEY
@@ -145,9 +160,9 @@
 //! accepted rather than overlooked.** (`list_investments` reports the narrower
 //! `USE TEMP B-TREE FOR LAST TERM OF ORDER BY`, because its index is
 //! `(user_id, symbol)` and only the `id` tie-break is left to sort.) The sort happens after the index has cut
-//! the table down to one owner's rows, and on these five tables that is tens to
+//! the table down to one owner's rows, and on these six tables that is tens to
 //! low hundreds — a person has a dozen accounts, a few hundred categories, a
-//! handful of budgets and goals. Adding `(user_id, created_at, id)` covering
+//! handful of budgets, goals and saved reports. Adding `(user_id, created_at, id)` covering
 //! indexes to remove it would trade write cost and four more indexes to keep in
 //! step with the cloud for a sort of fifty rows. What would change the answer:
 //! a read over `transactions` or `transaction_splits`, where the row counts are
@@ -223,13 +238,14 @@
 //!
 //! # The composite is next door, and it is the exception to two of these rules
 //!
-//! [`super::load_boot`] answers six of these ten at once — the accounts, the
-//! categories, the ledger, its lines, the budgets and the goals — and it is in
+//! [`super::load_boot`] answers seven of these twelve at once — the accounts,
+//! the categories, the ledger, its lines, the budgets, the goals and the saved
+//! reports — and it is in
 //! its own module because it breaks this one's opening claim on purpose: it
-//! DOES open a transaction, a deferred read one, so that its six answers are
-//! one snapshot of one file rather than six snapshots of a file somebody else
+//! DOES open a transaction, a deferred read one, so that its seven answers are
+//! one snapshot of one file rather than seven snapshots of a file somebody else
 //! may be writing to in between. It also carries no plan of its own, because it
-//! runs no query of its own: it calls the same [`crate::row`] functions the six
+//! runs no query of its own: it calls the same [`crate::row`] functions the seven
 //! verbs below call, which is what keeps their ordering contracts true through
 //! it (R-5) and what stops a second copy of any query from existing.
 //!
@@ -246,6 +262,7 @@ use crate::row::account::{self, ListedAccount};
 use crate::row::balance::{self, AccountBalance};
 use crate::row::budget::{self, ListedBudget};
 use crate::row::category::{self, CategoryRow};
+use crate::row::custom_report::{self, CustomReportRow};
 use crate::row::dismissal::{self, DismissalRow};
 use crate::row::goal::{self, GoalRow};
 use crate::row::investment::{self, InvestmentRow};
@@ -253,12 +270,12 @@ use crate::row::split::{self, ListedSplit};
 use crate::row::{self as transaction, ListedTransaction};
 
 /// The payload every read but [`splits_for`] takes: one owner, and nothing
-/// else. Nine of the ten here, and [`super::load_boot`] makes it ten.
+/// else. Eleven of the twelve here, and [`super::load_boot`] makes it twelve.
 ///
-/// One type for ten verbs because it is one argument for ten verbs, and ten
-/// identical struct definitions would be ten places for the next person to add
-/// a filter to. The VERBS stay ten — the enum's exhaustive dispatch is over
-/// variants, not over payload types.
+/// One type for twelve verbs because it is one argument for twelve verbs, and
+/// twelve identical struct definitions would be twelve places for the next
+/// person to add a filter to. The VERBS stay twelve — the enum's exhaustive
+/// dispatch is over variants, not over payload types.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OwnedRead {
@@ -268,7 +285,7 @@ pub struct OwnedRead {
 
 /// [`splits_for`]'s payload: an owner, and the parent whose lines are wanted.
 ///
-/// The tenth read, and the only one that names anything narrower than a login.
+/// The twelfth read, and the only one that names anything narrower than a login.
 /// A second field rather than a second use of [`OwnedRead`] plus a filter,
 /// because `transaction_id` is not a predicate the caller composed — it is the
 /// subject of the question, and `deny_unknown_fields` is what keeps it the only
@@ -334,6 +351,14 @@ pub struct Investments {
 pub struct Goals {
     /// Every goal, oldest first, finished ones included.
     pub goals: Vec<GoalRow>,
+}
+
+/// The questions a login has composed and kept.
+#[derive(Debug, Serialize)]
+pub struct CustomReports {
+    /// Every saved report, oldest first. No filter and no `is_active` to hide
+    /// one behind: a report a login owns is in this answer.
+    pub custom_reports: Vec<CustomReportRow>,
 }
 
 /// What a login has told the sweeps to stop offering.
@@ -451,6 +476,29 @@ pub fn list_investments(
 ) -> CoreResult<Answered<Investments>> {
     Ok(Answered {
         answer: Investments { investments: investment::list_all(connection, &command.user_id)? },
+    })
+}
+
+/// Every saved report this login has, oldest first.
+///
+/// The one read in this module whose answer contains no money at all, and the
+/// only one whose ORDER BY is this crate's from end to end: the cloud lists
+/// reports by `updated_at DESC`, and [`crate::row::custom_report::list_all`]
+/// says why creation order is the right answer for a list somebody re-draws.
+///
+/// # Errors
+/// [`crate::error::CoreError::Storage`] if the read fails. This verb has no
+/// refusal: an owner who has never opened the report builder has an empty list,
+/// which is an answer.
+#[allow(clippy::needless_pass_by_value)]
+pub fn list_custom_reports(
+    connection: &Connection,
+    command: OwnedRead,
+) -> CoreResult<Answered<CustomReports>> {
+    Ok(Answered {
+        answer: CustomReports {
+            custom_reports: custom_report::list_all(connection, &command.user_id)?,
+        },
     })
 }
 

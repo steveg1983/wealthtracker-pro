@@ -1,5 +1,58 @@
-import type { CustomReport, ReportComponent } from '../components/CustomReportBuilder';
-import type { Transaction, Account, Budget, Category } from '../types';
+/**
+ * Custom reports: the BUILDER of them, and — since slice 32 — a store that is
+ * not the browser's.
+ *
+ * ── WHAT CHANGED, AND WHAT DID NOT ──────────────────────────────────────────
+ *
+ * The report GENERATION half below is untouched: the date-range resolution, the
+ * account/category/tag filtering, and the seven generators that turn a
+ * definition and a ledger into stats, charts and tables. Every figure in there
+ * is computed with `Decimal` through `utils/incomeExpense`'s classifier, it is
+ * correct, and it has nothing to do with where a definition is kept.
+ *
+ * What changed is the four lines that were the whole of "where": a report used
+ * to live in `localStorage['money_management_custom_reports']` and NOWHERE else.
+ * The consequences were all silent, which is why it took until now to fix:
+ *
+ *   • a report built on the laptop did not exist on the phone;
+ *   • clearing browser data deleted every one of them, with no warning, no
+ *     undo, and a reports page that then looks exactly like a person who has
+ *     never made one;
+ *   • a backup did not carry them, so "I restored my file" put back the ledger
+ *     and none of the questions somebody had written about it;
+ *   • and on a desktop they lived in the WebView's storage rather than in the
+ *     ledger file the person chose, so copying that file to a new machine left
+ *     every report behind — the failure `services/local/preferencesTransport.ts`
+ *     opens by describing, one entity along.
+ *
+ * So persistence goes through `@data` now, like every other entity the app
+ * stores. The alias and never a path: the specifier is what chooses the engine,
+ * and a service that named `services/port` would put a Supabase client into a
+ * desktop window (`docs/edition-gating.md`).
+ *
+ * ── AND THE REPORTS PEOPLE ALREADY HAVE ─────────────────────────────────────
+ *
+ * {@link CustomReportService.adoptLegacyReports} carries them across, once per
+ * device. Its rules are written out at length there, because a migration that
+ * runs twice, or half, or after a delete, is a migration that loses or
+ * resurrects somebody's work — and all three failures are as quiet as the ones
+ * above.
+ */
+
+import { dataPort } from '@data';
+import { preferences } from './preferencesService';
+// The one reading of a report's two JSON blobs, shared by both engines and by
+// this adoption, so a component cannot mean one thing on the way in and another
+// on the way out. See `services/reports/document.ts`.
+import { parseReportComponents, parseReportFilters } from './reports/document';
+import type {
+  Account,
+  Budget,
+  Category,
+  CustomReport,
+  ReportComponent,
+  Transaction
+} from '../types';
 import Decimal from 'decimal.js';
 import { buildCategoryKindLookup, classifyFlow, type FlowKind } from '../utils/incomeExpense';
 import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, parseISO, format } from 'date-fns';
@@ -7,15 +60,139 @@ import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, en
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 type Logger = Pick<Console, 'error'>;
 
+/**
+ * The store, narrowed to the four operations a report needs.
+ *
+ * Derived from the port rather than re-declared, so a signature that changes on
+ * the seam cannot silently drift from what is called here — the same discipline
+ * `dataService.ts` uses for every engine it routes to. Injectable so a test can
+ * drive this class without an engine behind it; the default is the alias, which
+ * is DataService in a browser and the open ledger file in a desktop window.
+ */
+export type CustomReportStore = Pick<
+  typeof dataPort,
+  'listCustomReports' | 'createCustomReport' | 'updateCustomReport' | 'deleteCustomReport'
+>;
+
+/**
+ * The preference that pins reports to the dashboard, narrowed to two methods.
+ *
+ * Here for ONE reason, and it is the adoption's: `dashboardPinnedReports` holds
+ * `custom:<report id>` strings, so a report that comes back from the store under
+ * a new id is a pinned widget that silently stops resolving. See
+ * {@link CustomReportService.adoptLegacyReports}.
+ */
+export type PinnedReportStore = Pick<typeof preferences, 'getItem' | 'setItem'>;
+
 export interface CustomReportServiceOptions {
   storage?: StorageLike | null;
   logger?: Logger;
+  store?: CustomReportStore;
+  pins?: PinnedReportStore;
 }
 
+/**
+ * Where reports used to live: plain, unencrypted `localStorage`, written by the
+ * reports page and read by it and two dashboard surfaces.
+ *
+ * Read by exactly one thing now — the adoption — and never written again.
+ * Deliberately NOT deleted after it is adopted: it is the only remaining record
+ * of what a person had before the migration, it costs a few kilobytes, and a
+ * build that had to be rolled back would find it exactly as it was.
+ */
+export const LEGACY_REPORTS_KEY = 'money_management_custom_reports';
+
+/**
+ * What this device has already carried across.
+ *
+ * `{ complete, ids }` — see {@link CustomReportService.adoptLegacyReports} for
+ * why it is both a flag AND a map rather than either one alone.
+ */
+export const REPORTS_ADOPTED_KEY = 'money_management_custom_reports_adopted';
+
+/** The preference the dashboard keeps its pinned report ids in. */
+const PINNED_REPORTS_PREFERENCE = 'dashboardPinnedReports';
+
+/** The prefix a pinned CUSTOM report carries, as `ImprovedDashboard` writes it. */
+const PINNED_CUSTOM_PREFIX = 'custom:';
+
+/** How far this device has got carrying the old key's reports into the store. */
+interface AdoptionMarker {
+  /**
+   * True once every report the old key held has landed. From the boot after
+   * that, the old key is not read at all — this flag is checked first and the
+   * adoption returns immediately.
+   */
+  complete: boolean;
+  /**
+   * Old id → the id the store minted for it.
+   *
+   * The map rather than a bare list of done ids, because it has a second job:
+   * repointing the dashboard pins, which name reports by their old ids.
+   */
+  ids: Record<string, string>;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * A stored legacy report, made safe to hand to the store.
+ *
+ * The old key was written by `JSON.stringify` and read by `JSON.parse`, so its
+ * `createdAt` and `updatedAt` are STRINGS however the app spelled them, and
+ * nothing ever validated the rest. This is where that becomes an app object
+ * again.
+ *
+ * THE TWO DATES ARE PARSED AND THEN THROWN AWAY BY THE STORE, and that is worth
+ * knowing here rather than being surprised by there. `Omit<CustomReport, 'id'>`
+ * requires them, so they are read properly; neither engine honours a stated one
+ * (`create_custom_report`'s draft has no clock, and the cloud's writer has no
+ * line for either column), so an adopted report is dated the day it was carried
+ * across. `services/local/mappers/writes.ts` argues why that is the right trade
+ * — honouring a date in the cloud that a ledger file cannot honour would be two
+ * editions disagreeing about when somebody did something.
+ *
+ * A date that will not parse falls back to the day the adoption runs rather than
+ * to the epoch, which is the same answer the store is about to give anyway.
+ */
+const legacyReport = (value: unknown, now: Date): { id: string; draft: Omit<CustomReport, 'id'> } | null => {
+  if (!isRecord(value)) return null;
+  const id = typeof value.id === 'string' && value.id.length > 0 ? value.id : null;
+  if (id === null) return null;
+  const at = (raw: unknown): Date => {
+    if (raw instanceof Date && !Number.isNaN(raw.getTime())) return raw;
+    if (typeof raw === 'string') {
+      const parsed = new Date(raw);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+    return now;
+  };
+  return {
+    id,
+    draft: {
+      name: typeof value.name === 'string' ? value.name : 'Untitled report',
+      description: typeof value.description === 'string' ? value.description : '',
+      // The two blobs travel as they were stored. Reading them is the STORE's
+      // job on the way back out — `services/reports/document.ts`, which both
+      // engines share — and a second reading here would be a third opinion
+      // about what a component means.
+      components: Array.isArray(value.components) ? parseReportComponents(value.components) : [],
+      filters: parseReportFilters(value.filters),
+      createdAt: at(value.createdAt),
+      updatedAt: at(value.updatedAt)
+    }
+  };
+};
+
 export class CustomReportService {
-  private readonly STORAGE_KEY = 'money_management_custom_reports';
   private readonly storage: StorageLike | null;
+
   private readonly logger: Logger;
+
+  private readonly store: CustomReportStore;
+
+  private readonly pins: PinnedReportStore;
 
   constructor(options: CustomReportServiceOptions = {}) {
     this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
@@ -23,40 +200,253 @@ export class CustomReportService {
     this.logger = {
       error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? (() => {}))
     };
+    this.store = options.store ?? dataPort;
+    this.pins = options.pins ?? preferences;
   }
 
-  // Get all custom reports
-  getCustomReports(): CustomReport[] {
+  /** Every report this owner has, oldest first. */
+  async listCustomReports(): Promise<CustomReport[]> {
+    return this.store.listCustomReports();
+  }
+
+  /**
+   * Save a report somebody just built.
+   *
+   * The id is the STORE's (divergence B-5). The builder used to mint one —
+   * `report-${Date.now()}` — and cannot any more, because that is not a uuid and
+   * the cloud's column is; it hands over a draft with a blank id and the page
+   * decides between this and {@link updateCustomReport}.
+   */
+  async createCustomReport(draft: Omit<CustomReport, 'id'>): Promise<CustomReport> {
+    return this.store.createCustomReport(draft);
+  }
+
+  /**
+   * Change a report, and hand back the whole report as it now stands.
+   *
+   * `components` and `filters` REPLACE — the seam says so and every engine keeps
+   * it, which is what makes removing a component from a report work.
+   */
+  async updateCustomReport(id: string, updates: Partial<CustomReport>): Promise<CustomReport> {
+    return this.store.updateCustomReport(id, updates);
+  }
+
+  /** Remove a report. Removing one that is already gone is a no-op, not an error. */
+  async deleteCustomReport(id: string): Promise<void> {
+    return this.store.deleteCustomReport(id);
+  }
+
+  /**
+   * Carry the reports that are still in `localStorage` into the store — once,
+   * per device, and never again.
+   *
+   * Answers the reports it wrote THIS call, so the caller can put them straight
+   * into the list it already has rather than re-reading the store. An empty
+   * array is the ordinary answer on every boot after the first.
+   *
+   * ── THE RULE, WRITTEN DOWN BECAUSE EVERY WAY OF GETTING IT WRONG IS SILENT ─
+   *
+   * A marker key records how far this device has got:
+   * `{ complete: boolean, ids: { <old id>: <new id> } }`, under
+   * {@link REPORTS_ADOPTED_KEY}. Four properties follow from it, and each one is
+   * a failure that would otherwise never show itself.
+   *
+   *   IT DOES NOT RUN TWICE. `complete` is checked first, and while it is true
+   *   the old key is not read at all. THAT IS THE PRECISE MOMENT THE OLD KEY
+   *   STOPS BEING READ: the end of the first pass in which every report it held
+   *   reached the store. Before that moment the key is read once per boot, to
+   *   work out what is still outstanding.
+   *
+   *   A FAILURE HALFWAY LOSES NOTHING. The marker is written after EACH report
+   *   lands, not once at the end, and the loop stops at the first refusal
+   *   without setting `complete`. So the reports that landed are recorded as
+   *   landed, the ones that did not are still in the old key, and the next boot
+   *   picks up exactly where this one stopped. The alternative — one write at
+   *   the end — turns a network failure on report four into either four
+   *   duplicates or four losses, depending on which way it is written.
+   *
+   *   IT DOES NOT RESURRECT WHAT SOMEBODY DELETED. This is the property the
+   *   `ids` map buys that a bare "done" flag would not, and the case is
+   *   ordinary: adopt three reports, delete one of them from the reports page,
+   *   and then have the adoption interrupted before it finished the third. The
+   *   old key still holds all three, because nothing has ever written to it
+   *   since. Membership of the map — not membership of the key — is what decides
+   *   whether a report has been dealt with, so a deleted report is dealt with
+   *   and stays deleted.
+   *
+   *   IT DOES NOT UNPIN A DASHBOARD. The ids change (see B-5 above), and
+   *   `dashboardPinnedReports` holds `custom:<old id>`. Left alone, every pinned
+   *   custom report would resolve to nothing and its widget would render `null`
+   *   — a card that vanishes from somebody's dashboard with no message and no
+   *   way to tell it apart from having unpinned it themselves. So the map is
+   *   read back over the preference, and only the entries this device actually
+   *   carried are touched.
+   *
+   * ── TWO DEVICES, ONE LOGIN ─────────────────────────────────────────────────
+   *
+   * The marker lives in `localStorage`, which is per-device and does not sync —
+   * and that is exactly right, because the thing it is a marker FOR does not
+   * sync either. The old key never left the browser it was written in, so two
+   * devices sharing one login hold DIFFERENT reports, not two copies of the same
+   * ones. Each device adopts its own set once; the store ends up holding the
+   * union, which is what the person actually built; and nothing is written
+   * twice, because no report is in two places to begin with. A marker that
+   * synced would be worse in both directions — device B would skip its own
+   * reports, or re-adopt device A's.
+   *
+   * The pin repoint is the one part that touches a SYNCED value, and it is safe
+   * for the same reason: device B's map contains only device B's old ids, so it
+   * leaves device A's already-repointed pins exactly as they are.
+   */
+  async adoptLegacyReports(): Promise<CustomReport[]> {
     if (!this.storage) return [];
-    try {
-      const stored = this.storage.getItem(this.STORAGE_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch (error) {
-      this.logger.error('Failed to load custom reports:', error as Error);
+
+    const marker = this.readMarker();
+    if (marker.complete) return [];
+
+    const now = new Date();
+    const legacy = this.readLegacyReports(now);
+    const outstanding = legacy.filter(report => marker.ids[report.id] === undefined);
+    if (outstanding.length === 0) {
+      // Nothing left to carry — including the common case of a device that never
+      // had a report at all. Stamping it here is what stops the old key being
+      // read on every subsequent boot.
+      this.writeMarker({ complete: true, ids: marker.ids });
       return [];
     }
-  }
 
-  // Save a custom report
-  saveCustomReport(report: CustomReport): void {
-    if (!this.storage) return;
-    const reports = this.getCustomReports();
-    const index = reports.findIndex(r => r.id === report.id);
-    
-    if (index >= 0) {
-      reports[index] = report;
-    } else {
-      reports.push(report);
+    const carried: CustomReport[] = [];
+    let stopped = false;
+    for (const report of outstanding) {
+      try {
+        const created = await this.store.createCustomReport(report.draft);
+        marker.ids[report.id] = created.id;
+        // After EACH one. See the rule above.
+        this.writeMarker({ complete: false, ids: marker.ids });
+        carried.push(created);
+      } catch (error) {
+        // Not rethrown: the caller is the boot, and a report that could not be
+        // carried this morning is a report that will be carried this afternoon.
+        // Failing the boot over it would replace a working ledger with an error
+        // screen to protect a list of saved questions.
+        this.logger.error('Failed to carry a saved report into the store:', error as Error);
+        stopped = true;
+        break;
+      }
     }
-    
-    this.storage.setItem(this.STORAGE_KEY, JSON.stringify(reports));
+
+    if (!stopped) this.writeMarker({ complete: true, ids: marker.ids });
+    if (carried.length > 0) this.repointPinnedReports(marker.ids);
+    return carried;
   }
 
-  // Delete a custom report
-  deleteCustomReport(reportId: string): void {
+  /** The old key's contents, as drafts the store can take. */
+  private readLegacyReports(now: Date): Array<{ id: string; draft: Omit<CustomReport, 'id'> }> {
+    if (!this.storage) return [];
+    let parsed: unknown;
+    try {
+      const stored = this.storage.getItem(LEGACY_REPORTS_KEY);
+      if (stored === null) return [];
+      parsed = JSON.parse(stored);
+    } catch (error) {
+      // Unreadable rather than absent. Reported and then treated as empty: there
+      // is nothing to be done about a corrupted blob, and the adoption must not
+      // become a reason the app will not start.
+      this.logger.error('Failed to read the saved reports this device still holds:', error as Error);
+      return [];
+    }
+    if (!Array.isArray(parsed)) return [];
+    const reports: Array<{ id: string; draft: Omit<CustomReport, 'id'> }> = [];
+    for (const entry of parsed) {
+      const report = legacyReport(entry, now);
+      if (report !== null) reports.push(report);
+    }
+    return reports;
+  }
+
+  private readMarker(): AdoptionMarker {
+    if (!this.storage) return { complete: false, ids: {} };
+    try {
+      const stored = this.storage.getItem(REPORTS_ADOPTED_KEY);
+      if (stored === null) return { complete: false, ids: {} };
+      const parsed: unknown = JSON.parse(stored);
+      if (!isRecord(parsed)) return { complete: false, ids: {} };
+      const ids: Record<string, string> = {};
+      if (isRecord(parsed.ids)) {
+        for (const [key, value] of Object.entries(parsed.ids)) {
+          if (typeof value === 'string') ids[key] = value;
+        }
+      }
+      return { complete: parsed.complete === true, ids };
+    } catch (error) {
+      // A marker that cannot be read is treated as no marker, which re-adopts.
+      // The alternative — treating it as complete — would strand every report
+      // the device still holds, permanently and silently, which is the worse of
+      // the two wrong answers.
+      this.logger.error('Failed to read how far this device has carried its reports:', error as Error);
+      return { complete: false, ids: {} };
+    }
+  }
+
+  private writeMarker(marker: AdoptionMarker): void {
     if (!this.storage) return;
-    const reports = this.getCustomReports().filter(r => r.id !== reportId);
-    this.storage.setItem(this.STORAGE_KEY, JSON.stringify(reports));
+    try {
+      this.storage.setItem(REPORTS_ADOPTED_KEY, JSON.stringify(marker));
+    } catch (error) {
+      // A marker that will not write is the one failure here that CAN duplicate
+      // a report — the next boot would carry it again. Said out loud rather than
+      // swallowed, because a full or blocked localStorage is something a person
+      // can act on and a duplicated report is something they will otherwise be
+      // left to explain to themselves.
+      this.logger.error('Failed to record which reports this device has carried:', error as Error);
+    }
+  }
+
+  /**
+   * Point the dashboard's pinned reports at the ids the store gave them.
+   *
+   * Only the entries in `ids` are touched: a pin naming anything else is either
+   * a built-in report or a custom report ANOTHER device already carried, and
+   * both must come through untouched. A pin whose id is not in the map is
+   * therefore left exactly as it is, which is the same rule
+   * `remapBackupIds` keeps for a reference it cannot resolve.
+   */
+  private repointPinnedReports(ids: Record<string, string>): void {
+    let stored: string | null;
+    try {
+      stored = this.pins.getItem(PINNED_REPORTS_PREFERENCE);
+    } catch (error) {
+      this.logger.error('Failed to read the dashboard’s pinned reports:', error as Error);
+      return;
+    }
+    if (stored === null) return;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(stored);
+    } catch {
+      // Not JSON this build wrote. Left alone — the dashboard's own reader falls
+      // back to its default, and rewriting it here would throw away whatever a
+      // newer build put there.
+      return;
+    }
+    if (!Array.isArray(parsed)) return;
+
+    let changed = false;
+    const repointed = parsed.map(entry => {
+      if (typeof entry !== 'string' || !entry.startsWith(PINNED_CUSTOM_PREFIX)) return entry;
+      const replacement = ids[entry.slice(PINNED_CUSTOM_PREFIX.length)];
+      if (replacement === undefined) return entry;
+      changed = true;
+      return `${PINNED_CUSTOM_PREFIX}${replacement}`;
+    });
+    if (!changed) return;
+
+    try {
+      this.pins.setItem(PINNED_REPORTS_PREFERENCE, JSON.stringify(repointed));
+    } catch (error) {
+      this.logger.error('Failed to repoint the dashboard’s pinned reports:', error as Error);
+    }
   }
 
   // Generate report data based on configuration

@@ -2690,6 +2690,31 @@ export function listedGoal(fields) {
   };
 }
 
+/**
+ * One report — the eight keys the crate's report row serialises.
+ *
+ * `components` and `filters` default to the empty array and the empty object
+ * rather than to null: both columns are NOT NULL on both engines, because a
+ * report saved halfway through being built is an ordinary thing and a refusal
+ * from the database is not the right answer to it.
+ */
+export function listedCustomReport(fields) {
+  return {
+    id: '',
+    user_id: USER,
+    name: '',
+    // `''`, never null: the column is NOT NULL with a default of the empty
+    // string on both engines, so a report that states no description HAS one —
+    // it is empty. A null here would be a shape neither engine can produce.
+    description: '',
+    components: [],
+    filters: {},
+    created_at: OPENED_FIRST,
+    updated_at: OPENED_FIRST,
+    ...fields,
+  };
+}
+
 /** One dismissal — five keys, because the cloud's own read names five. */
 export function listedDismissal(fields) {
   return {
@@ -3284,6 +3309,149 @@ export const existingGoal = {
       VALUES ('${EXISTING_GOAL}', '${USER}', 'Holiday', 2000.00, 250.05,
               '2026-01-01', 'active', '{"type":"savings","linkedAccountIds":["keep-me"]}');`,
 };
+
+/**
+ * One report that already exists, with BOTH kinds of list inside its filters.
+ *
+ * `accounts` and `categories` are row ids; `tags` is a label somebody typed.
+ * Both are in the fixture because a spec that only carried one would pass
+ * against an engine that treated the whole blob as opaque and against one that
+ * rewrote all of it.
+ *
+ * The two JSON columns are TEXT in the file and `jsonb` in the cloud, so the
+ * INSERTs differ in their casts and in nothing else — the same difference every
+ * money column in this file already has, one type along.
+ */
+export const EXISTING_REPORT = 'd0000000-0000-0000-0000-0000000000ff';
+
+const REPORT_COMPONENTS =
+  '[{"id":"one","type":"summary-stats","title":"Key figures","config":{"metrics":["income"]},"width":"full"}]';
+const REPORT_FILTERS =
+  `{"dateRange":"quarter","accounts":["${EVERYDAY}"],"categories":["${WEEKLY_SHOP}"],"tags":["holiday"]}`;
+
+export const existingCustomReport = {
+  sqlite: `
+    INSERT INTO custom_reports (id, user_id, name, description, components, filters,
+                                created_at, updated_at)
+      VALUES ('${EXISTING_REPORT}', '${USER}', 'Where it went', 'last quarter',
+              '${REPORT_COMPONENTS}', '${REPORT_FILTERS}',
+              '2026-03-04T10:00:00.000Z', '2026-03-04T10:00:00.000Z');`,
+  postgres: `
+    INSERT INTO public.custom_reports (id, user_id, name, description, components, filters,
+                                       created_at, updated_at)
+      VALUES ('${EXISTING_REPORT}', '${USER}', 'Where it went', 'last quarter',
+              '${REPORT_COMPONENTS}'::jsonb, '${REPORT_FILTERS}'::jsonb,
+              '2026-03-04T10:00:00.000Z', '2026-03-04T10:00:00.000Z');`,
+};
+
+/**
+ * Two reports, opened on two different days, so an ordering claim has something
+ * to order.
+ *
+ * The second is the one with the contents: the first is the bare row a person
+ * gets by pressing Save on an empty builder, and it is here because that shape
+ * is what the two NOT NULL columns' defaults are actually for.
+ */
+export const OLDER_REPORT = 'd0000000-0000-0000-0000-0000000000a1';
+export const NEWER_REPORT = 'd0000000-0000-0000-0000-0000000000a2';
+
+/**
+ * Two reports: one bare, one fully filled in.
+ *
+ * The bare one OMITS `description`, `components` and `filters` rather than
+ * stating NULL for them, and the difference is the whole point of it. All three
+ * are NOT NULL WITH A DEFAULT on both engines, so an omitted column takes `''`,
+ * `'[]'` and `'{}'` — which is what a person pressing Save on an empty builder
+ * actually produces. A stated NULL is a different thing entirely: it overrides
+ * the default and the row is REFUSED, on both engines, which is correct
+ * behaviour and simply not what this fixture is for.
+ */
+export const twoCustomReports = {
+  sqlite: `
+    INSERT INTO custom_reports (id, user_id, name, created_at, updated_at) VALUES
+      ('${OLDER_REPORT}', '${USER}', 'Nothing in it yet',
+       '${OPENED_FIRST}', '${OPENED_FIRST}');
+    INSERT INTO custom_reports (id, user_id, name, description, components, filters,
+                                created_at, updated_at) VALUES
+      ('${NEWER_REPORT}', '${USER}', 'Where it went', 'last quarter',
+       '${REPORT_COMPONENTS}', '${REPORT_FILTERS}', '${OPENED_SECOND}', '${OPENED_SECOND}');`,
+  postgres: `
+    INSERT INTO public.custom_reports (id, user_id, name, created_at, updated_at) VALUES
+      ('${OLDER_REPORT}', '${USER}', 'Nothing in it yet',
+       '${OPENED_FIRST}', '${OPENED_FIRST}');
+    INSERT INTO public.custom_reports (id, user_id, name, description, components, filters,
+                                       created_at, updated_at) VALUES
+      ('${NEWER_REPORT}', '${USER}', 'Where it went', 'last quarter',
+       '${REPORT_COMPONENTS}'::jsonb, '${REPORT_FILTERS}'::jsonb,
+       '${OPENED_SECOND}', '${OPENED_SECOND}');`,
+};
+
+/** How many reports one login has. */
+export function customReportsOwnedBy(userId, expect) {
+  return {
+    name: `custom_reports_owned_by_${userId.slice(-4)}`,
+    sqlite: `SELECT COUNT(*) FROM custom_reports WHERE user_id = '${userId}'`,
+    postgres: `SELECT COUNT(*) FROM public.custom_reports WHERE user_id = '${userId}'`,
+    expect,
+  };
+}
+
+/**
+ * A report's identifying columns, as one string — name, description, and the
+ * COUNT of components rather than the components themselves.
+ *
+ * The count and not the array, because the array is what the runner's own
+ * row comparison already compares field by field; what a `state` assertion is
+ * for is the STORE afterwards, and "how many components does the stored row
+ * have" is the question a replace-versus-merge bug actually changes.
+ */
+export function customReportShape(reportId, expect) {
+  const build = (engine) => {
+    const table = engine === 'sqlite' ? 'custom_reports' : 'public.custom_reports';
+    const components = engine === 'sqlite'
+      ? '(SELECT COUNT(*) FROM json_each(r.components))'
+      : 'jsonb_array_length(r.components)';
+    const row = `r.name || ':' || COALESCE(r.description, '-')
+                 || ':' || ${components}`;
+    return `SELECT COALESCE((SELECT ${row} FROM ${table} r WHERE r.id = '${reportId}'), 'GONE')`;
+  };
+  return {
+    name: `custom_report_shape_${reportId.slice(-4)}`,
+    sqlite: build('sqlite'),
+    postgres: build('postgres'),
+    expect,
+  };
+}
+
+/**
+ * One key of a report's `filters`, rendered as a comma-joined list.
+ *
+ * Read key by key rather than as the whole blob, for the reason
+ * [`goalMetadata`] gives: SQLite stores the document as the TEXT it was handed
+ * and Postgres re-orders a `jsonb` by key, so comparing the raw column would
+ * report every write as a divergence. The ORDER INSIDE an array is preserved by
+ * both and IS compared, which is what makes "the filters replaced" observable.
+ */
+export function customReportFilter(reportId, key, expect) {
+  const build = (engine) => {
+    const table = engine === 'sqlite' ? 'custom_reports' : 'public.custom_reports';
+    const each = engine === 'sqlite'
+      ? `SELECT value AS element FROM ${table} r, json_each(json_extract(r.filters, '$.${key}'))
+           WHERE r.id = '${reportId}'`
+      : `SELECT element #>> '{}' AS element
+           FROM ${table} r, jsonb_array_elements(r.filters->'${key}') AS element
+          WHERE r.id = '${reportId}'`;
+    return engine === 'sqlite'
+      ? `SELECT COALESCE((SELECT group_concat(element, ',') FROM (${each})), 'NONE')`
+      : `SELECT COALESCE((SELECT string_agg(element, ',') FROM (${each}) AS f), 'NONE')`;
+  };
+  return {
+    name: `custom_report_filter_${key}_${reportId.slice(-4)}`,
+    sqlite: build('sqlite'),
+    postgres: build('postgres'),
+    expect,
+  };
+}
 
 /**
  * Two contributions against [`EXISTING_GOAL`], so a delete has something to

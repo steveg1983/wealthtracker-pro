@@ -413,6 +413,37 @@ describe('the desktop window, with a ledger open', () => {
       .toBeGreaterThan(0);
   });
 
+  it('renders CUSTOM REPORTS, at its own address, with nothing sold on it', async () => {
+    // The route that moved out of `NEVER_ON_A_DESKTOP` — `routes.ts` carries the
+    // argument. Asserted from the window because the old exclusion was never
+    // enforced in one: the hub's registry imports this page directly, so it was
+    // reachable at `#/reports/custom-reports` the whole time it was listed as
+    // never coming. This is the address it now answers at honestly.
+    await openTheLedger('#/custom-reports');
+
+    expect(await screen.findByRole('heading', { name: /custom reports/i }, PAGE))
+      .toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /create report/i })).toBeInTheDocument();
+
+    // The web route is wrapped in a `ProtectedSuspense requirePremium`. There is
+    // no such wrapper here and nothing for one to talk to, so the page arrives
+    // without an upgrade prompt attached — the local edition's buyer is on the
+    // only tier this build has.
+    expect(screen.queryByText(/upgrade/i)).toBeNull();
+    expect(screen.queryByText(/premium/i)).toBeNull();
+  });
+
+  it('names the window after Custom reports, not after the hub', async () => {
+    // `DesktopRoute.title` is load-bearing: a window has no tab strip, so this
+    // is the only place it can say which screen is showing. The hub's own routes
+    // are titled 'Reports', and a title of 'Reports' here would mean the manifest
+    // entry had been copied rather than written.
+    await openTheLedger('#/custom-reports');
+    await screen.findByRole('heading', { name: /custom reports/i }, PAGE);
+
+    await waitFor(() => expect(document.title).toBe('Custom reports'));
+  });
+
   it('renders SETTINGS with no billing card in it', async () => {
     await openTheLedger('#/settings');
 

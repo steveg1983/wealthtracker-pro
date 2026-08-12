@@ -32,7 +32,7 @@ import type { DataPortCapabilities } from '../../services/port';
  * to be the only thing the dialog knew about a store, and it decided the
  * "cannot be kept" warning by reading `LOCAL_BACKUP_BINDINGS` whenever the
  * target was not a login — a description of THIS store, applied to any store
- * that was not a login, including a ledger FILE that holds all fourteen tables.
+ * that was not a login, including a ledger FILE that holds all fifteen tables.
  *
  * So the seven names below are a property of the browser's store, they come
  * from the engine now, and {@link A_FILE} is the other store that answers the
@@ -376,7 +376,7 @@ describe('RestoreBackupModal', () => {
       // THE ONE THIS PAIR EXISTS FOR. `A_FILE` and `DEVICE` answer the same
       // `backupTarget` and different `cannotKeep`, which is exactly the case the
       // old code could not tell apart: it read the BROWSER's bindings whenever
-      // the target was not a login, so a ledger file — which holds all fourteen
+      // the target was not a login, so a ledger file — which holds all fifteen
       // tables — would have been warned that its own investments could not be
       // restored. A false warning about data loss, in front of somebody deciding
       // whether to press a button.

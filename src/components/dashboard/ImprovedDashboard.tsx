@@ -32,7 +32,6 @@ import PeriodBar from '../../components/PeriodBar';
 import NetWorthSummary from '../../components/NetWorthSummary';
 import { PERIOD_LABELS, usePeriod } from '../../hooks/usePeriod';
 import { cardPeriodKey, useCardPeriod } from '../../hooks/useCardPeriod';
-import { customReportService } from '../../services/customReportService';
 import {
   NetWorthWidget,
   IncomeExpenseTrendWidget,
@@ -102,7 +101,12 @@ const ACCOUNT_CARD_HEIGHT = 120;
  * 4. Mobile-optimized - works great on all screen sizes
  */
 export function ImprovedDashboard() {
-  const { accounts, transactions, transactionSplits, budgets, categories, serverBalances, isLoading } = useApp();
+  // `customReports` comes from the context because the picker below lists them
+  // INLINE in a modal body — there is no await to put a fetch in, and this used
+  // to be a synchronous `localStorage` read. They ride the boot snapshot now;
+  // `BootSnapshot` argues why that is the shape rather than a per-component
+  // fetch.
+  const { accounts, transactions, transactionSplits, budgets, categories, customReports, serverBalances, isLoading } = useApp();
   const { formatCurrency: formatCurrencyWithSymbol, displayCurrency } = useCurrencyDecimal();
   const identityKey = useIdentityKey();
   const navigate = useNavigate();
@@ -685,7 +689,7 @@ export function ImprovedDashboard() {
                 <span className="text-sm text-gray-800 dark:text-gray-200">{label}</span>
               </label>
             ))}
-            {customReportService.getCustomReports().map(report => (
+            {customReports.map(report => (
               <label key={report.id} className="flex items-center gap-3 py-2 px-2 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-pointer">
                 <input
                   type="checkbox"

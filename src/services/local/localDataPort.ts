@@ -28,12 +28,12 @@
  * engine, so both write nothing and the agreement is argued rather than assumed.
  *
  * Since slice 25 it also holds the RE-POINT and the whole BACKUP group, which is
- * the round trip: `collectBackup` reads fourteen tables in one snapshot and
+ * the round trip: `collectBackup` reads fifteen tables in one snapshot and
  * hands the rows to the app's own `buildBackupBundle`, and `restoreBackup` sends
  * the file back in ONE call that is ONE transaction.
  *
  * SLICE 28 GAVE THAT ROUND TRIP ITS FIFTEENTH THING. A backup carries the
- * PREFERENCES document as a top-level section rather than as one of the fourteen
+ * PREFERENCES document as a top-level section rather than as one of the fifteen
  * tables, and until this slice a file could not hold one — `collectBackup` sent
  * `null` and `restoreBackup` reported a loss it had no way to avoid. Both now
  * cross, as two verbs of their own: see those two methods for why the collect is
@@ -150,6 +150,7 @@ import type {
   Budget,
   Category,
   CategoryMergeResult,
+  CustomReport,
   DismissalKind,
   Goal,
   SplitWriteResult,
@@ -240,6 +241,7 @@ import {
   toBalance,
   toBudget,
   toCategory,
+  toCustomReport,
   toDismissal,
   toDisplaced,
   toGoal,
@@ -255,6 +257,8 @@ import {
   toCategoryCreatePayload,
   toCategoryUpdatePatch,
   toCreatePayload,
+  toCustomReportCreatePayload,
+  toCustomReportUpdatePatch,
   toDismissalKey,
   toDismissalPayload,
   toGoalCreatePayload,
@@ -495,7 +499,7 @@ const DEVICE_CAPABILITIES: DataPortCapabilities = {
   // somebody before they close the window, and the two backup screens say it
   // from here.
   backupTarget: 'device',
-  // EMPTY IS A STATEMENT HERE, not a stub. `schema.sql` holds all fourteen
+  // EMPTY IS A STATEMENT HERE, not a stub. `schema.sql` holds all fifteen
   // tables a backup file carries — including the three a browser has never had
   // (`investments`, `investment_transactions`, `goal_contributions`) — so a file
   // restored from a login loses nothing at all.
@@ -692,6 +696,20 @@ export class LocalDataPort implements DataPort {
     return rowsOf(answer, 'list_goals', 'goals').map(toGoal);
   }
 
+  /**
+   * Every report this file holds, oldest first.
+   *
+   * Rarely the read that runs: `loadBoot` carries the same list, because two of
+   * the readers are synchronous and cannot await one. This exists for the same
+   * reason `listGoals` does beside a boot that already answered — the seam
+   * declares a read per entity, and a caller that wants only the reports should
+   * not have to ask for the whole ledger to get them.
+   */
+  async listCustomReports(): Promise<CustomReport[]> {
+    const answer = await this.#ask('list_custom_reports');
+    return rowsOf(answer, 'list_custom_reports', 'custom_reports').map(toCustomReport);
+  }
+
   async listCategories(): Promise<Category[]> {
     const answer = await this.#ask('list_categories');
     return rowsOf(answer, 'list_categories', 'categories').map(toCategory);
@@ -709,7 +727,7 @@ export class LocalDataPort implements DataPort {
    *
    * BOOT_COMPOSITION's local-core row is `{ fansOut: false }`, and this method
    * is what makes it true: it does not call the reads above, it asks the
-   * `load_boot` verb, which wraps six reads in one deferred read transaction.
+   * `load_boot` verb, which wraps seven reads in one deferred read transaction.
    * The ordering rules the cloud has to KEEP — categories before transactions,
    * budgets and goals together — are not kept here; they are unable to be
    * broken here, which is a stronger property and the reason the contract suite
@@ -740,6 +758,7 @@ export class LocalDataPort implements DataPort {
       splits: [],
       budgets: [],
       goals: [],
+      customReports: [],
       phases
     };
 
@@ -755,6 +774,7 @@ export class LocalDataPort implements DataPort {
       snapshot.splits = rowsOf(answer, 'load_boot', 'transaction_splits').map(toSplit);
       snapshot.budgets = rowsOf(answer, 'load_boot', 'budgets').map(toBudget);
       snapshot.goals = rowsOf(answer, 'load_boot', 'goals').map(toGoal);
+      snapshot.customReports = rowsOf(answer, 'load_boot', 'custom_reports').map(toCustomReport);
       snapshot.transactionStats = {
         cached: 0,
         fetched: snapshot.transactions.length,
@@ -1446,6 +1466,73 @@ export class LocalDataPort implements DataPort {
     await this.#ask('delete_goal', { id });
   }
 
+  // ── Custom reports ────────────────────────────────────────────────────────
+  //
+  // The one entity here that a device edition WAS ALREADY LOSING before it
+  // arrived. Every other family on this seam had a home in the ledger file from
+  // the day the schema was written; a custom report's only home was the
+  // WebView's `localStorage`, which is not in the file, does not travel with it,
+  // and is thrown away by anything that clears the app's data. Somebody could
+  // copy their ledger to a new machine, open it, and find their reports gone —
+  // the same failure `preferencesTransport.ts` opens by describing, one entity
+  // along and with the same answer: *"a file that holds the money and not the
+  // choices is a file that is only half a backup."*
+
+  /**
+   * Save a report somebody built.
+   *
+   * B-3 applies word for word: see `createBudget` above. There is no per-call
+   * owner to get wrong — `#ask` adds the document's, and two owners are two
+   * FILES.
+   *
+   * The two timestamps do NOT travel, exactly as they do not on the create
+   * beside it: the verb's draft has five fields and none of them is a clock.
+   * `writes.ts` records what that costs the adoption path, which is the only
+   * caller that had a date worth keeping.
+   */
+  async createCustomReport(report: Omit<CustomReport, 'id'>): Promise<CustomReport> {
+    const answer = await this.#ask('create_custom_report', toCustomReportCreatePayload(report));
+    return toCustomReport(rowOf(answer, 'create_custom_report', 'answer'));
+  }
+
+  /**
+   * Change a report, and hand back the whole report as it now stands.
+   *
+   * A report that is not there is refused BY NAME and the store is left exactly
+   * as it was — `.single()`'s behaviour in the cloud, the verb's own read-before-
+   * write here, and the same rule the budget and goal updates keep.
+   *
+   * `components` and `filters` REPLACE. That is the one line of this method that
+   * is not inherited from the planning writes beside it, and it is the opposite
+   * of what `updateGoal` above does with `metadata`: a goal's blob is merged
+   * inside the verb's transaction because three unrelated fields share it, and a
+   * report's two blobs are each the whole of what they describe. An engine that
+   * merged them would make removing a component impossible — the removed one
+   * would come back on every save, and nothing on screen would say why.
+   */
+  async updateCustomReport(id: string, updates: Partial<CustomReport>): Promise<CustomReport> {
+    const answer = await this.#ask('update_custom_report', {
+      id,
+      patch: toCustomReportUpdatePatch(updates)
+    });
+    return toCustomReport(rowOf(answer, 'update_custom_report', 'answer'));
+  }
+
+  /**
+   * Remove a report.
+   *
+   * A real delete, like a budget's: nothing is filed against a report and no
+   * balance is derived from one. Removing one that is already gone is a no-op,
+   * not an error.
+   *
+   * Answers `void`, and the verb answers with a count anyway — discarded here
+   * for `deleteBudget`'s reason: a return value nobody reads is a return value
+   * that will one day be read wrongly.
+   */
+  async deleteCustomReport(id: string): Promise<void> {
+    await this.#ask('delete_custom_report', { id });
+  }
+
   // ── Holdings ──────────────────────────────────────────────────────────────
   //
   // The last region of the ledger to reach this file, and the one that arrived
@@ -1779,7 +1866,7 @@ export class LocalDataPort implements DataPort {
    *
    * ── ONE FORMAT, THREE ENGINES, ONE BUILDER ──────────────────────────────
    *
-   * The verb answers with ROWS — fourteen sections of whole rows, spelled the
+   * The verb answers with ROWS — fifteen sections of whole rows, spelled the
    * way the cloud's own columns are spelled, because `crate::backup` reads its
    * column maps in this direction as well as the other. Everything that turns
    * rows into a FILE happens in `buildBackupBundle`, which is the same function
@@ -1796,8 +1883,8 @@ export class LocalDataPort implements DataPort {
    * The seam asks for progress per table *"because a real dataset is 50k+ rows
    * and 50+ round trips"*, and says an engine with nothing to report *"stays
    * silent rather than estimating"*. There is ONE round trip here, inside one
-   * read transaction, so the fourteen sections do not become available one at a
-   * time — they arrive together. Firing fourteen callbacks on the way past would
+   * read transaction, so the fifteen sections do not become available one at a
+   * time — they arrive together. Firing fifteen callbacks on the way past would
    * paint a bar that is a description of a loop rather than of the work, which
    * is `importTransactions`'s reason for the same omission.
    *
@@ -1807,11 +1894,11 @@ export class LocalDataPort implements DataPort {
    * where it lands"*. Slice 28 is that day, and this is that line.
    *
    * They are asked for SEPARATELY rather than added to `collect_backup`'s
-   * fourteen sections, and the reason is the format's rather than this port's: a
+   * fifteen sections, and the reason is the format's rather than this port's: a
    * backup carries preferences as a TOP-LEVEL section, not as a table, because
-   * `user_preferences` is not one of `BACKUP_ENTITIES`' fourteen on any engine.
-   * The cloud's collector walks fourteen tables and then reads the document
-   * through the preferences transport; so does this. A fifteenth entity here
+   * `user_preferences` is not one of `BACKUP_ENTITIES`' fifteen on any engine.
+   * The cloud's collector walks fifteen tables and then reads the document
+   * through the preferences transport; so does this. A sixteenth entity here
    * would be a file the other two editions could not read.
    *
    * IT IS ALLOWED TO REJECT, and the cloud says why where its own transport
@@ -1915,7 +2002,7 @@ export class LocalDataPort implements DataPort {
    *   step is called.
    *
    *   `notStoredLocally` — EMPTY, and that is a statement rather than a stub:
-   *   B-11 gives this engine `notStored: []` and the file holds all fourteen
+   *   B-11 gives this engine `notStored: []` and the file holds all fifteen
    *   tables. The verb's `dropped` is NOT mapped into it — `dropped` is per
    *   COLUMN (a cloud row carrying a figure this schema has no home for), and
    *   `notStoredLocally` is per TABLE. Mapping one to the other would make

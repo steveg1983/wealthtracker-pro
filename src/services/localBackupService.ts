@@ -574,6 +574,43 @@ function goalFromRow(row: BackupRow): Record<string, unknown> {
   });
 }
 
+// ── custom_reports ──────────────────────────────────────────────────────────
+//
+// The two jsonb columns travel as VALUES, not as strings, in both directions.
+// `buildBackupBundle` writes the bundle out with one `JSON.stringify` at the
+// end, so a report whose components were stringified here would land in the file
+// as a string containing JSON — and would restore into a jsonb column holding a
+// JSON string, which `parseReportComponents` reads as "not an array" and answers
+// with an empty report. Silently: nothing constrains the inside of that column
+// on either engine.
+
+function customReportToRow(app: Record<string, unknown>): BackupRow {
+  const row: BackupRow = {};
+  put(row, 'id', text(app.id));
+  put(row, 'name', text(app.name));
+  put(row, 'description', text(app.description));
+  // `?? []` and `?? {}` rather than omitted: both columns are NOT NULL in the
+  // cloud, and a report saved halfway through being built legitimately has no
+  // components at all.
+  put(row, 'components', Array.isArray(app.components) ? app.components : []);
+  put(row, 'filters', isRecord(app.filters) ? app.filters : {});
+  put(row, 'created_at', timestampColumn(app.createdAt));
+  put(row, 'updated_at', timestampColumn(app.updatedAt));
+  return row;
+}
+
+function customReportFromRow(row: BackupRow): Record<string, unknown> {
+  return compact({
+    id: text(row.id),
+    name: text(row.name),
+    description: text(row.description),
+    components: Array.isArray(row.components) ? row.components : [],
+    filters: isRecord(row.filters) ? row.filters : {},
+    createdAt: text(row.created_at),
+    updatedAt: text(row.updated_at),
+  });
+}
+
 // ── suggestion_dismissals ───────────────────────────────────────────────────
 
 function dismissalToRow(app: Record<string, unknown>): BackupRow {
@@ -632,7 +669,7 @@ export type LocalEntityBinding = StoredLocally | NotStoredLocally;
  * whenever `backupTarget !== 'login'` — a description of the BROWSER's store,
  * chosen by a condition a DEVICE edition also matches — so a device would have
  * been warned that a file's budgets, goals and dismissals could not be kept, by
- * a file that keeps all fourteen tables. A false warning about data loss, shown
+ * a file that keeps all fifteen tables. A false warning about data loss, shown
  * to somebody deciding whether to press a button.
  *
  * A second copy of the seven sentences would have been free to drift from this
@@ -688,6 +725,16 @@ export const LOCAL_BACKUP_BINDINGS: Readonly<Record<BackupEntity, LocalEntityBin
   suggestion_dismissals: {
     stored: true, storageKey: STORAGE_KEYS.SUGGESTION_DISMISSALS, label: 'Dismissed suggestions',
     toRow: dismissalToRow, fromRow: dismissalFromRow,
+  },
+  // `stored: true` from the day the table joined the format, which is what
+  // separates it from the seven below. A report is not a cloud-only entity: the
+  // browser branch of the seam keeps them under a storage key of its own, so a
+  // signed-out person's reports go into their backup and come back out of it —
+  // which is the whole point of the table existing, since the failure it was
+  // created to end was reports being lost to a browser that cleared its data.
+  custom_reports: {
+    stored: true, storageKey: STORAGE_KEYS.CUSTOM_REPORTS, label: 'Custom reports',
+    toRow: customReportToRow, fromRow: customReportFromRow,
   },
   goal_contributions: absent('goal_contributions'),
   investments: absent('investments'),

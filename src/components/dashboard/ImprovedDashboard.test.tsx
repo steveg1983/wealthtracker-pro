@@ -28,6 +28,11 @@ const mocks = vi.hoisted(() => ({
     transactionSplits: [],
     budgets: [],
     categories: [],
+    // The dashboard's report picker lists these inline, so the context has to
+    // answer with an array rather than with nothing. They arrive in the boot
+    // snapshot now; until slice 32 this surface read localStorage during render,
+    // which is what the removed `customReportService` mock stood in for.
+    customReports: [],
     serverBalances: new Map<string, { balance: number; txnCount: number }>(),
     isLoading: false,
   },
@@ -95,9 +100,6 @@ vi.mock('../common/Modal', () => ({
   Modal: ({ isOpen, children }: { isOpen: boolean; children: ReactNode }) =>
     isOpen ? <div role="dialog">{children}</div> : null,
   ModalBody: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-}));
-vi.mock('../../services/customReportService', () => ({
-  customReportService: { getCustomReports: () => [] },
 }));
 
 const account = (over: Partial<Account> & { id: string; name: string }): Account => ({

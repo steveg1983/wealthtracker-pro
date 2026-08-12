@@ -487,6 +487,99 @@ export interface Goal {
   completedAt?: string;
 }
 
+/**
+ * A report somebody built for themselves — the components they chose, arranged
+ * how they chose them, over the rows they chose.
+ *
+ * ── WHY IT IS HERE AND NOT IN THE COMPONENT THAT DRAWS IT ───────────────────
+ *
+ * It was declared in `components/CustomReportBuilder.tsx` for as long as its
+ * only home was `localStorage['money_management_custom_reports']` — a shape one
+ * screen wrote and one screen read, so the screen was a reasonable place to keep
+ * it. Since slice 32 a report is a row in the store like a budget or a goal, and
+ * the data seam has to name it: `BootSnapshot` carries a list of them and
+ * `DataPortReportWrites` takes one. A seam that imported its own vocabulary from
+ * a `.tsx` file would pull React, the app context and every icon in that module
+ * into the type graph of a layer whose whole promise is that it reaches none of
+ * them.
+ *
+ * So it sits beside `Budget` and `Goal`, which is what it now is, and the
+ * builder re-exports it so no existing importer changed.
+ *
+ * IT CONTAINS NO MONEY. Every figure a report shows is computed from the ledger
+ * at the moment it is generated (see `services/customReportService.ts`), which
+ * is why nothing here is a `MoneyNumber` and why the seam's rule 2 has nothing
+ * to say about this entity.
+ */
+export type ReportComponentType =
+  | 'summary-stats'
+  | 'line-chart'
+  | 'bar-chart'
+  | 'pie-chart'
+  | 'table'
+  | 'text-block'
+  | 'date-comparison'
+  | 'category-breakdown'
+  | 'account-summary'
+  | 'transaction-list'
+  | 'budget-progress'
+  | 'goal-tracker';
+
+type ConfigPrimitive = string | number | boolean | null;
+/**
+ * What one config key may hold — exported because the builder's editing
+ * handlers have to name it to take a new value from an input, and
+ * `ReportComponentConfig[string]` at each call site says the same thing less
+ * legibly.
+ */
+export type ConfigValue = ConfigPrimitive | ConfigPrimitive[];
+
+/**
+ * One component's settings — which metrics, how many rows, what to sort by.
+ *
+ * Deliberately open: each component type reads the handful of keys it
+ * understands and ignores the rest, so adding a knob to one generator is not a
+ * change to this type. It is stored as JSON, so the value union is what JSON can
+ * hold and nothing else — a `Date` in here would come back as a string and no
+ * reader would notice.
+ */
+export type ReportComponentConfig = Record<string, ConfigValue>;
+
+export interface ReportComponent {
+  id: string;
+  type: ReportComponentType;
+  title: string;
+  config: ReportComponentConfig;
+  width: 'full' | 'half' | 'third';
+}
+
+export interface CustomReport {
+  id: string;
+  name: string;
+  description: string;
+  components: ReportComponent[];
+  /**
+   * Which rows the report is about.
+   *
+   * `accounts` and `categories` hold ROW IDS; `tags` holds the labels somebody
+   * typed. That distinction is not cosmetic — it is what
+   * `backup/format.ts`'s `jsonbIdArrays` spec remaps on a restore and what it
+   * deliberately leaves alone, and getting it the wrong way round would either
+   * strand a report against accounts that no longer exist or rewrite a person's
+   * own words into a uuid.
+   */
+  filters: {
+    dateRange: 'month' | 'quarter' | 'year' | 'custom';
+    customStartDate?: string;
+    customEndDate?: string;
+    accounts?: string[];
+    categories?: string[];
+    tags?: string[];
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Category {
   id: string;
   name: string;
