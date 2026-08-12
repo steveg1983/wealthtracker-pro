@@ -14,8 +14,8 @@
 | Strict types | `npm run typecheck:strict` | ✅ | TS 5.8 strict |
 | Smoke tests | `npm run test:smoke` | ✅ | JSdom + Vitest |
 | Realtime suite | `npm run test:realtime` | ✅ | Driven by `scripts/realtime-tests.json` |
-| Coverage | `npm run test:coverage` | ✅ | Enforced floor ≥63 % statements / ≥55 % branches |
-| Threshold | `node scripts/verify-coverage-threshold.mjs …` | ✅ | ≥63 % statements / ≥55 % branches (recalibrated 2026-06 after dead Redux removal) |
+| Coverage | `npm run test:coverage` | ✅ | Enforced floor ≥75 % statements / ≥80 % branches |
+| Threshold | `node scripts/verify-coverage-threshold.mjs …` | ✅ | ≥75 % statements / ≥80 % branches (raised 2026-08-12 from 63/55; measured 77.13/82.48) |
 | Supabase smoke | `npm run test:supabase-smoke` | ✅ | Logs saved to `logs/supabase-smoke/` |
 | Build parity | `npm run build` | ✅ | Mirrors Vercel’s `vite build` via `scripts/build-web.mjs` |
 | Desktop bundle | `npm run desktop:verify` | ✅ | Builds `src/desktop` → `apps/desktop/dist`, then PHASE3-PLAN §5’s two bundle greps, then the size ratchet. REFUSES rather than skips when there is no build |
@@ -115,7 +115,7 @@ npm run typecheck:strict
 npm run test:smoke
 npm run test:realtime
 npm run test:coverage
-node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=63 --branches=55
+node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=75 --branches=80
 
 # Supabase smoke (requires real creds)
 RUN_SUPABASE_REAL_TESTS=true npm run test:supabase-smoke

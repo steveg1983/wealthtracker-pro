@@ -54,7 +54,13 @@ export const DemoModeIndicator: React.FC = () => {
       // them. Now the header is offset clear of the banner instead of fighting
       // it for the same strip of screen, so the two no longer overlap at all
       // and the stacking order is just a belt-and-braces tiebreak.
-      className="fixed top-0 left-0 right-0 z-30 bg-yellow-500 text-black text-center py-2 px-4"
+      //
+      // Navy with a 3px gold mark, not a gold bar: this is ENVIRONMENT STATUS,
+      // and a full-bleed gold strip above every screen was the loudest amber
+      // in the product — including on Reconciliation, where amber is a
+      // reserved word meaning "your next move". The gold survives as a sliver
+      // of identity; the banner itself joins the app's own chrome.
+      className="fixed top-0 left-0 right-0 z-30 bg-secondary text-white border-l-[3px] border-accent text-center py-2 px-4"
     >
       <div className="flex items-center justify-center gap-2">
         <span className="text-xl">🎭</span>

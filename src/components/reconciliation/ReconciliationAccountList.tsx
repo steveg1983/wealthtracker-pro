@@ -75,7 +75,13 @@ export default function ReconciliationAccountList({
 
                     <div className="basis-full md:basis-auto md:min-w-[120px]">
                       {unreconciledCount > 0 ? (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        // Neutral, deliberately: this is a COUNT, not an
+                        // action. It wore amber until the design pass pointed
+                        // out that four amber chips on this page competed with
+                        // the one amber that means "your next move" — the
+                        // travelling yellow on the balance bar. The thread
+                        // works because amber is otherwise absent (P3).
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-surface-tertiary text-slate-600 dark:bg-gray-700 dark:text-gray-300">
                           {unreconciledCount} unreconciled
                         </span>
                       ) : (

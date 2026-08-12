@@ -1,46 +1,64 @@
-# Bundle Optimisation Plan – 2025-10-29
+# Bundle Optimisation Plan
 
-We captured Vercel build logs for deployment `wealthtracker-l514dsq11` (see `logs/deployments/20251029_2133_wealthtracker-web.log`). The largest emitted bundles are:
+**Rewritten 2026-08-12.** The original 2025-10-29 plan described a build that no
+longer exists — its top offender (a 4.6 MB Plotly chunk) has since been deleted
+from the product entirely, and every one of its "immediate targets" was found
+already implemented when the plan was picked back up. This file now records
+what is TRUE, so the next optimisation pass starts from measurement rather than
+archaeology. All sizes measured in one directory on one machine (chunk hashes
+change with absolute paths); the gate is `npm run bundle:check` (gzip -9).
 
-- `chunk-tBQuDGzl.js` – **4.6 MB** (gzip 1.37 MB): ships `react-plotly.js` + Plotly core.
-- `index-a-UlsUyK.js` – **1.1 MB** (gzip 311 KB): main vendor chunk with Redux + Supabase surface + data tooling.
-- `chunk-D8XJBbX3.js` – **0.58 MB** (gzip 167 KB): d3 utilities + chart helpers.
-- `xlsx-Bx0RsK1h.js` – **0.49 MB** (gzip 159 KB): SheetJS export stack.
-- `chunk-BKLdmH-G.js` – **0.43 MB** (gzip 114 KB): aggregation helpers (likely date-fns + analytics pipelines).
+## Current state (2026-08-12)
 
-## Immediate Targets
+Entry chunk **1,102.68 kB raw / 311.4 KB gz** against a 320 KB budget — green
+with 8.6 KB headroom. JS total 1,387.4 KB gz against 1,500 KB.
 
-1. **Plotly (Analytics / Chart Wizard)**
-   - `src/components/analytics/ChartWizard.tsx` lazy-loads `react-plotly.js`, but the chunk still embeds full Plotly.
-   - Action:
-     - Switch to `react-plotly.js/factory` with `plotly.js-dist-min` loaded via `import('plotly.js-dist-min')`.
-     - Evaluate using the `plotly.js-basic-dist` bundle (~1.3 MB) + feature-by-feature augmentations to shrink footprint.
-     - Gate heavy chart types (Sankey, Treemap, Funnel) behind dynamic `import()` so the default analytics dashboard only loads basic traces.
-     - Ensure `ChartWizard` and any saved chart renderers share a deferred loader (e.g., `importPlotly()` helper with caching).
+## Done (verified, not planned)
 
-2. **Export Stack (Data Management / EnhancedExportManager)**
-   - `src/components/EnhancedExportManager.tsx` statically imports `jspdf`, `jspdf-autotable`, and `xlsx`.
-   - Actions:
-     - Refactor to use existing async helpers in `src/utils/dynamic-imports.ts` (`importPDFLibraries`, `importXLSX`) so these packages load on first export interaction.
-     - Audit other export entry points (`services/exportService.ts`, `EnhancedExportModal.tsx`) to ensure they reuse the loaders and don’t re-introduce eager imports.
-     - Add loading states/spinners for PDF/XLSX actions to cover the async import delay.
+- **Plotly: deleted from the product.** Zero occurrences in `src/`. The chunk
+  the 2025 plan was written around is gone.
+- **Charting: one library.** recharts only (16 importers);
+  chart.js/react-chartjs-2 are out of `package.json` entirely. See
+  `src/components/charts/DashboardCharts.tsx` for the migration note.
+- **Export stack: lazy.** `xlsx` (162.9 KB gz), `jspdf` (118.9 KB gz),
+  `html2canvas` (47.4 KB gz), `jspdf-autotable` (9.7 KB gz) all arrive via
+  dynamic `import()` at the call sites and ship as their own chunks, loaded on
+  first export/import interaction.
+- **crypto-js: narrowed (2026-08-12, the change that turned the gate green).**
+  `import CryptoJS from 'crypto-js'` pulls every cipher the library ships;
+  242 KB sat in the entry chunk (eager — `encryptedStorageService` runs at
+  boot) and ~140 KB of it was algorithms no line of code calls.
+  `src/security/cryptoSuite.ts` now imports core + the five algorithms in use,
+  with a load-time guard against tree-shaking regressions and byte-for-byte
+  compatibility tests (`src/security/__tests__/cryptoSuite.test.ts`) proving
+  old ciphertext still decrypts. Adding an algorithm means adding its import
+  THERE — reaching for the `crypto-js` index again restores all 242 KB.
 
-3. **Data Management Route (`/settings/data-management`)**
-   - Lazily renders numerous import/export modals; confirm each modal defers heavy tooling:
-     - `CSVImportWizard`, `BatchImportModal`, `OFXImportModal`, `QIFImportModal`. (`ImportDataModal` — the Legacy Import dialog — was deleted on 2026-08-09 along with its `mnyParser`/`qifParser` byte scanners; `BatchImportModal` is now a queue that lazily loads whichever of the other three a file needs.)
-   - Action:
-     - Double-check these components rely on the dynamic import helpers (e.g., `enhancedCsvImportService` should not eagerly load parsing libs).
-     - Split the manager shell (`EnhancedExportManager`, rules UI, batch import tools) so modal code paths only load after corresponding buttons are clicked.
+## What remains in the entry chunk (structural — needs design, not tweaks)
 
-4. **Analytics Supporting Libraries**
-   - Chunks `chunk-D8XJBbX3.js` / `chunk-BKLdmH-G.js` include d3-like helpers and analytics engines.
-   - Actions:
-     - Trace imports for `analyticsEngine`, `dataVisualizationService`, and custom chart helpers to identify static references.
-     - Consider splitting advanced analytics (forecasting, anomaly detection) into on-demand modules triggered from the respective tabs.
+| Weight | What | Why it is hard |
+|---|---|---|
+| ~385 KB raw | `@supabase/*` | monolithic `createClient`; splitting it is an architecture decision |
+| ~132 KB raw | `react-dom` | the framework |
+| ~125 KB raw | `decimal.js` | the money core; non-negotiable at boot |
+| ~114 KB raw | `dompurify` | eager via GlobalSearch in the header |
+| ~117 KB raw | `services/dataService.ts` | the app's own data layer |
 
-## Tooling & Follow-Up
+Known-but-parked items:
 
-- Integrate `rollup-plugin-visualizer` or `vite-bundle-visualizer` in a local-only script (`npm run bundle:report`) to track changes.
-- Add CI guardrail: persist `dist/stats/bundle-report.html` artefact for manual review when bundle thresholds are exceeded.
-- Document the new lazy-loading patterns in `docs/performance.md` (to be created) and update component guidelines so new features keep exports & heavy charts deferred.
-- After converting the top offenders, re-run Vercel build and capture updated chunk sizes for comparison.
+- `src/security/index.ts` re-exports (`export *`) defeat that file's own
+  dynamic imports — real defect, but worth only ~3 KB gz while `dompurify`
+  stays eager anyway. Separate ticket.
+- `EnhancedConflictResolutionModal` (16 KB) sits in the eager chunk via
+  `Layout.tsx` — but `Layout` is desktop-reachable, so lazy-loading it moves
+  the desktop renderer's size ratchet. Do it, if ever, as a deliberate desktop
+  change, not a web tweak.
+
+## Discipline
+
+- The gate (`npm run bundle:check`) runs in CI on every PR; headroom is thin
+  (8.6 KB), so treat any entry-chunk growth as a review question.
+- New heavy libraries: dynamic `import()` at the call site, `import type` for
+  types, loading states on the async path, and an error surfaced to the user
+  if the import fails — a silent no-op export button is not acceptable in a
+  finance app.

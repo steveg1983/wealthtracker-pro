@@ -3,7 +3,7 @@
  * Implements token-based CSRF protection for the application
  */
 
-import CryptoJS from 'crypto-js';
+import CryptoJS from './cryptoSuite';
 
 /**
  * CSRF Token Manager
