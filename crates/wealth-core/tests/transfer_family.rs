@@ -634,6 +634,153 @@ fn a_pair_that_is_only_a_penny_apart_is_not_a_pair() {
     assert_eq!(refusal.code(), "transfer_amounts_not_opposite");
 }
 
+/// Move `PAIR_IN` into a USD account and set it to `minor`, keeping B-1 true on
+/// every account it touches.
+///
+/// The dollar account is created here rather than in `fixture()` because every
+/// other test in this file is single-currency and a second currency in the base
+/// fixture would silently change which branch of refusal 5 they all take.
+fn with_the_far_side_in_dollars(connection: &Connection, minor: i64) {
+    const DOLLARS: &str = "a0000000-0000-0000-0000-00000000000d";
+    connection
+        .execute_batch(&format!(
+            "INSERT INTO accounts (id, user_id, name, type, currency, balance_minor, initial_balance_minor)
+               VALUES ('{DOLLARS}', '{OWNER}', 'Dollars', 'checking', 'USD', 0, 0);
+             UPDATE accounts SET balance_minor = balance_minor - 3000 WHERE id = '{RAINY_DAY}';
+             UPDATE transactions SET account_id = '{DOLLARS}', amount_minor = {minor}
+               WHERE id = '{PAIR_IN}';
+             UPDATE accounts SET balance_minor = balance_minor + {minor} WHERE id = '{DOLLARS}';"
+        ))
+        .expect("a far side in another currency");
+}
+
+#[test]
+fn across_a_currency_boundary_the_two_sides_need_only_move_opposite_ways() {
+    // The DECLARED BEHAVIOUR CHANGE of 2026-08-12, through the verb rather than
+    // through the predicate — which is the half `are_opposite_in_sign`'s unit
+    // tests cannot reach, because getting the currencies IN FRONT OF the
+    // predicate is the actual work and a unit test assumes it done.
+    //
+    // MEASURED: with the currency branch removed from the verb (`match None`),
+    // this test fails and the three differential specs fail with it. Without
+    // this test, `cargo test` passed that break in full.
+    let mut connection = fixture();
+    with_pairable_rows(&connection);
+    // −30.00 GBP out against +38.00 USD in: a rate no strict rule admits.
+    with_the_far_side_in_dollars(&connection, 3800);
+
+    let linked = link_transfer_pair(
+        &mut connection,
+        LinkTransferPair {
+            id_a: PAIR_OUT.into(),
+            id_b: PAIR_IN.into(),
+            user_id: Some(OWNER.into()),
+        },
+    )
+    .expect("a real conversion is a real transfer");
+
+    assert_eq!(linked.transaction.kind, "transfer");
+    assert_eq!(linked.other_side.kind, "transfer");
+    assert_eq!(
+        linked.transaction.linked_transfer_id.as_deref(),
+        Some(PAIR_IN)
+    );
+    assert_eq!(
+        linked.other_side.linked_transfer_id.as_deref(),
+        Some(PAIR_OUT)
+    );
+
+    // Balance-neutral in two currencies exactly as in one: neither figure is
+    // the other converted, and neither moved. Nothing here converts anything,
+    // which is the whole reason the join is allowed to cross the boundary.
+    assert_eq!(balance(&connection, EVERYDAY), -5500);
+    assert!(identity_holds(&connection, EVERYDAY));
+}
+
+#[test]
+fn across_a_currency_boundary_the_sign_is_still_law() {
+    // The floor under the loosening. Magnitude is given up; DIRECTION is not.
+    let mut connection = fixture();
+    with_pairable_rows(&connection);
+    with_the_far_side_in_dollars(&connection, -3800);
+    connection
+        .execute_batch(&format!(
+            "UPDATE transactions SET type = 'expense' WHERE id = '{PAIR_IN}';"
+        ))
+        .expect("a negative income is a shape no importer writes");
+
+    let refusal = link_transfer_pair(
+        &mut connection,
+        LinkTransferPair {
+            id_a: PAIR_OUT.into(),
+            id_b: PAIR_IN.into(),
+            user_id: Some(OWNER.into()),
+        },
+    )
+    .expect_err("two spends are not one movement, whatever the currencies");
+    assert_eq!(refusal.code(), "transfer_amounts_not_opposite_sign");
+    assert!(
+        refusal.to_string().contains("(GBP -30.00 vs USD -38.00)"),
+        "the currency belongs beside each figure, or the reader reaches for \
+         the magnitudes this rule does not care about: {refusal}"
+    );
+}
+
+#[test]
+fn a_zero_far_side_is_refused_across_a_currency_boundary_too() {
+    // The SECOND position specifically. The same-currency rule leans on
+    // `0 <> -0` to catch a zero far side; there is no negation in the
+    // cross-currency rule, so it must say so itself. A port that copied the
+    // same-currency shape would link this and give the ledger a transfer that
+    // moves 30.00 out of one account and nothing into the other.
+    let mut connection = fixture();
+    with_pairable_rows(&connection);
+    with_the_far_side_in_dollars(&connection, 0);
+
+    let refusal = link_transfer_pair(
+        &mut connection,
+        LinkTransferPair {
+            id_a: PAIR_OUT.into(),
+            id_b: PAIR_IN.into(),
+            user_id: Some(OWNER.into()),
+        },
+    )
+    .expect_err("zero is neither leaving nor arriving");
+    assert_eq!(refusal.code(), "transfer_amounts_not_opposite_sign");
+}
+
+#[test]
+fn one_currency_is_still_held_to_the_penny() {
+    // The other half of the change, and the half that matters most: the
+    // same-currency rule was not weakened. Same fixture as the penny test
+    // above, asserted here as a REGRESSION on the loosening rather than as a
+    // statement of T-1 — if the currency branch ever widened to cover accounts
+    // that share a currency, this is what would notice.
+    let mut connection = fixture();
+    with_pairable_rows(&connection);
+    connection
+        .execute_batch(&format!(
+            "UPDATE transactions SET amount_minor = 3800 WHERE id = '{PAIR_IN}';
+             UPDATE accounts SET balance_minor = balance_minor + 800 WHERE id = '{RAINY_DAY}';"
+        ))
+        .expect("a far side that does not cancel");
+
+    let refusal = link_transfer_pair(
+        &mut connection,
+        LinkTransferPair {
+            id_a: PAIR_OUT.into(),
+            id_b: PAIR_IN.into(),
+            user_id: Some(OWNER.into()),
+        },
+    )
+    .expect_err("two GBP accounts still have to cancel exactly");
+    assert_eq!(refusal.code(), "transfer_amounts_not_opposite");
+    assert!(
+        refusal.to_string().contains("(-30.00 vs 38.00)"),
+        "the same-currency message, unchanged: {refusal}"
+    );
+}
+
 // ── 5. The re-point, and the flag it must never touch ───────────────────────
 //
 // `repoint_transfer` is the family's sixth verb and the newest RPC in the

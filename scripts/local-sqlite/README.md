@@ -786,12 +786,49 @@ Each of these was executed, then reverted.
 
 `cargo test` fails alongside every one of these; the counts are in the table.
 
+**From the cross-currency link — a DECLARED BEHAVIOUR CHANGE (2026-08-12, 491 specs):**
+
+Refusal 5 of `link_transfer_pair` became currency-aware in all three engines at
+once — same currency, exactly opposite as ever; different currencies, non-zero
+and opposite in SIGN with no constraint on magnitude. Cloud side:
+`20260812100000_transfer_linking_across_currencies.sql`. Because both engines
+moved together it is a `match`, not a divergence; the count below is unchanged.
+
+The change was made because the DATA disagreed with the rule first: the ledger
+holds 70 legal cross-currency pairs the MS Money importer wrote directly, and no
+runtime verb in either engine could have created one. The old spec certified
+"different currencies are linked" using a fixture of ±30.00 — a rate of exactly
+1 — so it passed under the strict rule and the loosened one alike and could
+never say which was in force. `convertedRows` exists to make that impossible
+again: its two sides are −30.00 GBP against +38.00 USD.
+
+| break | result |
+| --- | --- |
+| remove the currency branch from the verb (`match None::<(String, String)>`), leaving the strict rule unconditional — i.e. put back exactly what shipped before | **3 verb specs fail.** `transfer-pair-two-currencies-are-linked-because-nothing-is-converted` goes `MISDECLARED (divergent)` — Postgres **accepts** where SQLite refuses `transfer_amounts_not_opposite`, the cloud/local split in its purest form. The other two still refuse on BOTH engines and fail on the **name** alone (`transfer_amounts_not_opposite` for `…_sign`), which is the argument for named expectations restated. 3 crate tests fail with them, and `one_currency_is_still_held_to_the_penny` **passes throughout** — which is what proves the break is confined to the branch it was aimed at. **Measured first WITHOUT the crate tests, and `cargo test` passed the break in full**: the three integration tests in `tests/transfer_family.rs` were written because of that measurement, not before it |
+| drop the far-side zero test (`first == ZERO \|\| second == ZERO` → `first == ZERO`), the shape a port would get by copying the same-currency rule | `transfer-pair-a-zero-side-is-refused-across-a-currency-boundary-too` goes `MISDECLARED (divergent)`: SQLite **accepts** and hands the ledger a transfer that moves 30.00 out of one account and nothing into the other, while Postgres refuses. The unit test `a_zero_side_is_refused_from_either_position` and the integration test of the same name fail with it. The same-currency rule leans on `0 <> -0` being false to catch this; there is no negation in the cross-currency rule, so nothing catches it implicitly — which is the entire reason both zero tests are spelled out |
+
+T-2 in `v_integrity_violations` moved with the verb, and had to: a check that
+calls every converted pair "money appearing from nowhere" would have reported
+all 70 of those pairs as broken the first time anybody ran it, and a violation
+report nobody can act on is a violation report nobody reads.
+`integrity-t2-a-converted-pair-is-not-money-appearing-from-nowhere` is the proof
+it stopped, and `integrity-t2-two-currencies-moving-the-same-way` the proof it
+did not stop caring about direction.
+
 ### Current run
 
-**474 verb specs · 474 pass · 26 declared divergences · 24 single-engine**,
-2026-08-12, against a reference cluster rebuilt from the full migration history.
+**491 verb specs · 491 pass · 29 declared divergences · 26 single-engine**,
+2026-08-12, against a reference cluster rebuilt from the full migration history
+(now including `20260812100000`, which the harness applies itself).
 `npm run test:local-sqlite` is **67/67**, `npm run test:local-admission` is
-109/109 and `cargo test` is **468**.
+109/109 and `cargo test` is **505**.
+
+Re-counted at the cross-currency slice. The previous figures recorded here
+(474 / 26 / 24, `cargo test` 468) were stale by more than this slice added: of
+the 17 new verb specs, 4 are this slice's and 13 predate it, and the divergence
+count had drifted by 3 with no entry to explain it. Recorded rather than quietly
+corrected, because a count nobody re-measures is how the ±30.00 fixture survived
+for a year.
 
 Re-measured at slice 30 on a cluster built **from scratch** — `initdb`, then the
 whole migration history — rather than on the one that had been accumulating on

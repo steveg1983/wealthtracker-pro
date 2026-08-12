@@ -1909,14 +1909,40 @@ UNION ALL
      AND (b.id IS NULL OR b.linked_transfer_id IS NOT a.id)
 
 UNION ALL
-  -- T-2: the two sides of a transfer are exactly opposite and non-zero
-  --      (20260716100000:108-111).
+  -- T-2: the two sides of a transfer move OPPOSITE WAYS and neither is zero.
+  --
+  --      Same currency — exactly opposite, as ever (20260716100000:108-111).
+  --      Different currencies — opposite in SIGN only: two amounts in two
+  --      currencies cancel only at a rate of exactly 1, so demanding it here
+  --      would report every legitimately converted pair in the file as money
+  --      appearing from nowhere. The verb was loosened in the same direction
+  --      and for the same reason (20260812100000); a check stricter than the
+  --      verb that writes the rows is a check that only ever cries wolf.
+  --
+  --      A missing account row falls to the STRICT branch, matching
+  --      link_transfer_pair's `crossed_currencies`: a currency nobody can
+  --      establish is not evidence of a conversion.
   SELECT 'transfer_amounts_not_opposite', 'transaction', a.id, 'violation',
-         'linked transfer sides are not exact opposites'
+         CASE WHEN aa.currency IS NOT NULL AND ba.currency IS NOT NULL
+                   AND aa.currency <> ba.currency
+              THEN 'linked transfer sides in different currencies both move the same way'
+              ELSE 'linked transfer sides are not exact opposites'
+         END
     FROM transactions a
     JOIN transactions b ON b.id = a.linked_transfer_id
+    LEFT JOIN accounts aa ON aa.id = a.account_id
+    LEFT JOIN accounts ba ON ba.id = b.account_id
    WHERE a.linked_transfer_split_id IS NULL
-     AND (a.amount_minor = 0 OR a.amount_minor <> -b.amount_minor)
+     AND CASE
+           WHEN aa.currency IS NOT NULL AND ba.currency IS NOT NULL
+                AND aa.currency <> ba.currency
+             -- `> 0` rather than sign(): both sides are known non-zero by the
+             -- time it is evaluated, and sign() is newer than the oldest
+             -- SQLite this file is expected to open on.
+             THEN a.amount_minor = 0 OR b.amount_minor = 0
+                  OR (a.amount_minor > 0) = (b.amount_minor > 0)
+           ELSE a.amount_minor = 0 OR a.amount_minor <> -b.amount_minor
+         END
 
 UNION ALL
   -- T-3: a transfer's two sides are in different accounts.

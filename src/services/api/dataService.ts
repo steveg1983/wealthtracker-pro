@@ -1711,8 +1711,33 @@ class DataServiceImpl implements DataPort {
     if (a.accountId === b.accountId) {
       throw new Error('A transfer needs two different accounts');
     }
+    // Refusal 5, in two versions, the third copy of one rule. Which one applies
+    // turns on the two ACCOUNTS, so they are read here and not sooner: the
+    // check above has just guaranteed the two ids differ.
+    //
+    // Across a currency boundary the sides are asked only to move OPPOSITE
+    // WAYS. Two amounts in two currencies sum to zero only at a rate of exactly
+    // 1, so the strict rule applied there refuses every legitimate pair — see
+    // supabase/migrations/20260812100000_transfer_linking_across_currencies.sql
+    // for the whole argument and the 70 importer-written pairs that made it.
+    // No magnitude rule: the ratio IS the achieved rate and this layer holds no
+    // opinion about FX.
+    //
+    // An unknown currency falls to the STRICT branch, matching the RPC and the
+    // Rust core: a currency nobody can establish is not evidence of a
+    // conversion.
+    const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
+    const currencyA = accounts.find(account => account.id === a.accountId)?.currency;
+    const currencyB = accounts.find(account => account.id === b.accountId)?.currency;
     const amountA = toDecimal(a.amount);
-    if (amountA.isZero() || !toDecimal(b.amount).equals(amountA.negated())) {
+    const amountB = toDecimal(b.amount);
+    if (currencyA && currencyB && currencyA !== currencyB) {
+      // Both zero tests spelled out: there is no negation here for a zero
+      // second side to fall foul of, unlike the same-currency rule below.
+      if (amountA.isZero() || amountB.isZero() || amountA.isNegative() === amountB.isNegative()) {
+        throw new Error('Transfer sides in different currencies must be opposite in sign and non-zero');
+      }
+    } else if (amountA.isZero() || !amountB.equals(amountA.negated())) {
       throw new Error('Transfer sides must have exactly opposite non-zero amounts');
     }
     if (a.isSplit || b.isSplit) {
