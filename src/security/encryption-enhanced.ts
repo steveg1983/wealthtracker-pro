@@ -3,7 +3,7 @@
  * Provides secure encryption for sensitive financial data with key management
  */
 
-import CryptoJS from 'crypto-js';
+import CryptoJS from './cryptoSuite';
 
 // Types for encryption configuration
 interface EncryptionConfig {

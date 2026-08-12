@@ -1,4 +1,4 @@
-import CryptoJS from 'crypto-js';
+import CryptoJS from '../security/cryptoSuite';
 import { indexedDBService } from './indexedDBService';
 import type { JsonValue } from '../types/common';
 import type { StorageOptions, StoredData, StorageItem, BulkStorageItem, StorageEstimate, ExportedData } from '../types/storage';

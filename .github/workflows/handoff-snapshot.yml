@@ -93,7 +93,7 @@ jobs:
         # Redux store removed ~6.5K lines of heavily-tested dead code, which had
         # inflated the global ratio; live-code coverage did not regress. Matches
         # the pre-push hook and verify:full. Raise as BLOCKER #4 testing lands.
-        run: node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=63 --branches=55
+        run: node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=75 --branches=80
 
       - name: Lint Supabase migrations
         continue-on-error: true
