@@ -2,6 +2,16 @@ import React from 'react';
 import EmptyState from './EmptyState';
 
 interface FilteredEmptyStateProps {
+  /**
+   * Sentence 1, when the thing being hidden is not a transaction.
+   *
+   * The register is where this pattern was born, so "transactions" is the
+   * default — but a list of ACCOUNTS that said "No transactions match these
+   * filters" would be describing something that is not on the screen, and the
+   * whole job of this state is to be believed. Every caller that hides
+   * something else names it.
+   */
+  title?: React.ReactNode;
   /** How many rows exist here that the filters are currently hiding. */
   hiddenCount: number;
   /**
@@ -12,6 +22,13 @@ interface FilteredEmptyStateProps {
   filters: string[];
   /** Puts every one of them away. */
   onClear: () => void;
+  /**
+   * What the remedy button says. "Clear filters" is right wherever the user
+   * set filters — but the dashboard's "filter" is an account SELECTION, and a
+   * button that names a control the surface does not have is a small lie in
+   * the one state whose whole job is to be believed. Same rule as `title`.
+   */
+  clearLabel?: string;
   /** Where the hidden rows are, for the sentence. */
   scope?: string;
   className?: string;
@@ -44,16 +61,18 @@ function joinFilters(names: string[]): React.ReactNode {
  * the data is still there.
  */
 export default function FilteredEmptyState({
+  title = 'No transactions match these filters',
   hiddenCount,
   filters,
   onClear,
+  clearLabel = 'Clear filters',
   scope = 'in this account',
   className = ''
 }: FilteredEmptyStateProps): React.JSX.Element {
   return (
     <EmptyState
       className={className}
-      title="No transactions match these filters"
+      title={title}
       description={
         <>
           <span className="font-medium text-gray-900 dark:text-gray-100 tabular-nums">
@@ -64,7 +83,7 @@ export default function FilteredEmptyState({
         </>
       }
       action={{
-        label: 'Clear filters',
+        label: clearLabel,
         onClick: onClear,
         // No plus: this remedy takes something away.
         icon: null

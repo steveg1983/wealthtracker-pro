@@ -21,6 +21,10 @@ import {
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { preserveDemoParam } from '../../utils/navigation';
+import EmptyState from '../EmptyState';
+import FilteredEmptyState from '../FilteredEmptyState';
+import { TableSkeleton, type TableSkeletonColumn } from '../loading/TableSkeleton';
+import { useDelayedFlag } from '../../hooks/useDelayedFlag';
 import EditTransactionModal from '../EditTransactionModal';
 import IncomeExpenseBreakdownModal from '../IncomeExpenseBreakdownModal';
 import { Modal, ModalBody } from '../common/Modal';
@@ -64,6 +68,28 @@ import { preferences } from '../../services/preferencesService';
  * simply ignored.)
  */
 const DASHBOARD_PERIOD_KEY = 'dashboardReports';
+
+/**
+ * What a balance card is shaped like, for the placeholder that waits in its
+ * place (DESIGN_PASS §4).
+ *
+ * The card is `p-4` around two stacked lines on the left (name over
+ * institution) and the figure on the right, so the placeholder gets the same
+ * two tracks at the same height and the grid does not reflow when the real
+ * cards land.
+ */
+const ACCOUNT_CARD_SKELETON_COLUMNS: TableSkeletonColumn[] = [
+  { key: 'name', className: 'flex-1' },
+  { key: 'balance', width: '7rem' },
+];
+
+/**
+ * What a balance card measures. MEASURED in the running app at 1280px, not
+ * added up from the classes: `p-4` over two short lines reads as 76px on
+ * paper and is 120px in the DOM, and a placeholder at the paper figure would
+ * let the page jump by a third of a card per row as the real ones land.
+ */
+const ACCOUNT_CARD_HEIGHT = 120;
 
 /**
  * Improved Dashboard with better information hierarchy
@@ -331,6 +357,19 @@ export function ImprovedDashboard() {
   };
 
   const displayedAccounts = accounts.filter(a => selectedAccountIds.includes(a.id));
+
+  /**
+   * "None yet" and "none arrived yet" are different sentences, and the panel
+   * below was only able to say the first (DESIGN_PASS §4).
+   *
+   * A first-run empty state is a welcome; the same words during a cold boot are
+   * a false report that the user's accounts are gone. So while the load is
+   * running the panel shows the shape of the cards instead — and shows nothing
+   * at all until 200ms have passed, because a placeholder that flashes makes a
+   * fast dashboard look like a slow one (useDelayedFlag).
+   */
+  const accountsStillArriving = isLoading && accounts.length === 0;
+  const showAccountSkeleton = useDelayedFlag(accountsStillArriving);
 
   // The "which accounts to show here" picker, banded and alphabetised the way
   // every account list in the app is. It is not a <select>, so it cannot take
@@ -852,17 +891,43 @@ export function ImprovedDashboard() {
                 </div>
               </div>
             ))
-          ) : accounts.length > 0 ? (
-            <div className="col-span-2 text-center py-8 text-gray-500 dark:text-gray-400" role="status" aria-live="polite">
-              <SettingsIcon size={48} className="mx-auto mb-3 opacity-50" />
-              <p className="font-medium">No accounts selected</p>
-              <p className="text-sm mt-1">Click the settings icon above to select accounts to display</p>
+          ) : showAccountSkeleton ? (
+            /* SHAPE, NOT SPINNER, at the real card geometry — and nothing at
+               all for the first 200ms (DESIGN_PASS §4). Without this the
+               dashboard asserted "No accounts added yet" at every cold boot,
+               for as long as the accounts took to arrive. */
+            <div className="col-span-2">
+              <TableSkeleton columns={ACCOUNT_CARD_SKELETON_COLUMNS} rowHeight={ACCOUNT_CARD_HEIGHT} />
+            </div>
+          ) : accountsStillArriving ? null : accounts.length > 0 ? (
+            /* A SELECTION IS A FILTER. The accounts exist, the user has simply
+               picked none of them to show — so this names how many are being
+               held back and offers the one control that shows them, rather
+               than sending the user off to find a settings icon. */
+            <div className="col-span-2" role="status" aria-live="polite">
+              <FilteredEmptyState
+                title="No accounts are selected for the dashboard"
+                hiddenCount={accounts.length}
+                scope="of your accounts"
+                filters={['the dashboard’s account selection']}
+                onClear={selectAllAccounts}
+                // Not "Clear filters": the thing hiding these accounts is a
+                // selection, and the remedy should name the control it is.
+                clearLabel="Show all accounts"
+              />
             </div>
           ) : (
-            <div className="col-span-2 text-center py-8 text-gray-500 dark:text-gray-400">
-              <WalletIcon size={48} className="mx-auto mb-3 opacity-50" />
-              <p className="font-medium">No accounts added yet</p>
-              <p className="text-sm mt-1">Add your first account to start tracking</p>
+            /* No accounts at all: the first run. Say what this panel will hold
+               once there is one, and hand over the control that starts it. */
+            <div className="col-span-2">
+              <EmptyState
+                title="No accounts yet"
+                description="This is where each account's balance will sit, and it is what every total, chart and budget on this dashboard is worked out from — so until you add one, the dashboard has nothing to report."
+                action={{
+                  label: 'Add Account',
+                  onClick: () => navigate(preserveDemoParam('/accounts?action=add', location.search))
+                }}
+              />
             </div>
           )}
         </div>

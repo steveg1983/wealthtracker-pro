@@ -11,6 +11,8 @@ import {
 import PageWrapper from '../../components/PageWrapper';
 import DatePicker from '../../components/common/DatePicker';
 import { VirtualizedTable, Column } from '../../components/VirtualizedTable';
+import EmptyState from '../../components/EmptyState';
+import FilteredEmptyState from '../../components/FilteredEmptyState';
 import type { AuditLog } from '../../services/securityService';
 
 export default function AuditLogs() {
@@ -89,6 +91,21 @@ export default function AuditLogs() {
       search: ''
     });
   };
+
+  /**
+   * Every filter currently holding a log back, named the way the user set it
+   * (DESIGN_PASS §4). An audit trail that looks empty is a worse lie than a
+   * register that does: the whole point of one is that it is complete, so a
+   * filter that hides every entry has to say it is a filter doing it.
+   */
+  const activeFilterNames = useMemo<string[]>(() => {
+    const names: string[] = [];
+    if (filters.search) names.push(`Search: ${filters.search}`);
+    if (filters.action) names.push(`Action: ${filters.action}`);
+    if (filters.resourceType) names.push(`Type: ${filters.resourceType}`);
+    if (filters.startDate || filters.endDate) names.push('the date range');
+    return names;
+  }, [filters]);
 
   const getActionIcon = (action: string) => {
     switch (action) {
@@ -347,10 +364,28 @@ export default function AuditLogs() {
             columns={columns}
             getItemKey={(log: AuditLog) => log.id}
             rowHeight={80}
-            emptyMessage={
-              logs.length === 0
-                ? 'No activities have been logged yet'
-                : 'Try adjusting your filters to see more results'
+            // Nothing logged at all, versus everything logged being behind a
+            // filter — one is a new install, the other looks like a wiped
+            // trail. They are not the same sentence (DESIGN_PASS §4).
+            emptyContent={
+              logs.length === 0 ? (
+                <EmptyState
+                  title="No activity has been logged yet"
+                  // No remedy button, deliberately: the trail is written BY the
+                  // app as you use it, and a control here would be a button
+                  // that fabricates an audit entry — the one thing an audit
+                  // trail must never offer.
+                  description="Every change to an account, a transaction or a category is recorded here as you make it. Until something is changed there is nothing to audit."
+                />
+              ) : (
+                <FilteredEmptyState
+                  title="No activity matches these filters"
+                  hiddenCount={logs.length}
+                  scope="logged activities"
+                  filters={activeFilterNames}
+                  onClear={clearFilters}
+                />
+              )
             }
             threshold={50}
           />

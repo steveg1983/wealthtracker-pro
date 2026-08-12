@@ -1,7 +1,22 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, memo, type ReactNode } from 'react';
 import { SwipeableTransactionRow } from './SwipeableTransactionRow';
 import type { Transaction, Account, Category } from '../types';
 import { LoadingSpinner } from './LoadingSpinner';
+import { TableSkeleton, type TableSkeletonColumn } from './loading/TableSkeleton';
+import { useDelayedFlag } from '../hooks/useDelayedFlag';
+
+/**
+ * What a transaction card is shaped like, for the placeholder that waits in
+ * its place (DESIGN_PASS §4): `p-4` around a description line over a
+ * date-and-category line, with the amount right-aligned.
+ */
+const CARD_SKELETON_COLUMNS: TableSkeletonColumn[] = [
+  { key: 'description', className: 'flex-1' },
+  { key: 'amount', width: '6rem' },
+];
+
+/** `p-4` over the card's two lines — measured at 375px in the running app. */
+const CARD_HEIGHT = 77;
 
 interface InfiniteScrollTransactionListProps {
   transactions: Transaction[];
@@ -14,6 +29,19 @@ interface InfiniteScrollTransactionListProps {
   selectedTransactions?: Set<string>;
   onSelectionChange?: (selected: Set<string>) => void;
   isLoading?: boolean;
+  /**
+   * What stands where the cards would be when there are none.
+   *
+   * REQUIRED, unlike VirtualizedTable's optional one, and that is the point.
+   * This list used to answer every kind of nothing with a single sentence —
+   * "No transactions found / Try adjusting your filters or add some
+   * transactions" — which is the exact conflation DESIGN_PASS §4 forbids: it
+   * tells somebody whose register is empty to adjust filters they have not
+   * set, and somebody whose filter is hiding 1,284 rows that they have none.
+   * The caller knows which of the two it is; a phone that could forget to say
+   * is a phone that will.
+   */
+  emptyContent: ReactNode;
   itemsPerBatch?: number;
   /**
    * Should rows that have arrived and not been dealt with be drawn as new?
@@ -44,15 +72,20 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
   selectedTransactions,
   onSelectionChange,
   isLoading = false,
+  emptyContent,
   itemsPerBatch = 20,
   markNewArrivals = false
-}: InfiniteScrollTransactionListProps): React.JSX.Element {
+  // `| null` is the 200ms rule in the type: a load too short to be worth
+  // explaining renders NOTHING, which is not an element.
+}: InfiniteScrollTransactionListProps): React.JSX.Element | null {
   const [displayedItems, setDisplayedItems] = useState(itemsPerBatch);
   const categoryNameById = useMemo(
     () => new Map(categories.map(c => [c.id, c.name])),
     [categories]
   );
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  /** Under 200ms the phone shows nothing rather than a flash of grey bars. */
+  const showSkeleton = useDelayedFlag(isLoading && transactions.length === 0);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
@@ -118,30 +151,19 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
     onSelectionChange(newSelected);
   }, [selectedTransactions, onSelectionChange]);
 
-  // Initial loading state
+  // SHAPE, NOT SPINNER, and no pulsing (DESIGN_PASS §4). This was five cards
+  // at a height no card has, breathing — on the one device where a repaint of
+  // every visible row costs the most.
   if (isLoading && transactions.length === 0) {
-    return (
-      <div className="space-y-3 p-4">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="bg-white dark:bg-gray-800 rounded-lg p-4 animate-pulse">
-            <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2" />
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2" />
-            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          </div>
-        ))}
-      </div>
-    );
+    return showSkeleton
+      ? <TableSkeleton columns={CARD_SKELETON_COLUMNS} rowHeight={CARD_HEIGHT} />
+      : null;
   }
 
+  // Whose nothing this is — an empty register or a filter hiding all of it —
+  // is the caller's to say, and it always says.
   if (transactions.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-500 dark:text-gray-400">No transactions found</p>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-          Try adjusting your filters or add some transactions
-        </p>
-      </div>
-    );
+    return <>{emptyContent}</>;
   }
 
   const visibleTransactions = transactions.slice(0, displayedItems);
