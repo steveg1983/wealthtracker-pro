@@ -9,6 +9,7 @@ import AccountSettingsModal from '../components/AccountSettingsModal';
 import AccountBreakdownModal, { type AccountBreakdownView } from '../components/AccountBreakdownModal';
 import NetWorthSummary from '../components/NetWorthSummary';
 import { formatDate } from '../utils/dateFormatter';
+import { accountHasHistory } from '../utils/accountHistory';
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
 import { ArchiveIcon, SettingsIcon, WalletIcon, CheckCircleIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon, SearchIcon } from '../components/icons';
@@ -40,6 +41,7 @@ import {
 type AccountSortMode = 'default' | 'name' | 'balance-desc' | 'balance-asc';
 import { IconButton } from '../components/icons/IconButton';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { useConvertedNetWorth } from '../hooks/useConvertedNetWorth';
 import { useReconciliation } from '../hooks/useReconciliation';
 import { countAwaitingReviewByAccount } from '../utils/transactionReview';
 import { useAccountBankSync } from '@service';
@@ -148,7 +150,7 @@ type DisplayedList =
 export default function Accounts() {
   const { accounts, transactions, serverBalances, updateAccount, closeAccount, refreshAccountsAndTransactions, refreshCategories } = useApp();
   const { showError } = useToast();
-  const { formatCurrency: formatDisplayCurrency } = useCurrencyDecimal();
+  const { formatCurrency: formatDisplayCurrency, displayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const location = useLocation();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -340,6 +342,38 @@ export default function Accounts() {
       costBasis: h.costBasis ? toDecimal(h.costBasis) : undefined
     })) : undefined
   })), [openAccounts]);
+
+  /**
+   * Every open account's balance beside the currency it is HELD in.
+   *
+   * The input to the net-worth card's three figures. Until this existed the
+   * card added balances across currencies one-for-one and printed the answer in
+   * the display currency — a dollar counted as a pound. The app had already
+   * written the rule down for budgets ("a number that is true in no currency at
+   * all"); the summary above the account list was the surface still breaking it.
+   */
+  const netWorthEntries = useMemo(
+    () => openAccounts.map(a => ({
+      balance: computeAccountBalance(a.id),
+      currency: a.currency || displayCurrency,
+    })),
+    [openAccounts, computeAccountBalance, displayCurrency]
+  );
+
+  /**
+   * Whether any account is held in something other than the display currency.
+   *
+   * The switch that keeps this change free for the people it does not concern.
+   * False — the overwhelmingly common case — and the three figures below are
+   * computed exactly as they have always been, by exactly the same functions,
+   * to exactly the same number. No conversion, no request, no disclosure.
+   */
+  const spansCurrencies = useMemo(
+    () => netWorthEntries.some(entry => entry.currency !== displayCurrency),
+    [netWorthEntries, displayCurrency]
+  );
+
+  const convertedNetWorth = useConvertedNetWorth(netWorthEntries, displayCurrency);
 
   // The open list's bands, straight from the two switches — type sections,
   // institution bands, type sections with institution sub-bands, or one flat
@@ -1404,10 +1438,17 @@ export default function Accounts() {
         return (
           <div className="mb-6">
             <NetWorthSummary
-              netWorth={formatDisplayCurrency(totalBalance)}
-              assets={formatDisplayCurrency(totalAssets)}
-              liabilities={formatDisplayCurrency(totalLiabilities)}
+              // Converted figures ONLY when a second currency is actually in
+              // play. A single-currency ledger keeps the exact arithmetic it
+              // had — same functions, same number — so this change is invisible
+              // to everyone it does not concern.
+              netWorth={formatDisplayCurrency(spansCurrencies ? convertedNetWorth.netWorth : totalBalance)}
+              assets={formatDisplayCurrency(spansCurrencies ? convertedNetWorth.assets : totalAssets)}
+              liabilities={formatDisplayCurrency(spansCurrencies ? convertedNetWorth.liabilities : totalLiabilities)}
               onSelect={figure => setBreakdownView(figure)}
+              provenance={spansCurrencies ? convertedNetWorth.provenance : null}
+              unconverted={spansCurrencies ? convertedNetWorth.unconverted : []}
+              displayCurrency={displayCurrency}
             />
           </div>
         );
@@ -1766,6 +1807,10 @@ export default function Accounts() {
         // The open accounts, which is what the pairing field pairs with: a
         // closed investment account is not somewhere money can be filed.
         accounts={openAccounts}
+        // Whether the CURRENCY field is still editable. Asked of the whole
+        // transaction list rather than this page's balance views, because
+        // archived rows count as history and those views hide them.
+        hasTransactions={settingsAccountId ? accountHasHistory(transactions, settingsAccountId) : undefined}
         onSave={async (accountId, updates) => {
           // A closed account isn't in context state, so the context's in-place
           // patch lands on nothing — reopening one from here only reaches the

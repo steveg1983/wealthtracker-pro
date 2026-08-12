@@ -502,15 +502,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
       type: 'expense',
       category: 'Investments',
       accountId: inv.accountId,
-      cleared: true,
-      investmentData: {
-        symbol: inv.symbol,
-        quantity: inv.quantity,
-        pricePerShare: inv.purchasePrice,
-        transactionFee: transactionFee,
-        stampDuty: stampDuty,
-        totalCost: totalCost
-      }
+      cleared: true
     });
   });
   

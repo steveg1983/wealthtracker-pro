@@ -154,7 +154,7 @@ describe('Accounts list — the To Review column', () => {
     expect(within(columns).getByText('To Review')).toBeInTheDocument();
   });
 
-  it('reads amber while there is work and blue when there is none — the same language as Unreconciled', async () => {
+  it('reads quiet slate while there is work and blue when there is none — a count is not a next action (ruling A)', async () => {
     __setAppContextValue({
       accounts: [NATWEST, MONZO],
       transactions: [
@@ -169,7 +169,7 @@ describe('Accounts list — the To Review column', () => {
 
     const waiting = within(card('Synthetic Natwest')).getByText('To Review').nextElementSibling;
     const clear = within(card('Synthetic Monzo')).getByText('To Review').nextElementSibling;
-    expect(waiting?.className).toContain('text-amber-600');
+    expect(waiting?.className).toContain('text-slate-600');
     expect(clear?.className).toContain('text-blue-600');
   });
 });

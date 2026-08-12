@@ -24,6 +24,16 @@ import { isInsideQuickEdit } from '../utils/quickEditScope';
 // The strip's arrow keys. The rule lives with the rest of the register's
 // keyboard so the printed shortcut list and the handler cannot drift apart.
 import { nextStripButtonIndex } from '../utils/registerShortcuts';
+import CrossCurrencyTransferDialog from './CrossCurrencyTransferDialog';
+import { transferCategoryIdFor } from '../utils/transferRepoint';
+import {
+  crossedCurrencies,
+  destinationLegAmount,
+  recordConvertedCounterpart,
+  type ConfirmedConversion,
+  type CrossCurrency,
+} from '../utils/crossCurrencyTransfer';
+import { amountWithCurrencyCode } from '../utils/crossCurrencyLabel';
 import type { Account, Transaction } from '../types';
 
 /**
@@ -276,6 +286,10 @@ export function QuickEditRowProvider({
     confirmTransactionCategories,
     linkTransferPair,
     createTransferCounterpart,
+    // The cross-currency route: the far side is written explicitly at a
+    // confirmed figure rather than minted, and unwound if the link fails.
+    addTransaction,
+    deleteTransaction,
   } = useApp();
   const { showError, showSuccess } = useToast();
   const { propagateCategory } = usePayeeMemory();
@@ -347,6 +361,18 @@ export function QuickEditRowProvider({
   // rather than writing blindly — in the strip, not a dialog. See TRANSFER
   // PROMPT on QuickEditActionStrip.
   const [transferPrompt, setTransferPrompt] = useState<QuickEditTransferPrompt | null>(null);
+  /**
+   * The currency pair being asked about, or null when nothing is.
+   *
+   * A DIALOG rather than the strip, unlike match-or-create above, and the
+   * difference is what is being asked for. The strip asks the user to CHOOSE
+   * between two things it can name; this asks them to supply a figure the app
+   * does not have, with two linked inputs and a provenance line — which does
+   * not fit in a row, and should not, because it is the one moment in the flow
+   * where a number nobody has verified is about to enter the ledger.
+   */
+  const [conversionPrompt, setConversionPrompt] = useState<CrossCurrency | null>(null);
+  const [conversionBusy, setConversionBusy] = useState(false);
   const advanceAfterTransferRef = useRef(false);
 
   const isTransfer = transaction?.type === 'transfer';
@@ -544,7 +570,16 @@ export function QuickEditRowProvider({
           candidates: findTransferCandidates(
             transactions,
             { ...transaction, date: parsedDate, description: description.trim() },
-            targetAccountId
+            targetAccountId,
+            undefined,
+            // With the accounts in hand this also finds the other side of a
+            // CONVERTED transfer — opposite in sign, any magnitude — which the
+            // exact-amount rule could never see. Before this, a real
+            // counterpart already sitting in a foreign-currency account was
+            // invisible and the only offer was "create the other side", which
+            // would have written a second row for money that had already
+            // arrived.
+            { accounts }
           ),
         });
       } catch (error) {
@@ -821,21 +856,68 @@ export function QuickEditRowProvider({
 
   const createTransfer = useCallback((): void => {
     if (!transaction || !transferPrompt) return;
-    // Pre-flight the RPC's cross-currency guard so the user gets a clear
-    // message without a failed server round-trip.
-    const sourceCurrency = accounts.find(a => a.id === transaction.accountId)?.currency;
-    const targetCurrency = accounts.find(a => a.id === transferPrompt.targetAccountId)?.currency;
-    if (sourceCurrency && targetCurrency && sourceCurrency !== targetCurrency) {
-      showError(new Error(
-        `Transfers between accounts in different currencies aren't supported yet (${sourceCurrency} and ${targetCurrency}).`
-      ));
+    /**
+     * Across a currency boundary the far side cannot be MINTED — the RPC would
+     * copy this row's digits into an account that counts in another currency —
+     * so the person is asked what actually arrived, and the confirmed figure is
+     * written explicitly. This used to be a flat refusal with nowhere to go.
+     */
+    const crossed = crossedCurrencies(
+      accounts,
+      transaction.accountId,
+      transferPrompt.targetAccountId
+    );
+    if (crossed) {
+      setConversionPrompt(crossed);
       return;
     }
     void completeTransfer(
       () => createTransferCounterpart(transaction.id, transferPrompt.targetAccountId),
       `Transfer created — the other side was added to ${transferPrompt.targetAccountName}.`
     );
-  }, [transaction, transferPrompt, accounts, completeTransfer, createTransferCounterpart, showError]);
+  }, [transaction, transferPrompt, accounts, completeTransfer, createTransferCounterpart]);
+
+  /**
+   * The far side, at the rate the person just confirmed, then the link, then
+   * the source's own stamp. `completeTransfer` carries the same success/dismiss
+   * behaviour every other transfer completion here gets, so a converted
+   * transfer leaves the dock exactly as an ordinary one does.
+   */
+  const confirmConversion = useCallback((conversion: ConfirmedConversion): void => {
+    if (!transaction || !transferPrompt) return;
+    setConversionBusy(true);
+    void completeTransfer(
+      () => recordConvertedCounterpart(
+        { addTransaction, updateTransaction, linkTransferPair, deleteTransaction },
+        transaction,
+        {
+          accountId: transferPrompt.targetAccountId,
+          // Each side files under the OTHER account's To/From category; the
+          // link re-files both anyway, and this is what the row names if it
+          // somehow cannot.
+          category: transferCategoryIdFor(
+            categories,
+            transaction.accountId,
+            destinationLegAmount(transaction.amount, conversion.destinationAmount).toNumber()
+          ),
+        },
+        conversion
+      ),
+      `Transfer created — ${transferPrompt.targetAccountName} received the converted amount.`
+    ).finally(() => {
+      setConversionBusy(false);
+      setConversionPrompt(null);
+    });
+  }, [
+    transaction, transferPrompt, categories, completeTransfer,
+    addTransaction, updateTransaction, linkTransferPair, deleteTransaction,
+  ]);
+
+  const cancelConversion = useCallback((): void => {
+    // Only the conversion is abandoned. The match-or-create strip stays up, so
+    // the same row can still be linked to an existing far side instead.
+    setConversionPrompt(null);
+  }, []);
 
   const cancelTransferPrompt = useCallback((): void => {
     setTransferPrompt(null);
@@ -893,6 +975,24 @@ export function QuickEditRowProvider({
   return (
     <QuickEditRowContext.Provider value={value}>
       {children}
+      {/* Portalled, so it floats over the register rather than inside a table
+          row — and rendered here rather than in the strip so it survives the
+          strip's own re-renders while a write is in flight. */}
+      {conversionPrompt && transaction && transferPrompt && (
+        <CrossCurrencyTransferDialog
+          isOpen
+          sourceAmount={transaction.amount}
+          sourceCurrency={conversionPrompt.from}
+          sourceAccountName={
+            accounts.find(a => a.id === transaction.accountId)?.name ?? 'this account'
+          }
+          destinationCurrency={conversionPrompt.to}
+          destinationAccountName={transferPrompt.targetAccountName}
+          busy={conversionBusy}
+          onConfirm={confirmConversion}
+          onCancel={cancelConversion}
+        />
+      )}
     </QuickEditRowContext.Provider>
   );
 }
@@ -1144,6 +1244,10 @@ export function QuickEditActionStrip(): React.JSX.Element {
     showingSuggestion, savingAction, hasNext, saveButtonRef, saveAndNextButtonRef,
     handleKeyDown, requestSave, confirmSuggestion, dismiss,
     transferPrompt, linkTransfer, createTransfer, cancelTransferPrompt,
+    // The row itself, for the one sentence that has to name BOTH figures: a
+    // converted pair's two amounts differ, and the strip is where the user
+    // agrees to that.
+    transaction,
   } = useQuickEditRow();
   const isSaving = savingAction !== null;
   const stripRef = useRef<HTMLDivElement>(null);
@@ -1247,9 +1351,15 @@ export function QuickEditActionStrip(): React.JSX.Element {
             className="min-w-0 truncate text-[11px] font-normal text-gray-700 dark:text-gray-300"
             aria-live="polite"
           >
-            {transferPrompt.candidates.length > 0
-              ? `Found the matching transaction in ${transferPrompt.targetAccountName} — link the two sides?`
-              : `Nothing matching in ${transferPrompt.targetAccountName} — create the other side there?`}
+            {transferPrompt.candidates.length === 0
+              ? `Nothing matching in ${transferPrompt.targetAccountName} — create the other side there?`
+              : transferPrompt.candidates[0].crossCurrency
+                /* A converted pair: the two figures WILL NOT match, and the
+                   strip has to say why before the user presses Link. Both
+                   currencies are named beside their own amount — see
+                   utils/crossCurrencyLabel. */
+                ? `${amountWithCurrencyCode(transaction.amount, transferPrompt.candidates[0].crossCurrency.from)} here against ${amountWithCurrencyCode(transferPrompt.candidates[0].transaction.amount, transferPrompt.candidates[0].crossCurrency.to)} in ${transferPrompt.targetAccountName} — different currencies; link the two sides?`
+                : `Found the matching transaction in ${transferPrompt.targetAccountName} — link the two sides?`}
           </span>
           <div
             className="flex shrink-0 items-center gap-2"

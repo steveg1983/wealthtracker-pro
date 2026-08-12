@@ -19,6 +19,7 @@ import BulkDeleteTransactionsConfirm from '../components/BulkDeleteTransactionsC
 import RegisterSelectionBar from '../components/RegisterSelectionBar';
 import RegisterShortcutsDialog from '../components/RegisterShortcutsDialog';
 import AccountSettingsModal from '../components/AccountSettingsModal';
+import { accountHasHistory } from '../utils/accountHistory';
 import {
   QuickEditRowProvider,
   QuickEditFieldCell,
@@ -60,6 +61,14 @@ import {
 import { isConfirmableSuggestion } from '../utils/categoryProvenance';
 import { classifyTransferCategoryChoice } from '../utils/transferCoherence';
 import { transferCategoryIdFor } from '../utils/transferRepoint';
+import CrossCurrencyTransferDialog from '../components/CrossCurrencyTransferDialog';
+import { buildFxRecord } from '../utils/fx';
+import {
+  crossedCurrencies,
+  destinationLegAmount,
+  recordConvertedCounterpart,
+  type ConfirmedConversion,
+} from '../utils/crossCurrencyTransfer';
 import {
   buildPayeeCompletionIndex,
   rememberedCategoryForPayee,
@@ -358,10 +367,13 @@ export default function AccountTransactions() {
   const backTo = readProvenance(location.state);
   const {
     accounts, transactions, categories, isLoading,
-    deleteTransaction, addTransaction, updateAccount,
+    deleteTransaction, addTransaction, updateAccount, updateTransaction,
     // The dock's Txfr path writes BOTH legs: the row, then the one operation
     // that turns it into a linked pair. See commitQuickAdd.
     createTransferCounterpart,
+    // …except across a currency boundary, where the far side cannot be minted
+    // and is written explicitly at a confirmed figure instead.
+    linkTransferPair,
     refreshCategories, refreshAccountsAndTransactions,
     // The reconcile and archive writes the register's keyboard uses are the
     // SAME ones the reconciliation screen and the archive manager use — a key
@@ -747,6 +759,19 @@ export default function AccountTransactions() {
    * because Cancel has to leave every keystroke exactly where it was.
    */
   const [confirmUncategorised, setConfirmUncategorised] = useState<{ description: string } | null>(null);
+  /**
+   * The draft waiting on a confirmed conversion, held for the same reason as
+   * the one above: Cancel must leave every keystroke exactly where it was, and
+   * nothing may reach the ledger until the figure is settled.
+   *
+   * `draft` is the override `submitQuickAdd` had already computed (a transfer
+   * CATEGORY may have been turned into a target account on the way here), so
+   * confirming replays the same add rather than re-deriving it.
+   */
+  const [pendingConversion, setPendingConversion] = useState<
+    { target: string; draft: Partial<typeof quickAddForm>; from: string; to: string } | null
+  >(null);
+  const [conversionBusy, setConversionBusy] = useState(false);
   // Money-style cross-type filing, the same affordance the edit modal offers:
   // browse the OTHER direction's categories (a refund is money IN but belongs
   // under the expense category it refunds). The type toggle still decides which
@@ -785,6 +810,19 @@ export default function AccountTransactions() {
     [account, transactions]
   );
   const hasArchivedHere = useMemo(() => fullAccountTransactions.some(t => t.archived), [fullAccountTransactions]);
+
+  /**
+   * Whether Account Settings may still offer the CURRENCY field for editing.
+   *
+   * Asked through the shared rule rather than off `fullAccountTransactions`
+   * above, even though the two lists are the same rows: what counts as
+   * "history" for a re-denomination is a decision with one home, and reading a
+   * list's length here would make this page a second place that decides it.
+   */
+  const accountHoldsHistory = useMemo(
+    () => (account ? accountHasHistory(transactions, account.id) : undefined),
+    [account, transactions]
+  );
 
   // When the opening balance takes effect, via the SAME resolver the net-worth
   // walks and the drill use — so the register can never disagree with them.
@@ -2063,7 +2101,15 @@ export default function AccountTransactions() {
    * than reading state back is what makes "what the guard decided" and "what
    * gets written" the same thing.
    */
-  const commitQuickAdd = async (override: Partial<typeof quickAddForm> = {}): Promise<void> => {
+  const commitQuickAdd = async (
+    override: Partial<typeof quickAddForm> = {},
+    /**
+     * Present only when the two accounts hold different currencies and the
+     * person has confirmed what arrives. Its presence switches the second leg
+     * from MINTED to WRITTEN: see the branch at the counterpart step.
+     */
+    conversion?: ConfirmedConversion
+  ): Promise<void> => {
     if (!account) return;
     const draft = { ...quickAddForm, ...override };
     // One row per gesture. Now that Enter adds — a key that repeats while it is
@@ -2111,7 +2157,12 @@ export default function AccountTransactions() {
       // account it was meant to face.
       category: isTransfer && targetAccountId
         ? transferCategoryIdFor(categories, targetAccountId, amount)
-        : draft.category
+        : draft.category,
+      // The confirmed rate rides with the row from its INSERT, so a converted
+      // leg is never in the ledger without the record of what made it.
+      ...(conversion
+        ? { metadata: { fx: buildFxRecord(conversion.rate, conversion.source, conversion.asOf) } }
+        : {}),
     };
 
     try {
@@ -2140,7 +2191,39 @@ export default function AccountTransactions() {
        */
       if (isTransfer && targetAccountId) {
         try {
-          await createTransferCounterpart(newTransaction.id, targetAccountId);
+          if (conversion) {
+            /**
+             * ACROSS A CURRENCY BOUNDARY THE FAR SIDE IS WRITTEN, NOT MINTED.
+             *
+             * `createTransferCounterpart` copies −amount into the other ledger
+             * and refuses when the currencies differ, which is right and is
+             * untouched: copying digits across a boundary is wrong at any rate.
+             * So the two verbs that ARE legal here are composed instead — an
+             * ordinary insert into the target account in the target's own
+             * currency, then `link_transfer_pair`, which is balance-neutral and
+             * converts nothing. Both figures came off the dialog; neither was
+             * invented by the app.
+             *
+             * The rollback below is shared with the minted path deliberately:
+             * whichever way the second leg failed to appear, the first leg is
+             * a one-sided transfer and must not survive.
+             */
+            await recordConvertedCounterpart(
+              { addTransaction, updateTransaction, linkTransferPair, deleteTransaction },
+              newTransaction,
+              {
+                accountId: targetAccountId,
+                category: transferCategoryIdFor(
+                  categories,
+                  account.id,
+                  destinationLegAmount(amount, conversion.destinationAmount).toNumber()
+                ),
+              },
+              conversion
+            );
+          } else {
+            await createTransferCounterpart(newTransaction.id, targetAccountId);
+          }
         } catch (counterpartError) {
           // The other side could not be made, so the row that would have been
           // its first leg must not survive: a one-sided transfer reads as a
@@ -2266,23 +2349,24 @@ export default function AccountTransactions() {
     }
 
     /**
-     * The cross-currency refusal, BEFORE the first write rather than after it.
+     * The currency boundary, asked about BEFORE the first write.
      *
-     * createTransferCounterpart refuses this too — the counterpart is −amount
-     * with no conversion, so two currencies cannot make one pair — and the add
-     * would undo itself cleanly. But a create-then-delete leaves two entries in
-     * the audit trail for a transfer that never existed, and the message is one
-     * the dock can give instantly from what is already on screen. The quick-edit
-     * editor pre-flights the same rule for the same reason.
+     * This was a refusal until 2026-08-12, and the reason it could not simply
+     * be dropped is that `createTransferCounterpart` — the one-call route the
+     * same-currency dock takes — mints the far side by copying −amount, so a
+     * dollar row would have moved a sterling account by the same digits. That
+     * guard is right and stays. What changes is that there is now somewhere to
+     * go: the person is asked what arrived, and the confirmed pair is written
+     * explicitly by `commitQuickAdd`'s conversion branch.
+     *
+     * Still before the first write, and for the reason the refusal was: a
+     * create-then-delete would leave two audit entries for a transfer that
+     * never existed, and a cancelled dialog should cost nothing at all.
      */
     if (target) {
-      const sourceCurrency = account.currency;
-      const targetCurrency = accounts.find(a => a.id === target)?.currency;
-      if (sourceCurrency && targetCurrency && sourceCurrency !== targetCurrency) {
-        setQuickAddError({
-          field: 'category',
-          message: `Transfers between accounts in different currencies aren’t supported yet (${sourceCurrency} and ${targetCurrency}).`,
-        });
+      const crossed = crossedCurrencies(accounts, account.id, target);
+      if (crossed) {
+        setPendingConversion({ target, draft: convertedDraft, ...crossed });
         return;
       }
     }
@@ -3806,6 +3890,33 @@ export default function AccountTransactions() {
         />
       )}
 
+      {/* "These accounts hold different currencies" — the other guard that asks
+          rather than blocks, and the newer of the two. Same discipline as the
+          one above: the draft is held, nothing is written until the figure is
+          confirmed, and Cancel leaves every keystroke where it was. */}
+      {pendingConversion && account && (
+        <CrossCurrencyTransferDialog
+          isOpen
+          sourceAmount={parseMoneyInput(quickAddForm.amount) ?? 0}
+          sourceCurrency={pendingConversion.from}
+          sourceAccountName={account.name}
+          destinationCurrency={pendingConversion.to}
+          destinationAccountName={
+            accounts.find(a => a.id === pendingConversion.target)?.name ?? 'the other account'
+          }
+          busy={conversionBusy}
+          onConfirm={(conversion) => {
+            const { draft } = pendingConversion;
+            setConversionBusy(true);
+            void commitQuickAdd(draft, conversion).finally(() => {
+              setConversionBusy(false);
+              setPendingConversion(null);
+            });
+          }}
+          onCancel={() => setPendingConversion(null)}
+        />
+      )}
+
       {/* The toolbar's Add — the app's one full add editor, opened on THIS
           account. Mounted only while it is open, which is what makes the
           prefill work at all (the form freezes its opening values on mount;
@@ -3900,6 +4011,7 @@ export default function AccountTransactions() {
         onClose={() => setShowAccountSettings(false)}
         account={account}
         accounts={accounts}
+        hasTransactions={accountHoldsHistory}
         onSave={async (accountId, updates) => {
           await updateAccount(accountId, updates);
           // Rename/close also updates the account's transfer category via the

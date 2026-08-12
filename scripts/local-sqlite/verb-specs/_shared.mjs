@@ -343,6 +343,43 @@ export const pairableRows = {
     UPDATE public.accounts SET balance = balance + 30.00 WHERE id = '${RAINY_DAY}';`,
 };
 
+/**
+ * `pairableRows`' cross-currency twin: −30.00 out of Everyday (GBP) against a
+ * DIFFERENT magnitude in Dollars (USD).
+ *
+ * ── WHY THIS EXISTS SEPARATELY ──────────────────────────────────────────────
+ *
+ * Until 2026-08-12 the only cross-currency fixture in the suite was
+ * `pairableRows` with `PAIR_IN` repointed onto Dollars — which left the two
+ * sides at ±30.00, i.e. a rate of exactly 1. That pair passes the strict rule
+ * and the loosened one alike, so it could never say which was in force, and
+ * for a year it certified as "linked" a shape no conversion produces.
+ *
+ * Every amount here is stated twice, in minor units and as a decimal, rather
+ * than divided by 100 in JavaScript. A fixture generator that does float
+ * arithmetic on money is the one place in this suite nobody would think to
+ * look for a rounding bug.
+ *
+ * Requires `dollarAccount`. Everyday lands at −55.00, Dollars at the
+ * destination amount, so B-1 holds on both before the verb runs.
+ *
+ * @param {{minor: number, decimal: string}} destination what arrived in Dollars
+ */
+export const convertedRows = (destination) => ({
+  sqlite: `
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date, category) VALUES
+      ('${PAIR_OUT}', '${USER}', '${EVERYDAY}', 'Moved out', -3000, 'expense', '2024-04-02', '${WEEKLY_SHOP}'),
+      ('${PAIR_IN}',  '${USER}', '${DOLLARS}',  'Moved in',  ${destination.minor}, 'income', '2024-04-02', NULL);
+    UPDATE accounts SET balance_minor = balance_minor - 3000 WHERE id = '${EVERYDAY}';
+    UPDATE accounts SET balance_minor = balance_minor + ${destination.minor} WHERE id = '${DOLLARS}';`,
+  postgres: `
+    INSERT INTO public.transactions (id, user_id, account_id, description, amount, type, date, category) VALUES
+      ('${PAIR_OUT}', '${USER}', '${EVERYDAY}', 'Moved out', -30.00, 'expense', '2024-04-02', '${WEEKLY_SHOP}'),
+      ('${PAIR_IN}',  '${USER}', '${DOLLARS}',  'Moved in',  ${destination.decimal}, 'income', '2024-04-02', NULL);
+    UPDATE public.accounts SET balance = balance - 30.00 WHERE id = '${EVERYDAY}';
+    UPDATE public.accounts SET balance = balance + ${destination.decimal} WHERE id = '${DOLLARS}';`,
+});
+
 /** The user's own 'Account Adjustment' category — a leaf, active, not To/From. */
 export const ADJUSTMENT = 'c0000000-0000-0000-0000-0000000000a1';
 
@@ -1751,6 +1788,35 @@ export const linkedSidesThatAreNotOpposites = {
     UPDATE transactions SET linked_transfer_id = '${THIS_LEG}'  WHERE id = '${OTHER_LEG}';
     UPDATE transactions SET linked_transfer_id = '${OTHER_LEG}' WHERE id = '${THIS_LEG}';`,
 };
+
+/**
+ * A LINKED pair straddling a currency boundary, for the T-2 integrity check.
+ *
+ * The companion to `convertedRows`, one step further on: these two are already
+ * joined, which is the state the file is in after a link or after the MS Money
+ * importer has written a pair directly. −30.00 GBP out of Everyday against
+ * whatever arrived in Dollars.
+ *
+ * T-2 has to move with the verb or the two contradict: a check that calls
+ * every converted pair "money appearing from nowhere" reports the whole of a
+ * real ledger as broken, and a violation report nobody can act on is a
+ * violation report nobody reads.
+ *
+ * @param {{minor: number}} destination what arrived in Dollars, in minor units
+ */
+export const linkedSidesInTwoCurrencies = (destination) => ({
+  sqlite: `
+    INSERT INTO accounts (id, user_id, name, type, currency, balance_minor, initial_balance_minor)
+      VALUES ('${DOLLARS}', '${USER}', 'Dollars', 'checking', 'USD', 0, 0);
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date,
+                              transfer_account_id) VALUES
+      ('${OTHER_LEG}', '${USER}', '${EVERYDAY}', 'To dollars',    -3000, 'transfer', '2024-04-01', '${DOLLARS}'),
+      ('${THIS_LEG}',  '${USER}', '${DOLLARS}',  'From everyday', ${destination.minor}, 'transfer', '2024-04-01', '${EVERYDAY}');
+    UPDATE accounts SET balance_minor = balance_minor - 3000 WHERE id = '${EVERYDAY}';
+    UPDATE accounts SET balance_minor = balance_minor + ${destination.minor} WHERE id = '${DOLLARS}';
+    UPDATE transactions SET linked_transfer_id = '${THIS_LEG}'  WHERE id = '${OTHER_LEG}';
+    UPDATE transactions SET linked_transfer_id = '${OTHER_LEG}' WHERE id = '${THIS_LEG}';`,
+});
 
 /**
  * T-3: both sides of one transfer sitting in the same account.

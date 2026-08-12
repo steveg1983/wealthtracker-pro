@@ -43,6 +43,10 @@
 //! 7  transaction is already part of a linked transfer
 //! ```
 //!
+//! Refusal **5 now has two wordings** and the position is shared between them:
+//! see "Refusal 5 is currency-aware" below. Nothing moved, so every measured
+//! adjacency above still holds.
+//!
 //! Two of those are worth naming because reading the *source* rather than
 //! *running* it gets them wrong in the plausible direction:
 //!
@@ -66,6 +70,40 @@
 //! | two accounts in **different currencies** | linked. T-9 guards *minting* a counterpart (`create_transfer_counterpart`), where an amount is copied into another ledger; joining two rows that already exist moves nothing, so there is nothing to convert |
 //! | a row whose `linked_transfer_split_id` points at a split line | linked, and T-11 quietly broken — the line does not point back |
 //! | a row already **typed** `transfer` with some other `transfer_account_id` | overwritten |
+//!
+//! # Refusal 5 is currency-aware, and why that is a LOOSENING
+//!
+//! DECLARED BEHAVIOUR CHANGE, approved 2026-08-12, made in all three engines at
+//! once (this file, the linking RPC via a new migration, and the demo mirror in
+//! `src/services/api/dataService.ts`).
+//!
+//! Read the currency row of the table above beside the old refusal 5 and the two
+//! do not survive contact. "Different currencies are linked" was true only of the
+//! *currency check*, which never existed; refusal 5 then demanded the two amounts
+//! sum to zero, and two amounts in different currencies do that only at a rate of
+//! exactly 1. So the measured statement "the live RPC links them" was measured
+//! with a fixture whose two sides were ±30.00 — a pair no conversion produces.
+//! **Every arithmetically real cross-currency pair was refused, by an engine that
+//! believed it was allowing them.**
+//!
+//! What made this a defect rather than a curiosity is that the data disagreed
+//! first: the ledger this crate was written for already holds 70 legal
+//! cross-currency pairs, bulk-inserted by the MS Money importer, which writes
+//! rows directly and never calls a verb. No runtime path in either engine could
+//! have produced one of them, and none could re-link one after an unlink.
+//!
+//! So refusal 5 splits by whether the two accounts share a currency:
+//!
+//! * **same currency** — unchanged, to the penny. `are_opposite`, same message.
+//! * **different currencies** — both sides non-zero and OPPOSITE IN SIGN, with no
+//!   constraint on magnitude, because the ratio between the magnitudes *is* the
+//!   achieved rate and this engine holds no opinion about FX (see
+//!   `transfer::are_opposite_in_sign`).
+//!
+//! The counterpart MINT guard is untouched and stays a flat refusal: that verb
+//! *copies a number* into the other ledger, and copying across a currency
+//! boundary is wrong at any rate. Joining two rows that already exist copies
+//! nothing, which is the whole distinction and always was.
 //!
 //! The third is a real gap and it is recorded rather than fixed here: T-7 and
 //! T-11 are enforced *nowhere* in the cloud (DESIGN.md §1.3), and a local port
@@ -97,7 +135,7 @@ use crate::audit::{self, Action};
 use crate::db;
 use crate::error::{CoreError, CoreResult, Refusal};
 use crate::row::category::transfer_category_for;
-use crate::row::{self, TransactionRow, WrittenTransaction};
+use crate::row::{self, account, TransactionRow, WrittenTransaction};
 
 use super::transfer;
 
@@ -178,8 +216,27 @@ pub fn link_transfer_pair(
     if side_a.account_id == side_b.account_id {
         return Err(transfer::needs_two_accounts());
     }
-    if !transfer::are_opposite(side_a.amount, side_b.amount) {
-        return Err(transfer::amounts_not_opposite(side_a.amount, side_b.amount));
+    // Refusal 5, in two versions. Which one applies turns on the two ACCOUNTS,
+    // so the currencies are read here and not sooner: every earlier refusal
+    // must still fire first, and refusal 4 has just guaranteed the two account
+    // ids differ. `crossed_currencies` returns the pair only when it is a real
+    // boundary, so the branch that names them cannot be reached without them.
+    match crossed_currencies(&write, &side_a, &side_b)? {
+        Some((from, to)) => {
+            if !transfer::are_opposite_in_sign(side_a.amount, side_b.amount) {
+                return Err(transfer::amounts_not_opposite_across_currencies(
+                    side_a.amount,
+                    &from,
+                    side_b.amount,
+                    &to,
+                ));
+            }
+        }
+        None => {
+            if !transfer::are_opposite(side_a.amount, side_b.amount) {
+                return Err(transfer::amounts_not_opposite(side_a.amount, side_b.amount));
+            }
+        }
     }
     if side_a.is_split || side_b.is_split {
         return Err(transfer::split_cannot_become_transfer());
@@ -215,6 +272,44 @@ pub fn link_transfer_pair(
         audit_seq: entry.seq,
         audit_row_hash: entry.row_hash,
     })
+}
+
+/// The two accounts' currencies, but **only when they form a real boundary**:
+/// `Some((a, b))` when both are known and differ, `None` otherwise.
+///
+/// # Why a missing currency counts as "not a boundary"
+///
+/// Ported from the counterpart guard's own rule (`20260721090000:63-74`,
+/// *"NULL currencies are treated as unspecified and never block (legacy rows);
+/// the guard fires only when BOTH currencies are set and differ"*). The cloud's
+/// `accounts.currency` is nullable and legacy rows have nothing in it; the local
+/// column is `NOT NULL DEFAULT 'GBP'` (`schema.sql:443`), so locally the `None`
+/// arm is reachable only through a missing or unowned ACCOUNT ROW, not a missing
+/// value.
+///
+/// The consequence of the choice is worth being explicit about, because it is
+/// the safe direction and not the permissive one: unknown currency falls back to
+/// the STRICT rule, so a pair whose currencies cannot be established must still
+/// sum to zero. Guessing the other way would let an unreadable account admit an
+/// unbalanced pair, which is the one outcome nobody could later account for.
+///
+/// # Errors
+/// [`CoreError::Storage`] if either read fails.
+fn crossed_currencies(
+    read: &rusqlite::Transaction<'_>,
+    side_a: &TransactionRow,
+    side_b: &TransactionRow,
+) -> CoreResult<Option<(String, String)>> {
+    let Some(account_a) = account::read_owned(read, &side_a.account_id, &side_a.user_id)? else {
+        return Ok(None);
+    };
+    let Some(account_b) = account::read_owned(read, &side_b.account_id, &side_b.user_id)? else {
+        return Ok(None);
+    };
+    if account_a.currency == account_b.currency {
+        return Ok(None);
+    }
+    Ok(Some((account_a.currency, account_b.currency)))
 }
 
 /// Deliberately the same refusal for "no such row" and "somebody else's row":

@@ -2838,7 +2838,12 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           .rejects.toThrow(/two different accounts/i);
       });
 
-      rule(['linkTransferPair'], 'refuses amounts that are not exact opposites', async () => {
+      // `threeAccounts()` is entirely GBP, which is load-bearing here rather
+      // than incidental: this rule states the SAME-CURRENCY guard, and the
+      // four rules after it state the cross-currency one. A cross-currency
+      // fixture reaching this rule would silently turn it into a test of the
+      // other branch — and it would still pass, which is the dangerous part.
+      rule(['linkTransferPair'], 'refuses amounts that are not exact opposites, in one currency', async () => {
         const { port } = await harness.create({
           accounts: threeAccounts(),
           transactions: [
@@ -2850,6 +2855,79 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         await expect(port.linkTransferPair('txn-out', 'txn-in'))
           .rejects.toThrow(/opposite non-zero amounts/i);
       });
+
+      /**
+       * Two accounts that do not share a currency, and a pair whose magnitudes
+       * therefore do NOT cancel — the shape every real conversion has, and the
+       * shape the old unconditional guard refused every single time.
+       *
+       * The rate here is deliberately not a round number: a fixture of ±25
+       * across a boundary would pass under both the old rule and the new one
+       * and prove nothing about which is in force.
+       */
+      const acrossACurrencyBoundary = (
+        outAmount: number,
+        inAmount: number,
+        inType: Transaction['type'] = 'income'
+      ): Parameters<typeof harness.create>[0] => ({
+        accounts: [
+          anAccount(ACCOUNT_A, 'Everyday', { balance: -70.1 }),
+          anAccount(ACCOUNT_B, 'Dollars', { type: 'savings', balance: 500, currency: 'USD' }),
+          anAccount(ACCOUNT_C, 'Spare', { type: 'savings', balance: 0 })
+        ],
+        categories: filingCategories(),
+        transactions: [
+          aTransaction('txn-out', { accountId: ACCOUNT_A, amount: outAmount }),
+          aTransaction('txn-in', { accountId: ACCOUNT_B, amount: inAmount, type: inType })
+        ]
+      });
+
+      rule(['linkTransferPair'], 'links two rows in different currencies whose magnitudes differ', async () => {
+        const { port, read } = await harness.create(acrossACurrencyBoundary(-25, 31.75));
+
+        const { a, b } = await port.linkTransferPair('txn-out', 'txn-in');
+
+        expect(a.type).toBe('transfer');
+        expect(b.type).toBe('transfer');
+        expect(a.linkedTransferId).toBe('txn-in');
+        expect(b.linkedTransferId).toBe('txn-out');
+
+        // The point of the whole feature, asserted rather than argued: each
+        // side still counts against its own account in its own currency, and
+        // linking converted nothing. Neither balance moved.
+        const state = await read();
+        expect(balanceOf(state, ACCOUNT_A)).toBe(-70.1);
+        expect(balanceOf(state, ACCOUNT_B)).toBe(500);
+      });
+
+      rule(['linkTransferPair'], 'refuses two rows in different currencies that move the same way', async () => {
+        const { port } = await harness.create(acrossACurrencyBoundary(-25, -31.75, 'expense'));
+
+        await expect(port.linkTransferPair('txn-out', 'txn-in'))
+          .rejects.toThrow(/opposite in sign/i);
+      });
+
+      rule(['linkTransferPair'], 'refuses a zero side across a currency boundary', async () => {
+        // Zero is neither leaving nor arriving. Asserted from the SECOND
+        // position specifically: the same-currency rule catches a zero second
+        // side through its negation test, and there is no negation in the
+        // cross-currency rule to catch it — so this is the assertion that
+        // would fail if an engine ported the loosening by deleting a clause.
+        const { port } = await harness.create(acrossACurrencyBoundary(-25, 0));
+
+        await expect(port.linkTransferPair('txn-out', 'txn-in'))
+          .rejects.toThrow(/opposite in sign and non-zero/i);
+      });
+
+      // NOT A RULE HERE: "an unknown currency falls to the strict branch".
+      //
+      // All three engines implement it and the reasoning is written at each
+      // one, but it cannot be a shared rule, because the local engine cannot
+      // hold the fixture: `accounts_currency_shaped` (schema.sql:525) is
+      // `length(currency) = 3`, so an absent currency is unstorable there by
+      // construction, and the cloud's column is nullable only for legacy rows.
+      // A rule one engine can never satisfy is not a contract — it is a
+      // permanent red, or worse, an excuse list.
 
       rule(['linkTransferPair'], 'refuses a split transaction', async () => {
         // `category: ''` beside `isSplit`, like every other split fixture in

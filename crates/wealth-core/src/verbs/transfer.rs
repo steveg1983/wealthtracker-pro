@@ -109,6 +109,72 @@ pub fn are_opposite(first: Money, second: Money) -> bool {
         .is_some_and(|negated| first.minor() == negated)
 }
 
+/// T-1 across a currency boundary: opposite in SIGN, both non-zero, and no
+/// opinion whatsoever about magnitude.
+///
+/// # Why the magnitude test is dropped rather than loosened
+///
+/// [`are_opposite`] asks the two amounts to sum to zero. Two amounts in
+/// different currencies never do, except by the coincidence of a rate that
+/// happens to be exactly 1 — so applied across a boundary it is not a strict
+/// rule, it is a rule that refuses **every** legal pair. That is the whole of
+/// the defect: the owner's ledger already holds 70 cross-currency pairs the MS
+/// Money importer bulk-inserted directly, and no runtime verb in either engine
+/// could have created a single one of them. An engine stricter than the data it
+/// guards is not enforcing an invariant, it is only failing to notice.
+///
+/// What survives is the part that was ever about money: the two sides must move
+/// in OPPOSITE DIRECTIONS. One account is down, the other is up. Two sides that
+/// both fall are not one movement seen twice, whatever the currencies.
+///
+/// What is deliberately NOT reintroduced anywhere is an opinion about the rate.
+/// The ratio between the two magnitudes IS the achieved rate — spread, fee and
+/// all — and the engine has no way to know what it should have been and no
+/// business guessing. A tolerance band here would refuse a real bank's real
+/// conversion on a volatile day. So: sign, and nothing else.
+///
+/// # Both arguments are tested for zero, unlike [`are_opposite`]
+///
+/// That function leans on `0 <> -0` being false to catch a zero second side.
+/// There is no such arithmetic here — `signum` says nothing about magnitude and
+/// `0.signum() == 0` compares unequal to both `1` and `-1`, so a zero side would
+/// slip through a bare sign comparison as "different". Spelled out instead of
+/// relied upon, because the reader should not have to derive it.
+pub fn are_opposite_in_sign(first: Money, second: Money) -> bool {
+    if first == Money::ZERO || second == Money::ZERO {
+        return false;
+    }
+    // signum, not negation: i64::MIN has no positive counterpart but it does
+    // have a sign, so this branch has nothing to check and cannot panic.
+    first.minor().signum() != second.minor().signum()
+}
+
+/// T-1's cross-currency wording — the refusal a same-sign pair earns.
+///
+/// Carries the CURRENCY beside each figure, which the same-currency message
+/// ([`amounts_not_opposite`]) has no need to: there, two bare numbers are
+/// comparable and the reader can see the rule broken. Here "−30.00 vs −38.00"
+/// with no codes invites exactly the wrong correction — the reader reaches for
+/// the magnitudes, which this rule does not care about, instead of the signs,
+/// which are the entire complaint.
+///
+/// The argument order is `(a, b)` as the caller passes them, matching the
+/// sibling message's contract.
+pub fn amounts_not_opposite_across_currencies(
+    first: Money,
+    first_currency: &str,
+    second: Money,
+    second_currency: &str,
+) -> CoreError {
+    CoreError::refuse(
+        "transfer_amounts_not_opposite_sign",
+        &format!(
+            "transfer sides in different currencies must be opposite in sign and non-zero \
+             ({first_currency} {first} vs {second_currency} {second})"
+        ),
+    )
+}
+
 /// T-5. `20260716100000:112-115` and three copies.
 pub fn split_cannot_become_transfer() -> CoreError {
     CoreError::refuse(
@@ -161,7 +227,10 @@ pub fn vanished(what: &str) -> CoreError {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
-    use super::{amounts_not_opposite, are_opposite};
+    use super::{
+        amounts_not_opposite, amounts_not_opposite_across_currencies, are_opposite,
+        are_opposite_in_sign,
+    };
     use crate::money::Money;
 
     #[test]
@@ -182,6 +251,74 @@ mod tests {
         assert_eq!(
             error.to_string(),
             "transfer_amounts_not_opposite: transfer sides must have exactly opposite non-zero amounts (-30.00 vs 29.99)"
+        );
+    }
+
+    #[test]
+    fn across_a_currency_boundary_only_the_sign_is_asked_about() {
+        // The shape every real cross-currency pair has, and the shape
+        // are_opposite refuses: opposite ways, magnitudes that do not cancel.
+        assert!(are_opposite_in_sign(
+            Money::from_minor(-3000),
+            Money::from_minor(3800)
+        ));
+        assert!(are_opposite_in_sign(
+            Money::from_minor(3800),
+            Money::from_minor(-3000)
+        ));
+        // A rate of exactly 1 is not special-cased into a refusal.
+        assert!(are_opposite_in_sign(
+            Money::from_minor(-3000),
+            Money::from_minor(3000)
+        ));
+        // …and the same pair is what the strict rule accepts, so the loosened
+        // rule is a superset rather than a different rule.
+        assert!(are_opposite(Money::from_minor(-3000), Money::from_minor(3000)));
+    }
+
+    #[test]
+    fn a_same_sign_pair_is_refused_however_far_apart_the_magnitudes_are() {
+        assert!(!are_opposite_in_sign(
+            Money::from_minor(-3000),
+            Money::from_minor(-3800)
+        ));
+        assert!(!are_opposite_in_sign(
+            Money::from_minor(3000),
+            Money::from_minor(3800)
+        ));
+    }
+
+    #[test]
+    fn a_zero_side_is_refused_from_either_position() {
+        // Neither argument may lean on the other's non-zeroness: are_opposite
+        // tests only the first because its negation test catches the second,
+        // and there is no negation test here to catch anything.
+        assert!(!are_opposite_in_sign(Money::ZERO, Money::from_minor(3800)));
+        assert!(!are_opposite_in_sign(Money::from_minor(-3000), Money::ZERO));
+        assert!(!are_opposite_in_sign(Money::ZERO, Money::ZERO));
+    }
+
+    #[test]
+    fn i64_min_has_a_sign_even_though_it_has_no_negation() {
+        // are_opposite reports "not opposite" here because checked_neg fails.
+        // This rule never negates, so it answers the question actually asked.
+        assert!(are_opposite_in_sign(
+            Money::from_minor(1),
+            Money::from_minor(i64::MIN)
+        ));
+    }
+
+    #[test]
+    fn the_cross_currency_message_names_the_currency_beside_each_figure() {
+        let error = amounts_not_opposite_across_currencies(
+            Money::from_minor(-3000),
+            "USD",
+            Money::from_minor(-3800),
+            "GBP",
+        );
+        assert_eq!(
+            error.to_string(),
+            "transfer_amounts_not_opposite_sign: transfer sides in different currencies must be opposite in sign and non-zero (USD -30.00 vs GBP -38.00)"
         );
     }
 }

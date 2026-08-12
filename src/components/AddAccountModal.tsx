@@ -8,6 +8,7 @@ import type { Account } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { parseMoneyInput } from '../utils/decimal';
 import CardNumberGuidance from './CardNumberGuidance';
+import { ACCOUNT_CURRENCIES } from '../constants/accountCurrencies';
 import {
   BANK_ACCOUNT_NUMBER_LENGTH,
   CARD_NUMBER_LABEL,
@@ -53,11 +54,10 @@ const accountTypes = [
   { value: 'assets', label: 'Other Assets', icon: PackageIcon, description: 'Property, valuables' },
 ];
 
-const currencies = [
-  { value: 'GBP', label: 'British Pound', symbol: '£' },
-  { value: 'USD', label: 'US Dollar', symbol: '$' },
-  { value: 'EUR', label: 'Euro', symbol: '€' },
-];
+// The supported list, shared with Account Settings — which now SHOWS an
+// account's currency, and must offer exactly what this form offered when the
+// account was made. See constants/accountCurrencies.
+const currencies = ACCOUNT_CURRENCIES;
 
 export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCreated }: AddAccountModalProps): React.JSX.Element {
   const { addAccount } = useApp();

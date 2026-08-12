@@ -1,4 +1,6 @@
 import React from 'react';
+import ConvertedTotalNote from './ConvertedTotalNote';
+import type { RatesProvenance } from '../utils/currency-decimal';
 
 /**
  * Net worth and its two components, as ONE card.
@@ -44,6 +46,22 @@ interface NetWorthSummaryProps {
    * buttons.
    */
   onSelect?: (figure: NetWorthFigure) => void;
+  /**
+   * Where the rates that produced these three figures came from, or null when
+   * no conversion was needed because the whole ledger is in one currency.
+   *
+   * Null is the common case and it renders NOTHING — see ConvertedTotalNote.
+   * The card gains no height, no border and no words for the many people who
+   * never touch a second currency.
+   */
+  provenance?: RatesProvenance | null;
+  /**
+   * Currencies with no available rate, whose amounts are nevertheless inside
+   * these totals. Reported because it makes the figures wrong by that much.
+   */
+  unconverted?: readonly string[];
+  /** The currency the three figures are expressed in. */
+  displayCurrency?: string;
 }
 
 /** The column heading over each figure. */
@@ -54,6 +72,9 @@ export default function NetWorthSummary({
   assets,
   liabilities,
   onSelect,
+  provenance = null,
+  unconverted = [],
+  displayCurrency,
 }: NetWorthSummaryProps): React.JSX.Element {
   const cells: ReadonlyArray<{
     figure: NetWorthFigure;
@@ -89,6 +110,7 @@ export default function NetWorthSummary({
   ];
 
   return (
+    <>
     <div className="overflow-hidden rounded-lg border border-line dark:border-gray-700 bg-white dark:bg-gray-800">
       {/* Hairlines between the columns, not gaps between cards: one border for
           the whole thing rather than three. They stack on a phone, where three
@@ -120,5 +142,14 @@ export default function NetWorthSummary({
         })}
       </div>
     </div>
+    {/* Directly under the figures it is about — the app's standing rule is that
+        a warning belongs where the error shows, not in a banner at the top of
+        the page. Renders nothing when there was nothing to convert. */}
+    <ConvertedTotalNote
+      provenance={provenance}
+      unconverted={unconverted}
+      displayCurrency={displayCurrency}
+    />
+    </>
   );
 }

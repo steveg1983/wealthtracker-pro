@@ -356,8 +356,26 @@ export function toAccountBalanceMap(rows: unknown): Map<string, ServerAccountBal
 function mapToDbFields(obj: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
-    // Skip complex nested objects that don't map to DB columns
-    if (key === 'transferMetadata' || key === 'investmentData' || key === 'location') {
+    // Skip complex nested objects that don't map to DB columns.
+    //
+    // `transferMetadata` used to head this list and no longer exists: it was
+    // declared on Transaction, skipped here, and therefore silently discarded
+    // on every save. The field is gone from the type; see the note where
+    // `metadata` now stands in src/types/index.ts.
+    //
+    // `metadata` is deliberately NOT skipped. It is a real jsonb column in both
+    // editions, it is one of the sixteen fields updateTransaction's contract
+    // says the engines honour, and it has no entry in CAMEL_TO_DB — so it
+    // passes through under its own name, which is the column's name.
+    // `investmentData` also used to be skipped here — set by the Add
+    // Investment modal, dropped on save, read by nothing. The truth it
+    // duplicated lives in public.investments (the machine's copy) and in the
+    // transaction's structured notes (the human's); the field and its float
+    // money values were removed with it. Only `location` remains: the type's
+    // plaid-era location object does not match the location_city/
+    // location_country columns, so it may never pass through under its own
+    // shape.
+    if (key === 'location') {
       continue;
     }
     result[CAMEL_TO_DB[key] ?? key] = value;

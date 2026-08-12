@@ -7,7 +7,16 @@ import {
   type SplitLegSuggestion,
   type TransferPairSuggestion,
 } from './transferSweep';
-import type { Category, Transaction, TransactionSplit } from '../types';
+import {
+  accountCurrencyIndex,
+  compareCrossCurrencyCandidates,
+  crossCurrencyCandidate,
+  hasMultipleCurrencies,
+  type AccountCurrencyIndex,
+  type CrossCurrencyRateLookup,
+} from './crossCurrencyMatch';
+import type { CrossCurrency } from './crossCurrencyTransfer';
+import type { Account, Category, Transaction, TransactionSplit } from '../types';
 
 /**
  * Stranded transfers — the residue the clean sweep cannot touch.
@@ -86,6 +95,13 @@ export interface CategorisedTwinFinding extends FindingBase {
   counterpartCategoryName: string;
   daysApart: number;
   descriptionScore: number;
+  /**
+   * Set when the twin is in an account counting in ANOTHER currency, oriented
+   * row → counterpart. The two figures will not match and must not be expected
+   * to; the UI shows both currencies so the user is judging a conversion rather
+   * than an arithmetic error.
+   */
+  crossCurrency?: CrossCurrency;
 }
 
 /** Transfer-shaped, but nothing anywhere in the window is its opposite. */
@@ -113,6 +129,14 @@ export interface StrandedSweepOptions {
    * over a long history is wasted work.
    */
   sweepSuggestions?: TransferPairSuggestion[];
+  /**
+   * The accounts, so a twin in another currency can be recognised as one.
+   * Without them nothing here changes: every classifier keeps asking its
+   * exact-amount question and gets its old answer.
+   */
+  accounts?: readonly Account[];
+  /** A quote used to RANK cross-currency twins. Never to exclude one. */
+  rateLookup?: CrossCurrencyRateLookup;
 }
 
 const pennies = (amount: number): number => toDecimal(amount).times(100).toDecimalPlaces(0).toNumber();
@@ -190,6 +214,11 @@ export function findStrandedTransfers(
     windowDays,
     onlyUncategorised: true,
     categoryIds,
+    // Threaded through so a row the CROSS-CURRENCY pass paired counts as swept
+    // and never turns up here as stranded. A caller that passes its own
+    // `sweepSuggestions` has already made that choice for itself.
+    ...(opts.accounts ? { accounts: opts.accounts } : {}),
+    ...(opts.rateLookup ? { rateLookup: opts.rateLookup } : {}),
   }).suggestions;
 
   const swept = new Set<string>();
@@ -232,13 +261,18 @@ export function findStrandedTransfers(
     return !hasRealCategory;
   });
 
+  // Built only for a book that actually holds more than one currency, and
+  // `null` otherwise — which is the state every existing ledger is in, and the
+  // state in which every classifier below behaves exactly as it did.
+  const crossIndex = buildCrossTwinIndex(transactions, opts);
+
   const findings: StrandedFinding[] = [];
 
   for (const row of population) {
     const finding =
       duplicateFindingFor(row, takenByDayAmount) ??
       claimedTwinFindingFor(row, allByAmount, byId, windowDays) ??
-      categorisedTwinFindingFor(row, allByAmount, categoryById, windowDays) ??
+      categorisedTwinFindingFor(row, allByAmount, categoryById, windowDays, crossIndex) ??
       oneSidedFindingFor(row, allByAmount, windowDays);
     if (finding) findings.push(finding);
   }
@@ -344,21 +378,31 @@ function categorisedTwinFindingFor(
   row: Transaction,
   allByAmount: Map<number, Transaction[]>,
   categoryById: Map<string, Category>,
-  windowDays: number
+  windowDays: number,
+  crossIndex: CrossTwinIndex | null
 ): CategorisedTwinFinding | null {
   if (!isActionable(row)) return null;
 
-  const candidates: CategorisedTwinFinding[] = [];
-  for (const counterpart of allByAmount.get(-pennies(row.amount)) ?? []) {
-    if (counterpart.id === row.id) continue;
-    if (counterpart.accountId === row.accountId) continue;
-    if (isTakenAsTransfer(counterpart)) continue;
-    if (!isActionable(counterpart)) continue;
+  /** The shared eligibility of a twin, whatever currency it counts in. */
+  const filedCategoryOf = (counterpart: Transaction): Category | null => {
+    if (counterpart.id === row.id) return null;
+    if (counterpart.accountId === row.accountId) return null;
+    if (isTakenAsTransfer(counterpart)) return null;
+    if (!isActionable(counterpart)) return null;
 
     const category = counterpart.category ? categoryById.get(counterpart.category) : undefined;
     // A transfer category or an importer's unassigned bucket is not a filing
     // the user made, so neither counts as "somebody categorised this".
-    if (!category || category.isTransferCategory === true || category.isUnassignedBucket === true) continue;
+    if (!category || category.isTransferCategory === true || category.isUnassignedBucket === true) {
+      return null;
+    }
+    return category;
+  };
+
+  const candidates: CategorisedTwinFinding[] = [];
+  for (const counterpart of allByAmount.get(-pennies(row.amount)) ?? []) {
+    const category = filedCategoryOf(counterpart);
+    if (!category) continue;
 
     const daysApart = daysBetween(row, counterpart);
     if (daysApart > windowDays) continue;
@@ -379,7 +423,123 @@ function categorisedTwinFindingFor(
       b.descriptionScore - a.descriptionScore ||
       a.counterpart.id.localeCompare(b.counterpart.id)
   );
-  return candidates[0] ?? null;
+  if (candidates[0]) return candidates[0];
+
+  /**
+   * ── AND ONLY THEN, ACROSS A CURRENCY BOUNDARY ─────────────────────────────
+   *
+   * Reached exclusively when no exact twin exists at all, which is what keeps
+   * every same-currency answer above identical to the character: this branch
+   * cannot run on a row that had one.
+   *
+   * The restraint is also what makes the offer usable. A cross-currency twin is
+   * matched on SIGN alone — no magnitude test is permitted, because the ratio
+   * between the magnitudes is the achieved rate — so on a busy fortnight a row
+   * could otherwise be "twinned" with a dozen unrelated foreign rows. Requiring
+   * that nothing exact exists first means the question is only ever asked where
+   * it is the last remaining explanation.
+   *
+   * The finding's own framing carries the rest: it says the twin is EITHER a
+   * mis-filed transfer leg OR a coincidence, and that nothing here can tell
+   * which. That was already the honest sentence for two same-amount rows; it is
+   * the same sentence, with the amounts no longer expected to match.
+   */
+  return crossIndex ? crossCurrencyTwinFor(row, filedCategoryOf, windowDays, crossIndex) : null;
+}
+
+/**
+ * Free, categorised rows bucketed by calendar day and sign, so a cross-currency
+ * twin can be looked for without an amount to key on.
+ *
+ * The same index the sweep's own cross-currency pass builds and for the same
+ * reason: across a boundary the amount is not a lookup key, and the date is.
+ */
+interface CrossTwinIndex {
+  currencies: AccountCurrencyIndex;
+  positives: Map<number, Transaction[]>;
+  negatives: Map<number, Transaction[]>;
+  rateLookup?: CrossCurrencyRateLookup;
+}
+
+function buildCrossTwinIndex(
+  transactions: Transaction[],
+  opts: StrandedSweepOptions
+): CrossTwinIndex | null {
+  if (!opts.accounts) return null;
+  const currencies = accountCurrencyIndex(opts.accounts);
+  // A single-currency book can produce no cross-currency twin, so it pays for
+  // no index at all.
+  if (!hasMultipleCurrencies(currencies)) return null;
+
+  const positives = new Map<number, Transaction[]>();
+  const negatives = new Map<number, Transaction[]>();
+  for (const t of transactions) {
+    if (toDecimal(t.amount).isZero()) continue;
+    if (!currencies.has(t.accountId)) continue;
+    const bucket = toDecimal(t.amount).isNegative() ? negatives : positives;
+    const day = dayNumberOf(t.date);
+    const list = bucket.get(day);
+    if (list) list.push(t);
+    else bucket.set(day, [t]);
+  }
+
+  return {
+    currencies,
+    positives,
+    negatives,
+    ...(opts.rateLookup ? { rateLookup: opts.rateLookup } : {}),
+  };
+}
+
+const dayNumberOf = (date: Date | string): number => Math.floor(timeOf(date) / DAY_MS);
+
+/** The best cross-currency twin for a row, or null. Ranked date-first. */
+function crossCurrencyTwinFor(
+  row: Transaction,
+  filedCategoryOf: (counterpart: Transaction) => Category | null,
+  windowDays: number,
+  crossIndex: CrossTwinIndex
+): CategorisedTwinFinding | null {
+  const bucket = toDecimal(row.amount).isNegative() ? crossIndex.positives : crossIndex.negatives;
+  const span = Math.ceil(windowDays);
+  const day = dayNumberOf(row.date);
+
+  const candidates: Array<CategorisedTwinFinding & { rateDivergence?: number }> = [];
+  for (let d = day - span; d <= day + span; d += 1) {
+    for (const counterpart of bucket.get(d) ?? []) {
+      const category = filedCategoryOf(counterpart);
+      if (!category) continue;
+
+      const daysApart = daysBetween(row, counterpart);
+      if (daysApart > windowDays) continue;
+
+      const match = crossCurrencyCandidate(row, counterpart, crossIndex.currencies, crossIndex.rateLookup);
+      if (!match) continue;
+
+      candidates.push({
+        kind: 'categorised',
+        row,
+        counterpart,
+        counterpartCategoryName: category.name,
+        daysApart,
+        descriptionScore: calculateStringSimilarity(row.description, counterpart.description),
+        crossCurrency: match.pair,
+        ...(match.rateDivergence === undefined ? {} : { rateDivergence: match.rateDivergence }),
+      });
+    }
+  }
+
+  candidates.sort(
+    (a, b) =>
+      compareCrossCurrencyCandidates(a, b) || a.counterpart.id.localeCompare(b.counterpart.id)
+  );
+
+  const best = candidates[0];
+  if (!best) return null;
+  // `rateDivergence` ranked this list and has no meaning to a reader of the
+  // finding — a market's opinion is not evidence the UI should repeat.
+  const { rateDivergence: _ranked, ...finding } = best;
+  return finding;
 }
 
 /**

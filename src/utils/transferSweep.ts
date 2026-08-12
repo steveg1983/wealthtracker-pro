@@ -1,6 +1,15 @@
 import { toDecimal } from './decimal';
 import { calculateStringSimilarity } from './duplicateScan';
-import type { Transaction, TransactionSplit } from '../types';
+import {
+  accountCurrencyIndex,
+  compareCrossCurrencyCandidates,
+  crossCurrencyCandidate,
+  hasMultipleCurrencies,
+  type AccountCurrencyIndex,
+  type CrossCurrencyRateLookup,
+} from './crossCurrencyMatch';
+import type { CrossCurrency } from './crossCurrencyTransfer';
+import type { Account, Transaction, TransactionSplit } from '../types';
 
 /**
  * Bulk transfer matching — find every unlinked equal-and-opposite pair in one
@@ -50,6 +59,16 @@ export interface TransferPairSuggestion {
   descriptionScore: number;
   /** True when other equally-close candidates existed for this row. */
   ambiguous: boolean;
+  /**
+   * Set only for a pair that crosses a CURRENCY boundary, oriented outgoing →
+   * incoming: `from` is the currency the money left, `to` the currency it
+   * arrived in. Its presence is what tells the review UI to show the boundary
+   * on the row, because the two figures alone cannot say it — a bare
+   * "−100.00 / +74.20" reads as a broken match rather than a conversion.
+   */
+  crossCurrency?: CrossCurrency;
+  /** See crossCurrencyMatch. Sorting only, and only ever set alongside `crossCurrency`. */
+  rateDivergence?: number;
 }
 
 /**
@@ -157,6 +176,15 @@ export function sweepTransferPairs(
      * comes back empty.
      */
     splits?: TransactionSplit[];
+    /**
+     * The accounts, which is the only way to know what currency a row counts
+     * in. Without them the cross-currency pass does not run at all and this
+     * function behaves exactly as it did before that pass existed — the same
+     * bargain `splits` strikes above.
+     */
+    accounts?: readonly Account[];
+    /** A quote used to RANK cross-currency candidates. Never to exclude one. */
+    rateLookup?: CrossCurrencyRateLookup;
   } = {}
 ): TransferSweepResult {
   const windowDays = opts.windowDays ?? SWEEP_WINDOW_DAYS;
@@ -253,6 +281,23 @@ export function sweepTransferPairs(
     ? sweepSplitLegs(legs, eligible, used, windowDays)
     : [];
 
+  // The cross-currency pass, LAST of the three and additive on the same terms.
+  // It shares `used` and runs after both passes above have taken what they
+  // wanted, so every suggestion and every leg match they produced is exactly
+  // what it would have been without this pass existing. It can only ever pair
+  // rows that nothing else could use — which is also the honest description of
+  // what it is for: −$100 and +£74.20 were invisible to both.
+  const index = opts.accounts ? accountCurrencyIndex(opts.accounts) : null;
+  //
+  // APPENDED, never merged in by a re-sort: the same-currency suggestions keep
+  // the exact positions they had, because the order this array comes out in is
+  // observable and pinned by tests. The review UI applies its own ordering to
+  // the rows it shows (compareRows in TransferSweepModal), so nothing on screen
+  // depends on the cross-currency entries arriving at the end.
+  if (index && hasMultipleCurrencies(index)) {
+    suggestions.push(...sweepCrossCurrencyPairs(eligible, used, windowDays, index, opts.rateLookup));
+  }
+
   return { suggestions, legSuggestions, scanned: eligible.length, legsScanned: legs.length };
 }
 
@@ -336,3 +381,156 @@ function sweepSplitLegs(
 
   return suggestions;
 }
+
+/**
+ * Pair what is LEFT across a currency boundary.
+ *
+ * ── WHY THIS PASS CANNOT BUCKET BY AMOUNT, AND WHAT IT BUCKETS BY INSTEAD ────
+ *
+ * Both passes above find their candidates in O(1) by looking up the exact
+ * opposite penny amount. Across a boundary there is no such key: the whole
+ * point is that £74.20 is the opposite of $100.00, and the number that connects
+ * them is a rate this file is not allowed to have an opinion about.
+ *
+ * So the index is the other fact a pair must satisfy — the DATE. Rows are
+ * bucketed by calendar day and by sign, and a row consults only the ±window
+ * days of buckets holding the opposite sign: nine buckets at the standard
+ * window of four days. That keeps the pass linear in the leftovers rather than
+ * quadratic, which matters because the rows reaching it are precisely the ones
+ * nothing else could pair — on a long history that is a big pile.
+ *
+ * The pass is skipped outright for a single-currency book (see
+ * `hasMultipleCurrencies`), which is most books, so none of this is paid for by
+ * a ledger it cannot apply to.
+ */
+function sweepCrossCurrencyPairs(
+  eligible: Transaction[],
+  used: Set<string>,
+  windowDays: number,
+  index: AccountCurrencyIndex,
+  rateLookup?: CrossCurrencyRateLookup
+): TransferPairSuggestion[] {
+  const dayOf = (t: Transaction): number => Math.floor(timeOf(t.date) / DAY_MS);
+  const span = Math.ceil(windowDays);
+
+  // Leftovers only, split by sign: a candidate must be opposite in sign, so the
+  // two halves never look at themselves.
+  const positives = new Map<number, Transaction[]>();
+  const negatives = new Map<number, Transaction[]>();
+  const remaining: Transaction[] = [];
+  for (const t of eligible) {
+    if (used.has(t.id)) continue;
+    // A row in an account of unknown currency can pair with nothing here —
+    // `crossCurrencyCandidate` would decline it — so it is not indexed either.
+    if (!index.has(t.accountId)) continue;
+    remaining.push(t);
+    const bucket = toDecimal(t.amount).isNegative() ? negatives : positives;
+    const day = dayOf(t);
+    const list = bucket.get(day);
+    if (list) list.push(t);
+    else bucket.set(day, [t]);
+  }
+  if (remaining.length === 0) return [];
+
+  /** Every leftover row of the OPPOSITE sign whose day is within the window. */
+  const nearby = (row: Transaction): Transaction[] => {
+    const bucket = toDecimal(row.amount).isNegative() ? positives : negatives;
+    const day = dayOf(row);
+    const found: Transaction[] = [];
+    for (let d = day - span; d <= day + span; d += 1) {
+      const list = bucket.get(d);
+      if (list) found.push(...list);
+    }
+    return found;
+  };
+
+  /** One row's viable partner, with everything the ranking needs. */
+  interface CrossCandidate {
+    transaction: Transaction;
+    pair: CrossCurrency;
+    rateDivergence?: number;
+    daysApart: number;
+    descriptionScore: number;
+  }
+
+  /** The viable partners for `from`, ranked. `skipId` drops a known partner. */
+  const rank = (from: Transaction, skipId?: string): CrossCandidate[] => {
+    const fromTime = timeOf(from.date);
+    return nearby(from)
+      .flatMap<CrossCandidate>(other => {
+        if (used.has(other.id) || other.id === skipId) return [];
+        const daysApart = Math.abs(timeOf(other.date) - fromTime) / DAY_MS;
+        if (daysApart > windowDays) return [];
+        const match = crossCurrencyCandidate(from, other, index, rateLookup);
+        if (!match) return [];
+        return [{
+          transaction: other,
+          pair: match.pair,
+          daysApart,
+          descriptionScore: calculateStringSimilarity(from.description, other.description),
+          ...(match.rateDivergence === undefined ? {} : { rateDivergence: match.rateDivergence }),
+        }];
+      })
+      .sort(compareCrossCurrencyCandidates);
+  };
+
+  // Deterministic order, exactly as the pass above: oldest first, id as the
+  // tie-break, so a re-run over unchanged data pairs identically.
+  const ordered = [...remaining].sort(
+    (a, b) => timeOf(a.date) - timeOf(b.date) || a.id.localeCompare(b.id)
+  );
+
+  const suggestions: TransferPairSuggestion[] = [];
+  for (const row of ordered) {
+    if (used.has(row.id)) continue;
+
+    const candidates = rank(row);
+    const best = candidates[0];
+    if (!best) continue;
+
+    // The reverse direction, on the same terms as the same-currency pass: other
+    // free rows that could equally claim the partner this row chose. Which side
+    // the sweep reaches first is an accident of ordering, so a tie is only
+    // honest if it is checked from both ends. `row` itself is still unused and
+    // therefore in this list, so the top two being level means a genuine tie.
+    const partner = best.transaction;
+    const rivals = rank(partner, partner.id);
+
+    used.add(row.id);
+    used.add(partner.id);
+
+    const rowIsOutgoing = toDecimal(row.amount).isNegative();
+    // `match.pair` is oriented row → partner. The suggestion is oriented
+    // outgoing → incoming, which is the same thing only when the row IS the
+    // outgoing side; otherwise the pair is read the other way round, so that
+    // `from` always names the currency the money actually left.
+    const pair = rowIsOutgoing
+      ? best.pair
+      : { from: best.pair.to, to: best.pair.from };
+
+    suggestions.push({
+      outgoing: rowIsOutgoing ? row : partner,
+      incoming: rowIsOutgoing ? partner : row,
+      daysApart: best.daysApart,
+      descriptionScore: best.descriptionScore,
+      ambiguous: equallyGoodCrossCurrency(candidates) || equallyGoodCrossCurrency(rivals),
+      crossCurrency: pair,
+      ...(best.rateDivergence === undefined ? {} : { rateDivergence: best.rateDivergence }),
+    });
+  }
+
+  return suggestions;
+}
+
+/**
+ * `equallyGood`, for a list ranked with the cross-currency comparator.
+ *
+ * The same-currency version compares the two fields it sorts on. This one has
+ * to consult the comparator itself, because a third field sits between them and
+ * "the top two are indistinguishable" must mean indistinguishable to the thing
+ * that ordered them — otherwise two candidates the rate cleanly separates would
+ * still be flagged ambiguous, and the flag would stop meaning anything.
+ */
+const equallyGoodCrossCurrency = (
+  list: Array<{ daysApart: number; rateDivergence?: number; descriptionScore: number }>
+): boolean => list.length > 1 && compareCrossCurrencyCandidates(list[0], list[1]) === 0;

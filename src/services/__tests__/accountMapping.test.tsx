@@ -332,6 +332,73 @@ describe('Account Settings and an alert the user did not touch', () => {
   });
 });
 
+describe('the currency Account Settings now shows', () => {
+  /**
+   * `mapAccountToDb` has no entry for `currency` — it falls through the
+   * identity branch, which is correct only because the column happens to be
+   * spelled the same. That is exactly the kind of thing that is true until it
+   * is not, so it is asserted through the real modal, the real mapper and the
+   * real service rather than read off the map.
+   */
+  const renderSettings = (account: Account, table: AccountsTable, hasTransactions: boolean) => {
+    const service = refreshService(table);
+    render(
+      <AccountSettingsModal
+        isOpen
+        onClose={() => {}}
+        account={account}
+        hasTransactions={hasTransactions}
+        onSave={(id: string, updates: AccountUpdate) => service.updateAccount(id, updates, USER_ID)}
+      />
+    );
+  };
+
+  it('reaches the currency column and survives the round trip', async () => {
+    const table = createAccountsTable();
+    const [account] = await bootService(table).getAccounts(USER_ID);
+    expect(account.currency).toBe('GBP');
+
+    renderSettings(account, table, false);
+
+    fireEvent.change(screen.getByLabelText('Currency'), { target: { value: 'USD' } });
+    fireEvent.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => expect(table.writes).toHaveLength(1));
+
+    // The column, not the camelCase field name: PostgREST rejects the whole
+    // update if one key is not a column, taking the rest of the edit with it.
+    expect(table.writes[0]).toMatchObject({ currency: 'USD' });
+    expect(table.stored().currency).toBe('USD');
+
+    // And the app reads back what was stored, so the field the modal shows next
+    // time is the one the database holds.
+    const [reloaded] = await bootService(table).getAccounts(USER_ID);
+    expect(reloaded.currency).toBe('USD');
+  });
+
+  it('leaves the stored currency alone when the account has history', async () => {
+    const table = createAccountsTable();
+    const [account] = await bootService(table).getAccounts(USER_ID);
+
+    renderSettings(account, table, true);
+
+    fireEvent.change(screen.getByLabelText('Account name'), {
+      target: { value: 'Everyday Current — joint' }
+    });
+    fireEvent.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => expect(table.writes).toHaveLength(1));
+
+    // Unlike the bank details above, currency is NOT written back on an
+    // unrelated save. The value on screen is the stored one, so re-sending it
+    // would normally be a no-op — but the account is one insert away from
+    // having a register, and a no-op that becomes a re-denomination is not a
+    // no-op worth keeping.
+    expect(table.writes[0]).not.toHaveProperty('currency');
+    expect(table.stored().currency).toBe('GBP');
+  });
+});
+
 describe('matching a statement to the account it came from', () => {
   const statement = {
     accountId: '87654321',

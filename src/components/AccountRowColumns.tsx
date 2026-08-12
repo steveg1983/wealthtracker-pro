@@ -158,8 +158,16 @@ export function AccountBalanceCell({
 }
 
 /**
- * A count of outstanding work: amber while there is some, blue when there is
- * none.
+ * A count of outstanding work: quiet slate while there is some, blue when
+ * there is none.
+ *
+ * It wore amber until DESIGN_RULINGS_2026-08-12 (ruling A): amber marks the
+ * CONTROL you should touch next — a single, clickable next action — and this
+ * is a count, which reports a quantity and does nothing when clicked. Two
+ * ambers on one screen where one is actionable and one is not teaches the eye
+ * that amber means "look here-ish", eroding the one signal the yellow thread
+ * depends on. If the row should invite the work, the invitation belongs on
+ * the row's reconcile control, which already exists.
  *
  * A QUIET 0 RATHER THAN A BLANK, unlike the register's own counters, and the
  * difference is the surface rather than an inconsistency: this is a COLUMN, and
@@ -179,7 +187,7 @@ export function AccountCountCell({
       <p className={CELL_LABEL_CLASS}>{label}</p>
       <p
         className={`${CELL_FIGURE_CLASS} ${
-          count > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400'
+          count > 0 ? 'text-slate-600 dark:text-gray-300' : 'text-blue-600 dark:text-blue-400'
         }`}
       >
         {count}

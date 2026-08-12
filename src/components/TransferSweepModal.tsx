@@ -4,6 +4,8 @@ import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { useReferenceRates } from '../hooks/useReferenceRates';
+import { amountWithCurrencyCode } from '../utils/crossCurrencyLabel';
 import { sweepTransferPairs, type SplitLegSuggestion, type TransferPairSuggestion } from '../utils/transferSweep';
 import {
   findStrandedTransfers,
@@ -281,6 +283,10 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
     dismissSuggestion, restoreSuggestion,
   } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
+  // Asked for only while the sweep is open, and used for nothing but ORDER —
+  // see useReferenceRates. If it never arrives the same rows are offered, sorted
+  // by date and wording alone.
+  const rateLookup = useReferenceRates(isOpen);
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -370,8 +376,14 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
       onlyUncategorised: true,
       categoryIds: new Set(categories.map(c => c.id)),
       splits: transactionSplits,
+      // The accounts turn on the third pass: pairs that cross a CURRENCY
+      // boundary, which no amount bucket could ever have found. The rate table
+      // only orders them — a pair is never withheld because a mid-market quote
+      // disagrees with what the bank actually did.
+      accounts,
+      ...(rateLookup ? { rateLookup } : {}),
     });
-  }, [isOpen, transactions, categories, transactionSplits]);
+  }, [isOpen, transactions, categories, transactionSplits, accounts, rateLookup]);
 
   /**
    * The residue the clean sweep cannot pair. Composed with the suggestions
@@ -380,8 +392,15 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
    */
   const findings = useMemo(() => {
     if (!isOpen) return [] as StrandedFinding[];
-    return findStrandedTransfers(transactions, categories, { sweepSuggestions: suggestions }).findings;
-  }, [isOpen, transactions, categories, suggestions]);
+    return findStrandedTransfers(transactions, categories, {
+      sweepSuggestions: suggestions,
+      // So a twin that is merely in another currency is recognised as a twin,
+      // instead of the row being called one-sided and offered the Account
+      // Adjustment filing — which for a real transfer leg is a misfiling.
+      accounts,
+      ...(rateLookup ? { rateLookup } : {}),
+    }).findings;
+  }, [isOpen, transactions, categories, suggestions, accounts, rateLookup]);
 
   /** Split lines with no other side anywhere — reported, never acted on. */
   const legFindings = useMemo(() => {
@@ -762,7 +781,15 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                           checked={effectiveSelected.has(row.key)}
                           onChange={() => toggle(row.key)}
                           disabled={applying}
-                          aria-label={`Link ${formatCurrency(Math.abs(row.pair.outgoing.amount))} transfer`}
+                          aria-label={
+                            row.pair.crossCurrency
+                              // Both figures, because they differ and the
+                              // checkbox is the whole confirmation — a label
+                              // naming one of them would understate what is
+                              // being agreed to.
+                              ? `Link ${amountWithCurrencyCode(row.pair.outgoing.amount, row.pair.crossCurrency.from)} to ${amountWithCurrencyCode(row.pair.incoming.amount, row.pair.crossCurrency.to)} transfer`
+                              : `Link ${formatCurrency(Math.abs(row.pair.outgoing.amount))} transfer`
+                          }
                           className="rounded border-gray-300"
                         />
                       </td>
@@ -778,6 +805,17 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                           <ArrowRightIcon size={12} className="text-gray-400 flex-shrink-0" />
                           <span className="truncate max-w-[140px]">{accountName(row.pair.incoming.accountId)}</span>
                         </span>
+                        {row.pair.crossCurrency && (
+                          /* The boundary, said on the row itself. Without it
+                             two figures that do not match read as a mistake
+                             the sweep made rather than as a conversion. */
+                          <span
+                            className="ml-2 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 whitespace-nowrap"
+                            title={`These accounts count in different currencies, so the two amounts differ by whatever rate this conversion got. Linking records that rate; it creates nothing and moves no balance.`}
+                          >
+                            {row.pair.crossCurrency.from} → {row.pair.crossCurrency.to}
+                          </span>
+                        )}
                         {row.pair.ambiguous && (
                           <span
                             className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 underline decoration-dotted underline-offset-2"
@@ -794,7 +832,21 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                         </span>
                       </td>
                       <td className="py-2 text-sm font-medium text-right tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
-                        {formatCurrency(Math.abs(row.pair.outgoing.amount))}
+                        {row.pair.crossCurrency ? (
+                          /* BOTH sides, stacked. A converted pair has two
+                             different magnitudes and showing one of them —
+                             which is all a same-currency pair ever needs —
+                             would hide the figure being written into the other
+                             account. */
+                          <span className="flex flex-col items-end leading-tight">
+                            <span>{amountWithCurrencyCode(row.pair.outgoing.amount, row.pair.crossCurrency.from)}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {amountWithCurrencyCode(row.pair.incoming.amount, row.pair.crossCurrency.to)}
+                            </span>
+                          </span>
+                        ) : (
+                          formatCurrency(Math.abs(row.pair.outgoing.amount))
+                        )}
                       </td>
                     </tr>
                   ) : (

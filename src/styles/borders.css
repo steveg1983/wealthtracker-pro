@@ -39,29 +39,39 @@
   box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5), 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
-/* Circular button shadows - use drop-shadow to respect border radius */
+/* Circular button shadows - use drop-shadow to respect border radius.
+   The `outline: none !important` these blocks carried is gone (DESIGN_RULINGS
+   2026-08-12, ruling B) and its replacement ships in the same change below —
+   never remove a focus suppression without landing the ring that takes its
+   place. */
 button.rounded-full {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
   border: none !important;
-  outline: none !important;
 }
 
 button.rounded-full:hover {
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15));
   border: none !important;
-  outline: none !important;
 }
 
 .dark button.rounded-full {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
   border: none !important;
-  outline: none !important;
 }
 
 .dark button.rounded-full:hover {
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
   border: none !important;
-  outline: none !important;
+}
+
+/* The replacement: circular buttons get the app's one focus ring at the app's
+   one offset, from the same variable every other control uses (see
+   accessibility-colors.css). Light mode resolves it to the brand navy, dark
+   mode to the slate the .dark block in index.css chooses — one system, no
+   special case. */
+button.rounded-full:focus-visible {
+  outline: 2px solid var(--focus-ring-color, #94a3b8);
+  outline-offset: 2px;
 }
 
 /* Grid item shadows (for draggable components) */
