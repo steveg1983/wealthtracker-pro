@@ -131,8 +131,14 @@ input[type="range"] {
   --color-sidebar: #1a2332;
   --color-sidebar-active: #2d3a4d;
   --color-sidebar-border: #2d3a4d;
-  --color-income: #0d9f6f;
-  --color-expense: #d94052;
+  /* Amount colours, AA-instrumented (DESIGN_PASS_2026-08 §2.1, measured with
+     ColorContrastChecker 2026-08-12): income 5.14:1 / expense 5.24:1 on #fff,
+     4.88 / 4.98 on this file's #f8f9fb page bg. The old pair (#0d9f6f /
+     #d94052) measured 3.38 / 4.37 — text-sized amounts failed AA. #0d9f6f
+     survives as the chart-series green (income-fill in tailwind.config.js).
+     Pinned by src/design-system/__tests__/semantic-contrast.test.ts. */
+  --color-income: #0a7d57;
+  --color-expense: #c9304a;
   --color-accent: #d4a843;
   /* Keyboard-focus outline + interactive-control colour (consumed by
      accessibility-colors.css and Button.tsx).
@@ -154,6 +160,15 @@ input[type="range"] {
   /* Light enough to read against gray-900 panels; still the navy family. */
   --focus-ring-color: #94a3b8;
   --color-border-focus: #94a3b8;
+}
+
+/* Numbers line up or they lie (DESIGN_PASS_2026-08, P5). Fixed-width digits
+   app-wide: 96 call sites already asked for `tabular-nums` one class at a
+   time — this makes it the default every amount, date and count inherits, so
+   a right-aligned column of figures actually aligns. Inter ships the feature;
+   zero bundle cost. */
+body {
+  font-variant-numeric: tabular-nums;
 }
 
 /* The colour-theme variants (green/red/pink primary swaps) were retired
