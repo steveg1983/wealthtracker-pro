@@ -128,11 +128,58 @@ describe('the desktop router', () => {
     expect(thin).toEqual([]);
   });
 
-  it('renders its one screen, and sends an excluded address home', () => {
-    // The manifest drives the router — `DesktopApp` maps over DESKTOP_ROUTES —
-    // so a route cannot appear in this window without appearing in the list the
-    // assertions above police. This is that claim, rendered: an address that was
-    // decided against resolves to the ledger screen, not to a page.
+  it('gives every mounted route an address, and no two the same', () => {
+    // `path` is App.tsx's token and `at` is where this window serves it, and the
+    // second is not derivable from the first: nothing in `app` says it lives
+    // under `settings`. Two routes at one address is a page nobody can reach —
+    // react-router picks one by specificity and the other is simply absent, with
+    // no error anywhere.
+    const seen = new Map<string, string[]>();
+    for (const route of DESKTOP_ROUTES) {
+      seen.set(route.at, [...(seen.get(route.at) ?? []), route.path]);
+    }
+    const clashes = [...seen].filter(([, paths]) => paths.length > 1);
+    expect(clashes).toEqual([]);
+  });
+
+  it('serves each address under the token it was copied from', () => {
+    // The other half of the pair above: an `at` that has nothing to do with its
+    // `path` is a typo the compiler cannot see, and it would put a page at an
+    // address no menu item links to. Every address either IS its token or ends
+    // with it as a whole segment — `settings/app` for `app`, `''` for `/`.
+    const wrong = DESKTOP_ROUTES.filter(route => {
+      if (route.path === '/') return route.at !== '';
+      return route.at !== route.path && !route.at.endsWith(`/${route.path}`);
+    }).map(route => `${route.path} is served at ${JSON.stringify(route.at)}`);
+    expect(wrong).toEqual([]);
+  });
+
+  it('names every screen it mounts, so a title bar can say where you are', () => {
+    // A window has no tab strip and no address bar. `MountedLedger` writes
+    // `title` to `document.title` on every navigation, so a blank one is a
+    // window that has declined to say which of its thirty screens is showing.
+    const untitled = DESKTOP_ROUTES.filter(route => route.title.trim().length === 0);
+    expect(untitled).toEqual([]);
+  });
+
+  it('mounts the pages, and leaves nothing owed that it also serves', () => {
+    // The count is here to make a REMOVAL visible. Slice 29's router mounted one
+    // route and every page in the product was owed behind a measurement; the
+    // mount's second half answered all but three of them. A change that quietly
+    // dropped a page would otherwise pass every other assertion in this file.
+    expect(mounted.length).toBe(37);
+    expect(owed.length).toBe(3);
+    expect(owed.sort()).toEqual(['data', 'enhanced-import', 'investments']);
+  });
+
+  it('shows the chooser, and sends an excluded address home', () => {
+    // The manifest drives the router — `MountedLedger` maps over DESKTOP_ROUTES
+    // — so a route cannot appear in this window without appearing in the list
+    // the assertions above police. This is the pre-ledger half of that claim:
+    // with no file open there is no router at all, because every address this
+    // window serves is an address inside a ledger. The other half — the app
+    // mounted, the money on screen — is `desktopPages.test.tsx`, which needs the
+    // device seams and therefore its own config.
     window.location.hash = '#/open-banking';
     render(<DesktopApp invoke={silentShell} />);
 

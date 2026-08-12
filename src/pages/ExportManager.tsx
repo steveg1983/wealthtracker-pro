@@ -23,7 +23,10 @@ import PeriodPicker from '../components/PeriodPicker';
 import { LoadingState } from '../components/loading/LoadingState';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { dataPort } from '@data';
-import { downloadBackupBundle, type ExportProgress } from '../services/backupService';
+// From the FORMAT module, not from `backupService`: this page collects its
+// bundle through `dataPort` and only needs the file's own vocabulary, while
+// `backupService` opens with a Supabase client. See docs/edition-gating.md.
+import { downloadBackupBundle, type ExportProgress } from '../services/backup/format';
 import { selectExportData, describeExportRange, type AccountsScope } from '../utils/exportSelection';
 import { generateDataExportPDF } from '../utils/pdfExport';
 import {

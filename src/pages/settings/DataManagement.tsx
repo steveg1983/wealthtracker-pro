@@ -8,6 +8,11 @@ import { LoadingState } from '../../components/loading/LoadingState';
 import { createScopedLogger } from '../../loggers/scopedLogger';
 import { parseBankingOpsUrlState, replaceBrowserSearch, withBankingOpsUrlState } from '../../utils/bankingOpsUrlState';
 import { dataPort, type WipeProgress } from '@data';
+// The bank-connections modal comes through `@service`, which is also where its
+// lazy declaration lives now — a dynamic import is an import, and one in this
+// file put Clerk in front of the whole Data page in a desktop build. See
+// src/editions/service.ts.
+import { BankConnections } from '@service';
 
 const ArchiveManager = lazyWithRecovery(() => import('../../components/ArchiveManager'));
 
@@ -24,7 +29,6 @@ const ArchiveManager = lazyWithRecovery(() => import('../../components/ArchiveMa
 // matching behind a fake progress spinner. Bulk Edit and Reconcile Accounts
 // went with them; real account reconciliation lives at /reconciliation.
 const DuplicateSweepModal = lazyWithRecovery(() => import('../../components/DuplicateSweepModal'));
-const BankConnections = lazyWithRecovery(() => import('../../components/BankConnections'));
 
 // Retired 2026-08-07: Automatic Backups. Three separate reasons, each fatal on
 // its own. "Test Backup Now" returned silently when backups were disabled —

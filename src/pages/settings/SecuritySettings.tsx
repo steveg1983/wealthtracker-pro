@@ -13,7 +13,11 @@ import {
   FingerprintIcon
 } from '../../components/icons';
 import PageWrapper from '../../components/PageWrapper';
-import DangerZone from '../../components/settings/DangerZone';
+// Through the seam: this deletes an ACCOUNT WITH A COMPANY — Stripe, the rows,
+// the Clerk identity — which a device edition does not have. The ledger's own
+// wipe is a different act at a different address (/settings/data), and it is
+// mounted in both editions. See src/editions/service.ts.
+import { DangerZone } from '@service';
 import type { SecuritySettings as SecuritySettingsType } from '../../services/securityService';
 
 export default function SecuritySettings() {

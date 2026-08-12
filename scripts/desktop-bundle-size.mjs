@@ -27,21 +27,25 @@
  * the web bundle's — the two editions ship the same components eventually, and
  * the day that comparison matters it should not have to be re-derived.
  *
- * ── WHAT THIS IS ACTUALLY GUARDING AGAINST ──────────────────────────────────
+ * ── WHAT THIS IS ACTUALLY GUARDING AGAINST, AND WHAT IT HAS ALREADY SEEN ────
  *
- * One specific future event. The renderer is 259 KiB today because it mounts a
- * chooser and a ledger screen. `docs/edition-gating.md` records the measurement
- * that says what happens next: a runtime import walk from `components/Layout`
- * reaches 144 modules and five independent cloud roots. When the app's screens
- * are mounted in the window — the next programme of work — they arrive through
- * that graph, and they arrive all at once.
+ * One specific future event, and it happened one slice after this file was
+ * written. Slice 30's note said:
  *
- * `desktop:greps` catches the part of that arrival which is a broken promise (a
+ * > The renderer is 259 KiB today because it mounts a chooser and a ledger
+ * > screen. … When the app's screens are mounted in the window — the next
+ * > programme of work — they arrive through that graph, and they arrive all at
+ * > once.
+ *
+ * They did. The mount slice's second half took the renderer from 259.3 KiB to
+ * **3,273.1 KiB raw** — 12.6x — in one commit, and every byte of it was
+ * intended. That is exactly the event this file exists to make somebody look at
+ * rather than discover, and looking at it is what produced the note below.
+ *
+ * `desktop:greps` catches the part of an arrival which is a broken promise (a
  * Supabase client, browser storage, Clerk). It cannot catch the part which is
  * merely enormous: a renderer that doubled in size while staying perfectly
- * cloud-free passes every check this repository had before this file. That is
- * the gap, and 25 KiB of headroom is how wide it is allowed to be before
- * somebody has to make the growth a deliberate decision rather than a diff.
+ * cloud-free passes every other check in this repository.
  *
  * ── IT REFUSES RATHER THAN SKIPS ────────────────────────────────────────────
  *
@@ -70,28 +74,62 @@ const DIST = path.join(REPO, 'apps', 'desktop', 'dist');
 const BINARY = path.join(REPO, 'apps', 'desktop', 'src-tauri', 'target', 'release', 'wealthtracker-desktop');
 
 /**
- * BASELINE, measured 2026-08-12 at slice 30 on `npm run desktop:ui`:
+ * BASELINE, re-measured 2026-08-12 at the mount slice's second half, on
+ * `npm run desktop:ui`. 101 files; the ten that matter:
  *
- *   assets/index-*.js    263,715 raw   87,730 gzip
- *   assets/index-*.css       721 raw      412 gzip
- *   index.html             1,127 raw      631 gzip
+ *   xlsx-*.js                     488.0 KiB raw   158.9 KiB gzip
+ *   jspdf.es.min-*.js             377.0 KiB       123.1 KiB
+ *   MountedLedger-*.js            306.3 KiB        90.9 KiB
+ *   CategoricalChart-*.js         274.0 KiB        84.2 KiB   (recharts)
+ *   index-*.js                    231.1 KiB        76.1 KiB   (React, the router, the entry)
+ *   html2canvas.esm-*.js          196.7 KiB        46.1 KiB
+ *   index.es-*.js                 154.9 KiB        51.5 KiB
+ *   EditTransactionModal-*.js     120.3 KiB        33.5 KiB
+ *   AccountTransactions-*.js       91.0 KiB        27.1 KiB
+ *   Categories-*.js                89.1 KiB        27.9 KiB
+ *   …and 91 more
  *   ──────────────────────────────────────────────
- *   total                265,563 raw   88,773 gzip
- *                       (259.3 KiB)   (86.7 KiB)
+ *   total                       3,273.1 KiB     1,006.5 KiB
  *
- * React, React DOM and the router, mounted (slice 29). It was 81.8 kB raw when
- * it was one screen of vanilla DOM, which is the last time this number moved
- * for a reason anybody would recognise a year later.
+ * THE PREVIOUS BASELINE WAS 259.3 KiB RAW / 86.7 KiB GZIP, and it was a window
+ * that mounted a file chooser. This one is the application: 348 modules from the
+ * entry, thirty-six routes, every page the web app serves except three that are
+ * named and owed. The multiple is 12.6x and it is not a regression — there was
+ * nothing here before.
  *
- * Budgets are ~10% above that. Lower them if the renderer ever gets smaller;
- * raising them is allowed, but it is a decision that belongs in a commit
- * message — not a number quietly nudged until the build goes green.
+ * ── WHY THE NEW BUDGETS ARE WHERE THEY ARE ──────────────────────────────────
+ *
+ * ~10% above measured, which is the convention this file already had, and the
+ * convention matters more than the number: it is tight enough that the NEXT
+ * accidental arrival fails, which is the only job a ratchet has.
+ *
+ * ── WHAT SHOULD MAKE IT SMALLER, IN ORDER, AND WHY NOT IN THIS SLICE ────────
+ *
+ * The four biggest chunks are 1,335 KiB — 41% of the renderer — and not one of
+ * them is this edition's own code:
+ *
+ *   xlsx + jspdf + html2canvas   1,062 KiB. Excel and PDF export. All three are
+ *                                already lazy, all three are reachable from the
+ *                                Export page, and `docs/bundle-optimization-plan
+ *                                .md` has had them on the WEB app's list for
+ *                                months. Whatever fixes them there fixes them
+ *                                here, and doing it here first would be fixing
+ *                                the smaller of two identical problems.
+ *   recharts                     274 KiB, and the repo's own audit note says the
+ *                                web build ships recharts AND chart.js. Picking
+ *                                one is a design decision about every chart in
+ *                                the product, not a desktop packaging chore.
+ *
+ * So: measured, recorded, budgeted, and pointed at the slice that should
+ * actually do it. Lower these the day one of those lands. Raising them further
+ * is allowed and is a decision that belongs in a commit message — not a number
+ * quietly nudged until the build goes green.
  */
-const BASELINE_TOTAL_RAW_KIB = 259.3;
-const BASELINE_TOTAL_GZIP_KIB = 86.7;
+const BASELINE_TOTAL_RAW_KIB = 3273.1;
+const BASELINE_TOTAL_GZIP_KIB = 1006.5;
 
-const MAX_TOTAL_RAW_KIB = Number(process.env.DESKTOP_MAX_TOTAL_RAW_KIB ?? 285);
-const MAX_TOTAL_GZIP_KIB = Number(process.env.DESKTOP_MAX_TOTAL_GZIP_KIB ?? 96);
+const MAX_TOTAL_RAW_KIB = Number(process.env.DESKTOP_MAX_TOTAL_RAW_KIB ?? 3600);
+const MAX_TOTAL_GZIP_KIB = Number(process.env.DESKTOP_MAX_TOTAL_GZIP_KIB ?? 1110);
 
 const isReport = process.argv.includes('--report');
 

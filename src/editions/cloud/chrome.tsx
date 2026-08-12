@@ -29,6 +29,8 @@ import EnhancedNotificationBell from '../../components/EnhancedNotificationBell'
 import GlobalSearchComponent from '../../components/GlobalSearch';
 import { MobileBreadcrumb as MobileBreadcrumbComponent } from '../../components/layout/Breadcrumbs';
 import { RealtimeStatusDot } from '../../components/RealtimeStatusIndicator';
+import { OfflineIndicator as PWAOfflineIndicatorComponent } from '../../components/pwa/OfflineIndicator';
+import { QuickAddOfflineButton as QuickAddOfflineButtonComponent } from '../../components/pwa/QuickAddOfflineButton';
 import { useAutoBankSync } from '../../hooks/useAutoBankSync';
 import type {
   ChromeGlobalSearch,
@@ -100,3 +102,9 @@ export const GlobalSearch: ChromeGlobalSearch = GlobalSearchComponent;
 export const QuickAddTransaction: ChromeQuickAddTransaction = lazyWithRecovery(
   () => import('../../components/AddTransactionModal')
 );
+
+/** How many writes are queued for a server this tab currently cannot reach. */
+export const OfflineQueueIndicator: ChromeOrnament = PWAOfflineIndicatorComponent;
+
+/** Write a transaction into that queue without a connection. */
+export const OfflineQuickAdd: ChromeOrnament = QuickAddOfflineButtonComponent;

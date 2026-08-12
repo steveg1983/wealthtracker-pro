@@ -118,6 +118,11 @@ describe('the desktop gates are connected to CI', () => {
     { script: 'desktop:ui', catches: 'the renderer no longer builds' },
     { script: 'desktop:greps', catches: 'a cloud SDK reached the built bundle' },
     { script: 'bundle:check:desktop', catches: 'the renderer grew past its ratchet' },
+    {
+      script: 'test:desktop-mount',
+      catches:
+        'the window renders nothing — every other gate here is about ABSENCE and passes on a blank page'
+    },
     { script: 'test:local-contract', catches: 'the ledger stopped honouring the port contract' },
     { script: 'test:local-admission', catches: 'the Rust and TypeScript admission rules diverged' }
   ] as const;

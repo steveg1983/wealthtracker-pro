@@ -30,11 +30,12 @@ enforcement of it or a consequence.
 
 ---
 
-## The five seams
+## The seven seams
 
-`@data` was the first and the largest. The mount slice added four more, for the
-same reason and by the same mechanism — a specifier that names no edition, and a
-build that says which file it is.
+`@data` was the first and the largest. The mount slice added six more, four in
+its first half and two in its second, for the same reason and by the same
+mechanism — a specifier that names no edition, and a build that says which file
+it is.
 
 | specifier | the question it answers | web resolves it to | desktop resolves it to |
 | --- | --- | --- | --- |
@@ -43,6 +44,8 @@ build that says which file it is.
 | `@identity` | what do I file this session's local storage under? | `editions/cloud/identity.ts` — Clerk's `useUser().id` | `desktop/editions/identity.ts` — the uuid in the file's `users` row |
 | `@prefs-store` | where do settings live when nobody has said? | `editions/cloud/preferencesStore.ts` — a `user_preferences` row | `desktop/editions/preferencesStore.ts` — `null`; the boot has already attached the file |
 | `@telemetry` | where does a caught error go? | `editions/cloud/telemetry.ts` — Sentry | `desktop/editions/telemetry.ts` — this machine's console |
+| `@session` | whose ledger, and may I read it yet? | `editions/cloud/session.ts` — Clerk loads, the database row is ensured, the preferences bind, the offline queue starts, the engine is told who signed in | `desktop/editions/session.ts` — nothing; the file was chosen, opened, seeded and attached before the tree existed |
+| `@service` | what does a shared surface say about the account you hold WITH somebody? | `editions/cloud/service.ts` — a billing card, a feed schedule, a delete-my-account button, an incident badge, the connections modal, the per-account sync | `desktop/editions/service.ts` — seven absences, one from each of the three regions the router already rules out |
 
 Each seam is three files: a CONTRACT in `src/editions/` that names no edition, a
 cloud half in `src/editions/cloud/`, and a device half in
@@ -51,8 +54,18 @@ types, so `tsc -b` proves each is substitutable in the project that compiles it 
 and `src/editions/__tests__/editionAliases.test.ts` proves the two answer for the
 same vocabulary, which no single compilation can see.
 
-**`@telemetry` is the one worth reading twice**, because it is the only seam that
-split a module rather than replacing one. Logging is perfectly legitimate on a
+**`@session` is the one that unblocked the mount.** Twenty of the twenty-five
+owed desktop routes named one file — `contexts/AppContextSupabase`, the app's
+state layer — and a walk from it found 48 modules and four cloud roots, all four
+inside the seventy lines of ONE effect between *"is Clerk loaded?"* and *"read
+the ledger"*. It is one seam rather than four because three of those four steps
+need the Clerk USER, and a seam split four ways would have had to carry a person
+across itself; a hook that returns a CLOSURE keeps the user entirely on the cloud
+side. Its contract carries the argument, including why splitting the provider in
+two is wrong for a reason React decides rather than taste.
+
+**`@telemetry` is the one worth reading twice**, because it was the first seam
+that split a module rather than replacing one. Logging is perfectly legitimate on a
 device; reporting to a server is not. `loggers/scopedLogger.ts` — sixty-seven
 importers, nearly all shared UI — used to be a *forbidden module* in a desktop
 build purely because `services/loggingService.ts` imported two functions from
@@ -84,8 +97,8 @@ both.
 
 ## Where the seams are declared
 
-Six configs, because six things resolve a module — and five specifiers, so
-thirty mappings that have to agree. They are asserted to by
+Six configs, because six things resolve a module — and seven specifiers, so
+forty-two mappings that have to agree. They are asserted to by
 `src/services/__tests__/dataAlias.test.ts` (for `@data`) and
 `src/editions/__tests__/editionAliases.test.ts` (for the other four); a mapping
 that one config has and another does not fails as *"Cannot find module"* in
@@ -106,8 +119,8 @@ configs. Vite matches aliases in order, by prefix, so `'@'` would otherwise clai
 the error it produces says nothing about aliases.
 
 `editionAliases.test.ts` also reads the `@`-prefixed aliases out of
-`vite.config.ts` and requires the list to be exactly the five it knows about — so
-a sixth seam cannot arrive with no substitution check behind it.
+`vite.config.ts` and requires the list to be exactly the seven it knows about —
+so an eighth seam cannot arrive with no substitution check behind it.
 
 ---
 
@@ -115,7 +128,7 @@ a sixth seam cannot arrive with no substitution check behind it.
 
 | If a module is… | it imports the seam as | because |
 | --- | --- | --- |
-| shared UI (`components`, `pages`, `contexts`, `hooks`) | the specifier — `@data`, `@chrome`, `@identity`, `@prefs-store`, `@telemetry` | it must not know which edition it is in |
+| shared UI (`components`, `pages`, `contexts`, `hooks`) | the specifier — `@data`, `@chrome`, `@identity`, `@prefs-store`, `@telemetry`, `@session`, `@service` | it must not know which edition it is in |
 | desktop-only (`src/desktop/**`) | the device half by path | it only ever runs in a window; asking the build is asking a question it knows the answer to |
 | cloud-only (`services/backupService.ts`, and the cloud halves themselves) | the cloud half by path | the mirror image: a module that already opens with a Supabase client has no question to ask |
 | a seam's own types | the contract in `src/editions/`, or `services/port/dataPort` | types are erased, and `const x: Contract = impl` in each half is the compile-time proof the seam rests on |
@@ -130,24 +143,36 @@ that component is mounted in a window.
 
 ## What is checked, and at what altitude
 
-Seven instruments, on purpose. Each catches what the others structurally cannot.
+Nine instruments, on purpose. Each catches what the others structurally cannot.
 
 | | What it reads | When | What only it can catch |
 | --- | --- | --- | --- |
 | `eslint.config.js` — `no-restricted-imports` | one line | as it is typed | the mistake, before it is committed |
+| the same, over `src/desktop/editions/**` | one line | as it is typed | a DEVICE HALF importing the shared surface it is the alternative to — which no list of cloud specifiers can express, because the surface is not the cloud, it merely reaches it |
 | `deviceDocument.cloudFree.test.ts` | the import graph from the DATA root | every test run | a cloud module pulled in through the object graph |
 | `desktopEntry.cloudFree.test.ts` | the import graph from `src/desktop/main.tsx` | every test run | a cloud module pulled in through the component tree of what is BUILT, and a mis-pointed alias |
-| `layoutIsDesktopClean.test.ts` | the import graph from `components/Layout` | every test run | a cloud module re-entering the shared FRAME — which the entry does not reach yet, so nothing else would notice until part 2 tried to mount it |
+| `layoutIsDesktopClean.test.ts` | the import graph from `components/Layout` | every test run | a cloud module re-entering the shared FRAME. The entry reaches the frame now, so the two overlap — this is kept because it ISOLATES the frame, and "the frame or a page?" is the first question a red walk raises |
+| `desktopPages.test.tsx` | the window, RENDERED, over a fixture ledger | `npm run test:desktop-mount` | that the window shows **nothing**. Every other row here is about absence and passes on a blank page |
 | `editionAliases.test.ts` | the two halves of each seam, and six configs, as text | every test run | a half that answers for a name the other does not, and a mapping one config is missing |
 | `scripts/desktop-bundle-greps.mjs` | the built bundle | `npm run desktop:verify` | anything a *dependency* drags in, and anything a plugin injects |
-| `scripts/desktop-bundle-size.mjs` | the built bundle's weight | the same | growth that is **perfectly cloud-free** — 65 modules of shared UI arriving at once, which every row above passes |
+| `scripts/desktop-bundle-size.mjs` | the built bundle's weight | the same | growth that is **perfectly cloud-free**. It saw the event it was written for: the mount took the renderer from 259 KiB to 3,273 KiB in one commit, and made somebody write down why |
 
 The lint rule can only see specifiers it was told about. The graph walks read
 the source the way a bundler *would* have. The greps read what a bundler *did*.
-The ratchet reads how much of it there is, which is the one question the other
-four cannot be made to answer: a renderer that doubled in size without importing
-a single forbidden module satisfies all of them. None is redundant, and the last
-two refuse rather than skip when there is no build to look at.
+The ratchet reads how much of it there is. The mount test reads the SCREEN,
+which is the one question none of the others can be made to answer.
+
+**The mount slice's second half is the clearest evidence any of this has
+produced**, and it is worth recording because it is the argument for the whole
+apparatus. The graph walks called `components/Layout` and `pages/Documents`
+clean. The built renderer then contained `indexedDB` twenty-one times, and two of
+those were real: a PWA offline queue in the frame (writes waiting for a server
+that does not exist) and the cloud engine's boot-snapshot cache, which the shared
+state layer was importing in order to empty it. Neither was on any list, because
+a list only knows what somebody thought of. The bundle did not care.
+
+None is redundant, and the last three refuse rather than skip when there is no
+build to look at.
 
 ---
 

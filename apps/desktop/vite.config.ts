@@ -40,6 +40,12 @@ export default defineConfig({
       '@identity': path.join(REPO, 'src', 'desktop', 'editions', 'identity'),
       '@prefs-store': path.join(REPO, 'src', 'desktop', 'editions', 'preferencesStore'),
       '@telemetry': path.join(REPO, 'src', 'desktop', 'editions', 'telemetry'),
+      // THE MOUNT SLICE'S SECOND HALF, pointed at what a device answers: a
+      // preamble that already happened when the file was opened, and three
+      // absences where a browser has a subscription card, a bank feed's refresh
+      // schedule and a delete-my-account button.
+      '@session': path.join(REPO, 'src', 'desktop', 'editions', 'session'),
+      '@service': path.join(REPO, 'src', 'desktop', 'editions', 'service'),
       '@app-types': path.join(REPO, 'src', 'types')
     }
   },

@@ -2,17 +2,42 @@
 /**
  * The app's state, and the one door it reads and writes through.
  *
- * This file no longer names an engine. Every ledger operation goes through
- * `dataPort` — the seam — and the last two questions it asked about the engine
- * itself (how many writes may be in flight, and whether to open a realtime
- * subscription) are answered by that seam's capability descriptor rather than
- * by a Supabase client and a database id read from here. What is left of the
- * old identity plumbing is one call: resolving the signed-in person's database
- * id at boot, which is an AUTH concern rather than a data one.
+ * This file names no engine and, from the mount slice's second half, no EDITION
+ * either. Every ledger operation goes through `dataPort` — the seam — and the
+ * questions it used to ask about the engine itself (how many writes may be in
+ * flight, whether to open a realtime subscription) are answered by that seam's
+ * capability descriptor.
+ *
+ * ── THE FOUR IMPORTS THAT ARE GONE, AND WHAT REPLACED THEM ──────────────────
+ *
+ * Until the mount slice this provider reached the cloud four ways, all of them
+ * inside the seventy lines of ONE effect between *"is Clerk loaded?"* and
+ * *"read the ledger"*: `useUser()`, `userIdService`, `AutoSyncService` and
+ * `initializeDemoData`. A walk from here with a desktop's resolution found 48
+ * modules and those four roots, and nothing else in these 2,200 lines reached a
+ * cloud at all — which is why twenty of the twenty-five owed desktop routes
+ * named this one file as their only blocker.
+ *
+ * They are behind `@session` now: a specifier the BUILD resolves, exactly as it
+ * resolves `@data`. The hook answers three things — is the session settled, is
+ * there an owner, and *"do whatever your edition must do before I read"* — and
+ * a browser's answer is the hundred lines that used to be here while a device's
+ * is that it happened when the file was opened. Nothing was deleted; the same
+ * code runs in the same order in the web build, from `editions/cloud/session.ts`.
+ *
+ * THE NAME OF THIS FILE IS NOW WRONG, and knowingly so. It says Supabase and it
+ * has not mentioned Supabase since the seam landed. Renaming it would touch
+ * roughly seventy importers for no behaviour, and the module path is what those
+ * importers are written against; it is a rename to do on a quiet day, not while
+ * an edition is being mounted on top of it.
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { useUser } from '@clerk/clerk-react';
+// Who is asking, and what has to happen before a read — the mount slice's fifth
+// seam. `editions/session.ts` carries the argument for why it is ONE seam and
+// not four, and why the alternative (splitting this provider in two) is wrong
+// for a reason React decides rather than taste.
+import { useEditionSession } from '@session';
 // The ledger goes through the seam, and `@data` is the seam's DOOR: a specifier
 // that names no edition, resolved by the build to `services/port/index.ts` in
 // the web app and to `services/local/deviceDataPort.ts` in a desktop window. In
@@ -22,9 +47,6 @@ import { useUser } from '@clerk/clerk-react';
 // because neither bundle's graph can reach it. See docs/edition-gating.md.
 import { dataPort } from '@data';
 import type { DataPortCapabilities } from '@data';
-import AutoSyncService from '../services/autoSyncService';
-import { transactionCache } from '../services/transactionCache';
-import { userIdService } from '../services/userIdService';
 import { goalAchievementService } from '../services/goalAchievementService';
 import { getDefaultCategories } from '../data/defaultCategories';
 // formatCurrency import removed - not used in this context
@@ -40,7 +62,6 @@ import {
   isReconciled,
   reconciledAfterMarking
 } from '../utils/transactionReconciliation';
-import { initializeDemoData } from '../utils/demoData';
 import {
   buildTestDataset,
   planTestDataCategories,
@@ -80,7 +101,6 @@ import {
   type DeleteTransactionOutcome,
   type TransferSurvivorOutcome,
 } from '../utils/transferSurvivorRelease';
-import { preferences as preferencesService } from '../services/preferencesService';
 
 export interface Tag {
   id: string;
@@ -397,7 +417,16 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const appLogger = createScopedLogger('AppContext');
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const { user, isLoaded } = useUser();
+  /**
+   * Whose ledger this is, and what this edition must do before it can be read.
+   *
+   * It replaced `const { user, isLoaded } = useUser()`, and the object's
+   * IDENTITY is the replacement for that pair: both halves memoise on their own
+   * notion of a session, so `[session]` below is exactly the `[user, isLoaded]`
+   * this effect has always depended on, said once by whoever knows what a
+   * session is.
+   */
+  const session = useEditionSession();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -450,7 +479,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize data service and load data
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!session.settled) return;
 
     // The realtime channels are opened deep inside an ASYNC boot, but React
     // only accepts a cleanup returned SYNCHRONOUSLY from the effect body. That
@@ -505,97 +534,59 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Boot phase timings — one summary line at the end so a slow load can
       // be attributed (auth? accounts? categories? transactions?) from the
       // console of ANY environment, production included.
+      //
+      // The record is MERGED FROM THREE PLACES now rather than marked off
+      // inline: the session's preamble reports its own (`auth`, `services` in a
+      // browser; nothing at all on a device, because nothing happened), the
+      // boot snapshot reports the store's, and the balances round trip times
+      // itself because it runs alongside rather than between.
       const bootStart = performance.now();
       const phases: Record<string, number> = {};
-      let phaseStart = bootStart;
-      const markPhase = (name: string): void => {
-        phases[name] = Math.round(performance.now() - phaseStart);
-        phaseStart = performance.now();
-      };
-      // The balances round trip runs ALONGSIDE the phases below rather than
-      // between two of them, so it times itself instead of going through
-      // markPhase (which measures gaps in the sequential timeline).
       let serverBalancesLoaded: Promise<void> | null = null;
 
       try {
-        appLogger.info('Initializing app context', { userId: user?.id });
+        // WHOEVER IS ASKING, ANSWERED BY THE EDITION — one call where seventy
+        // lines of Clerk, the id translator, the offline queue and the demo
+        // seeder used to be. All four of those are still exactly what happens
+        // in a browser (`editions/cloud/session.ts` holds them, in this order,
+        // unchanged); on a device the preamble ran when the file was opened and
+        // this resolves to an empty report.
+        //
+        // It is awaited inside the same `try` those lines were inside, and that
+        // is load-bearing rather than incidental: an auth service that cannot be
+        // reached has always ended this boot with "Failed to load data. Using
+        // offline mode." rather than reading the ledger as nobody, and the seam
+        // contract states the rule so the next implementation keeps it.
+        const preamble = await session.prepare();
+        Object.assign(phases, preamble.phases);
 
-        // Demo mode seeds its sample data into the same storage every read
-        // below goes through, and it is awaited HERE rather than fired from
-        // App's effect: the two used to race, and when the load won, demo mode
-        // came up empty and stayed empty. A no-op outside demo mode.
-        await initializeDemoData();
-
-        // Resolve who is signed in, then hand the seam its own chance to make
-        // sure they have a store to read.
-        if (user) {
-          appLogger.info('User found, initializing services');
-          
-          // Initialize userIdService first - this is now the single source of truth
-          const databaseId = await userIdService.ensureUserExists(
-            user.id,
-            user.emailAddresses[0]?.emailAddress || '',
-            user.firstName || undefined,
-            user.lastName || undefined
-          );
-          markPhase('auth');
-          if (databaseId) {
-            appLogger.info('Database user ID resolved', { databaseId });
-
-            // Bind the preferences document to this login. Deliberately NOT
-            // awaited: it is one small read that nothing on the critical path
-            // depends on, every surface already has this browser's copy to
-            // start from, and the service notifies its subscribers when the
-            // account's own settings land a moment later. Awaiting it would put
-            // a round trip in front of the first account query for no gain, and
-            // a slow or missing preferences table would delay the ledger.
-            void preferencesService.attach(databaseId);
-
-            // Initialize AutoSync with the database ID ready
-            await AutoSyncService.initialize(user.id);
-            
-            await dataPort.initialize(
-              user.id,
-              user.emailAddresses[0]?.emailAddress || '',
-              user.firstName || undefined,
-              user.lastName || undefined
-            );
-            appLogger.info('Loading application data');
-            markPhase('services');
-
-            // One round trip for every account's balance, started here and
-            // deliberately NOT awaited: the rest of the boot must not wait on
-            // it. The transaction pages are ~77% of that boot, and until they
-            // land every client-side balance is zero — these figures let the
-            // dashboard paint real money in the meantime.
-            //
-            // It starts EARLIER than it used to (it sat below the account read
-            // that has since moved into the snapshot) and it stays OUT of that
-            // snapshot, which is the same decision said twice: a read whose
-            // whole value is arriving before the ledger does cannot be bundled
-            // with the ledger. The guard is unchanged — a resolved login, and
-            // nothing else, has server-side balances to ask for.
-            const balancesStart = performance.now();
-            serverBalancesLoaded = dataPort.getAccountBalances().then(balances => {
-              phases.balances = Math.round(performance.now() - balancesStart);
-              setServerBalances(balances);
-            });
-          } else {
-            appLogger.warn('Failed to resolve database user ID - no data will be loaded');
-          }
-        } else {
-          // No user logged in
-          appLogger.info('No user logged in');
-          // Signed out (this effect re-runs when Clerk's user goes away, however
-          // the sign-out was triggered): the cached history belongs to whoever
-          // was signed in and must not survive on a shared browser.
-          void transactionCache.clear();
-          // Stop writing this browser's copy up to a login that is no longer
-          // here. The mirror stays: it is what the next signed-out session
-          // reads, and it belongs to the browser rather than to the account.
-          preferencesService.detach();
+        if (preamble.owner) {
+          // One round trip for every account's balance, started here and
+          // deliberately NOT awaited: the rest of the boot must not wait on
+          // it. The transaction pages are ~77% of that boot, and until they
+          // land every client-side balance is zero — these figures let the
+          // dashboard paint real money in the meantime.
+          //
+          // It stays OUT of the boot snapshot, which is the same decision said
+          // twice: a read whose whole value is arriving before the ledger does
+          // cannot be bundled with the ledger.
+          //
+          // The GUARD is the one thing here that changed meaning, and it changed
+          // in the direction the seam was for. It used to read "a resolved
+          // login, and nothing else, has server-side balances to ask for", which
+          // was true of the two engines that existed. A file has them too — the
+          // crate computes `account_balances` in one crossing — and a
+          // 50,000-row ledger does not paint instantly merely because it is
+          // local. So the question is now the seam's own: did the preamble end
+          // with an owner? A browser answers exactly as before.
+          const balancesStart = performance.now();
+          serverBalancesLoaded = dataPort.getAccountBalances().then(balances => {
+            phases.balances = Math.round(performance.now() - balancesStart);
+            setServerBalances(balances);
+          });
         }
-        
+
+
         // ONE crossing for everything the app boots with.
         //
         // Six awaits used to stand here — the accounts, the categories, the
@@ -679,7 +670,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // resolved AND a client is configured" the retired flag answered), but
         // an engine that gains a sync peer without becoming a login can now say
         // so, instead of having to claim it is Supabase to be heard.
-        if (dataPort.capabilities().realtime && user) {
+        //
+        // The second half was `&& user` and is `&& session.present`, which is
+        // the same question asked of whoever knows the answer. It is redundant
+        // in both editions today — `realtime` already implies a resolved owner
+        // in the cloud and is false on a device — and it is kept for the reason
+        // it was written: a gate this expensive to be wrong about should not
+        // rest on one field's implication.
+        if (dataPort.capabilities().realtime && session.present) {
           // Helper function to debounce updates
           const debouncedUpdate = (updateType: string, updateFn: () => Promise<void>) => {
             // Check if this is a duplicate update (within 1 second)
@@ -859,7 +857,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         teardown();
       }
     };
-  }, [user, isLoaded]);
+    // ONE dependency where there were two, and the same dependency.
+    //
+    // This was `[user, isLoaded]`. Both seam halves memoise their session object
+    // on their own edition's version of that pair — the cloud's on `[user,
+    // isLoaded]` literally — so this object's identity changes exactly when a
+    // person signs in, signs out or changes, and at no other time. The effect
+    // re-boots on precisely the events it always did.
+  }, [session]);
 
   const refreshCategories = useCallback(async () => {
     try {
@@ -1969,17 +1974,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [goals]);
 
   /**
-   * Forget what this session has loaded: the React state and the local
-   * transaction cache. Named for what it does — it deletes NOTHING from
-   * Supabase or from persisted local storage, so on its own the next load
-   * brings everything straight back. The delete has to happen in the store
-   * first; this then stops the stale snapshot outliving it.
+   * Forget what this session has loaded — the React state, and only that.
+   *
+   * Named for what it does: it deletes NOTHING from any store, so on its own the
+   * next load brings everything straight back. The delete has to happen in the
+   * store first; this then stops the stale snapshot outliving it.
+   *
+   * IT USED TO CLEAR THE CLOUD'S BOOT CACHE TOO, and that line is now inside
+   * `DataService.wipeAllFinancialData`, where the cache belongs. It was the last
+   * thing in this file that named one engine's private store: the cache is
+   * IndexedDB, so a desktop bundle carried `indexedDBService` — and failed the
+   * bundle grep for the browser storage this edition must not have — because a
+   * shared provider imported the cloud's cache in order to empty it. Every
+   * caller already wiped through the seam immediately before calling this, in
+   * that order, so nothing about the behaviour changed.
    */
   const resetLoadedData = useCallback(async () => {
-    // The local snapshot describes a history that is about to stop existing —
-    // drop it here rather than making the next boot discover the mismatch and
-    // pay for a full refetch to find out.
-    await transactionCache.clear();
     setAccounts([]);
     setTransactions([]);
     setBudgets([]);

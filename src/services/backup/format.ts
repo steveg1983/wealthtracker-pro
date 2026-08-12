@@ -1035,3 +1035,42 @@ export interface RestoreOutcome {
    */
   danglingRefs: DanglingReference[];
 }
+
+/**
+ * How far an export has got, for a progress bar.
+ *
+ * Here rather than in `backupService.ts` because it describes the FILE being
+ * built and not the store it is being read out of — every engine that can
+ * collect a backup reports it, and one of them is a ledger file. It moved in
+ * the mount slice's second half, with `downloadBackupBundle`; see that file's
+ * note for what the old home cost.
+ */
+export interface ExportProgress {
+  entity: BackupEntity;
+  /** 1-based, for "3 of 14". */
+  entityNumber: number;
+  entityCount: number;
+  /** Rows read for this entity so far. */
+  rows: number;
+}
+
+/**
+ * Hand the file to the browser. The stringify is the one unavoidably blocking
+ * moment in the export — everything before it awaits — so it happens last,
+ * after the progress display has already told the user what is going on.
+ *
+ * A WebView is a browser too: a desktop window downloads a backup exactly like
+ * a tab does, and this is the same eight lines either way. Nothing here knows
+ * where the bundle came from.
+ */
+export function downloadBackupBundle(bundle: BackupBundle): void {
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = backupFileName(bundle.exportedAt);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}

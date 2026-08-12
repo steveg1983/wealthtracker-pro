@@ -73,6 +73,12 @@ export default defineConfig({
       '@identity': path.resolve(__dirname, './src/editions/cloud/identity'),
       '@prefs-store': path.resolve(__dirname, './src/editions/cloud/preferencesStore'),
       '@telemetry': path.resolve(__dirname, './src/editions/cloud/telemetry'),
+      // THE MOUNT SLICE'S SECOND HALF. `@session` is whose ledger this is and
+      // what must happen before it can be read; `@service` is the three
+      // settings panels that are about the hosted SERVICE rather than about the
+      // ledger. See docs/edition-gating.md.
+      '@session': path.resolve(__dirname, './src/editions/cloud/session'),
+      '@service': path.resolve(__dirname, './src/editions/cloud/service'),
       '@': path.resolve(__dirname, './src'),
       // Fix for recharts es-toolkit import issue
       // This ensures recharts gets the correct export format

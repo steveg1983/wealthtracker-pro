@@ -118,8 +118,8 @@ Verified on this machine, at this commit:
 | the shell crate compiles | `cargo build --release` → a 16.1 MB arm64 binary (15.3 MiB). Cold, from an empty target directory: 45 s wall, 262 CPU-seconds, 454 packages, 991 MB of build artefacts |
 | the shell's own tests | 12 pass: both locks, the identity flow, the refusals |
 | clippy | clean at `--all-targets`, pedantic on |
-| the renderer builds | 259.3 KiB raw / 86.7 KiB gzipped over three files — React, React DOM and the router, mounted (slice 29). It was 81.8 kB / 28.0 kB when it was one screen of vanilla DOM. `npm run bundle:check:desktop` is that measurement as a command, with budgets ~10 % above it |
-| the renderer is cloud-free | zero occurrences of `supabase`, `storageAdapter` — PHASE3-PLAN §5's two bundle greps — and of `indexedDB`, `clerk`, `sentry`, `stripe`. `npm run desktop:greps` is that check, as a command, over the built bundle; two import-graph walks assert the same on every test run, from the data root and from the entry |
+| the renderer builds | 3,273.1 KiB raw / 1,006.5 KiB gzipped over 101 files — the whole application, mounted (the mount slice's second half). It was 259.3 KiB / 86.7 KiB when it was React and a file chooser, and 81.8 kB when it was one screen of vanilla DOM. `npm run bundle:check:desktop` is that measurement as a command, with budgets ~10 % above it and the four chunks worth attacking named in the script's own note (xlsx, jspdf, html2canvas, recharts — 41 % of it, and all four are the WEB app's problem too) |
+| the renderer is cloud-free | zero occurrences of `supabase`, `storageAdapter` — PHASE3-PLAN §5's two bundle greps — and of `wealthtracker_transactions` (the browser ledger mirror's own storage key), `clerk`, `sentry`, `stripe`. `npm run desktop:greps` is that check, as a command, over the built bundle; two import-graph walks assert the same on every test run, from the data root and from the entry. The `indexedDB` grep RETIRED in favour of the storage key, and the script's note says why at length: a device keeps its receipts in the WebView's store and that is not the ledger |
 | the ledger path end to end | the contract suite drives 127 checks in five files through the real crate against real files (`npm run test:local-contract`) |
 | the settings path end to end | `localCore.preferences.test.ts` writes a document into a real file, closes it, reads it back, and follows a preference's account ids through a real backup and restore |
 
@@ -159,39 +159,55 @@ itself are kept: categories are seeded before the ledger is read, and the
 preferences service is pointed at the file *before* it is attached to the file's
 owner.
 
-## What it deliberately does not do yet
+## What it deliberately does not do
 
-**REACT IS MOUNTED. THE APP'S SCREENS ARE NOT.** Slice 29 built the three things
-that mount needs and could not safely be added afterwards — the `@data` alias,
-the router's decisions, and the rules that keep the cloud out — and then
-measured what stands between here and the pages. The measurement is why the
-router has one route in it:
+**REACT IS MOUNTED AND SO IS THE APP.** Slice 29 built the three things the mount
+needed and could not safely be added afterwards — the `@data` alias, the router's
+decisions, and the rules that keep the cloud out — and then measured what stood
+between there and the pages:
 
 > A runtime import walk from `components/Layout` reaches **144 modules** and
-> **five independent cloud roots**, none of which is any page's own fault:
-> Clerk's `UserButton` in the header, `useAutoBankSync` in the chrome,
-> `PreferencesContext → preferencesService →` a Supabase client, every logging
-> call reaching `scopedLogger → lib/sentry`, `DemoModeIndicator → demoData →
-> storageAdapter`, and `Breadcrumbs → AppContextSupabase → useUser()`.
+> **five independent cloud roots**, none of which is any page's own fault.
 
-Each of those is a shared surface that needs the treatment the data layer has
-just had — a seam, a supplied dependency, or an entry of its own. That is the
-next programme of work, and `src/desktop/routes.ts`'s `AWAITING_THE_MOUNT` names
-which route is waiting on which one. `docs/edition-gating.md` has the rest.
+The mount slice answered all five with four seams (`@chrome`, `@identity`,
+`@prefs-store`, `@telemetry`) and then answered what was behind them with two
+more: `@session` for the state layer's preamble, `@service` for the billing and
+bank-feed surfaces that sit inside otherwise local pages. A walk from
+`src/desktop/main.tsx` today reaches **348 modules and no cloud at all**, and the
+window serves **thirty-seven routes** — the same pages the web app serves, not
+copies of them.
 
-What the window renders today is the chooser and the open ledger, in React,
-through the router, and it proves the same path it always did: chooser → locks →
-schema → owner → seed → boot.
+**Three routes are still owed**, each with the exact chain named in
+`src/desktop/routes.ts`: `investments` (holdings never went through the seam and
+that page talks to Supabase directly), and `enhanced-import` / `settings/data`
+(the restore dialog previews what a store cannot keep by reading a description of
+the BROWSER's store — which is also a latent bug for this edition, and is a port
+question rather than a file split). Five more are `NEVER_ON_A_DESKTOP`, with
+reasons.
 
-**What that mount owes, precisely.** `bootDeviceLedger` takes an optional
-preferences service and this renderer still passes none — honestly, because the
-one surface it renders reads no setting. It now has a measured reason as well as
-an honest one: `preferencesService.ts` reaches a Supabase client in its module
-scope, so this build cannot import it, and giving the window the app's settings
-means giving that service the same kind of seam the data layer got. Until then,
-a window that DOES render surfaces must pass the one `preferences` singleton the
-app renders through, or those surfaces will read the WebView's own
-`localStorage`: a store that is not in the backup, does not travel with the file,
-and is thrown away by anything that clears the app's data. The parameter is
-documented at the function; this is the note that says why it is not optional in
-spirit.
+**What the window shows is checked, not assumed.**
+`src/desktop/__tests__/desktopPages.test.tsx` opens a fixture ledger, mounts the
+application over it and reads the money off the screen — the dashboard's total,
+both accounts, a register's rows, reports, and a settings page with no billing
+card on it. It is the only check in this repository that asserts PRESENCE; every
+other one passes happily on a window that renders nothing.
+
+**The debt this renderer used to carry is discharged.** `bootDeviceLedger` takes
+an optional preferences service and slice 29's renderer passed none, honestly,
+because the one surface it rendered read no setting — and with a measured excuse,
+because `preferencesService.ts` reached a Supabase client in its module scope.
+`@prefs-store` removed the excuse in the mount's first half (a walk from that
+service now finds six modules and no cloud), and `src/desktop/DesktopApp.tsx`
+passes the one `preferences` singleton every surface renders through. Without it,
+a window that renders the app would read the WebView's own `localStorage`: a
+store that is not in the backup, does not travel with the file, and is thrown
+away by anything that clears the app's data.
+
+**One debt is new and is worth naming here rather than only in a comment.** A
+device's ATTACHMENTS — receipts, invoices — live in the WebView's IndexedDB
+(`services/documentService.ts`), so they do not travel with the ledger file and
+are not in its backup. That is inherited rather than introduced: the web app's
+receipts do not travel between browsers either. It belongs in a slice about
+documents, and until there is one, `desktop:greps` deliberately does not fail on
+it — see that script's note on why the bare word `indexedDB` stopped meaning
+"the browser's copy of the ledger".

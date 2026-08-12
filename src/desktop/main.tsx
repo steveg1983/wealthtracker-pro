@@ -14,20 +14,25 @@
  * cannot reach, which `__tests__/desktopEntry.cloudFree.test.ts` walks from
  * THIS FILE and `scripts/desktop-bundle-greps.mjs` measures in what is built.
  *
- * ── WHAT IS DELIBERATELY NOT HERE YET ───────────────────────────────────────
+ * ── THE APP'S OWN SCREENS ARE HERE NOW ──────────────────────────────────────
  *
- * The app's own screens. `routes.ts`'s `AWAITING_THE_MOUNT` says what stands in
- * the way, in measurements rather than intentions — and the measurement changed
- * with the mount slice's first half. The five cloud roots reachable from
- * `components/Layout` are gone: four seams (`@chrome`, `@identity`,
- * `@prefs-store`, `@telemetry`) joined `@data`, and a walk from the frame now
- * reaches 65 modules and no cloud at all
- * (`__tests__/layoutIsDesktopClean.test.ts`).
+ * They were not, until the mount slice's second half, and the reason was always
+ * a measurement rather than an intention. Slice 29: a walk from
+ * `components/Layout` reached 144 modules and five cloud roots. The mount's
+ * first half answered those with four seams and got the frame to zero. What was
+ * left was one file — `contexts/AppContextSupabase`, which twenty of the
+ * twenty-five owed pages reached — and a handful of billing and bank-feed
+ * surfaces inside otherwise local pages.
  *
- * What is left is one context — `contexts/AppContextSupabase`, the web's state
- * layer, which twenty of the twenty-five owed pages reach — plus three pages with
- * a cloud import of their own. Two owed routes are already clean and are waiting
- * only for a `<Route>`. That is part 2, and this file is where it will land.
+ * `@session` and `@service` are those two answers, and the walk from THIS FILE
+ * now reaches 348 modules, thirty-seven routes and no cloud at all
+ * (`__tests__/desktopEntry.cloudFree.test.ts`). Three routes remain owed and
+ * `routes.ts` names the exact chain behind each.
+ *
+ * The list above is still short, and it is still short for the same reason:
+ * nothing was switched off. `DesktopApp` renders a chooser, and the application
+ * arrives — lazily, after a file is open, because `@data` resolves to a module
+ * whose scope demands one — through `MountedLedger`.
  */
 
 import { StrictMode } from 'react';

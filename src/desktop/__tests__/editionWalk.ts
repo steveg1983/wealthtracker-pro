@@ -32,7 +32,9 @@ export const DEVICE_ALIAS: Readonly<Record<string, string>> = {
   '@chrome': 'desktop/editions/chrome',
   '@identity': 'desktop/editions/identity',
   '@prefs-store': 'desktop/editions/preferencesStore',
-  '@telemetry': 'desktop/editions/telemetry'
+  '@telemetry': 'desktop/editions/telemetry',
+  '@session': 'desktop/editions/session',
+  '@service': 'desktop/editions/service'
 };
 
 /** Every seam, as `vite.config.ts` resolves it. The wrong way, on purpose. */
@@ -41,11 +43,53 @@ export const CLOUD_ALIAS: Readonly<Record<string, string>> = {
   '@chrome': 'editions/cloud/chrome',
   '@identity': 'editions/cloud/identity',
   '@prefs-store': 'editions/cloud/preferencesStore',
-  '@telemetry': 'editions/cloud/telemetry'
+  '@telemetry': 'editions/cloud/telemetry',
+  '@session': 'desktop/editions/session',
+  '@service': 'editions/cloud/service'
 };
 
 /**
  * What a desktop build may not contain, and what each one would cost.
+ *
+ * ── WHAT `indexedDB` IS AND IS NOT, AND WHY TWO ENTRIES AND NOT ONE ─────────
+ *
+ * The mount slice's second half added `services/indexedDBService.ts` to this
+ * list for about an hour, and took it off again. It is the right instinct and
+ * the wrong rule: the prohibition is *the browser's copy of the LEDGER*, and
+ * IndexedDB is merely where one of them happened to live. `services/
+ * documentService.ts` keeps receipt IMAGES in the same database — browser-local
+ * in the web edition too, not the ledger, not a network — and banning the API
+ * would have made a receipt a leak.
+ *
+ * So the two things that WERE the ledger are named instead, and both were found
+ * by `scripts/desktop-bundle-greps.mjs` reading the built renderer rather than
+ * by this walk reading the source. That is the three-altitudes argument paying
+ * for itself: a rule this file does not know is a rule this file reports green
+ * on, and the built bundle does not care what the list says.
+ *
+ * ── WHY `contexts/AppContextSupabase.tsx` IS NO LONGER ON THIS LIST ─────────
+ *
+ * Because the mount's second half is what it was waiting for, and because it was
+ * never really the prohibition. It was on this list from slice 29 with the note
+ * *"named here so that arriving early is a failure rather than a surprise"*, and
+ * what it was a stand-in FOR was four modules that are each named separately
+ * above and below: `services/userIdService`, `services/autoSyncService`, the
+ * demo seeder, and `@clerk/clerk-react`. `@session` took all four out of it; the
+ * walk from that provider with a desktop's resolution now reaches 38 modules and
+ * none of them, and the window MOUNTS it. Keeping it here would ban the app.
+ *
+ * Nothing was lost by the removal, which is the test of whether it should go: if
+ * any of those four ever comes back to that file, four other entries fail.
+ *
+ * ── WHY THE DEMO BAN MOVED TO `utils/demoSeed.ts` ───────────────────────────
+ *
+ * The same shape of correction, one layer down. `utils/demoData.ts` was banned
+ * for *"sample data written into the browser store"*, and that was two things in
+ * one file: object literals, which are edition-blind, and the one function that
+ * writes them into `services/storageAdapter`. `utils/testDataset.ts` — Settings
+ * → "Load Test Data" — imports five of the literals, so the ban made a perfectly
+ * local feature unreachable on a device. The seeding is `demoSeed.ts` now and
+ * the ban is on that.
  *
  * ── WHY `loggers/scopedLogger.ts` IS NO LONGER ON THIS LIST ─────────────────
  *
@@ -82,6 +126,23 @@ export const FORBIDDEN_MODULES: ReadonlyArray<{ module: string; why: string }> =
     why: "the browser's IndexedDB store — a second copy of the ledger, on a device that already has one"
   },
   {
+    module: 'pwa/offline-storage.ts',
+    why:
+      'a queue of writes waiting for a SERVER to come back, kept in IndexedDB. There is no ' +
+      'server to be offline from and a device write lands in the file immediately, so the queue ' +
+      'is a copy of the ledger with nowhere to go. Found by `desktop:greps` and not by this ' +
+      'walk, which is the clearest case in the repository for keeping both: the frame reached it ' +
+      'through two PWA components and every list here called the frame clean'
+  },
+  {
+    module: 'services/transactionCache.ts',
+    why:
+      "the CLOUD engine's boot snapshot — the whole history in IndexedDB so that a re-boot can " +
+      'ask the server for a delta instead of 29 MB. A file has no round trip to save. It is here ' +
+      'because the shared state layer imported it to EMPTY it on a wipe; that clear lives inside ' +
+      '`DataService.wipeAllFinancialData` now, where the cache belongs'
+  },
+  {
     module: 'lib/sentry.ts',
     why: 'error reporting to a server, from the one edition whose promise is that nothing leaves'
   },
@@ -98,14 +159,7 @@ export const FORBIDDEN_MODULES: ReadonlyArray<{ module: string; why: string }> =
     why: 'a billing state, in an edition that is not sold by subscription'
   },
   {
-    module: 'contexts/AppContextSupabase.tsx',
-    why:
-      "the WEB's state layer, which reaches Clerk, the id translator, the browser store and the " +
-      'demo data between them. It is the next thing the mount slice owes and it is named here so ' +
-      'that arriving early is a failure rather than a surprise'
-  },
-  {
-    module: 'utils/demoData.ts',
+    module: 'utils/demoSeed.ts',
     why: 'sample data written into the browser store, for a hosted demo this edition cannot be in'
   },
   {

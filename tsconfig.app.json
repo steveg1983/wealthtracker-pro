@@ -41,6 +41,10 @@
       "@identity": ["./src/editions/cloud/identity.ts"],
       "@prefs-store": ["./src/editions/cloud/preferencesStore.ts"],
       "@telemetry": ["./src/editions/cloud/telemetry.ts"],
+      /* The mount slice's second half: the state layer's preamble, and the
+         three settings panels that are about the hosted service. */
+      "@session": ["./src/editions/cloud/session.ts"],
+      "@service": ["./src/editions/cloud/service.ts"],
       "@wealthtracker/utils": ["./packages/utils/index.ts"],
       "@wealthtracker/utils/*": ["./packages/utils/*"],
       "@wealthtracker/types/*": ["./packages/types/*"],

@@ -4,19 +4,33 @@
  * ── WHAT MAKES THIS THE "DESKTOP ROUTER" AND NOT A SECOND APP ───────────────
  *
  * The routes are not written here. They are in `routes.ts`, as a decision with
- * a reason attached to every path the web router has, and this file renders
- * whichever of them are mounted. That indirection is the whole gating
+ * a reason attached to every path the web router has, and `MountedLedger`
+ * renders whichever of them are mounted. That indirection is the whole gating
  * mechanism: a route can only appear in this window by being added to
- * {@link DESKTOP_ROUTES}, and a route cannot be added to `DESKTOP_ROUTES` while
- * it is also in `NEVER_ON_A_DESKTOP` — `__tests__/desktopRouter.test.tsx` fails
- * on exactly that, which is what stops a bank-feed page from arriving here by
- * being convenient one afternoon.
+ * `DESKTOP_ROUTES`, and a route cannot be added to `DESKTOP_ROUTES` while it is
+ * also in `NEVER_ON_A_DESKTOP` — `__tests__/desktopRouter.test.tsx` fails on
+ * exactly that, which is what stops a bank-feed page from arriving here by being
+ * convenient one afternoon.
  *
  * There is no `ClerkProvider`, no `SubscriptionProvider` and no `AuthProvider`,
  * and their absence is not a subtraction from `App.tsx` — it is that nothing in
  * this window's graph reaches them. The identity question they answer for a
  * browser is answered here by the file itself (`deviceIdentity.ts`), which is
  * why the first screen is a chooser rather than a sign-in.
+ *
+ * ── THE LAZY IMPORT IS THE MOST IMPORTANT LINE IN THIS FILE ─────────────────
+ *
+ * `MountedLedger` is `lazy(() => import('./MountedLedger'))` and it may not
+ * become a static import. `@data` resolves to `services/local/deviceDataPort.ts`
+ * in this build, and that module's SCOPE is `requireDeviceDocument().port` — it
+ * throws if no ledger is open. Every provider and every page below it reaches
+ * `@data`, so importing any of them before a file has been chosen is a blank
+ * window with a thrown sentence in a console nobody can see.
+ *
+ * That is not a workaround; it is the ordering rule `deviceDataPort.ts` states
+ * outright — *"the application's module graph is loaded after the ledger is
+ * open"* — and this is the file that keeps it. Choose the file, open the
+ * document, seed and attach, and only then pull the application in.
  *
  * ── HashRouter, AND WHY NOT BrowserRouter ───────────────────────────────────
  *
@@ -34,43 +48,53 @@
  * one replaces the first here exactly as it does there.
  */
 
-import { useCallback, useEffect, useState, type ReactElement } from 'react';
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { Suspense, lazy, useCallback, useEffect, useState, type ReactElement } from 'react';
 import {
   bootDeviceLedger,
   openDeviceDocument,
   type OpenLedger
 } from '../services/local/deviceDocument';
+// The one singleton every surface renders through, handed to the boot so the
+// settings come out of the FILE rather than out of this WebView's localStorage.
+// `bootDeviceLedger` takes it as an injected structural interface rather than
+// importing it, so that the data layer names no app service; this is the
+// injector, and until the mount's second half there was nobody to be one. The
+// obligation is recorded in `DeviceBootOptions` and in the shell's README, and
+// it is discharged here.
+import { preferences } from '../services/preferencesService';
 import type { Invoke } from '../services/local/coreTransport';
-import { LedgerScreen, type OpenLedgerView } from './LedgerScreen';
-import { DESKTOP_ROUTES, type DesktopPath } from './routes';
+import { LedgerChooser } from './LedgerScreen';
+
+/**
+ * The application, and everything it reaches. See the header: this import may
+ * not be made static, and the failure if it is would be a blank window.
+ */
+const MountedLedger = lazy(() => import('./MountedLedger'));
 
 export interface DesktopAppProps {
   /** The shell's one door. See `tauriShell.ts`. */
   readonly invoke: Invoke;
 }
 
-/** A thrown thing, as a sentence. See `LedgerScreen`'s `problem` for the rule. */
+/** A thrown thing, as a sentence. See `LedgerChooser`'s `problem` for the rule. */
 const sentence = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 export function DesktopApp({ invoke }: DesktopAppProps): ReactElement {
-  const [ledger, setLedger] = useState<OpenLedgerView | null>(null);
+  /** Where the open ledger is, or `null` when none is. The mount's one switch. */
+  const [ledgerPath, setLedgerPath] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
   const openFrom = useCallback(
     async (answer: OpenLedger): Promise<void> => {
       const document = openDeviceDocument({ ledger: answer, invoke });
-      // No preferences service is passed, and it is still honest rather than
-      // unfinished: this window renders one surface and that surface reads no
-      // setting. It has a measured reason now, too — `preferencesService.ts`
-      // reaches a Supabase client in its module scope, so a desktop bundle
-      // cannot import it, and giving this window the app's settings means
-      // giving that service a seam of the kind the data layer just got. The
-      // obligation is recorded at `bootDeviceLedger` and in the shell's README.
-      const boot = await bootDeviceLedger(document);
-      setLedger({ path: answer.path, boot, capabilities: document.port.capabilities() });
+      // Seeds the categories and binds the settings to the file — and does NOT
+      // read the ledger. The application does that, through `@data`, in the
+      // state layer's own boot effect; reading it here as well would mean
+      // materialising a whole history twice to open one window.
+      await bootDeviceLedger(document, { preferences });
+      setLedgerPath(answer.path);
     },
     [invoke]
   );
@@ -108,37 +132,30 @@ export function DesktopApp({ invoke }: DesktopAppProps): ReactElement {
     };
   }, [invoke, openFrom]);
 
-  /**
-   * A screen for every mounted path, checked by the compiler.
-   *
-   * `Record<DesktopPath, …>` is what makes `routes.ts` load-bearing rather than
-   * documentation: adding a path to the manifest without adding it here does not
-   * build.
-   */
-  const screens: Record<DesktopPath, ReactElement> = {
-    '/': (
-      <LedgerScreen
-        ledger={ledger}
+  if (ledgerPath === null) {
+    // No router at all, deliberately: there is nowhere to go. Every address this
+    // window serves is an address inside a ledger, and the chooser is what a
+    // window shows when it does not have one.
+    return (
+      <LedgerChooser
         busy={busy}
         problem={problem}
         onOpen={choose('open_ledger')}
         onCreate={choose('create_ledger')}
       />
-    )
-  };
+    );
+  }
 
   return (
-    <HashRouter>
-      <Routes>
-        {DESKTOP_ROUTES.map(route => (
-          <Route key={route.path} path={route.path} element={screens[route.path]} />
-        ))}
-        {/* A window has no address bar, so an unknown address is never something
-            a person typed — it is this program having sent itself somewhere that
-            does not exist. It goes home rather than rendering a "not found" page
-            that would be telling the user about our mistake. */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </HashRouter>
+    <Suspense
+      fallback={
+        <main className="ledger-screen">
+          <h1>WealthTracker</h1>
+          <p>Opening {ledgerPath}…</p>
+        </main>
+      }
+    >
+      <MountedLedger />
+    </Suspense>
   );
 }
