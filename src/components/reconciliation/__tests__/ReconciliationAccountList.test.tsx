@@ -83,22 +83,22 @@ describe('ReconciliationAccountList — a missing figure names its remedy', () =
     renderList();
     const row = rowFor('Everyday Account');
 
-    expect(within(row).getByText('Enter bank balance')).toBeInTheDocument();
+    expect(within(row).getByText('Enter closing balance')).toBeInTheDocument();
     // Not repeated beside the difference — the row has already said it.
-    expect(within(row).getAllByText('Enter bank balance')).toHaveLength(1);
+    expect(within(row).getAllByText('Enter closing balance')).toHaveLength(1);
   });
 
   it('says nothing about entering a balance on a row that has one', () => {
     renderList();
     const row = rowFor('Second Account');
 
-    expect(within(row).queryByText('Enter bank balance')).not.toBeInTheDocument();
+    expect(within(row).queryByText('Enter closing balance')).not.toBeInTheDocument();
     expect(within(row).getByText('£220.00')).toBeInTheDocument();
   });
 
   it('keeps amber off the remedy — the thread owns amber on this page', () => {
     renderList();
-    const remedy = within(rowFor('Everyday Account')).getByText('Enter bank balance');
+    const remedy = within(rowFor('Everyday Account')).getByText('Enter closing balance');
 
     // P3: one amber in the building, and on this page it belongs to the
     // travelling next action, never to a link that is merely available.

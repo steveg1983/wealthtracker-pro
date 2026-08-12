@@ -31,6 +31,7 @@ import { Modal, ModalBody } from '../common/Modal';
 import PeriodBar from '../../components/PeriodBar';
 import NetWorthSummary from '../../components/NetWorthSummary';
 import { PERIOD_LABELS, usePeriod } from '../../hooks/usePeriod';
+import { cardPeriodKey, useCardPeriod } from '../../hooks/useCardPeriod';
 import { customReportService } from '../../services/customReportService';
 import {
   NetWorthWidget,
@@ -39,6 +40,7 @@ import {
   CustomReportWidget,
 } from './reportWidgets/DashboardReportWidgets';
 import DashboardWidgetCard from './reportWidgets/DashboardWidgetCard';
+import CardPeriodControl from './reportWidgets/CardPeriodControl';
 import { useReportDrill } from './reportWidgets/useReportDrill';
 import { WIDGET_CHART_HEIGHT } from './reportWidgets/widgetChrome';
 import { BUILT_IN_REPORTS, type PinnableReportId } from './reportWidgets/pinnableReports';
@@ -139,6 +141,33 @@ export function ImprovedDashboard() {
    * moves underneath them.
    */
   const period = usePeriod(DASHBOARD_PERIOD_KEY, 'last-12-months');
+
+  /**
+   * …AND THE FOUR CARDS THAT MAY DECLARE THEMSELVES OUT OF IT.
+   *
+   * The page clock above is still the law, and it is still the default for
+   * every one of these. What changed is that the law now has a stated
+   * exception, because the owner hit the cost of not having one: all-time net
+   * worth forced all-time income-vs-expenses, and a stock and a flow are
+   * different lenses with different natural windows.
+   *
+   * These are the page's period CONSUMERS, and they are all of them. Net worth
+   * summary, account distribution, key balances and the attention list read
+   * today's balances; budget status reads a rolling thirty days on purpose;
+   * a pinned custom report carries its own filters. None of those four can be
+   * pinned, because none of them is being read over the page's window in the
+   * first place — a period control on a card that ignores periods is the same
+   * undeclared scope this whole design is against, pointed the other way.
+   *
+   * An unpinned card is handed `period` ITSELF, not a copy of it, so "follows
+   * the page" needs nothing keeping it true. See hooks/useCardPeriod.
+   */
+  const performanceCard = useCardPeriod(cardPeriodKey(DASHBOARD_PERIOD_KEY, 'performance'), period);
+  const netWorthCard = useCardPeriod(cardPeriodKey(DASHBOARD_PERIOD_KEY, 'net-worth'), period);
+  const trendCard = useCardPeriod(cardPeriodKey(DASHBOARD_PERIOD_KEY, 'income-expense-trend'), period);
+  const categoriesCard = useCardPeriod(cardPeriodKey(DASHBOARD_PERIOD_KEY, 'expense-categories'), period);
+  const performancePeriod = performanceCard.picker;
+
   // The Account Distribution card lives here rather than in
   // DashboardReportWidgets, so it reaches for the same click-through as its
   // neighbours instead of growing a second one that drifts.
@@ -258,7 +287,7 @@ export function ImprovedDashboard() {
   // movement never decides the bucket. The cards and the breakdown modal read
   // these same totals, so both always describe one and the same window.
   const performance = useMemo(() => {
-    const { from, to } = period.range;
+    const { from, to } = performancePeriod.range;
     const flows = computeIncomeExpense(transactions, transactionSplits, categories, {
       from: from ?? undefined,
       to: to ?? undefined,
@@ -269,7 +298,7 @@ export function ImprovedDashboard() {
       incomeRows: flows.incomeRows,
       expenseRows: flows.expenseRows,
     };
-  }, [transactions, transactionSplits, categories, period.range]);
+  }, [transactions, transactionSplits, categories, performancePeriod.range]);
 
   // Generate net worth data for chart - ONLY REAL DATA
   const netWorthData = useMemo(() => {
@@ -425,17 +454,26 @@ export function ImprovedDashboard() {
       {/* Secondary Focus: Performance over the chosen period */}
       <section
         aria-labelledby="performance-heading"
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
+        className="group/card bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
       >
-        {/* No picker of its own: this card reads over the page's period, like
-            everything else below the bar at the top. */}
+        {/* Reads over the page's period like everything else below the bar,
+            until it is pinned — and then it says "pinned · …" instead of the
+            bare window name, because the same words in the same place would no
+            longer be saying the same thing. */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <h3 id="performance-heading" className="text-lg font-semibold text-gray-900 dark:text-white">
             Performance
           </h3>
-          <span className="text-body text-gray-500 dark:text-gray-400">
-            {PERIOD_LABELS[period.period]}
-          </span>
+          {!performanceCard.pin.isPinned && (
+            <span className="text-body text-gray-500 dark:text-gray-400">
+              {PERIOD_LABELS[performancePeriod.period]}
+            </span>
+          )}
+          <CardPeriodControl
+            cardLabel="Performance"
+            period={performancePeriod.period}
+            pin={performanceCard.pin}
+          />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -504,7 +542,9 @@ export function ImprovedDashboard() {
         <div className={`grid grid-cols-1 gap-6 ${showAssetsColumn && showFlowsColumn ? 'lg:grid-cols-2' : ''}`}>
           {showAssetsColumn && (
             <div className="space-y-4">
-              {assetsReports.map(id => <NetWorthWidget key={id} picker={period} />)}
+              {assetsReports.map(id => (
+                <NetWorthWidget key={id} picker={netWorthCard.picker} pin={netWorthCard.pin} />
+              ))}
 
               {/* Account distribution: a snapshot of TODAY, sitting under a
                   period control it deliberately ignores — so it says so.
@@ -593,8 +633,8 @@ export function ImprovedDashboard() {
             <div className="space-y-4">
               {flowsReports.map(id => (
                 id === 'income-expense-trend'
-                  ? <IncomeExpenseTrendWidget key={id} picker={period} />
-                  : <ExpenseCategoriesWidget key={id} picker={period} />
+                  ? <IncomeExpenseTrendWidget key={id} picker={trendCard.picker} pin={trendCard.pin} />
+                  : <ExpenseCategoriesWidget key={id} picker={categoriesCard.picker} pin={categoriesCard.pin} />
               ))}
             </div>
           )}
@@ -666,7 +706,7 @@ export function ImprovedDashboard() {
       <IncomeExpenseBreakdownModal
         isOpen={breakdownType !== null}
         onClose={() => setBreakdownType(null)}
-        title={`${breakdownType === 'income' ? 'Income' : 'Expenses'} — ${PERIOD_LABELS[period.period]}`}
+        title={`${breakdownType === 'income' ? 'Income' : 'Expenses'} — ${PERIOD_LABELS[performancePeriod.period]}`}
         bucket={breakdownType ?? 'income'}
         rows={breakdownType === 'income' ? performance.incomeRows : performance.expenseRows}
         total={breakdownType === 'income' ? performance.income : performance.expenses}

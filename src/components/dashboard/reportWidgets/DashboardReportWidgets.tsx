@@ -20,8 +20,10 @@ import { expandSplitTransactions } from '../../../utils/transactionSplits';
 import { formatDecimal } from '../../../utils/decimal-format';
 import { customReportService } from '../../../services/customReportService';
 import type { UsePeriodResult } from '../../../hooks/usePeriod';
+import type { CardPeriodPin } from '../../../hooks/useCardPeriod';
 import { TrendingUpIcon, PieChartIcon, BarChart3Icon, FileTextIcon } from '../../icons';
 import DashboardWidgetCard from './DashboardWidgetCard';
+import CardPeriodControl from './CardPeriodControl';
 import { WIDGET_CHART_HEIGHT } from './widgetChrome';
 import { useReportDrill } from './useReportDrill';
 
@@ -46,6 +48,18 @@ import { useReportDrill } from './useReportDrill';
  *
  * Every chart area is WIDGET_CHART_HEIGHT and every card wears the same shell,
  * so the four cards in the section are one height rather than four.
+ *
+ * ── `picker` AND `pin` ARE NOT TWO WINDOWS ──────────────────────────────────
+ *
+ * `picker` is the window the card is read over, whether that is the page's or
+ * one this card was pinned to; the Dashboard resolves which before handing it
+ * over (hooks/useCardPeriod). `pin` carries no window at all — only whether
+ * this card has one of its own and the two ways to change that — so the card's
+ * chart, its click-through and its declaration cannot disagree about the
+ * window, because there is only one of them to read.
+ *
+ * `pin` is optional: a card rendered without it is a card with no period
+ * affordance, which is exactly what these three were before the pin existed.
  */
 
 const CATEGORY_COLORS = [
@@ -61,7 +75,12 @@ const compactTick = (value: number): string => {
   return formatDecimal(value, 0);
 };
 
-export function NetWorthWidget({ picker }: { picker: UsePeriodResult }): React.JSX.Element {
+const NET_WORTH_TITLE = 'Net Worth Over Time';
+
+export function NetWorthWidget({ picker, pin }: {
+  picker: UsePeriodResult;
+  pin?: CardPeriodPin;
+}): React.JSX.Element {
   const { accounts, transactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const openReport = useReportDrill();
@@ -77,12 +96,15 @@ export function NetWorthWidget({ picker }: { picker: UsePeriodResult }): React.J
 
   return (
     <DashboardWidgetCard
-      title="Net Worth Over Time"
+      title={NET_WORTH_TITLE}
       icon={TrendingUpIcon}
       subtitle={
-        <span className="text-xl font-bold text-gray-900 dark:text-white truncate">
-          {latest ? formatCurrency(latest.netWorth) : '—'}
-        </span>
+        <>
+          <span className="min-w-0 text-xl font-bold text-gray-900 dark:text-white truncate">
+            {latest ? formatCurrency(latest.netWorth) : '—'}
+          </span>
+          {pin && <CardPeriodControl cardLabel={NET_WORTH_TITLE} period={picker.period} pin={pin} />}
+        </>
       }
       onOpen={() => open()}
     >
@@ -113,7 +135,12 @@ export function NetWorthWidget({ picker }: { picker: UsePeriodResult }): React.J
   );
 }
 
-export function IncomeExpenseTrendWidget({ picker }: { picker: UsePeriodResult }): React.JSX.Element {
+const INCOME_EXPENSE_TITLE = 'Income vs Expenses';
+
+export function IncomeExpenseTrendWidget({ picker, pin }: {
+  picker: UsePeriodResult;
+  pin?: CardPeriodPin;
+}): React.JSX.Element {
   const { transactions, transactionSplits, categories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const openReport = useReportDrill();
@@ -134,12 +161,15 @@ export function IncomeExpenseTrendWidget({ picker }: { picker: UsePeriodResult }
 
   return (
     <DashboardWidgetCard
-      title="Income vs Expenses"
+      title={INCOME_EXPENSE_TITLE}
       icon={BarChart3Icon}
       subtitle={
-        <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-          Month by month, what came in against what went out
-        </span>
+        <>
+          <span className="min-w-0 text-xs text-gray-500 dark:text-gray-400 truncate">
+            Month by month, what came in against what went out
+          </span>
+          {pin && <CardPeriodControl cardLabel={INCOME_EXPENSE_TITLE} period={picker.period} pin={pin} />}
+        </>
       }
       onOpen={() => open()}
     >
@@ -172,7 +202,12 @@ export function IncomeExpenseTrendWidget({ picker }: { picker: UsePeriodResult }
   );
 }
 
-export function ExpenseCategoriesWidget({ picker }: { picker: UsePeriodResult }): React.JSX.Element {
+const EXPENSE_CATEGORIES_TITLE = 'Expense Categories';
+
+export function ExpenseCategoriesWidget({ picker, pin }: {
+  picker: UsePeriodResult;
+  pin?: CardPeriodPin;
+}): React.JSX.Element {
   const { transactions, transactionSplits, categories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const openReport = useReportDrill();
@@ -195,12 +230,15 @@ export function ExpenseCategoriesWidget({ picker }: { picker: UsePeriodResult })
 
   return (
     <DashboardWidgetCard
-      title="Expense Categories"
+      title={EXPENSE_CATEGORIES_TITLE}
       icon={PieChartIcon}
       subtitle={
-        <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-          Where the money went, biggest first
-        </span>
+        <>
+          <span className="min-w-0 text-xs text-gray-500 dark:text-gray-400 truncate">
+            Where the money went, biggest first
+          </span>
+          {pin && <CardPeriodControl cardLabel={EXPENSE_CATEGORIES_TITLE} period={picker.period} pin={pin} />}
+        </>
       }
       onOpen={() => open()}
     >

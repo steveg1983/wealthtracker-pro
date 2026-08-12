@@ -30,7 +30,11 @@ export default function DashboardWidgetCard({
   children: React.ReactNode;
 }): React.JSX.Element {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 flex flex-col">
+    // `group/card` is what the card's quiet controls hang off: a period
+    // affordance that is charged rent has to know when the card is hovered or
+    // holds focus (see CardPeriodControl). Named rather than bare, so a nested
+    // group inside a chart legend can never claim it.
+    <div className="group/card bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 flex flex-col">
       <button
         type="button"
         onClick={onOpen}

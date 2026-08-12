@@ -194,8 +194,17 @@ export default function ReconciliationAccountList({
                               affordance wears (P7), never amber: on this page
                               amber belongs to the travelling thread alone
                               (P3). */}
+                          {/* "Closing balance", not "bank balance": a link
+                              names its DESTINATION, and the screen it opens
+                              deliberately says Closing Balance — the number
+                              you agree to, not a live feed figure. The column
+                              above stays Bank Balance because it really is
+                              the feed's number; the two names mark two
+                              different figures, and the gap between them is
+                              the Difference column — the thing reconciliation
+                              exists to close. (Design ruling, 2026-08-12.) */}
                           <span className="block text-[11px] font-medium text-primary dark:text-blue-400">
-                            Enter bank balance
+                            Enter closing balance
                           </span>
                         </>
                       )}
