@@ -66,10 +66,98 @@ const THE_TWO = [
 ];
 
 const AND_THREE_MORE = [
-  { word: 'indexedDB', is: 'browser storage by another name', costs: 'the same second copy' },
-  { word: 'clerk', is: 'the cloud identity provider', costs: 'a sign-in, in an edition whose identity is a file' },
-  { word: 'sentry', is: 'error reporting', costs: 'this machine telling a server what went wrong on it' },
-  { word: 'stripe', is: 'payments', costs: 'a subscription, in an edition that is not one' }
+  {
+    word: 'wealthtracker_transactions',
+    is: "the browser's ledger mirror, by its own storage key",
+    costs: 'a second copy of the history, in a program whose whole point is the one on disk'
+  },
+  {
+    pattern: /(?<![a-z0-9])clerk(?![a-z0-9])/i,
+    word: 'clerk',
+    is: 'the cloud identity provider',
+    costs: 'a sign-in, in an edition whose identity is a file'
+  },
+  {
+    pattern: /(?<![a-z0-9])sentry(?![a-z0-9])/i,
+    word: 'sentry',
+    is: 'error reporting',
+    costs: 'this machine telling a server what went wrong on it'
+  },
+  {
+    pattern: /(?<![a-z0-9])stripe(?![a-z0-9])/i,
+    word: 'stripe',
+    is: 'payments',
+    costs: 'a subscription, in an edition that is not one'
+  }
+];
+
+/**
+ * WHY `indexedDB` IS NO LONGER ONE OF THESE, AND WHAT REPLACED IT.
+ *
+ * It was, from slice 27 until the mount slice's second half, and it was right
+ * for as long as the only IndexedDB in this renderer WAS the browser's copy of
+ * the ledger. The mount put the application in the window and the word stopped
+ * meaning that: `services/documentService.ts` keeps receipt images in IndexedDB,
+ * that store is browser-local in the WEB edition too, and it is not the ledger,
+ * not a network, and not a copy of anything a device already has on disk. A
+ * grep that fails on it is telling a person their receipts are a leak.
+ *
+ * (It DID find two real ones on the way, and both were fixed rather than
+ * excused: the PWA offline queue in the frame, which queues writes for a server
+ * that does not exist, and the cloud engine's boot-snapshot cache, which the
+ * shared state layer was importing in order to empty. `@chrome` took the first;
+ * the second moved inside `DataService.wipeAllFinancialData`, where it belongs.)
+ *
+ * So the word is replaced by the STORAGE KEY the browser's ledger mirror writes
+ * under — `wealthtracker_transactions`, from `encryptedStorageService`'s
+ * STORAGE_KEYS. That is a tighter check than the API name, not a looser one: it
+ * fails on the browser ledger arriving through `storageAdapter`, through
+ * `localBackupService`, or through anything else that has not been invented
+ * yet, and it cannot be satisfied by a receipt.
+ *
+ * The remaining debt is real and is recorded rather than grepped for: a
+ * device's attachments live in the WebView's store, so they do not travel with
+ * the ledger file and are not in its backup. That is a product gap this edition
+ * INHERITS (the web app's receipts do not travel between browsers either), and
+ * it belongs in a slice about documents, not in a grep.
+ *
+ * WHY THE OTHER THREE ARE PATTERNS AND THE FIRST TWO ARE NOT.
+ *
+ * `supabase` and `storageAdapter` are the plan's two and they stay maximally
+ * sensitive: they are distinctive strings that appear nowhere by accident, and
+ * `supabaseClient` must match, which a word boundary would forbid.
+ *
+ * The three vendors are the opposite problem. Their names are ordinary English
+ * inside other words, and a renderer that now contains a charting library, a PDF
+ * writer and a spreadsheet writer contains a great many of them: `striped` and
+ * `gridstripes` and `HorzStripe` in three separate chunks, and `adminClerkId` in
+ * our own banking query builder. Measured on the first mounted build: seven
+ * false positives, zero true ones. A word-boundary match still finds
+ * `js.stripe.com`, `clerk.accounts.dev` and `window.Sentry`, which is what a
+ * leak actually looks like — and {@link INSTRUMENT_CHECK} makes that claim
+ * executable rather than asserted.
+ *
+ * The boundary is `(?<![a-z0-9])…(?![a-z0-9])` and NOT `\b`, which is a
+ * distinction the self-check found within a minute of being written: `\b`
+ * treats `_` as a word character, and Clerk's own bundle names its cookie
+ * `__clerk_db_jwt`. A boundary that misses the vendor's own token is exactly the
+ * over-narrowing this whole apparatus is here to prevent.
+ */
+
+/**
+ * The patterns, checked against real leaks and known innocents before they are
+ * trusted.
+ *
+ * A grep that has been narrowed is a grep that can have been narrowed too far,
+ * and the failure mode is silence. So each pattern is run over a sample of the
+ * thing it is hunting and a sample of the thing it must ignore, and this script
+ * REFUSES if any of them is wrong — the same ruling the missing-build case
+ * already carries.
+ */
+const INSTRUMENT_CHECK = [
+  { word: 'clerk', finds: ['https://clerk.accounts.dev/npm/@clerk/clerk-js', '__clerk_db_jwt'], ignores: ['adminClerkId', 't.adminClerkId'] },
+  { word: 'sentry', finds: ['window.Sentry?.captureException', '@sentry/react'], ignores: ['sentryish', 'presentry'] },
+  { word: 'stripe', finds: ['https://js.stripe.com/v3', 'new Stripe(k)'], ignores: ['striped', 'gridstripes', 'HorzStripe:"darkHorizontal"'] }
 ];
 
 /**
@@ -111,11 +199,15 @@ const sources = files.map(file => ({
   text: readFileSync(file, 'utf8')
 }));
 
-const occurrences = word => {
-  const needle = word.toLowerCase();
+const countIn = (text, entry) => {
+  if (entry.pattern) return (text.match(new RegExp(entry.pattern.source, 'gi')) ?? []).length;
+  return text.toLowerCase().split(entry.word.toLowerCase()).length - 1;
+};
+
+const occurrences = entry => {
   const hits = [];
   for (const source of sources) {
-    const count = source.text.toLowerCase().split(needle).length - 1;
+    const count = countIn(source.text, entry);
     if (count > 0) hits.push({ file: source.name, count });
   }
   return hits;
@@ -144,10 +236,11 @@ if (!sources.some(source => source.text.includes(MUST_CONTAIN))) {
 const report = (heading, group) => {
   say('');
   say(`  ${heading}`);
-  for (const { word, is, costs } of group) {
-    const hits = occurrences(word);
+  for (const entry of group) {
+    const { word, is, costs } = entry;
+    const hits = occurrences(entry);
     const found = hits.reduce((sum, hit) => sum + hit.count, 0);
-    say(`    ${found === 0 ? 'clean' : 'FOUND'}  ${word.padEnd(16)} ${is}`);
+    say(`    ${found === 0 ? 'clean' : 'FOUND'}  ${word.padEnd(26)} ${is}`);
     if (found > 0) {
       failures.push(
         `  a desktop build contains ${is} — ${costs}.\n` +
@@ -157,8 +250,31 @@ const report = (heading, group) => {
   }
 };
 
+// THE INSTRUMENT, BEFORE THE ARTEFACT. A narrowed pattern that no longer finds
+// the thing it is for reports green on a leaking bundle, which is the one way
+// this script can be worse than not existing.
+const blunted = [];
+for (const { word, finds, ignores } of INSTRUMENT_CHECK) {
+  const entry = AND_THREE_MORE.find(candidate => candidate.word === word);
+  for (const sample of finds) {
+    if (countIn(sample, entry) === 0) blunted.push(`  '${word}' no longer finds ${JSON.stringify(sample)}`);
+  }
+  for (const sample of ignores) {
+    if (countIn(sample, entry) > 0) blunted.push(`  '${word}' still matches ${JSON.stringify(sample)}`);
+  }
+}
+if (blunted.length > 0) {
+  say('');
+  say('desktop bundle greps — REFUSED');
+  say('');
+  say('  The instrument is wrong, so nothing it says about the bundle is worth reading:');
+  for (const line of blunted) say(line);
+  say('');
+  process.exit(1);
+}
+
 report('the plan’s two', THE_TWO);
-report('and the three more the README claims', AND_THREE_MORE);
+report('and the four more the README claims', AND_THREE_MORE);
 
 say('');
 if (failures.length > 0) {

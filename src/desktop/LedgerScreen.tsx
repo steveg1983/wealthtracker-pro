@@ -6,37 +6,29 @@
  * "who are you" here is choosing a file, because the answer is the uuid inside
  * it.
  *
- * ── THE PORT ARRIVES AS A PROP, AND THAT IS DELIBERATE ──────────────────────
+ * ── IT IS THE ONE SCREEN THAT EXISTS BEFORE THERE IS A PORT ─────────────────
  *
- * Everywhere else in this application `dataPort` is imported. Here it is passed,
- * because this screen is the one that exists BEFORE there is a port: it is what
- * a person looks at while they decide which ledger to open. A module-scope
- * import would be a screen that cannot render until the thing it is for has
- * happened.
+ * Everywhere else in this application the ledger arrives through `@data`. Not
+ * here: this is what a person looks at while they decide which ledger to open,
+ * and `services/local/deviceDataPort.ts` resolves `requireDeviceDocument()` in
+ * its module scope — so a chooser that imported the seam could not be rendered
+ * until the thing it is for had already happened. It takes no data at all now,
+ * which is the simplest possible form of that rule.
  *
- * That is also why it does not import `@data`. The alias is the edition-blind
- * door for SHARED surfaces; a desktop-only screen is not shared, and reaching
- * through the door would only mean asking the build a question this component
- * already knows the answer to.
+ * ── WHAT USED TO BE HERE, AND WHERE IT WENT ─────────────────────────────────
+ *
+ * A second arm: given an open ledger, it printed the account, transaction and
+ * category counts and a sentence about where the file's only copy lives. It was
+ * the whole of what a window could show before the mount, and it is
+ * `MountedLedger`'s index screen now — where it reads those counts out of
+ * `useApp()` like every other figure in the product, instead of out of a boot
+ * snapshot read specially for it.
  */
 
 import type { ReactElement } from 'react';
-import type { BootSnapshot, DataPortCapabilities } from '../services/port/dataPort';
 
-/** What the window knows about the ledger it is showing. */
-export interface OpenLedgerView {
-  /** Where the file is. Shown, never sent — `document.rs` says why at length. */
-  readonly path: string;
-  /** What the boot answered with. */
-  readonly boot: BootSnapshot;
-  /** What the engine says it can do. See {@link DataPortCapabilities}. */
-  readonly capabilities: DataPortCapabilities;
-}
-
-export interface LedgerScreenProps {
-  /** The open ledger, or `null` before one has been chosen. */
-  readonly ledger: OpenLedgerView | null;
-  /** Set while the shell's chooser is up or a ledger is being read. */
+export interface LedgerChooserProps {
+  /** Set while the shell's chooser is up or a ledger is being opened. */
   readonly busy: boolean;
   /**
    * What went wrong, verbatim.
@@ -51,63 +43,32 @@ export interface LedgerScreenProps {
   readonly onCreate: () => void;
 }
 
-const count = (n: number, one: string, many: string): string =>
-  `${n.toLocaleString()} ${n === 1 ? one : many}`;
-
-export function LedgerScreen({
-  ledger,
+export function LedgerChooser({
   busy,
   problem,
   onOpen,
   onCreate
-}: LedgerScreenProps): ReactElement {
-  if (ledger === null) {
-    return (
-      <main className="ledger-screen">
-        <h1>WealthTracker</h1>
-        <p>
-          No ledger is open. Open one, or make a new one — it is a single file, and it stays on
-          this machine.
-        </p>
-        {problem === null ? null : (
-          <p role="alert" className="problem">
-            {problem}
-          </p>
-        )}
-        <div className="actions">
-          <button type="button" onClick={onOpen} disabled={busy}>
-            Open a ledger…
-          </button>
-          <button type="button" onClick={onCreate} disabled={busy}>
-            New ledger…
-          </button>
-        </div>
-      </main>
-    );
-  }
-
-  const { boot, capabilities } = ledger;
+}: LedgerChooserProps): ReactElement {
   return (
     <main className="ledger-screen">
-      <h1>{ledger.path}</h1>
+      <h1>WealthTracker</h1>
       <p>
-        {count(boot.accounts.length, 'account', 'accounts')},{' '}
-        {count(boot.transactions.length, 'transaction', 'transactions')},{' '}
-        {count(boot.categories.length, 'category', 'categories')}. This ledger is open and this
-        window holds it.
+        No ledger is open. Open one, or make a new one — it is a single file, and it stays on
+        this machine.
       </p>
-      {/* The one sentence `capabilities` is here for, and it is COPY: `edition`
-          may be rendered and never branched on (dataPort.ts states the rule and
-          editionIsCopyOnly.test.ts greps for it). `backupTarget` is the capability
-          the sentence is actually ABOUT, and branching on that is the point of
-          having it — a person is owed a different sentence when the file in front
-          of them is the only copy that exists. */}
-      <p className="whose-copy">
-        {capabilities.backupTarget === 'device'
-          ? 'This file is the only copy. Back it up the way you back up anything else you cannot lose.'
-          : 'A copy of these rows is held by your account as well as by this file.'}{' '}
-        {capabilities.edition === 'device' ? 'Local edition.' : 'Cloud edition.'}
-      </p>
+      {problem === null ? null : (
+        <p role="alert" className="problem">
+          {problem}
+        </p>
+      )}
+      <div className="actions">
+        <button type="button" onClick={onOpen} disabled={busy}>
+          Open a ledger…
+        </button>
+        <button type="button" onClick={onCreate} disabled={busy}>
+          New ledger…
+        </button>
+      </div>
     </main>
   );
 }

@@ -174,6 +174,13 @@
     "src/utils/decimal-format.ts": {"status":"pending"},
     "src/utils/decimal.ts": {"status":"pending","ids":["TS-M1"],"cited_by":["PHASE1-PLAN","TS-INVARIANTS"],"note":"The money boundary. crates/wealth-core/src/money.rs ports the RULE (TS-M1) and declares the divergence: parseMoneyInput rounds 2dp HALF_UP, Money::parse refuses more than two places. The admission lane now pins that divergence at three further sites (dedupe, bank balance, feed overlap), each from both sides, so the day this module stops rounding the divergence retires deliberately."},
     "src/utils/demoData.ts": {"status":"pending","cited_by":["AUDIT3"]},
+    "src/utils/demoSeed.ts": {
+      "status": "pending",
+      "cited_by": [
+        "AUDIT3"
+      ],
+      "note": "A FILE SPLIT, not a port, and it inherits demoData.ts's disposition unchanged. The mount slice's second half took the one function that WRITES the sample rows into services/storageAdapter out of utils/demoData.ts, which is otherwise object literals. The reason was measured: utils/testDataset.ts imports five of those literals to build Settings \u2192 Load Test Data, so a page that only wanted pretend accounts reached the browser's IndexedDB store, and a desktop bundle \u2014 which has its own store, on disk, and must not contain a second one \u2014 could not have that page at all. Nothing about the RULES moved, which is why the status did not either: this remains an act on browser storage for a hosted demo the local edition cannot be in, and src/desktop/__tests__/editionWalk.ts names it as forbidden in a device build."
+    },
     "src/utils/duplicateScan.ts": {"status":"pending","cited_by":["AUDIT3"]},
     "src/utils/duplicateSweepSession.ts": {"status":"out-of-scope","reason":"navigation state, not money: the crumbs the Find-duplicates dialog leaves itself before sending the user out to the register (which window, which sort order, which pair they were looking at) so the trip back reopens where they were. Discovery picks it up because the sort keys are named after ledger columns — 'amount', 'account' — but nothing here reads an amount, and no decision it makes can change a row. The duplicate RULES are src/utils/duplicateSweep.ts and src/utils/duplicateScan.ts, each dispositioned in its own entry."},
     "src/utils/duplicateSweep.ts": {"status":"pending","ids":["D-1","T-8","TS-D1","TS-D2","TS-D3","TS-D4"],"cited_by":["AUDIT3","PHASE1-PLAN","TS-INVARIANTS"]},

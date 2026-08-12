@@ -25,39 +25,123 @@
  *   {@link AWAITING_THE_MOUNT}   admitted in principle, and blocked by a
  *                                MEASURED coupling that is named.
  *
- * The third is the honest one. See its own note: it is not a to-do list, it is
- * a measurement, and it is why this slice's router mounts one route.
- *
  * ── THE PATHS ARE App.tsx's TOKENS, VERBATIM ────────────────────────────────
  *
- * Every string below is a `path="…"` attribute copied out of `src/App.tsx`
- * exactly as it is written there, which is why some of them are fragments
- * (`app`, `data`, `payees`) rather than addresses (`/settings/app`): those
- * routes are nested, and reconstructing their full addresses would mean parsing
- * JSX. The question this manifest answers is "has every route in the web app
- * been given a desktop answer", and a verbatim token is the only thing a reader
- * of the source can bind to without becoming a compiler. The prose beside each
- * one gives the address a person would type.
+ * Every `path` string below is a `path="…"` attribute copied out of
+ * `src/App.tsx` exactly as it is written there, which is why some of them are
+ * fragments (`app`, `data`, `payees`) rather than addresses: those routes are
+ * nested, and reconstructing their full addresses would mean parsing JSX. The
+ * question this manifest answers is "has every route in the web app been given a
+ * desktop answer", and a verbatim token is the only thing a reader of the source
+ * can bind to without becoming a compiler.
+ *
+ * What a person would TYPE is a field of its own now — {@link DesktopRoute.at} —
+ * because the mount slice's second half needed it to be one. It was prose in the
+ * margin while this file described a single screen; a router that serves thirty
+ * addresses has to know where each of them actually is.
  */
 
 /** A route this window serves. */
 export interface DesktopRoute {
-  /** Its address, as `<Route path>` takes it. */
+  /**
+   * Its `path` attribute in `src/App.tsx`, verbatim — the KEY, not the address.
+   *
+   * Two of App.tsx's tokens are ambiguous on their own (`subscription` covers
+   * two addresses; `security/audit-logs` is nested under `settings` and reads
+   * like a top-level path), which is exactly why this stays verbatim and `at`
+   * exists separately.
+   */
   readonly path: string;
-  /** What the window's title bar should say when it is showing. */
+  /**
+   * Where it lives in THIS window, relative to the frame.
+   *
+   * `''` is the index — the ledger's own screen. Everything else is what the
+   * address bar a window does not have would show: `dashboard`,
+   * `settings/app`, `accounts/:accountId`.
+   *
+   * It is a second field rather than a derivation because the derivation does
+   * not exist: nothing in the token `app` says it is under `settings`. The two
+   * are checked against each other by the router's test — every `at` unique,
+   * every `at` ending in its own `path` unless the path is a nested token — so
+   * a mismatch is a failure rather than a page at the wrong address.
+   */
+  readonly at: string;
+  /**
+   * What the window's title bar should say when it is showing.
+   *
+   * Load-bearing rather than documentation: `DesktopApp` writes it to
+   * `document.title` on every navigation, because a window has no tab strip and
+   * no address bar, so the title bar is the ONLY place it can say where you are.
+   */
   readonly title: string;
 }
 
 /**
- * What the desktop router mounts TODAY.
+ * What the desktop router mounts.
  *
- * One route, and it is a route the web app does not have: a window's first
- * screen is "which ledger?", where a browser's is a sign-in. Everything else the
- * product does is in {@link AWAITING_THE_MOUNT} for a reason that is measured
- * rather than estimated.
+ * ── WHAT THIS LIST WAS, AND WHAT MADE IT THIS ───────────────────────────────
+ *
+ * One route, until the mount slice's second half: a chooser, because a window's
+ * first screen is "which ledger?" where a browser's is a sign-in. Everything
+ * else the product does was in {@link AWAITING_THE_MOUNT} behind a measurement —
+ * a walk from `components/Layout` reaching 144 modules and five cloud roots, and
+ * then, once four seams had answered those, twenty pages all naming the same
+ * remaining blocker: `contexts/AppContextSupabase`.
+ *
+ * `@session` was that blocker's answer and `@service` was the answer to the
+ * handful of bank-feed and billing surfaces sitting inside otherwise local
+ * pages. Thirty-one routes are mounted here now, they are the SAME pages the web
+ * app serves — not copies — and a walk from this window's entry still reaches no
+ * cloud at all.
+ *
+ * The chooser is still first, and `''` is still it: a window with no file open
+ * has nothing else it could show.
  */
 export const DESKTOP_ROUTES = [
-  { path: '/', title: 'WealthTracker' }
+  { path: '/', at: '', title: 'WealthTracker' },
+  { path: 'dashboard', at: 'dashboard', title: 'Dashboard' },
+  { path: 'accounts', at: 'accounts', title: 'Accounts' },
+  { path: 'accounts/:accountId', at: 'accounts/:accountId', title: 'Account' },
+  { path: 'find', at: 'find', title: 'Find' },
+  { path: 'transactions', at: 'transactions', title: 'Find' },
+  { path: 'transactions-comparison', at: 'transactions-comparison', title: 'Find' },
+  { path: 'reconciliation', at: 'reconciliation', title: 'Reconcile' },
+  { path: 'categorisation', at: 'categorisation', title: 'Categorise' },
+  { path: 'budget', at: 'budget', title: 'Budget' },
+  { path: 'calendar', at: 'calendar', title: 'Calendar' },
+  { path: 'reports', at: 'reports', title: 'Reports' },
+  { path: 'reports/:reportId', at: 'reports/:reportId', title: 'Reports' },
+  { path: 'goals', at: 'goals', title: 'Goals' },
+  { path: 'analytics', at: 'analytics', title: 'Reports' },
+  { path: 'summaries', at: 'summaries', title: 'Summaries' },
+  { path: 'ai-analytics', at: 'ai-analytics', title: 'Reports' },
+  { path: 'ai-features', at: 'ai-features', title: 'Reports' },
+  { path: 'tax-planning', at: 'tax-planning', title: 'Reports' },
+  { path: 'household', at: 'household', title: 'Settings' },
+  { path: 'mobile-features', at: 'mobile-features', title: 'Dashboard' },
+  { path: 'business-features', at: 'business-features', title: 'Dashboard' },
+  { path: 'financial-planning', at: 'financial-planning', title: 'Reports' },
+  { path: 'data-intelligence', at: 'data-intelligence', title: 'Reports' },
+  { path: 'export-manager', at: 'export-manager', title: 'Export' },
+  { path: 'documents', at: 'documents', title: 'Documents' },
+  { path: 'performance', at: 'performance', title: 'Dashboard' },
+  { path: 'advanced', at: 'advanced', title: 'Dashboard' },
+  { path: 'settings', at: 'settings', title: 'Settings' },
+  { path: 'app', at: 'settings/app', title: 'App settings' },
+  { path: 'categories', at: 'settings/categories', title: 'Categories' },
+  { path: 'tags', at: 'settings/tags', title: 'Tags' },
+  { path: 'payees', at: 'settings/payees', title: 'Payees' },
+  { path: 'security', at: 'settings/security', title: 'Security' },
+  { path: 'security/audit-logs', at: 'settings/security/audit-logs', title: 'Audit log' },
+  { path: 'forecasting', at: 'forecasting', title: 'Budget' },
+  // The catch-all, and it is MOUNTED rather than owed or excluded — this window
+  // serves the address, it just serves something else at it. The web app renders
+  // `pages/NotFound`; a window has no address bar, so an unknown address is never
+  // something a person typed. It is this program having sent itself somewhere
+  // that does not exist, and it goes home rather than telling the user about our
+  // mistake. Last in the list for a reader's benefit only: react-router v6 ranks
+  // by specificity and would put it last wherever it was written.
+  { path: '*', at: '*', title: 'WealthTracker' }
 ] as const satisfies readonly DesktopRoute[];
 
 /**
@@ -90,6 +174,11 @@ export interface ExcludedRoute {
  * desktop's import graph reaches the modules behind them, which
  * `desktopEntry.cloudFree.test.ts` walks and `scripts/desktop-bundle-greps.mjs`
  * measures in the built bundle.
+ *
+ * The same three regions, one level DOWN, are `@service` — the five or six
+ * surfaces that are about the hosted service but live inside pages that are
+ * otherwise entirely about the ledger. A region excluded at the router and then
+ * smuggled back in as a card on a settings page would be no exclusion at all.
  */
 export const NEVER_ON_A_DESKTOP: readonly ExcludedRoute[] = [
   {
@@ -127,6 +216,17 @@ export const NEVER_ON_A_DESKTOP: readonly ExcludedRoute[] = [
       'sold as, it is not sold from inside this router.'
   },
   {
+    path: 'custom-reports',
+    region: 'subscription',
+    why:
+      'Its page is clean and would mount — this is a decision, not a measurement. The web route ' +
+      'is wrapped in a ProtectedSuspense that asks requirePremium, so the address exists to be ' +
+      'refused to people on the wrong PLAN. A device edition has no plans, so mounting it would ' +
+      'mean either shipping a premium feature to everyone by accident or inventing a tier to ' +
+      'withhold it behind. Neither is a decision a router should make quietly, so the report ' +
+      'builder waits for a deliberate answer about what a device edition sells.'
+  },
+  {
     path: '/privacy',
     region: 'hosted-service',
     why:
@@ -153,116 +253,76 @@ export interface OwedRoute {
    *
    * Measured, not guessed: these are the chains the shared walker
    * (`services/local/__tests__/importGraph.ts`) finds from each page with the
-   * seams resolved as `apps/desktop/vite.config.ts` resolves them. Until the
-   * mount slice most of them said `Layout → @clerk/clerk-react`, because the
-   * FRAME was the first thing every page reached; the frame is clean now
-   * (`__tests__/layoutIsDesktopClean.test.ts`) and each entry names what its own
-   * page reaches instead.
+   * seams resolved as `apps/desktop/vite.config.ts` resolves them.
    */
   readonly blockedBy: string;
 }
 
 /**
- * Admitted in principle. Not mounted yet, and the reason is a MEASUREMENT.
+ * Admitted in principle. Not mounted, and the reason is a MEASUREMENT.
  *
- * ── WHAT WAS MEASURED IN SLICE 29, AND WHAT IS TRUE NOW ─────────────────────
+ * ── THIS LIST WAS THIRTY-NINE ENTRIES LONG. IT IS THREE ─────────────────────
  *
- * Slice 29 set out to mount the app's own shell in this window and could not,
- * and wrote the reason down as a number: a runtime import walk from
- * `components/Layout` reached **144 modules and five independent cloud roots**,
- * none of which was any page's own fault — a Clerk button in the header, a bank
- * feed in the chrome, a Supabase client behind the preferences context, Sentry
- * behind the logger, and the browser's store behind the demo banner.
+ * Slice 29 could not mount the app's shell and wrote the reason down as a
+ * number: a walk from `components/Layout` reached 144 modules and five
+ * independent cloud roots — a Clerk button in the header, a bank feed in the
+ * chrome, a Supabase client behind the preferences context, Sentry behind the
+ * logger, the browser's store behind the demo banner. The mount slice's first
+ * half answered all five with four seams and got the frame to 65 modules and
+ * zero roots.
  *
- * The mount slice's first half is what answered them. Four seams — `@chrome`,
- * `@identity`, `@prefs-store`, `@telemetry` — joined `@data`, each a specifier
- * the BUILD resolves to one of two files, and the same walk now reaches
- * **65 modules and ZERO cloud roots**. `desktop/__tests__/layoutIsDesktopClean.
- * test.ts` is that measurement, executed, with an arm that points each seam back
- * at its cloud half and requires the cloud to reappear.
+ * That left twenty-five pages, of which twenty named one file:
+ * `contexts/AppContextSupabase`, the state layer, whose walk found 48 modules
+ * and four roots of its own — Clerk, the id translator, the offline queue and
+ * the demo seeder. `@session` answered those four, and a walk from that provider
+ * now reaches 38 modules and none.
  *
- * So the frame is no longer what stands in the way of anything, and every entry
- * below that said `Layout → @clerk/clerk-react` was corrected rather than
- * deleted. What replaced it is what a walk from each PAGE actually finds today,
- * which is a much shorter story than the old table told:
+ * Behind it, five more things surfaced that had been INVISIBLE while it stood
+ * there (a walk records the first chain that reaches a module, so a page's own
+ * faults hide behind a shared one). Every one turned out to be a bank feed or a
+ * billing card sitting inside a page that is otherwise entirely about the
+ * ledger, so `@service` took them, and three pure helpers that happened to share
+ * a file with a cloud one were split out: the demo sample rows, the backup file
+ * format's download helper, and the bank-link mapping.
  *
- * Twenty-five of the entries below have a page of their own; the rest are
- * redirects into one of those. Of the twenty-five:
+ * ── WHAT IS LEFT, AND WHY EACH IS A SLICE RATHER THAN A LINE ────────────────
  *
- *   * TWENTY reach `contexts/AppContextSupabase` — the WEB's state layer, and now
- *     the single blocker of substance. It is one context, it is imported by 70
- *     modules, and it reaches Clerk, the id translator, the browser store, the
- *     demo data and the auto-sync service between them. It is the mount's second
- *     half;
- *   * THREE reach a cloud module of their own and nothing else — a subscription
- *     card, a bank-feed setting, a danger zone;
- *   * **two are already clean**: `documents` and `security/audit-logs` reach no
- *     cloud at all under a desktop's resolution. They are what part 2 can mount
- *     on the day it starts.
- *
- * The redirects are unchanged and are honest as they stand: a redirect cannot be
- * less blocked than the route it redirects into.
+ * Three, and they are two problems. Both are real work in a service this slice
+ * had no business rewriting while it was mounting a router on top of it; both
+ * are named here with the exact chain and the exact fix, which is what this list
+ * is for.
  */
 export const AWAITING_THE_MOUNT: readonly OwedRoute[] = [
-  { path: 'dashboard', blockedBy: 'ImprovedDashboard → AppContextSupabase' },
-  { path: 'accounts', blockedBy: 'Accounts → AppContextSupabase' },
-  { path: 'accounts/:accountId', blockedBy: 'AccountTransactions → AppContextSupabase' },
-  { path: 'find', blockedBy: 'Find → AppContextSupabase' },
-  { path: 'transactions', blockedBy: 'a redirect into find, which is itself owed' },
-  { path: 'transactions-comparison', blockedBy: 'a redirect into find, which is itself owed' },
-  { path: 'reconciliation', blockedBy: 'Reconciliation → AppContextSupabase' },
-  { path: 'categorisation', blockedBy: 'Categorisation → AppContextSupabase' },
-  { path: 'investments', blockedBy: 'Investments → AppContextSupabase' },
-  { path: 'budget', blockedBy: 'Budget → AppContextSupabase' },
-  { path: 'calendar', blockedBy: 'Calendar → AppContextSupabase' },
-  { path: 'reports', blockedBy: 'ReportsHub → AppContextSupabase' },
-  { path: 'reports/:reportId', blockedBy: 'ReportsHub → AppContextSupabase' },
-  { path: 'goals', blockedBy: 'Goals → AppContextSupabase' },
-  { path: 'analytics', blockedBy: 'a redirect into reports, which is itself owed' },
   {
-    path: 'custom-reports',
+    path: 'investments',
     blockedBy:
-      'CustomReports → AppContextSupabase; and its ProtectedSuspense asks requirePremium, which ' +
-      'is a subscription question a device edition does not have — see NEVER_ON_A_DESKTOP'
+      'Investments → services/api/investmentService → services/api/supabaseClient, and → ' +
+      'services/userIdService. The page is not the problem: holdings are the one part of the ' +
+      'ledger that never went through the seam, so this page talks to Supabase DIRECTLY rather ' +
+      'than through `@data`. Mounting it in a window would mean a page that renders and then ' +
+      'silently shows nothing, over a network the edition promises not to use. The fix is port ' +
+      'verbs for holdings and prices, on both engines, with differential coverage — a slice of ' +
+      'its own, and the last unported region of the data layer.'
   },
-  { path: 'summaries', blockedBy: 'FinancialSummaries → AppContextSupabase' },
-  { path: 'ai-analytics', blockedBy: 'a redirect into reports, which is itself owed' },
-  { path: 'ai-features', blockedBy: 'a redirect into reports, which is itself owed' },
-  { path: 'tax-planning', blockedBy: 'a redirect into reports, which is itself owed' },
-  { path: 'household', blockedBy: 'a redirect into settings, which is itself owed' },
-  { path: 'mobile-features', blockedBy: 'a redirect into dashboard, which is itself owed' },
-  { path: 'business-features', blockedBy: 'a redirect into dashboard, which is itself owed' },
-  { path: 'financial-planning', blockedBy: 'a redirect into reports, which is itself owed' },
-  { path: 'data-intelligence', blockedBy: 'a redirect into reports, which is itself owed' },
-  { path: 'export-manager', blockedBy: 'ExportManager → AppContextSupabase' },
-  { path: 'enhanced-import', blockedBy: 'EnhancedImport → AppContextSupabase' },
   {
-    path: 'documents',
+    path: 'enhanced-import',
     blockedBy:
-      'NOTHING but the mount itself. A walk from `pages/Documents` with a desktop’s resolution ' +
-      'reaches 13 modules and no cloud at all. Part 2 mounts this one first.'
+      'EnhancedImport → RestoreBackupModal → services/localBackupService → storageAdapter, and → ' +
+      'services/backupService → supabaseClient. The restore itself already goes through ' +
+      '`dataPort`; what does not is the PREVIEW — "this file holds rows your store cannot keep" ' +
+      '— which reads LOCAL_BACKUP_BINDINGS, a description of the BROWSER\'s store. That is also ' +
+      'a latent bug for this edition rather than only a coupling: the dialog picks that list ' +
+      'whenever `backupTarget !== \'login\'`, so a device would be told a file\'s budgets cannot ' +
+      'be kept when the file keeps all fourteen tables. The fix is a port question ("what can ' +
+      'you not hold?") rather than a split, because the answer genuinely differs per engine.'
   },
-  { path: 'performance', blockedBy: 'a redirect into dashboard, which is itself owed' },
-  { path: 'advanced', blockedBy: 'a redirect into dashboard, which is itself owed' },
   {
-    path: 'settings',
+    path: 'data',
     blockedBy:
-      '/settings — Settings → SubscriptionStatus → SubscriptionContext → Clerk. Not the state ' +
-      'layer: the settings index shows a billing card, which is a region this edition does not have'
-  },
-  { path: 'app', blockedBy: '/settings/app — AppSettings → BankFeedRefreshSettings → Clerk' },
-  { path: 'data', blockedBy: '/settings/data — DataManagement → AppContextSupabase' },
-  { path: 'categories', blockedBy: '/settings/categories — Categories → AppContextSupabase' },
-  { path: 'tags', blockedBy: '/settings/tags — Tags → AppContextSupabase' },
-  { path: 'payees', blockedBy: '/settings/payees — PayeeCleanup → AppContextSupabase' },
-  { path: 'security', blockedBy: '/settings/security — DangerZone → @clerk/clerk-react' },
-  {
-    path: 'security/audit-logs',
-    blockedBy:
-      '/settings/security/audit-logs — NOTHING but the mount itself. Nine modules, no cloud. The ' +
-      'second route part 2 can mount, and the more interesting of the two: a device edition owes ' +
-      'an audit trail exactly as much as a hosted one does'
-  },
-  { path: 'forecasting', blockedBy: 'a redirect into budget, which is itself owed' },
-  { path: '*', blockedBy: 'the web router’s catch-all; this window has its own (see DesktopApp)' }
+      '/settings/data — DataManagement → RestoreBackupModal, exactly as enhanced-import above; ' +
+      'nothing else on the page is coupled any more. Worth naming what goes with it: this is ' +
+      'where `dataPort.wipeAllFinancialData` is called from, so until the restore dialog is ' +
+      'answered, a desktop window has no delete-everything button. That is the right way round ' +
+      '— a destructive act should arrive with the dialog that explains it, not before'
+  }
 ];

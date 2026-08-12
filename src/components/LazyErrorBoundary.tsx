@@ -1,6 +1,13 @@
 import React, { Component, ReactNode } from 'react';
 import { AlertCircleIcon, RefreshCwIcon, DownloadIcon } from './icons';
 import { isChunkLoadError } from '../utils/chunkLoadError';
+// Through the seam, like every other reporter in the app. This boundary used to
+// read `window.Sentry` directly — a global reach-around that both bypassed
+// `lib/sentry` (so it never got the app's own scopes or user context) and put
+// the word "sentry" into a desktop bundle, where `desktop:greps` found it and
+// was right to. `@telemetry` is Sentry in a browser and this machine's console
+// in a window. See src/editions/telemetry.ts.
+import { captureException } from '@telemetry';
 
 interface Props {
   children: ReactNode;
@@ -11,12 +18,6 @@ interface Props {
 interface State {
   hasError: boolean;
   error?: Error;
-}
-
-interface WindowWithSentry {
-  Sentry?: {
-    captureException: (error: unknown, context?: Record<string, unknown>) => void;
-  };
 }
 
 export class LazyErrorBoundary extends Component<Props, State> {
@@ -30,18 +31,10 @@ export class LazyErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log to error reporting service if available
-    if (typeof window !== 'undefined') {
-      const sentry = (window as WindowWithSentry).Sentry;
-      sentry?.captureException(error, {
-        contexts: {
-          react: {
-            componentStack: errorInfo.componentStack,
-            componentName: this.props.componentName,
-          },
-        },
-      });
-    }
+    captureException(error, {
+      componentStack: errorInfo.componentStack,
+      componentName: this.props.componentName,
+    });
   }
 
   handleRetry = () => {

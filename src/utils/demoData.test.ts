@@ -21,7 +21,10 @@ vi.mock('../services/storageAdapter', () => ({
   }
 }));
 
-import { demoAccounts, initializeDemoData, isDemoMode, isDemoModeRuntimeAllowed } from './demoData';
+import { demoAccounts, isDemoMode, isDemoModeRuntimeAllowed } from './demoData';
+// The seeding moved to its own module when the sample DATA stopped being
+// allowed to drag the browser store into a desktop bundle. See demoData.ts.
+import { initializeDemoData } from './demoSeed';
 import { storageAdapter } from '../services/storageAdapter';
 
 const env = import.meta.env as Record<string, string | boolean | undefined>;

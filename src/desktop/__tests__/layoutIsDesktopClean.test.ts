@@ -24,15 +24,16 @@
  * ── WHY THIS IS A SECOND TEST AND NOT A SECOND ROOT IN THE FIRST ────────────
  *
  * `desktopEntry.cloudFree.test.ts` walks from `src/desktop/main.tsx` and asks
- * *"is what we BUILD clean?"*. That entry does not reach Layout — the window
- * mounts one screen of its own, and mounting the frame is part 2. Adding Layout
- * as a second root there would quietly change what that test means: it would
- * stop being a statement about the artefact and become a statement about the
- * artefact plus some code that is not in it.
+ * *"is what we BUILD clean?"*. Until the mount's second half that entry did not
+ * reach Layout at all, and this file asked the different question — *"is the
+ * frame READY to be built?"* — as the precondition part 2 depended on.
  *
- * This asks the different question — *"is the frame READY to be built?"* — and
- * it is the precondition part 2 depends on. Both share one vocabulary
- * (`editionWalk.ts`) so neither can drift from the other.
+ * Part 2 landed and the entry DOES reach the frame now, so the two roots
+ * overlap. This one is kept anyway and it is not redundant: it is the only test
+ * that isolates the FRAME, so when the entry's walk goes red it is the first
+ * thing to run — a failure here means the frame; a failure only there means a
+ * page. Both share one vocabulary (`editionWalk.ts`) so neither can drift from
+ * the other.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -46,7 +47,7 @@ import {
 
 /**
  * The frame, and nothing else. Not `App.tsx`, which is the WEB router and has
- * a `ClerkProvider` in it by design — `src/desktop/DesktopApp.tsx` is that
+ * a `ClerkProvider` in it by design — `src/desktop/MountedLedger.tsx` is that
  * file's opposite number and `routes.ts` is where the two are reconciled.
  */
 const THE_FRAME = ['components/Layout'];
@@ -68,7 +69,13 @@ describe('the shared Layout, resolved for a device', () => {
     expect(graph.modules.has('components/layout/NavComponents.tsx')).toBe(true);
     expect(graph.modules.has('contexts/PreferencesContext.tsx')).toBe(true);
     expect(graph.modules.has('loggers/scopedLogger.ts')).toBe(true);
-    expect(graph.modules.size).toBeGreaterThan(50);
+    // 50 exactly at the mount slice's second half, down from 65: two PWA
+    // surfaces (an offline write queue and the button that fills it) joined
+    // `@chrome` when the BUNDLE GREP found IndexedDB in the built renderer that
+    // this walk had called clean. A floor rather than an equality, because the
+    // number that matters is zero and it is asserted below — this one only has
+    // to prove the walk resolved a real frame.
+    expect(graph.modules.size).toBeGreaterThan(40);
   });
 
   for (const { module, why } of FORBIDDEN_MODULES) {

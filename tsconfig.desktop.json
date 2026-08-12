@@ -8,16 +8,24 @@
     "skipLibCheck": true,
 
     /* Bundler mode — the same as tsconfig.app.json's, because the modules this
-       reaches into are the same modules. `types` is stated here and not there
-       only because that project picks `vite/client` up from src/vite-env.d.ts,
-       which is inside its own `include` and outside this one. */
+       reaches into are the same modules.
+
+       There is NO `types` array, deliberately, and there was one until the mount
+       slice's second half. It named `vite/client` and `node` because this project
+       could not see `src/vite-env.d.ts`; it also, silently, hid every other
+       ambient package — and the moment this project began compiling the whole
+       application, `@types/dompurify`'s UMD namespace went missing and
+       `security/xss-protection.ts` stopped compiling here while compiling
+       perfectly in the web build. A difference between two CONFIGS reported as a
+       difference between two EDITIONS is the one failure mode this project must
+       not have, so the ambient environment is now identical to the app
+       project's: no `types`, and the four `.d.ts` files in `include` below. */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": false,
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["vite/client", "node"],
 
     "strict": true,
     "noUnusedLocals": false,
@@ -42,15 +50,37 @@
       "@identity": ["./src/desktop/editions/identity.ts"],
       "@prefs-store": ["./src/desktop/editions/preferencesStore.ts"],
       "@telemetry": ["./src/desktop/editions/telemetry.ts"],
+      "@session": ["./src/desktop/editions/session.ts"],
+      "@service": ["./src/desktop/editions/service.ts"],
       "@wealthtracker/utils": ["./packages/utils/index.ts"],
       "@wealthtracker/utils/*": ["./packages/utils/*"],
       "@wealthtracker/types/*": ["./packages/types/*"],
       "@app-types/*": ["./src/types/*"]
     }
   },
-  /* `src/desktop` and nothing else of src: the renderer lives inside this
-     repo's lint, typecheck and test roots on purpose (deviceDocument.ts's
-     header gives the reason), and everything it reaches is compiled with it. */
-  "include": ["src/desktop", "apps/desktop/vite.config.ts"],
+  /* `src/desktop` and the AMBIENT DECLARATIONS, and nothing else of src: the
+     renderer lives inside this repo's lint, typecheck and test roots on purpose
+     (deviceDocument.ts's header gives the reason), and everything it reaches is
+     compiled with it — which from the mount slice's second half is the whole
+     application.
+
+     The four `.d.ts` files are listed because a project's `include` is what
+     brings ambient declarations in, and they are not otherwise reachable by an
+     import: `DOMPurify`'s global namespace (security/xss-protection),
+     `react-window-infinite-loader`'s missing types (VirtualizedList),
+     `navigator.hapticFeedback` (useHapticFeedback) and `vite/client`'s
+     `import.meta.env`. tsconfig.app.json gets all four from `include: ["src"]`.
+     Without them this project reports six errors in shared modules that compile
+     perfectly well in the web build, which is a difference between two configs
+     rather than a difference between two editions — and this project exists to
+     find the second kind. */
+  "include": [
+    "src/desktop",
+    "src/vite-env.d.ts",
+    "src/types/global.d.ts",
+    "src/types/react-window-infinite-loader.d.ts",
+    "src/types/external/regression.d.ts",
+    "apps/desktop/vite.config.ts"
+  ],
   "exclude": ["src/desktop/**/__tests__/**"]
 }

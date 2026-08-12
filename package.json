@@ -85,9 +85,10 @@
     "prepare": "husky",
     "desktop:ui": "vite build --config apps/desktop/vite.config.ts",
     "desktop:greps": "node scripts/desktop-bundle-greps.mjs",
+    "test:desktop-mount": "vitest run --config vitest.desktop.config.ts",
     "bundle:check:desktop": "node scripts/desktop-bundle-size.mjs",
     "bundle:report:desktop": "node scripts/desktop-bundle-size.mjs --report",
-    "desktop:verify": "npm run desktop:ui && npm run desktop:greps && npm run bundle:check:desktop",
+    "desktop:verify": "npm run desktop:ui && npm run desktop:greps && npm run bundle:check:desktop && npm run test:desktop-mount",
     "desktop:build": "npm run desktop:ui && cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --release",
     "desktop:check": "cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml"
   },

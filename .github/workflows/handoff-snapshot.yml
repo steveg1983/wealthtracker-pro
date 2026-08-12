@@ -152,14 +152,22 @@ jobs:
       - name: Build the desktop renderer
         run: npm run desktop:ui
 
-      # `npm run desktop:verify` is these three in order. They are separate steps
+      # `npm run desktop:verify` is these four in order. They are separate steps
       # on purpose: the Actions UI names the step that failed, and "the bundle
-      # reached the cloud" and "the bundle got fat" want different people.
+      # reached the cloud", "the bundle got fat" and "the window renders nothing"
+      # want different people.
       - name: Bundle greps — the desktop build reaches no cloud
         run: npm run desktop:greps
 
       - name: Bundle size ratchet
         run: npm run bundle:check:desktop
+
+      # The one check in this job that asserts PRESENCE. Every step above passes
+      # on a window that renders a blank page; this opens a fixture ledger,
+      # mounts the application over it and reads the money off the screen. It
+      # needs no Rust toolchain, which is why it belongs here rather than nightly.
+      - name: The window renders — pages over a fixture ledger
+        run: npm run test:desktop-mount
 
   local-core:
     name: Local core (Rust, contract, admission)

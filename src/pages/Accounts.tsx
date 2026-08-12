@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, useCallback, useRef, Suspense, type ReactNode } from 'react';
-import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
@@ -11,14 +10,17 @@ import AccountBreakdownModal, { type AccountBreakdownView } from '../components/
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
 import { ArchiveIcon, SettingsIcon, WalletIcon, CheckCircleIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon, SearchIcon } from '../components/icons';
-import BankingCriticalIncidentBadge from '../components/BankingCriticalIncidentBadge';
+// Both bank-feed surfaces on this page come through `@service`, the seam for
+// what a shared page says about the account you hold WITH somebody. On a
+// device the badge draws nothing and the hook answers no connections, which
+// this page's own guards already handle — see src/editions/service.ts.
+import { BankConnections, BankingCriticalIncidentBadge } from '@service';
 import { LoadingState } from '../components/loading/LoadingState';
 import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../constants/bankingOps';
 import { preferences } from '../services/preferencesService';
 
 // Bank connection management lives on this page (the natural home for it);
 // the Data Management page keeps only its URL-driven deep links for ops alerts.
-const BankConnections = lazyWithRecovery(() => import('../components/BankConnections'));
 import type { Account } from '../types';
 import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSections';
 import {
@@ -38,7 +40,7 @@ import { IconButton } from '../components/icons/IconButton';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useReconciliation } from '../hooks/useReconciliation';
 import { countAwaitingReviewByAccount } from '../utils/transactionReview';
-import { useAccountBankSync } from '../hooks/useAccountBankSync';
+import { useAccountBankSync } from '@service';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
 import { calculateTotalBalance } from '../utils/calculations-decimal';

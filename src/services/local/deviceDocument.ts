@@ -30,7 +30,6 @@
 import { RESTORE_STEPS, buildBackupBundle, remapBackupIds, rowsForStep } from '../backup/format';
 import { planCloudImport } from '../import/msMoney/cloudPlan';
 import type { PreferencesTransport } from '../preferences/document';
-import type { BootSnapshot } from '../port/dataPort';
 import { createInvokeTransport, type Invoke } from './coreTransport';
 import { adoptDeviceIdentity, requireDeviceOwner, type DeviceIdentity } from './deviceIdentity';
 import {
@@ -284,8 +283,24 @@ export interface DeviceBootOptions {
 }
 
 /**
- * Boot a device — and the two things this function exists to say that a call to
- * `loadBoot` cannot.
+ * Make a ledger READY TO BE READ — the two things this has to do before any
+ * surface may look at the file, and neither of which `loadBoot` can do for
+ * itself.
+ *
+ * ── WHY IT NO LONGER READS THE LEDGER ───────────────────────────────────────
+ *
+ * It used to end `const boot = await document.port.loadBoot(); … return boot`,
+ * and that was right for the window slice 27 wrote: there was no application in
+ * it, one screen, and the only way to have anything to SAY about the file was to
+ * read it here.
+ *
+ * The mount slice's second half put the application in the window, and the
+ * application's own boot effect calls `loadBoot` — that is what a state layer
+ * is. Keeping the read here would mean opening a 50,000-row ledger, materialising
+ * every row, and throwing the lot away so that a chooser could print three
+ * counts. So the read went, the counts come from `useApp()` like every other
+ * figure on every other screen, and what is left is exactly the part that had to
+ * happen FIRST.
  *
  * ── 1. THE CATEGORY ORDERING IS THE CALLER'S HERE, AND ONLY HERE ────────────
  *
@@ -301,10 +316,20 @@ export interface DeviceBootOptions {
  * > SITE here … The device boot slice 27 writes must `await
  * > port.prepareCategories()` before `port.loadBoot()`."*
  *
- * This is that call site. Two lines, in that order, and a test that fails if
- * they are ever the other way round — because the failure they prevent is
- * silent: a first launch would draw a register whose every row is filed against
- * a category that does not exist yet.
+ * That rule now spans two call sites rather than one line, and it is guarded
+ * TWICE rather than more weakly:
+ *
+ *   * `__tests__/deviceDocument.test.ts` requires that this function seeds and
+ *     does NOT read, which is the half that is this module's to keep;
+ *   * `src/desktop/__tests__/desktopPages.test.tsx` renders the real window over
+ *     a real ledger file and asserts the verb sequence the product actually
+ *     issues — `seed_categories` first, `load_boot` after. That is a stronger
+ *     proof than the old one: it holds the rule where the rule is now, across the
+ *     mount and the state layer, rather than inside a function that did both.
+ *
+ * The failure being prevented is unchanged and still silent: a first launch would
+ * draw a register whose every row is filed against a category that does not
+ * exist yet.
  *
  * It is idempotent, so every launch after the first costs one crossing that
  * answers out of the file it was about to read anyway.
@@ -333,16 +358,19 @@ export interface DeviceBootOptions {
  * `deviceIdentity.ts` rather than passed in, because that is the module the rest
  * of the app will ask the same question of — and an attach that took its own id
  * from somewhere else would be the first place the two answers could differ.
+ *
+ * The awaiting is what makes the FIRST PAINT the person's own: by the time the
+ * application is imported, the theme, the currency and the pinned accounts are
+ * already in memory. That was true before and it is worth more now, because
+ * there is finally something to paint.
  */
 export const bootDeviceLedger = async (
   document: DeviceDocument,
   options: DeviceBootOptions = {}
-): Promise<BootSnapshot> => {
+): Promise<void> => {
   const settings = attachSettings(document, options.preferences);
   await document.port.prepareCategories();
-  const boot = await document.port.loadBoot();
   await settings;
-  return boot;
 };
 
 /**

@@ -9,52 +9,24 @@ import { createScopedLogger } from '../loggers/scopedLogger';
  * Accounts page so each linked account can show its last sync time and offer a
  * one-click "pull fresh bank data" action.
  */
-export interface AccountBankLink {
-  /** The bank connection that owns this account (a login may cover several accounts). */
-  connectionId: string;
-  institutionName: string;
-  status: BankConnection['status'];
-  lastSync?: Date;
-}
+// The two INTERFACES and the pure mapping below them moved to
+// `hooks/accountBankLinks.ts` in the mount slice's second half, and are
+// re-exported here so nothing that already imported one of them changed.
+//
+// The reason is the one `utils/demoData.ts` has: a pure helper sharing a module
+// with a cloud hook is a pure helper nothing cloud-free can use.
+// `components/dashboard/ImprovedDashboard.tsx` and `pages/AccountTransactions.tsx`
+// import `buildAccountBankLinks` and nothing else from here, and that one import
+// put `@clerk/clerk-react` in front of the Dashboard and the register in a
+// desktop build.
+export type { AccountBankLink, UseAccountBankSyncResult } from './accountBankLinks';
+export { buildAccountBankLinks } from './accountBankLinks';
 
-export interface UseAccountBankSyncResult {
-  /** Bank link for an account, or undefined for manual/unlinked accounts. */
-  getAccountLink: (accountId: string) => AccountBankLink | undefined;
-  /** True while this account's connection is mid-sync. */
-  isAccountSyncing: (accountId: string) => boolean;
-  /** Pull fresh accounts + transactions for the account's whole bank connection. */
-  syncAccount: (accountId: string) => Promise<void>;
-  /** Sync every healthy connection, one after another; one summary toast. */
-  syncAllConnections: () => Promise<void>;
-  /** How many connections a refresh-all would touch. */
-  connectedCount: number;
-  /** True while any connection is mid-sync. */
-  isSyncingAny: boolean;
-  /** Re-fetch connection metadata (last sync, status) without triggering a sync. */
-  reloadConnections: () => Promise<void>;
-}
+// …and imported for this module's own use, because a re-export is not a binding.
+import { buildAccountBankLinks } from './accountBankLinks';
+import type { UseAccountBankSyncResult } from './accountBankLinks';
 
 const logger = createScopedLogger('useAccountBankSync');
-
-/**
- * Flatten bank connections into an account-id → link map. A connection can back
- * several WealthTracker accounts, so each linked id points back at the shared
- * connection metadata. Pure to keep the mapping unit-testable.
- */
-export function buildAccountBankLinks(connections: BankConnection[]): Map<string, AccountBankLink> {
-  const map = new Map<string, AccountBankLink>();
-  connections.forEach((connection) => {
-    connection.linkedAccountIds.forEach((accountId) => {
-      map.set(accountId, {
-        connectionId: connection.id,
-        institutionName: connection.institutionName,
-        status: connection.status,
-        lastSync: connection.lastSync
-      });
-    });
-  });
-  return map;
-}
 
 export function useAccountBankSync(options?: { onSynced?: () => void | Promise<void> }): UseAccountBankSyncResult {
   const onSynced = options?.onSynced;

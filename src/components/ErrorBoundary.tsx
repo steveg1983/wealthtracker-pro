@@ -2,7 +2,11 @@ import { Component, useRef } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AlertTriangleIcon, RefreshCwIcon, HomeIcon, DownloadIcon, WifiOffIcon } from './icons';
-import { captureException } from '../lib/sentry';
+// Through the seam. The frame's last boundary is shared by both editions, and
+// `@telemetry` is exactly the distinction it needs: catching an error is
+// legitimate everywhere, POSTING it to a server is not. See
+// src/editions/telemetry.ts.
+import { captureException } from '@telemetry';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { isChunkLoadError } from '../utils/chunkLoadError';
 

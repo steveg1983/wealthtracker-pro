@@ -2,7 +2,10 @@ import { DatabaseIcon, TagIcon, PaletteIcon } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
 import SyncStatusIndicator from '../components/SyncStatusIndicator';
-import SubscriptionStatus from '../components/SubscriptionStatus';
+// Through the seam, not by path: the billing card is one of the three panels
+// that are about the hosted SERVICE rather than about the ledger, and a device
+// edition has none of them. See src/editions/service.ts.
+import { SubscriptionStatus } from '@service';
 
 export default function Settings() {
   // The Quick Settings panel that used to sit here is gone with its last two

@@ -1,18 +1,31 @@
 /**
- * Demo data for UI/UX testing without authentication
- * This provides realistic sample data for testing the interface
+ * The sample finances — realistic accounts, merchants, budgets and goals for
+ * looking at the interface without an account behind it.
+ *
+ * ── WHY THE SEEDING IS NOT IN HERE ──────────────────────────────────────────
+ *
+ * `initializeDemoData` lived at the bottom of this file until the mount slice's
+ * second half, and it is in `utils/demoSeed.ts` now. The reason is a measured
+ * one rather than tidiness.
+ *
+ * The seeding writes through `services/storageAdapter` — the BROWSER's encrypted
+ * IndexedDB store — and `utils/testDataset.ts` imports five plain literals from
+ * this file to build Settings → Data Management → "Load Test Data". Because the
+ * two lived together, every page that can load test data reached the browser
+ * store, and a desktop bundle (which has its own store, on disk, and must not
+ * contain a second one) could not have those pages at all.
+ *
+ * So the split is along the only line that matters here: the DATA is edition-
+ * blind — it is object literals — and only the act of writing it into a browser
+ * is not. Nothing else changed, and `demoSeed.ts` re-imports what it needs from
+ * here rather than keeping a copy.
  */
 
 import { v4 as uuidv4 } from 'uuid';
 import { toDecimal } from './decimal';
-import { createScopedLogger } from '../loggers/scopedLogger';
 import { isDemoModeRuntimeAllowed } from './runtimeMode';
-import { storageAdapter, STORAGE_KEYS } from '../services/storageAdapter';
-import { isMnyLocalImportRequested } from './mnyLocalImport';
 
 export { isDemoModeRuntimeAllowed } from './runtimeMode';
-
-const demoLogger = createScopedLogger('DemoData');
 
 // Check if we're in demo mode
 export const isDemoMode = (): boolean => {
@@ -382,50 +395,3 @@ export const demoRecurringTransactions = [
     isActive: true,
   },
 ];
-
-/**
- * Seed the demo sample data, through the SAME storage the app reads from.
- *
- * This used to write the wealthtracker_* keys straight into localStorage and
- * then clear the `wt_migration_completed` flag, on the understanding that
- * storageAdapter would carry them into encrypted IndexedDB on its next init.
- * Nothing in the app ever calls storageAdapter.init(), so that migration never
- * ran and the flag meant nothing: the seed was only ever visible through the
- * adapter's "not in IndexedDB, so try localStorage" fallback. The moment
- * IndexedDB held any value for one of those keys — an empty array, which
- * Settings → Data Management → Clear All Data is enough to produce — the
- * fallback stopped being consulted, and demo mode was empty forever no matter
- * how many times the page was reloaded with ?demo=true.
- *
- * Going through storageAdapter puts the seed exactly where the reads look, and
- * keeps the localStorage fallback for browsers where IndexedDB is unavailable
- * (the adapter already falls back on write). AppContext awaits this before its
- * first read, so seeding and loading can no longer race.
- */
-export const initializeDemoData = async (): Promise<void> => {
-  if (!isDemoMode()) return;
-  // The DEV-only Money import seeds the same keys from a real file and reloads
-  // the page itself. Sample data would only fight it.
-  if (isMnyLocalImportRequested()) return;
-
-  localStorage.setItem('demoMode', 'true');
-
-  // Only seed when there is nothing to show. A demo session that has been used
-  // holds the visitor's own edits, and a reload must not throw those away —
-  // which is also what makes the fixed account ids above worth having.
-  const existingAccounts = await storageAdapter.get<unknown[]>(STORAGE_KEYS.ACCOUNTS);
-  if (Array.isArray(existingAccounts) && existingAccounts.length > 0) {
-    return;
-  }
-
-  await Promise.all([
-    storageAdapter.set(STORAGE_KEYS.ACCOUNTS, demoAccounts),
-    storageAdapter.set(STORAGE_KEYS.TRANSACTIONS, generateDemoTransactions(100)),
-    storageAdapter.set(STORAGE_KEYS.BUDGETS, demoBudgets),
-    storageAdapter.set(STORAGE_KEYS.GOALS, demoGoals),
-    storageAdapter.set(STORAGE_KEYS.CATEGORIES, demoCategories),
-    storageAdapter.set(STORAGE_KEYS.RECURRING, demoRecurringTransactions),
-  ]);
-
-  demoLogger.info('Demo mode seeded with sample data');
-};

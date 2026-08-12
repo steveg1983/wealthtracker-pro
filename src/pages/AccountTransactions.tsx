@@ -1,6 +1,9 @@
 import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback, useId, Suspense } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth as useClerkAuth } from '@clerk/clerk-react';
+// Through `@identity`, not through Clerk. The only thing the register wanted a
+// session for is a KEY to namespace a stored setting by — see
+// src/editions/identity.ts, and the same change in ImprovedDashboard.
+import { useIdentityKey } from '@identity';
 import { useApp } from '../contexts/AppContextSupabase';
 import { parseMoneyInput, toDecimal } from '../utils/decimal';
 import { isReconciled } from '../utils/transactionReconciliation';
@@ -65,8 +68,8 @@ import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { formatCardNumberForDisplay, isCardAccountType } from '../utils/accountNumberInput';
 import { buildAttentionItems } from '../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../utils/bankAutoSync';
-import { buildAccountBankLinks } from '../hooks/useAccountBankSync';
-import { useBankConnectionSnapshot } from '../hooks/useBankConnectionSnapshot';
+import { buildAccountBankLinks } from '../hooks/accountBankLinks';
+import { useBankConnectionSnapshot } from '@service';
 import { dataPort } from '@data';
 import AccountSelector from '../components/common/AccountSelector';
 import type { Account, Transaction } from '../types';
@@ -343,7 +346,7 @@ export default function AccountTransactions() {
     setTransactionsCleared, setTransactionArchived,
   } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
-  const { userId: clerkUserId } = useClerkAuth();
+  const identityKey = useIdentityKey();
   const { showError, showInfo, showSuccess, showWarning } = useToast();
   const { compactView, setCompactView: _setCompactView } = usePreferences();
 
@@ -1001,12 +1004,12 @@ export default function AccountTransactions() {
       accounts: [account],
       balanceOf: () => computedAccountBalance,
       linkOf: (id) => links.get(id),
-      autoSyncMode: clerkUserId ? loadAutoSyncPrefs(clerkUserId).mode : 'off',
+      autoSyncMode: identityKey ? loadAutoSyncPrefs(identityKey).mode : 'off',
       formatMoney: formatCurrency,
       now: new Date(),
     });
     return item?.reason ?? null;
-  }, [account, bankConnections, computedAccountBalance, clerkUserId, formatCurrency]);
+  }, [account, bankConnections, computedAccountBalance, identityKey, formatCurrency]);
 
   /**
    * What to say when the register is not in date order.

@@ -17,8 +17,8 @@
  * The declarations are checked for the blunter reason `dataAlias.test.ts` gives:
  * an alias one config knows about and another does not fails as *"Cannot find
  * module"* in whichever command is run next by whoever is least expecting it.
- * There are now five specifiers and six configs, which is thirty mappings that
- * have to agree.
+ * There are now seven specifiers and six configs, which is forty-two mappings
+ * that have to agree.
  *
  * ── WHY IT READS THE FILES AS TEXT ──────────────────────────────────────────
  *
@@ -43,7 +43,7 @@ interface Seam {
 }
 
 /**
- * The mount slice's four. `@data` is not here — it has its own test, with its
+ * The mount slice's six. `@data` is not here — it has its own test, with its
  * own argument about why an ENGINE is a different kind of thing to swap than a
  * component, a hook or a sink.
  */
@@ -52,6 +52,16 @@ const SEAMS: readonly Seam[] = [
     specifier: '@chrome',
     web: 'src/editions/cloud/chrome.tsx',
     device: 'src/desktop/editions/chrome.tsx'
+  },
+  {
+    specifier: '@session',
+    web: 'src/editions/cloud/session.ts',
+    device: 'src/desktop/editions/session.ts'
+  },
+  {
+    specifier: '@service',
+    web: 'src/editions/cloud/service.ts',
+    device: 'src/desktop/editions/service.ts'
   },
   {
     specifier: '@identity',
@@ -161,7 +171,7 @@ describe('the edition seams', () => {
     }
   });
 
-  it('knows about every seam the web build declares, so a fifth cannot arrive untested', () => {
+  it('knows about every seam the web build declares, so an eighth cannot arrive untested', () => {
     // The one check that is about this FILE rather than about the seams. A
     // specifier added to `vite.config.ts` and to five other configs, wired
     // through a component, and never listed here would have no substitution
@@ -171,20 +181,52 @@ describe('the edition seams', () => {
       .map(match => match[1])
       .sort();
 
-    expect(declared).toEqual(['@chrome', '@data', '@identity', '@prefs-store', '@telemetry']);
+    expect(declared).toEqual([
+      '@chrome',
+      '@data',
+      '@identity',
+      '@prefs-store',
+      '@service',
+      '@session',
+      '@telemetry'
+    ]);
   });
 
   it('would notice — the comparison is over real and non-trivial lists', () => {
     // The equalities above are vacuously true of two empty files. `@chrome` is
-    // the big one: eight pieces of furniture, and `RealtimeDot` is certainly
-    // one of them.
+    // the big one: ten pieces of furniture — eight from the mount's first half
+    // and two the BUNDLE GREP added in its second, when a PWA offline queue in
+    // the frame turned out to be keeping writes for a server that does not
+    // exist. `RealtimeDot` is certainly one of them.
     const chrome = valueExportsOf('src/editions/cloud/chrome.tsx');
-    expect(chrome.length).toBe(8);
+    expect(chrome.length).toBe(10);
     expect(chrome).toContain('RealtimeDot');
     expect(typeExportsOf('src/editions/cloud/chrome.tsx')).toContain('GlobalSearchHandle');
     expect(valueExportsOf('src/desktop/editions/telemetry.ts')).toEqual([
       'captureException',
       'captureMessage'
+    ]);
+    // `@session` is the mount's second half and its two halves are the least
+    // alike of any pair here — a hundred lines of Clerk against three. One
+    // exported hook, and it had better be the same one on both sides.
+    expect(valueExportsOf('src/editions/cloud/session.ts')).toEqual(['useEditionSession']);
+    expect(typeExportsOf('src/editions/cloud/session.ts')).toEqual([
+      'EditionSession',
+      'SessionPreamble',
+      'UseEditionSession'
+    ]);
+    // `@service` is the other big one, and its list is the mount's own
+    // measurement written down: seven surfaces, every one of them from one of
+    // the three regions `NEVER_ON_A_DESKTOP` already rules out, all seven found
+    // by walking the pages once the state layer stopped hiding them.
+    expect(valueExportsOf('src/desktop/editions/service.ts')).toEqual([
+      'BankConnections',
+      'BankFeedRefreshSettings',
+      'BankingCriticalIncidentBadge',
+      'DangerZone',
+      'SubscriptionStatus',
+      'useAccountBankSync',
+      'useBankConnectionSnapshot'
     ]);
   });
 });

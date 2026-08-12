@@ -20,6 +20,8 @@ import { isSupabaseConfigured, supabase } from './supabaseClient';
 import { getSupabaseAccessToken, hasSupabaseTokenGetter } from '../../lib/supabaseToken';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
+// This engine's own boot-snapshot cache. See `wipeAllFinancialData`.
+import { transactionCache } from '../transactionCache';
 import { toDecimal, type DecimalInstance } from '../../utils/decimal';
 import { normalizeTransactionDates, toDateValue } from '../../utils/dateBoundary';
 import {
@@ -1251,6 +1253,23 @@ class DataServiceImpl implements DataPort {
    *
    * On a device it is one write, so there is no fraction to report and none is
    * invented.
+   *
+   * ── IT DROPS THIS ENGINE'S OWN READ CACHE ─────────────────────────────────
+   *
+   * `transactionCache` is the boot snapshot this engine keeps in IndexedDB so
+   * that a re-boot can ask the server for a delta instead of 29 MB. After a wipe
+   * it describes rows that no longer exist, and the next boot would hydrate from
+   * it and merge the dead history back in front of somebody who has just
+   * deliberately erased it.
+   *
+   * That clear used to live one layer up, in `AppContextSupabase.resetLoadedData`,
+   * and it moved here in the mount slice's second half for a reason bigger than
+   * tidiness: the cache belongs to THIS engine and to no other, so a state layer
+   * that cleared it was a state layer naming one implementation's private store.
+   * The cost was exact — a desktop bundle carried `indexedDBService` (and failed
+   * the bundle grep for `indexedDB`) because the shared provider imported the
+   * cloud's cache to empty it. Every caller of the wipe already called both in
+   * this order, so nothing about the behaviour changed.
    */
   async wipeAllFinancialData(options: {
     onProgress?: (progress: WipeProgress) => void;
@@ -1262,6 +1281,7 @@ class DataServiceImpl implements DataPort {
       await wipeCloudData(client, userId, { onProgress: options.onProgress });
       const { wipeUserFinancialData } = await this.cloudBackupEngine();
       await wipeUserFinancialData(DataServiceImpl.WIPE_CONFIRMATION, userId);
+      await transactionCache.clear();
       return;
     }
 
@@ -1272,6 +1292,7 @@ class DataServiceImpl implements DataPort {
     await wipeLocalFinancialData(DataServiceImpl.WIPE_CONFIRMATION, {
       store: this.requireDeviceBackupStore()
     });
+    await transactionCache.clear();
   }
 
   /**

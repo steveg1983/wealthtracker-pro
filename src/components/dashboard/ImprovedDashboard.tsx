@@ -1,6 +1,11 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth as useClerkAuth } from '@clerk/clerk-react';
+// Through `@identity`, not through Clerk. The one thing this page wanted a
+// session for is a KEY to namespace a stored setting by, which is precisely
+// and only what that seam answers — see src/editions/identity.ts. It was the
+// last cloud root a walk from this page could find once `@session` took the
+// state layer's preamble away.
+import { useIdentityKey } from '@identity';
 import { 
   TrendingUpIcon, 
   TrendingDownIcon, 
@@ -45,8 +50,8 @@ import { buildAccountDistribution, type AccountDistributionEntry } from '../../u
 import { groupAccountsBySection } from '../../utils/accountGrouping';
 import { buildAttentionItems } from '../../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../../utils/bankAutoSync';
-import { buildAccountBankLinks } from '../../hooks/useAccountBankSync';
-import { useBankConnectionSnapshot } from '../../hooks/useBankConnectionSnapshot';
+import { buildAccountBankLinks } from '../../hooks/accountBankLinks';
+import { useBankConnectionSnapshot } from '@service';
 import { preferences } from '../../services/preferencesService';
 
 /** Where each half of the reports box remembers its period. */
@@ -64,7 +69,7 @@ const FLOWS_PERIOD_KEY = 'dashboardReportsFlows';
 export function ImprovedDashboard() {
   const { accounts, transactions, transactionSplits, budgets, categories, serverBalances, isLoading } = useApp();
   const { formatCurrency: formatCurrencyWithSymbol, displayCurrency } = useCurrencyDecimal();
-  const { userId } = useClerkAuth();
+  const identityKey = useIdentityKey();
   const navigate = useNavigate();
   const location = useLocation();
   const [showAccountSettings, setShowAccountSettings] = useState(false);
@@ -256,8 +261,8 @@ export function ImprovedDashboard() {
   const bankConnections = useBankConnectionSnapshot();
   const bankLinks = useMemo(() => buildAccountBankLinks(bankConnections), [bankConnections]);
   const autoSyncMode = useMemo(
-    () => (userId ? loadAutoSyncPrefs(userId).mode : 'off'),
-    [userId]
+    () => (identityKey ? loadAutoSyncPrefs(identityKey).mode : 'off'),
+    [identityKey]
   );
 
   // Every warning the card shows, each one a sentence saying why. `now` is

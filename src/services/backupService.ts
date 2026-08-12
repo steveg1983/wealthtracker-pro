@@ -18,6 +18,14 @@ import type {
 // obligation `localDataPort.ts`'s `BackupFormat` recorded. It is a MOVE: every
 // name below is re-exported from here, so nothing that already imported one of
 // them changed, and there is still exactly one implementation of the format.
+//
+// TWO MORE WENT WITH IT in the mount slice's second half, one slice later and
+// for the same reason: `downloadBackupBundle` and `ExportProgress`. Neither has
+// anything to do with a database — one is a Blob and an anchor element, the
+// other is four numbers for a progress bar — and `pages/ExportManager.tsx`
+// imported them from here, which is what put a Supabase client in front of the
+// whole Export page in a desktop build. They are re-exported below, so nothing
+// that already imported either of them changed.
 export {
   BACKUP_ENTITIES,
   BACKUP_FORMAT,
@@ -39,6 +47,7 @@ export {
   rowsForStep,
   transactionDateRange,
   validateBackupBundle,
+  downloadBackupBundle,
   type AccountParentLink,
   type BackupBundle,
   type BackupEntity,
@@ -48,6 +57,7 @@ export {
   type BuildBundleInput,
   type CategoryLevel,
   type DanglingReference,
+  type ExportProgress,
   type RemapResult,
   type RestoreOutcome,
   type RestoreProgress,
@@ -57,7 +67,6 @@ export {
 
 import {
   BACKUP_ENTITIES,
-  backupFileName,
   remapBackupIds,
   RESTORE_STEPS,
   RestoreFailedError,
@@ -67,6 +76,7 @@ import {
   type BackupBundle,
   type BackupEntity,
   type BackupRow,
+  type ExportProgress,
   type RestoreOutcome,
   type RestoreProgress,
 } from './backup/format';
@@ -158,15 +168,6 @@ async function fetchAllRows(
     if (rows.length < PAGE_SIZE) return out;
   }
 }
-export interface ExportProgress {
-  entity: BackupEntity;
-  /** 1-based, for "3 of 14". */
-  entityNumber: number;
-  entityCount: number;
-  /** Rows read for this entity so far. */
-  rows: number;
-}
-
 export interface ExportOwner {
   /** users.id — what thirteen of the fourteen tables are keyed by. */
   databaseUserId: string;
@@ -232,22 +233,6 @@ export async function collectBackupBundle(
     data,
     preferences,
   });
-}
-/**
- * Hand the file to the browser. The stringify is the one unavoidably blocking
- * moment in the export — everything before it awaits — so it happens last,
- * after the progress display has already told the user what is going on.
- */
-export function downloadBackupBundle(bundle: BackupBundle): void {
-  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = backupFileName(bundle.exportedAt);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
 }
 /** bigint comes back from PostgREST as a JSON number, but never assume it. */
 function asCount(value: number | string | null): number {

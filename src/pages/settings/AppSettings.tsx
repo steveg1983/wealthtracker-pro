@@ -6,7 +6,9 @@ import BudgetAlertSettings from '../../components/BudgetAlertSettings';
 import LargeTransactionAlertSettings from '../../components/LargeTransactionAlertSettings';
 import LocaleSelector from '../../components/settings/LocaleSelector';
 import ShowTipsAgain from '../../components/settings/ShowTipsAgain';
-import BankFeedRefreshSettings from '../../components/settings/BankFeedRefreshSettings';
+// Through the seam: a refresh schedule is a thing a SERVER keeps.
+// See src/editions/service.ts.
+import { BankFeedRefreshSettings } from '@service';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 
 export default function AppSettings() {

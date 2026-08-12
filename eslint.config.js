@@ -30,17 +30,24 @@ const PORT_INDEX_MESSAGE =
   'docs/edition-gating.md.'
 
 /**
- * The four seams the mount slice added beside `@data`, as their specifiers.
+ * The six seams the mount slice added beside `@data`, as their specifiers.
  *
  * They are listed once and used twice — banned in desktop-only code (which
  * names the device half outright, for the reason `@data` does) and required of
  * shared UI (which may not name either half by path). The messages differ
  * because the two mistakes are different mistakes.
  */
-const EDITION_SEAMS = ['@chrome', '@identity', '@prefs-store', '@telemetry']
+const EDITION_SEAMS = [
+  '@chrome',
+  '@identity',
+  '@prefs-store',
+  '@telemetry',
+  '@session',
+  '@service'
+]
 
 /**
- * The CLOUD halves of those four, as a path — `editions/cloud/anything`.
+ * The CLOUD halves of those six, as a path — `editions/cloud/anything`.
  *
  * A group rather than a regex, unlike `PORT_INDEX`, because there is nothing
  * beneath this directory that a shared surface may legitimately import: the
@@ -51,10 +58,114 @@ const CLOUD_EDITION = ['**/editions/cloud/*', '**/editions/cloud/**']
 
 const CLOUD_EDITION_MESSAGE =
   'This is a seam’s CLOUD half — the Clerk button, the bank feed’s scheduler, the ' +
-  '`user_preferences` row, Sentry. Importing it by path picks an edition on behalf of every ' +
+  '`user_preferences` row, Sentry, the sign-in the state layer waits for, the billing card. ' +
+  'Importing it by path picks an edition on behalf of every ' +
   'edition, exactly as importing `services/port` by path does, and the damage appears on the day ' +
   'the importing component is mounted in a window. Import the specifier instead (`@chrome`, ' +
-  '`@identity`, `@prefs-store`, `@telemetry`) and let the build choose. See docs/edition-gating.md.'
+  '`@identity`, `@prefs-store`, `@telemetry`, `@session`, `@service`) and let the build ' +
+  'choose. See docs/edition-gating.md.'
+
+/**
+ * What a desktop-reachable module may not import, whatever it is.
+ *
+ * Named so that the two globs below can differ by ONE entry without either of
+ * them being a copy of the other. See {@link DATA_LAYER_ONLY}.
+ */
+const CLOUD_IMPORTS = [
+  '@clerk/*', '@supabase/*', '@sentry/*', '@stripe/*',
+  '**/services/api/supabaseClient', '**/api/supabaseClient',
+  // The app's OWN wrappers around two of those packages, which the patterns
+  // above do not match: `lib/sentry` imports `@sentry/react` and `lib/supabase`
+  // imports `@supabase/supabase-js`, and a desktop-only module importing either
+  // was silent here until a mutation went looking. The graph walks caught it; a
+  // lint rule that only bans the package and not the one-line file in front of
+  // it is a rule that catches the obvious mistake and not the easy one.
+  '**/lib/sentry', '**/lib/supabase',
+  '**/services/api/dataService', '**/api/dataService',
+  '**/services/storageAdapter', '**/storageAdapter',
+  '**/loggers/scopedLogger', '**/scopedLogger',
+  '**/services/userIdService', '**/userIdService',
+  '**/services/autoSyncService', '**/autoSyncService',
+  '**/utils/demoSeed', '**/demoSeed',
+  '**/services/banking/**', '**/banking/**',
+  '**/services/stripeService', '**/stripeService',
+  '**/contexts/AuthContext', '**/contexts/SubscriptionContext',
+  // …and the seams' CLOUD halves, which are the same cloud reached through a
+  // new door. `editions/cloud/telemetry` is `lib/sentry`; `editions/cloud/chrome`
+  // is a Clerk button; `editions/cloud/session` is `useUser()`.
+  ...CLOUD_EDITION
+]
+
+/**
+ * One more ban, and it applies to the DATA LAYER alone.
+ *
+ * `services/preferencesService.ts` used to be on the list above, because it read
+ * a module-scope Supabase client on its second line. `@prefs-store` took that
+ * away in the mount slice's first half, and a walk from it now finds six modules
+ * and no cloud at all — so as a CLOUD ban it had become false, and worse than
+ * false: `contexts/PreferencesContext.tsx` imports it, that context is inside
+ * the shared Layout, and the Layout is what a desktop window mounts. The rule
+ * banned in `src/desktop/**` a module the desktop bundle already contains.
+ *
+ * It is still banned in `src/services/local/**`, and for a reason that has
+ * nothing to do with the cloud: `deviceDocument.ts` takes the preferences
+ * service as an INJECTED structural interface (`DevicePreferences`, two methods)
+ * so that the data layer names no app service even in a type position. That is a
+ * layering rule, it is still right, and this is where it is held.
+ *
+ * The injector is the desktop MOUNT — `src/desktop/DesktopApp.tsx` hands over the
+ * one singleton every surface renders through — which is precisely the file the
+ * old rule made impossible to write.
+ */
+const DATA_LAYER_ONLY = ['**/services/preferencesService', '**/preferencesService']
+
+/**
+ * The whole edition rule for code that only ever runs in a window, given the
+ * list of things that code may not reach.
+ *
+ * A function because there are two such globs and they differ by one entry.
+ * Everything else — the specifiers a desktop-only module must NOT reach through
+ * (it names the device half outright, for the reason `@data` does), and the
+ * choosing file — is identical, and a second copy of it would be the failure
+ * this repository keeps finding: a rule one config knows about and another does
+ * not.
+ */
+const editionOnlyImports = (forbidden) => ({
+  paths: [
+    {
+      name: '@data',
+      message:
+        'A desktop-only module names the device engine directly ' +
+        '(services/local/deviceDataPort). `@data` is the edition-BLIND door, for surfaces ' +
+        'that are shared with the web app; reaching through it from code that only ever ' +
+        'runs in a window asks the build a question this file already knows the answer to.'
+    },
+    // The mount slice's six, the same rule as `@data`'s. The device halves live
+    // in `src/desktop/editions/`, so a module in this glob is either one of them
+    // or a neighbour of one, and either way naming the file is shorter, truer
+    // and impossible to mis-resolve.
+    ...EDITION_SEAMS.map(name => ({
+      name,
+      message:
+        `A desktop-only module names the device half of ${name} directly ` +
+        '(src/desktop/editions/…). The specifier is the edition-BLIND door, for surfaces ' +
+        'shared with the web app; reaching through it from code that only ever runs in a ' +
+        'window asks the build a question this file already knows the answer to.'
+    }))
+  ],
+  patterns: [
+    {
+      group: forbidden,
+      message:
+        'A desktop-reachable module may not import the cloud. This bundle promises that ' +
+        'the money never leaves the machine, and everything named here would put a ' +
+        'network, a login or a second store inside it. If a shared surface needs the data ' +
+        'layer it imports `@data`, which each build resolves to its own engine. See ' +
+        'docs/edition-gating.md.'
+    },
+    { regex: PORT_INDEX, message: PORT_INDEX_MESSAGE }
+  ]
+})
 
 export default tseslint.config([
   globalIgnores([
@@ -123,66 +234,55 @@ export default tseslint.config([
   // `docs/edition-gating.md` states the whole mechanism.
   // ──────────────────────────────────────────────────────────────────────────
   {
-    files: ['src/desktop/**/*.{ts,tsx}', 'src/services/local/**/*.{ts,tsx}'],
+    files: ['src/desktop/**/*.{ts,tsx}'],
+    rules: { 'no-restricted-imports': ['error', editionOnlyImports(CLOUD_IMPORTS)] }
+  },
+  {
+    // The data layer gets ONE extra ban that the mount does not: see
+    // {@link DATA_LAYER_ONLY}. Two entries rather than one glob because the
+    // difference between them is a real difference, and folding it away would
+    // mean either re-banning a module the desktop bundle legitimately contains
+    // or losing the layering rule the injection rests on.
+    files: ['src/services/local/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', editionOnlyImports([...CLOUD_IMPORTS, ...DATA_LAYER_ONLY])]
+    }
+  },
+  {
+    // THE DEVICE HALVES, and the one thing they must never reach for: the
+    // component they are the ALTERNATIVE to.
+    //
+    // Found by a mutation rather than by argument. `desktop/editions/service.ts`
+    // was pointed at the real `components/settings/DangerZone` — the tempting
+    // reading, "a desktop danger zone that keeps the delete" — and three
+    // instruments went red (the import walk, the bundle grep, the mount test)
+    // while lint said nothing, because the ban list above names `@clerk/*` and
+    // that file reaches Clerk two modules down. A lint rule can only see a
+    // specifier it was told about, and nobody is going to list every shared
+    // component a seam might one day replace.
+    //
+    // So the rule is the other way round: a device half is a REPLACEMENT for
+    // shared UI, so it may not import shared UI. It may import React, the local
+    // services, and its own contract — which is all any of the six do today.
+    // The cloud halves are exempt by construction: they live in
+    // `src/editions/cloud/**` and re-binding the shipped component is their
+    // entire job.
+    files: ['src/desktop/editions/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': ['error', {
-        paths: [
-          {
-            name: '@data',
-            message:
-              'A desktop-only module names the device engine directly ' +
-              '(services/local/deviceDataPort). `@data` is the edition-BLIND door, for surfaces ' +
-              'that are shared with the web app; reaching through it from code that only ever ' +
-              'runs in a window asks the build a question this file already knows the answer to.'
-          },
-          // The mount slice's four, the same rule as `@data`'s. The device
-          // halves live in `src/desktop/editions/`, so a module in this glob is
-          // either one of them or a neighbour of one, and either way naming the
-          // file is shorter, truer and impossible to mis-resolve.
-          ...EDITION_SEAMS.map(name => ({
-            name,
-            message:
-              `A desktop-only module names the device half of ${name} directly ` +
-              '(src/desktop/editions/…). The specifier is the edition-BLIND door, for surfaces ' +
-              'shared with the web app; reaching through it from code that only ever runs in a ' +
-              'window asks the build a question this file already knows the answer to.'
-          }))
-        ],
         patterns: [
           {
-            group: [
-              '@clerk/*', '@supabase/*', '@sentry/*', '@stripe/*',
-              '**/services/api/supabaseClient', '**/api/supabaseClient',
-              // The app's OWN wrappers around two of those packages, which the
-              // patterns above do not match: `lib/sentry` imports `@sentry/react`
-              // and `lib/supabase` imports `@supabase/supabase-js`, and a
-              // desktop-only module importing either was silent here until a
-              // mutation went looking. The graph walks caught it; a lint rule
-              // that only bans the package and not the one-line file in front of
-              // it is a rule that catches the obvious mistake and not the easy one.
-              '**/lib/sentry', '**/lib/supabase',
-              '**/services/api/dataService', '**/api/dataService',
-              '**/services/storageAdapter', '**/storageAdapter',
-              '**/loggers/scopedLogger', '**/scopedLogger',
-              '**/services/userIdService', '**/userIdService',
-              '**/services/preferencesService', '**/preferencesService',
-              '**/services/banking/**', '**/banking/**',
-              '**/services/stripeService', '**/stripeService',
-              '**/contexts/AuthContext', '**/contexts/SubscriptionContext',
-              // …and the four seams' CLOUD halves, which are the same cloud
-              // reached through a new door. `editions/cloud/telemetry` is
-              // `lib/sentry`; `editions/cloud/chrome` is a Clerk button.
-              ...CLOUD_EDITION
-            ],
+            group: ['**/components/**', '**/pages/**', '**/contexts/**', '**/hooks/**'],
             message:
-              'A desktop-reachable module may not import the cloud. This bundle promises that ' +
-              'the money never leaves the machine, and everything named here would put a ' +
-              'network, a login or a second store inside it. If a shared surface needs the data ' +
-              'layer it imports `@data`, which each build resolves to its own engine. See ' +
-              'docs/edition-gating.md.'
+              'A device half of an edition seam may not import shared UI. It IS the alternative ' +
+              'to a shared surface, so reaching for one means the seam replaced nothing — and ' +
+              'the surface it reaches for is, by definition, the one that needed replacing. ' +
+              'What a device half may import: React, `src/services/local/**`, and its own ' +
+              'contract in `src/editions/`. See docs/edition-gating.md.'
           },
-          { regex: PORT_INDEX, message: PORT_INDEX_MESSAGE }
-        ]
+          ...editionOnlyImports(CLOUD_IMPORTS).patterns
+        ],
+        paths: editionOnlyImports(CLOUD_IMPORTS).paths
       }]
     }
   },

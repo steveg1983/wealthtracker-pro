@@ -106,31 +106,36 @@ afterEach(() => {
 });
 
 describe('the device boot', () => {
-  it('resolves categories BEFORE it reads the ledger', async () => {
-    // `localDataPort.ts` states the obligation this test holds: *"The device
-    // boot slice 27 writes must `await port.prepareCategories()` before
-    // `port.loadBoot()`."* The cloud keeps the same ordering inside its own
-    // loadBoot; a file cannot, because its load_boot is one crossing of one
-    // transaction and seeding is a deliberate act rather than a side effect of
-    // looking at a file.
+  it('seeds the categories, and does not read the ledger', async () => {
+    // HALF of the obligation `localDataPort.ts` states — *"The device boot must
+    // `await port.prepareCategories()` before `port.loadBoot()`"* — and it is
+    // the half that belongs to this module. The other half is the application's:
+    // `src/desktop/__tests__/desktopPages.test.tsx` renders the real window over
+    // a real file and asserts the sequence the product issues end to end.
+    //
+    // The read moved because the window now has an app in it. Until the mount's
+    // second half there was nothing to read the file except this function, so it
+    // did; leaving it here afterwards would mean materialising every row of a
+    // 50,000-transaction ledger and discarding it so a chooser could print three
+    // counts.
     const shell = shellRecording();
     const document = openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke });
 
     await bootDeviceLedger(document);
 
-    expect(shell.verbs).toEqual(['seed_categories', 'load_boot']);
+    expect(shell.verbs).toEqual(['seed_categories']);
   });
 
-  it('waits for the seed rather than starting both at once', async () => {
-    // The failure this prevents is silent and only happens on a FIRST launch:
-    // a register drawn against categories that do not exist yet. Two calls
-    // issued together would pass a test that only checked the order they were
-    // started in, so the seed is made slow and the boot must still be second.
-    const started: string[] = [];
+  it('does not RESOLVE until the seed has finished, not merely started it', async () => {
+    // The failure this prevents is silent and only happens on a FIRST launch: a
+    // register drawn against categories that do not exist yet. A version that
+    // fired the seed and returned would pass a test that only checked the order
+    // calls were issued in, so the seed is made slow and this waits for it to
+    // FINISH — which is what lets the caller import the application afterwards
+    // and know the file is ready.
     const finished: string[] = [];
     const invoke = async (_command: string, args: Record<string, unknown>): Promise<unknown> => {
       const verb = String(args.verb);
-      started.push(verb);
       if (verb === 'seed_categories') {
         await new Promise(resolve => setTimeout(resolve, 5));
         finished.push(verb);
@@ -142,19 +147,7 @@ describe('the device boot', () => {
 
     await bootDeviceLedger(openDeviceDocument({ ledger: LEDGER, invoke }));
 
-    expect(started).toEqual(['seed_categories', 'load_boot']);
-    expect(finished).toEqual(['seed_categories', 'load_boot']);
-  });
-
-  it('hands back the boot the file answered with', async () => {
-    const shell = shellRecording();
-
-    const boot = await bootDeviceLedger(
-      openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke })
-    );
-
-    expect(boot.accounts).toEqual([]);
-    expect(boot.transactions).toEqual([]);
+    expect(finished).toEqual(['seed_categories']);
   });
 
   it('does not swallow a boot that could not happen', async () => {
@@ -250,12 +243,12 @@ describe('the settings, attached to the file', () => {
       }
     };
 
-    const boot = await bootDeviceLedger(
-      openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke }),
-      { preferences }
-    );
-
-    expect(boot.accounts).toEqual([]);
+    await expect(
+      bootDeviceLedger(openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke }), {
+        preferences
+      })
+    ).resolves.toBeUndefined();
+    expect(shell.verbs).toEqual(['seed_categories']);
   });
 
   it('leaves the settings alone when nothing was given to attach', async () => {
@@ -266,8 +259,8 @@ describe('the settings, attached to the file', () => {
 
     await expect(
       bootDeviceLedger(openDeviceDocument({ ledger: LEDGER, invoke: shell.invoke }))
-    ).resolves.toBeDefined();
-    expect(shell.verbs).toEqual(['seed_categories', 'load_boot']);
+    ).resolves.toBeUndefined();
+    expect(shell.verbs).toEqual(['seed_categories']);
   });
 
   it('refuses to attach a document that is not the ledger this window has open', async () => {

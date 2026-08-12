@@ -15,6 +15,8 @@ import {
   IdentityMenu,
   MobileBreadcrumb,
   NotificationBell,
+  OfflineQuickAdd,
+  OfflineQueueIndicator,
   QuickAddTransaction,
   RealtimeDot,
   type GlobalSearchHandle
@@ -30,8 +32,6 @@ import { SyncConflictResolver } from './SyncConflictResolver';
 import PWAInstallPrompt from './PWAInstallPrompt';
 import ServiceWorkerUpdateNotification from './ServiceWorkerUpdateNotification';
 import { useServiceWorker } from '../hooks/useServiceWorker';
-import { OfflineIndicator as PWAOfflineIndicator } from './pwa/OfflineIndicator';
-import { QuickAddOfflineButton } from './pwa/QuickAddOfflineButton';
 import { EnhancedConflictResolutionModal } from './pwa/EnhancedConflictResolutionModal';
 import { useConflictResolution } from '../hooks/useConflictResolution';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
@@ -670,10 +670,10 @@ export default function Layout(): React.JSX.Element {
       <SyncConflictResolver />
       
       {/* PWA Offline Indicator - Shows sync status */}
-      <PWAOfflineIndicator />
+      <OfflineQueueIndicator />
       
       {/* Quick Add Offline Button */}
-      <QuickAddOfflineButton />
+      <OfflineQuickAdd />
       
       {/* Conflict Resolution Modal */}
       <EnhancedConflictResolutionModal 

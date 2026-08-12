@@ -18,6 +18,8 @@ export default createVitestReactConfig({
     '@identity': path.resolve(process.cwd(), './src/editions/cloud/identity'),
     '@prefs-store': path.resolve(process.cwd(), './src/editions/cloud/preferencesStore'),
     '@telemetry': path.resolve(process.cwd(), './src/editions/cloud/telemetry'),
+    '@session': path.resolve(process.cwd(), './src/editions/cloud/session'),
+    '@service': path.resolve(process.cwd(), './src/editions/cloud/service'),
     '@': path.resolve(process.cwd(), './src'),
     '@/contexts/AppContextSupabase': path.resolve(process.cwd(), './src/test/mocks/AppContextSupabase.ts'),
   },
@@ -46,6 +48,13 @@ export default createVitestReactConfig({
     // `npm run test:local-contract` (vitest.local.config.ts), and never by
     // accident here.
     '**/localCore.*.test.ts',
+    // The desktop MOUNT run, for the same reason and a sharper one: this config
+    // maps all seven seams at their CLOUD halves and replaces
+    // `AppContextSupabase` with a fixture provider, so the window rendered here
+    // would be the web app wearing a HashRouter. It would pass, and it would go
+    // on passing on the day the desktop build broke. `vitest.desktop.config.ts`
+    // is how it is asked for, and `npm run test:desktop-mount` runs it.
+    '**/desktopPages.test.tsx',
   ],
   test: {
     environment: process.env.RUN_SUPABASE_REAL_TESTS === 'true' ? 'node' : 'jsdom',
