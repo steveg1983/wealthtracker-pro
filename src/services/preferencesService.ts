@@ -97,6 +97,28 @@ export function periodPreferenceKeys(base: string): string[] {
 }
 
 /**
+ * Where a CARD's "this one has a window of its own" flag lives.
+ *
+ * A pinned dashboard card is an ordinary period surface — same four keys, same
+ * hook — plus one bit that says the pin is in force. The bit is separate from
+ * `…Explicit` on purpose: that flag answers *"did the user choose this value, or
+ * did a surface suggest it?"*, and the card needs the different question *"is
+ * this card being read over its own window, or over the page's?"*. Conflating a
+ * value with a state is exactly what `readStoredSelection`'s long note is about.
+ *
+ * The separation is also what makes a user with no pins byte-identical to
+ * today: no flag, no key, nothing read, nothing written.
+ */
+export function periodPinKey(base: string): string {
+  return `${base}Pinned`;
+}
+
+/** Everything one pinnable card can store: the period surface, plus the pin. */
+export function cardPeriodPreferenceKeys(base: string): string[] {
+  return [...periodPreferenceKeys(base), periodPinKey(base)];
+}
+
+/**
  * Every key that travels with the account.
  *
  * This list does TWO jobs, and only the first is load-bearing at runtime:
@@ -122,6 +144,14 @@ export const PORTABLE_PREFERENCE_KEYS: readonly string[] = [
   ...periodPreferenceKeys('dashboardReports'),
   ...periodPreferenceKeys('dashboardReportsFlows'),
   ...periodPreferenceKeys('dashboardPerformance'),
+  // …and the cards that have been PINNED to a window of their own, against the
+  // page's. A statement about how the owner reads HIS figures — an all-time net
+  // worth beside twelve months of flows — so it travels with the account like
+  // every other statement of that kind. See hooks/useCardPeriod.
+  ...cardPeriodPreferenceKeys('dashboardReports.pin.performance'),
+  ...cardPeriodPreferenceKeys('dashboardReports.pin.net-worth'),
+  ...cardPeriodPreferenceKeys('dashboardReports.pin.income-expense-trend'),
+  ...cardPeriodPreferenceKeys('dashboardReports.pin.expense-categories'),
 
   // ── Reports ──────────────────────────────────────────────────────────────
   ...periodPreferenceKeys('reportsPeriod'),

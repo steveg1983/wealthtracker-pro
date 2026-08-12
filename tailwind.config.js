@@ -127,6 +127,19 @@ export default {
           '0%': { transform: 'translateY(1rem)' },
           '100%': { transform: 'translateY(0)' },
         },
+        // A pinned dashboard card re-stating itself when the PAGE clock moves
+        // (components/dashboard/reportWidgets/CardPeriodControl). One quiet
+        // blink, so a card that deliberately did not follow is SEEN not to have
+        // followed rather than appearing to be stuck.
+        //
+        // Opacity only, on purpose: no colour, because amber is reserved for
+        // things that are actually wrong (P3) and a window the user chose is
+        // not one of them; and no transform, because a marker that moves is a
+        // layout shift charged to every neighbour on the row.
+        'pin-ack': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.25' },
+        },
       },
       animation: {
         'in': 'fade-in 0.2s ease-out, zoom-in-95 0.2s ease-out, slide-in-from-bottom-4 0.2s ease-out',
@@ -134,6 +147,12 @@ export default {
         // once and then holds still. Named rather than written inline so the
         // 200ms is the same 200ms as the delay that decides to show it.
         'fade-in': 'fade-in 200ms ease-out',
+        // The `enter` duration (200ms), because this is an arrival: the marker
+        // re-states itself rather than changing state. It runs ONCE per move of
+        // the page clock, and the element clears the class on `animationend` —
+        // which still fires under prefers-reduced-motion, where index.css
+        // shortens animations to 0.01ms rather than removing them.
+        'pin-ack': 'pin-ack 200ms ease-out',
       },
     },
   },
