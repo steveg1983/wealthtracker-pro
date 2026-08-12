@@ -174,6 +174,10 @@ export const PORTABLE_PREFERENCE_KEYS: readonly string[] = [
   'accountsCollapsedGroups',
 
   // ── Reconciliation ───────────────────────────────────────────────────────
+  'reconciliationGroupBy.v2',
+  // The pre-toggle key, when banding this list was one choice rather than two
+  // switches. Still carried so an existing view survives the upgrade — it is
+  // read once, by the migration in `reconciliationGrouping`.
   'reconciliationGroupBy',
   'reconciliationSortMode',
   'reconciliationOnlyAttention',
@@ -462,15 +466,30 @@ export class PreferencesService implements PreferenceStorage {
   }
 
   removeItem(key: string): void {
-    if (!(key in this.document.values)) return;
-    const values = { ...this.document.values };
-    delete values[key];
-    this.document = { ...this.document, values };
+    // The MIRROR is cleared whether or not the document held this key, and that
+    // asymmetry with the early return below is the whole point.
+    //
+    // `getItem` above reads the mirror for any key the document does not hold,
+    // right up until the account's row lands — so a key left behind here is not
+    // dormant, it is live, and it comes back on the next boot as a setting the
+    // user already switched off. The dashboard's period pins are where that bit:
+    // a released card removes its five keys, the four that carry the WINDOW are
+    // in the document and go, and the fifth — the pin flag, removed last — is
+    // mirror-only whenever this session's document did not happen to hold it
+    // (a boot that read before `attach` resolved, an offline boot, a session
+    // whose writes never reached the server). What survives is a pin flag with
+    // no window beside it: the card comes back declaring itself pinned with
+    // nothing to be pinned to. See hooks/useCardPeriod.
     try {
       this.mirror?.removeItem(key);
     } catch {
       // Unwritable storage costs the mirror, never the in-memory truth.
     }
+    // Nothing to forget in the document, so nothing to write back or announce.
+    if (!(key in this.document.values)) return;
+    const values = { ...this.document.values };
+    delete values[key];
+    this.document = { ...this.document, values };
     this.scheduleWrite();
     this.notify();
   }

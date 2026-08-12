@@ -4,7 +4,13 @@ import {
   periodPinKey,
   preferences,
 } from '../services/preferencesService';
-import { usePeriod, type PeriodKey, type PeriodStorage, type UsePeriodResult } from './usePeriod';
+import {
+  isPeriodKey,
+  usePeriod,
+  type PeriodKey,
+  type PeriodStorage,
+  type UsePeriodResult,
+} from './usePeriod';
 
 /**
  * A dashboard card's period, and whether it is the page's or its own.
@@ -51,7 +57,7 @@ import { usePeriod, type PeriodKey, type PeriodStorage, type UsePeriodResult } f
  * picker unchanged. There is no migration because there is no old shape: the
  * keys below did not exist before, and their absence is the answer "follows the
  * page" — which is what every stored dashboard already meant. Pinned in
- * hooks/__tests__/useCardPeriod.test.ts.
+ * hooks/useCardPeriod.test.ts.
  */
 
 /** Whether this card has a window of its own, and the two ways to change that. */
@@ -104,23 +110,54 @@ export function useCardPeriod(
   storage: PeriodStorage = preferences
 ): CardPeriod {
   /**
-   * The card's own surface. Its `defaultKey` is the page's current window, and
-   * it is never seen: an unpinned card is handed `page` below, and a pin always
-   * arrives through `pinTo` with a window the user just picked. The default
-   * matters only for a hand-edited store that says "pinned" without saying to
-   * what, where following the page is the sane reading.
+   * The pin as storage holds it, read ONCE and as ONE fact: whether this card
+   * has a window of its own, and which window that is.
+   *
+   * Both together, deliberately. They used to be read apart — the flag here,
+   * the window through `usePeriod`'s stored-selection rule — and that rule
+   * distrusts a stored period carrying no `…Explicit` flag beside it, falling
+   * back to the `defaultKey` it was handed. That default was the PAGE's window.
+   * So any store in which those two keys disagreed produced a card that
+   * declared "pinned · …" and was handed the page's clock to draw: a pin that
+   * announces itself and changes nothing, which is the owner's bug. It fails
+   * SILENTLY because the declaration reads the same picker the chart does — the
+   * card looks correct and quotes the page's figures.
+   *
+   * `usePeriod`'s distrust is right where it lives: an unflagged `reportsPeriod`
+   * is a leftover from a build that wrote that key meaning something narrower
+   * (see `readStoredSelection`'s note). A card's pin key has no such history —
+   * it was born with this feature, and the pin flag beside it IS the statement
+   * that the user chose this window. So here the PIN decides, and the stored
+   * window is honoured whenever it can be read at all.
    */
-  const own = usePeriod(storageKey, page.period, storage);
+  const [storedPin] = useState<{ pinned: boolean; window: PeriodKey | null }>(() => {
+    const pinned = storage.getItem(periodPinKey(storageKey)) === 'true';
+    const stored = pinned ? storage.getItem(storageKey) : null;
+    return { pinned, window: stored !== null && isPeriodKey(stored) ? stored : null };
+  });
+
+  /**
+   * The card's own surface. Its `defaultKey` is the window this card was pinned
+   * to, and the page's only when there is no readable pin — which covers both
+   * the unpinned card (whose `own` is never seen, because it is handed `page`
+   * below) and the hand-edited store that says "pinned" without saying to what,
+   * where following the page remains the sane reading.
+   */
+  const own = usePeriod(storageKey, storedPin.window ?? page.period, storage);
   const { setPeriod: setOwnPeriod } = own;
 
-  const [isPinned, setIsPinned] = useState<boolean>(
-    () => storage.getItem(periodPinKey(storageKey)) === 'true'
-  );
+  const [isPinned, setIsPinned] = useState<boolean>(storedPin.pinned);
 
   const pinTo = useCallback((key: PeriodKey): void => {
+    // Both halves of "this card is pinned, and to `key`" are set before
+    // anything is written down, rather than with a write in between them. An
+    // unwritable store must cost the user the MEMORY of the pin, never the pin
+    // itself: when the write sat in the middle, a store that threw left the
+    // card holding its own window with `isPinned` still false — which renders
+    // as the page's window, the same silent failure from the other side.
+    setIsPinned(true);
     setOwnPeriod(key);
     storage.setItem(periodPinKey(storageKey), 'true');
-    setIsPinned(true);
   }, [setOwnPeriod, storage, storageKey]);
 
   /**

@@ -145,6 +145,46 @@ describe('a card pinned to a window of its own', () => {
     expect(second.result.current.page.period).toBe('last-12-months');
   });
 
+  /**
+   * THE OWNER'S BUG, at the level it was caused.
+   *
+   * A pin is two facts in storage — the flag saying this card has a window of
+   * its own, and the window — and they were read back under different rules.
+   * `usePeriod` distrusts a stored period that carries no `…Explicit` flag
+   * beside it and falls back to the `defaultKey` it was handed, which was the
+   * PAGE's window. So a store where the two disagreed produced a card that
+   * declared "pinned · All time" and was read over the page's clock: a pin that
+   * announces itself and changes nothing, with no error anywhere.
+   *
+   * The pin flag IS the statement that this window was chosen, so it decides —
+   * the stored window is honoured whenever it can be read at all.
+   */
+  it('is read over its stored window even when nothing flagged it a choice', () => {
+    localStorage.setItem(CARD_KEY, 'all');
+    localStorage.setItem(periodPinKey(CARD_KEY), 'true');
+
+    const { result } = renderPageAndCard();
+
+    expect(result.current.card.pin.isPinned).toBe(true);
+    expect(result.current.card.picker.period).toBe('all');
+    // The window itself, not only its name: All time is unbounded and the
+    // page's twelve months is not, so this is the assertion that would have
+    // caught a card quietly drawing the page's figures.
+    expect(result.current.card.picker.range.from).toBeNull();
+    // …and the page clock never moved to make that true.
+    expect(result.current.page.period).toBe('last-12-months');
+  });
+
+  /** A pin naming no window this build can read still has to mean something. */
+  it('falls back to the page when the pin names no window it can read', () => {
+    localStorage.setItem(CARD_KEY, 'a-window-this-build-does-not-have');
+    localStorage.setItem(periodPinKey(CARD_KEY), 'true');
+
+    const { result } = renderPageAndCard();
+
+    expect(result.current.card.picker.period).toBe('last-12-months');
+  });
+
   it('files itself under the page’s key, beside the page’s own choice', () => {
     const { result } = renderPageAndCard();
 
