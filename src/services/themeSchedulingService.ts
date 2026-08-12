@@ -95,8 +95,8 @@ export class ThemeSchedulingService {
 
     this.storage = options.localStorage ?? defaultStorage;
     this.documentRef = options.documentRef ?? defaultDocument;
-    this.setIntervalFn = options.setIntervalFn ?? setInterval;
-    this.clearIntervalFn = options.clearIntervalFn ?? clearInterval;
+    this.setIntervalFn = options.setIntervalFn ?? setInterval.bind(globalThis);
+    this.clearIntervalFn = options.clearIntervalFn ?? clearInterval.bind(globalThis);
     this.dateFactory = options.dateFactory ?? (() => new Date());
     const noop = () => {};
     const globalLogger = typeof console !== 'undefined' ? console : undefined;

@@ -20,6 +20,11 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Loaded BEFORE the module entry: a module runs all its imports first,
+         which is exactly when early crashes happen, and a handler registered
+         inside the entry would arrive too late. Plain script, so CSP's
+         script-src 'self' admits it. -->
+    <script src="/boot-diagnostics.js"></script>
     <script type="module" src="/main.tsx"></script>
   </body>
 </html>

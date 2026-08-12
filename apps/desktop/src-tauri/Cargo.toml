@@ -59,7 +59,7 @@ wealth-core = { path = "../../../crates/wealth-core" }
 # on which one opened it.
 rusqlite = { version = "0.32", features = ["bundled"] }
 
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["devtools"] }
 # The NATIVE file chooser, and the reason the shell has file commands at all: a
 # path is not a payload. See `src/main.rs`.
 tauri-plugin-dialog = "2"
@@ -80,3 +80,14 @@ expect_used = "deny"
 panic = "deny"
 arithmetic_side_effects = "deny"
 float_arithmetic = "deny"
+
+[features]
+# custom-protocol is what makes a build serve the EMBEDDED dist instead of
+# devUrl. The tauri CLI turns it on for `tauri build` automatically — but this
+# workspace builds with plain `cargo build --release`, which does not, and the
+# first launch proved what that ships: a release window pointed at a dev
+# server that is not running. White, silent, and wrong. Default-on, because
+# every build this repo's scripts produce is meant to stand alone; a dev-server
+# window would be the deliberate exception, not the accident.
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

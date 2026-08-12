@@ -304,8 +304,8 @@ export class PreferencesService implements PreferenceStorage {
   constructor(options: PreferencesServiceOptions = {}) {
     this.injectedMirror = options.mirror;
     this.transportOverride = options.transport;
-    this.setTimeoutFn = options.setTimeoutFn ?? setTimeout;
-    this.clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout;
+    this.setTimeoutFn = options.setTimeoutFn ?? setTimeout.bind(globalThis);
+    this.clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout.bind(globalThis);
     this.debounceMs = options.debounceMs ?? PREFERENCES_WRITE_DEBOUNCE_MS;
   }
 

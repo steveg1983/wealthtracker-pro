@@ -39,6 +39,14 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DesktopApp } from './DesktopApp';
 import { tauriInvoke } from './tauriShell';
+// The app's OWN stylesheets, exactly as src/main.tsx imports them — the
+// mounted pages are built of Tailwind classes, and a class with no
+// stylesheet is invisible to every jsdom test and glaring in a real
+// WebView, which is precisely how the first launch found this line
+// missing. desktop.css stays last so the chooser's own rules win.
+import '../styles/borders.css';
+import '../styles/accessibility-colors.css';
+import '../index.css';
 import './desktop.css';
 
 const root = document.getElementById('root');

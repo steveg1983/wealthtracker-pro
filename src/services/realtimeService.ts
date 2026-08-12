@@ -71,8 +71,8 @@ export class RealtimeService {
     this.supabaseClient = options.supabaseClient ?? supabase ?? null;
     this.userService = options.userIdService ?? userIdService;
     this.logger = options.logger ?? createScopedLogger('RealtimeService');
-    this.setTimeoutFn = options.setTimeoutFn ?? setTimeout;
-    this.clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout;
+    this.setTimeoutFn = options.setTimeoutFn ?? setTimeout.bind(globalThis);
+    this.clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout.bind(globalThis);
   }
 
   /**

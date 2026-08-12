@@ -18,16 +18,18 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
+/* The body must NOT centre or constrain anything: the full app mounts here,
+   and a centred grid item shrinks to fit — which put the whole product in a
+   34rem column on the first launch. The chooser centres ITSELF instead. */
 body {
   margin: 0;
-  display: grid;
-  place-items: center;
   min-height: 100vh;
 }
 
 .ledger-screen {
   max-width: 34rem;
   padding: 2rem;
+  margin: 18vh auto 0;
 }
 
 .ledger-screen h1 {
