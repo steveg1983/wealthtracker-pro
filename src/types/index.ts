@@ -233,56 +233,42 @@ export interface Transaction {
    */
   linkedTransferSplitId?: string;
 
-  // Transfer-specific metadata for wealth management
-  transferMetadata?: {
-    // Core transfer info
-    transferType?: 'internal' | 'wire' | 'ach' | 'crypto' | 'asset_sale' | 'dividend' | 'rebalance';
-    transferPurpose?: string; // "Quarterly rebalancing", "Tax payment", "Investment funding", etc.
-    
-    // Financial details
-    fees?: number; // Transfer fees charged
-    feesCurrency?: string; // Currency of fees if different
-    exchangeRate?: number; // For cross-currency transfers
-    originalAmount?: number; // Amount before conversion
-    originalCurrency?: string; // Original currency
-    
-    // Asset-specific
-    assetType?: 'cash' | 'stock' | 'bond' | 'crypto' | 'real_estate' | 'commodity' | 'other';
-    units?: number; // Number of units transferred (shares, coins, etc.)
-    pricePerUnit?: number; // Price at time of transfer
-    marketValue?: number; // Total market value at transfer time
-    costBasis?: number; // For tax purposes
-    
-    // Timing and scheduling
-    initiatedDate?: Date; // When transfer was initiated
-    settlementDate?: Date; // When transfer actually settles
-    isScheduled?: boolean; // Is this a scheduled/recurring transfer
-    scheduleId?: string; // Link to transfer schedule
-    
-    // Compliance and audit
-    approvedBy?: string; // For transfers requiring approval
-    approvalDate?: Date;
-    reference?: string; // External reference number
-    documentation?: string[]; // Links to supporting documents
-    taxImplications?: string; // Notes on tax impact
-    
-    // Reconciliation
-    expectedAmount?: number; // What we expected to receive
-    actualAmount?: number; // What actually arrived
-    discrepancy?: number; // Difference if any
-    reconciliationStatus?: 'pending' | 'matched' | 'discrepancy' | 'resolved';
-    reconciliationNotes?: string;
-  };
-  
-  // Investment-specific fields
-  investmentData?: {
-    symbol?: string;
-    quantity?: number;
-    pricePerShare?: number;
-    transactionFee?: number;
-    stampDuty?: number;
-    totalCost?: number;
-  };
+  /**
+   * The row's open jsonb blob — `transactions.metadata` in both editions.
+   *
+   * ── WHAT REPLACED `transferMetadata`, AND WHY ───────────────────────────
+   *
+   * A `transferMetadata` object used to sit here: about twenty fields, of
+   * which `fees`, `exchangeRate`, `originalAmount`, `pricePerUnit`,
+   * `marketValue`, `costBasis`, `units`, `expectedAmount`, `actualAmount` and
+   * `discrepancy` were declared `number` — that is, money and rates held as
+   * floats. Nothing ever read it and nothing ever stored it: `mapToDbFields`
+   * in services/api/transactionService.ts skipped the key outright, so every
+   * value assigned to it was dropped on the way to the database.
+   *
+   * It was not merely dead, it was a trap: the obvious place for a future
+   * implementer to put an exchange rate, in the one representation this
+   * codebase forbids for money. The local edition had already reached the same
+   * verdict from the other side — `scripts/local-sqlite/schema.sql` promotes
+   * that money into typed integer columns and then BANS all ten keys from the
+   * blob by CHECK constraint, naming each one.
+   *
+   * ── WHAT GOES IN HERE INSTEAD ───────────────────────────────────────────
+   *
+   * Opaque labels and references — never money, never a float. A cross-currency
+   * transfer records its conversion under `fx` as an exact decimal STRING; see
+   * `utils/fx.ts` for the shape and for why a string rather than a number.
+   *
+   * Declaring it is also what makes `DataPortTransactionWrites.updateTransaction`
+   * honest: its contract lists `metadata` among the sixteen fields the engines
+   * honour, and until this field existed that list named something
+   * `Partial<Transaction>` could not carry.
+   *
+   * Not selected by either edition's BOOT projection, deliberately — see
+   * BOOT_TRANSACTION_COLUMNS and the Rust `ListedTransaction`. What is written
+   * here is held for the record, not for the register's hot path.
+   */
+  metadata?: Record<string, unknown>;
 }
 
 /**

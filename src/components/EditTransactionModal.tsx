@@ -291,7 +291,13 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   date: new Date(validatedData.date),
                   description: validatedData.description,
                 },
-                conversionTargetId
+                conversionTargetId,
+                undefined,
+                // The accounts are what let this see the other side of a
+                // CONVERTED transfer: opposite in sign, any magnitude, because
+                // the ratio between the magnitudes is the rate that was
+                // achieved. Without them the exact-amount rule stands.
+                { accounts }
               ),
             });
             return;

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { amountWithCurrencyCode } from '../utils/crossCurrencyLabel';
 import { ArrowRightLeftIcon } from './icons';
 import type { Transaction } from '../types';
 import type { TransferCandidate } from '../utils/transferMatch';
@@ -57,7 +58,19 @@ export default function TransferMatchDialog({
   if (!isOpen) return null;
 
   const isOutgoing = source.amount < 0;
-  const magnitude = formatCurrency(Math.abs(source.amount));
+  /**
+   * The currency boundary, when there is one. Every candidate in this list
+   * comes from the SAME account — the one the user filed this row against — so
+   * either they all cross a boundary or none does, and the first one answers
+   * for the list.
+   */
+  const crossed = candidates[0]?.crossCurrency ?? null;
+  // Across a boundary the source is shown in ITS OWN currency, not the display
+  // preference: this sentence is about to be read beside a figure in another
+  // currency, and two amounts converted to a third would explain nothing.
+  const magnitude = crossed
+    ? amountWithCurrencyCode(source.amount, crossed.from)
+    : formatCurrency(Math.abs(source.amount));
   const directionText = isOutgoing
     ? `${magnitude} from ${sourceAccountName} to ${targetAccountName}`
     : `${magnitude} from ${targetAccountName} to ${sourceAccountName}`;
@@ -85,9 +98,17 @@ export default function TransferMatchDialog({
         {candidates.length > 0 ? (
           <>
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
-              {candidates.length === 1
-                ? `Found the matching transaction in ${targetAccountName} — link the two sides?`
-                : `Found ${candidates.length} possible matches in ${targetAccountName} — pick the other side:`}
+              {crossed
+                /* Said before the figures are read, because the reader's first
+                   reaction to two amounts that do not match is that the app has
+                   matched the wrong rows. The difference between them IS the
+                   rate — recorded as `metadata.fx` when the link is made. */
+                ? (candidates.length === 1
+                    ? `${targetAccountName} counts in ${crossed.to}, so the two figures will not match — the difference between them is the rate this conversion got. Link the two sides?`
+                    : `${targetAccountName} counts in ${crossed.to}, so the two figures will not match — the difference between them is the rate this conversion got. Pick the other side:`)
+                : (candidates.length === 1
+                    ? `Found the matching transaction in ${targetAccountName} — link the two sides?`
+                    : `Found ${candidates.length} possible matches in ${targetAccountName} — pick the other side:`)}
             </p>
             <div className="space-y-2 mb-4 max-h-56 overflow-y-auto" role="radiogroup" aria-label="Matching transactions">
               {candidates.slice(0, 6).map(candidate => {
@@ -115,7 +136,13 @@ export default function TransferMatchDialog({
                         </p>
                       </div>
                       <span className={`shrink-0 font-medium ${t.amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {t.amount >= 0 ? '+' : '-'}{formatCurrency(Math.abs(t.amount))}
+                        {/* In the CANDIDATE's own currency, named. The display
+                            preference is right for a register, where every row
+                            shares one currency; here it would convert the one
+                            figure whose denomination is the point. */}
+                        {candidate.crossCurrency
+                          ? amountWithCurrencyCode(t.amount, candidate.crossCurrency.to)
+                          : `${t.amount >= 0 ? '+' : '-'}${formatCurrency(Math.abs(t.amount))}`}
                       </span>
                     </div>
                   </button>

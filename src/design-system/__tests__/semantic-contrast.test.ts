@@ -21,6 +21,13 @@
  *    but 4.34:1 on the cards where amounts actually sit.
  *
  * No hue is pinned — a future rebrand only has to keep measuring honest.
+ *
+ * THE RULE THIS FILE EXISTS TO ENFORCE (pinned at Claude Design's own request,
+ * after its calculated figures failed here twice): contrast is measured
+ * against the SURFACE the text sits on, not the page it sits in. A colour
+ * that clears the gray-900 page can fail the gray-800 card two pixels away —
+ * which is exactly how #0d9f6f died as a dark-mode text candidate. Every pair
+ * below therefore measures against BOTH surfaces of its mode.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';

@@ -8,6 +8,7 @@ import type { Account as BaseAccount, AccountUpdate } from '../types';
 import ToggleSwitch from './ui/ToggleSwitch';
 import CardNumberGuidance from './CardNumberGuidance';
 import GroupedAccountOptions from './common/GroupedAccountOptions';
+import { accountCurrencyOptions, describeAccountCurrency } from '../constants/accountCurrencies';
 import {
   BANK_ACCOUNT_NUMBER_LENGTH,
   CARD_NUMBER_LABEL,
@@ -35,11 +36,24 @@ interface AccountSettingsModalProps {
    * the field then never appears, and no pairing is written either way.
    */
   accounts?: readonly BaseAccount[];
+  /**
+   * Does this account already hold recorded money? It decides one thing only:
+   * whether CURRENCY may still be edited (see the field itself for why).
+   *
+   * Established by the caller with {@link accountHasHistory}, because the pages
+   * that open this modal already hold the transactions and this modal holds
+   * none. OMITTING IT LOCKS THE FIELD: a caller that cannot tell whether there
+   * is history must not be the reason a user re-denominates their ledger, and
+   * "read-only with an explanation" is a harmless answer for an empty account
+   * while "editable" is a destructive one for a full account.
+   */
+  hasTransactions?: boolean;
 }
 
 interface FormData {
   name: string;
   type: Account['type'];
+  currency: string;
   openingBalance: string;
   openingBalanceDate: string;
   sortCode: string;
@@ -119,12 +133,22 @@ export default function AccountSettingsModal({
   onClose,
   account,
   onSave,
-  accounts = []
+  accounts = [],
+  hasTransactions
 }: AccountSettingsModalProps) {
+  /**
+   * Editable only on an account with NO history, and only when the caller said
+   * so out loud — `undefined` means "could not establish it", which locks.
+   */
+  const currencyEditable = hasTransactions === false;
+
   const { formData, updateField, handleSubmit, setFormData, errors, isSubmitting } = useModalForm<FormData>(
     {
       name: '',
       type: 'current',
+      // Matches mapAccountFromDb's fallback and the accounts.currency column
+      // default; overwritten from the account itself before anything renders.
+      currency: 'GBP',
       openingBalance: '',
       openingBalanceDate: '',
       sortCode: '',
@@ -168,7 +192,14 @@ export default function AccountSettingsModal({
           // clears it — mapAccountToDb drops undefined fields.
           ...(resolvePairing(account, accounts, data.type).offered
             ? { parentAccountId: data.parentAccountId || null }
-            : {})
+            : {}),
+          // Same rule, and for a much sharper reason: only ever written when
+          // the field was EDITABLE. On an account with history the value on
+          // screen is the stored one, so writing it back would be a no-op —
+          // right up until the account gains its first transaction between the
+          // modal opening and Save, when it would silently re-denominate a
+          // ledger that had just stopped being empty.
+          ...(currencyEditable && data.currency ? { currency: data.currency } : {})
         };
 
         if (data.openingBalance !== '') {
@@ -189,6 +220,7 @@ export default function AccountSettingsModal({
       setFormData({
         name: account.name || '',
         type: account.type || 'current',
+        currency: account.currency || 'GBP',
         openingBalance: account.openingBalance != null ? account.openingBalance.toFixed(2) : '',
         openingBalanceDate: account.openingBalanceDate
           ? new Date(account.openingBalanceDate).toISOString().split('T')[0]
@@ -286,6 +318,64 @@ export default function AccountSettingsModal({
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Changing the type will relocate this account to the appropriate section
             </p>
+          </div>
+
+          {/* Currency — always shown, editable only while the account is empty.
+              An account's currency was chosen once in AddAccountModal and then
+              never displayed again anywhere, so the one figure that says what
+              every other figure MEANS was invisible. */}
+          <div>
+            {currencyEditable ? (
+              <>
+                <label htmlFor="account-currency" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Currency
+                </label>
+                <select
+                  id="account-currency"
+                  value={formData.currency}
+                  onChange={(e) => updateField('currency', e.target.value)}
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                >
+                  {/* The account's own code is always among these, even if the
+                      app does not support it — see accountCurrencyOptions. */}
+                  {accountCurrencyOptions(formData.currency).map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.symbol} {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Nothing has been recorded in this account yet, so its currency
+                  can still be changed. It is fixed as soon as the first
+                  transaction lands here.
+                </p>
+              </>
+            ) : (
+              <>
+                {/* Not a disabled <select>: there is no control here to reach,
+                    and a greyed-out dropdown says "unavailable" where the
+                    account needs to say "settled". */}
+                <span id="account-currency-label" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Currency
+                </span>
+                <p
+                  aria-labelledby="account-currency-label"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 text-gray-700 dark:text-gray-200"
+                >
+                  {describeAccountCurrency(formData.currency)}
+                </p>
+                {/* The consequence, not the rule: changing the denomination
+                    would leave every stored figure at its own number while
+                    changing what that number means — the same re-labelling
+                    Microsoft Money refuses once an account has a register. */}
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  This account already has transactions, so its currency is
+                  fixed — changing it now would leave every recorded figure at
+                  the same number while quietly re-labelling what that number
+                  is worth.
+                </p>
+              </>
+            )}
           </div>
 
           {/* Opening Balance */}

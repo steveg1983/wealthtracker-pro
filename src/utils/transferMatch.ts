@@ -1,6 +1,13 @@
 import { toDecimal } from './decimal';
 import { calculateStringSimilarity } from './duplicateScan';
-import type { Transaction, Category } from '../types';
+import {
+  accountCurrencyIndex,
+  compareCrossCurrencyCandidates,
+  crossCurrencyCandidate,
+  type CrossCurrencyRateLookup,
+} from './crossCurrencyMatch';
+import { crossedCurrencyPair, type CrossCurrency } from './crossCurrencyTransfer';
+import type { Transaction, Category, Account } from '../types';
 
 /**
  * Transfer matching (the Microsoft Money model): when a transaction is filed
@@ -20,17 +27,64 @@ export interface TransferCandidate {
   daysApart: number;
   /** 0–100 similarity of the two descriptions (tie-breaking only). */
   descriptionScore: number;
+  /**
+   * Set when this candidate sits across a CURRENCY boundary — the source's
+   * currency and the candidate's. Absent for the ordinary same-currency match,
+   * so `crossCurrency` being present is exactly the question the UI asks before
+   * showing the boundary on the row.
+   */
+  crossCurrency?: CrossCurrency;
+  /** See crossCurrencyMatch. Sorting only, and only ever set alongside `crossCurrency`. */
+  rateDivergence?: number;
+}
+
+/**
+ * What this matcher needs in order to consider a candidate in ANOTHER currency.
+ *
+ * A fifth parameter rather than a reshaped fourth, deliberately: `windowDays`
+ * has been the fourth positional argument since this function existed, and the
+ * behaviour of every existing call had to stay identical to the character. A
+ * caller that passes none of this gets precisely the matcher it had before.
+ */
+export interface TransferMatchOptions {
+  /**
+   * The accounts, so the two currencies can be established. Without them no
+   * currency is knowable, and — per `crossedCurrencyPair` — an unknown currency
+   * reads as "same", which keeps the exact-amount rule in force.
+   */
+  accounts?: readonly Account[];
+  /** A quote for ranking cross-currency candidates. Never filters: see crossCurrencyMatch. */
+  rateLookup?: CrossCurrencyRateLookup;
 }
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
 export const TRANSFER_MATCH_WINDOW_DAYS = 4;
 
+/**
+ * ── ONE ACCOUNT, TWO POSSIBLE RULES ─────────────────────────────────────────
+ *
+ * This matcher looks in exactly one named account, because the user has already
+ * said where the money went. So whether a currency boundary is being crossed is
+ * a property of the CALL, not of each candidate: both currencies are read once,
+ * and the rule that applies to every row in the list follows from them.
+ *
+ * Same currency (or either unknown, or no accounts given): the amount must be
+ * exactly the source negated, as it always has been.
+ *
+ * Different currencies: opposite in sign and non-zero, with no constraint on
+ * magnitude — the engine's own rule for a link across a boundary. Note that the
+ * exact-opposite amount still qualifies, because it is opposite in sign; it
+ * simply stops being privileged, which is right. Two real conversions almost
+ * never produce equal magnitudes, and when they do it is a coincidence rather
+ * than evidence.
+ */
 export function findTransferCandidates(
   transactions: Transaction[],
   source: Transaction,
   targetAccountId: string,
-  windowDays: number = TRANSFER_MATCH_WINDOW_DAYS
+  windowDays: number = TRANSFER_MATCH_WINDOW_DAYS,
+  options: TransferMatchOptions = {}
 ): TransferCandidate[] {
   const sourceAmount = toDecimal(source.amount);
   if (sourceAmount.isZero()) {
@@ -39,6 +93,17 @@ export function findTransferCandidates(
   const oppositeAmount = sourceAmount.negated();
   const sourceTime = new Date(source.date).getTime();
 
+  // Read once, for the whole call. `undefined` on either side means the strict
+  // rule below applies, which is the safe direction.
+  const accounts = options.accounts;
+  const crossed = accounts
+    ? crossedCurrencyPair(
+        accounts.find(a => a.id === source.accountId)?.currency,
+        accounts.find(a => a.id === targetAccountId)?.currency
+      )
+    : null;
+  const index = crossed && accounts ? accountCurrencyIndex(accounts) : null;
+
   const candidates: TransferCandidate[] = [];
   for (const transaction of transactions) {
     if (transaction.accountId !== targetAccountId) continue;
@@ -46,7 +111,12 @@ export function findTransferCandidates(
     // A split parent cannot be a transfer, and an already-linked side is taken.
     if (transaction.isSplit) continue;
     if (transaction.linkedTransferId) continue;
-    if (!toDecimal(transaction.amount).equals(oppositeAmount)) continue;
+
+    // The one branch. Everything else about a candidate is unchanged.
+    const match = index
+      ? crossCurrencyCandidate(source, transaction, index, options.rateLookup)
+      : null;
+    if (index ? !match : !toDecimal(transaction.amount).equals(oppositeAmount)) continue;
 
     const daysApart = Math.abs(new Date(transaction.date).getTime() - sourceTime) / DAY_MS;
     if (daysApart > windowDays) continue;
@@ -55,11 +125,18 @@ export function findTransferCandidates(
       transaction,
       daysApart,
       descriptionScore: calculateStringSimilarity(source.description, transaction.description),
+      ...(match ? { crossCurrency: match.pair, rateDivergence: match.rateDivergence } : {}),
     });
   }
 
-  // Closest date wins; description similarity breaks ties.
-  candidates.sort((a, b) => a.daysApart - b.daysApart || b.descriptionScore - a.descriptionScore);
+  // Closest date wins; description similarity breaks ties. A cross-currency
+  // list uses the shared comparator, which inserts rate plausibility between
+  // those two — and reduces to exactly this ordering when no quote was given.
+  candidates.sort(
+    crossed
+      ? compareCrossCurrencyCandidates
+      : (a, b) => a.daysApart - b.daysApart || b.descriptionScore - a.descriptionScore
+  );
   return candidates;
 }
 

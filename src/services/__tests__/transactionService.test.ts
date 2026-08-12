@@ -792,6 +792,73 @@ describe('TransactionService (deterministic fallback)', () => {
       expect(updated.date).toBeInstanceOf(Date);
     });
 
+    /**
+     * `metadata` reaches the database, and the mapper does not eat it.
+     *
+     * This is asserted rather than assumed because THIS mapper has form. It
+     * carries an explicit skip list for nested objects, and `transferMetadata`
+     * sat on that list while also being declared on `Transaction` — so every
+     * value ever assigned to it was dropped between the caller and the wire,
+     * silently, for as long as it existed. `metadata` is a real jsonb column in
+     * both editions and must not join it.
+     *
+     * The fx object is the payload that matters: a rate held as an exact
+     * decimal STRING. If it arrived as a number it would be a float the moment
+     * it was serialised, which is the thing the local edition's schema bans by
+     * CHECK constraint.
+     */
+    const fx = {
+      fx: { rate: '0.79', source: 'derived' as const, asOf: '2026-08-12T14:02:00.000Z' }
+    };
+
+    it('sends metadata through to the create RPC, unflattened', async () => {
+      const rpc = vi.fn(async () => ({ data: dbRow('2026-08-01'), error: null }));
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: { rpc } as unknown as never
+      });
+
+      const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...input } = baseTransaction();
+      await service.createTransaction(
+        'user-1',
+        { ...input, metadata: fx } as Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>
+      );
+
+      const [fnName, args] = rpc.mock.calls[0] as [string, { p: Record<string, unknown> }];
+      expect(fnName).toBe('create_transaction_atomic');
+      // Under its own name — `metadata` has no CAMEL_TO_DB entry because the
+      // column is already called that.
+      expect(args.p.metadata).toEqual(fx);
+      // The rate crossed as a string, not a float.
+      expect(typeof (args.p.metadata as typeof fx).fx.rate).toBe('string');
+    });
+
+    it('sends metadata through to the update RPC', async () => {
+      const rpc = vi.fn(async () => ({ data: dbRow('2026-08-01'), error: null }));
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: { rpc } as unknown as never
+      });
+
+      await service.updateTransaction('db-1', { metadata: fx }, 'user-1');
+
+      const [fnName, args] = rpc.mock.calls[0] as [string, Record<string, unknown>];
+      expect(fnName).toBe('update_transaction_atomic');
+      // The RPC reads `p ? 'metadata'` to tell "set it" from "leave it alone",
+      // so the key must be PRESENT, not merely defined somewhere in the object.
+      const patch = (args.p ?? args) as Record<string, unknown>;
+      expect(Object.keys(patch)).toContain('metadata');
+      expect(patch.metadata).toEqual(fx);
+    });
+
     it('converts both sides of a linked transfer pair', async () => {
       const rpc = vi.fn(async () => ({
         data: { a: dbRow('2026-08-01'), b: dbRow('2026-08-02') },

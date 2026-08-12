@@ -9,13 +9,69 @@ interface ExchangeRates {
   [key: string]: number;
 }
 
+/**
+ * Where the rates in hand came from.
+ *
+ * This used to be unknowable from outside, and that was the honesty gap: a
+ * failed fetch fell back to a hardcoded table of approximate rates and every
+ * converted total went on reading exactly as if it were live. A figure derived
+ * from a guess and a figure derived from a quote looked identical.
+ */
+export type RatesSource =
+  /** A live quote from the provider named in {@link RATES_PROVIDER}. */
+  | 'api'
+  /** The hardcoded approximations below. The provider could not be reached. */
+  | 'fallback';
+
+export interface RatesProvenance {
+  source: RatesSource;
+  /** When these rates were obtained. */
+  asOf: Date;
+}
+
+/** Named, because a converted figure should be able to say who quoted it. */
+export const RATES_PROVIDER = 'exchangerate-api.com';
+
 // Cache exchange rates for 1 hour
 let ratesCache: {
   rates: ExchangeRates;
   timestamp: number;
+  source: RatesSource;
 } | null = null;
 
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+
+/**
+ * How long a FALLBACK is held before trying the provider again.
+ *
+ * Deliberately far shorter than {@link CACHE_DURATION}. Caching a failure for a
+ * full hour means one dropped request leaves every total in the app labelled
+ * "approximate" long after the network came back — the warning stops being
+ * information and becomes furniture, which is how a real one gets ignored. Five
+ * minutes retries soon enough to clear itself, and rarely enough that a genuinely
+ * offline desktop is not retrying on every render.
+ */
+const FALLBACK_CACHE_DURATION = 5 * 60 * 1000;
+
+/**
+ * Approximate rates, used only when the provider cannot be reached.
+ *
+ * These are a fixed table. They are wrong the day after they were written and
+ * they get wronger; the only thing that makes them acceptable is that every
+ * total computed from them says so. See {@link getRatesProvenance}.
+ */
+const FALLBACK_RATES: ExchangeRates = {
+  GBP: 1,
+  USD: 1.27,
+  EUR: 1.17,
+  CAD: 1.71,
+  AUD: 1.92,
+  JPY: 189.50,
+  CHF: 1.12,
+  CNY: 9.19,
+  INR: 105.85,
+  NZD: 2.09,
+};
 
 // Currency symbols
 export const currencySymbols: Record<string, string> = {
@@ -85,53 +141,78 @@ export function formatCurrencyWhole(
 }
 
 // Fetch exchange rates from a free API
-async function fetchExchangeRates(): Promise<ExchangeRates> {
+async function fetchExchangeRates(): Promise<{ rates: ExchangeRates; source: RatesSource }> {
   try {
     // Using exchangerate-api.com free tier
     const response = await fetch('https://api.exchangerate-api.com/v4/latest/GBP');
-    
+
     if (!response.ok) {
       throw new Error('Failed to fetch exchange rates');
     }
-    
+
     const data = await response.json();
-    return data.rates;
+    return { rates: data.rates, source: 'api' };
   } catch (error) {
     currencyLogger.error('Error fetching exchange rates:', error);
-    
-    // Fallback to approximate rates if API fails
-    return {
-      GBP: 1,
-      USD: 1.27,
-      EUR: 1.17,
-      CAD: 1.71,
-      AUD: 1.92,
-      JPY: 189.50,
-      CHF: 1.12,
-      CNY: 9.19,
-      INR: 105.85,
-      NZD: 2.09,
-    };
+
+    // Fallback to approximate rates if API fails. The caller is TOLD it is a
+    // fallback — this is the one branch that used to be silent, and a total
+    // built on a guess that cannot say so is the thing this reports.
+    return { rates: { ...FALLBACK_RATES }, source: 'fallback' };
   }
 }
 
 // Get cached or fresh exchange rates
 export async function getExchangeRates(): Promise<ExchangeRates> {
+  return (await getExchangeRatesWithProvenance()).rates;
+}
+
+/**
+ * The rates, and where they came from.
+ *
+ * The same fetch and the same cache as {@link getExchangeRates} — that function
+ * is now this one with the provenance dropped, so there is exactly one cache and
+ * no way for the two to disagree about which rates are in hand.
+ */
+export async function getExchangeRatesWithProvenance(): Promise<{
+  rates: ExchangeRates;
+  provenance: RatesProvenance;
+}> {
   const now = Date.now();
-  
-  // Return cached rates if still valid
-  if (ratesCache && (now - ratesCache.timestamp) < CACHE_DURATION) {
-    return ratesCache.rates;
+
+  // A fallback is held for minutes, a live quote for an hour: see
+  // FALLBACK_CACHE_DURATION for why the two differ.
+  if (ratesCache) {
+    const ttl = ratesCache.source === 'api' ? CACHE_DURATION : FALLBACK_CACHE_DURATION;
+    if ((now - ratesCache.timestamp) < ttl) {
+      return {
+        rates: ratesCache.rates,
+        provenance: { source: ratesCache.source, asOf: new Date(ratesCache.timestamp) },
+      };
+    }
   }
-  
+
   // Fetch fresh rates
-  const rates = await fetchExchangeRates();
+  const { rates, source } = await fetchExchangeRates();
   ratesCache = {
     rates,
     timestamp: now,
+    source,
   };
-  
-  return rates;
+
+  return { rates, provenance: { source, asOf: new Date(now) } };
+}
+
+/**
+ * Where the rates currently in hand came from, WITHOUT fetching.
+ *
+ * `null` means nothing has been fetched yet in this session, which is the
+ * honest answer for a surface that has not converted anything: it has no
+ * provenance to show because it has used no rates.
+ */
+export function getRatesProvenance(): RatesProvenance | null {
+  if (!ratesCache) return null;
+  return { source: ratesCache.source, asOf: new Date(ratesCache.timestamp) };
 }
 
 // Convert amount from one currency to another using Decimal
@@ -180,57 +261,114 @@ export async function convertCurrency(
   }
 }
 
+/**
+ * A total summed across currencies, and everything a reader needs to judge it.
+ *
+ * The point of the extra fields: a single number cannot say whether it was
+ * converted at live rates, converted at approximations, or partly not converted
+ * at all — and those three deserve different amounts of trust.
+ */
+export interface ConvertedTotal {
+  total: DecimalInstance;
+  /**
+   * Where the rates came from, or `null` when NO conversion was needed because
+   * every amount was already in the target currency.
+   *
+   * The null is load-bearing. A person with one currency has no rates involved
+   * in their totals, so there is nothing to disclose to them and the surfaces
+   * that read this render nothing at all.
+   */
+  provenance: RatesProvenance | null;
+  /**
+   * Currencies whose rate was missing. Their amounts were added UNCONVERTED,
+   * which is the pre-existing behaviour — reported now instead of only being
+   * written to the console, because it makes the total wrong by however much
+   * those rows were worth.
+   */
+  unconverted: string[];
+}
+
 // Convert multiple amounts with different currencies to a single currency
 export async function convertMultipleCurrencies(
   amounts: Array<{ amount: DecimalInstance | number; currency: string }>,
   toCurrency: string
 ): Promise<DecimalInstance> {
+  return (await convertMultipleCurrenciesWithProvenance(amounts, toCurrency)).total;
+}
+
+/**
+ * {@link convertMultipleCurrencies}, with the provenance kept rather than
+ * discarded. That function is now this one with the answer narrowed, so the two
+ * cannot compute a total differently.
+ */
+export async function convertMultipleCurrenciesWithProvenance(
+  amounts: Array<{ amount: DecimalInstance | number; currency: string }>,
+  toCurrency: string
+): Promise<ConvertedTotal> {
+  // Nothing to convert: every amount is already in the target currency. No
+  // rates are fetched and no provenance is reported, because none was used.
+  if (amounts.every(({ currency }) => currency === toCurrency)) {
+    return {
+      total: amounts.reduce((sum, { amount }) => sum.plus(toDecimal(amount)), new Decimal(0)),
+      provenance: null,
+      unconverted: [],
+    };
+  }
+
   try {
-    const rates = await getExchangeRates();
-    
+    const { rates, provenance } = await getExchangeRatesWithProvenance();
+
     let total = new Decimal(0);
-    
+    const unconverted = new Set<string>();
+
     for (const { amount, currency } of amounts) {
       const decimalAmount = toDecimal(amount);
-      
+
       if (currency === toCurrency) {
         total = total.plus(decimalAmount);
         continue;
       }
-      
+
       // Check if we have rates for the currency
       if (!rates[currency] || !rates[toCurrency]) {
         currencyLogger.warn(`Missing exchange rate for ${currency} or ${toCurrency}`);
+        unconverted.add(currency);
         total = total.plus(decimalAmount); // Add unconverted amount
         continue;
       }
-      
+
       // Convert to GBP first, then to target currency
       const fromRate = new Decimal(rates[currency]);
       const toRate = new Decimal(rates[toCurrency]);
-      
+
       let inGBP: DecimalInstance;
       if (currency === 'GBP') {
         inGBP = decimalAmount;
       } else {
         inGBP = decimalAmount.dividedBy(fromRate);
       }
-      
+
       let converted: DecimalInstance;
       if (toCurrency === 'GBP') {
         converted = inGBP;
       } else {
         converted = inGBP.times(toRate);
       }
-      
+
       total = total.plus(converted);
     }
-    
-    return total;
+
+    return { total, provenance, unconverted: [...unconverted] };
   } catch (error) {
     currencyLogger.error('Currency conversion error:', error);
-    // Fallback: just sum amounts without conversion
-    return amounts.reduce((sum, { amount }) => sum.plus(toDecimal(amount)), new Decimal(0));
+    // Fallback: just sum amounts without conversion. Every foreign currency in
+    // the set is reported as unconverted, because that is exactly what happened
+    // — the total is a sum of figures in currencies that were never reconciled.
+    return {
+      total: amounts.reduce((sum, { amount }) => sum.plus(toDecimal(amount)), new Decimal(0)),
+      provenance: getRatesProvenance(),
+      unconverted: [...new Set(amounts.map(a => a.currency).filter(c => c !== toCurrency))],
+    };
   }
 }
 

@@ -13,6 +13,13 @@ import { useTransactionNotifications } from '../hooks/useTransactionNotification
 import { parseMoneyInput } from '../utils/decimal';
 import { transferCategoryIdFor } from '../utils/transferRepoint';
 import { isTransferFiling } from '../utils/transferCoherence';
+import CrossCurrencyTransferDialog from './CrossCurrencyTransferDialog';
+import { buildFxRecord } from '../utils/fx';
+import {
+  crossedCurrencies,
+  destinationLegAmount,
+  type ConfirmedConversion,
+} from '../utils/crossCurrencyTransfer';
 import MarkdownEditor from './MarkdownEditor';
 import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
@@ -51,6 +58,34 @@ interface AddTransactionModalProps {
  */
 class DraftRefused extends Error {}
 
+/**
+ * Not a refusal — a QUESTION. The draft is good and nothing is wrong with it,
+ * but it crosses a currency boundary and the figure that lands in the other
+ * account is not one this form can know.
+ *
+ * Thrown for the same mechanical reason as {@link DraftRefused}: useModalForm
+ * reads a clean return as success and would close the modal and discard the
+ * draft, which is exactly what must not happen while a dialog is asking about
+ * it. The draft is stashed first; the dialog's confirm handler finishes the
+ * write. Nothing has been written to the ledger at this point — the question is
+ * asked BEFORE the first row exists, so cancelling costs nothing and leaves
+ * nothing behind.
+ */
+class ConversionPending extends Error {}
+
+/** A validated draft, held while the dialog asks what the other side is worth. */
+interface PendingConversion {
+  description: string;
+  /** The source leg's SIGNED amount — negative, a transfer leaves. */
+  amount: number;
+  accountId: string;
+  targetAccountId: string;
+  date: string;
+  notes: string | undefined;
+  from: string;
+  to: string;
+}
+
 interface FormData {
   description: string;
   amount: string;
@@ -68,6 +103,9 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
     // The two writes that turn one row into a linked pair, and undo it if the
     // second half cannot be made. See onSubmit.
     createTransferCounterpart, deleteTransaction,
+    // The cross-currency route, which mints nothing: two explicit legs joined
+    // by the one verb that converts nothing. See confirmConversion.
+    linkTransferPair,
   } = useApp();
   // Adds through the same path the edit modal uses, so the user's Large
   // Transaction Warnings actually fire. This is the main way a transaction
@@ -76,6 +114,8 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
   const { addTransaction } = useTransactionNotifications();
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [pendingConversion, setPendingConversion] = useState<PendingConversion | null>(null);
+  const [conversionBusy, setConversionBusy] = useState(false);
   const { showSuccess, showError } = useToast();
   const logger = useMemo(() => createScopedLogger('AddTransactionModal'), []);
   
@@ -121,17 +161,6 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
               });
               throw new DraftRefused();
             }
-            // The counterpart is −amount with no conversion, so both accounts
-            // must share a currency. Refused here rather than after the first
-            // write, so a knowable failure never puts a row in the ledger.
-            const from = accounts.find(a => a.id === data.accountId)?.currency;
-            const to = accounts.find(a => a.id === targetAccountId)?.currency;
-            if (from && to && from !== to) {
-              setValidationErrors({
-                category: `Transfers between accounts in different currencies aren’t supported yet (${from} and ${to}).`,
-              });
-              throw new DraftRefused();
-            }
           }
 
           // Validate the transaction data
@@ -154,6 +183,37 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
           // A transfer LEAVES the account it is entered on, so it is signed like
           // an expense. It used to be signed like income.
           const finalAmount = data.type === 'income' ? Math.abs(amount) : -Math.abs(amount);
+
+          /**
+           * THE CURRENCY BOUNDARY, ASKED ABOUT BEFORE ANYTHING IS WRITTEN.
+           *
+           * This used to be a flat refusal, because `createTransferCounterpart`
+           * copies −amount into the other ledger with no conversion and a
+           * USD source would have moved a GBP account by the same digits. That
+           * guard is right and is untouched; what was wrong was having no other
+           * route. Now the person is asked what arrived, and the flow writes
+           * BOTH legs explicitly and links them — which needs no mint and so
+           * needs no guess.
+           *
+           * Nothing is in the ledger yet at this point, and that is deliberate:
+           * a cancelled dialog leaves no orphan row to clean up.
+           */
+          const crossed = isTransfer
+            ? crossedCurrencies(accounts, validatedData.accountId, targetAccountId)
+            : null;
+          if (crossed) {
+            setPendingConversion({
+              description: validatedData.description,
+              amount: finalAmount,
+              accountId: validatedData.accountId,
+              targetAccountId,
+              date: validatedData.date,
+              notes: validatedData.notes,
+              from: crossed.from,
+              to: crossed.to,
+            });
+            throw new ConversionPending();
+          }
 
           // Awaited so a failed write lands in the catch below rather than
           // announcing success for a transaction that was never saved.
@@ -195,6 +255,9 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
             // The reason is already printed at the field that caused it. Adding
             // a general message would say the same thing twice, in the wrong
             // place.
+          } else if (error instanceof ConversionPending) {
+            // Not an error at all — the dialog is now asking. Saying anything
+            // here would put a message under a form the user is not looking at.
           } else if (error instanceof z.ZodError) {
             // Show validation errors in the form
             setValidationErrors(ValidationService.formatErrors(error));
@@ -228,12 +291,112 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
   );
 
 
+  /**
+   * Both legs, at the figures the person just confirmed, then the link.
+   *
+   * ── WHY THREE WRITES AND NOT ONE RPC ────────────────────────────────────
+   *
+   * `createTransferCounterpart` — the one-call route every same-currency
+   * transfer takes — mints the far side by copying −amount, and refuses across
+   * a currency boundary for exactly the right reason. So this composes the two
+   * verbs that ARE legal here: two ordinary inserts, each into its own account
+   * in its own currency, and then `link_transfer_pair`, which is balance-
+   * neutral and converts nothing. Nothing in this sequence invents a figure —
+   * both came off the dialog.
+   *
+   * ── ALL THREE, OR NONE ───────────────────────────────────────────────────
+   *
+   * Two unlinked rows are not a transfer: neither carries `linkedTransferId`
+   * and nothing ties them together, so the register would show two mystery
+   * entries and the reports would double-count the movement. Each failure
+   * therefore unwinds what came before it, in reverse.
+   */
+  const confirmConversion = async (conversion: ConfirmedConversion): Promise<void> => {
+    if (!pendingConversion) return;
+    const pending = pendingConversion;
+    const fx = buildFxRecord(conversion.rate, conversion.source, conversion.asOf);
+    const destinationAmount = destinationLegAmount(pending.amount, conversion.destinationAmount);
+
+    setConversionBusy(true);
+    let sourceId: string | null = null;
+    try {
+      // The source leg. `metadata.fx` is written at INSERT rather than patched
+      // on afterwards, so no window exists in which a converted row is in the
+      // ledger with no record of the rate that made it.
+      const source = await addTransaction({
+        description: pending.description,
+        amount: pending.amount,
+        type: 'transfer',
+        category: transferCategoryIdFor(categories, pending.targetAccountId, pending.amount),
+        accountId: pending.accountId,
+        transferAccountId: pending.targetAccountId,
+        date: new Date(pending.date),
+        notes: pending.notes,
+        metadata: { fx },
+      });
+      sourceId = source.id;
+
+      const destination = await addTransaction({
+        description: pending.description,
+        // Decimal all the way to the boundary: `toNumber` happens once, here,
+        // against a value already rounded to the penny.
+        amount: destinationAmount.toNumber(),
+        type: 'transfer',
+        category: transferCategoryIdFor(categories, pending.accountId, destinationAmount.toNumber()),
+        accountId: pending.targetAccountId,
+        transferAccountId: pending.accountId,
+        date: new Date(pending.date),
+        notes: pending.notes,
+        metadata: { fx },
+      });
+
+      try {
+        await linkTransferPair(source.id, destination.id);
+      } catch (linkError) {
+        await deleteTransaction(destination.id);
+        await deleteTransaction(source.id);
+        throw linkError;
+      }
+
+      setPendingConversion(null);
+      showSuccess('Transfer added — both sides recorded at the rate you confirmed');
+      onClose();
+    } catch (error) {
+      if (sourceId) {
+        // The destination insert failed; the source is a lone row for a
+        // movement that never happened.
+        try {
+          await deleteTransaction(sourceId);
+        } catch (rollbackError) {
+          logger.error('Could not remove the half-written transfer', rollbackError as Error);
+        }
+      }
+      showError(error);
+      logger.error('Failed to record a cross-currency transfer', error as Error);
+    } finally {
+      setConversionBusy(false);
+    }
+  };
+
   return (
     <>
-      <ResponsiveModal 
-        isOpen={isOpen} 
-        onClose={onClose} 
-        title="Add Transaction" 
+      {pendingConversion && (
+        <CrossCurrencyTransferDialog
+          isOpen
+          sourceAmount={pendingConversion.amount}
+          sourceCurrency={pendingConversion.from}
+          sourceAccountName={accounts.find(a => a.id === pendingConversion.accountId)?.name ?? 'this account'}
+          destinationCurrency={pendingConversion.to}
+          destinationAccountName={accounts.find(a => a.id === pendingConversion.targetAccountId)?.name ?? 'the other account'}
+          busy={conversionBusy}
+          onConfirm={(conversion) => { void confirmConversion(conversion); }}
+          onCancel={() => setPendingConversion(null)}
+        />
+      )}
+      <ResponsiveModal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Add Transaction"
         size="md"
         mobileSnapPoints={[0.5, 0.9]}
         mobileInitialSnapPoint={1}

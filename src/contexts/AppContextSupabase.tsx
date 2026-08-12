@@ -95,6 +95,7 @@ import {
   BULK_TRANSFER_FILING_REFUSAL,
   categoryIdIsTransferFiling,
 } from '../utils/transferCoherence';
+import { fxForLinkedPair, withFxRecord } from '../utils/crossCurrencyTransfer';
 import {
   releaseUpdatesFor,
   survivorsOfDeletedLeg,
@@ -476,6 +477,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateDebounceRef = useRef<NodeJS.Timeout | null>(null);
   // Suppress real-time reloads shortly after a local write to prevent overwriting optimistic updates
   const recentLocalUpdateRef = useRef<number>(0);
+  /**
+   * The accounts as they are right now, for callbacks that must not be rebuilt
+   * every time a balance moves.
+   *
+   * `linkTransferPair` needs two accounts' CURRENCIES to know whether the pair
+   * it just joined was a conversion. Taking `accounts` as a dependency would
+   * give that callback a new identity on every balance change — and it is
+   * handed to memoised children — so it reads the ref instead.
+   */
+  const accountsRef = useRef<Account[]>([]);
+  useEffect(() => {
+    accountsRef.current = accounts;
+  }, [accounts]);
 
   // Initialize data service and load data
   useEffect(() => {
@@ -1307,11 +1321,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const linkTransferPair = useCallback(async (idA: string, idB: string) => {
     try {
       const result = await dataPort.linkTransferPair(idA, idB);
+
+      /**
+       * THE DERIVED RATE, RECORDED HERE AND NOWHERE ELSE.
+       *
+       * Every link in the product comes through this one function — the
+       * register, the quick-edit dock, the sweep, the coherence repair — so
+       * this is the only place the stamp cannot be forgotten by a new call
+       * site. Deriving it in each caller was the alternative and it is how
+       * three of the four end up without it.
+       *
+       * Nothing is ASKED here, deliberately. Both amounts already existed and
+       * their ratio is the rate that was really achieved, spread and fees
+       * included. A dialog at this point would invite someone to overwrite a
+       * fact with an opinion. `fxForLinkedPair` returns null when the accounts
+       * share a currency, and — importantly — when either leg already carries
+       * an `fx` record, so the confirmed provenance the creation flow wrote is
+       * never downgraded to 'derived'.
+       */
+      let { a, b } = result;
+      const fx = fxForLinkedPair(accountsRef.current, a, b, new Date());
+      if (fx) {
+        // Written to BOTH legs unchanged: the rate is a property of the
+        // CONVERSION, not of either row.
+        const metadataA = withFxRecord(a.metadata, fx);
+        const metadataB = withFxRecord(b.metadata, fx);
+        try {
+          await Promise.all([
+            dataPort.updateTransaction(a.id, { metadata: metadataA }),
+            dataPort.updateTransaction(b.id, { metadata: metadataB }),
+          ]);
+          a = { ...a, metadata: metadataA };
+          b = { ...b, metadata: metadataB };
+        } catch (stampError) {
+          // The LINK succeeded and is what the user asked for. Losing the
+          // provenance stamp costs a figure its receipt, which is worth
+          // logging; failing the whole operation over it would unlink two rows
+          // the ledger has correctly joined, which is worse.
+          appLogger.error('Linked the pair but could not record its rate', stampError);
+        }
+      }
+
       // Balance-neutral: both rows existed with these amounts already.
       setTransactions(prev => prev.map(t =>
-        t.id === result.a.id ? result.a : t.id === result.b.id ? result.b : t
+        t.id === a.id ? a : t.id === b.id ? b : t
       ));
-      return result;
+      return { a, b };
     } catch (error) {
       appLogger.error('Failed to link transfer pair', error);
       throw error;

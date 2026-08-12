@@ -21,6 +21,8 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import type { Account, Transaction } from '../../types';
 import { toDecimal } from '../../utils/decimal';
 import { signTransactionAmount } from '../../utils/transactionAmount';
+import { sweepTransferPairs } from '../../utils/transferSweep';
+import { readFxRecord } from '../../utils/fx';
 
 // Restore the live module (setup.ts registers a global mock for it).
 vi.unmock('../AppContextSupabase');
@@ -647,6 +649,124 @@ describe('AppContextSupabase live provider', () => {
       expect(result.current.accounts[0].balance).toBe(
         signedBalance(1000, result.current.transactions)
       );
+    });
+  });
+
+  /**
+   * ── THE WHOLE CHAIN, FROM MATCHER TO RECEIPT ──────────────────────────────
+   *
+   * The cross-currency matcher's output is only worth anything if ACCEPTING it
+   * records the rate. That is not a property of the matcher and not a property
+   * of the UI: every link in the product goes through this provider's
+   * `linkTransferPair`, which derives the rate from the two amounts and stamps
+   * `metadata.fx` on both legs.
+   *
+   * So this test runs the real matcher over the real provider's state, feeds
+   * its suggestion straight back into the real `linkTransferPair`, and reads
+   * the stamp out of the resulting state. Nothing between the sweep and the
+   * receipt is stubbed, which is the only way to know the two ends are actually
+   * joined — reading the code and finding a call to the right function proves
+   * that the code says so, not that it happens.
+   */
+  describe('accepting a cross-currency suggestion', () => {
+    it('links the pair the sweep offers and records the rate it implies', async () => {
+      const { result } = await renderApp();
+
+      let sterling!: Account;
+      let dollars!: Account;
+      await act(async () => {
+        sterling = await result.current.addAccount(createAccountInput({
+          name: 'Everyday Current', currency: 'GBP',
+        }));
+        dollars = await result.current.addAccount(createAccountInput({
+          name: 'Dollar Savings', currency: 'USD',
+        }));
+      });
+
+      // The two sides of one conversion: opposite in sign, magnitudes that no
+      // amount bucket could ever have matched, a day apart.
+      let out!: Transaction;
+      let into!: Transaction;
+      await act(async () => {
+        out = await result.current.addTransaction(createTransactionInput(sterling.id, {
+          description: 'Transfer to dollar savings',
+          amount: -100,
+          category: '',
+          date: new Date('2025-02-10T00:00:00Z'),
+        }));
+        into = await result.current.addTransaction(createTransactionInput(dollars.id, {
+          description: 'Incoming transfer',
+          amount: 136.25,
+          type: 'income',
+          category: '',
+          date: new Date('2025-02-11T00:00:00Z'),
+        }));
+      });
+
+      // The matcher, on the state the app actually holds.
+      const { suggestions } = sweepTransferPairs(result.current.transactions, {
+        accounts: result.current.accounts,
+      });
+      expect(suggestions).toHaveLength(1);
+      expect(suggestions[0].crossCurrency).toEqual({ from: 'GBP', to: 'USD' });
+      expect(suggestions[0].outgoing.id).toBe(out.id);
+      expect(suggestions[0].incoming.id).toBe(into.id);
+
+      // Accepted exactly as the sweep's Apply accepts one.
+      await act(async () => {
+        await result.current.linkTransferPair(
+          suggestions[0].outgoing.id,
+          suggestions[0].incoming.id
+        );
+      });
+
+      const linkedOut = result.current.transactions.find(t => t.id === out.id);
+      const linkedIn = result.current.transactions.find(t => t.id === into.id);
+      expect(linkedOut?.linkedTransferId).toBe(into.id);
+      expect(linkedIn?.linkedTransferId).toBe(out.id);
+
+      const fxOut = readFxRecord(linkedOut?.metadata);
+      const fxIn = readFxRecord(linkedIn?.metadata);
+
+      // 'derived', never 'api' or 'manual': nobody was asked and nobody had to
+      // be. Both amounts were already real, so their ratio is the rate the
+      // money actually got, spread and fees included.
+      expect(fxOut?.source).toBe('derived');
+      // 136.25 / 100 — destination units per one source unit, exact.
+      expect(fxOut?.rate).toBe('1.3625');
+      // The rate is a property of the CONVERSION, not of either row, so two
+      // legs disagreeing about it would have no correct reading.
+      expect(fxIn).toEqual(fxOut);
+    });
+
+    it('records nothing when the two accounts share a currency', async () => {
+      const { result } = await renderApp();
+
+      let one!: Account;
+      let two!: Account;
+      await act(async () => {
+        one = await result.current.addAccount(createAccountInput({ name: 'A', currency: 'GBP' }));
+        two = await result.current.addAccount(createAccountInput({ name: 'B', currency: 'GBP' }));
+      });
+
+      let out!: Transaction;
+      let into!: Transaction;
+      await act(async () => {
+        out = await result.current.addTransaction(createTransactionInput(one.id, {
+          amount: -100, category: '', date: new Date('2025-02-10T00:00:00Z'),
+        }));
+        into = await result.current.addTransaction(createTransactionInput(two.id, {
+          amount: 100, type: 'income', category: '', date: new Date('2025-02-10T00:00:00Z'),
+        }));
+      });
+
+      await act(async () => {
+        await result.current.linkTransferPair(out.id, into.id);
+      });
+
+      // Nothing was converted, so a rate of 1 would be a fact about arithmetic
+      // rather than about money.
+      expect(readFxRecord(result.current.transactions.find(t => t.id === out.id)?.metadata)).toBeNull();
     });
   });
 });
