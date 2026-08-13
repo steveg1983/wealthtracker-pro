@@ -54,6 +54,35 @@ import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
  */
 const DEMO_BANNER_OFFSET = 'var(--wt-demo-banner-height, 0px)';
 
+/**
+ * Everything pinned to the top of the window starts BELOW the phone's status
+ * bar — the clock, the signal bars, the battery.
+ *
+ * `index.html` asks for `apple-mobile-web-app-status-bar-style:
+ * black-translucent` with `viewport-fit=cover`, and that pairing means exactly
+ * what it says: once the app is installed to a home screen, the page is drawn
+ * UNDER the status bar rather than beneath it. That is the right choice — it is
+ * what makes an installed app look like an app instead of a web page in a box —
+ * but it is only half a decision. The other half is `env(safe-area-inset-top)`,
+ * and nothing in this codebase was using it: `.safe-padding-top` had been
+ * defined in index.css and had ZERO consumers.
+ *
+ * So the mobile header sat at y=0, underneath the clock and the battery, and
+ * the identity menu in its top-right corner — the only way to sign out on a
+ * phone — was physically unreachable behind them. Reported by the owner from
+ * his own home screen, with a screenshot of the avatar hiding behind his wifi
+ * indicator.
+ *
+ * In a browser tab the inset resolves to 0px, so this changes nothing there;
+ * it only pays out where the status bar actually overlaps, which is the case
+ * that was broken. The demo banner and the header both use it, and the banner
+ * publishes its measured height on top, so the two stack in the right order.
+ */
+const SAFE_AREA_TOP = 'env(safe-area-inset-top, 0px)';
+
+/** Below the status bar, and below the demo banner when there is one. */
+const TOP_CHROME_OFFSET = `calc(${SAFE_AREA_TOP} + ${DEMO_BANNER_OFFSET})`;
+
 export default function Layout(): React.JSX.Element {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
@@ -272,8 +301,10 @@ export default function Layout(): React.JSX.Element {
         // Sits BELOW the demo banner rather than under it. The banner publishes
         // its measured height into this variable while demo mode is on, and
         // removes it otherwise — so outside demo mode this resolves to 0px and
-        // is exactly the `top-0` it overrides.
-        style={{ top: DEMO_BANNER_OFFSET }}
+        // is exactly the `top-0` it overrides. The status-bar inset rides with
+        // it: on a desktop it is 0px, and this bar is `md:` up anyway, but the
+        // two offsets belong together wherever chrome is pinned to the top.
+        style={{ top: TOP_CHROME_OFFSET }}
         role="navigation"
         aria-label="Main navigation"
       >
@@ -450,7 +481,10 @@ export default function Layout(): React.JSX.Element {
       {/* Mobile Header */}
       <header
         className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 shadow-md"
-        style={{ top: DEMO_BANNER_OFFSET }}
+        // The status bar's room as well as the banner's — see TOP_CHROME_OFFSET.
+        // This header carries the identity menu, so getting it wrong took the
+        // only way to sign out on a phone behind the battery indicator.
+        style={{ top: TOP_CHROME_OFFSET }}
         role="banner"
       >
         <div className="flex items-center justify-between p-4">
@@ -641,11 +675,13 @@ export default function Layout(): React.JSX.Element {
         // from inflating the layout viewport to 1438px; as a block, main is
         // simply the container's width and cannot be squeezed by siblings.)
         className="mt-16 md:mt-12"
-        // The headers moved down by the banner's height, so the content below
-        // them has to as well. Padding rather than margin because the margin is
-        // responsive (mt-16/md:mt-12) and this offset has to add to whichever
-        // of the two applies, not replace it.
-        style={{ paddingTop: DEMO_BANNER_OFFSET }}
+        // The headers moved down by the status bar and the banner, so the
+        // content below them has to as well — otherwise the first card slides
+        // under a header that is now lower than the margin above assumes.
+        // Padding rather than margin because the margin is responsive
+        // (mt-16/md:mt-12) and this offset has to add to whichever of the two
+        // applies, not replace it.
+        style={{ paddingTop: TOP_CHROME_OFFSET }}
         role="main"
         aria-label="Main content"
         tabIndex={-1}

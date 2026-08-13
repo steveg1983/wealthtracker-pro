@@ -60,6 +60,15 @@ export const DemoModeIndicator: React.FC = () => {
       // in the product — including on Reconciliation, where amber is a
       // reserved word meaning "your next move". The gold survives as a sliver
       // of identity; the banner itself joins the app's own chrome.
+      // `padding-top` from the status-bar inset rather than a `top` offset, so
+      // the bar's own colour fills the strip behind the clock and the battery
+      // instead of leaving a white gap above it. In a browser tab the inset is
+      // 0px and this is exactly the bar that shipped; on a home screen it is
+      // what stops the banner rendering underneath the status bar — see
+      // TOP_CHROME_OFFSET in Layout, and note the height this component
+      // publishes is measured AFTER this padding, so everything below still
+      // clears it.
+      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       className="fixed top-0 left-0 right-0 z-30 bg-secondary text-white border-l-[3px] border-accent text-center py-2 px-4"
     >
       <div className="flex items-center justify-center gap-2">
