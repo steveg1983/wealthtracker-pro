@@ -11,12 +11,6 @@
    focus state at all. Mouse clicks show no outline (they don't match
    :focus-visible), so nothing "blue flashes" on ordinary clicking. */
 
-/* Pull to Refresh Styles */
-.pull-to-refresh {
-  position: relative;
-  -webkit-overflow-scrolling: touch;
-}
-
 /* Touch Target Optimization */
 @media (hover: none) and (pointer: coarse) {
   /* Ensure all interactive elements have minimum touch target size.
@@ -331,40 +325,12 @@ button {
   opacity: 1 !important;
 }
 
-/* Pull to refresh styles */
-.pull-to-refresh {
-  position: relative;
-  overflow: hidden;
-}
-
-.pull-to-refresh-indicator {
-  position: absolute;
-  top: -60px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: white;
-  border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease;
-}
-
-.pull-to-refresh-indicator.pulling {
-  transform: translateX(-50%) translateY(calc(var(--pull-distance) * 1px));
-}
-
-.pull-to-refresh-indicator.refreshing {
-  transform: translateX(-50%) translateY(80px);
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: translateX(-50%) translateY(80px) rotate(360deg); }
-}
+/* The `.pull-to-refresh*` rules were here, orphaned: nothing in the app ever
+   referenced them, and they were written against an older design — a hardcoded
+   white disc with no dark variant, and an ambient box-shadow of the kind
+   styles/borders.css was cut back to remove. The gesture shipped for real on
+   2026-08-13 (components/PullToRefreshIndicator) with tokens that have both
+   themes. Deleted rather than revived. */
 
 /* Override for buttons that need to be less rounded */
 button.rounded-sm {

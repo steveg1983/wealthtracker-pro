@@ -26,6 +26,7 @@ import { SidebarLink, TopNavItem, TopNavDropdown } from './layout/NavComponents'
 import { usePreferences } from '../contexts/PreferencesContext';
 import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
 import { EnhancedSkipLinks, FocusIndicator, RouteAnnouncer } from './layout/AccessibilityImprovements';
+import PullToRefreshIndicator from './PullToRefreshIndicator';
 import OfflineIndicator from './OfflineIndicator';
 import { OfflineStatus } from './OfflineStatus';
 import { SyncConflictResolver } from './SyncConflictResolver';
@@ -274,6 +275,10 @@ export default function Layout(): React.JSX.Element {
           sign-in / daily at a set time — the schedule lives in Settings, and
           signed-out sessions do nothing); on a device there is no feed. */}
       <BackgroundWork />
+      {/* Only draws during a pull, and only in an installed app — a browser tab
+          has Safari's own. It is here rather than per-page because the gesture
+          is about the DOCUMENT, which every page shares. */}
+      <PullToRefreshIndicator />
       <DemoBanner />
       <EnhancedSkipLinks />
       <FocusIndicator />
