@@ -1,10 +1,14 @@
 /**
- * `@service`, in a browser: the seven, as they have always been.
+ * `@service`, in a browser: the eight, as they have always been — bar one.
  *
  * The cloud half of the seam `editions/service.ts` declares, and the twin of
- * `desktop/editions/service.ts`. Seven typed re-bindings and nothing else, for
+ * `desktop/editions/service.ts`. Eight typed re-bindings and nothing else, for
  * `services/port/index.ts`'s reason: the CHOICE is the file, and a choosing file
  * that also does work is a file whose work only one edition gets.
+ *
+ * `SignOutPanel` is the one that is not "as it has always been": it is new, and
+ * it is here rather than on the page because `/settings` is mounted by both
+ * editions and only one of them has anybody to sign out. See the component.
  *
  * The annotations are the check. Each `const X: SomeContractType = Y` is the
  * compiler being asked whether the shipped component or hook still answers what
@@ -17,6 +21,7 @@
 import SubscriptionStatusComponent from '../../components/SubscriptionStatus';
 import BankFeedRefreshSettingsComponent from '../../components/settings/BankFeedRefreshSettings';
 import DangerZoneComponent from '../../components/settings/DangerZone';
+import SignOutPanelComponent from '../../components/settings/SignOutPanel';
 import BankingCriticalIncidentBadgeComponent from '../../components/BankingCriticalIncidentBadge';
 import { useAccountBankSync as useAccountBankSyncHook } from '../../hooks/useAccountBankSync';
 import { useBankConnectionSnapshot as useBankConnectionSnapshotHook } from '../../hooks/useBankConnectionSnapshot';
@@ -49,6 +54,9 @@ export const BankFeedRefreshSettings: ServicePanel = BankFeedRefreshSettingsComp
 
 /** Delete the whole account — Stripe, rows, and the Clerk identity. */
 export const DangerZone: ServicePanel = DangerZoneComponent;
+
+/** End the session, from the page people look on for it. */
+export const SignOutPanel: ServicePanel = SignOutPanelComponent;
 
 /** "The bank feed is having an incident", on /accounts. */
 export const BankingCriticalIncidentBadge: ServiceIncidentBadge =

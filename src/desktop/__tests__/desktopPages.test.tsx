@@ -444,7 +444,7 @@ describe('the desktop window, with a ledger open', () => {
     await waitFor(() => expect(document.title).toBe('Custom reports'));
   });
 
-  it('renders SETTINGS with no billing card in it', async () => {
+  it('renders SETTINGS with no billing card and no sign-out in it', async () => {
     await openTheLedger('#/settings');
 
     // The page is the same `pages/Settings.tsx` the web app serves.
@@ -454,6 +454,13 @@ describe('the desktop window, with a ledger open', () => {
     // in a card at the top of exactly this page.
     expect(screen.queryByText(/subscription/i)).toBeNull();
     expect(screen.queryByText(/upgrade/i)).toBeNull();
+    // Same seam, same page, second member: the web build grew a plainly
+    // labelled "Sign out" here because the only other one was an unlabelled
+    // avatar nobody could find. This edition has no sign-in to undo — there is
+    // no ClerkProvider in this build — so the panel renders nothing at all
+    // rather than a disabled button or an apology.
+    expect(screen.queryByRole('button', { name: /sign out/i })).toBeNull();
+    expect(screen.queryByText(/Signed in/i)).toBeNull();
   });
 
   it('names the window after the screen, because a window has no tab strip', async () => {

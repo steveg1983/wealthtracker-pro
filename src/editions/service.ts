@@ -2,8 +2,10 @@
  * THE PARTS OF A SHARED SURFACE THAT ARE ABOUT THE SERVICE — the contract,
  * named by neither edition.
  *
- * Seven members, and the neatest fact in this whole phase is where they came
- * from.
+ * Eight members. Seven of them arrived together, and the neatest fact in this
+ * whole phase is where they came from; the eighth arrived on its own and is
+ * marked below, because it is the first member that was ADDED to a shared page
+ * rather than found already sitting on one.
  *
  * `src/desktop/routes.ts` says a device edition is missing exactly three
  * REGIONS of the product — banking, subscription, auth — each because it needs a
@@ -22,6 +24,19 @@
  *                        BankConnections                banking
  *     /accounts, /dashboard, the register
  *                        useBankConnectionSnapshot      banking
+ *     /settings          SignOutPanel                   auth      ← added later
+ *
+ * The eighth is the one that did not come from the measurement, and the way it
+ * arrived is worth keeping: the owner could not find any way to sign out on his
+ * phone. The only one was `@chrome`'s `IdentityMenu` — an unlabelled avatar in
+ * the header — so the action existed and was unfindable. Giving it a plainly
+ * labelled home on `/settings` put a piece of the `auth` region on a page this
+ * edition mounts, which is precisely the situation this seam exists for. It
+ * belongs to the same region as `DangerZone` and sits one page away from it.
+ *
+ * That it needed no new type, no new argument and no change to either half's
+ * shape is the seam working: a region poking through a shared page is a solved
+ * problem here, and the eighth took one line on each side.
  *
  * Not a grab-bag, then, and not "the bits we have not done": one idea, which is
  * **whatever a shared surface says about the account you hold WITH somebody,
@@ -85,7 +100,7 @@ import type {
  * A settings panel with nothing to configure — including the ones that draw
  * nothing at all.
  *
- * All three take no props today and there is no reason to think a fourth would.
+ * All four take no props today and there is no reason to think a fifth would.
  * A panel that needed one would be a panel that the PAGE knows something about,
  * and a page that knows something about a subscription is a page that has an
  * edition in it.
