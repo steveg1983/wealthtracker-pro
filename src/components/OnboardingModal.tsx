@@ -90,7 +90,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
               type="text"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg"
               placeholder="Enter your first name"
               required
               autoFocus
@@ -108,7 +108,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
               aria-label="Preferred base currency"
               value={baseCurrency}
               onChange={(e) => setBaseCurrency(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg"
             >
               {supportedCurrencies.map((curr) => (
                 <option key={curr.code} value={curr.code}>

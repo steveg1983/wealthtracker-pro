@@ -19,7 +19,7 @@ export default function ReportCumulativeToggle({
         type="checkbox"
         checked={toggle.cumulative}
         onChange={e => toggle.setCumulative(e.target.checked)}
-        className="rounded border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-primary"
+        className="rounded border-gray-300 dark:border-gray-600"
       />
       Cumulative
     </label>

@@ -299,7 +299,7 @@ export default function Goals(): React.JSX.Element {
         <button
           type="button"
           onClick={() => setIsModalOpen(true)}
-          className="cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="cursor-pointer rounded-full"
           aria-label="Add goal"
         >
           <svg
@@ -509,7 +509,7 @@ export default function Goals(): React.JSX.Element {
                             key={account.id}
                             type="button"
                             onClick={() => openAccount(account.id)}
-                            className="px-2 py-1 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            className="px-2 py-1 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
                             aria-label={`Open ${account.name}`}
                           >
                             {account.name}

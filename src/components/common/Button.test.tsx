@@ -320,13 +320,19 @@ describe('Button', () => {
   });
 
   describe('focus management', () => {
-    it('shows focus ring when focused', () => {
-      render(<Button>Focus Me</Button>);
-      
-      const button = screen.getByRole('button');
-      expect(button.className).toContain('focus:outline-none');
-      expect(button.className).toContain('focus:ring-2');
-      expect(button.className).toContain('focus:ring-offset-2');
+    it('declares no focus ring of its own — the app draws the only one', () => {
+      // Was: asserted this button set `focus:outline-none focus:ring-2
+      // focus:ring-offset-2`. Those painted a SECOND indicator inside the
+      // app-wide `*:focus-visible` outline, which carries !important and so
+      // ignored the `outline-none` (RULINGS_ON_CAUSE_2026-08-13 §3). Every
+      // variant is checked because each used to name its own ring colour.
+      for (const variant of ['primary', 'secondary', 'danger', 'success', 'ghost'] as const) {
+        const { unmount } = render(<Button variant={variant}>Focus Me</Button>);
+        const button = screen.getByRole('button');
+        expect(button.className).not.toMatch(/focus(-visible)?:ring/);
+        expect(button.className).not.toMatch(/focus(-visible)?:outline-none/);
+        unmount();
+      }
     });
 
     it('can be focused programmatically', () => {

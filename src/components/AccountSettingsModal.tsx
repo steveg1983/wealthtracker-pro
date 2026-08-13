@@ -289,7 +289,7 @@ export default function AccountSettingsModal({
               required
               value={formData.name}
               onChange={(e) => updateField('name', e.target.value)}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
               aria-label="Account name"
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -307,7 +307,7 @@ export default function AccountSettingsModal({
               id="account-type"
               value={formData.type}
               onChange={(e) => updateField('type', e.target.value as Account['type'])}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
             >
               {accountTypeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -334,7 +334,7 @@ export default function AccountSettingsModal({
                   id="account-currency"
                   value={formData.currency}
                   onChange={(e) => updateField('currency', e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
                 >
                   {/* The account's own code is always among these, even if the
                       app does not support it — see accountCurrencyOptions. */}
@@ -390,14 +390,14 @@ export default function AccountSettingsModal({
                 allowNegative
                 value={formData.openingBalance}
                 onChange={(value) => updateField('openingBalance', value)}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
                 aria-label="Opening balance amount"
               />
               <DatePicker
                 id="opening-balance-date"
                 value={formData.openingBalanceDate}
                 onChange={(val) => updateField('openingBalanceDate', val)}
-                className="bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
                 aria-label="Opening balance date"
               />
             </div>
@@ -416,7 +416,7 @@ export default function AccountSettingsModal({
                 onChange={handleSortCodeChange}
                 placeholder="XX-XX-XX"
                 maxLength={8}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
                 aria-label="Bank sort code"
               />
             </div>
@@ -439,7 +439,7 @@ export default function AccountSettingsModal({
                 // (WCAG 2.5.3 Label in Name).
                 aria-label={isCreditCard ? undefined : 'Bank account number'}
                 {...(isBankAccount ? { maxLength: BANK_ACCOUNT_NUMBER_LENGTH } : {})}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
               />
               {isCreditCard && <CardNumberGuidance value={formData.accountNumber} />}
             </div>
@@ -455,7 +455,7 @@ export default function AccountSettingsModal({
                 id="account-parent"
                 value={formData.parentAccountId}
                 onChange={(e) => updateField('parentAccountId', e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
               >
                 <option value={NO_PARENT_ACCOUNT}>None</option>
                 {/* Grouped and alphabetised like every other account dropdown. */}
@@ -481,7 +481,7 @@ export default function AccountSettingsModal({
               value={formData.institution}
               onChange={(e) => updateField('institution', e.target.value)}
               placeholder="Bank or financial institution name"
-              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
             />
           </div>
 
@@ -494,7 +494,7 @@ export default function AccountSettingsModal({
               id="account-active"
               value={formData.isActive ? 'active' : 'closed'}
               onChange={(e) => updateField('isActive', e.target.value === 'active')}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
             >
               <option value="active">Open</option>
               <option value="closed">Closed</option>
@@ -539,7 +539,7 @@ export default function AccountSettingsModal({
                   value={formData.lowBalanceThreshold}
                   onChange={(value) => updateField('lowBalanceThreshold', value)}
                   placeholder="e.g. 500"
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
                 />
               </div>
             )}
@@ -556,7 +556,7 @@ export default function AccountSettingsModal({
               onChange={(e) => updateField('notes', e.target.value)}
               rows={3}
               placeholder="Additional information about this account"
-              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white resize-none"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white resize-none"
             />
           </div>
 

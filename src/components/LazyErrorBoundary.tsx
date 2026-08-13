@@ -72,7 +72,7 @@ export class LazyErrorBoundary extends Component<Props, State> {
           </p>
           <button
             onClick={staleChunk ? () => window.location.reload() : this.handleRetry}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
             aria-label={staleChunk ? 'Reload the page' : 'Retry loading component'}
           >
             <RefreshCwIcon className="w-4 h-4" aria-hidden="true" />

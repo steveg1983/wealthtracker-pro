@@ -149,7 +149,7 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
     <button
       type="button"
       onClick={onClick}
-      className={`w-full justify-end text-right rounded px-1 -mx-1 tabular-nums hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${colour}`}
+      className={`w-full justify-end text-right rounded px-1 -mx-1 tabular-nums hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:underline ${colour}`}
       title={`${label} — view these transactions`}
     >
       {formatCurrency(value)}

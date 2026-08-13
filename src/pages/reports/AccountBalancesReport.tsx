@@ -129,7 +129,7 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
                         <button
                           type="button"
                           onClick={() => drillIntoAccount(row)}
-                          className="text-sm text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                          className="text-sm text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
                           title={`${row.name} — view these transactions`}
                         >
                           {row.name}

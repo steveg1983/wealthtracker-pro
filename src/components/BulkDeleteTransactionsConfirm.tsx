@@ -164,7 +164,7 @@ export default function BulkDeleteTransactionsConfirm({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50 dark:text-gray-200"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 dark:text-gray-200"
           >
             {nothingToDelete ? 'Close' : 'Cancel'}
           </button>
@@ -174,7 +174,7 @@ export default function BulkDeleteTransactionsConfirm({
               type="button"
               onClick={onConfirm}
               disabled={busy}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {busy ? 'Deleting…' : count === 1 ? 'Delete 1 transaction' : `Delete ${count} transactions`}
             </button>

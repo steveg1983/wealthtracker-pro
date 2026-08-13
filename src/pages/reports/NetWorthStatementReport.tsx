@@ -100,7 +100,7 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
                     <button
                       type="button"
                       onClick={() => drillIntoAccount(row)}
-                      className="text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      className="text-left rounded"
                       title={`${row.name} — view these transactions`}
                     >
                       <span className="block text-sm text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline">

@@ -132,7 +132,7 @@ export default function ProfileNameDialog({
           }}
           aria-invalid={showEmptyWarning}
           aria-describedby={showEmptyWarning ? errorId : undefined}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
         />
         {showEmptyWarning && (
           <p id={errorId} role="alert" className="mt-2 text-sm text-amber-700 dark:text-amber-400">
@@ -145,14 +145,14 @@ export default function ProfileNameDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-200"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-200"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={submit}
-            className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
+            className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
           >
             {confirmLabel}
           </button>

@@ -201,7 +201,7 @@ export default function MsMoneyImportModal({ isOpen, onClose, onBackup, onExecut
                   </label>
                   <input value={confirmText} onChange={e => setConfirmText(e.target.value)}
                     placeholder={CONFIRM_WORD}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500" />
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"/>
                   {!backedUp && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Download a backup to enable the import.</p>
                   )}

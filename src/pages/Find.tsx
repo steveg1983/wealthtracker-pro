@@ -348,7 +348,7 @@ export default function Find(): React.JSX.Element {
             autoFocus
             placeholder="Find a description or an amount…"
             aria-label="Find transactions by description or amount"
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6B86B3]"
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500"
           />
         </div>
 
@@ -359,7 +359,7 @@ export default function Find(): React.JSX.Element {
               <button
                 type="button"
                 onClick={clearDates}
-                className="rounded-full p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-[#6B86B3]"
+                className="rounded-full p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600"
                 aria-label="Clear the date range"
                 title="Clear the date range"
               >
@@ -473,7 +473,7 @@ export default function Find(): React.JSX.Element {
                       onKeyDown={event => handleRowKeyDown(event, transaction)}
                       tabIndex={transaction.id === tabStopId ? 0 : -1}
                       aria-current={isCurrent ? 'true' : undefined}
-                      className={`cursor-pointer select-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#6B86B3] ${
+                      className={`cursor-pointer select-none transition-colors ${
                         isCurrent ? FIND_ROW_SELECTED_CLASS : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
                       }`}
                     >

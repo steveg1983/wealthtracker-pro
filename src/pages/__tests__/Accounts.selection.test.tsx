@@ -360,9 +360,16 @@ describe('Accounts list — the link is the letters, and no wider', () => {
   it('draws the keyboard focus ring round the name, where it can be seen', async () => {
     await openList();
 
-    // The ring belongs to the link, so it is the size of the link — which is
-    // now the size of the letters and not of the row.
-    expect(classesOf(nameLink('Synthetic Everyday'))).toContain('focus-visible:ring-2');
+    // The indicator belongs to the link, so it is the size of the link — which
+    // is the size of the letters and not of the row.
+    //
+    // It used to be asserted as the link's own `focus-visible:ring-2`. That
+    // ring is gone: it painted INSIDE the app-wide `*:focus-visible` outline,
+    // so the name wore two (RULINGS_ON_CAUSE_2026-08-13 §3). What still has to
+    // hold is the GEOMETRY the outline inherits — `w-fit` is what makes the
+    // indicator hug the letters, and it is now the only thing that does.
+    expect(classesOf(nameLink('Synthetic Everyday'))).toContain('w-fit');
+    expect(classesOf(nameLink('Synthetic Everyday'))).not.toContain('focus-visible:ring-2');
     // …and the heading around it no longer clips. `truncate` there had nothing
     // left to clip once the link capped itself, but it did clip the ring: an
     // ancestor's overflow clips a descendant's outline and box-shadow alike, so

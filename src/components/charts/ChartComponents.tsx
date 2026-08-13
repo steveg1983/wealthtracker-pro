@@ -27,7 +27,6 @@ import {
   Brush,
   LabelList
 } from 'recharts';
-import { CHART_COLORS } from './chartColors';
 
 // Re-export for named imports
 export {
@@ -83,8 +82,7 @@ const ChartComponents = {
   ReferenceArea,
   ReferenceDot,
   Brush,
-  LabelList,
-  CHART_COLORS
+  LabelList
 };
 
 export default ChartComponents;

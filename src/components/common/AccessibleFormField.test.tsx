@@ -364,11 +364,16 @@ describe('AccessibleFormField', () => {
       expect(input).toHaveClass('w-full', 'px-3', 'py-2', 'rounded-lg');
     });
 
-    it('applies focus styles', () => {
+    it('declares no focus ring of its own — the app draws the only one', () => {
+      // Was: asserted `focus:outline-none focus:ring-2`. A focused input gets
+      // its outline AND its border recoloured by accessibility-colors.css,
+      // both !important, so the pair here only ever added a third stroke
+      // (RULINGS_ON_CAUSE_2026-08-13 §3).
       render(<AccessibleFormField {...defaultProps} />);
-      
+
       const input = screen.getByRole('textbox');
-      expect(input).toHaveClass('focus:outline-none', 'focus:ring-2');
+      expect(input.className).not.toMatch(/focus(-visible)?:ring/);
+      expect(input.className).not.toMatch(/focus(-visible)?:outline-none/);
     });
 
     it('applies dark mode classes', () => {

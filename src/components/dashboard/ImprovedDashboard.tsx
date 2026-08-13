@@ -44,6 +44,7 @@ import { useReportDrill } from './reportWidgets/useReportDrill';
 import { WIDGET_CHART_HEIGHT } from './reportWidgets/widgetChrome';
 import { BUILT_IN_REPORTS, type PinnableReportId } from './reportWidgets/pinnableReports';
 import { PieChart, BarChart, ResponsiveContainer } from '../charts/DashboardCharts';
+import { categoricalColor, useCategoricalRamp } from '../charts/chartColors';
 import { formatDecimal } from '../../utils/decimal-format';
 import { toDecimal } from '../../utils/decimal';
 import { expandSplitTransactions } from '../../utils/transactionSplits';
@@ -365,7 +366,9 @@ export function ImprovedDashboard() {
   );
   const pieData = distribution.slices;
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+  // The shared ramp, not a fourth copy of the recharts demo palette that used
+  // to live here (and, byte for byte, in two other files).
+  const chartRamp = useCategoricalRamp();
   const isDarkMode = document.documentElement.classList.contains('dark');
   
   const chartStyles = useMemo(() => ({
@@ -598,7 +601,7 @@ export function ImprovedDashboard() {
                         <PieChart
                           data={pieData}
                           innerRadius={true}
-                          colors={COLORS}
+                          colors={chartRamp}
                           // Straight into that account's register. It used to
                           // go to the global list filtered to the account,
                           // which is the same answer one page further away —
@@ -623,7 +626,7 @@ export function ImprovedDashboard() {
                           >
                             <span
                               className="w-3 h-3 rounded-sm flex-shrink-0"
-                              style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                              style={{ backgroundColor: categoricalColor(chartRamp, i) }}
                               aria-hidden="true"
                             />
                             <span className="flex-1 min-w-0 truncate text-sm text-gray-700 dark:text-gray-300">{d.name}</span>
@@ -815,7 +818,7 @@ export function ImprovedDashboard() {
           </h3>
           <button
             onClick={() => setShowAccountSettings(!showAccountSettings)}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             aria-label="Customize displayed accounts"
             aria-expanded={showAccountSettings}
           >
@@ -832,7 +835,7 @@ export function ImprovedDashboard() {
               </p>
               <button
                 onClick={() => setShowAccountSettings(false)}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
                 aria-label="Close account settings"
               >
                 <XIcon size={16} className="text-gray-500" />
@@ -844,14 +847,14 @@ export function ImprovedDashboard() {
               <button
                 type="button"
                 onClick={selectAllAccounts}
-                className="px-4 py-2 min-h-[44px] sm:min-h-0 sm:py-1.5 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+                className="px-4 py-2 min-h-[44px] sm:min-h-0 sm:py-1.5 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors"
               >
                 Select all
               </button>
               <button
                 type="button"
                 onClick={clearAllAccounts}
-                className="px-4 py-2 min-h-[44px] sm:min-h-0 sm:py-1.5 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+                className="px-4 py-2 min-h-[44px] sm:min-h-0 sm:py-1.5 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors"
               >
                 Clear all
               </button>
@@ -908,7 +911,7 @@ export function ImprovedDashboard() {
             displayedAccounts.map(account => (
               <div 
                 key={account.id}
-                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                 data-testid="account-balance-card"
                 onClick={() => navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
                 role="button"
@@ -1020,7 +1023,7 @@ export function ImprovedDashboard() {
                 key={`${item.kind}:${item.account.id}`}
                 type="button"
                 data-testid="attention-row"
-                className="w-full flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-left hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
+                className="w-full flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-left hover:shadow-md transition-shadow"
                 onClick={() => navigate(preserveDemoParam(item.href, location.search))}
                 aria-label={`${item.account.name} needs attention: ${item.reason} ${item.actionLabel}`}
               >
@@ -1063,7 +1066,6 @@ export function ImprovedDashboard() {
               <BarChart
                 data={netWorthData}
                 dataKey="netWorth"
-                fill="#8B5CF6"
                 label="Net Worth"
                 formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
                 contentStyle={chartStyles.tooltip}

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { PieChart, ResponsiveContainer } from '../../components/charts/DashboardCharts';
+import { categoricalColor, useCategoricalRamp } from '../../components/charts/chartColors';
 import { computeAccountBalances } from '../../utils/accountBalances';
 import {
   buildAccountDistribution,
@@ -28,14 +29,15 @@ import { preserveDemoParam } from '../../utils/navigation';
  * Closed accounts are not, because they are never loaded.
  */
 
-/** The same five colours the Dashboard card uses, in the same order. */
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
-
 export default function AccountDistributionReport(): React.JSX.Element {
   const { accounts, transactions, serverBalances } = useApp();
   const { formatCurrency, displayCurrency } = useCurrencyDecimal();
   const location = useLocation();
   const navigate = useNavigate();
+  // The shared ramp. This file used to carry its own copy of the recharts demo
+  // palette with a comment promising it matched the Dashboard's — a promise
+  // nothing checked, and exactly the drift the one-module rule removes.
+  const ramp = useCategoricalRamp();
 
   const distribution = useMemo(() => {
     const balances = computeAccountBalances(accounts, transactions, serverBalances);
@@ -44,8 +46,8 @@ export default function AccountDistributionReport(): React.JSX.Element {
 
   /** Which colour each drawn slice got, so the table's swatches match the donut. */
   const sliceColours = useMemo(
-    () => new Map(distribution.slices.map((entry, index) => [entry.id, COLORS[index % COLORS.length]])),
-    [distribution.slices]
+    () => new Map(distribution.slices.map((entry, index) => [entry.id, categoricalColor(ramp, index)])),
+    [distribution.slices, ramp]
   );
 
   // The account's register, not the retired global list filtered to it.
@@ -110,7 +112,7 @@ export default function AccountDistributionReport(): React.JSX.Element {
               <PieChart
                 data={distribution.slices}
                 innerRadius={true}
-                colors={COLORS}
+                colors={ramp}
                 onClick={(entry: AccountDistributionEntry) => navigate(transactionsHref(entry.id))}
                 formatter={(value: number) => money(value)}
                 aria-label="Pie chart showing distribution of account balances"
@@ -158,7 +160,7 @@ export default function AccountDistributionReport(): React.JSX.Element {
                         />
                         <Link
                           to={transactionsHref(entry.id)}
-                          className="text-sm text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                          className="text-sm text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
                           title={`${entry.name} — view these transactions`}
                         >
                           {entry.name}

@@ -75,42 +75,39 @@ export function AccessibleSpinner({ label = 'Loading...' }: { label?: string }) 
   );
 }
 
-// Focus visible indicator component
+/**
+ * Touch-target sizing, injected at runtime.
+ *
+ * ─ THIS USED TO DECLARE A FOCUS RING, AND IT WAS THE ONE THAT WON ──────────
+ * It injected `.user-is-tabbing *:focus-visible { outline: 2px solid #94a3b8
+ * !important }` and toggled `user-is-tabbing` on <body> from a keydown
+ * listener. Being a runtime <style> with higher specificity than the app-wide
+ * `*:focus-visible` rule AND carrying `!important`, it beat
+ * accessibility-colors.css everywhere — so the ring was ALWAYS the hardcoded
+ * slate, and `--focus-ring-color` (which the light theme sets to the brand
+ * navy) never painted once the user had pressed Tab. Two costs, both
+ * measured: light mode drew #94a3b8 on white at 2.56:1, under the 3:1 that
+ * WCAG 2.4.11 asks of a focus indicator; and a scoped override of the
+ * variable — the mechanism the app now uses for controls on a navy ground —
+ * could not take effect, because the colour here was not a variable at all.
+ *
+ * It was also redundant: `:focus-visible` already means "focus that deserves
+ * a ring", which is the entire job the `user-is-tabbing` class was doing by
+ * hand. The rule, the class and its two listeners all went with it
+ * (RULINGS_ON_CAUSE_2026-08-13 §3). Nothing else referenced the class, and
+ * `data-suppress-focus-outline` was an escape hatch no element ever used.
+ *
+ * The mouse-focus suppression went too — it was written as
+ * `*:focus:not(.focus-visible)`, a polyfill CLASS this app never applies, so
+ * it matched every focused element and did nothing useful. index.css has the
+ * correct `:focus:not(:focus-visible)` form.
+ *
+ * What remains is the touch-target floor, which is the only thing here that
+ * was ever load-bearing.
+ */
 export function FocusIndicator() {
-  React.useEffect(() => {
-    // Add focus-visible class to body when using keyboard navigation
-    const handleFirstTab = (e: KeyboardEvent) => {
-      if (e.key === 'Tab') {
-        document.body.classList.add('user-is-tabbing');
-      }
-    };
-
-    const handleMouseDown = () => {
-      document.body.classList.remove('user-is-tabbing');
-    };
-
-    window.addEventListener('keydown', handleFirstTab);
-    window.addEventListener('mousedown', handleMouseDown);
-
-    return () => {
-      window.removeEventListener('keydown', handleFirstTab);
-      window.removeEventListener('mousedown', handleMouseDown);
-    };
-  }, []);
-
   return (
     <style dangerouslySetInnerHTML={{ __html: `
-      /* Enhanced focus styles for keyboard navigation */
-      .user-is-tabbing *:focus-visible:not([data-suppress-focus-outline="true"]) {
-        outline: 2px solid #94a3b8 !important;
-        outline-offset: 2px !important;
-      }
-
-      /* Remove default focus for mouse users */
-      *:focus:not(.focus-visible) {
-        outline: none;
-      }
-
       /* Ensure interactive elements have minimum TOUCH target size.
          Scoped to coarse pointers: applying this on desktop inflated every
          compact control (toggle switches rendered as 44x44 blobs). Controls
@@ -191,7 +188,6 @@ export function AccessibleIconButton({
         min-w-[44px] min-h-[44px] 
         flex items-center justify-center 
         rounded-lg transition-colors
-        focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary
         ${variantClasses[variant]}
         ${className}
       `}
@@ -245,7 +241,7 @@ export function AccessibleFormField({
         className={`
           w-full px-3 py-2 
           border rounded-lg
-          focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
+             focus:border-transparent
           ${error 
             ? 'border-red-500 dark:border-red-400' 
             : 'border-gray-300 dark:border-gray-600'

@@ -21,6 +21,7 @@ import {
   Cell
 } from 'recharts';
 import { formatDecimal } from '../../utils/decimal-format';
+import { categoricalColor, useCategoricalRamp } from './chartColors';
 
 export { ResponsiveContainer };
 
@@ -70,7 +71,7 @@ export function BarChart({
   data,
   dataKey,
   xKey = 'month',
-  fill = '#8B5CF6',
+  fill,
   label = 'Value',
   formatter,
   tickFormatter,
@@ -78,6 +79,11 @@ export function BarChart({
   showGrid = true,
   'aria-label': ariaLabel
 }: BarChartProps): React.JSX.Element {
+  // A single-series bar takes the first step of the shared ramp. It used to
+  // default to `#8B5CF6` — a purple belonging to no token, which is how a
+  // library-demo colour ended up as the app's Net Worth chart.
+  const ramp = useCategoricalRamp();
+  const barFill = fill ?? ramp[0];
   const formatValue = formatter ?? defaultTickFormatter;
   const summary = buildChartSummary(
     ariaLabel,
@@ -101,7 +107,7 @@ export function BarChart({
           return [formatter ? formatter(numeric) : String(value), label];
         }}
       />
-      <Bar dataKey={dataKey} name={label} fill={fill} radius={[4, 4, 0, 0]} />
+      <Bar dataKey={dataKey} name={label} fill={barFill} radius={[4, 4, 0, 0]} />
     </RechartsBarChart>
   );
 }
@@ -113,7 +119,7 @@ export interface PieDatum {
 
 interface PieChartProps<T extends PieDatum> {
   data: T[];
-  colors?: string[];
+  colors?: readonly string[];
   /** Render as a doughnut when true. */
   innerRadius?: boolean;
   onClick?: (datum: T) => void;
@@ -122,17 +128,22 @@ interface PieChartProps<T extends PieDatum> {
   'aria-label'?: string;
 }
 
-const DEFAULT_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
-
 export function PieChart<T extends PieDatum>({
   data,
-  colors = DEFAULT_COLORS,
+  colors,
   innerRadius = false,
   onClick,
   formatter,
   contentStyle,
   'aria-label': ariaLabel
 }: PieChartProps<T>): React.JSX.Element {
+  // `colors` stays overridable only so a caller can colour slices by MEANING
+  // (a two-slice income/expense split). Left alone it is the shared ramp —
+  // where the default used to be the recharts documentation palette, copied
+  // into three files.
+  const ramp = useCategoricalRamp();
+  const sliceColors = colors ?? ramp;
+
   // Recharts wants index-signature rows; keep the original datum reachable by
   // index so onClick hands back the caller's own object, not a copy.
   const chartData = data.map((d, index) => ({ name: d.name, value: d.value, index }));
@@ -161,7 +172,7 @@ export function PieChart<T extends PieDatum>({
         cursor={onClick ? 'pointer' : undefined}
       >
         {chartData.map((entry) => (
-          <Cell key={entry.name} fill={colors[entry.index % colors.length]} />
+          <Cell key={entry.name} fill={categoricalColor(sliceColors, entry.index)} />
         ))}
       </Pie>
       <Tooltip

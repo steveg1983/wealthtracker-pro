@@ -84,7 +84,7 @@ export const ACCOUNT_ROW_SELECTED_CLASS =
   'relative z-10 bg-blue-50/80 dark:bg-blue-900/30 border-transparent ' +
   // ─ ONE STROKE WHEN THE KEYBOARD IS DRIVING ─────────────────────────────────
   // `focus-visible:ring-0` because otherwise an arrowed-to row wears TWO
-  // concentric strokes: this selection ring, and — 2px further out — the
+  // concentric strokes: this SELECTION ring, and — 2px further out — the
   // app-wide `*:focus-visible { outline: 2px solid var(--focus-ring-color) }`
   // in accessibility-colors.css, which carries `!important` and so cannot be
   // turned off by the row's own `focus:outline-none`. Light mode resolves that
@@ -99,6 +99,16 @@ export const ACCOUNT_ROW_SELECTED_CLASS =
   // while the row holds focus and comes back the moment focus leaves — and the
   // blue wash and the lift never go anywhere, so a selected row still reads as
   // selected either way.
+  //
+  // THIS ONE SURVIVED THE APP-WIDE SWEEP, and it is the only `ring-0` left.
+  // Every component-level `focus-visible:ring-*` came out in
+  // RULINGS_ON_CAUSE_2026-08-13 §3, on the grounds that a component declaring
+  // its own ring paints a second one over the global outline. The ruling
+  // expected this workaround to come out with them as having "nothing left to
+  // fight" — but what it suppresses is not a focus ring. It is the `ring-1`
+  // selection indicator on the SAME element, three classes to its left, which
+  // is §6 law and stays. Delete this and a selected, arrowed-to row wears both
+  // strokes again, which is the exact bug that was reported.
   'ring-1 ring-[#6B86B3]/50 dark:ring-[#6B86B3]/70 focus-visible:ring-0 ' +
   'shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_10px_15px_-3px_rgba(0,0,0,0.1)] ' +
   'dark:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3),0_10px_15px_-3px_rgba(0,0,0,0.3)]';
@@ -135,9 +145,14 @@ export const ACCOUNT_ROW_SELECTED_CLASS =
  * is not the account's name.
  *
  * Resting colour is the caller's (a nested cash row is drawn quieter than the
- * card it sits in); the geometry, the hover and the focus ring are shared, so
- * the hit area cannot come out right for one kind of row and wrong for the
- * other.
+ * card it sits in); the geometry and the hover are shared, so the hit area
+ * cannot come out right for one kind of row and wrong for the other. The link
+ * declares NO focus ring: it used to carry `focus:outline-none
+ * focus-visible:ring-2 focus-visible:ring-blue-500`, which painted a blue ring
+ * INSIDE the app-wide focus outline — the same doubling the selected row above
+ * had to work around. The global outline is the app's one focus ring
+ * (RULINGS_ON_CAUSE_2026-08-13 §3), and `rounded` is kept because the outline
+ * follows the border radius.
  *
  * On touch, index.css floors every anchor at 44×44 — a hit area small enough to
  * miss is its own failure, and 44px beside a four-letter name is still nothing
@@ -145,8 +160,7 @@ export const ACCOUNT_ROW_SELECTED_CLASS =
  */
 export const ACCOUNT_ROW_NAME_LINK_CLASS =
   'block w-fit max-w-full truncate rounded transition-colors ' +
-  'hover:text-blue-600 dark:hover:text-blue-400 hover:underline ' +
-  'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
+  'hover:text-blue-600 dark:hover:text-blue-400 hover:underline';
 
 /** The column heading over a figure — small, quiet, and the same for every row. */
 const CELL_LABEL_CLASS = 'text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500';

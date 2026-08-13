@@ -206,6 +206,3 @@ export function preloadCharts() {
     });
   }
 }
-
-// eslint-disable-next-line react-refresh/only-export-components
-export { CHART_COLORS } from './chartColors';

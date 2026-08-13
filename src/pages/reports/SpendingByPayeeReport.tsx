@@ -12,6 +12,7 @@ import { formatDecimal } from '../../utils/decimal-format';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
 import { preferences } from '../../services/preferencesService';
+import { categoricalColor, useCategoricalRamp } from '../../components/charts/chartColors';
 
 /**
  * "Spending by payee" — who the money actually went to.
@@ -25,14 +26,16 @@ import { preferences } from '../../services/preferencesService';
  * uncategorised rows never reach either side.
  */
 
-const BAR_COLOURS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
-
 /** Bars beyond this stop being readable; the table still lists every payee. */
 const CHART_ROWS = 12;
 
 const SIDE_KEY = 'reportsPayeeSide';
 
 export default function SpendingByPayeeReport({ picker }: ReportViewProps): React.JSX.Element {
+  // The shared ramp. CHART_ROWS is twelve, so colours repeat past the fifth
+  // bar — readable here because a bar is labelled on its own axis, unlike a
+  // pie slice.
+  const ramp = useCategoricalRamp();
   const selection = useReportAccountSelection();
   const { accounts, categories, rows, flows } = useReportDataset(picker, selection.scope);
   const { formatCurrency } = useCurrencyDecimal();
@@ -171,7 +174,7 @@ export default function SpendingByPayeeReport({ picker }: ReportViewProps): Reac
                   }}
                 >
                   {chartData.map((entry, index) => (
-                    <Cell key={entry.payee} fill={BAR_COLOURS[index % BAR_COLOURS.length]} />
+                    <Cell key={entry.payee} fill={categoricalColor(ramp, index)} />
                   ))}
                 </Bar>
               </BarChart>
@@ -227,7 +230,7 @@ export default function SpendingByPayeeReport({ picker }: ReportViewProps): Reac
                       <button
                         type="button"
                         onClick={() => drillIntoPayee(row)}
-                        className="text-sm text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                        className="text-sm text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
                         title={`${row.displayName} — view these transactions`}
                       >
                         {row.displayName}

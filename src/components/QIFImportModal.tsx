@@ -360,7 +360,7 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
                 onAccountChange={setSelectedAccountId}
                 placeholder="Search or select an account…"
                 formatLabel={(account) => `${account.name} (${account.type})`}
-                className="w-full px-3 py-2 h-[42px] border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 h-[42px] border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
                 usePortal
                 required
                 ariaLabel="Import to Account"
@@ -377,7 +377,7 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
                   type="checkbox"
                   checked={skipDuplicates}
                   onChange={(e) => setSkipDuplicates(e.target.checked)}
-                  className="rounded border-gray-300 text-primary focus:ring-primary"
+                  className="rounded border-gray-300 text-primary"
                 />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Skip potential duplicates

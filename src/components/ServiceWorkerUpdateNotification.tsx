@@ -101,7 +101,7 @@ export default function ServiceWorkerUpdateNotification({
               <button
                 onClick={handleUpdate}
                 disabled={isUpdating}
-                className="px-4 py-2 text-sm font-medium text-white bg-[#1a2332] hover:bg-[#2d3a4d] disabled:bg-blue-400 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+                className="px-4 py-2 text-sm font-medium text-white bg-[#1a2332] hover:bg-[#2d3a4d] disabled:bg-blue-400 rounded-lg transition-colors duration-200"
               >
                 {isUpdating ? 'Updating...' : 'Update Now'}
               </button>
@@ -109,7 +109,7 @@ export default function ServiceWorkerUpdateNotification({
               <button
                 onClick={handleDismiss}
                 disabled={isUpdating}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors duration-200"
               >
                 Later
               </button>

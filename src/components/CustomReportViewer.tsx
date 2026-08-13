@@ -15,6 +15,7 @@ import {
   Legend,
 } from 'recharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { categoricalColor, useCategoricalRamp } from './charts/chartColors';
 import { formatDecimal } from '../utils/decimal-format';
 import type { CustomReport, ReportComponent } from './CustomReportBuilder';
 
@@ -25,11 +26,6 @@ import type { CustomReport, ReportComponent } from './CustomReportBuilder';
  * one library), and every figure comes from customReportService's generators,
  * which classify through the shared category semantics.
  */
-
-const CATEGORY_COLORS = [
-  '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
-  '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'
-];
 
 export interface GeneratedReport {
   report: CustomReport;
@@ -68,6 +64,10 @@ export default function CustomReportViewer({
 }): React.JSX.Element {
   const { formatCurrency } = useCurrencyDecimal();
   const { report, dateRange, data } = generated;
+  // One ramp for every chart in the app. The eight-colour array that used to
+  // sit at the top of this file put an emerald and a red in a CATEGORICAL
+  // list, inches from figures where those two hues mean income and expense.
+  const ramp = useCategoricalRamp();
 
   const money = (v: number | string): string =>
     formatCurrency(typeof v === 'number' ? v : Number(v));
@@ -123,7 +123,7 @@ export default function CustomReportViewer({
                       key={ds.label}
                       type="monotone"
                       dataKey={ds.label}
-                      stroke={ds.borderColor ?? CATEGORY_COLORS[i % CATEGORY_COLORS.length]}
+                      stroke={ds.borderColor ?? categoricalColor(ramp, i)}
                       strokeWidth={2}
                       dot={false}
                       isAnimationActive={false}
@@ -141,7 +141,7 @@ export default function CustomReportViewer({
                     <Bar
                       key={ds.label}
                       dataKey={ds.label}
-                      fill={ds.backgroundColor ?? CATEGORY_COLORS[i % CATEGORY_COLORS.length]}
+                      fill={ds.backgroundColor ?? categoricalColor(ramp, i)}
                       radius={[3, 3, 0, 0]}
                       isAnimationActive={false}
                     />
@@ -164,7 +164,7 @@ export default function CustomReportViewer({
                 <RechartsPieChart>
                   <Pie data={rows} dataKey="value" nameKey="name" innerRadius="55%" outerRadius="88%" strokeWidth={0} isAnimationActive={false}>
                     {rows.map((row, i) => (
-                      <Cell key={row.name} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />
+                      <Cell key={row.name} fill={categoricalColor(ramp, i)} />
                     ))}
                   </Pie>
                   <Tooltip formatter={money} />
@@ -174,7 +174,7 @@ export default function CustomReportViewer({
             <ul className="w-44 space-y-1">
               {rows.slice(0, 8).map((row, i) => (
                 <li key={row.name} className="flex items-center gap-2 text-xs">
-                  <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }} />
+                  <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: categoricalColor(ramp, i) }} />
                   <span className="flex-1 min-w-0 truncate text-gray-600 dark:text-gray-300">{row.name}</span>
                   <span className="tabular-nums text-gray-900 dark:text-white">{money(row.value)}</span>
                 </li>

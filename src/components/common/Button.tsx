@@ -25,7 +25,6 @@ export function Button({
   const baseStyles = `
     inline-flex items-center justify-center font-medium
     transition-all duration-[var(--duration-fast)] ease-[var(--easing-inOut)]
-    focus:outline-none focus:ring-2 focus:ring-offset-2
     disabled:opacity-50 disabled:cursor-not-allowed
   `;
   
@@ -34,28 +33,23 @@ export function Button({
       bg-[var(--color-interactive-primary)] text-white
       hover:bg-[var(--color-interactive-primaryHover)]
       active:bg-[var(--color-interactive-primaryActive)]
-      focus:ring-[var(--color-interactive-primary)]
     `,
     secondary: `
       bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]
       border border-[var(--color-border-primary)]
       hover:bg-[var(--color-surface-tertiary)]
-      focus:ring-[var(--color-border-focus)]
     `,
     danger: `
       bg-[var(--color-status-error)] text-white
       hover:opacity-90
-      focus:ring-[var(--color-status-error)]
     `,
     success: `
       bg-[var(--color-status-success)] text-white
       hover:opacity-90
-      focus:ring-[var(--color-status-success)]
     `,
     ghost: `
       bg-transparent text-[var(--color-text-primary)]
       hover:bg-[var(--color-surface-secondary)]
-      focus:ring-[var(--color-border-focus)]
     `,
   };
   

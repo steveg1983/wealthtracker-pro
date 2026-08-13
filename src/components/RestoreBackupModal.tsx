@@ -422,7 +422,7 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
                   onChange={(e) => setWipeConfirmText(e.target.value)}
                   aria-label={`Type ${CONFIRM_PHRASE} to confirm`}
                   placeholder={CONFIRM_PHRASE}
-                  className="w-full px-3 py-2 rounded-lg border border-red-300 dark:border-red-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="w-full px-3 py-2 rounded-lg border border-red-300 dark:border-red-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
                 />
                 <button
                   onClick={() => { void handleWipe(); }}
