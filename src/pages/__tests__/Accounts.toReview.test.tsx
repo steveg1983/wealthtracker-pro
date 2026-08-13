@@ -169,12 +169,26 @@ describe('Accounts list — the To Review column', () => {
 
     const waiting = within(card('Synthetic Natwest')).getByText('To Review').nextElementSibling;
     const clear = within(card('Synthetic Monzo')).getByText('To Review').nextElementSibling;
-    expect(waiting?.className).toContain('text-slate-600');
+    /*
+     * The working state was `text-slate-600` at the same size and weight as the
+     * zero until 2026-08-13, when the owner reported the consequence: "I miss
+     * them because when there are these things to do, they dont stand out vs
+     * all the other accounts with zero's." Two steps on the grey ramp is not a
+     * difference you can find down 130 rows.
+     *
+     * It is now separated by SIZE and WEIGHT as well — near-black, a step
+     * larger, bold — which is how this app carries hierarchy everywhere and
+     * spends no hue doing it. See AccountCountCell.test.tsx.
+     */
+    expect(waiting?.className).toContain('text-gray-900');
+    expect(waiting?.className).toContain('font-bold');
+    expect(waiting?.className).toContain('text-base');
     // NOT the app's link blue, which is what a zero wore until this was
     // corrected — de-ambering the working state had left the count with
     // NOTHING to do as the loudest figure on the row. Colour marks what needs
     // attention (ruling A's own argument) and a zero needs nothing.
     expect(clear?.className).not.toContain('text-blue-600');
     expect(clear?.className).toContain('text-gray-400');
+    expect(clear?.className).toContain('font-normal');
   });
 });

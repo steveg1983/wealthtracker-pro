@@ -335,8 +335,32 @@ export function AccountCountCell({
     <div className="text-right">
       <p className={ROW_LABEL_CLASS}>{label}</p>
       <p
-        className={`${CELL_FIGURE_CLASS} ${
-          count > 0 ? 'text-slate-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'
+        /*
+         * SIZE AND WEIGHT CARRY IT, NOT A HUE.
+         *
+         * The two states used to differ by colour alone — slate-600 against
+         * gray-400, both `font-semibold` — and the owner reported the outcome
+         * that matters: "I miss them because when there are these things to do,
+         * they dont stand out vs all the other accounts with zero's."
+         *
+         * He was right to expect this to be contentious and it is not. The
+         * ruling below bans AMBER, because amber marks the one control you
+         * should touch next and a count is not clickable; and it bans a loud
+         * ZERO, because nothing is not something to attend to. Neither says a
+         * count with work in it must whisper. "Colour marks what needs
+         * attention" is the argument FOR separating these, and hierarchy in
+         * this app is carried by size and weight before any new colour is
+         * spent (the summary card makes the same move).
+         *
+         * So a count with work is a step larger, bolder and near-black, and a
+         * zero drops to normal weight and recedes. No hue is spent, the yellow
+         * thread keeps its monopoly on "do this next", and a page of zeroes
+         * still reads as a page of zeroes.
+         */
+        className={`tabular-nums ${
+          count > 0
+            ? 'text-base font-bold text-gray-900 dark:text-white'
+            : 'text-sm font-normal text-gray-400 dark:text-gray-500'
         }`}
       >
         {count}
