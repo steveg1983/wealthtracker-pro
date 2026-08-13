@@ -42,11 +42,23 @@ const PINNABLE_PERIODS: PeriodKey[] = [
 ];
 
 /**
- * Hidden until the card is hovered or holds focus. `group/card` is on the card
- * shell; the `hover:hover` guard is what keeps it visible on a touch screen.
+ * VISIBLE AT REST — it used to hide until the card was hovered.
+ *
+ * That was the same hover-reveal the row actions on the Accounts page wore, and
+ * it failed here for the same reason and worse. The owner reported that he
+ * "still cannot change the date viewings on the charts": the pins worked, the
+ * menu worked, and the control that opens it was invisible until a mouse
+ * happened to pass over the card. A control nobody can see is a feature nobody
+ * has — and unlike the row actions, this one has no second route to it
+ * anywhere in the app.
+ *
+ * It is a 16px calendar glyph in the card's own quiet grey, which is what P1
+ * asks of chrome: small, not absent. And it settles a related awkwardness —
+ * the design ruling required a PINNED card to declare itself at rest, so the
+ * declaration was permanent while the control that produced it was not: a
+ * state you could see but not reach.
  */
-const QUIET_AT_REST =
-  'transition-opacity duration-state [@media(hover:hover)]:group-[:not(:hover):not(:focus-within)]/card:opacity-0';
+const QUIET_AT_REST = 'transition-opacity duration-state';
 
 export default function CardPeriodControl({ cardLabel, period, pin }: {
   /** What this control governs, for anyone who cannot see which card it is on. */
