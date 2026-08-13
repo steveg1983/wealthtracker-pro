@@ -480,15 +480,40 @@ describe('AccountSettingsModal', () => {
       expect(balanceInput).toHaveValue('-2,500.00');
     });
 
-    it('defaults date to today for accounts without opening balance date', () => {
+    it('leaves the date BLANK when the account has none, and says what blank does', () => {
+      /*
+       * This asserted the opposite until 2026-08-13 — that the field defaults to
+       * TODAY — and the assertion was the bug, written down.
+       *
+       * Most imported accounts have no opening date, correctly: Money records
+       * `dtOpen` only sometimes and the importer writes nothing rather than
+       * inventing one. The app then applies the opening balance from the first
+       * transaction. Pre-filling today meant that opening this dialog to change
+       * an account's NAME and pressing Save stamped "opened today" onto an
+       * account that had been running since 2010 — silently, and cumulatively
+       * across every account the owner ever edited.
+       */
       const accountWithoutDate = { ...mockAccount, openingBalanceDate: undefined };
       render(<AccountSettingsModal {...defaultProps} account={accountWithoutDate} />);
-      
+
       const dateInput = screen.getByLabelText('Opening balance date') as HTMLInputElement;
-      const now = new Date();
-      const dd = String(now.getDate()).padStart(2, '0');
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      expect(dateInput.value).toBe(`${dd}/${mm}/${now.getFullYear()}`);
+      expect(dateInput.value).toBe('');
+      expect(screen.getByText(/applies from this account's first\s+transaction/i)).toBeInTheDocument();
+    });
+
+    it('does not write an opening date the user never entered', () => {
+      // The half that actually corrupted data: a blank field must reach `onSave`
+      // as no date at all, not as today's.
+      const onSave = vi.fn();
+      const accountWithoutDate = { ...mockAccount, openingBalanceDate: undefined };
+      render(<AccountSettingsModal {...defaultProps} account={accountWithoutDate} onSave={onSave} />);
+
+      fireEvent.change(screen.getByLabelText(/account name/i), { target: { value: 'Renamed' } });
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+
+      expect(onSave).toHaveBeenCalled();
+      const [, updates] = onSave.mock.calls[0];
+      expect(updates).not.toHaveProperty('openingBalanceDate');
     });
   });
 
