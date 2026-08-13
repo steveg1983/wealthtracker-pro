@@ -209,15 +209,22 @@ const clerkAppearance: Appearance = {
      *
      * The design review flagged a purple→blue gradient "top-right of every page
      * in the app" and reasonably assumed it was ours. It is not — it is Clerk's
-     * generated initials avatar, which is why searching our source for
-     * `from-purple-500 to-blue-600` finds nothing. But the conclusion that we
-     * could not change it was also wrong: this appearance object reaches every
-     * Clerk surface, and it simply had no rule for the avatar.
+     * GENERATED default avatar, which is why searching our source for
+     * `from-purple-500 to-blue-600` finds nothing. The conclusion that we could
+     * therefore not change it was also wrong: this appearance object reaches
+     * every Clerk surface and simply had no rule for the avatar.
      *
-     * `backgroundImage: 'none'` first, because the default is a background
-     * IMAGE — a colour alone would paint underneath it and change nothing.
-     * Slate with a white initial, matching the ruling and every other Clerk
-     * surface above.
+     * ── AND THE FIRST ATTEMPT WAS RIGHT AND STILL INVISIBLE ──────────────────
+     *
+     * These three lines applied — measured in the owner's own console:
+     * `background-color: rgb(26, 35, 50)` and `background-image: none` on
+     * `span.cl-avatarBox`. The gradient survived anyway, because Clerk does not
+     * paint it as a background at all: it renders an `<img>` from img.clerk.com
+     * INSIDE the span, and a background sits behind a picture.
+     *
+     * That is what `src/index.css`'s `.cl-avatarBox img[srcset*=…]` rule is
+     * for, and why it is written as narrowly as it is. Keep this box: it is
+     * what shows once the image is gone.
      */
     avatarBox: {
       backgroundImage: 'none',
