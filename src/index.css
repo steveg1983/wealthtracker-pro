@@ -761,3 +761,30 @@ button.rounded-full:focus-visible,
     font-size: 1rem !important;
   }
 }
+
+/*
+ * CLERK'S GENERATED AVATAR, AND ONLY THAT.
+ *
+ * The design review's "single most-seen element in the product and the only
+ * gradient in it" is a purple→blue disc top-right of every page. It is not ours
+ * — Clerk generates it for a user who has uploaded no photo — and it is not a
+ * background either, which is why setting one in the appearance object changed
+ * nothing visible: measured in the owner's console, `span.cl-avatarBox` had
+ * `background-color: rgb(26, 35, 50)` applied and an `<img>` from
+ * img.clerk.com sitting on top of it.
+ *
+ * ── WHY THE SELECTOR IS THIS FUSSY ─────────────────────────────────────────
+ * `display: none` on every avatar image would also hide a REAL photo the day
+ * anyone uploads one. Clerk encodes what the image is into the URL: the srcset
+ * carries base64 whose first field is `{"type":"default",` — decoded from the
+ * marker below, not guessed. So this hides the generated disc and leaves an
+ * uploaded portrait alone.
+ *
+ * If Clerk ever changes that payload the rule stops matching and the gradient
+ * comes back — visible, and the wrong colour, rather than silently wrong about
+ * a number. That is the right way round for a failure nobody is watching for.
+ */
+.cl-avatarBox img[srcset*="eyJ0eXBlIjoiZGVmYXVsdCIs"],
+.cl-avatarBox img[src*="eyJ0eXBlIjoiZGVmYXVsdCIs"] {
+  display: none;
+}

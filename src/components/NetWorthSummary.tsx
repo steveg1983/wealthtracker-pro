@@ -62,6 +62,22 @@ interface NetWorthSummaryProps {
   unconverted?: readonly string[];
   /** The currency the three figures are expressed in. */
   displayCurrency?: string;
+  /**
+   * What the two components are CALLED.
+   *
+   * Plain English by default, on a design ruling (13 Aug night §3.3): "What you
+   * own" and "What you owe" are the Reports-gallery voice, and that voice is
+   * more of this product's identity than any colour in the token sheet. The
+   * terser accounting pair is the OVERRIDE, not the reverse — a summary card
+   * that cannot take plainer words is a card that enforces jargon.
+   *
+   * They exist as props at all because the net-worth STATEMENT report had
+   * already chosen the plainer words for itself, and converting it to this card
+   * would otherwise have silently overwritten somebody's word choice. That is a
+   * content decision, and a refactor is not allowed to make it.
+   */
+  assetsLabel?: string;
+  liabilitiesLabel?: string;
 }
 
 /** The column heading over each figure. */
@@ -75,6 +91,8 @@ export default function NetWorthSummary({
   provenance = null,
   unconverted = [],
   displayCurrency,
+  assetsLabel = 'What you own',
+  liabilitiesLabel = 'What you owe',
 }: NetWorthSummaryProps): React.JSX.Element {
   /**
    * ALL THREE figures are navy. None of them is a direction of travel.
@@ -128,13 +146,13 @@ export default function NetWorthSummary({
     },
     {
       figure: 'assets',
-      label: 'Assets',
+      label: assetsLabel,
       value: assets,
       figureClass: COMPONENT_FIGURE_CLASS,
     },
     {
       figure: 'liabilities',
-      label: 'Liabilities',
+      label: liabilitiesLabel,
       value: liabilities,
       figureClass: COMPONENT_FIGURE_CLASS,
     },
