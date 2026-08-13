@@ -147,10 +147,30 @@ export function useReconciliation(accounts: Account[], transactions: Transaction
     [accounts, accountTransactionMap]
   );
 
-  const totalUnreconciledCount = useMemo(() =>
-    transactions.filter(t => !isReconciled(t)).length,
-    [transactions]
-  );
+  /**
+   * The headline figure — and it counts ONLY the accounts this page lists.
+   *
+   * It used to count every unreconciled row in the ledger, which is a
+   * different question from the one the page answers. The owner's book made
+   * the gap plain: the heading read 2,447 while every account on screen said
+   * "All reconciled", because all 2,447 sat on 73 CLOSED accounts. Closed
+   * accounts are deliberately absent from this page (they are fetched
+   * separately and never listed here) — closing one is how you say you are
+   * done with it, and there is no bank statement left to agree it against.
+   * A page whose whole job is "how much work is left, and where" must not
+   * count work it will not show you, and cannot let you do.
+   *
+   * Scoped to `accounts` rather than to a flag, so it stays true by
+   * construction: reopen an account and it returns to that list, and its rows
+   * return to this count with it. Nothing here needs to know what "closed"
+   * means.
+   */
+  const totalUnreconciledCount = useMemo(() => {
+    const listedAccountIds = new Set(accounts.map(a => a.id));
+    return transactions.filter(
+      t => listedAccountIds.has(t.accountId) && !isReconciled(t)
+    ).length;
+  }, [accounts, transactions]);
 
   const getUnreconciledCount = useCallback(
     (accountId: string) =>

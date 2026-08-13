@@ -158,6 +158,50 @@ describe('useReconciliation', () => {
       expect(result.current.totalUnreconciledCount).toBe(3);
     });
 
+    it('counts only the accounts it was given, so a closed account cannot inflate it', () => {
+      // The owner's book: the heading read 2,447 while every account on screen
+      // said "All reconciled", because all 2,447 sat on accounts he had
+      // CLOSED — which this page never lists (they are fetched separately) and
+      // which have no statement left to agree against. A row belonging to an
+      // account that is not on the page must not be counted by the number at
+      // the top of it.
+      const rowOnAnAbsentAccount = {
+        ...mockTransactions[0],
+        id: 'tx-on-closed-account',
+        accountId: 'account-that-is-not-listed',
+        cleared: false,
+        reconciled: false,
+      };
+
+      const { result } = renderHook(() =>
+        useReconciliation(mockAccounts, [...mockTransactions, rowOnAnAbsentAccount])
+      );
+
+      // Unchanged by the extra row: still the three uncleared rows that belong
+      // to the listed accounts.
+      expect(result.current.totalUnreconciledCount).toBe(3);
+    });
+
+    it('counts an account the moment it IS given, which is what reopening one does', () => {
+      const reopened = { ...mockAccounts[0], id: 'reopened-account' };
+      const rowOnReopened = {
+        ...mockTransactions[0],
+        id: 'tx-on-reopened',
+        accountId: 'reopened-account',
+        cleared: false,
+        reconciled: false,
+      };
+
+      const { result } = renderHook(() =>
+        useReconciliation(
+          [...mockAccounts, reopened],
+          [...mockTransactions, rowOnReopened]
+        )
+      );
+
+      expect(result.current.totalUnreconciledCount).toBe(4);
+    });
+
     it('should return 0 when all transactions are cleared', () => {
       const clearedTransactions = mockTransactions.map(tx => ({
         ...tx,
@@ -266,13 +310,19 @@ describe('useReconciliation', () => {
   });
 
   describe('edge cases', () => {
-    it('should handle empty accounts array', () => {
+    it('counts nothing when there is nothing to list, however many rows exist', () => {
+      // CHANGED, deliberately: this asserted 3 — every unreconciled row in the
+      // ledger, counted even though no account was on the page to reconcile it
+      // against. That is the shape of the bug the owner found (a heading of
+      // 2,447 above a list saying "All accounts are fully reconciled", because
+      // every one of those rows belonged to a closed account). No accounts
+      // listed, no work shown, no work counted.
       const { result } = renderHook(() =>
         useReconciliation([], mockTransactions)
       );
 
       expect(result.current.reconciliationDetails).toEqual([]);
-      expect(result.current.totalUnreconciledCount).toBe(3);
+      expect(result.current.totalUnreconciledCount).toBe(0);
     });
 
     it('should handle empty transactions array', () => {
