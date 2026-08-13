@@ -187,3 +187,47 @@ export const SEMANTIC_SERIES = {
   income: '#0d9f6f',
   expense: '#d94052',
 } as const;
+
+/**
+ * A measurement drawn beside the parts it is made of — separated by SHAPE, in
+ * one hue (design ruling, 2026-08-13 night, §3.1).
+ *
+ * ── WHY NOT THREE COLOURS ───────────────────────────────────────────────────
+ *
+ * Net worth over time draws three lines, and they were income-green and
+ * expense-red, which said the wrong thing twice: assets and liabilities are
+ * MAGNITUDES, not money in and out, and colouring them that way reinstated on
+ * the chart exactly what the design pass had removed from the summary card two
+ * inches above it.
+ *
+ * The obvious repair — three steps of the categorical ramp — fails, measured:
+ * ramp indices 0 and 2 are 1.17:1 apart on light and 1.19:1 on dark, so Net
+ * worth and Liabilities come out the same colour. Nothing in a navy→slate axis
+ * separates three traceable lines on both grounds.
+ *
+ * A third HUE was the other option and was refused for a better reason than
+ * contrast. These are not three categories: assets and liabilities are the two
+ * components of net worth, one measurement decomposed, exactly as the summary
+ * card's three cells are. A hue of its own would assert that liabilities are a
+ * third unrelated thing — the same false statement the green and red were
+ * making.
+ *
+ * So shape carries identity, weight carries hierarchy, and one hue says these
+ * belong to each other. It survives greyscale, print and a colour-blind reader,
+ * none of which a third hue would have given.
+ *
+ * ── THE CONDITION THE RULING CAME WITH ──────────────────────────────────────
+ *
+ * The legend must show the ACTUAL dash pattern. Three identical navy squares
+ * would be worse than the bug this replaces, so the chart supplies its own
+ * legend content rather than trusting recharts' default swatch — see
+ * NetWorthReport. `dash` is `strokeDasharray`; `undefined` is a solid line.
+ */
+export const DECOMPOSITION_SERIES = {
+  /** The answer. Solid and heaviest — the other two explain it. */
+  total: { color: CATEGORICAL_AXIS[0], width: 2.5, dash: undefined },
+  /** A component. Same hue, dashed. */
+  part: { color: CATEGORICAL_AXIS[2], width: 1.5, dash: '6 3' },
+  /** The other component. Same hue again, dotted, so the two parts differ. */
+  counterpart: { color: CATEGORICAL_AXIS[2], width: 1.5, dash: '1 3' },
+} as const;
