@@ -143,6 +143,20 @@ const pinPerformanceTo = (label: string): void => {
   fireEvent.click(within(menu).getByRole('menuitemradio', { name: label }));
 };
 
+/**
+ * Send the Performance card back to the page bar the way a user does now: the
+ * menu's first entry. The separate "Follow page" button it replaced only ever
+ * appeared once the card was ALREADY pinned, so the menu — the thing you open
+ * to choose a window — never listed the state most cards are in.
+ */
+const releasePerformance = (from: string): void => {
+  fireEvent.click(within(performanceCard()).getByRole('button', {
+    name: `Performance: pinned to ${from}. Choose a different period for this card`,
+  }));
+  fireEvent.click(within(screen.getByRole('menu', { name: 'Window for Performance' }))
+    .getByRole('menuitemradio', { name: 'Default' }));
+};
+
 describe('a card that has not been pinned', () => {
   it('shows no declaration and no new chrome — it is the page’s card', () => {
     render(<ImprovedDashboard />);
@@ -259,9 +273,7 @@ describe('releasing a card back to the page', () => {
     pinPerformanceTo('All time');
     fireEvent.click(within(periodBar()).getByRole('button', { name: 'Last month' }));
 
-    fireEvent.click(within(performanceCard()).getByRole('button', {
-      name: 'Performance: follow the page period',
-    }));
+    releasePerformance('All time');
 
     expect(within(performanceCard()).queryByText(/^pinned ·/)).toBeNull();
     // Back on the page's window, named the plain way again.
@@ -271,9 +283,7 @@ describe('releasing a card back to the page', () => {
   it('forgets the pin, so a remount opens following the page', () => {
     const first = render(<ImprovedDashboard />);
     pinPerformanceTo('All time');
-    fireEvent.click(within(performanceCard()).getByRole('button', {
-      name: 'Performance: follow the page period',
-    }));
+    releasePerformance('All time');
     expect(localStorage.getItem('dashboardReports.pin.performancePinned')).toBeNull();
     expect(localStorage.getItem('dashboardReports.pin.performance')).toBeNull();
     first.unmount();

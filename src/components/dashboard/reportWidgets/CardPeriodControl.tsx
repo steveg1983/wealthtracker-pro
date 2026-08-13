@@ -87,6 +87,33 @@ export default function CardPeriodControl({ cardLabel, picker, pin }: {
   pin: CardPeriodPin;
 }): React.JSX.Element {
   const { period, customStart, customEnd, setCustomStart, setCustomEnd } = picker;
+
+  /**
+   * What the card says about its own window at rest, or `null` for the one
+   * state that says nothing.
+   *
+   * A card on the page's clock declares nothing, because the page bar directly
+   * above it is already saying it and a label repeating that would be chrome
+   * charging rent for a fact already on screen (P1). The other two states are
+   * divergences from what the bar says, and a divergence has to announce
+   * itself — that was the whole condition on which per-card windows were
+   * allowed to exist at all.
+   */
+  const declaration =
+    pin.source === 'own' ? `pinned · ${PERIOD_LABELS[period]}`
+      : pin.source === 'partner' ? `locked · ${pin.partnerLabel ?? ''}`
+        : null;
+
+  /**
+   * The same fact, spoken. The marker reads `pinned · All time` because a
+   * middle dot is how this app joins a label to its value in a tight space; a
+   * screen reader saying "pinned middle-dot All time" is not that fact, it is
+   * the typography of it. So the sentence is written out.
+   */
+  const spokenState =
+    pin.source === 'own' ? `pinned to ${PERIOD_LABELS[period]}`
+      : pin.source === 'partner' ? `locked to ${pin.partnerLabel ?? ''}`
+        : null;
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -172,12 +199,14 @@ export default function CardPeriodControl({ cardLabel, picker, pin }: {
         aria-controls={open ? menuId : undefined}
         // The visible text is the DECLARATION, which is a statement rather than
         // an instruction, so the control still has to say what it is for.
-        aria-label={pin.isPinned
-          ? `${cardLabel}: pinned to ${PERIOD_LABELS[period]}. Choose a different period for this card`
-          : `${cardLabel}: period follows the page. Pin this card to its own period`}
+        aria-label={spokenState === null
+          ? `${cardLabel}: period follows the page. Pin this card to its own period`
+          : `${cardLabel}: ${spokenState}. Choose a different period for this card`}
         className="flex items-center rounded px-1.5 py-0.5 text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/50 dark:hover:text-gray-200 transition-colors duration-state"
       >
-        {pin.isPinned ? (
+        {declaration === null ? (
+          <CalendarIcon size={14} aria-hidden="true" />
+        ) : (
           <span
             aria-hidden="true"
             data-pin-marker
@@ -187,23 +216,19 @@ export default function CardPeriodControl({ cardLabel, picker, pin }: {
             className={`text-label whitespace-nowrap ${pin.justHeld ? 'animate-pin-ack' : ''}`}
             onAnimationEnd={pin.onHeldShown}
           >
-            pinned · {PERIOD_LABELS[period]}
+            {declaration}
           </span>
-        ) : (
-          <CalendarIcon size={14} aria-hidden="true" />
         )}
       </button>
 
-      {pin.isPinned && (
-        <button
-          type="button"
-          onClick={pin.follow}
-          aria-label={`${cardLabel}: follow the page period`}
-          className="rounded px-1.5 py-0.5 text-label whitespace-nowrap text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/50 dark:hover:text-gray-200 transition-colors duration-state"
-        >
-          Follow page
-        </button>
-      )}
+      {/*
+        The "Follow page" button was here, beside the marker. It has gone into
+        the MENU as "Default", because a card had two ways back to the page
+        clock and neither was where you would look: this button only appeared
+        once you had already pinned, so the menu — the thing you open to choose
+        a window — never listed the window most cards are on. The owner asked
+        for exactly that entry. One control, holding every choice it governs.
+      */}
 
       {open && (
         <div
@@ -212,10 +237,51 @@ export default function CardPeriodControl({ cardLabel, picker, pin }: {
           aria-label={`Window for ${cardLabel}`}
           className="absolute right-0 top-full z-30 mt-1 min-w-[9.5rem] rounded border border-line dark:border-gray-700 bg-white dark:bg-gray-800 py-1 shadow-overlay"
         >
-          {PINNABLE_PERIODS.map((key, index) => (
+          {/* DEFAULT FIRST, and it is not a window — it is the absence of a
+              choice, which is where every card starts and the state most of
+              them are in. Listing it alongside the windows is what makes this
+              menu the complete answer to "what is this card reading over?"
+              rather than a list of ways to leave the default behind. */}
+          <button
+            ref={firstItemRef}
+            type="button"
+            role="menuitemradio"
+            aria-checked={pin.source === 'page'}
+            onClick={() => { pin.follow(); close(); }}
+            className={`flex w-full items-center px-3 py-1.5 text-left text-body transition-colors duration-state hover:bg-surface-secondary dark:hover:bg-gray-700 focus:outline-none focus-visible:bg-surface-secondary dark:focus-visible:bg-gray-700 ${
+              pin.source === 'page'
+                ? 'font-medium text-gray-900 dark:text-white'
+                : 'text-gray-600 dark:text-gray-300'
+            }`}
+          >
+            Default
+          </button>
+
+          {/* The lock, when this card has a partner ON the dashboard. Directly
+              under Default because it is the same kind of answer — "take your
+              window from somewhere else" — and above the windows, which are the
+              answers that end the question here. */}
+          {pin.partnerLabel !== undefined && (
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={pin.source === 'partner'}
+              onClick={() => { pin.lockToPartner(); close(); }}
+              className={`flex w-full items-center px-3 py-1.5 text-left text-body transition-colors duration-state hover:bg-surface-secondary dark:hover:bg-gray-700 focus:outline-none focus-visible:bg-surface-secondary dark:focus-visible:bg-gray-700 ${
+                pin.source === 'partner'
+                  ? 'font-medium text-gray-900 dark:text-white'
+                  : 'text-gray-600 dark:text-gray-300'
+              }`}
+            >
+              Locked to {pin.partnerLabel}
+            </button>
+          )}
+
+          <div role="separator" className="my-1 border-t border-line dark:border-gray-700" />
+
+          {PINNABLE_PERIODS.map((key) => (
             <button
               key={key}
-              ref={index === 0 ? firstItemRef : undefined}
               type="button"
               role="menuitemradio"
               aria-checked={pin.isPinned && period === key}

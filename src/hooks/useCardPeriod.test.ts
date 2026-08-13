@@ -252,3 +252,102 @@ describe('two cards on one page', () => {
     expect(result.current.flows.pin.isPinned).toBe(false);
   });
 });
+
+/**
+ * THE LOCK — one card taking its window from another.
+ *
+ * Performance is the total of income and expenses over a window; Income vs
+ * Expenses is those same two numbers month by month. They are one measurement
+ * at two resolutions, so a total covering a different period from the chart of
+ * that total is a contradiction rather than a preference. The owner asked for
+ * the two to be tied, and for it to be an option rather than a law — a card
+ * that is locked can always be pinned or defaulted back out of it.
+ */
+describe('a card locked to another card', () => {
+  const PARTNER_KEY = cardPeriodKey(PAGE_KEY, 'income-expense-trend');
+
+  /** A page, a partner card, and a card that may be locked to the partner. */
+  const renderPair = () => renderHook(() => {
+    const page = usePeriod(PAGE_KEY, 'last-12-months', store);
+    const partner = useCardPeriod(PARTNER_KEY, page, store);
+    const card = useCardPeriod(CARD_KEY, page, store, {
+      picker: partner.picker,
+      label: 'Income vs Expenses',
+    });
+    return { page, partner, card };
+  });
+
+  it('reads over the partner’s window, and moves when the partner does', () => {
+    const { result } = renderPair();
+
+    act(() => { result.current.card.pin.lockToPartner(); });
+    act(() => { result.current.partner.pin.pinTo('this-month'); });
+
+    expect(result.current.card.pin.source).toBe('partner');
+    expect(result.current.card.picker.period).toBe('this-month');
+    // The SAME object, not an equal one: a lock that copied the window could
+    // drift by a render, and the click-through would carry the stale one.
+    expect(result.current.card.picker).toBe(result.current.partner.picker);
+  });
+
+  it('follows the partner all the way back to the page clock', () => {
+    // A locked card is not pinned to whatever the partner happened to be on
+    // when the lock was made — it tracks the partner, including the partner
+    // being on the page's own window.
+    const { result } = renderPair();
+
+    act(() => { result.current.partner.pin.pinTo('all'); });
+    act(() => { result.current.card.pin.lockToPartner(); });
+    expect(result.current.card.picker.period).toBe('all');
+
+    act(() => { result.current.partner.pin.follow(); });
+    act(() => { result.current.page.setPeriod('tax-year'); });
+
+    expect(result.current.card.picker.period).toBe('tax-year');
+  });
+
+  it('survives a remount, and keeps no window of its own while locked', () => {
+    const first = renderPair();
+    act(() => { first.result.current.card.pin.pinTo('this-month'); });
+    act(() => { first.result.current.card.pin.lockToPartner(); });
+
+    // The four window keys are cleared; only the mode is remembered. A stale
+    // window under a lock is a window that would come back on the next pin.
+    expect(store.getItem(CARD_KEY)).toBeNull();
+    expect(store.getItem(periodPinKey(CARD_KEY))).toBe('partner');
+    first.unmount();
+
+    const { result } = renderPair();
+    expect(result.current.card.pin.source).toBe('partner');
+  });
+
+  it('falls back to the page when the partner is not on the dashboard', () => {
+    // Locked, then the partner card is taken off the dashboard: the lock would
+    // otherwise tie these figures to a window nothing on screen can show or
+    // change. The card reads the page, and offers no lock to re-enter.
+    const first = renderPair();
+    act(() => { first.result.current.card.pin.lockToPartner(); });
+    first.unmount();
+
+    const { result } = renderHook(() => {
+      const page = usePeriod(PAGE_KEY, 'last-12-months', store);
+      return { page, card: useCardPeriod(CARD_KEY, page, store) };
+    });
+
+    expect(result.current.card.pin.source).toBe('page');
+    expect(result.current.card.pin.partnerLabel).toBeUndefined();
+    expect(result.current.card.picker).toBe(result.current.page);
+  });
+
+  it('is a mode, not a trap: pinning leaves the lock behind', () => {
+    const { result } = renderPair();
+
+    act(() => { result.current.card.pin.lockToPartner(); });
+    act(() => { result.current.card.pin.pinTo('tax-year'); });
+
+    expect(result.current.card.pin.source).toBe('own');
+    expect(result.current.card.picker.period).toBe('tax-year');
+    act(() => { result.current.partner.pin.pinTo('this-month'); });
+    expect(result.current.card.picker.period).toBe('tax-year');
+  });
+});

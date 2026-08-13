@@ -60,12 +60,43 @@ import {
  * hooks/useCardPeriod.test.ts.
  */
 
-/** Whether this card has a window of its own, and the two ways to change that. */
+/**
+ * Where a card's window comes from. Three sources, not two:
+ *
+ *  - `page`   — the page bar. The default, and what an untouched card does.
+ *  - `own`    — a window this card was pinned to.
+ *  - `partner`— another card's window, whatever that card is currently on.
+ *
+ * `partner` exists because two cards on this dashboard are not two reports
+ * that happen to want the same window — they are ONE measurement at two
+ * resolutions. Performance is the total of income and expenses over a window;
+ * Income vs Expenses is those same two numbers month by month. A total that
+ * covers a different period from the chart of that total is not a preference,
+ * it is a contradiction, and the owner asked for the two to be tied.
+ *
+ * It runs ONE WAY — the totals follow the chart, never the reverse. Two cards
+ * each able to follow the other is a cycle with no window at either end, and
+ * the direction is the one he described: set the chart to 12 months and the
+ * figures follow.
+ */
+export type CardPeriodSource = 'page' | 'own' | 'partner';
+
+/** Whether this card has a window of its own, and the ways to change that. */
 export interface CardPeriodPin {
   /** True when the card is being read over its own window, not the page's. */
   isPinned: boolean;
+  /** Where the window is coming from right now. */
+  source: CardPeriodSource;
+  /**
+   * What this card can be locked to, when it has such a partner and that
+   * partner is actually on the dashboard. `undefined` means the control offers
+   * no lock at all — most cards have nothing to be one half of.
+   */
+  partnerLabel?: string;
   /** Pin the card to `key`. Pinning IS choosing, so it persists. */
   pinTo: (key: PeriodKey) => void;
+  /** Tie this card to its partner's window. Only offered when there is one. */
+  lockToPartner: () => void;
   /** Give the card back to the page clock, and forget it was ever pinned. */
   follow: () => void;
   /**
@@ -104,10 +135,30 @@ export interface CardPeriod {
 export const cardPeriodKey = (pageKey: string, cardId: string): string =>
   `${pageKey}.pin.${cardId}`;
 
+/**
+ * What the pin flag says when a card is locked to its partner rather than to a
+ * window of its own. Deliberately not `'true'`: that value already means "this
+ * card has a window", and every store written before locks existed says it.
+ */
+const LOCKED_FLAG = 'partner';
+
+/** The four keys that carry a WINDOW, without the pin flag that carries the mode. */
+const periodKeysOf = (storageKey: string): string[] =>
+  cardPeriodPreferenceKeys(storageKey).filter(key => key !== periodPinKey(storageKey));
+
+/** The other card this one may be tied to, when it has one on the dashboard. */
+export interface CardPartner {
+  /** The partner's resolved window — whatever IT is currently reading over. */
+  picker: UsePeriodResult;
+  /** What to call it, on the card face and in the menu. */
+  label: string;
+}
+
 export function useCardPeriod(
   storageKey: string,
   page: UsePeriodResult,
-  storage: PeriodStorage = preferences
+  storage: PeriodStorage = preferences,
+  partner?: CardPartner
 ): CardPeriod {
   /**
    * The pin as storage holds it, read ONCE and as ONE fact: whether this card
@@ -130,10 +181,18 @@ export function useCardPeriod(
    * that the user chose this window. So here the PIN decides, and the stored
    * window is honoured whenever it can be read at all.
    */
-  const [storedPin] = useState<{ pinned: boolean; window: PeriodKey | null }>(() => {
-    const pinned = storage.getItem(periodPinKey(storageKey)) === 'true';
-    const stored = pinned ? storage.getItem(storageKey) : null;
-    return { pinned, window: stored !== null && isPeriodKey(stored) ? stored : null };
+  const [storedPin] = useState<{ source: CardPeriodSource; window: PeriodKey | null }>(() => {
+    /*
+     * The one key carries all three states, so nothing new is stored and an
+     * older document still reads correctly: 'true' is a pin (what every
+     * existing store says), 'partner' is a lock, and anything else — absent,
+     * 'false', a value from a build that has not shipped — is the page.
+     */
+    const flag = storage.getItem(periodPinKey(storageKey));
+    const source: CardPeriodSource =
+      flag === 'true' ? 'own' : flag === LOCKED_FLAG ? 'partner' : 'page';
+    const stored = source === 'own' ? storage.getItem(storageKey) : null;
+    return { source, window: stored !== null && isPeriodKey(stored) ? stored : null };
   });
 
   /**
@@ -146,7 +205,16 @@ export function useCardPeriod(
   const own = usePeriod(storageKey, storedPin.window ?? page.period, storage);
   const { setPeriod: setOwnPeriod } = own;
 
-  const [isPinned, setIsPinned] = useState<boolean>(storedPin.pinned);
+  /**
+   * A lock is only honoured while the partner is actually there. If the owner
+   * takes Income vs Expenses off the dashboard, a card locked to it would be
+   * reading a window nobody can see or change — so it falls back to the page,
+   * which is the same answer an untouched card gives.
+   */
+  const [storedSource, setStoredSource] = useState<CardPeriodSource>(storedPin.source);
+  const source: CardPeriodSource =
+    storedSource === 'partner' && partner === undefined ? 'page' : storedSource;
+  const isPinned = source === 'own';
 
   const pinTo = useCallback((key: PeriodKey): void => {
     // Both halves of "this card is pinned, and to `key`" are set before
@@ -155,10 +223,19 @@ export function useCardPeriod(
     // itself: when the write sat in the middle, a store that threw left the
     // card holding its own window with `isPinned` still false — which renders
     // as the page's window, the same silent failure from the other side.
-    setIsPinned(true);
+    setStoredSource('own');
     setOwnPeriod(key);
     storage.setItem(periodPinKey(storageKey), 'true');
   }, [setOwnPeriod, storage, storageKey]);
+
+  const lockToPartner = useCallback((): void => {
+    // No window of its own to write: a locked card reads the partner's, so the
+    // four period keys are cleared and only the flag is kept. Re-pinning later
+    // arrives with a fresh window rather than resurrecting a stale one.
+    setStoredSource('partner');
+    for (const key of periodKeysOf(storageKey)) storage.removeItem(key);
+    storage.setItem(periodPinKey(storageKey), LOCKED_FLAG);
+  }, [storage, storageKey]);
 
   /**
    * The page window this card last saw.
@@ -183,7 +260,7 @@ export function useCardPeriod(
   const onHeldShown = useCallback((): void => setJustHeld(false), []);
 
   const follow = useCallback((): void => {
-    setIsPinned(false);
+    setStoredSource('page');
     setJustHeld(false);
     // Every key this card owns, not just the flag: a released card left a
     // window behind in the document, and a document that grows a line per card
@@ -195,7 +272,19 @@ export function useCardPeriod(
   }, [storage, storageKey]);
 
   return {
-    picker: isPinned ? own : page,
-    pin: { isPinned, pinTo, follow, justHeld, onHeldShown },
+    // The partner's picker is passed through UNCHANGED, so a locked card and
+    // its partner are the same object — which means a lock cannot drift by one
+    // render, and a click-through from either carries the same window.
+    picker: source === 'own' ? own : source === 'partner' && partner ? partner.picker : page,
+    pin: {
+      isPinned,
+      source,
+      partnerLabel: partner?.label,
+      pinTo,
+      lockToPartner,
+      follow,
+      justHeld,
+      onHeldShown,
+    },
   };
 }

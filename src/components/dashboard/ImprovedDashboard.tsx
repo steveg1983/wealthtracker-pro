@@ -168,10 +168,35 @@ export function ImprovedDashboard() {
    * An unpinned card is handed `period` ITSELF, not a copy of it, so "follows
    * the page" needs nothing keeping it true. See hooks/useCardPeriod.
    */
-  const performanceCard = useCardPeriod(cardPeriodKey(DASHBOARD_PERIOD_KEY, 'performance'), period);
   const netWorthCard = useCardPeriod(cardPeriodKey(DASHBOARD_PERIOD_KEY, 'net-worth'), period);
   const trendCard = useCardPeriod(cardPeriodKey(DASHBOARD_PERIOD_KEY, 'income-expense-trend'), period);
   const categoriesCard = useCardPeriod(cardPeriodKey(DASHBOARD_PERIOD_KEY, 'expense-categories'), period);
+
+  /**
+   * Performance can be LOCKED to Income vs Expenses, and is the only card that
+   * can be locked to anything — because it is the only pair on this page that
+   * measures one thing twice. Performance is the total of income and expenses
+   * over a window; the trend chart is those two numbers month by month. A total
+   * covering a different period from the chart of that total is a contradiction
+   * rather than a preference.
+   *
+   * `trendCard.picker` rather than `trendCard`'s own window: the trend card may
+   * itself be following the page, so the lock passes through whatever it has
+   * resolved to. Set the chart to 12 months and the figures follow; put the
+   * chart back on Default and the figures follow it back to the page bar.
+   *
+   * Offered only while the chart is actually ON the dashboard. Locking to a
+   * card the owner has unpinned would tie these figures to a window nothing on
+   * screen can show or change, so the partner is withheld and the card falls
+   * back to the page — see useCardPeriod.
+   */
+  const trendIsOnDashboard = pinnedReports.includes('income-expense-trend');
+  const performanceCard = useCardPeriod(
+    cardPeriodKey(DASHBOARD_PERIOD_KEY, 'performance'),
+    period,
+    undefined,
+    trendIsOnDashboard ? { picker: trendCard.picker, label: 'Income vs Expenses' } : undefined
+  );
   const performancePeriod = performanceCard.picker;
 
   // The Account Distribution card lives here rather than in

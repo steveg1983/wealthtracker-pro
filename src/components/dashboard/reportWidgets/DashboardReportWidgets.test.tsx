@@ -166,17 +166,29 @@ describe('a point on a report card', () => {
  * click-through and its declaration all read the one `picker`, so they cannot
  * come to disagree about which window this card is on.
  */
-const following = (): CardPeriodPin => ({
+const following = (over: Partial<CardPeriodPin> = {}): CardPeriodPin => ({
   isPinned: false,
+  source: 'page',
   pinTo: vi.fn(),
+  lockToPartner: vi.fn(),
   follow: vi.fn(),
   justHeld: false,
   onHeldShown: vi.fn(),
+  ...over,
 });
 
 const pinned = (over: Partial<CardPeriodPin> = {}): CardPeriodPin => ({
   ...following(),
   isPinned: true,
+  source: 'own',
+  ...over,
+});
+
+/** A card taking its window from the card it is tied to. */
+const lockedTo = (partnerLabel: string, over: Partial<CardPeriodPin> = {}): CardPeriodPin => ({
+  ...following(),
+  source: 'partner',
+  partnerLabel,
   ...over,
 });
 
@@ -193,13 +205,56 @@ describe('a report card’s period pin', () => {
     })).toBeInTheDocument();
   });
 
-  it('declares the window it was pinned to, and offers the way back', () => {
-    render(<NetWorthWidget picker={pickerOn('all')} pin={pinned()} />);
+  it('declares the window it was pinned to, and offers the way back inside the menu', () => {
+    const follow = vi.fn();
+    render(<NetWorthWidget picker={pickerOn('all')} pin={pinned({ follow })} />);
 
     expect(screen.getByText('pinned · All time')).toBeInTheDocument();
-    expect(screen.getByRole('button', {
-      name: 'Net Worth Over Time: follow the page period',
-    })).toBeInTheDocument();
+    // The way back used to be a second button beside the marker, which only
+    // existed once you had already pinned — so the menu never listed the state
+    // most cards are in. It is now "Default", inside the menu, alongside every
+    // other answer to "what is this card reading over?".
+    expect(screen.queryByRole('button', { name: /follow the page period/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Net Worth Over Time: pinned to All time. Choose a different period for this card',
+    }));
+    fireEvent.click(within(screen.getByRole('menu', { name: 'Window for Net Worth Over Time' }))
+      .getByRole('menuitemradio', { name: 'Default' }));
+
+    expect(follow).toHaveBeenCalledTimes(1);
+  });
+
+  it('says where a locked card gets its window, and names the card it follows', () => {
+    // Performance is the total of the numbers Income vs Expenses charts, so the
+    // two can be tied. The declaration names the PARTNER rather than a window,
+    // because "12 months" would not say why this card moved when the other did.
+    const lockToPartner = vi.fn();
+    render(<NetWorthWidget picker={pickerOn('last-12-months')} pin={lockedTo('Income vs Expenses')} />);
+
+    expect(screen.getByText('locked · Income vs Expenses')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Net Worth Over Time: locked to Income vs Expenses. Choose a different period for this card',
+    }));
+    const menu = screen.getByRole('menu', { name: 'Window for Net Worth Over Time' });
+    expect(within(menu).getByRole('menuitemradio', { name: 'Locked to Income vs Expenses' }))
+      .toHaveAttribute('aria-checked', 'true');
+    expect(lockToPartner).not.toHaveBeenCalled();
+  });
+
+  it('offers no lock at all to a card with no partner on the dashboard', () => {
+    // Most cards measure one thing once and have nothing to be half of. The
+    // entry is absent rather than disabled: a control that can never apply is
+    // not a choice the user declined, it is chrome.
+    render(<NetWorthWidget picker={pickerOn('all')} pin={pinned()} />);
+
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Net Worth Over Time: pinned to All time. Choose a different period for this card',
+    }));
+
+    const menu = screen.getByRole('menu', { name: 'Window for Net Worth Over Time' });
+    expect(within(menu).queryByRole('menuitemradio', { name: /^Locked to/ })).toBeNull();
   });
 
   it('names the card in every window it offers, and marks the one in force', () => {
@@ -221,7 +276,11 @@ describe('a report card’s period pin', () => {
     // could hold any window except that one sent him back to the page bar,
     // moving every other card with it.
     expect(within(menu).getByRole('menuitemradio', { name: 'Custom' })).toBeInTheDocument();
-    expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(6);
+    // Seven: Default, then the six windows. Default is not a window — it is the
+    // absence of a choice — but it is an answer to the same question, so it
+    // belongs in the same list and carries the same tick.
+    expect(within(menu).getByRole('menuitemradio', { name: 'Default' })).toBeInTheDocument();
+    expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(7);
   });
 
   it('asks for the two dates when Custom is chosen, and keeps the menu open to take them', () => {
@@ -318,9 +377,12 @@ describe('a report card’s period pin', () => {
       .getByRole('menuitemradio', { name: 'All time' }));
     expect(pinTo).toHaveBeenCalledWith('all');
 
+    // Releasing is now the menu's first entry rather than a separate button.
     fireEvent.click(screen.getByRole('button', {
-      name: 'Income vs Expenses: follow the page period',
+      name: 'Income vs Expenses: pinned to This month. Choose a different period for this card',
     }));
+    fireEvent.click(within(screen.getByRole('menu', { name: 'Window for Income vs Expenses' }))
+      .getByRole('menuitemradio', { name: 'Default' }));
     expect(follow).toHaveBeenCalledTimes(1);
   });
 
