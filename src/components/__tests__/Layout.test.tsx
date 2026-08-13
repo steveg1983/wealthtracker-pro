@@ -312,9 +312,30 @@ describe('Layout — the Plan menu and split triggers', () => {
 
     renderWithProviders(<Layout />);
 
-    // By its heading: "Add Transaction" is also a word on the modal's own save
-    // button, and the query has to name the thing that proves it is open.
-    expect(await screen.findByRole('heading', { name: 'Add Transaction' })).toBeInTheDocument();
+    /*
+     * By its heading: "Add Transaction" is also a word on the modal's own save
+     * button, and the query has to name the thing that proves it is open.
+     *
+     * THE EXPLICIT TIMEOUT IS A MEASUREMENT, NOT A SHRUG. This assertion failed
+     * three times inside `npm run test:coverage` on 2026-08-13 and could not be
+     * reproduced afterwards in four attempts — three with instrumentation on
+     * this file plus its neighbour, one over the whole 396-file suite.
+     *
+     * What it costs unloaded is 190ms against testing-library's 1000ms default,
+     * so the budget is roughly 5x. That is thin rather than generous: this
+     * renders the WHOLE frame — nav, search, the modal — and every failure
+     * happened during a pre-push run while a Vite dev server and a browser were
+     * competing for the same cores. A 5x slowdown under that is ordinary.
+     *
+     * So the timeout is raised rather than the test rewritten, because there is
+     * no race to fix: the assertion is inherently eventual (render → effect →
+     * modal) and deterministic. 5s keeps it failing fast if the behaviour ever
+     * genuinely breaks, while removing a coin toss that costs a four-minute
+     * gate re-run when it lands.
+     */
+    expect(
+      await screen.findByRole('heading', { name: 'Add Transaction' }, { timeout: 5000 })
+    ).toBeInTheDocument();
     // And the parameter is spent, so back or refresh cannot re-open it.
     await waitFor(() => {
       expect(new URLSearchParams(window.location.search).get('action')).toBeNull();
