@@ -488,7 +488,7 @@ export function ImprovedDashboard() {
           )}
           <CardPeriodControl
             cardLabel="Performance"
-            period={performancePeriod.period}
+            picker={performancePeriod}
             pin={performanceCard.pin}
           />
         </div>

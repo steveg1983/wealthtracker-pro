@@ -99,7 +99,7 @@ export function NetWorthWidget({ picker, pin }: {
           <span className="min-w-0 text-xl font-bold text-gray-900 dark:text-white truncate">
             {latest ? formatCurrency(latest.netWorth) : '—'}
           </span>
-          {pin && <CardPeriodControl cardLabel={NET_WORTH_TITLE} period={picker.period} pin={pin} />}
+          {pin && <CardPeriodControl cardLabel={NET_WORTH_TITLE} picker={picker} pin={pin} />}
         </>
       }
       onOpen={() => open()}
@@ -168,7 +168,7 @@ export function IncomeExpenseTrendWidget({ picker, pin }: {
           <span className="min-w-0 text-xs text-gray-500 dark:text-gray-400 truncate">
             Month by month, what came in against what went out
           </span>
-          {pin && <CardPeriodControl cardLabel={INCOME_EXPENSE_TITLE} period={picker.period} pin={pin} />}
+          {pin && <CardPeriodControl cardLabel={INCOME_EXPENSE_TITLE} picker={picker} pin={pin} />}
         </>
       }
       onOpen={() => open()}
@@ -240,7 +240,7 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
           <span className="min-w-0 text-xs text-gray-500 dark:text-gray-400 truncate">
             Where the money went, biggest first
           </span>
-          {pin && <CardPeriodControl cardLabel={EXPENSE_CATEGORIES_TITLE} period={picker.period} pin={pin} />}
+          {pin && <CardPeriodControl cardLabel={EXPENSE_CATEGORIES_TITLE} picker={picker} pin={pin} />}
         </>
       }
       onOpen={() => open()}
