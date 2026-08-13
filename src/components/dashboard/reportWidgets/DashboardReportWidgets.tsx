@@ -232,9 +232,20 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
       if (range.to && time > range.to.getTime()) return false;
       return true;
     });
-    return computeExpenseCategoryNetTotals(rows, categories)
-      .slice(0, 6)
-      .map(({ key, name, value }) => ({ categoryId: key, name, value }));
+    const top = computeExpenseCategoryNetTotals(rows, categories).slice(0, 6);
+    /*
+     * The share is of THE SLICES SHOWN, not of all spending — the ring is the
+     * top six and the percentages have to add up to the ring the reader is
+     * looking at. A share of the whole would leave the visible slices summing
+     * to some number under 100 with nothing on screen to explain the rest.
+     */
+    const shown = top.reduce((sum, row) => sum + row.value, 0);
+    return top.map(({ key, name, value }) => ({
+      categoryId: key,
+      name,
+      value,
+      share: shown > 0 ? (value / shown) * 100 : 0,
+    }));
   }, [transactions, transactionSplits, categories, range]);
 
   const open = (focus?: string): void =>
@@ -304,17 +315,38 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
           {/* The legend does the same as the slice beside it, and is the only
               one of the two a keyboard can reach: an SVG sector is not a
               control. Same idiom as the Account Distribution card's legend. */}
+          {/* NAME, FIGURE, SHARE — the same three the Account Distribution card
+              beside it gives, and for the same reason: a ring says which slice
+              is biggest and refuses to say by how much. The owner asked for
+              them here after using that card. Each row still opens the full
+              report on its category, as it always did. */}
+          {/* EVERY slice the ring draws, not five of its six. With the shares
+              computed over the shown slices, a legend one row short made them
+              sum to 84.6% — a number nothing on screen accounted for. Six rows
+              fit the card's height, so the list and the ring say the same
+              thing and the percentages close at 100. */}
           <ul className="flex-1 min-w-0 space-y-1">
-            {data.slice(0, 5).map((d, i) => (
+            {data.map((d, i) => (
               <li key={d.categoryId}>
                 <button
                   type="button"
                   onClick={() => open(d.categoryId)}
                   title={`${d.name} — open the full report on this category`}
-                  className="w-full flex items-center gap-1.5 rounded px-1 py-0.5 text-left text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                  className="w-full flex items-center gap-2 rounded px-1 py-0.5 text-left text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                 >
                   <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: categoricalColor(ramp, i) }} aria-hidden="true" />
-                  <span className="truncate">{d.name}</span>
+                  <span className="flex-1 min-w-0 truncate">{d.name}</span>
+                  {/* The figure takes what it needs and the name yields — a
+                      truncated CATEGORY is still readable, a truncated amount
+                      is a wrong number. */}
+                  <span className="shrink-0 tabular-nums font-medium text-gray-900 dark:text-white">
+                    {formatCurrency(d.value)}
+                  </span>
+                  {/* The share is context rather than the answer, so it recedes
+                      — same weight and width as the distribution card's. */}
+                  <span className="w-10 shrink-0 text-right tabular-nums text-gray-400 dark:text-gray-500">
+                    {formatDecimal(d.share, 1)}%
+                  </span>
                 </button>
               </li>
             ))}
