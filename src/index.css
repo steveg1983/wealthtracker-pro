@@ -532,6 +532,35 @@ button.rounded-full:focus-visible,
   .safe-padding-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  /*
+   * ROOM AT THE BOTTOM OF EVERY PAGE FOR THE CHROME THAT FLOATS OVER IT.
+   *
+   * Below `md` two things are pinned to the bottom of the window: the nav bar
+   * (5rem, plus the home indicator) and the quick-add button floating above it
+   * (3.5rem tall, sitting at `calc(5rem + env(safe-area-inset-bottom))`). So
+   * the bottom 8.5rem of the viewport is spoken for — and the page reserved
+   * `pb-20`, which is 5rem: exactly enough to clear the NAV and nothing at all
+   * for the button.
+   *
+   * The result was a round navy button sitting on top of real content that had
+   * scrolled as far as it could: photographed on a phone covering the end of
+   * the "Bank Connections" button and, further down, the whole "Closed
+   * Accounts — history preserved" row. Not a bug on the Accounts page: that
+   * chrome floats over every page, so the reservation belongs where every page
+   * scrolls, and one number here is what keeps the two in step.
+   *
+   * 9.5rem = 5 (nav) + 3.5 (button) + 1 (air, so content stops short of it
+   * rather than exactly beneath it), and the inset on top, because the nav
+   * honours it too and the whole stack shifts up on a phone with a home
+   * indicator. Above `md` the media query does not apply and the page's own
+   * `md:pb-8` takes over — neither the nav nor the button exists there.
+   */
+  @media (max-width: 767px) {
+    .page-bottom-gutter {
+      padding-bottom: calc(9.5rem + env(safe-area-inset-bottom));
+    }
+  }
   
   /* Improved scrolling on mobile */
   .smooth-scroll {
