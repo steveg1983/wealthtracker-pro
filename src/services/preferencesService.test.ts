@@ -200,6 +200,73 @@ describe('loading an existing row', () => {
 
     expect(service.getItem('accountsSortMode')).toBe('name');
   });
+
+  /**
+   * A BOOT THAT COULD NOT READ THE ROW MUST NEVER WRITE ONE.
+   *
+   * The read above fails and the session carries on, which is right: the mirror
+   * holds everything this machine had. What was wrong is what happened NEXT.
+   * `attach` returned from its catch without marking the load done and without
+   * forgetting the user, so `userId` was set and the in-memory document was
+   * still empty — and `scheduleWrite` only ever asked whether there was a user.
+   *
+   * So the first preference anything touched afterwards uploaded the whole
+   * in-memory document, which was that one key and nothing else, over a row
+   * holding the user's every stored choice. `PreferencesContext` writes its
+   * seven app-wide values 300ms after mount on EVERY boot, so "anything
+   * touched a preference" is not a rare event — it is every session.
+   *
+   * The keys that survive such a write are the ones some mount effect rewrites
+   * each boot; the ones that only ever get written when the user deliberately
+   * does something — a dashboard card pinned to its own window — are gone, and
+   * nothing brings them back. That is data loss with no error in front of it,
+   * which is why the assertion is on the WRITES and not on what `getItem` says.
+   */
+  it('never writes after a read it could not complete, so it cannot replace the row', async () => {
+    const browser = mirror({ accountsSortMode: 'name' });
+    const writes: PreferencesDocument[] = [];
+    const failing: PreferencesTransport = {
+      read: () => Promise.reject(new Error('offline')),
+      write: (_userId, document) => { writes.push(document); return Promise.resolve(); },
+    };
+    const service = new PreferencesService({ mirror: browser, transport: failing, ...immediate });
+
+    await service.attach('user-1');
+    // The card pin the owner just made, and the theme write every boot makes.
+    service.setItem('dashboardReports.pin.net-worthPinned', 'true');
+    service.setItem('money_management_theme', 'dark');
+    await service.flush();
+
+    expect(writes).toEqual([]);
+    // …and the session is unharmed: both still read back, from the mirror.
+    expect(service.getItem('dashboardReports.pin.net-worthPinned')).toBe('true');
+    expect(service.getItem('accountsSortMode')).toBe('name');
+  });
+
+  /** …and once a read DOES complete, the same session writes normally again. */
+  it('writes again after a later attach succeeds', async () => {
+    let failNext = true;
+    const store = transport({ version: 1, values: { accountsSortMode: 'name' } });
+    const flaky: PreferencesTransport = {
+      read: (userId) => (failNext
+        ? Promise.reject(new Error('offline'))
+        : store.read(userId)),
+      write: (userId, document) => store.write(userId, document),
+    };
+    const service = new PreferencesService({ mirror: mirror(), transport: flaky, ...immediate });
+
+    await service.attach('user-1');
+    failNext = false;
+    service.detach();
+    await service.attach('user-1');
+
+    service.setItem('dashboardReports.pin.net-worthPinned', 'true');
+    await service.flush();
+
+    expect(store.row?.values['dashboardReports.pin.net-worthPinned']).toBe('true');
+    // The row it could finally read is still underneath it.
+    expect(store.row?.values.accountsSortMode).toBe('name');
+  });
 });
 
 describe('write-through', () => {

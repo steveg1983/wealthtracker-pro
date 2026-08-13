@@ -334,6 +334,17 @@ export class PreferencesService implements PreferenceStorage {
   /** Resolves when nothing is queued — the whole reason tests need not sleep. */
   private inFlight: Promise<void> = Promise.resolve();
   private loaded = false;
+  /**
+   * True when this session asked the store for the row and did not get an
+   * answer — as against `loaded`, which says an answer ARRIVED.
+   *
+   * The two are not opposites and the difference is the whole point. An
+   * unloaded session that never asked has nothing to lose by writing; one whose
+   * read FAILED is holding an empty document that means *"I don't know"*, and a
+   * write would publish that ignorance over a row it never saw. See
+   * {@link PreferencesService.scheduleWrite}.
+   */
+  private readFailed = false;
 
   constructor(options: PreferencesServiceOptions = {}) {
     this.injectedMirror = options.mirror;
@@ -537,6 +548,7 @@ export class PreferencesService implements PreferenceStorage {
   async attach(userId: string): Promise<void> {
     if (this.userId === userId && this.loaded) return;
     this.userId = userId;
+    this.readFailed = false;
 
     const transport = this.resolveTransport();
     if (!transport) {
@@ -553,7 +565,21 @@ export class PreferencesService implements PreferenceStorage {
       // so does an offline boot. Both are survivable: the browser mirror holds
       // exactly what this machine held before, which is where every one of
       // these settings lived until today.
-      preferencesLogger.warn('Could not read stored preferences; using this browser\'s copy', error);
+      //
+      // What this session may NOT do is write. It is holding an empty document
+      // and a set user id, and `write` uploads the document WHOLE — so the
+      // first preference anything touched afterwards replaced the user's entire
+      // stored row with the one or two keys this session happened to set. That
+      // is silent data loss, and it falls hardest on preferences written only
+      // when the user deliberately does something (a dashboard card pinned to
+      // its own window): everything a mount effect rewrites each boot comes
+      // back, and those do not. This session stays local; the next boot retries
+      // the read and writes normally once it has an answer.
+      this.readFailed = true;
+      preferencesLogger.warn(
+        'Could not read your stored preferences, so changes made now will stay on this device until the next reload',
+        error
+      );
       return;
     }
 
@@ -597,6 +623,7 @@ export class PreferencesService implements PreferenceStorage {
     this.cancelPendingWrite();
     this.userId = null;
     this.loaded = false;
+    this.readFailed = false;
     this.document = { version: PREFERENCES_DOCUMENT_VERSION, values: {} };
     this.notify();
   }
@@ -611,7 +638,11 @@ export class PreferencesService implements PreferenceStorage {
   }
 
   private scheduleWrite(): void {
-    if (this.userId === null) return;
+    // No user, or a user whose row this session could not read. The second is
+    // the dangerous one: the document is empty because the read failed, not
+    // because the settings are, and `write` would publish it over the row. See
+    // `readFailed`.
+    if (this.userId === null || this.readFailed) return;
     this.cancelPendingWrite();
     this.pendingWrite = this.setTimeoutFn(() => {
       this.pendingWrite = undefined;
