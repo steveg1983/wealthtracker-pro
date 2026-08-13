@@ -5,6 +5,7 @@ import { amountWithCurrencyCode } from '../utils/crossCurrencyLabel';
 import { ArrowRightLeftIcon } from './icons';
 import type { Transaction } from '../types';
 import type { TransferCandidate } from '../utils/transferMatch';
+import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 
 /**
  * The Money-style transfer confirmation. Shown when a transaction is filed
@@ -40,6 +41,10 @@ export default function TransferMatchDialog({
   onCreate,
   onCancel,
 }: TransferMatchDialogProps): React.JSX.Element | null {
+  // Press AND release must both be on the backdrop — see useBackdropDismiss.
+  const backdropDismiss = useBackdropDismiss(onCancel);
+
+
   const { formatCurrency } = useCurrencyDecimal();
   // Seeded at mount, not just in the effect: the effect alone left a frame
   // where the dialog was visible with "Link as transfer" still disabled — a
@@ -82,7 +87,7 @@ export default function TransferMatchDialog({
   return createPortal(
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+      {...backdropDismiss}
     >
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 w-full max-w-lg mx-4 shadow-xl">
         <div className="flex items-center gap-3 mb-3">

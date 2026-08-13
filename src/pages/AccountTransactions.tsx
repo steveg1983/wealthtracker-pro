@@ -11,6 +11,7 @@ import { isReconciled } from '../utils/transactionReconciliation';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon, FilterIcon, ChevronUpIcon, ChevronDownIcon, MaximizeIcon, MinimizeIcon, EyeIcon, KeyboardIcon, AlertCircleIcon } from '../components/icons';
+import StatPill from '../components/common/StatPill';
 import DatePicker from '../components/common/DatePicker';
 import MoneyInput from '../components/common/MoneyInput';
 import EditTransactionModal from '../components/EditTransactionModal';
@@ -3032,53 +3033,51 @@ export default function AccountTransactions() {
             figure right — they used to wrap into ragged rows of unequal
             pills. From lg they sit inline beside the title as before. */}
         <div className="grid grid-cols-1 gap-2 w-full lg:w-auto lg:flex lg:flex-wrap lg:items-center">
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3 justify-between lg:justify-normal">
-            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Account Balance</span>
-            <span className={`text-sm font-bold whitespace-nowrap ${
-              computedAccountBalance >= 0
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-red-600 dark:text-red-400'
-            }`}>
-              {formatRegisterMoney(computedAccountBalance)}
-            </span>
+          {/* Four pills, four <StatPill>s — the register keeps its own
+              ARRANGEMENT (a header strip, label beside figure) and shares only
+              the pair. The design ruling was explicit that this header must not
+              become the net-worth summary card: `bank − ledger = difference` in
+              one account's own currency is a different statement from
+              `assets − liabilities = net worth` across all of them.
+
+              Two of these four can be UNKNOWN rather than zero — an account
+              with no bank feed has no bank balance — which used to print "N/A"
+              and now prints an em-dash, uncoloured. */}
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5">
+            <StatPill
+              label="Account Balance"
+              value={formatRegisterMoney(computedAccountBalance)}
+              tone={computedAccountBalance >= 0 ? 'positive' : 'negative'}
+              layout="inline"
+            />
           </div>
 
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3 justify-between lg:justify-normal">
-            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Bank Balance</span>
-            <span className={`text-sm font-bold whitespace-nowrap ${
-              bankBalance != null
-                ? bankBalance >= 0
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-red-600 dark:text-red-400'
-                : 'text-gray-400 dark:text-gray-500'
-            }`}>
-              {bankBalance != null ? formatRegisterMoney(bankBalance) : 'N/A'}
-            </span>
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5">
+            <StatPill
+              label="Bank Balance"
+              value={bankBalance != null ? formatRegisterMoney(bankBalance) : null}
+              tone={bankBalance != null && bankBalance < 0 ? 'negative' : 'positive'}
+              layout="inline"
+            />
           </div>
 
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3 justify-between lg:justify-normal">
-            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Unreconciled</span>
-            <span className="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap">
-              {formatRegisterMoney(unreconciledTotal)}
-            </span>
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5">
+            <StatPill
+              label="Unreconciled"
+              value={formatRegisterMoney(unreconciledTotal)}
+              layout="inline"
+            />
           </div>
 
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3 justify-between lg:justify-normal">
-            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Difference</span>
-            {bankBalance != null ? (() => {
-              const difference = bankBalance - computedAccountBalance;
-              return (
-                <span className={`text-sm font-bold whitespace-nowrap ${
-                  difference === 0
-                    ? 'text-blue-600 dark:text-blue-400'
-                    : 'text-red-600 dark:text-red-400'
-                }`}>
-                  {formatRegisterMoney(difference)}
-                </span>
-              );
-            })() : (
-              <span className="text-sm font-bold text-gray-400 dark:text-gray-500 whitespace-nowrap">N/A</span>
-            )}
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5">
+            <StatPill
+              label="Difference"
+              value={bankBalance != null ? formatRegisterMoney(bankBalance - computedAccountBalance) : null}
+              // Agreed is the good outcome here, and it is not "positive money"
+              // — it is settled. Anything else is a gap to explain.
+              tone={bankBalance != null && bankBalance - computedAccountBalance === 0 ? 'settled' : 'negative'}
+              layout="inline"
+            />
           </div>
         </div>
       </div>

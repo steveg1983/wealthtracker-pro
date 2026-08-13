@@ -9,6 +9,7 @@ import EditTransactionModal from './EditTransactionModal';
 import DatePicker from './common/DatePicker';
 import { expandSplitTransactions, type SplitExpandedTransaction } from '../utils/transactionSplits';
 import type { Transaction } from '../types';
+import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 
 interface CategoryTransactionsModalProps {
   isOpen: boolean;
@@ -25,6 +26,10 @@ export default function CategoryTransactionsModal({
   categoryId,
   categoryName 
 }: CategoryTransactionsModalProps) {
+  // Press AND release must both be on the backdrop — see useBackdropDismiss.
+  const backdropDismiss = useBackdropDismiss(onClose);
+
+
   const { transactions, transactionSplits, accounts } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   
@@ -176,7 +181,7 @@ export default function CategoryTransactionsModal({
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50"
-          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+          {...backdropDismiss}>
       <div className="bg-white dark:bg-gray-800 rounded-t-lg sm:rounded-lg shadow-xl w-full sm:max-w-4xl max-h-[90vh] sm:max-h-[85vh] flex flex-col">
         {/* Header */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700">

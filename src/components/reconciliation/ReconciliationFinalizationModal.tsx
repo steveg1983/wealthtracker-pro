@@ -6,6 +6,7 @@ import DatePicker from '../common/DatePicker';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { parseMoneyInput, toDecimal } from '../../utils/decimal';
 import { deriveAdjustment } from '../../utils/reconciliation';
+import { useBackdropDismiss } from '../../hooks/useBackdropDismiss';
 
 interface ReconciliationFinalizationModalProps {
   isOpen: boolean;
@@ -57,6 +58,10 @@ export default function ReconciliationFinalizationModal({
   onFinalize,
   onCreateAdjustment,
 }: ReconciliationFinalizationModalProps): React.JSX.Element | null {
+  // Press AND release must both be on the backdrop — see useBackdropDismiss.
+  const backdropDismiss = useBackdropDismiss(onClose);
+
+
   const { formatCurrency } = useCurrencyDecimal();
 
   const difference = toDecimal(confirmedBalance).minus(toDecimal(clearedBalance)).toNumber();
@@ -119,7 +124,7 @@ export default function ReconciliationFinalizationModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+          {...backdropDismiss}>
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">

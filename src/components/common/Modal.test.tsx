@@ -160,7 +160,15 @@ describe('Modal', () => {
       // Outside-clicks land on the full-screen CONTAINER (it sits above the
       // decorative backdrop); the modal closes only when the click target is
       // the container itself, never something inside the panel.
+      //
+      // The pointerDown is not ceremony: a dismissal now requires the press AND
+      // the release to be on the container, because a click is attributed to
+      // the common ancestor of where the button went down and came up — so a
+      // selection that started inside the panel and ended outside it was
+      // closing the dialog and losing the edit. Modal.dismiss.test.tsx covers
+      // that gesture; this one still asserts the ordinary case works.
       const container = document.querySelector('[role="dialog"]')!.parentElement!;
+      fireEvent.pointerDown(container);
       fireEvent.click(container);
 
       expect(mockOnClose).toHaveBeenCalledTimes(1);

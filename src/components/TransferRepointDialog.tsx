@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { ArrowRightLeftIcon } from './icons';
 import type { Transaction, TransferDisplacedDisposition } from '../types';
+import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 
 /**
  * "This transfer's other side may be a real transaction. What should happen to
@@ -50,6 +51,10 @@ export default function TransferRepointDialog({
   onChoose,
   onCancel,
 }: TransferRepointDialogProps): React.JSX.Element {
+  // Press AND release must both be on the backdrop — see useBackdropDismiss.
+  const backdropDismiss = useBackdropDismiss(onCancel);
+
+
   const { formatCurrency } = useCurrencyDecimal();
   const firstButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -76,7 +81,7 @@ export default function TransferRepointDialog({
           onCancel();
         }
       }}
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+      {...backdropDismiss}
     >
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 w-full max-w-lg mx-4 shadow-xl">
         <div className="flex items-center gap-3 mb-3">
