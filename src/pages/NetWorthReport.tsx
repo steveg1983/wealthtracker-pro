@@ -26,6 +26,7 @@ import { TrendingUpIcon, ChevronRightIcon } from '../components/icons';
 import { DECOMPOSITION_SERIES } from '../components/charts/chartColors';
 import type { ReportViewProps } from './reports/types';
 import { preferences } from '../services/preferencesService';
+import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
 
 /**
  * Net worth over time — the Microsoft Money report, rebuilt on real data.
@@ -96,7 +97,21 @@ const compactTick = (value: number): string => {
 };
 
 export default function NetWorthReport({ picker, focus }: ReportViewProps): React.JSX.Element {
-  const { accounts, transactions } = useApp();
+  const { accounts: openAccounts, transactions } = useApp();
+  /**
+   * OPEN AND CLOSED, because this page walks history.
+   *
+   * The app context holds open accounts only (`getAccounts` filters on
+   * `is_active`), so every point on this chart used to omit whatever the
+   * owner's 110 closed accounts held at the time — understating the past, and
+   * understating it more the further back you look. See useHistoricalAccounts.
+   *
+   * Everything on this page reads from it: the series, the effective opening
+   * dates, the per-date drill and the caveat note. They must agree, and the
+   * headline above the chart is the LAST POINT of the series rather than a
+   * separately-computed figure, so it moves with them.
+   */
+  const accounts = useHistoricalAccounts(openAccounts);
   const { formatCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const location = useLocation();
