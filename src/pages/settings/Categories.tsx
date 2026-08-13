@@ -951,15 +951,23 @@ export default function CategoriesSettings() {
       }
     >
 
-      {/* Desktop: the page chrome (title/toolbar above, instructions + import
-          below) stays in view and the category tree scrolls internally, so
-          the edit/delete/add buttons are always reachable. Mobile keeps the
-          normal page scroll. */}
-      <div className="lg:flex lg:flex-col lg:h-[calc(100vh-13rem)]">
+      {/* ONE SCROLLER — the same repair as the Accounts page, for the same
+          reason and on the same day.
+
+          This carried the identical `lg:h-[calc(100vh-13rem)]`: a hand-counted
+          208px standing in for the height of the chrome above it. The number
+          was measured wrong on Accounts (168px in fact) and there is no reason
+          to believe a second copy of a guess is any better — the two pages do
+          not even have the same chrome, so one constant cannot describe both.
+          Its failure is invisible until someone edits a toolbar, and then it is
+          a page that scrolls past its own content into dead space.
+
+          The tree scrolls with the page now, as it always has on a phone. */}
+      <div>
 
       {/* Instructions */}
       {(isEditMode || isDeleteMode) ? (
-        <div className={`lg:shrink-0 border rounded-2xl p-4 mb-6 ${
+        <div className={`border rounded-2xl p-4 mb-6 ${
           isDeleteMode
             ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
             : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
@@ -993,7 +1001,7 @@ export default function CategoriesSettings() {
           </div>
         </div>
       ) : (
-        <div className="lg:shrink-0 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 mb-6">
+        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 mb-6">
           <div className="text-sm text-gray-600 dark:text-gray-400">
             <p className="mb-2">💡 <strong>Tip:</strong></p>
             <ul className="list-disc list-inside space-y-1 ml-2">
@@ -1008,7 +1016,7 @@ export default function CategoriesSettings() {
 
       {/* Starter set import */}
       {!isEditMode && !isDeleteMode && (
-        <div className="lg:shrink-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
               Standard category set
@@ -1038,8 +1046,8 @@ export default function CategoriesSettings() {
         onFixTransferFilings={fixTransferFilings}
       />
 
-      {/* Categories Tree — the scrolling region on desktop */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+      {/* Categories Tree */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <DndContext 
           sensors={sensors}
           collisionDetection={closestCenter}
