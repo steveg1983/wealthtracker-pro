@@ -949,44 +949,55 @@ export default function Accounts() {
     };
   };
 
-  /** The look of a row that is selected, or the one it has when it is not. */
+  /**
+   * The look of a row that is selected, or the one it has when it is not.
+   *
+   * ─ NEITHER SKIN DECLARES A FOCUS RING ──────────────────────────────────────
+   * Both used to carry `focus:outline-none focus-visible:ring-2
+   * focus-visible:ring-blue-500`, and that was a duplicate: every focusable
+   * element in the app already gets `outline: 2px solid var(--focus-ring-color)`
+   * from accessibility-colors.css, with `!important`, so the `outline-none`
+   * never took and the row drew ITS ring INSIDE that outline. Arrowing down a
+   * selected row therefore showed three strokes' worth of intent in two
+   * colours — the owner reported it as "a blue and a black double border" —
+   * while clicking the same row looked clean, because a click does not match
+   * :focus-visible. One focus indicator, app-wide, is the rule; a row does not
+   * get a private one.
+   */
   const rowSkin = (accountId: string, unselected: string): string =>
     selectedAccountId === accountId ? ACCOUNT_ROW_SELECTED_CLASS : unselected;
 
   /**
-   * A row's ROUTINE actions, out of the way until they are wanted.
+   * A row's routine actions — VISIBLE AT REST, on every row.
    *
-   * Twelve outlined icon boxes on a four-account screen is a wall of chrome in
-   * front of the figures the page exists to show, and the destructive one was
-   * drawn as loudly as the routine ones (DESIGN_PASS_2026-08 §3.3). They are
-   * revealed on hover or when anything in the row takes the focus.
+   * ─ WHY THIS DEPARTS FROM THE DESIGN PASS, DELIBERATELY ─────────────────────
+   * DESIGN_PASS_2026-08 §3.3 asked for two things about these buttons, and they
+   * are separable. The objection was "twelve outlined boxes on a four-account
+   * screen, and the destructive one is as loud as the routine ones" — a wall of
+   * chrome in front of the figures the page exists to show. The remedy had two
+   * halves: take the BOXES off, and reveal what is left on hover.
    *
-   * ─ WHY NOT display:none ────────────────────────────────────────────────────
-   * A hidden button is not reachable by Tab. These stay in the DOM and in the
-   * tab order at all times, at zero opacity; tabbing to one puts the focus
-   * inside the row, which is what `group-focus-within/row` is reading, so it
-   * fades in as it is reached. Nothing is removed from anybody — it is only
-   * quiet until it is asked for.
+   * The boxes are gone and stay gone: borderless glyphs in a neutral grey, the
+   * delete no louder than the rest until it is hovered. That is where nearly
+   * all of the noise was, and it is the half the owner liked on sight.
    *
-   * ─ WHY THE MEDIA QUERY ─────────────────────────────────────────────────────
-   * A touch screen has no hover. Gated on `hover: hover`, so where hovering is
-   * impossible the buttons never fade at all and a phone shows the row exactly
-   * as it always did. (Tailwind's own `hover:` is a plain `:hover` here —
-   * `hoverOnlyWhenSupported` is not enabled — so the query is written out.)
+   * The hover reveal is the half that came back off (owner's call, 2026-08-13,
+   * after living with it). A control nobody can see is a control most people
+   * never learn they have: hovering to discover what a row can do is a cost
+   * paid on every row by everyone who does not already know, and the
+   * touch-screen case had to be special-cased out of it precisely because the
+   * interaction does not exist there. Quiet and always present beats loud, but
+   * it also beats invisible — and P1's complaint was that the chrome was
+   * SHOUTING, not that it existed. Told to the design author as a notice, in
+   * the same spirit as the period-pin amendment.
    *
-   * ─ WHY ONE RULE AND NOT TWO ────────────────────────────────────────────────
-   * The obvious spelling is "hide, then reveal on hover/focus": an `opacity-0`
-   * plus `group-hover/row:opacity-100`. It was measured in the browser and it
-   * does NOT work here — the reveal is the more specific selector of the two
-   * and still loses to the hider, so a keyboard user tabbed to a control that
-   * stayed invisible. Rather than escalate a cascade fight nobody can read
-   * later, the hidden state is expressed as the only declaration: opacity is
-   * left alone (1) and zeroed ONLY while the row is neither hovered nor holding
-   * the focus. One rule, nothing to outrank, and the keyboard case falls out of
-   * it for free.
+   * If this ever goes back the other way, the thing to keep is what the old
+   * implementation got right: never `display: none`. A hidden button is not
+   * reachable by Tab, so these were kept in the DOM and in the tab order at
+   * zero opacity, and the touch case was gated on `hover: hover` because a
+   * phone can never satisfy the reveal.
    */
-  const ROW_ACTION_REVEAL_CLASS =
-    'transition-opacity duration-state [@media(hover:hover)]:group-[:not(:hover):not(:focus-within)]/row:opacity-0';
+  const ROW_ACTION_REVEAL_CLASS = 'transition-opacity duration-state';
 
   /**
    * "Agree this account with the bank" — the same control for every row.
@@ -1054,7 +1065,7 @@ export default function Accounts() {
                     // row drew the divider AND Tailwind's default #e5e7eb on the
                     // other three sides underneath the ring: the two-tone border
                     // this comment exists to keep from coming back.
-                    className={`group/row p-3 sm:p-4 rounded-2xl border transition-all duration-300 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${rowSkin(
+                    className={`group/row p-3 sm:p-4 rounded-2xl border transition-all duration-300 cursor-pointer select-none ${rowSkin(
                       account.id,
                       // `dark:last:` as well as `last:`, and it is not
                       // belt-and-braces. Both `dark:border-b-gray-700` and
