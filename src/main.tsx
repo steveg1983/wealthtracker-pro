@@ -204,33 +204,29 @@ const clerkAppearance: Appearance = {
     // Social / secondary buttons stay neutral (near-black label, never blue).
     socialButtonsBlockButton: { color: '#111827' },
     /*
-     * THE AVATAR, which is the most-seen element in the product and was the
-     * only gradient in it.
+     * THE AVATAR — no rule, deliberately, after two attempts that made it worse.
      *
-     * The design review flagged a purple→blue gradient "top-right of every page
-     * in the app" and reasonably assumed it was ours. It is not — it is Clerk's
-     * GENERATED default avatar, which is why searching our source for
-     * `from-purple-500 to-blue-600` finds nothing. The conclusion that we could
-     * therefore not change it was also wrong: this appearance object reaches
-     * every Clerk surface and simply had no rule for the avatar.
+     * The design review's "single most-seen element in the product and the only
+     * gradient in it" is Clerk's GENERATED default avatar, not ours. Two things
+     * were learned the hard way and are recorded so a third attempt starts from
+     * them:
      *
-     * ── AND THE FIRST ATTEMPT WAS RIGHT AND STILL INVISIBLE ──────────────────
+     * 1. A background here is invisible. Measured in the owner's console: this
+     *    object DID apply `background-color: rgb(26, 35, 50)` and
+     *    `background-image: none` to `span.cl-avatarBox` — and the gradient
+     *    stayed, because Clerk renders an `<img>` from img.clerk.com inside the
+     *    span. A background sits behind a picture.
      *
-     * These three lines applied — measured in the owner's own console:
-     * `background-color: rgb(26, 35, 50)` and `background-image: none` on
-     * `span.cl-avatarBox`. The gradient survived anyway, because Clerk does not
-     * paint it as a background at all: it renders an `<img>` from img.clerk.com
-     * INSIDE the span, and a background sits behind a picture.
+     * 2. Hiding that image leaves an EMPTY disc. Clerk's span holds the image
+     *    and nothing else; the generated picture IS how it draws the initial,
+     *    so there is no text underneath to fall back to. Worse, slate is the
+     *    nav bar's own colour, so the disc vanished entirely — "you cant see
+     *    notifications now or the user avatar icon".
      *
-     * That is what `src/index.css`'s `.cl-avatarBox img[srcset*=…]` rule is
-     * for, and why it is written as narrowly as it is. Keep this box: it is
-     * what shows once the image is gone.
+     * The answer is our own avatar — an initial rendered by us on #f1f3f7,
+     * which is the review's second option and the only one that does not depend
+     * on what Clerk puts inside its box. A component, not an appearance key.
      */
-    avatarBox: {
-      backgroundImage: 'none',
-      backgroundColor: '#1a2332',
-      color: '#ffffff'
-    }
   }
 };
 
