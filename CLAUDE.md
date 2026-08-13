@@ -2,7 +2,7 @@
 
 **Owner**: Frontend/Platform (ChatGPT)  
 **Branch**: `claude-lint-cleanup`  
-**Updated**: 2025‑11‑02
+**Updated**: 2026‑08‑13
 
 ---
 
@@ -19,7 +19,7 @@
 | Supabase smoke | `npm run test:supabase-smoke` | ✅ | Logs saved to `logs/supabase-smoke/` |
 | Build parity | `npm run build` | ✅ | Mirrors Vercel’s `vite build` via `scripts/build-web.mjs` |
 | Desktop bundle | `npm run desktop:verify` | ✅ | Builds `src/desktop` → `apps/desktop/dist`, then PHASE3-PLAN §5’s two bundle greps, then the size ratchet. REFUSES rather than skips when there is no build |
-| Desktop size | `npm run bundle:check:desktop` | ✅ | 259.3 KiB raw / 86.7 KiB gz over 3 files; budgets 285 / 96 KiB. **Raw** is the gate — nothing is downloaded, the bytes are embedded in the binary. Binary size recorded, never gated |
+| Desktop size | `npm run bundle:check:desktop` | ✅ | ~4,090 KiB raw / ~1,244 KiB gz; budgets 4320 / 1335 KiB. **Raw** is the gate — nothing is downloaded, the bytes are embedded in the binary. Binary size recorded, never gated. (The 259 KiB figure this row used to quote was the chooser window, before the app's screens were mounted; the baseline was re-recorded 2026‑08‑12 and the header of `scripts/desktop-bundle-size.mjs` narrates every step since.) |
 | Desktop shell | `npm run desktop:check` | ✅ | clippy `-D warnings` + the shell crate's own 12 tests (`apps/desktop/src-tauri`) |
 | Desktop build | `npm run desktop:build` | ✅ | `vite` → `apps/desktop/dist`, then `cargo build --release` → 16.1 MB. The renderer must be built first: `generate_context!` embeds it |
 
@@ -98,11 +98,34 @@ Latest Vercel preview: `wealthtracker-l514dsq11` (2025‑10‑29 21:33 UTC). B
 
 | Area | Owner | Description |
 | --- | --- | --- |
-| **Design/AXE polish** | Frontend | Accessibility + visual sweep over dashboard/import flows (AXE violations, keyboard focus, copy tweaks). |
-| **Bundle follow-up** | Platform | Track large chunk work items documented in `docs/bundle-optimization-plan.md`; align with design polish so lazy-loading work doesn’t regress UX. |
+| **Mobile** | Frontend | The August 13th sweep fixed the status-bar overlap, the floating button's overlap, Settings, onboarding and the count colours — but the phone is where the last three days' bugs came from, and it is still the least-tested surface. Test there first. |
+| **Clerk production instance** | Platform | `docs/clerk-production-runbook.md`. Blocks a second person signing in on a phone at all (Safari's tracking prevention refuses the dev instance's cross-domain flow), and therefore blocks TestFlight, a Capacitor edition, and both testers. Highest-value unblocking task in the repo. |
 | **Supabase coverage** | BE + Platform | Continue monitoring nightly Supabase smoke logs; add RLS/import edge cases as regressions appear. |
 
-Everything else (lint/type safety/tests/build) is green; once the design/AXE pass lands we’ll revisit this section.
+### The design pass is closed
+
+Six batches plus batch 7, three rulings on cause, and the mobile audit all
+shipped between 2026‑08‑12 and 08‑13, in conversation with an external design
+reviewer. The rulings themselves are recorded where the code they govern lives,
+not in a document — grep a component's header comment before re-litigating its
+colour, its chrome or its focus ring. Four principles carry the rest:
+
+- **A total is earned by a question**, not by the availability of numbers.
+- **Colour marks what needs attention.** A zero, a count and a settled row need
+  none. Motion is the same demand as colour and answers to the same rule.
+- **One focus ring, app-wide.** Components declare none; the global
+  `*:focus-visible` outline is it. Overriding `--focus-ring-color` in scope is
+  how a control asks for a different colour.
+- **Say the consequence, then the remedy** — and a filtered-empty state is not
+  an empty one. Naming the hidden count and the filter responsible is what stops
+  an app faking "your money is gone".
+
+Guards exist for the things that failed silently: `semantic-contrast.test.ts`
+(measures, never remembers), `tokenOpacity.test.ts` (a token that stops emitting
+CSS), `oneFocusRing.test.tsx`. All three were proven non-vacuous by breaking
+what they watch.
+
+Everything else (lint/type safety/tests/build) is green.
 
 ---
 
