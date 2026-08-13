@@ -144,7 +144,7 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
    *
    * This used to read `LOCAL_BACKUP_BINDINGS` — a description of the BROWSER's
    * store — whenever `backupTarget !== 'login'`. A device edition matches that
-   * condition and keeps all fourteen tables the format carries, so it would have
+   * condition and keeps all fifteen tables the format carries, so it would have
    * been told that a file's budgets, goals and dismissed suggestions could not
    * be restored. Not a cosmetic slip: a warning about DATA LOSS, false, shown to
    * somebody deciding whether to press a button.

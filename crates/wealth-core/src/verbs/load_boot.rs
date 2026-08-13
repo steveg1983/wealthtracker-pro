@@ -3,8 +3,8 @@
 //! Every other verb in this crate answers something a caller thought of. This
 //! one answers what the application asks the moment it starts: what accounts
 //! are there, what names can things be filed under, what is in the ledger, what
-//! its split lines are, and what the budgets and the goals say. Six answers,
-//! one call, one transaction.
+//! its split lines are, what the budgets and the goals say, and which reports the
+//! person has saved. Seven answers, one call, one transaction.
 //!
 //! # The question is the seam's, and the seam already wrote it down
 //!
@@ -34,11 +34,12 @@
 //! splits               transaction_splits    list_transaction_splits
 //! budgets              budgets               list_budgets
 //! goals                goals                 list_goals
+//! customReports        custom_reports        list_custom_reports
 //! transactionStats     — the port's          (see below)
 //! phases               — the port's          (see below)
 //! ```
 //!
-//! Five of the six keys are the seam's own field names. The sixth is not:
+//! Six of the seven keys are the seam's own field names. The odd one is not:
 //! `splits` there is `transaction_splits` here, because this crate names a read
 //! after the QUESTION it answers and there are two split reads — `splits_for`
 //! already owns the bare word for *one parent's* lines. A key that meant "all
@@ -46,11 +47,35 @@
 //! is read wrongly once and then believed. The port maps the name where every
 //! other snake-to-camel mapping already happens.
 //!
+//! # WHY THE SAVED REPORTS ARE IN A BOOT AT ALL
+//!
+//! Every other absence below is argued, so the newest PRESENCE is argued too —
+//! and it is not obvious. A saved report is not the ledger, nobody needs one to
+//! draw a register, and the reports page is a route a person visits rarely: on
+//! the face of it this belongs with the closed accounts and the dismissals,
+//! fetched when the surface that wants them opens.
+//!
+//! It is here because the DASHBOARD renders pinned custom reports in its first
+//! paint. The pins live in the preferences document as `custom:<id>`, and the
+//! widget they name is drawn from the definition in this table — so a boot that
+//! omitted the reports would paint a dashboard with the pinned widgets missing
+//! and fill them in a moment later, which is the flash the composite exists to
+//! prevent. It is the same reason the budgets and the goals are here rather than
+//! on their own pages' loads: what the boot must carry is what the FIRST SCREEN
+//! draws, not what the first screen is about.
+//!
+//! What it costs is nothing that changes the shape of this verb. It is one more
+//! `SEARCH … USING INDEX` over a table holding a handful of rows per login — the
+//! same shape as the accounts, the categories, the budgets and the goals, whose
+//! band the measurement note at the foot of this file places it in and does not
+//! claim to have re-run it in. It carries no money either, so it adds nothing to
+//! the one conversion this crate is careful about.
+//!
 //! # What is NOT in the answer, and each absence is a decision
 //!
-//! **The balances (R-4).** `account_balances` is the seam's parallel seventh
-//! read and it stays outside this answer, exactly as it stays outside
-//! `BootSnapshot`. The seam's own paragraph is the argument and it applies
+//! **The balances (R-4).** `account_balances` is the seam's PARALLEL read — the
+//! one that is deliberately not in the sequence at all — and it stays outside
+//! this answer, exactly as it stays outside `BootSnapshot`. The seam's own paragraph is the argument and it applies
 //! verbatim to a file: those figures *"exist for exactly the seconds a long
 //! history is in flight"*, the seeding rule that uses them fires only while
 //! `transactions.length === 0`, and *"a read whose entire purpose is to be early
@@ -109,15 +134,17 @@
 //!
 //! PHASE3-PLAN §3 specifies it — *"load_boot (ONE BEGIN..COMMIT around six
 //! reads)"* — and the reason is worth stating rather than citing, because every
-//! other read in this crate deliberately opens no transaction at all.
+//! other read in this crate deliberately opens no transaction at all. (Six was
+//! the count when the plan was written; the saved reports made it seven. The
+//! number is not what that clause is about.)
 //!
-//! A statement outside a transaction gets its own snapshot. Six of them get
-//! six, and between any two of them another connection's write can commit. The
+//! A statement outside a transaction gets its own snapshot. Seven of them get
+//! seven, and between any two of them another connection's write can commit. The
 //! damage that does is not an abstract inconsistency: it is a boot whose
 //! `transactions` include a row whose account is not in its `accounts`, or a
 //! split parent whose lines were read a moment before they were written. The
 //! application then draws a register filed against an account it does not know
-//! about, and nothing anywhere reports an error. A transaction makes the six
+//! about, and nothing anywhere reports an error. A transaction makes the seven
 //! answers ONE snapshot of ONE file, which is what "one crossing" has to mean
 //! if it is to mean anything.
 //!
@@ -171,7 +198,7 @@
 //!
 //! # EXPLAIN QUERY PLAN, and what the whole thing costs
 //!
-//! No plan of its own: it runs no query of its own. The six plans are the six
+//! No plan of its own: it runs no query of its own. The seven plans are the seven
 //! reads', recorded in [`crate::verbs::reads`] and asserted at fifty thousand
 //! rows in `tests/reads_at_scale.rs` — which also measures this verb whole, on
 //! the same ledger, in the same run:
@@ -194,9 +221,18 @@
 //! exactly why the parts are re-measured here beside the whole rather than
 //! subtracted from a table.
 //!
+//! **Those figures are from the run that took them and the saved reports were
+//! not in it**, which is said here rather than quietly folded into the last
+//! line: the seventh read arrived after that measurement. It is a
+//! `SEARCH … USING INDEX idx_custom_reports_user` over a table holding a handful
+//! of rows per login — the same shape and the same order of magnitude as the
+//! four already on that line — so it belongs in the sub-millisecond band with
+//! them, and the next run of `tests/reads_at_scale.rs` is what will say so
+//! rather than this paragraph.
+//!
 //! **The composite costs the sum of its parts and nothing over.** One `BEGIN`
 //! and one `COMMIT` around work already being done is, at this size, below the
-//! noise floor of the measurement. What it replaces is not the six reads — those
+//! noise floor of the measurement. What it replaces is not the seven reads — those
 //! are the work — but the ~2.7 seconds of paged fetches the cloud RPC's own
 //! commentary records for the transactions alone, and five further crossings
 //! behind them.
@@ -208,6 +244,7 @@ use crate::error::CoreResult;
 use crate::row::account::{self, ListedAccount};
 use crate::row::budget::{self, ListedBudget};
 use crate::row::category::{self, CategoryRow};
+use crate::row::custom_report::{self, CustomReportRow};
 use crate::row::goal::{self, GoalRow};
 use crate::row::split::{self, ListedSplit};
 use crate::row::{self as transaction, ListedTransaction};
@@ -235,6 +272,9 @@ pub struct Boot {
     pub budgets: Vec<ListedBudget>,
     /// Every goal, oldest first, finished ones included.
     pub goals: Vec<GoalRow>,
+    /// Every saved report, oldest first. Last, because it arrived last and the
+    /// order is presentation — see the struct's own note.
+    pub custom_reports: Vec<CustomReportRow>,
 }
 
 /// The boot, in one answer, from one snapshot.
@@ -246,7 +286,7 @@ pub struct Boot {
 ///
 /// # Errors
 /// [`crate::error::CoreError::Storage`] if the file cannot be read. It is NOT
-/// softened into an empty answer here: six empty lists is what a NEW FILE
+/// softened into an empty answer here: seven empty lists is what a NEW FILE
 /// legitimately answers with, and a verb that said the same thing about a file
 /// it could not open would make the two indistinguishable. Contract rule 81 —
 /// *"loadBoot never rejects"* — is kept one layer out, in `LocalDataPort`,
@@ -256,7 +296,7 @@ pub struct Boot {
 pub fn load_boot(connection: &mut Connection, command: OwnedRead) -> CoreResult<Answered<Boot>> {
     let owner = command.user_id;
     // DEFERRED: a read transaction. See the module docs for what it holds, for
-    // how long, and for what tearing the six answers apart would cost.
+    // how long, and for what tearing the seven answers apart would cost.
     let snapshot = connection.transaction_with_behavior(TransactionBehavior::Deferred)?;
 
     let answer = Boot {
@@ -266,10 +306,11 @@ pub fn load_boot(connection: &mut Connection, command: OwnedRead) -> CoreResult<
         transaction_splits: split::list_owned(&snapshot, &owner)?,
         budgets: budget::list_all(&snapshot, &owner)?,
         goals: goal::list_all(&snapshot, &owner)?,
+        custom_reports: custom_report::list_all(&snapshot, &owner)?,
     };
 
     // Committed rather than left to drop. Dropping a rusqlite `Transaction`
-    // rolls it back, which for six SELECTs is the same released lock and a
+    // rolls it back, which for seven SELECTs is the same released lock and a
     // different sentence: this one ended because it was finished.
     snapshot.commit()?;
     Ok(Answered { answer })

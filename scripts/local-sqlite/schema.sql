@@ -1519,7 +1519,141 @@ END;
 
 
 -- ============================================================================
--- 8. INVESTMENTS
+-- 8. CUSTOM REPORTS
+-- ============================================================================
+-- The twin of 20260812140000_reports_outlive_the_browser.sql, and the only table
+-- in this file whose cloud original was written because the work it holds was
+-- not being kept ANYWHERE.
+--
+-- `src/services/customReportService.ts` is a real builder: summary statistics,
+-- line, pie and bar charts, tables, category breakdowns and period-over-period
+-- comparisons, every one of them computed from the user's own transactions. It
+-- then saved the result to `window.localStorage`, under one key, on one machine.
+-- The cloud's header records what that cost somebody with two computers. It cost
+-- the LOCAL edition strictly more, which is why this table is not optional here:
+-- the desktop promise is that the FILE is everything, and a report composed in a
+-- desktop window lived in the WebView's storage rather than in the ledger it
+-- described. Copying the file to another machine did not bring it. Nothing
+-- anywhere said so.
+--
+-- ── IT HOLDS NO MONEY, AND THAT IS A PROPERTY RATHER THAN AN OMISSION ────────
+--
+-- Every other table in this section has a `_minor` column and a bounded CHECK
+-- around it. This one has neither and must never gain either. A custom report is
+-- a QUESTION about the ledger — which components, over which range, narrowed to
+-- which accounts — and the answer is computed fresh from `transactions` every
+-- time it is generated. A stored figure here would be a cache of an answer the
+-- ledger can change underneath, and the reports page would start disagreeing
+-- with the register for reasons nobody could see. The rule is the same one R-1
+-- keeps for balances, arriving through a door that has no money in it: two
+-- numbers are only worth having while they are arrived at independently, and a
+-- report is not a second number, it is a second QUESTION.
+--
+-- ── WHY `components` IS AN ARRAY AND `filters` IS AN OBJECT, BY CHECK ────────
+--
+-- Because every reader ITERATES the one and INDEXES INTO the other, and
+-- `json_valid()` on its own does not say which: it accepts a bare number, a
+-- quoted string and an object equally, so a `components` holding `{}` would pass
+-- validity and render as no report at all — a blank page with no error on it.
+-- `json_type()` is what turns that into a refusal at the write, where the person
+-- who typed it is still looking.
+--
+-- The SHAPE INSIDE stays the client's business (`ReportComponent[]` and the
+-- filter object in `src/components/CustomReportBuilder.tsx`), so a component can
+-- gain a config key without a migration; what may not vary is the container.
+--
+-- Order inside `components` is MEANINGFUL — it is the order the blocks render
+-- in, top to bottom — which is why the write verbs replace this column wholesale
+-- rather than merging into it the way the goal verbs merge `metadata`. The
+-- argument is at `crate::verbs::update_custom_report`, and it is the reason this
+-- table's two blobs are not `metadata` under another name.
+--
+-- ── THE ROW IDS INSIDE `filters`, WHICH THIS TABLE DOES NOT CONSTRAIN ────────
+--
+-- `filters.accounts` and `filters.categories` hold account and category ids.
+-- They are opaque JSON content to this file: no foreign key reaches them, there
+-- is no R-12 ownership pairing to make (the table has no `account_id` COLUMN for
+-- one to hang off), and `trg_unnest_account_references` deliberately has no
+-- branch for this table — there is no column for it to null. Deleting an account
+-- therefore leaves a report still naming it, and the report simply narrows to
+-- nothing for that account. That is exactly what the cloud's jsonb does, and
+-- reproducing the absence is the port.
+--
+-- What DOES rewrite those ids is the backup remapper on the TypeScript side
+-- (`remapBackupIds`, declared through ENTITY_REFERENCES in
+-- `src/services/backup/format.ts`), and it is the only thing that CAN: it is the
+-- only place holding the map from the file's ids to the fresh ones a restore
+-- mints. `crates/wealth-core/src/backup.rs` reproduces none of it on purpose —
+-- "ids arrive already remapped, or they do not arrive remapped at all".
+
+CREATE TABLE custom_reports (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+  -- What every list of reports displays, and the only thing here ever sorted or
+  -- searched by. A real column rather than a key in one of the blobs for that
+  -- reason alone.
+  name        TEXT NOT NULL,
+  -- NOT NULL with an empty default: the builder's field is optional, and a
+  -- reader should never have to tell "no description" from "description
+  -- unknown".
+  description TEXT NOT NULL DEFAULT '',
+
+  components  TEXT NOT NULL DEFAULT '[]'
+                CHECK (json_valid(components) AND json_type(components) = 'array'),
+  filters     TEXT NOT NULL DEFAULT '{}'
+                CHECK (json_valid(filters) AND json_type(filters) = 'object'),
+
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+
+  -- A report with no name is one the list cannot offer you. The builder already
+  -- refuses to save one; this is the same rule where it cannot be bypassed, and
+  -- it catches the whitespace-only name the builder's own `if (!name)` does not.
+  CONSTRAINT custom_reports_name_not_blank CHECK (length(trim(name)) > 0)
+) STRICT;
+CREATE INDEX idx_custom_reports_user ON custom_reports(user_id);
+
+-- NOTE the divergences vs cloud. Each is deliberate and each is a differential
+-- test's to expect:
+--
+--   * `jsonb` there, TEXT-with-`json_valid` here — this file's usual (see
+--     `budgets.metadata`). One consequence is worth naming rather than
+--     discovering: `jsonb` NORMALISES on the way in, losing key order and
+--     whitespace, and TEXT does not. A report round-tripped through the two
+--     engines is the same DOCUMENT and not the same BYTES.
+--   * `uuid` and `timestamptz` there, TEXT here, and no `gen_random_uuid()`
+--     default on the key — B-5, the same as `budgets.id` and `goals.id`: the id
+--     is the caller's to mint or the verb's, never the column's.
+--   * the cloud stamps `updated_at` from `update_custom_reports_updated_at`, a
+--     BEFORE UPDATE trigger. There is no such trigger here, for the reason the
+--     updated_at family in section 6 gives, so the verbs write the column
+--     themselves.
+--   * `custom_reports_definition_is_small` — 256 KiB over the two blobs — has NO
+--     twin here, and the absence is a decision rather than an oversight. The
+--     cloud's reason is bandwidth: a report that cached its own output would put
+--     a second copy of the ledger into every boot's download. A local file
+--     downloads nothing, so the same mistake costs disk instead of somebody's
+--     morning, and a CHECK is the wrong instrument for it either way — it
+--     refuses the save AFTER the report has been composed, which is the one
+--     moment a person cannot act on the news. If it ever needs catching here,
+--     `verify_integrity` (section 14) is where a local file keeps its "this is
+--     odd" observations, at `severity = 'warning'`.
+--   * RLS, the four owner policies and the anon revoke have no local twin at
+--     all: one login, no PostgREST, and the file's owner can open it with any
+--     SQLite tool (the point section 10 makes about the audit log). `user_id` is
+--     still NOT NULL and still a foreign key, because a RESTORED file can hold
+--     more than one login's rows.
+--   * the cloud indexes `(user_id, updated_at DESC)` because its page lists
+--     reports newest-first. This is the plain owner index every other table in
+--     this file carries, because the local read orders by `created_at, id` —
+--     this crate's own stated tie-break — and a covering index for a list of a
+--     dozen rows is write cost bought against a sort of a dozen rows. The
+--     argument, with the measurement behind it, is at `crate::verbs::reads`.
+
+
+-- ============================================================================
+-- 9. INVESTMENTS
 -- ============================================================================
 -- THE PRICE FIX. The cloud stores every unit price as numeric(10,2)
 -- (initial-schema.sql:553, :575, :581) against quantities at numeric(20,8).
@@ -1592,7 +1726,7 @@ CREATE INDEX idx_inv_txn_investment ON investment_transactions(investment_id, da
 
 
 -- ============================================================================
--- 9. RECURRING TEMPLATES
+-- 10. RECURRING TEMPLATES
 -- ============================================================================
 -- The cloud keys these by user_profiles(clerk_user_id) TEXT, not users(id)
 -- uuid — the odd one out that the restore RPC has to special-case
@@ -1620,7 +1754,7 @@ CREATE INDEX idx_recurring_user_next ON recurring_transactions(user_id, next_dat
 
 
 -- ============================================================================
--- 10. AUDIT LOG
+-- 11. AUDIT LOG
 -- ============================================================================
 -- In the cloud this table is immutable from the client because it has no
 -- INSERT/UPDATE/DELETE policy and only a SECURITY DEFINER helper writes it
@@ -1669,7 +1803,7 @@ BEGIN SELECT RAISE(ABORT,'audit_immutable'); END;
 
 
 -- ============================================================================
--- 11. SUGGESTION DISMISSALS
+-- 12. SUGGESTION DISMISSALS
 -- ============================================================================
 -- The cloud stores subject_ids as uuid[] with a GIN index
 -- (20260806180000:95, :109-110). SQLite has neither, so the array becomes a
@@ -1737,7 +1871,7 @@ BEGIN SELECT RAISE(ABORT,'dismissal_immutable: a dismissal is created or deleted
 
 
 -- ============================================================================
--- 12. UI STATE (carried so a cloud backup restores whole)
+-- 13. UI STATE (carried so a cloud backup restores whole)
 -- ============================================================================
 
 CREATE TABLE notifications (
@@ -1826,7 +1960,7 @@ CREATE TABLE user_preferences (
 
 
 -- ============================================================================
--- 13. verify_integrity() — the invariants no constraint can hold
+-- 14. verify_integrity() — the invariants no constraint can hold
 -- ============================================================================
 -- One view per whole-database invariant, plus one union that reports every
 -- violation with a name. The Rust command runs it after every write in debug

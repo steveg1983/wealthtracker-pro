@@ -18,49 +18,33 @@ import GroupedAccountOptions from './common/GroupedAccountOptions';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useNotifications } from '../contexts/NotificationContext';
 
-// Report component types
-export type ReportComponentType = 
-  | 'summary-stats'
-  | 'line-chart'
-  | 'bar-chart'
-  | 'pie-chart'
-  | 'table'
-  | 'text-block'
-  | 'date-comparison'
-  | 'category-breakdown'
-  | 'account-summary'
-  | 'transaction-list'
-  | 'budget-progress'
-  | 'goal-tracker';
+/**
+ * The report shapes, re-exported from where they now live.
+ *
+ * They were DECLARED here while a report's only home was one localStorage key
+ * that one screen wrote and one screen read. A report is a row in the store
+ * now, so the data seam names it — and a seam that imported its vocabulary from
+ * this file would drag React, `useApp` and every icon below into the type graph
+ * of a layer that reaches none of them. `src/types/index.ts` says the rest.
+ *
+ * Re-exported rather than moved-and-repointed because a dozen modules import
+ * these four names from here, and a rename spread across a dozen files in the
+ * same commit as a behaviour change is a diff nobody can review.
+ */
+import type {
+  ConfigValue,
+  CustomReport,
+  ReportComponent,
+  ReportComponentConfig,
+  ReportComponentType
+} from '../types';
 
-type ConfigPrimitive = string | number | boolean | null;
-type ConfigValue = ConfigPrimitive | ConfigPrimitive[];
-export type ReportComponentConfig = Record<string, ConfigValue>;
-
-export interface ReportComponent {
-  id: string;
-  type: ReportComponentType;
-  title: string;
-  config: ReportComponentConfig;
-  width: 'full' | 'half' | 'third';
-}
-
-export interface CustomReport {
-  id: string;
-  name: string;
-  description: string;
-  components: ReportComponent[];
-  filters: {
-    dateRange: 'month' | 'quarter' | 'year' | 'custom';
-    customStartDate?: string;
-    customEndDate?: string;
-    accounts?: string[];
-    categories?: string[];
-    tags?: string[];
-  };
-  createdAt: Date;
-  updatedAt: Date;
-}
+export type {
+  CustomReport,
+  ReportComponent,
+  ReportComponentConfig,
+  ReportComponentType
+};
 
 // Available components catalog
 const COMPONENT_CATALOG: Array<{
@@ -403,7 +387,21 @@ export default function CustomReportBuilder({
     }
 
     const customReport: CustomReport = {
-      id: report?.id || `report-${Date.now()}`,
+      // A BLANK ID FOR A NEW REPORT, and the store is what mints the real one.
+      //
+      // This used to be `report-${Date.now()}`. That was fine while a report's
+      // only home was a localStorage array keyed by nothing, and it stopped
+      // being fine the moment reports became rows: the id is a `uuid` column in
+      // the cloud, which cannot hold `report-1755000000000` at all.
+      //
+      // `''` is not a new convention invented here — the reports page has always
+      // seeded its three Quick Start templates with `id: ''`, and
+      // `saveCustomReport` reads it as "create this" for both.
+      //
+      // `||` rather than `??`, deliberately: a template arrives carrying `''`
+      // and must stay a create, which `??` would defeat by passing the empty
+      // string through as a stated id.
+      id: report?.id || '',
       name: reportName,
       description: reportDescription,
       components,

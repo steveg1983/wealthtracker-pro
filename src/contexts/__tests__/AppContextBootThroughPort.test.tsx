@@ -48,6 +48,7 @@ import type {
   Account,
   Budget,
   Category,
+  CustomReport,
   Goal,
   Transaction,
   TransactionSplit
@@ -171,6 +172,17 @@ const seam = vi.hoisted(() => {
         progress: 0,
       },
     ] as Goal[],
+    customReports: [
+      {
+        id: 'report-from-the-seam',
+        name: 'Where it went',
+        description: '',
+        components: [],
+        filters: { dateRange: 'month' as const },
+        createdAt: AT('2025-01-01'),
+        updatedAt: AT('2025-01-01'),
+      },
+    ] as CustomReport[],
     balances: new Map<string, AccountBalanceSnapshot>([
       ['acct-from-the-seam', { balance: -70.1, txnCount: 1 }],
     ]),
@@ -213,6 +225,7 @@ vi.mock('../../services/port', () => {
     listTransactionSplitsFor: async () => seam.splits,
     listBudgets: answer('listBudgets', seam.budgets),
     listGoals: answer('listGoals', seam.goals),
+    listCustomReports: answer('listCustomReports', seam.customReports),
     listCategories: answer('listCategories', seam.categories),
     listSuggestionDismissals: answer('listSuggestionDismissals', []),
     // A read the boot must NOT make: holdings are the Investments page's own,
@@ -243,6 +256,7 @@ vi.mock('../../services/port', () => {
         splits: seam.splits,
         budgets: seam.budgets,
         goals: seam.goals,
+        customReports: seam.customReports,
         phases: { accounts: 0, categories: 0, transactions: 0, splits: 0, planning: 0 },
       };
     },
@@ -293,6 +307,9 @@ vi.mock('../../services/port', () => {
     updateBudget: refuse('updateBudget'),
     deleteBudget: refuse('deleteBudget'),
     createGoal: refuse('createGoal'),
+    createCustomReport: refuse('createCustomReport'),
+    updateCustomReport: refuse('updateCustomReport'),
+    deleteCustomReport: refuse('deleteCustomReport'),
     updateGoal: refuse('updateGoal'),
     deleteGoal: refuse('deleteGoal'),
     createCategory: refuse('createCategory'),

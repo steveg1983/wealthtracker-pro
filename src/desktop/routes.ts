@@ -112,6 +112,60 @@ export interface DesktopRoute {
  *   `backup/format`, and the boot-snapshot cache it was clearing by hand went
  *   back into the engine that owns it.
  *
+ * ── AND ONE ROUTE ARRIVED FROM THE OTHER LIST ───────────────────────────────
+ *
+ * `custom-reports` is the first path ever to move OUT of
+ * {@link NEVER_ON_A_DESKTOP}, so it is worth saying why, at the length a
+ * reversal deserves.
+ *
+ * Its old entry was honest about being a decision rather than a measurement:
+ * the page was clean and would mount, and what held it out was that the web
+ * route is wrapped in a `ProtectedSuspense` asking `requirePremium`. The
+ * address therefore exists, in the hosted product, TO BE REFUSED to people on
+ * the wrong plan. The entry concluded that a device edition has no plans, so
+ * mounting it would mean either shipping a premium feature to everyone by
+ * accident or inventing a tier to withhold it behind, and it asked for "a
+ * deliberate answer about what a device edition sells".
+ *
+ * The answer is that a device edition HAS a plan, and its buyer is on it. The
+ * local edition is a ONE-TIME PURCHASE — no online storage, no bank feeds, no
+ * future updates, and paid for. There is exactly one tier in this build, the
+ * person running it bought that tier, and there is nobody in a window to refuse
+ * anything to. So the premise "a device edition has no plans" was the part that
+ * was wrong, not the conclusion drawn from it. A report builder is precisely the
+ * kind of thing a paid, offline, own-your-file product should be generous with:
+ * it computes from rows the person already has, over a file they already own,
+ * and it costs the seller nothing per use.
+ *
+ * ── THE REFUSAL WAS ALSO, MEASURABLY, NOT HAPPENING ─────────────────────────
+ *
+ * Worth recording because it is the more useful half. Taking the path out of
+ * this list did not keep the page out of the window. `pages/reports/
+ * reportRegistry.ts` carries `component: lazyWithRecovery(() =>
+ * import('../CustomReports'))`, the hub renders whichever registry entry the
+ * `:reportId` names, and `reports/:reportId` is mounted — so the builder has
+ * been reachable in this window all along, at `#/reports/custom-reports`, and
+ * has been in the desktop bundle's graph the whole time. The exclusion
+ * described a state that did not exist.
+ *
+ * That is the shape of gating failure this file was built to prevent, arriving
+ * from the one direction it does not watch: the router's three lists police
+ * ADDRESSES, and a page can be reached without one by any surface that imports
+ * it directly. An entry in {@link NEVER_ON_A_DESKTOP} is a claim about the whole
+ * bundle, not just about `<Routes>`, and the two walks
+ * (`desktopEntry.cloudFree.test.ts`, `scripts/desktop-bundle-greps.mjs`) are
+ * what make that claim true for the regions where it matters — they would have
+ * caught a Clerk button arriving this way. They did not catch this one because
+ * there was nothing cloud-shaped to catch: the page reaches no cloud root, which
+ * is the same fact that makes mounting it safe now.
+ *
+ * So this entry is not "a decision reversed and a route added". It is a page
+ * that was already here being given the address it was already reachable at,
+ * and the storage its edition promises — a report now lives in the ledger FILE
+ * (`custom_reports`, four verbs over `@data`) rather than in the WebView's
+ * `localStorage`, which is what made mounting it honest rather than merely
+ * possible.
+ *
  * The chooser is still first, and `''` is still it: a window with no file open
  * has nothing else it could show.
  */
@@ -129,6 +183,7 @@ export const DESKTOP_ROUTES = [
   { path: 'calendar', at: 'calendar', title: 'Calendar' },
   { path: 'reports', at: 'reports', title: 'Reports' },
   { path: 'reports/:reportId', at: 'reports/:reportId', title: 'Reports' },
+  { path: 'custom-reports', at: 'custom-reports', title: 'Custom reports' },
   { path: 'goals', at: 'goals', title: 'Goals' },
   { path: 'investments', at: 'investments', title: 'Investments' },
   { path: 'analytics', at: 'analytics', title: 'Reports' },
@@ -235,17 +290,6 @@ export const NEVER_ON_A_DESKTOP: readonly ExcludedRoute[] = [
       'Both addresses this token covers (/subscription and /settings/subscription) are Stripe ' +
       'billing for the hosted service. A desktop edition is not a subscription; whatever it is ' +
       'sold as, it is not sold from inside this router.'
-  },
-  {
-    path: 'custom-reports',
-    region: 'subscription',
-    why:
-      'Its page is clean and would mount — this is a decision, not a measurement. The web route ' +
-      'is wrapped in a ProtectedSuspense that asks requirePremium, so the address exists to be ' +
-      'refused to people on the wrong PLAN. A device edition has no plans, so mounting it would ' +
-      'mean either shipping a premium feature to everyone by accident or inventing a tier to ' +
-      'withhold it behind. Neither is a decision a router should make quietly, so the report ' +
-      'builder waits for a deliberate answer about what a device edition sells.'
   },
   {
     path: '/privacy',

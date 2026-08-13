@@ -131,6 +131,29 @@ const seedGoals = (): Record<string, unknown>[] => [{
   createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-07-01T00:00:00.000Z',
 }];
 
+/**
+ * One report, with BOTH kinds of list inside its filters.
+ *
+ * The account and category lists are ids and must be remapped; the tags are
+ * labels somebody typed and must come through character for character. A
+ * fixture with only one of the two would pass against a remapper that swept the
+ * whole blob.
+ */
+const seedCustomReports = (): Record<string, unknown>[] => [{
+  id: 'report-where-it-went', name: 'Where it went', description: 'last quarter',
+  components: [{
+    id: 'one', type: 'summary-stats', title: 'Key figures',
+    config: { metrics: ['income', 'expenses'] }, width: 'full',
+  }],
+  filters: {
+    dateRange: 'quarter',
+    accounts: [ACCOUNT_CURRENT, ACCOUNT_SAVINGS],
+    categories: [CAT_SUB],
+    tags: ['holiday'],
+  },
+  createdAt: '2026-07-01T00:00:00.000Z', updatedAt: '2026-07-01T00:00:00.000Z',
+}];
+
 const seedDismissals = (): Record<string, unknown>[] => [{
   id: 'dismissal-1', kind: 'duplicate',
   subjectKey: canonicalSubjectKey([TXN_SHOP, TXN_SPLIT]),
@@ -146,6 +169,7 @@ async function seedEverything(): Promise<void> {
   await storageAdapter.set(STORAGE_KEYS.BUDGETS, seedBudgets());
   await storageAdapter.set(STORAGE_KEYS.GOALS, seedGoals());
   await storageAdapter.set(STORAGE_KEYS.SUGGESTION_DISMISSALS, seedDismissals());
+  await storageAdapter.set(STORAGE_KEYS.CUSTOM_REPORTS, seedCustomReports());
 }
 
 const read = async (key: string): Promise<Record<string, unknown>[]> =>
@@ -196,6 +220,7 @@ describe('LOCAL_BACKUP_BINDINGS', () => {
       STORAGE_KEYS.BUDGETS,
       STORAGE_KEYS.GOALS,
       STORAGE_KEYS.SUGGESTION_DISMISSALS,
+      STORAGE_KEYS.CUSTOM_REPORTS,
     ]);
   });
 });
@@ -360,6 +385,7 @@ describe('a genuine round trip', () => {
       budgets: await read(STORAGE_KEYS.BUDGETS),
       goals: await read(STORAGE_KEYS.GOALS),
       dismissals: await read(STORAGE_KEYS.SUGGESTION_DISMISSALS),
+      customReports: await read(STORAGE_KEYS.CUSTOM_REPORTS),
     };
 
     // Exactly what the user gets: a JSON file, read back with the shared parser.
@@ -381,6 +407,7 @@ describe('a genuine round trip', () => {
       budgets: await read(STORAGE_KEYS.BUDGETS),
       goals: await read(STORAGE_KEYS.GOALS),
       dismissals: await read(STORAGE_KEYS.SUGGESTION_DISMISSALS),
+      customReports: await read(STORAGE_KEYS.CUSTOM_REPORTS),
     };
 
     // ── Nothing went missing ──
@@ -391,6 +418,7 @@ describe('a genuine round trip', () => {
     expect(after.budgets).toHaveLength(before.budgets.length);
     expect(after.goals).toHaveLength(before.goals.length);
     expect(after.dismissals).toHaveLength(before.dismissals.length);
+    expect(after.customReports).toHaveLength(before.customReports.length);
     expect(outcome.danglingRefs).toEqual([]);
 
     // ── Every id is new, and consistently so ──
@@ -406,6 +434,7 @@ describe('a genuine round trip', () => {
     pair(before.budgets, after.budgets);
     pair(before.goals, after.goals);
     pair(before.dismissals, after.dismissals);
+    pair(before.customReports, after.customReports);
 
     for (const [was, now] of oldToNew) {
       expect(now).not.toBe(was);
@@ -491,6 +520,22 @@ describe('a genuine round trip', () => {
     // back on the next sweep.
     expect(dismissal.subjectKey).toBe(canonicalSubjectKey([String(shop.id), String(parent?.id)]));
 
+    // ── The report still asks about the accounts it was asking about ──
+    //
+    // The failure this catches is silent in the worst way: a report whose
+    // filters still name the OLD login's accounts opens, generates, and reports
+    // on nothing — because no transaction in the restored login matches any of
+    // them. The tags beside them are labels and must NOT have moved.
+    const report = after.customReports[0];
+    const filters = report.filters as Record<string, unknown>;
+    expect(filters.accounts).toEqual([
+      oldToNew.get(ACCOUNT_CURRENT), oldToNew.get(ACCOUNT_SAVINGS),
+    ]);
+    expect(filters.categories).toEqual([oldToNew.get(CAT_SUB)]);
+    expect(filters.tags).toEqual(['holiday']);
+    // And the definition itself came through whole.
+    expect(report.components).toEqual(seedCustomReports()[0].components);
+
     // ── And the report tells the truth ──
     expect(outcome.restored).toEqual([
       { label: 'Accounts', rows: 3 },
@@ -500,6 +545,7 @@ describe('a genuine round trip', () => {
       { label: 'Budgets', rows: 1 },
       { label: 'Goals', rows: 1 },
       { label: 'Dismissed suggestions', rows: 1 },
+      { label: 'Custom reports', rows: 1 },
     ]);
     expect(outcome.accountsRelinked).toBe(1);
     expect(outcome.transactionsRelinked).toBe(2);

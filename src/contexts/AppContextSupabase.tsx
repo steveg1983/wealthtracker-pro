@@ -48,6 +48,11 @@ import { useEditionSession } from '@session';
 import { dataPort } from '@data';
 import type { DataPortCapabilities } from '@data';
 import { goalAchievementService } from '../services/goalAchievementService';
+// The reports service, for its ADOPTION alone: the four persistence calls below
+// go straight through the seam like every other entity's, and this is the one
+// piece of report behaviour that is neither a read nor a write but a one-time
+// rescue of what a browser was still holding. See `adoptLegacyReports`.
+import { customReportService } from '../services/customReportService';
 import { getDefaultCategories } from '../data/defaultCategories';
 // formatCurrency import removed - not used in this context
 import {
@@ -81,6 +86,7 @@ import type {
   Category,
   CategoryMergeResult,
   Budget,
+  CustomReport,
   DismissalKind,
   Goal,
   RecurringTransaction,
@@ -156,6 +162,28 @@ export interface AppContextType extends AppState {
   addGoal: (goal: Omit<Goal, 'id' | 'progress'>) => Promise<void>;
   updateGoal: (id: string, updates: Partial<Goal>) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
+  /**
+   * Every report this login has built, in hand before the first paint.
+   *
+   * Exposed as STATE rather than behind a fetch because two of its readers have
+   * no await to put one in: the pinned-report widget resolves its report during
+   * render, and the dashboard's picker lists them inline. See the state
+   * declaration for the rest of the argument.
+   */
+  customReports: CustomReport[];
+  /**
+   * Save a report — created when it carries no id, replaced when it does.
+   *
+   * ONE verb for both, unlike the goal pair above, because the builder has one
+   * button. `CustomReportBuilder` hands back a whole report whether the person
+   * opened it on a blank form or on an existing report, and the id is the only
+   * thing that says which happened; making the caller decide would move that
+   * test into a component that has no other reason to care.
+   *
+   * Answers the STORED report, so the caller can use the id the store minted.
+   */
+  saveCustomReport: (report: CustomReport) => Promise<CustomReport>;
+  deleteCustomReport: (id: string) => Promise<void>;
   contributeToGoal: (id: string, amount: number) => Promise<void>;
   
   // Category operations — async so callers can surface persistence failures
@@ -432,6 +460,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  /**
+   * The reports somebody has built, in hand before anything renders.
+   *
+   * State here rather than a fetch where they are drawn, because two of their
+   * readers are SYNCHRONOUS: `CustomReportWidget` resolves a pinned report
+   * inside a `useMemo` during render, and the dashboard's report picker lists
+   * them inline in a modal body. Neither has an await to put a fetch in, and
+   * giving them one would mean a pinned widget that renders nothing on first
+   * paint and appears a moment later, every load. So they ride the boot
+   * snapshot, exactly as the goals do.
+   */
+  const [customReports, setCustomReports] = useState<CustomReport[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
@@ -639,9 +679,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setTransactionSplitsState(boot.splits);
         setBudgets(boot.budgets);
         setGoals(boot.goals);
+        setCustomReports(boot.customReports);
         // Measured where the work happens. `auth` and `services` above were
         // measured here because they happen here; these five were not.
         Object.assign(phases, boot.phases);
+
+        // The one-time rescue of reports a browser is still holding on its own.
+        //
+        // AFTER the snapshot has been put into state rather than before, and not
+        // awaited by anything the render waits on: it writes rows, so it is the
+        // slowest thing in this effect on the single boot where it does any
+        // work, and it has nothing to say on every boot afterwards. A person
+        // whose ledger is loaded should not be looking at a spinner while their
+        // saved questions are filed.
+        //
+        // It never rejects — `adoptLegacyReports` logs and stops at the first
+        // refusal, keeping whatever landed and leaving the rest for the next
+        // boot — so there is nothing here to catch. What it answers is the
+        // reports it carried THIS call, appended rather than replacing the list,
+        // because the snapshot above is the store's own answer and this is what
+        // has just been added to it.
+        const adopted = await customReportService.adoptLegacyReports();
+        if (adopted.length > 0) {
+          setCustomReports(prev => [...prev, ...adopted]);
+          appLogger.info('Saved reports carried into the store', { count: adopted.length });
+        }
 
         setLastSyncTime(new Date());
         // Settled long ago in practice (it started before the slowest phase) —
@@ -1756,6 +1818,66 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [goals]);
 
+  // Custom report operations — persisted through the seam, which resolves the
+  // owner itself, for the reason written over the budget operations above.
+  //
+  // They go through `customReportService` rather than straight to `dataPort`,
+  // unlike every other family here, and the reason is that the service is where
+  // a report's OTHER half lives: the generators that turn a definition into
+  // charts and tables. One door for both halves means the reports page imports
+  // one thing, and it is what keeps the adoption's `createCustomReport` and an
+  // ordinary save on the same path — a rescue that went through a different door
+  // from the feature is a rescue nothing exercises.
+  const saveCustomReport = useCallback(async (report: CustomReport) => {
+    try {
+      // A BLANK ID MEANS "NEW", and it is the convention the reports page
+      // already used for its three Quick Start templates — they have always
+      // been built with `id: ''`. The builder now hands back the same thing for
+      // a report typed from scratch, instead of minting `report-${Date.now()}`:
+      // that id is not a uuid, the cloud's column is, and an id the store cannot
+      // keep is worse than no id at all.
+      if (report.id !== '') {
+        // `updatedAt` is deliberately not sent. An edit happens now, so the
+        // store's own clock is the honest answer, and passing the copy this
+        // page is holding would freeze the timestamp at whatever it last read.
+        const updated = await customReportService.updateCustomReport(report.id, {
+          name: report.name,
+          description: report.description,
+          components: report.components,
+          filters: report.filters
+        });
+        setCustomReports(prev => prev.map(existing => existing.id === report.id ? updated : existing));
+        return updated;
+      }
+
+      // Spelled out rather than spread-minus-id, so that a field added to
+      // `CustomReport` has to be considered here instead of arriving silently.
+      const created = await customReportService.createCustomReport({
+        name: report.name,
+        description: report.description,
+        components: report.components,
+        filters: report.filters,
+        createdAt: report.createdAt,
+        updatedAt: report.updatedAt
+      });
+      setCustomReports(prev => [...prev, created]);
+      return created;
+    } catch (error) {
+      appLogger.error('Failed to save custom report', error);
+      throw error;
+    }
+  }, []);
+
+  const deleteCustomReport = useCallback(async (id: string) => {
+    try {
+      await customReportService.deleteCustomReport(id);
+      setCustomReports(prev => prev.filter(report => report.id !== id));
+    } catch (error) {
+      appLogger.error('Failed to delete custom report', error);
+      throw error;
+    }
+  }, []);
+
   // Category operations — persisted through the seam, which resolves the owner
   // itself (Supabase when signed in, encrypted localStorage otherwise).
   const addCategory = useCallback(async (category: Omit<Category, 'id'>) => {
@@ -2224,10 +2346,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     transactions,
     budgets,
     goals,
+    customReports,
     categories,
     tags,
     recurringTransactions,
-    
+
     // Account operations
     addAccount,
     updateAccount,
@@ -2273,7 +2396,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateGoal,
     deleteGoal,
     contributeToGoal,
-    
+
+    // Custom report operations — ONE save rather than an add/update pair,
+    // because the builder has one button and the id is what says which happened.
+    saveCustomReport,
+    deleteCustomReport,
+
     // Category operations
     addCategory,
     importCategoryTree,

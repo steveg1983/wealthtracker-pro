@@ -85,11 +85,24 @@
 //! that?"* about, and U-1 exists to answer exactly that question. One type
 //! serves the reader and the log, as it does for a goal, because the cloud's own
 //! `SELECTED_COLUMNS` and an entry's `before`/`after` want the same set.
+//!
+//! [`custom_report`] is the newest, and it is the first module here with **no
+//! money in it anywhere** — no [`Money`] field, no scaled integer, nothing this
+//! file's opening paragraph about decimal strings has anything to say about. It
+//! is therefore also the first whose audit trail is not U-1's: there is no
+//! figure to ask *"what changed that?"* about. The question its entries answer
+//! is the other one a log is for — *"where did my report go?"* — and a report is
+//! work the person AUTHORED rather than a number the app derived, which is
+//! exactly the kind of thing that gets deleted from a list by accident and
+//! cannot be reconstructed from anything else. One type again, for the reason
+//! the goal gives: the cloud's `.select('*')`, the page's whole row and an
+//! entry's `before`/`after` are one set.
 
 pub mod account;
 pub mod balance;
 pub mod budget;
 pub mod category;
+pub mod custom_report;
 pub mod dismissal;
 pub mod goal;
 pub mod investment;

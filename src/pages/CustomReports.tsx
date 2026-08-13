@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useNotifications } from '../contexts/NotificationContext';
 import { customReportService } from '../services/customReportService';
@@ -17,30 +17,42 @@ import {
 import { format } from 'date-fns';
 
 export default function CustomReports(): React.JSX.Element {
-  const { transactions, accounts, budgets, categories } = useApp();
+  // The reports themselves come from the context, which holds what the boot
+  // snapshot answered with — the same list the dashboard's pinned widgets and
+  // its report picker read, so a report saved here appears there without either
+  // surface re-reading a store. Until slice 32 this page kept its own copy in
+  // `useState` and re-read `localStorage` after every write, which is exactly
+  // why a report saved on this machine was invisible on every other one.
+  const {
+    transactions, accounts, budgets, categories,
+    customReports, saveCustomReport, deleteCustomReport
+  } = useApp();
   const { addNotification } = useNotifications();
-  
-  const [reports, setReports] = useState<CustomReport[]>([]);
+
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingReport, setEditingReport] = useState<CustomReport | undefined>();
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
   const [generatedData, setGeneratedData] = useState<GeneratedReport | null>(null);
 
-  useEffect(() => {
-    loadReports();
-  }, []);
+  const handleSaveReport = async (report: CustomReport) => {
+    try {
+      await saveCustomReport(report);
+    } catch {
+      // The save is what the toast below is ABOUT, so a failed one must not
+      // report success. It also must not close the builder: everything the
+      // person typed is in that form, and dropping them back on the list would
+      // lose it with nothing to say where it went.
+      addNotification({
+        type: 'error',
+        title: 'Report Not Saved',
+        message: `${report.name} could not be saved. Your changes are still here — try again.`
+      });
+      return;
+    }
 
-  const loadReports = () => {
-    const customReports = customReportService.getCustomReports();
-    setReports(customReports);
-  };
-
-  const handleSaveReport = (report: CustomReport) => {
-    customReportService.saveCustomReport(report);
-    loadReports();
     setShowBuilder(false);
     setEditingReport(undefined);
-    
+
     addNotification({
       type: 'success',
       title: 'Report Saved',
@@ -48,14 +60,22 @@ export default function CustomReports(): React.JSX.Element {
     });
   };
 
-  const handleDeleteReport = (reportId: string) => {
+  const handleDeleteReport = async (reportId: string) => {
     if (!confirm('Are you sure you want to delete this report?')) {
       return;
     }
-    
-    customReportService.deleteCustomReport(reportId);
-    loadReports();
-    
+
+    try {
+      await deleteCustomReport(reportId);
+    } catch {
+      addNotification({
+        type: 'error',
+        title: 'Report Not Deleted',
+        message: 'The report could not be deleted. It is still in your list — try again.'
+      });
+      return;
+    }
+
     addNotification({
       type: 'success',
       title: 'Report Deleted',
@@ -63,18 +83,29 @@ export default function CustomReports(): React.JSX.Element {
     });
   };
 
-  const handleDuplicateReport = (report: CustomReport) => {
+  const handleDuplicateReport = async (report: CustomReport) => {
+    // A BLANK ID, because a duplicate is a NEW report and the store is what
+    // mints an id now. This used to mint `report-${Date.now()}` itself; that is
+    // not a uuid, and the cloud's column is.
     const duplicate: CustomReport = {
       ...report,
-      id: `report-${Date.now()}`,
+      id: '',
       name: `${report.name} (Copy)`,
       createdAt: new Date(),
       updatedAt: new Date()
     };
-    
-    customReportService.saveCustomReport(duplicate);
-    loadReports();
-    
+
+    try {
+      await saveCustomReport(duplicate);
+    } catch {
+      addNotification({
+        type: 'error',
+        title: 'Report Not Duplicated',
+        message: `${report.name} could not be copied. Try again.`
+      });
+      return;
+    }
+
     addNotification({
       type: 'success',
       title: 'Report Duplicated',
@@ -267,7 +298,7 @@ export default function CustomReports(): React.JSX.Element {
           Your Reports
         </h2>
         
-        {reports.length === 0 ? (
+        {customReports.length === 0 ? (
           <div className="text-center py-12">
             <FileTextIcon size={48} className="mx-auto text-gray-400 mb-4" />
             <p className="text-gray-600 dark:text-gray-400">
@@ -276,7 +307,7 @@ export default function CustomReports(): React.JSX.Element {
           </div>
         ) : (
           <div className="space-y-4">
-            {reports.map(report => (
+            {customReports.map(report => (
               <div
                 key={report.id}
                 className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"

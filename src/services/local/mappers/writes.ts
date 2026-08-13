@@ -89,6 +89,7 @@ import type {
   AccountUpdate,
   Budget,
   Category,
+  CustomReport,
   DismissalKind,
   Goal,
   Transaction,
@@ -103,6 +104,7 @@ import {
   ACCOUNT_COLUMNS,
   BUDGET_COLUMNS,
   CATEGORY_COLUMNS,
+  CUSTOM_REPORT_COLUMNS,
   DISMISSAL_COLUMNS,
   GOAL_COLUMNS,
   INVESTMENT_COLUMNS,
@@ -631,6 +633,94 @@ function metadataOf(goal: Partial<Goal>): Record<string, unknown> {
   if (goal.linkedAccountIds !== undefined) stated.linkedAccountIds = goal.linkedAccountIds;
   if (goal.contributionAmount !== undefined) stated.contributionAmount = goal.contributionAmount;
   return Object.keys(stated).length === 0 ? {} : { metadata: stated };
+}
+
+// ── Custom reports ──────────────────────────────────────────────────────────
+
+/**
+ * What the report verbs accept, out of the report's columns.
+ *
+ * One list for the create and the update, because `customReportToDb` is one
+ * whitelist with no `spent`-shaped exception in it. `id` is absent for the
+ * reason the budget's and the goal's are: the seam's create argument is
+ * `Omit<CustomReport, 'id'>` and the crate mints one (B-5). The verb accepts an
+ * id anyway, so that the differential harness can name a row on both engines.
+ *
+ * FILTERED IN BOTH DIRECTIONS, which is the third of the three shapes this
+ * file's header lays out and the same one a category, a budget and a goal have:
+ * the cloud mapper it ports is a whitelist — five `if (r.k !== undefined)` lines
+ * and no else — so a key it has no line for never reaches the cloud's table, and
+ * a port that sent one would refuse an edit the cloud performs.
+ * `Partial<CustomReport>` carries exactly such keys: `createdAt` and `updatedAt`
+ * are on every report object the builder hands back, and neither is an
+ * instruction on an UPDATE.
+ */
+const CUSTOM_REPORT_KEYS: readonly string[] = [
+  'name',
+  'description',
+  'components',
+  'filters'
+];
+
+/**
+ * A new report as `create_custom_report`'s payload.
+ *
+ * ── THE TWO TIMESTAMPS ARE DROPPED, AND THAT COSTS SOMETHING ────────────────
+ *
+ * `Omit<CustomReport, 'id'>` carries `createdAt` and `updatedAt` — the builder
+ * puts them on every report it hands back — and neither reaches the store. Both
+ * engines stamp their own: `create_custom_report`'s draft has five fields and
+ * none of them is a clock, and `customReportToDb` is a whitelist with no line
+ * for either column. That is the same treatment a new BUDGET's two timestamps
+ * get, and the rule `columns.ts` states for every create in this file — a
+ * caller's copy of a timestamp is what it last read, not an instruction.
+ *
+ * What it costs is worth writing down rather than discovering. The ADOPTION
+ * (`customReportService.adoptLegacyReports`) carries reports out of a browser's
+ * old storage key, and some of those were built years ago; they arrive in the
+ * store dated the day the adoption ran, so the reports page will say somebody
+ * created them this morning. The alternative was worse in a way that is not
+ * obvious: the cloud's INSERT could honour a stated `created_at` and the file's
+ * verb cannot, so honouring it on one side would be an UNDECLARED divergence
+ * between the editions — two engines disagreeing about when a person did
+ * something, which is exactly the class of difference the contract suite exists
+ * to make impossible.
+ */
+export function toCustomReportCreatePayload(
+  report: Omit<CustomReport, 'id'>
+): Record<string, unknown> {
+  return payloadOf(CUSTOM_REPORT_COLUMNS, { ...report }, CUSTOM_REPORT_KEYS);
+}
+
+/**
+ * A partial edit as `update_custom_report`'s patch.
+ *
+ * ── THE TWO JSON COLUMNS REPLACE, AND THAT IS THE WHOLE OF THIS FUNCTION ────
+ *
+ * `toGoalUpdatePatch` above sends a `metadata` object the VERB then merges over
+ * what is stored, because three unrelated app fields share that one column and
+ * rebuilding it from a partial update once deleted a goal's linked accounts.
+ * Nothing shares these two columns, so the verb REPLACES them — and the
+ * difference has to be got right in this direction rather than left to the
+ * engine, because a merged `components` array would make removing a component
+ * impossible: the removed one would survive every save and no screen would
+ * explain why it kept coming back.
+ *
+ * A field the caller did not state is absent from the patch and the verb leaves
+ * the column alone, which is how "rename this report" avoids rewriting its
+ * components at all. `payloadOf` drops only `undefined`, so a stated `null` (a
+ * value neither of these columns should ever hold) still travels and the crate's
+ * own boundary is what judges it.
+ *
+ * `updatedAt` is not sent, exactly as it is not sent on the create above. An
+ * edit happens now, by definition, so the store's clock is the honest answer and
+ * a caller's copy of the old value would freeze the timestamp at whatever it
+ * last read.
+ */
+export function toCustomReportUpdatePatch(
+  updates: Partial<CustomReport>
+): Record<string, unknown> {
+  return payloadOf(CUSTOM_REPORT_COLUMNS, { ...updates }, CUSTOM_REPORT_KEYS);
 }
 
 // ── Dismissals ──────────────────────────────────────────────────────────────

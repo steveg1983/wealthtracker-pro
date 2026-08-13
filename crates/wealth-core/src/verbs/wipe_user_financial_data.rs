@@ -48,6 +48,16 @@
 //! measurement beside the delete helper for the one place SQLite and Postgres
 //! genuinely disagree about how many rows a statement took.
 //!
+//! **The local answer carries a SEVENTH key the cloud's has not got**:
+//! `custom_reports`. The reasoning is at [`WipeCounts::custom_reports`] and the
+//! short version is that a saved report is work its owner composed rather than a
+//! setting, so a wipe that took eleven of them without saying so would be
+//! answering "what did I just erase?" incompletely. It is a declared divergence
+//! in the SHAPE of the answer — the deletion itself happens on both engines,
+//! which `20260812140000` argues at length: reports are restored by INSERT
+//! rather than by upsert, so sparing them would double every one of them on the
+//! very restore this wipe exists to make room for.
+//!
 //! # The guard, and the schema defect this verb found
 //!
 //! `verbs/mod.rs` recorded, before this verb existed, that the wipe owes
@@ -121,6 +131,22 @@ pub struct WipeCounts {
     pub goals: i64,
     /// Holdings deleted. Their movements cascade.
     pub investments: i64,
+    /// Saved reports deleted, and the one field here the RPC does not return.
+    ///
+    /// The cloud clears `custom_reports` beside `dashboard_layouts` and
+    /// `widget_preferences` — cleared, not counted — because it reads them as
+    /// how the ledger is looked at rather than as what it contains. A local file
+    /// makes the other reading the honest one: the FILE is everything here, a
+    /// report is work its owner composed by hand, and *"delete everything"* is
+    /// about to take it. A person told how many accounts and goals they erased
+    /// and not told about the eleven reports that went with them has been given
+    /// an incomplete answer to the one question this verb exists to answer.
+    ///
+    /// It is therefore a DECLARED divergence: the two engines return jsonb
+    /// objects with a different key set for the same call, and the oracle for
+    /// this verb has to expect it. That is the cheaper direction to be wrong in
+    /// — an extra count is visible, a silent deletion is not.
+    pub custom_reports: i64,
 }
 
 /// What the verb hands back.
@@ -289,6 +315,8 @@ pub fn wipe_user_financial_data(
         budgets: delete("budgets")?,
         goals: delete("goals")?,
         investments: delete("investments")?,
+        // Counted, where the cloud clears it silently — see the field.
+        custom_reports: delete("custom_reports")?,
     };
 
     // Counted by nothing, exactly as the RPC counts them by nothing: these are

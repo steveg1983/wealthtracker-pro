@@ -68,7 +68,9 @@ import type {
   Account,
   Budget,
   Category,
+  CustomReport,
   Goal,
+  ReportComponent,
   SuggestionDismissal,
   Transaction,
   TransactionSplit
@@ -130,6 +132,23 @@ type Kind =
   | 'dayText'
   | 'instant'
   | 'accountType'
+  /**
+   * A whole JSON VALUE, stored as TEXT — a custom report's `components` array
+   * and its `filters` object.
+   *
+   * The one kind here whose two directions are a `stringify` and a `parse`
+   * rather than a scaling. SQLite has no jsonb: `schema.sql` keeps these as TEXT
+   * holding JSON, so the FILE's spelling and the app's are genuinely different
+   * and this is the conversion, not the absence of one. The port's own
+   * `columns.ts` says the opposite about the same two columns, and both are
+   * right — the crate parses the TEXT before it answers, so what crosses the
+   * WIRE is already a value while what sits in the FILE is a string.
+   *
+   * A value that will not parse reads back as `undefined` rather than throwing,
+   * so a witness looking at a corrupted blob reports an empty report instead of
+   * failing the whole suite with a JSON error that names no row.
+   */
+  | 'json'
   /**
    * A fixed-point figure at 1e8 that the APP keeps as a `Decimal` — a holding's
    * `quantity` and the two unit prices beside it.
@@ -295,6 +314,9 @@ const toColumn = (kind: Kind, value: unknown, where: string): string | number | 
       return toInstant(value, where);
     case 'scaled8':
       return toScaled8(value, where);
+    case 'json':
+      // The file holds TEXT. See the kind.
+      return JSON.stringify(value);
   }
 };
 
@@ -325,6 +347,13 @@ const fromColumn = (kind: Kind, value: unknown): unknown => {
       return typeof value === 'string' ? new Date(value) : undefined;
     case 'scaled8':
       return typeof value === 'number' ? fromScaled8(value) : undefined;
+    case 'json':
+      if (typeof value !== 'string') return undefined;
+      try {
+        return JSON.parse(value);
+      } catch {
+        return undefined;
+      }
   }
 };
 
@@ -475,6 +504,15 @@ const ENTITIES = {
     { column: 'last_updated', field: 'lastUpdated', kind: 'instant' },
     { column: 'notes', field: 'notes', kind: 'text' }
   ],
+  custom_reports: [
+    { column: 'id', field: 'id', kind: 'text' },
+    { column: 'name', field: 'name', kind: 'text' },
+    { column: 'description', field: 'description', kind: 'text' },
+    { column: 'components', field: 'components', kind: 'json' },
+    { column: 'filters', field: 'filters', kind: 'json' },
+    { column: 'created_at', field: 'createdAt', kind: 'instant' },
+    { column: 'updated_at', field: 'updatedAt', kind: 'instant' }
+  ],
   suggestion_dismissals: [
     { column: 'id', field: 'id', kind: 'text' },
     { column: 'kind', field: 'kind', kind: 'text' },
@@ -611,6 +649,9 @@ export function seed(file: string, fixture: PortFixture, owner: string): void {
         asset_type: holding.assetType ?? 'stock'
       });
     }
+    for (const report of fixture.customReports ?? []) {
+      insert(database, 'custom_reports', report, { user_id: owner });
+    }
     for (const dismissal of fixture.dismissals ?? []) {
       insert(database, 'suggestion_dismissals', dismissal, { user_id: owner });
       dismissal.subjectIds.forEach((transactionId, index) => {
@@ -664,6 +705,18 @@ const asDecimalValue = (value: unknown): DecimalInstance => {
   }
   return typeof value === 'number' ? toDecimal(value) : toDecimal(0);
 };
+
+/**
+ * A parsed `filters` blob, as far as the suite needs to look at it.
+ *
+ * `dateRange` is the only required field of `CustomReport['filters']`, so it is
+ * the only one worth guarding: everything else is optional, and a witness that
+ * validated the lot would be re-implementing the app's own reader — which is the
+ * one thing an independent witness must not do.
+ */
+const isFilters = (value: unknown): value is CustomReport['filters'] =>
+  typeof value === 'object' && value !== null && !Array.isArray(value) &&
+  typeof (value as { dateRange?: unknown }).dateRange === 'string';
 
 /** One of the eight `investments_asset_type_check` allows. */
 const assetTypeOf = (value: unknown): InvestmentHolding['assetType'] => {
@@ -921,6 +974,31 @@ export function readBack(file: string): PortStoreState {
       };
     });
 
+    /**
+     * The reports, with their two JSON columns already parsed.
+     *
+     * READ THROUGH THIS FILE'S OWN JSON KIND rather than through the app's
+     * `parseReportComponents`, and the distinction is the whole point of an
+     * independent witness: the port's reader is allowed to repair a malformed
+     * component, and a witness that repaired it the same way would report the
+     * two agreeing about a value neither of them read correctly. What this hands
+     * back is what is IN the file, shaped just enough for the suite to compare.
+     */
+    const customReports: CustomReport[] = all(
+      'SELECT * FROM custom_reports ORDER BY rowid'
+    ).map(row => {
+      const value = fieldsOf('custom_reports', row);
+      return {
+        id: asText(value.id),
+        name: asText(value.name),
+        description: asText(value.description),
+        components: Array.isArray(value.components) ? (value.components as ReportComponent[]) : [],
+        filters: isFilters(value.filters) ? value.filters : { dateRange: 'month' },
+        createdAt: asDate(value.createdAt),
+        updatedAt: asDate(value.updatedAt)
+      };
+    });
+
     const dismissals: SuggestionDismissal[] = all(
       'SELECT * FROM suggestion_dismissals ORDER BY rowid'
     ).map(row => {
@@ -935,7 +1013,10 @@ export function readBack(file: string): PortStoreState {
       };
     });
 
-    return { accounts, transactions, splits, categories, budgets, goals, investments, dismissals };
+    return {
+      accounts, transactions, splits, categories, budgets, goals, customReports,
+      investments, dismissals
+    };
   } finally {
     database.close();
   }

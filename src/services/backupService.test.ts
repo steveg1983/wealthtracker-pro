@@ -319,6 +319,11 @@ describe('restore ordering', () => {
       'dashboard_layouts',
       'widget_preferences',
       'suggestion_dismissals',
+      // Last, and the ONLY step whose position is a choice rather than a
+      // constraint: a report names accounts and categories from inside a jsonb
+      // column with no foreign key behind it, so the database would take it
+      // first. See RESTORE_STEPS for why "last" is nonetheless the right answer.
+      'custom_reports',
     ]);
   });
 
@@ -842,6 +847,84 @@ describe('remapBackupIds', () => {
       linkedAccountIds: [idMap.get(A_CURRENT), idMap.get(A_SAVINGS)],
       note: 'for the roof',
     });
+  });
+
+  it('rewrites the account and category ids inside a report’s filters', () => {
+    // The same failure as the goal's metadata above, in the entity that arrived
+    // in slice 32 — and the reason `metadataIdArrays` became `jsonbIdArrays`:
+    // the old spec could only describe keys inside a column literally named
+    // `metadata`, and a report keeps its references in `filters`.
+    //
+    // Left alone, a restored report is filtered to accounts and categories that
+    // belong to the login the FILE came from. It does not error: it draws, and
+    // it draws nothing, because no transaction in the new login matches any of
+    // them. A report that silently reports on nothing is worse than one that
+    // refuses to open.
+    const source = buildBackupBundle({
+      sourceUserId: uid('0', 1),
+      exportedAt: '2026-08-12T09:30:00.000Z',
+      data: {
+        accounts: [
+          { id: A_CURRENT, name: 'Current', balance: 0 },
+          { id: A_SAVINGS, name: 'Savings', balance: 0 },
+        ],
+        categories: [{ id: C_FOOD, name: 'Food', level: 'detail' }],
+        custom_reports: [{
+          id: uid('c', 1),
+          name: 'Where it went',
+          components: [{ id: 'one', type: 'summary-stats', title: 'Key figures' }],
+          filters: {
+            dateRange: 'quarter',
+            accounts: [A_CURRENT, A_SAVINGS],
+            categories: [C_FOOD],
+            // Labels, NOT ids. These must come through character for character:
+            // a tag that got remapped would filter to a tag nobody ever typed.
+            tags: ['holiday', 'roof'],
+          },
+        }],
+      },
+    });
+
+    const { bundle, idMap } = remapBackupIds(source, sequentialIds());
+    const report = bundle.data.custom_reports[0];
+
+    expect(report.filters).toEqual({
+      dateRange: 'quarter',
+      accounts: [idMap.get(A_CURRENT), idMap.get(A_SAVINGS)],
+      categories: [idMap.get(C_FOOD)],
+      tags: ['holiday', 'roof'],
+    });
+    // And the report itself got a fresh id, like every other row in the file.
+    expect(report.id).toBe(idMap.get(uid('c', 1)));
+  });
+
+  it('leaves a report’s components alone, because they name no rows', () => {
+    // The other half of the spec: `jsonbIdArrays` names `filters` and NOT
+    // `components`, so a component's config travels untouched. A remapper that
+    // walked the whole row looking for uuid-shaped strings would rewrite
+    // whatever a person had typed into a text block.
+    const source = buildBackupBundle({
+      sourceUserId: uid('0', 1),
+      exportedAt: '2026-08-12T09:30:00.000Z',
+      data: {
+        accounts: [{ id: A_CURRENT, name: 'Current', balance: 0 }],
+        custom_reports: [{
+          id: uid('c', 2),
+          name: 'Notes',
+          components: [{
+            id: 'text-1', type: 'text-block', title: 'Why',
+            config: { content: `About account ${A_CURRENT}` },
+          }],
+          filters: { dateRange: 'month' },
+        }],
+      },
+    });
+
+    const { bundle } = remapBackupIds(source, sequentialIds());
+    expect(bundle.data.custom_reports[0].components).toEqual([{
+      id: 'text-1', type: 'text-block', title: 'Why',
+      config: { content: `About account ${A_CURRENT}` },
+    }]);
   });
 
   it('rewrites a text id that is not shaped like a uuid', () => {

@@ -41,6 +41,8 @@ const mocks = vi.hoisted(() => ({
     transactionSplits: [],
     budgets: [],
     categories: [],
+    // Listed inline by the report picker; see ImprovedDashboard.test.tsx.
+    customReports: [],
     serverBalances: new Map<string, { balance: number; txnCount: number }>(),
     isLoading: false,
   },
@@ -104,9 +106,6 @@ vi.mock('../common/Modal', () => ({
   Modal: ({ isOpen, children }: { isOpen: boolean; children: ReactNode }) =>
     isOpen ? <div role="dialog">{children}</div> : null,
   ModalBody: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-}));
-vi.mock('../../services/customReportService', () => ({
-  customReportService: { getCustomReports: () => [] },
 }));
 
 const account = (over: Partial<Account> & { id: string; name: string }): Account => ({

@@ -38,9 +38,13 @@
  * gives it a writer, and the promise has now been kept four times running:
  * `toCategory`, `toBudget`, `toGoal` and `toDismissal` each moved out of
  * hand-written property access and into `fieldsOf` in the same commit as their
- * own write payload. THE LIST IS NOW COMPLETE — every entity the seam carries
- * goes both ways, so the next entity to join is a new one rather than a
- * postponed one.
+ * own write payload. The list was declared COMPLETE at slice 23 — every entity
+ * the seam carried went both ways — with the note that *"the next entity to
+ * join is a new one rather than a postponed one"*.
+ *
+ * CUSTOM REPORTS ARE THAT ENTITY, and they kept the shape of the promise: they
+ * arrive in this table with `toCustomReport` and their two write payloads in one
+ * commit, having never had a one-directional mapping to drift from.
  *
  * ── WHAT A ROW HERE CANNOT SAY, AND WHERE THAT LIVES INSTEAD ────────────────
  *
@@ -210,7 +214,31 @@ export type Kind =
    * own mapper and is therefore literally the same function the signed-in page
    * uses. So what this table owns for a holding is the WRITE.
    */
-  | 'exact';
+  | 'exact'
+  /**
+   * A whole JSON VALUE — a custom report's `components` array and its `filters`
+   * object, and so far only those two.
+   *
+   * The one kind here that crosses UNCONVERTED in both directions, and that is
+   * the conversion rather than the absence of one. Everything else in this table
+   * is a scalar the two engines spell differently (pennies against a decimal
+   * string, a Date against a day, 0/1 against a boolean), so a kind's job is to
+   * pick the spelling. A jsonb column and a SQLite TEXT column holding JSON both
+   * arrive here as the value the crate has already parsed, so the correct
+   * conversion is none at all.
+   *
+   * WHAT IT MUST NOT DO IS `JSON.stringify`. The wire is JSON: a stringify on
+   * the way out would send a STRING where the verb expects an array, and the
+   * store would then hold a JSON document containing JSON — which reads back as
+   * "not an array" and answers with an empty report, silently, because nothing
+   * constrains the inside of a JSON column on either engine.
+   *
+   * The value is not INSPECTED here either. Deciding what a stored component
+   * means is `services/reports/document.ts`'s job, shared with the cloud mapper
+   * precisely so that the two engines cannot draw different reports from one
+   * definition; this table only carries it across.
+   */
+  | 'json';
 
 export interface Column {
   /** The key on the wire, the same in both directions. */
@@ -432,6 +460,33 @@ export const GOAL_COLUMNS: readonly Column[] = [
 ];
 
 /**
+ * A custom report, column by column — five of the eight the table has.
+ *
+ * `user_id` is the port's own (`#ask` adds it and no method below could send
+ * another), and `created_at`/`updated_at` are stamped by the file's clock inside
+ * the write's transaction — the same three absences the category and budget
+ * tables have, for the same reason: a caller's copy of a timestamp is what it
+ * last read, not an instruction.
+ *
+ * That rule costs something here that it costs nowhere else, and `writes.ts`
+ * records it where the create is built: the ADOPTION carries reports out of a
+ * browser's old storage key, some of them years old, and they arrive dated the
+ * day the adoption ran.
+ *
+ * `components` and `filters` are the only `json` rows in this file. The kind's
+ * own documentation says why they cross unconverted; what belongs HERE is that
+ * they are one column and one field in both directions, which is the whole of
+ * what this table claims about anything.
+ */
+export const CUSTOM_REPORT_COLUMNS: readonly Column[] = [
+  { key: 'id', field: 'id', kind: 'text' },
+  { key: 'name', field: 'name', kind: 'text' },
+  { key: 'description', field: 'description', kind: 'text' },
+  { key: 'components', field: 'components', kind: 'json' },
+  { key: 'filters', field: 'filters', kind: 'json' }
+];
+
+/**
  * A dismissal, column by column — the five the cloud's own read names, and
  * `user_id` is not among them.
  *
@@ -547,6 +602,10 @@ const decode = (kind: Kind, value: unknown): unknown => {
       // `accountType` above is: a kind whose two directions are not inverses is
       // a kind that will one day be used in the direction nobody implemented.
       return exact(value);
+    case 'json':
+      // Verbatim, both ways. See the kind's own documentation for why this is
+      // the conversion and not the lack of one.
+      return value;
   }
 };
 
@@ -613,6 +672,8 @@ export const encode = (kind: Kind, value: unknown): unknown => {
       // A plain string passes through for the reason `asDay` passes one
       // through — a caller holding text has already answered the question.
       return typeof value === 'string' ? value : asExact(value);
+    case 'json':
+      return value;
   }
 };
 

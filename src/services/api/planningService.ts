@@ -1,6 +1,6 @@
 /**
- * Planning data persistence: budgets, goals, categories — THE CLOUD HALF, and
- * only the cloud half.
+ * Planning data persistence: budgets, goals, categories, custom reports — THE
+ * CLOUD HALF, and only the cloud half.
  *
  * Until 2026-06 these entities lived ONLY in React state — every budget and
  * goal was lost on page refresh, and nothing reached the cloud tables that
@@ -52,7 +52,15 @@ import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseC
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { createScopedLogger } from '../../loggers/scopedLogger';
 import { getDefaultCategories } from '../../data/defaultCategories';
-import type { Budget, Goal, Category, CategoryMergeResult } from '../../types';
+import { parseReportComponents, parseReportFilters } from '../reports/document';
+import type {
+  Budget,
+  Category,
+  CategoryMergeResult,
+  CustomReport,
+  Goal,
+  ReportComponent
+} from '../../types';
 
 const logger = createScopedLogger('PlanningService');
 
@@ -214,6 +222,88 @@ export const goalToDb = (g: Partial<Goal>, userId?: string, existingMetadata?: R
   }
   return row;
 };
+
+// ── Custom report mapping ────────────────────────────────────────────────────
+
+/**
+ * Cloud row → CustomReport.
+ *
+ * `components` and `filters` are `jsonb`, so PostgREST hands them back as real
+ * JSON values rather than as strings — which is why nothing here parses. What it
+ * does instead is READ them, through `services/reports/document.ts`, and that
+ * module is shared with the local engine on purpose: it is the only value in
+ * this app stored as free JSON and read back as a closed type, so two
+ * independent readers of it would not merely disagree about a field, they would
+ * draw different reports from one stored definition.
+ *
+ * Exported for the reason `goalFromDb` is: the mapping IS the whole of the cloud
+ * round trip, and the one path with no test at all is how `isActive` came to be
+ * silently dropped from a goal.
+ */
+export const customReportFromDb = (row: Row): CustomReport => ({
+  id: String(row.id),
+  name: str(row.name) ?? '',
+  // NOT `?? undefined`: `CustomReport.description` is a required string that the
+  // builder writes as '' when nobody typed one, and the column is nullable.
+  description: str(row.description) ?? '',
+  components: parseReportComponents(row.components),
+  filters: parseReportFilters(row.filters),
+  createdAt: row.created_at ? new Date(String(row.created_at)) : new Date(),
+  updatedAt: row.updated_at ? new Date(String(row.updated_at)) : new Date()
+});
+
+/**
+ * CustomReport → cloud row.
+ *
+ * A WHITELIST, like `budgetToDb` and `categoryToDb` beside it: a key this
+ * function has no line for never reaches the table, which is what keeps
+ * `Partial<CustomReport>`'s `createdAt`/`updatedAt` from being written by a
+ * caller that happened to spread a whole report into an update.
+ *
+ * ── THE TWO JSON COLUMNS ARE REPLACED, NOT MERGED ───────────────────────────
+ *
+ * The line that separates this from `goalToDb`, which takes the row's CURRENT
+ * metadata and merges into it. That merge exists because three unrelated fields
+ * share one jsonb column there, and rebuilding it from a partial update deleted
+ * whichever of the three the update did not mention.
+ *
+ * Nothing shares these two columns, so there is nothing to merge and merging
+ * would be a bug rather than a courtesy: `components` is the array the builder
+ * just handed over, and a merge would make removing a component impossible — the
+ * removed one would survive every save, and no screen would explain why.
+ *
+ * Values, not strings. Supabase serialises the object it is given into the jsonb
+ * column; `JSON.stringify` here would store a jsonb STRING containing JSON, and
+ * `parseReportComponents` would read it as "not an array" and answer with an
+ * empty report.
+ */
+const customReportToDb = (report: Partial<CustomReport>, userId?: string): Row => {
+  const row: Row = {};
+  if (userId) row.user_id = userId;
+  if (report.name !== undefined) row.name = report.name;
+  if (report.description !== undefined) row.description = report.description;
+  if (report.components !== undefined) row.components = componentsToJson(report.components);
+  if (report.filters !== undefined) row.filters = { ...report.filters };
+  return row;
+};
+
+/**
+ * The components as plain JSON objects.
+ *
+ * Spread one level rather than handed over as-is, so what lands in the column is
+ * a value this function chose rather than whatever object the builder's state
+ * happens to be holding. `config` is spread too: it is the one nested object,
+ * and a caller that kept a reference to it could otherwise change a row after it
+ * was written.
+ */
+const componentsToJson = (components: readonly ReportComponent[]): Row[] =>
+  components.map(component => ({
+    id: component.id,
+    type: component.type,
+    title: component.title,
+    config: { ...component.config },
+    width: component.width
+  }));
 
 // ── Service ──────────────────────────────────────────────────────────────────
 
@@ -383,6 +473,112 @@ export class PlanningService {
 
     const { error } = await supabase!
       .from('goals')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
+    if (error) throw new Error(handleSupabaseError(error));
+  }
+
+  // ----- Custom reports -----
+  //
+  // The newest family here, and the first one whose table exists because a
+  // FEATURE was losing data rather than because a screen was being written.
+  // Until migration 20260812140000 a custom report lived in
+  // `localStorage['money_management_custom_reports']` and nowhere else: not on
+  // the user's other device, not in a backup, and — on a desktop — not in the
+  // ledger file they chose, but in the WebView's storage beside it.
+
+  /**
+   * The owner's reports, oldest first.
+   *
+   * `created_at ASC` is the order the budgets and the goals above are read in,
+   * and it is what the reports page shows: the list somebody built, in the order
+   * they built it, so a new report appears at the bottom where they left it
+   * rather than jumping to the top of a list they were reading.
+   *
+   * A FAILED CLOUD READ IS NO REPORTS, not another store's. The argument is on
+   * `getBudgets` above and applies word for word — with one thing extra to lose
+   * here, because the browser store this used to fall back to is exactly the one
+   * the migration in `customReportService` is reading OUT of. Serving it back as
+   * the account's would offer the user a report they had already migrated, under
+   * an id the cloud has never heard of, and the first edit to it would fail.
+   */
+  static async getCustomReports(userId: string | null): Promise<CustomReport[]> {
+    if (!this.cloudReady || !userId) {
+      throw new Error('getCustomReports requires the cloud connection (local mode goes through DataService)');
+    }
+
+    const { data, error } = await supabase!
+      .from('custom_reports')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+    if (error) {
+      logger.error('getCustomReports cloud read failed — returning no reports', error);
+      return [];
+    }
+    return ((data ?? []) as Row[]).map(customReportFromDb);
+  }
+
+  static async createCustomReport(
+    userId: string | null,
+    report: Omit<CustomReport, 'id'>
+  ): Promise<CustomReport> {
+    if (!this.cloudReady || !userId) {
+      throw new Error('createCustomReport requires the cloud connection (local mode goes through DataService)');
+    }
+
+    // `components` and `filters` are stated even when the caller left them
+    // empty, because the columns are NOT NULL: an empty report is a perfectly
+    // ordinary thing to save halfway through building one, and the alternative
+    // is a refusal from the database in place of a blank page.
+    const row = customReportToDb({
+      ...report,
+      components: report.components ?? [],
+      filters: report.filters
+    }, userId);
+    const { data, error } = await supabase!
+      .from('custom_reports')
+      .insert(row as never)
+      .select()
+      .single();
+    if (error) throw new Error(handleSupabaseError(error));
+    return customReportFromDb(data as Row);
+  }
+
+  static async updateCustomReport(
+    userId: string | null,
+    id: string,
+    updates: Partial<CustomReport>
+  ): Promise<CustomReport> {
+    if (!this.cloudReady || !userId) {
+      throw new Error('updateCustomReport requires the cloud connection (local mode goes through DataService)');
+    }
+
+    // No metadata read first, unlike `updateGoal`: there is nothing to merge
+    // into. Both jsonb columns are replaced whole, which is the rule the seam
+    // states and the reason removing a component works at all.
+    const { data, error } = await supabase!
+      .from('custom_reports')
+      .update({ ...customReportToDb(updates), updated_at: new Date().toISOString() } as never)
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single();
+    if (error) throw new Error(handleSupabaseError(error));
+    return customReportFromDb(data as Row);
+  }
+
+  static async deleteCustomReport(userId: string | null, id: string): Promise<void> {
+    if (!this.cloudReady || !userId) {
+      throw new Error('deleteCustomReport requires the cloud connection (local mode goes through DataService)');
+    }
+
+    // No `.single()`, so an id naming nothing is a successful nothing — the rule
+    // `deleteBudget` and `deleteGoal` keep, and the case a second device that
+    // got there first actually produces.
+    const { error } = await supabase!
+      .from('custom_reports')
       .delete()
       .eq('id', id)
       .eq('user_id', userId);

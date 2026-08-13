@@ -168,7 +168,13 @@ describe('the desktop router', () => {
     // mount's second half answered all but three of them, and slice 31 answered
     // those. A change that quietly dropped a page would otherwise pass every
     // other assertion in this file.
-    expect(mounted.length).toBe(40);
+    //
+    // FORTY-ONE since `custom-reports` moved out of NEVER_ON_A_DESKTOP — the
+    // first path ever to leave that list. `routes.ts` carries the argument; the
+    // short version is that the premise ("a device edition has no plans") was
+    // wrong rather than the reasoning, because a one-time purchase IS a plan and
+    // its buyer is on it.
+    expect(mounted.length).toBe(41);
 
     // EMPTY, and the list is kept rather than deleted — `routes.ts` says why:
     // this is one of three ANSWERS a route can have, not an exception to a rule,

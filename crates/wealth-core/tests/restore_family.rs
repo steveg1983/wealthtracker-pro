@@ -23,8 +23,8 @@
 //! 5. **The audit chain.** Whether the hashes actually chain across a wipe that
 //!    writes one row per transaction and one per account. There is no cloud hash
 //!    to compare to.
-//! 6. **The column maps.** Fourteen entities, each with its own scale conversions.
-//!    The differential specs exercise four of them; this exercises all fourteen,
+//! 6. **The column maps.** Fifteen entities, each with its own scale conversions.
+//!    The differential specs exercise four of them; this exercises all fifteen,
 //!    which is the only way a mapping typo in `investment_transactions` gets
 //!    found before somebody's holdings do.
 //!
@@ -586,8 +586,11 @@ fn the_wipe_audits_every_row_and_the_hashes_chain() {
 #[test]
 fn every_entity_the_format_carries_can_be_restored() {
     // The differential specs exercise four entities. This exercises all
-    // fourteen, because a scale typo in `investment_transactions` is not
-    // something anybody should find out about from their own holdings.
+    // fifteen, because a scale typo in `investment_transactions` is not
+    // something anybody should find out about from their own holdings — and
+    // because the fifteenth carries the two documents whose CONTAINER a CHECK
+    // constrains on both engines, so a restore that stringified one of them
+    // would be refused rather than stored wrongly.
     let mut connection = seeded();
     wipe(&mut connection);
 
@@ -671,10 +674,23 @@ fn every_entity_the_format_carries_can_be_restored() {
             "id": "f0000000-0000-0000-0000-000000000004", "kind": "duplicate",
             "subject_key": "a-key", "subject_ids": [CORNER_SHOP],
             "dismissed_at": "2019-06-01T00:00:00+00:00" }]},
+        { "entity": "custom_reports", "rows": [{
+            "id": "f0000000-0000-0000-0000-000000000005", "name": "Where it went",
+            "description": "a description",
+            "components": [{ "id": "c1", "type": "summary", "title": "Totals", "width": "full" }],
+            // The ids in here arrived ALREADY REWRITTEN — `remapBackupIds` did it
+            // on the client, which is the only place holding the map from the
+            // file's ids to this login's. Nothing in the crate touches them, so
+            // what this asserts is that they travel VERBATIM.
+            "filters": { "dateRange": "custom", "customStartDate": "2019-01-01",
+                         "accounts": [EVERYDAY], "categories": [OUTGOINGS],
+                         "tags": ["a-label"] },
+            "created_at": "2019-01-01T00:00:00+00:00",
+            "updated_at": "2019-06-01T00:00:00+00:00" }]},
     ]);
 
     let result = restore(&mut connection, chunks);
-    assert_eq!(result.answer.inserted, 14, "one row per entity");
+    assert_eq!(result.answer.inserted, 15, "one row per entity");
     assert!(result.answer.dropped.is_empty(), "{:?}", result.answer.dropped);
 
     // The scale conversions, each read back as the integer the column holds.

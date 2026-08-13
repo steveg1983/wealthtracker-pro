@@ -125,6 +125,27 @@
 //! | the audit log | nothing | nothing either — the dismissal pair's argument, and for the same reason: a preference holds no figure |
 //! | the document's contents | unread by either engine | unread here too, and [`preferences`] argues at length why a crate that learned a preference key would be a second registry going stale |
 //!
+//! And the CUSTOM-REPORT trio's, which is the newest —
+//! [`create_custom_report`], [`update_custom_report`],
+//! [`delete_custom_report`]. Its oracle is a TypeScript writer like the four
+//! above, with one difference worth reading twice: until
+//! `20260812140000_reports_outlive_the_browser.sql` there was **nothing to
+//! port**. `customReportService` saved its output to `window.localStorage`, so
+//! the cloud had no table, the backup carried nothing, and a report composed in
+//! a DESKTOP window sat in the WebView's storage rather than in the file the
+//! whole edition is about:
+//!
+//! | | the cloud's direct write | the verb |
+//! | --- | --- | --- |
+//! | before 20260812140000 | `window.localStorage`, one key, one machine | — the local edition had the same bug, with the file sitting right there |
+//! | the audit log | nothing | one entry per write, chained — and NOT for divergence 10's reason: there is no figure here, so the entries answer *"where did my report go?"* instead of *"what changed that figure?"* |
+//! | `updated_at` on an edit | `update_custom_reports_updated_at` stamps it | written by the verb: `schema.sql` ports four of the cloud's eleven such triggers and this is not one |
+//! | a patch to `components` | replaces the jsonb | replaces it too — and [`update_custom_report`] argues why this is the one patch in the crate that must NOT do what [`update_goal`] does to `metadata` |
+//! | a definition over 256 KiB | refused by `custom_reports_definition_is_small` | stored: a local file downloads nothing, and `schema.sql` records where the same mistake would be caught instead |
+//! | a whitespace-only name | refused by `custom_reports_name_not_blank` | the same CHECK, ported |
+//! | the ids inside `filters` | opaque jsonb, rewritten on restore by `remapBackupIds` | opaque TEXT, rewritten by the same TypeScript — nothing here has an opinion about them |
+//! | a wipe's counts | clears the table without counting it | COUNTS it, because a person told what "delete everything" took should be told about the reports too |
+//!
 //! # THE C/R SPLIT, WHICH IS THE ONE PORT THAT NEEDED A COLUMN
 //!
 //! [`set_transactions_cleared`], [`finalize_reconciliation`],
@@ -180,7 +201,7 @@
 //!
 //! [`collect_backup`] is the one that is genuinely new: the first verb here
 //! whose oracle is a TypeScript **reader**. The five families above port
-//! writers; this ports `backupService.collectBackupBundle`'s walk of fourteen
+//! writers; this ports `backupService.collectBackupBundle`'s walk of fifteen
 //! tables. And it ports only the READ half — everything that turns rows into a
 //! FILE stays in `buildBackupBundle`, the one builder the cloud, the browser and
 //! now this edition all call, because a second builder of one format is a file
@@ -188,7 +209,7 @@
 //!
 //! | | the cloud's collector | the verb |
 //! | --- | --- | --- |
-//! | how the rows are read | 14 PostgREST walks, paged at 1000 | fourteen SELECTs in ONE deferred read transaction |
+//! | how the rows are read | 15 PostgREST walks, paged at 1000 | fifteen SELECTs in ONE deferred read transaction |
 //! | the column list | `select('*')` — whatever the table has | `crate::backup`'s maps, read in reverse, so a column that can be RESTORED can be COLLECTED by construction |
 //! | money | a JSON number from `numeric(20,2)` | the number's own decimal text (D-4), which both restores accept |
 //! | `tags` / `subject_ids` | `text[]` / `uuid[]` on the row | child tables, folded back into the array the format carries |
@@ -556,12 +577,16 @@
 
 //! # And then the reads, which are verbs too
 //!
-//! [`reads`] holds the first six: the accounts, the closed accounts, the
-//! categories, the budgets, the goals and the suggestion dismissals. None of
+//! [`reads`] holds the first seven: the accounts, the closed accounts, the
+//! categories, the budgets, the goals, the saved reports and the suggestion
+//! dismissals. None of
 //! them is a port of a Postgres FUNCTION — the cloud reads these tables over
 //! PostgREST — so what each one ports is a *query*, `.eq()` for `.eq()` and
 //! `.order()` for `.order()`, and its oracle in the differential harness is
-//! that query written out.
+//! that query written out. [`list_custom_reports`] is the exception to the last
+//! clause and says so at the read: it declines the cloud's `updated_at DESC` for
+//! a key that does not move under the reader, which is a DECLARED divergence
+//! rather than a transcription.
 //!
 //! They are in this crate rather than beside it because of what leaves with
 //! them: money, as the decimal string [`crate::money`] renders once. The whole
@@ -579,7 +604,7 @@
 //!
 //! [`load_boot`] is the first verb in the crate that is a port of no SQL at all:
 //! the thing it ports is a TypeScript method (`DataServiceImpl.loadBoot`) whose
-//! whole body is six of the reads above in the order the boot depended on. It
+//! whole body is seven of the reads above in the order the boot depended on. It
 //! composes the same `crate::row` functions those reads call — no query of its
 //! own, so no plan of its own — inside ONE deferred read transaction, which is
 //! what makes the contract suite's `BOOT_COMPOSITION` row for this engine (*"one
@@ -603,12 +628,14 @@ mod confirm_transaction_categories;
 mod create_account;
 mod create_budget;
 mod create_category;
+mod create_custom_report;
 mod create_transaction;
 mod create_transfer_counterpart;
 mod create_goal;
 mod create_investment;
 mod delete_budget;
 mod delete_category;
+mod delete_custom_report;
 mod delete_goal;
 mod delete_investment;
 mod delete_transaction;
@@ -639,6 +666,7 @@ mod unarchive_account;
 mod update_account;
 mod update_budget;
 mod update_category;
+mod update_custom_report;
 mod update_goal;
 mod update_investment;
 mod update_transaction;
@@ -691,6 +719,24 @@ pub use delete_budget::{delete_budget, DeleteBudget, DeleteBudgetResult};
 pub use delete_goal::{delete_goal, DeleteGoal, DeleteGoalResult};
 pub use update_budget::{update_budget, BudgetPatch, UpdateBudget, UpdateBudgetResult};
 pub use update_goal::{update_goal, GoalPatch, UpdateGoal, UpdateGoalResult};
+// The custom-report trio — a seventh family with no RPC behind it, and the
+// first entity in the crate that holds NO MONEY. It joins divergence 10 for a
+// different reason from the planning family's: PHASE1-PLAN §2.2 audits budgets
+// and goals because their FIGURES needed a "what changed that?", and there is no
+// figure here. What there is instead is work the person authored and the file's
+// only copy of it, so the entries answer "where did my report go?".
+// [`create_custom_report`] carries that argument, and
+// [`update_custom_report`] carries the one a reader coming from
+// [`update_goal`] needs: these blobs REPLACE rather than merge.
+pub use create_custom_report::{
+    create_custom_report, CreateCustomReport, CreateCustomReportResult, CustomReportDraft,
+};
+pub use delete_custom_report::{
+    delete_custom_report, DeleteCustomReport, DeleteCustomReportResult,
+};
+pub use update_custom_report::{
+    update_custom_report, CustomReportPatch, UpdateCustomReport, UpdateCustomReportResult,
+};
 // The investment family — four verbs, no RPC between them either, and the sixth
 // group whose oracle is a TypeScript writer. Holdings are the LAST region of the
 // data layer to reach the seam: `services/api/investmentService.ts` talked to
@@ -770,9 +816,11 @@ pub use merge_categories::{merge_categories, MergeCategories, MergeCategoriesRes
 // its documentation is where the ordering and the query plans live.
 pub use reads::{
     account_balances, list_accounts, list_budgets, list_categories, list_closed_accounts,
-    list_goals, list_investments, list_suggestion_dismissals, list_transaction_splits,
+    list_custom_reports, list_goals, list_investments, list_suggestion_dismissals,
+    list_transaction_splits,
     list_transactions, splits_for,
-    AccountBalances, Accounts, Answered, Budgets, Categories, ClosedAccounts, Goals, Investments,
+    AccountBalances, Accounts, Answered, Budgets, Categories, ClosedAccounts, CustomReports, Goals,
+    Investments,
     OwnedRead, Splits, SplitsFor, SuggestionDismissals, TransactionSplits, Transactions,
 };
 // The preferences pair — two more verbs with no RPC behind either, and the

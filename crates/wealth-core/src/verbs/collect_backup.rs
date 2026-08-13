@@ -4,7 +4,7 @@
 //! # What it is a port OF, and why that sentence is different this time
 //!
 //! `backupService.collectBackupBundle` — the TypeScript that reads the cloud's
-//! fourteen tables with `select('*')`, a page at a time, and hands the rows to
+//! fifteen tables with `select('*')`, a page at a time, and hands the rows to
 //! `buildBackupBundle`. There is no Postgres FUNCTION to port: the cloud's
 //! collector is a client walking PostgREST, exactly as the account, category,
 //! planning and dismissal families' writers are clients walking PostgREST
@@ -62,7 +62,7 @@
 //!
 //! # One transaction, DEFERRED, for [`super::load_boot`]'s reason
 //!
-//! Fourteen SELECTs are fourteen snapshots unless something makes them one, and
+//! Fifteen SELECTs are fifteen snapshots unless something makes them one, and
 //! a file whose `transaction_splits` were read after an import that its
 //! `transactions` predate is a file that will not restore: the lines would name
 //! parents the backup does not contain. `DEFERRED` rather than `IMMEDIATE`
@@ -71,7 +71,7 @@
 //!
 //! # What it costs
 //!
-//! Fourteen table scans by `user_id`, plus one child lookup per transaction and
+//! Fifteen table scans by `user_id`, plus one child lookup per transaction and
 //! per dismissal. The child lookups are the shape worth naming: they are indexed
 //! primary-key probes (`transaction_tags` is `WITHOUT ROWID` on
 //! `(transaction_id, tag)`), and the alternative — one join emitting a row per
@@ -98,9 +98,9 @@ pub struct CollectBackup {
 
 /// The rows, entity by entity, in `BACKUP_ENTITIES` order.
 ///
-/// A `Map` rather than fourteen named fields: the port hands this straight to
-/// `buildBackupBundle`, whose input is keyed by entity name, and fourteen fields
-/// here would be a fifteenth place to spell the entity list. [`Entity::ALL`] is
+/// A `Map` rather than fifteen named fields: the port hands this straight to
+/// `buildBackupBundle`, whose input is keyed by entity name, and fifteen fields
+/// here would be a sixteenth place to spell the entity list. [`Entity::ALL`] is
 /// that list, and it is walked rather than transcribed.
 #[derive(Debug, Serialize)]
 pub struct Collected {
@@ -124,7 +124,7 @@ pub struct CollectBackupResult {
 /// would hand a signed-in person a file made of whatever demo or imported data
 /// their browser happens to hold, and they would find out on the day they needed
 /// it."* [`CoreError::Storage`] for a fault, which is NOT softened into an empty
-/// file: fourteen empty lists is what a new file legitimately collects to.
+/// file: fifteen empty lists is what a new file legitimately collects to.
 #[allow(clippy::needless_pass_by_value)]
 pub fn collect_backup(
     connection: &mut Connection,
@@ -150,7 +150,7 @@ pub fn collect_backup(
     }
 
     // Committed rather than dropped, for [`super::load_boot`]'s reason: dropping
-    // rolls back, which for fourteen SELECTs releases the same lock and says a
+    // rolls back, which for fifteen SELECTs releases the same lock and says a
     // different thing.
     snapshot.commit()?;
 

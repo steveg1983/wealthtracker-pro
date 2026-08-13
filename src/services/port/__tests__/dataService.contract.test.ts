@@ -37,6 +37,7 @@ const createStore = (fixture: PortFixture) => {
     [STORAGE_KEYS.CATEGORIES, [...(fixture.categories ?? [])]],
     [STORAGE_KEYS.BUDGETS, [...(fixture.budgets ?? [])]],
     [STORAGE_KEYS.GOALS, [...(fixture.goals ?? [])]],
+    [STORAGE_KEYS.CUSTOM_REPORTS, [...(fixture.customReports ?? [])]],
     [STORAGE_KEYS.SUGGESTION_DISMISSALS, [...(fixture.dismissals ?? [])]]
   ]);
 
@@ -73,6 +74,7 @@ const createStore = (fixture: PortFixture) => {
       categories: collection(STORAGE_KEYS.CATEGORIES),
       budgets: collection(STORAGE_KEYS.BUDGETS),
       goals: collection(STORAGE_KEYS.GOALS),
+      customReports: collection(STORAGE_KEYS.CUSTOM_REPORTS),
       dismissals: collection(STORAGE_KEYS.SUGGESTION_DISMISSALS),
       // ALWAYS EMPTY, and that is the witness telling the truth rather than the
       // harness giving up: browser storage has no holdings key, no writer and no
@@ -121,6 +123,9 @@ const refusingPlanningService = () => {
     createGoal: vi.fn(refuse),
     updateGoal: vi.fn(refuse),
     deleteGoal: vi.fn(refuse),
+    createCustomReport: vi.fn(refuse),
+    updateCustomReport: vi.fn(refuse),
+    deleteCustomReport: vi.fn(refuse),
     createCategory: vi.fn(refuse),
     createCategories: vi.fn(refuse),
     updateCategory: vi.fn(refuse),
@@ -128,6 +133,7 @@ const refusingPlanningService = () => {
     deleteUnusedCategories: vi.fn(refuse),
     getBudgets: vi.fn(refuse),
     getGoals: vi.fn(refuse),
+    getCustomReports: vi.fn(refuse),
     ensureCategories: vi.fn(refuse)
   };
 };

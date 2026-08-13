@@ -423,6 +423,16 @@ export const STORAGE_KEYS = {
   SUGGESTION_DISMISSALS: 'wealthtracker_suggestion_dismissals',
   BUDGETS: 'wealthtracker_budgets',
   GOALS: 'wealthtracker_goals',
+  /**
+   * Reports somebody built (local/demo mirror).
+   *
+   * NOT `money_management_custom_reports`. That key is the OLD, pre-seam home —
+   * plain, unencrypted `localStorage`, written by the reports page directly —
+   * and it is read exactly once per device by `customReportService`'s adoption
+   * and then never again. Reusing its name here would make the migration read
+   * its own output and lose the ability to tell "already adopted" from "not yet".
+   */
+  CUSTOM_REPORTS: 'wealthtracker_custom_reports',
   TAGS: 'wealthtracker_tags',
   RECURRING: 'wealthtracker_recurring',
   CATEGORIES: 'wealthtracker_categories',
