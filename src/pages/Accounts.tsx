@@ -62,6 +62,7 @@ import FilteredEmptyState from '../components/FilteredEmptyState';
 import { TableSkeleton, type TableSkeletonColumn } from '../components/loading/TableSkeleton';
 import {
   AccountRowColumns,
+  AccountColumnHeader,
   AccountBalanceCell,
   AccountCountCell,
   AccountRowEmptyCell,
@@ -1589,6 +1590,16 @@ export default function Accounts() {
 
         {isExpanded && (
           <div id={regionId} className="bg-white dark:bg-gray-800">
+            {/* ONE STRIP PER BAND, not four labels on every row.
+                Twenty-odd repetitions of "Bank Bal / Account Bal /
+                Unreconciled / To Review" were the cost of a card that has to
+                explain itself in isolation — the reconciliation list was given
+                one strip per group in the August design pass and this page
+                never was. It sits above the sub-bands rather than inside each
+                one, so an account list grouped by nine institutions says the
+                four words once, not nine times. Phones keep the per-row labels
+                (see AccountRowColumns): below `sm` there is no grid to head. */}
+            <AccountColumnHeader />
             {subBands
               ? subBands.map(sub => {
                   // Count and total describe the WHOLE sub-band, as the section

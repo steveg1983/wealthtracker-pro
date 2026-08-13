@@ -165,6 +165,17 @@ export const ACCOUNT_ROW_NAME_LINK_CLASS =
 /** The column heading over a figure — small, quiet, and the same for every row. */
 const CELL_LABEL_CLASS = 'text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500';
 
+/**
+ * The same label ON A ROW: drawn on a phone, spoken everywhere.
+ *
+ * From `sm` up the band's header strip says these four words once, so repeating
+ * them on every row is ink for something already answered — but `sr-only`
+ * rather than `hidden`, because a screen reader reads a row as a row and would
+ * otherwise hear four bare figures. The strip is `aria-hidden` for the mirror
+ * image of the same reason.
+ */
+const ROW_LABEL_CLASS = `${CELL_LABEL_CLASS} sm:sr-only`;
+
 /** The figures themselves: tabular so the digits line up down the column. */
 const CELL_FIGURE_CLASS = 'text-sm font-semibold tabular-nums';
 
@@ -179,6 +190,84 @@ export function AccountRowColumns({ children }: { children: ReactNode }): React.
   return (
     <div data-account-columns className={ACCOUNT_ROW_COLUMNS_CLASS}>
       {children}
+    </div>
+  );
+}
+
+/**
+ * The BOX a row's grid sits in — the padding and border of the account card,
+ * with none of its colour. The header strip wears it so its labels land at the
+ * same x as the figures below them, and keeps landing there if the card's
+ * padding is ever changed.
+ *
+ * Kept beside the column template deliberately: these two together are what
+ * "a column of this list" means, and splitting them across files is how the
+ * strip and the rows would come to disagree.
+ */
+export const ACCOUNT_ROW_COLUMN_HEADER_BOX_CLASS = 'p-3 sm:p-4 border border-transparent';
+
+/** What the four figure columns are called, in the template's own order. */
+const COLUMN_LABELS = ['Bank Bal', 'Account Bal', 'Unreconciled', 'To Review'] as const;
+
+/**
+ * The four column names, said ONCE for a band instead of once per row.
+ *
+ * ─ WHY THIS EXISTS ─────────────────────────────────────────────────────────
+ * Every row carried its own labels — twenty-odd repetitions of the same four
+ * words down a list, which is the cost of a card that has to explain itself in
+ * isolation. The reconciliation list was given one strip per group in the
+ * August design pass; this page never was, and the omission surfaced when a
+ * design objection was drafted on the assumption that a header strip existed
+ * here to be made sticky. It did not. This is that strip.
+ *
+ * ─ IT WEARS THE ROW'S OWN TEMPLATE ─────────────────────────────────────────
+ * `ACCOUNT_ROW_COLUMNS_CLASS`, unchanged — the same fixed widths and the same
+ * nine slots, four named and five empty. A strip that declared its own columns
+ * would be a second definition of the grid and would drift from the rows on the
+ * first edit, which is the exact failure this module was created to stop.
+ *
+ * ─ FROM `sm` ONLY, BECAUSE THAT IS WHERE THE GRID IS ───────────────────────
+ * Below `sm` the template gives way to a wrapping row and a card is read on its
+ * own rather than as part of a table, so the per-cell labels stay there and this
+ * does not render. The labels and the strip are the same information at two
+ * widths; neither surface ever shows both.
+ */
+export function AccountColumnHeader(): React.JSX.Element {
+  return (
+    <div
+      data-account-column-header
+      // `aria-hidden`: each cell keeps its own visually-hidden label, so a
+      // screen reader already hears "Bank Bal £6,378.06" per row and does not
+      // need the strip read to it as four loose words.
+      aria-hidden="true"
+      /*
+       * `justify-end` and the row card's own right inset, because the grid is
+       * CONTENT-SIZED inside each row and pushed to the right by the account
+       * name beside it. Measured before this was written: as a plain block grid
+       * the strip filled the container and packed its fixed columns at the LEFT,
+       * putting "Bank Bal" 471px away from the figures it names. The row's card
+       * carries `p-4` and a 1px border inside the band's own `px-4 sm:px-6`, so
+       * the strip repeats both to land on the same right edge.
+       */
+      className="hidden sm:flex justify-end pb-1"
+    >
+      {/* AN INVISIBLE ROW CARD around the labels, rather than a hand-tuned
+          right margin. A row's grid is inset from the band by the card's own
+          `p-3 sm:p-4` and its 1px border — 17px at this width — and a strip
+          that hard-coded 17 would drift the moment that padding changed, which
+          is exactly how the page shell's `calc(100vh-13rem)` came to be 40px
+          wrong. Wearing the same box means the labels move when the rows move. */}
+      <div className={`${ACCOUNT_ROW_COLUMN_HEADER_BOX_CLASS}`}>
+      <div className={ACCOUNT_ROW_COLUMNS_CLASS}>
+        {COLUMN_LABELS.map(label => (
+          <p key={label} className={CELL_LABEL_CLASS}>{label}</p>
+        ))}
+        {/* The five action slots, empty — the grid has nine columns, and a strip
+            that stopped after four would right-align its labels against the
+            wrong edge. */}
+        {[0, 1, 2, 3, 4].map(slot => <span key={slot} aria-hidden="true" />)}
+      </div>
+      </div>
     </div>
   );
 }
@@ -200,7 +289,7 @@ export function AccountBalanceCell({
 }): React.JSX.Element {
   return (
     <div className={smOnly ? 'hidden sm:block text-right' : 'text-right'}>
-      <p className={CELL_LABEL_CLASS}>{label}</p>
+      <p className={ROW_LABEL_CLASS}>{label}</p>
       <p className={`${CELL_FIGURE_CLASS} text-gray-900 dark:text-white`}>{value}</p>
     </div>
   );
@@ -244,7 +333,7 @@ export function AccountCountCell({
 }): React.JSX.Element {
   return (
     <div className="text-right">
-      <p className={CELL_LABEL_CLASS}>{label}</p>
+      <p className={ROW_LABEL_CLASS}>{label}</p>
       <p
         className={`${CELL_FIGURE_CLASS} ${
           count > 0 ? 'text-slate-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'
