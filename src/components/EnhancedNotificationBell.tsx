@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { BellIcon, TrendingUpIcon, CreditCardIcon, TargetIcon, PiggyBankIcon, CheckCircleIcon, InfoIcon, XIcon } from './icons';
 import { useActivityTracking, ActivityItem } from '../hooks/useActivityTracking';
 import { formatDistanceToNow } from 'date-fns';
@@ -21,23 +21,17 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
     counts,
     markAsRead,
     markAllAsRead,
-    clearActivities,
-    getNewSinceLastCheck
+    clearActivities
   } = useActivityTracking();
   const { formatCurrency } = useCurrencyDecimal();
   
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState<FilterValue>('all');
-  const [showPulse, setShowPulse] = useState(false);
-
-  // Show pulse animation for new activities
-  useEffect(() => {
-    const newActivities = getNewSinceLastCheck();
-    if (newActivities.length > 0) {
-      setShowPulse(true);
-      setTimeout(() => setShowPulse(false), 3000);
-    }
-  }, [activities, getNewSinceLastCheck]);
+  // The pulse state, its three-second timer and the effect that drove them
+  // went with the ping: a `setTimeout` whose only purpose was a removed
+  // animation is a re-render on a schedule for nobody's benefit.
+  // `getNewSinceLastCheck` went too — it had no other reader here, and the
+  // hook still exports it for anything that wants "new since you last looked".
 
   const getFilteredActivities = (): ActivityItem[] => {
     // Filter out sync and system notifications - only show app-data notifications
@@ -149,17 +143,30 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
       >
         <BellIcon size={20} className="text-gray-700 dark:text-gray-200" />
         
-        {/* Unread Badge */}
+        {/*
+          Unread badge — a COUNT, so it is neutral (design ruling A, and the
+          same correction already made to ActivityBadge, the reconciliation
+          chips and the Accounts columns). It wore `bg-red-500`: expense red,
+          the colour this app reserves for money going out, spent on "you have
+          not read these yet". Forty-one unread notifications is not a warning,
+          and a badge that shouts at every count leaves nothing louder for the
+          one that should.
+
+          Slate on white clears AA at this size; 600 weight rather than bold,
+          because 700 is not in the type scale.
+        */}
         {counts.unread > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-surface-tertiary dark:bg-gray-700 text-slate-600 dark:text-gray-200 text-xs font-semibold rounded-full flex items-center justify-center">
             {counts.unread > 99 ? '99+' : counts.unread}
           </span>
         )}
 
-        {/* Pulse Animation for New Activities */}
-        {showPulse && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full animate-ping"></span>
-        )}
+        {/*
+          No pulse. Motion is an attention-demand for the same reason colour
+          is — the argument that took `animate-ping` off ActivityBadge — and a
+          ring throbbing beside a count of unread items demands it for
+          something nobody has to act on. The badge appearing is the news.
+        */}
       </button>
 
       {/* Notification Panel */}
