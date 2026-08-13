@@ -122,8 +122,19 @@ export default function MobileBottomNav(): React.JSX.Element {
               key={item.to}
               to={item.to}
               className={`flex flex-col items-center justify-center min-w-[48px] min-h-[48px] flex-1 py-2 rounded-lg transition-colors ${
-                active 
-                  ? 'text-primary bg-[#1a2332]/10' 
+                active
+                  // `bg-nav-bg/10`, not `bg-primary/10`, and the difference is
+                  // not cosmetic: `primary` is `var(--color-primary, #1a2332)`,
+                  // and Tailwind 3 cannot apply an opacity modifier to a bare
+                  // `var()` — it fails to parse it as a colour and emits NO
+                  // RULE AT ALL. Compiled both to check: `bg-primary/10` is
+                  // absent from the stylesheet, so it would have silently
+                  // deleted the active state rather than tokenising it.
+                  // `nav.bg` is the navigation family's own token and holds
+                  // this exact navy as a literal, so `/10` compiles to the
+                  // `rgb(26 35 50 / 0.1)` the hardcoded class was already
+                  // producing — same pixels, named.
+                  ? 'text-primary bg-nav-bg/10'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
               aria-label={item.label}
@@ -131,8 +142,19 @@ export default function MobileBottomNav(): React.JSX.Element {
             >
               <div className="relative">
                 <Icon size={22} />
-                {item.badge && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {/* Neutral, for `ActivityBadge`'s reason and in its palette:
+                    this is a count of things not yet looked at, and expense
+                    red on a count is the inversion corrected on Accounts and
+                    on the reconciliation list. Nothing sets `badge` today, so
+                    this is the shape the first caller will inherit — which is
+                    exactly why it is worth being right now rather than later.
+
+                    `> 0` rather than a bare `&&`: `{0 && …}` renders the
+                    number, so a slot that genuinely had nothing waiting would
+                    have printed a naked "0" beside its icon with no badge
+                    around it. Zero counts render nothing. */}
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-surface-tertiary text-slate-600 dark:bg-gray-700 dark:text-gray-300 text-xs rounded-full h-5 w-5 flex items-center justify-center">
                     {item.badge > 99 ? '99+' : item.badge}
                   </span>
                 )}

@@ -1,11 +1,26 @@
 /**
- * `@service`, on a device: seven absences, and one thing that survives somewhere
+ * `@service`, on a device: eight absences, and one thing that survives somewhere
  * else.
  *
  * The device half of `editions/service.ts`, and the twin of
- * `editions/cloud/service.ts`. All seven answer with nothing, and all seven are
+ * `editions/cloud/service.ts`. All eight answer with nothing, and all eight are
  * ABSENT BY DECISION rather than owed — each belongs to one of the three regions
  * `src/desktop/routes.ts` rules out for the whole edition.
+ *
+ * ── SignOutPanel, THE SHORTEST ARGUMENT OF THE EIGHT ────────────────────────
+ *
+ * A sign-out needs a sign-in to undo, and `NEVER_ON_A_DESKTOP` rules `/login`
+ * out of this edition entirely: *"There is no ClerkProvider in this build and
+ * therefore nothing for a sign-in screen to talk to."* The identity of a ledger
+ * here is the uuid in the file's own users row, minted when the file was
+ * created, and the act that answers "who are you" is choosing a file — which is
+ * `@chrome`'s `IdentityMenu`, and is the one member of that seam this edition
+ * answers for real. You do not sign out of a file; you close it, or you open a
+ * different one, and neither of those is a session ending.
+ *
+ * It renders nothing rather than a disabled button or a line of explanation,
+ * for the reason the whole file gives below: a person on a settings page did
+ * not come there to be told about a product they did not buy.
  *
  * ── DangerZone, TRACED, BECAUSE THE OBVIOUS READING IS WRONG ────────────────
  *
@@ -116,6 +131,9 @@ export const BankFeedRefreshSettings: ServicePanel = () => null;
 
 /** No account with anybody to close. See the header for where the wipe lives. */
 export const DangerZone: ServicePanel = () => null;
+
+/** Nobody is signed in, so there is no session to end. See the header. */
+export const SignOutPanel: ServicePanel = () => null;
 
 /** No feed, so no incident. */
 export const BankingCriticalIncidentBadge: ServiceIncidentBadge = () => null;

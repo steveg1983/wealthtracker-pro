@@ -219,11 +219,20 @@ describe('the edition seams', () => {
     // measurement written down: seven surfaces, every one of them from one of
     // the three regions `NEVER_ON_A_DESKTOP` already rules out, all seven found
     // by walking the pages once the state layer stopped hiding them.
+    //
+    // `SignOutPanel` is the eighth and the only one the walk did not find,
+    // because it did not exist to be found: `/settings` had no way to sign out
+    // at all, and the only one in the app was an unlabelled avatar in the
+    // header. Adding it put a piece of the `auth` region on a page this edition
+    // mounts — the same shape as `DangerZone`, one page over — so it arrived
+    // through the seam rather than as a Clerk import on a shared page. The
+    // equality is what would have caught the second half being forgotten.
     expect(valueExportsOf('src/desktop/editions/service.ts')).toEqual([
       'BankConnections',
       'BankFeedRefreshSettings',
       'BankingCriticalIncidentBadge',
       'DangerZone',
+      'SignOutPanel',
       'SubscriptionStatus',
       'useAccountBankSync',
       'useBankConnectionSnapshot'
