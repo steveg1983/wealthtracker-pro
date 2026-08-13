@@ -18,6 +18,13 @@ interface TableSkeletonProps {
   /** Three is the maximum that says "rows are coming" (DESIGN_PASS §4). */
   rows?: number;
   className?: string;
+  /**
+   * What is arriving, for a screen reader. Defaults to the register's wording
+   * because the register is where this was born and four of its five callers
+   * are lists of transactions — but a table of accounts that announced
+   * "Loading transactions" would be naming something that is not on its way.
+   */
+  label?: string;
 }
 
 /** Row 1 solid, then away — "fading down", so it reads as a hint, not data. */
@@ -39,14 +46,15 @@ export function TableSkeleton({
   columns,
   rowHeight,
   rows = 3,
-  className = ''
+  className = '',
+  label = 'Loading transactions'
 }: TableSkeletonProps): React.JSX.Element {
   const count = Math.min(rows, ROW_OPACITY.length);
 
   return (
     <div
       role="status"
-      aria-label="Loading transactions"
+      aria-label={label}
       className={`animate-fade-in motion-reduce:animate-none ${className}`}
     >
       {Array.from({ length: count }, (_, rowIndex) => (
