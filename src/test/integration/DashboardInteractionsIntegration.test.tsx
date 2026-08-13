@@ -71,9 +71,13 @@ describe('Dashboard Interactions Integration', () => {
       // full coverage suite runs under load. Query both labels concurrently so
       // their wait windows overlap (sequential 5s waits could otherwise sum
       // past the per-test timeout) and give the test an explicit generous cap.
+      // "What you own / What you owe" since 2026-08-13: the shared summary
+      // card's labels became props with the plainer pair as the DEFAULT, on a
+      // design ruling that this is the product's voice and the accounting pair
+      // is the override. The card is the same card; only the words moved.
       const [assetsLabel, liabilitiesLabel] = await Promise.all([
-        screen.findByText(/assets/i, { selector: 'p' }, { timeout: 15000 }),
-        screen.findByText(/liabilities/i, { selector: 'p' }, { timeout: 15000 })
+        screen.findByText(/what you own/i, { selector: 'p' }, { timeout: 15000 }),
+        screen.findByText(/what you owe/i, { selector: 'p' }, { timeout: 15000 })
       ]);
       expect(assetsLabel).toBeInTheDocument();
       expect(liabilitiesLabel).toBeInTheDocument();
@@ -146,7 +150,7 @@ describe('Dashboard Interactions Integration', () => {
         });
       }
 
-      const assetsLabel = await screen.findByText(/assets/i, { selector: 'p' });
+      const assetsLabel = await screen.findByText(/what you own/i, { selector: 'p' });
       expect(assetsLabel).toBeInTheDocument();
     });
 

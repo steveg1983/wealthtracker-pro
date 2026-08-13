@@ -4,6 +4,7 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
 import { buildAccountBalanceReport, type AccountBalanceRow } from '../../utils/accountBalanceReport';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
+import NetWorthSummary from '../../components/NetWorthSummary';
 import type { ReportViewProps } from './types';
 
 /**
@@ -130,40 +131,44 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-[#1a2332] dark:bg-gray-700 rounded-2xl p-6 text-white">
-          <p className="text-xs text-white/60 uppercase tracking-wider font-medium">Net worth</p>
-          <p className="text-2xl font-bold mt-1">{money(report.netWorth)}</p>
-          <p className="text-xs text-white/60 mt-1">
-            As at {report.asOf.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-          </p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
-          <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">What you own</p>
-          <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">
-            {formatCurrency(report.assets)}
-          </p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
-          <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">What you owe</p>
-          <p className="text-2xl font-bold mt-1 text-red-600 dark:text-red-400">
-            {formatCurrency(report.liabilities)}
-          </p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
-          <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">
-            Change — {PERIOD_LABELS[picker.period]}
-          </p>
-          <p className={`text-2xl font-bold mt-1 ${
-            report.change < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
-          }`}>
-            {report.change > 0 ? '+' : ''}{money(report.change)}
-          </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            From {money(report.openingNetWorth)}
-          </p>
-        </div>
-      </div>
+      {/* THE SHARED CARD, and the plainer words kept.
+
+          This page drew its own navy slab plus three white cards — the exact
+          arrangement NetWorthSummary was written to abolish, and the third copy
+          of it in the app. Opting out is not free: the dark-mode fault that
+          card's comment documents was found and fixed once and reached every
+          surface using it, while each copy went on carrying its own version of
+          the same class of bug.
+
+          Its LABELS survive the conversion, and are now the shared card's
+          defaults everywhere (design ruling, 13 Aug night §3.3): "What you own"
+          and "What you owe" are better than the accounting pair, so the terser
+          words became the override rather than the rule. Converting a surface
+          is not permission to overwrite the words somebody chose for it. */}
+      <NetWorthSummary
+        netWorth={money(report.netWorth)}
+        assets={formatCurrency(report.assets)}
+        liabilities={formatCurrency(report.liabilities)}
+      />
+
+      {/* As-at and change, in the caption voice the net-worth report uses for
+          the same two facts — so the two reports say them the same way.
+
+          The CHANGE keeps the semantic colours while the three figures above it
+          do not, and that is the rule rather than an exception to it: a delta is
+          nothing but a direction of travel, which is the one thing green and red
+          are for. */}
+      <p className="text-body text-gray-500 dark:text-gray-400">
+        As at{' '}
+        <span className="font-medium text-gray-900 dark:text-gray-100">
+          {report.asOf.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+        </span>
+        . Change over {PERIOD_LABELS[picker.period].toLowerCase()}{' '}
+        <span className={report.change < 0 ? 'text-expense font-medium' : 'text-income font-medium'}>
+          {report.change > 0 ? '+' : ''}{money(report.change)}
+        </span>
+        , from {money(report.openingNetWorth)}.
+      </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {section('What you own', sides.owned, report.assets, 'No account is in credit in this period')}
