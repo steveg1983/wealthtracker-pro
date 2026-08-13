@@ -163,7 +163,6 @@ const baseValue = {
   getSubCategories: (_parentId?: string): Category[] => [],
   getDetailCategories: (_parentId?: string): Category[] => [],
   getCategoryById: () => undefined,
-  getCategoryPath: () => '',
   recurringTransactions: [],
   addRecurringTransaction: noop,
   updateRecurringTransaction: noop,

@@ -132,15 +132,37 @@ beforeEach(() => {
 });
 
 const periodBar = (): HTMLElement => screen.getByRole('group', { name: 'Period for this dashboard' });
-const performanceCard = (): HTMLElement => screen.getByRole('region', { name: 'Performance' });
+/**
+ * The two-figure card. Named "Money in, money out" since 2026-08-13 —
+ * "Performance" measured nothing, since performance is a return against a
+ * benchmark and this card compares its two totals to nothing at all. The
+ * STORAGE key is still `…pin.performance`, deliberately: a heading is not a
+ * key, and renaming one must not lose anyone's pinned window.
+ */
+const CARD_NAME = 'Income and Expenses';
+const performanceCard = (): HTMLElement => screen.getByRole('region', { name: CARD_NAME });
 
 /** Pin the Performance card through the control a user would actually use. */
 const pinPerformanceTo = (label: string): void => {
   fireEvent.click(within(performanceCard()).getByRole('button', {
-    name: 'Performance: period follows the page. Pin this card to its own period',
+    name: `${CARD_NAME}: period follows the page. Pin this card to its own period`,
   }));
-  const menu = screen.getByRole('menu', { name: 'Window for Performance' });
+  const menu = screen.getByRole('menu', { name: `Window for ${CARD_NAME}` });
   fireEvent.click(within(menu).getByRole('menuitemradio', { name: label }));
+};
+
+/**
+ * Send the Performance card back to the page bar the way a user does now: the
+ * menu's first entry. The separate "Follow page" button it replaced only ever
+ * appeared once the card was ALREADY pinned, so the menu — the thing you open
+ * to choose a window — never listed the state most cards are in.
+ */
+const releasePerformance = (from: string): void => {
+  fireEvent.click(within(performanceCard()).getByRole('button', {
+    name: `${CARD_NAME}: pinned to ${from}. Choose a different period for this card`,
+  }));
+  fireEvent.click(within(screen.getByRole('menu', { name: `Window for ${CARD_NAME}` }))
+    .getByRole('menuitemradio', { name: 'Default' }));
 };
 
 describe('a card that has not been pinned', () => {
@@ -259,9 +281,7 @@ describe('releasing a card back to the page', () => {
     pinPerformanceTo('All time');
     fireEvent.click(within(periodBar()).getByRole('button', { name: 'Last month' }));
 
-    fireEvent.click(within(performanceCard()).getByRole('button', {
-      name: 'Performance: follow the page period',
-    }));
+    releasePerformance('All time');
 
     expect(within(performanceCard()).queryByText(/^pinned ·/)).toBeNull();
     // Back on the page's window, named the plain way again.
@@ -271,9 +291,7 @@ describe('releasing a card back to the page', () => {
   it('forgets the pin, so a remount opens following the page', () => {
     const first = render(<ImprovedDashboard />);
     pinPerformanceTo('All time');
-    fireEvent.click(within(performanceCard()).getByRole('button', {
-      name: 'Performance: follow the page period',
-    }));
+    releasePerformance('All time');
     expect(localStorage.getItem('dashboardReports.pin.performancePinned')).toBeNull();
     expect(localStorage.getItem('dashboardReports.pin.performance')).toBeNull();
     first.unmount();

@@ -338,90 +338,6 @@ describe('CategoryContext', () => {
     });
   });
 
-  describe('getCategoryPath', () => {
-    it('returns full path for detail category', () => {
-      const { result } = renderHook(() => useCategories(), { wrapper });
-
-      const path = result.current.getCategoryPath('detail-groceries');
-
-      expect(path).toBe('Expense > Food > Groceries');
-    });
-
-    it('returns path for sub category', () => {
-      const { result } = renderHook(() => useCategories(), { wrapper });
-
-      const path = result.current.getCategoryPath('sub-food');
-
-      expect(path).toBe('Expense > Food');
-    });
-
-    it('returns path for type category', () => {
-      const { result } = renderHook(() => useCategories(), { wrapper });
-
-      const path = result.current.getCategoryPath('type-income');
-
-      expect(path).toBe('Income');
-    });
-
-    it('returns Uncategorised for empty id', () => {
-      const { result } = renderHook(() => useCategories(), { wrapper });
-
-      const path = result.current.getCategoryPath('');
-
-      expect(path).toBe('Uncategorised');
-    });
-
-    it('returns Uncategorised for non-existent id', () => {
-      const { result } = renderHook(() => useCategories(), { wrapper });
-
-      const path = result.current.getCategoryPath('non-existent');
-
-      expect(path).toBe('Uncategorised');
-    });
-
-    it('handles broken parent chain gracefully', () => {
-      const categoriesWithBrokenChain = [
-        { id: 'orphan', name: 'Orphan', type: 'expense', level: 'detail', parentId: 'missing-parent' },
-      ];
-
-      const { result } = renderHook(
-        () => useCategories(),
-        { wrapper: wrapperWithInitial(categoriesWithBrokenChain) }
-      );
-
-      const path = result.current.getCategoryPath('orphan');
-
-      expect(path).toBe('Orphan');
-    });
-
-    it('caches paths for performance', () => {
-      const { result } = renderHook(() => useCategories(), { wrapper });
-
-      // Call multiple times
-      const path1 = result.current.getCategoryPath('detail-groceries');
-      const path2 = result.current.getCategoryPath('detail-groceries');
-      const path3 = result.current.getCategoryPath('detail-groceries');
-
-      expect(path1).toBe('Expense > Food > Groceries');
-      expect(path2).toBe(path1);
-      expect(path3).toBe(path1);
-    });
-
-    it('updates cache when categories change', () => {
-      const { result } = renderHook(() => useCategories(), { wrapper });
-
-      const pathBefore = result.current.getCategoryPath('sub-food');
-      expect(pathBefore).toBe('Expense > Food');
-
-      act(() => {
-        result.current.updateCategory('sub-food', { name: 'Dining' });
-      });
-
-      const pathAfter = result.current.getCategoryPath('sub-food');
-      expect(pathAfter).toBe('Expense > Dining');
-    });
-  });
-
   describe('getSubCategories', () => {
     it('returns sub-level categories for a parent', () => {
       const { result } = renderHook(() => useCategories(), { wrapper });
@@ -613,10 +529,6 @@ describe('CategoryContext', () => {
       expect(utilityDetails).toHaveLength(2);
       expect(utilityDetails[0].name).toBe('Electricity');
       expect(utilityDetails[1].name).toBe('Water');
-
-      // Verify paths
-      expect(result.current.getCategoryPath('detail-1')).toBe('Expense > Utilities > Electricity');
-      expect(result.current.getCategoryPath('detail-2')).toBe('Expense > Utilities > Water');
     });
 
     it('handles category type changes', () => {
