@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { ArrowLeftIcon, CheckCircleIcon } from '../components/icons';
-import { useReconciliation } from '../hooks/useReconciliation';
+import { useReconciliation, type ReconciliationSummary } from '../hooks/useReconciliation';
 import ReconciliationAccountList from '../components/reconciliation/ReconciliationAccountList';
 import {
   groupReconciliationSummaries,
@@ -22,6 +22,20 @@ import { todayIsoDay } from '../utils/statementBankBalance';
 import { toDecimal } from '../utils/decimal';
 import type { Transaction } from '../types';
 import { preferences } from '../services/preferencesService';
+
+/**
+ * Does this account still want work?
+ *
+ * ONE definition, because two numbers on this page are derived from it and
+ * they must be the same number: the count in the `Needs attention only (N)`
+ * control, and — since the filter runs before the banding — the counts in the
+ * band headings once it is on. They were two identical copies of this
+ * expression, which agreed today and would have drifted the first time
+ * somebody edited one of them (design ruling, 2026-08-13, which asked for the
+ * heading and the control to show the same number).
+ */
+const needsAttention = (s: ReconciliationSummary): boolean =>
+  s.unreconciledCount > 0 || (s.difference != null && s.difference !== 0);
 
 export default function Reconciliation() {
   const {
@@ -119,10 +133,7 @@ export default function Reconciliation() {
   // stated bank balance disagrees with the cleared balance. difference is
   // Decimal-computed, so a balanced account is exactly 0.
   const attentionCount = useMemo(
-    () =>
-      reconciliationDetails.filter(
-        s => s.unreconciledCount > 0 || (s.difference != null && s.difference !== 0)
-      ).length,
+    () => reconciliationDetails.filter(needsAttention).length,
     [reconciliationDetails]
   );
 
@@ -136,9 +147,7 @@ export default function Reconciliation() {
   // out on its own because the grouper omits empty bands.
   const accountGrouping = useMemo<ReconciliationGrouping>(() => {
     const visibleDetails = onlyAttention
-      ? reconciliationDetails.filter(
-          s => s.unreconciledCount > 0 || (s.difference != null && s.difference !== 0)
-        )
+      ? reconciliationDetails.filter(needsAttention)
       : reconciliationDetails;
 
     const sortSummaries = (list: typeof reconciliationDetails) => {

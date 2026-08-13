@@ -82,7 +82,24 @@ export const ACCOUNT_ROW_COLUMNS_CLASS =
  */
 export const ACCOUNT_ROW_SELECTED_CLASS =
   'relative z-10 bg-blue-50/80 dark:bg-blue-900/30 border-transparent ' +
-  'ring-1 ring-[#6B86B3]/50 dark:ring-[#6B86B3]/70 ' +
+  // ─ ONE STROKE WHEN THE KEYBOARD IS DRIVING ─────────────────────────────────
+  // `focus-visible:ring-0` because otherwise an arrowed-to row wears TWO
+  // concentric strokes: this selection ring, and — 2px further out — the
+  // app-wide `*:focus-visible { outline: 2px solid var(--focus-ring-color) }`
+  // in accessibility-colors.css, which carries `!important` and so cannot be
+  // turned off by the row's own `focus:outline-none`. Light mode resolves that
+  // variable to the brand navy, which is why it read as "a blue and a black
+  // double border". Clicking never showed it, because a click does not match
+  // :focus-visible — so the same row looked clean by mouse and doubled by
+  // keyboard.
+  //
+  // The FOCUS outline is the one kept, deliberately: it is the app's single
+  // focus indicator, it is what every other control uses, and it is the stroke
+  // with a contrast obligation (WCAG 2.4.11). The selection ring stands down
+  // while the row holds focus and comes back the moment focus leaves — and the
+  // blue wash and the lift never go anywhere, so a selected row still reads as
+  // selected either way.
+  'ring-1 ring-[#6B86B3]/50 dark:ring-[#6B86B3]/70 focus-visible:ring-0 ' +
   'shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_10px_15px_-3px_rgba(0,0,0,0.1)] ' +
   'dark:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3),0_10px_15px_-3px_rgba(0,0,0,0.3)]';
 

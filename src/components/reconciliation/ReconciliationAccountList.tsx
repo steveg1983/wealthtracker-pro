@@ -291,7 +291,22 @@ export default function ReconciliationAccountList({
                       rows below it carry three right-aligned figure columns that
                       run in a straight rail down the whole page, and indenting
                       the band would bend that rail out of true for every account
-                      that happened to have an institution. */}
+                      that happened to have an institution.
+
+                      A COUNT AND NO TOTAL, BY DECISION — not for want of a
+                      converter. The Accounts page's group headings DO carry a
+                      converted total (design ruling C), and the machinery to
+                      convert one is a hook away, so the asymmetry looks like an
+                      omission and is not. Ruling, 2026-08-13: "a total is
+                      earned by a question, not by the availability of numbers."
+                      Net worth is a question people ask in one currency — what
+                      am I worth — while a summed balance across an
+                      institution's accounts answers nothing anyone came to this
+                      page for. This page has one job: how much work is left,
+                      and where. The count IS the total here; a money figure
+                      beside it would be a second, louder number that no reader
+                      acts on. Apply that test before reaching for consistency
+                      with the Accounts page. */}
                   <p className="mb-2 flex items-baseline gap-2 border-b border-line dark:border-gray-700 pb-1.5 text-label uppercase font-semibold text-gray-500 dark:text-gray-400">
                     <span className="truncate">{sub.title}</span>
                     <span className="shrink-0 font-normal normal-case tracking-normal text-gray-400 dark:text-gray-500">
