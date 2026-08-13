@@ -212,11 +212,98 @@ describe('a report card’s period pin', () => {
     const menu = screen.getByRole('menu', { name: 'Window for Expense Categories' });
     expect(within(menu).getByRole('menuitemradio', { name: 'Tax year' }))
       .toHaveAttribute('aria-checked', 'true');
-    // A custom range is a statement about a whole page, and comes with two date
-    // fields to make it. A pin is the narrower claim that this lens wants a
-    // different STANDARD window.
-    expect(within(menu).queryByRole('menuitemradio', { name: 'Custom' })).toBeNull();
-    expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(5);
+    // All SIX windows, Custom included. This asserted the opposite until
+    // 2026-08-13, on the reasoning that a custom range is a statement about a
+    // whole page while a pin is the narrower claim that one lens wants a
+    // different STANDARD window. The owner asked for it, and his use of the
+    // feature is the counter-argument: the window he wants for one flow chart
+    // is a particular quarter, which is not one of the five — so a card that
+    // could hold any window except that one sent him back to the page bar,
+    // moving every other card with it.
+    expect(within(menu).getByRole('menuitemradio', { name: 'Custom' })).toBeInTheDocument();
+    expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(6);
+  });
+
+  it('asks for the two dates when Custom is chosen, and keeps the menu open to take them', () => {
+    // Choosing Custom is not a finished choice: the window it names does not
+    // exist until the dates do. Closing on the click would ask the user to
+    // reopen the menu to complete what they had just started.
+    const setCustomStart = vi.fn();
+    render(
+      <NetWorthWidget
+        picker={pickerOn('custom')}
+        pin={pinned({ pinTo: vi.fn() })}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Net Worth Over Time: pinned to Custom. Choose a different period for this card',
+    }));
+
+    const menu = screen.getByRole('menu', { name: 'Window for Net Worth Over Time' });
+    expect(within(menu).getByLabelText('Net Worth Over Time: custom period start date')).toBeInTheDocument();
+    expect(within(menu).getByLabelText('Net Worth Over Time: custom period end date')).toBeInTheDocument();
+    expect(setCustomStart).not.toHaveBeenCalled();
+  });
+
+  /**
+   * THE BUG THAT MADE THE WHOLE FEATURE INERT ON SAFARI.
+   *
+   * Safari does not focus a `<button>` when you click it — WebKit follows the
+   * platform convention that only text fields take focus from a click. So a
+   * mousedown on a menu item moved focus to `<body>`, the container's blur
+   * handler saw a `Node` it did not contain, closed the menu on MOUSEDOWN, and
+   * the `click` that followed landed on an element React had already removed.
+   *
+   * Every window in the menu was unselectable. The owner reported it as "the
+   * pin options are genuinely not doing anything", and he was exactly right.
+   * Chromium focuses clicked buttons, so it worked in every browser we could
+   * automate — which is why it shipped and why these two tests exist: they
+   * describe the focus behaviour rather than a browser, so they hold whichever
+   * engine is doing the clicking.
+   */
+  it('stays open when focus falls to the body — that is a click, not a departure', () => {
+    render(<NetWorthWidget picker={pickerOn('all')} pin={pinned()} />);
+
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Net Worth Over Time: pinned to All time. Choose a different period for this card',
+    }));
+    const menu = screen.getByRole('menu', { name: 'Window for Net Worth Over Time' });
+
+    fireEvent.focusOut(menu, { relatedTarget: document.body });
+
+    expect(screen.getByRole('menu', { name: 'Window for Net Worth Over Time' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitemradio', { name: 'Tax year' })).toBeInTheDocument();
+  });
+
+  it('still closes when focus genuinely leaves for another control', () => {
+    // The other half of the same rule: naming a real destination outside the
+    // container is a departure, and must still dismiss. Without this, the fix
+    // above could be "never close" and pass.
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+
+    render(<NetWorthWidget picker={pickerOn('all')} pin={pinned()} />);
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Net Worth Over Time: pinned to All time. Choose a different period for this card',
+    }));
+    const menu = screen.getByRole('menu', { name: 'Window for Net Worth Over Time' });
+
+    fireEvent.focusOut(menu, { relatedTarget: outside });
+
+    expect(screen.queryByRole('menu', { name: 'Window for Net Worth Over Time' })).toBeNull();
+    outside.remove();
+  });
+
+  it('offers no date fields for a window that needs none', () => {
+    render(<NetWorthWidget picker={pickerOn('tax-year')} pin={pinned()} />);
+
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Net Worth Over Time: pinned to Tax year. Choose a different period for this card',
+    }));
+
+    const menu = screen.getByRole('menu', { name: 'Window for Net Worth Over Time' });
+    expect(within(menu).queryByLabelText('Net Worth Over Time: custom period start date')).toBeNull();
   });
 
   it('pins to the window that was picked, and releases on one tap', () => {

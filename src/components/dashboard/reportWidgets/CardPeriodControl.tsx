@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { CalendarIcon } from '../../icons';
-import { PERIOD_LABELS, type PeriodKey } from '../../../hooks/usePeriod';
+import DatePicker from '../../common/DatePicker';
+import { PERIOD_LABELS, type PeriodKey, type UsePeriodResult } from '../../../hooks/usePeriod';
 import type { CardPeriodPin } from '../../../hooks/useCardPeriod';
 
 /**
@@ -23,13 +24,25 @@ import type { CardPeriodPin } from '../../../hooks/useCardPeriod';
  * Beside it, the release — one tap, named for what it does rather than for
  * undoing what was done.
  *
- * ── WHY THE MENU OFFERS NO CUSTOM RANGE ─────────────────────────────────────
+ * ── THE CUSTOM RANGE ────────────────────────────────────────────────────────
  *
- * Five windows, not the bar's six. A custom range is a statement about what the
- * whole page is being read over and comes with two date fields to say it; a pin
- * is the narrower claim *"this lens wants a different standard window from that
- * one"*. Nothing stops the page bar from being set to a custom range — a pinned
- * card simply cannot be the thing that asks for one.
+ * All six windows, including Custom — which this deliberately did NOT offer at
+ * first, on the reasoning that a custom range is a statement about what the
+ * whole page is being read over, while a pin is the narrower claim "this lens
+ * wants a different standard window from that one".
+ *
+ * The owner asked for it, and the argument does not survive his use of it: he
+ * reads net worth over all time and one flow chart over a quarter he cares
+ * about, and "a quarter he cares about" is not one of the five standard
+ * windows. A card that can hold any window except the one you want is a card
+ * that sends you back to the page bar, which moves every OTHER card too — the
+ * exact problem the pin exists to solve.
+ *
+ * The two date fields live in the menu rather than on the card face, because
+ * the card face is a subtitle row with a chart under it and no room for a pair
+ * of inputs. Choosing Custom therefore does not close the menu: the choice is
+ * not finished until the dates are in, and closing on the click would ask the
+ * user to reopen the menu to complete what they just started.
  */
 
 /** The windows a card can be pinned to, in the page bar's own order. */
@@ -39,6 +52,7 @@ const PINNABLE_PERIODS: PeriodKey[] = [
   'tax-year',
   'last-12-months',
   'all',
+  'custom',
 ];
 
 /**
@@ -60,13 +74,19 @@ const PINNABLE_PERIODS: PeriodKey[] = [
  */
 const QUIET_AT_REST = 'transition-opacity duration-state';
 
-export default function CardPeriodControl({ cardLabel, period, pin }: {
+export default function CardPeriodControl({ cardLabel, picker, pin }: {
   /** What this control governs, for anyone who cannot see which card it is on. */
   cardLabel: string;
-  /** The window the card is on right now — the page's, or its own. */
-  period: PeriodKey;
+  /**
+   * The window the card is read over — the page's picker when it follows, its
+   * own when pinned. The WHOLE picker rather than just the key, because a
+   * custom range is two dates as well as a name, and the control that offers
+   * Custom has to be the control that can set them.
+   */
+  picker: UsePeriodResult;
   pin: CardPeriodPin;
 }): React.JSX.Element {
+  const { period, customStart, customEnd, setCustomStart, setCustomEnd } = picker;
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -97,7 +117,9 @@ export default function CardPeriodControl({ cardLabel, period, pin }: {
 
   const choose = (key: PeriodKey): void => {
     pin.pinTo(key);
-    close();
+    // Custom is not finished at the click — its two dates are in the panel
+    // below, so the panel stays. Every other window is complete on choosing.
+    if (key !== 'custom') close();
   };
 
   return (
@@ -113,9 +135,31 @@ export default function CardPeriodControl({ cardLabel, period, pin }: {
         }
       }}
       onBlur={(event) => {
-        // Tabbing out dismisses; a click on the menu's own padding blurs to
-        // nothing at all, and must NOT.
+        /**
+         * Tabbing out dismisses. A CLICK MUST NOT — and on Safari that is the
+         * same event.
+         *
+         * THE BUG THIS FIXES, because it cost the owner two days of a feature
+         * that looked completely finished: Safari (macOS and iOS) does not
+         * focus a `<button>` when you click it. WebKit follows the platform
+         * convention that only text fields take focus from a click. So a
+         * mousedown on one of the menu items below moves focus off the item
+         * this effect just focused and onto `<body>` — and `document.body` is
+         * a `Node` that this container does not contain. The old test passed,
+         * the menu closed on MOUSEDOWN, React unmounted the item, and the
+         * `click` that followed landed on nothing. Every period in the menu was
+         * unselectable: the menu opened, dismissed itself, and the chart never
+         * moved. Chromium focuses clicked buttons, so it worked perfectly in
+         * every browser we had automated — which is exactly why it survived.
+         *
+         * `relatedTarget` of `body` means "focus went nowhere", which is a
+         * click, not a departure. Genuine departures — Tab, or a click landing
+         * on some other control — name that control, and still close. A click
+         * on empty space outside is caught by the mousedown listener above,
+         * which is where outside-clicks were always handled anyway.
+         */
         const next = event.relatedTarget;
+        if (next === null || next === document.body) return;
         if (next instanceof Node && !containerRef.current?.contains(next)) setOpen(false);
       }}
     >
@@ -185,6 +229,43 @@ export default function CardPeriodControl({ cardLabel, period, pin }: {
               {PERIOD_LABELS[key]}
             </button>
           ))}
+
+          {pin.isPinned && period === 'custom' && (
+            /* The dates for the window just chosen. Inside the menu because the
+               card face has a chart under it and nowhere to put a pair of
+               inputs; under a rule because they answer the choice above rather
+               than being a sixth choice beside it.
+
+               `DatePicker` rather than a bare `type="date"`: a native date
+               input renders in the BROWSER's locale, and this app is dd/mm/yyyy
+               throughout regardless of what machine it is on. Same component,
+               same reason, as the page bar's own custom range. */
+            <div className="mt-1 border-t border-line dark:border-gray-700 px-3 pb-2 pt-2">
+              <div className="flex items-center gap-2">
+                <div className="w-32">
+                  <DatePicker
+                    size="sm"
+                    value={customStart}
+                    onChange={setCustomStart}
+                    aria-label={`${cardLabel}: custom period start date`}
+                    className="text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  />
+                </div>
+                <span className="text-label text-gray-500 dark:text-gray-400">to</span>
+                <div className="w-32">
+                  <DatePicker
+                    size="sm"
+                    value={customEnd}
+                    onChange={setCustomEnd}
+                    aria-label={`${cardLabel}: custom period end date`}
+                    className="text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  />
+                </div>
+              </div>
+              {/* An unbounded end is a real answer ("from March onwards"), so
+                  neither field is required and neither is nagged about. */}
+            </div>
+          )}
         </div>
       )}
     </div>
