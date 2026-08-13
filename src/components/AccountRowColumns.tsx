@@ -193,8 +193,8 @@ export function AccountBalanceCell({
 }
 
 /**
- * A count of outstanding work: quiet slate while there is some, blue when
- * there is none.
+ * A count of outstanding work: readable while there is some, quieter when
+ * there is none. Neither is a colour with a meaning.
  *
  * It wore amber until DESIGN_RULINGS_2026-08-12 (ruling A): amber marks the
  * CONTROL you should touch next — a single, clickable next action — and this
@@ -203,6 +203,17 @@ export function AccountBalanceCell({
  * that amber means "look here-ish", eroding the one signal the yellow thread
  * depends on. If the row should invite the work, the invitation belongs on
  * the row's reconcile control, which already exists.
+ *
+ * ─ AND THE ZERO STOPPED BEING THE LOUDEST THING ON THE ROW ─────────────────
+ * That de-ambering left an inversion behind, which is worth naming because it
+ * was introduced by fixing something else: the count WITH work went quiet
+ * slate while the ZERO kept the app's link blue, so a row with nothing to do
+ * shouted across the page and a row with thirty outstanding rows murmured.
+ * Colour marks what needs attention — ruling A's own argument — and a zero
+ * needs nothing. Neither state is coloured now; the one with work is simply
+ * legible and the one without recedes. (The same correction shipped on the
+ * reconciliation list as finding §1.4, where a settled row wore a link-blue
+ * pill for the ABSENCE of work.)
  *
  * A QUIET 0 RATHER THAN A BLANK, unlike the register's own counters, and the
  * difference is the surface rather than an inconsistency: this is a COLUMN, and
@@ -222,7 +233,7 @@ export function AccountCountCell({
       <p className={CELL_LABEL_CLASS}>{label}</p>
       <p
         className={`${CELL_FIGURE_CLASS} ${
-          count > 0 ? 'text-slate-600 dark:text-gray-300' : 'text-blue-600 dark:text-blue-400'
+          count > 0 ? 'text-slate-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'
         }`}
       >
         {count}

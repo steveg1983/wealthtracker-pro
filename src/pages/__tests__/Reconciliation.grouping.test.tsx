@@ -117,7 +117,7 @@ describe('Reconciliation — grouping is two independent switches', () => {
 
     // And the list nests, exactly as the Accounts page nests: type sections
     // outside, institution sub-bands within, unfiled last inside its section.
-    expect(sections()).toEqual(['Current Accounts(2)', 'Savings Accounts(2)']);
+    expect(sections()).toEqual(['Current Accounts(2 accounts)', 'Savings Accounts(2 accounts)']);
     expect(subBands()).toEqual([
       'Invented Bank, 1 account',
       'Rival Invented Bank, 1 account',
@@ -133,7 +133,7 @@ describe('Reconciliation — grouping is two independent switches', () => {
   it('bands by type alone when only Account Type is on', () => {
     renderList();
 
-    expect(sections()).toEqual(['Current Accounts(2)', 'Savings Accounts(2)']);
+    expect(sections()).toEqual(['Current Accounts(2 accounts)', 'Savings Accounts(2 accounts)']);
     // No sub-bands: one switch, one level.
     expect(subBands()).toEqual([]);
   });
@@ -149,9 +149,9 @@ describe('Reconciliation — grouping is two independent switches', () => {
     // Alphabetical, with the accounts that name no institution last — the
     // shared module's rule, so the two pages order them identically.
     expect(sections()).toEqual([
-      'Invented Bank(2)',
-      'Rival Invented Bank(1)',
-      'Other Accounts(1)',
+      'Invented Bank(2 accounts)',
+      'Rival Invented Bank(1 account)',
+      'Other Accounts(1 account)',
     ]);
     expect(subBands()).toEqual([]);
   });
@@ -180,14 +180,75 @@ describe('Reconciliation — grouping is two independent switches', () => {
 
     // Sorting applies to the INNERMOST list — the rows a user reads down — so
     // the bands are unchanged and the rows inside each are alphabetical.
-    expect(sections()).toEqual(['Current Accounts(2)', 'Savings Accounts(2)']);
+    expect(sections()).toEqual(['Current Accounts(2 accounts)', 'Savings Accounts(2 accounts)']);
 
     // "Needs attention only" drops ROWS. No account here has a bank balance or
     // an unreconciled transaction, so everything is done and the list empties
     // rather than showing empty bands.
+    //
+    // And what it draws then is the FILTERED-empty state, not the empty one:
+    // the four accounts are still there, behind a switch, and the page says so
+    // and offers the way back.
     fireEvent.click(screen.getByRole('button', { name: /Needs attention only/ }));
-    expect(screen.getByText('No accounts to reconcile')).toBeInTheDocument();
+    expect(screen.getByText('Nothing needs attention right now')).toBeInTheDocument();
+    expect(document.body.textContent).toContain('4 accounts are hidden by');
+    expect(screen.queryByText('No accounts to reconcile')).not.toBeInTheDocument();
     expect(sections()).toEqual([]);
+
+    // The way back works, and puts every account on screen again.
+    fireEvent.click(screen.getByRole('button', { name: 'Show all accounts' }));
+    expect(sections()).toEqual(['Current Accounts(2 accounts)', 'Savings Accounts(2 accounts)']);
+  });
+});
+
+/**
+ * THE CONTROL SAYS WHICH KIND IT IS.
+ *
+ * Both-on is a real, wanted state — but next to Sort's segmented single-choice,
+ * two navy-filled pills read as a radio group with a bug, which is exactly how
+ * a design pass filed it. The behaviour was right and the affordance was not,
+ * so the tick is what changes: "this one too", rather than "this one instead".
+ */
+describe('Reconciliation — Group by looks like a multi-select', () => {
+  const tickIn = (name: 'Account Type' | 'Institution'): Element | null =>
+    switchFor(name).querySelector('svg');
+
+  it('ticks the switches that are on, and only those', () => {
+    renderList();
+
+    // Account Type is the default-on switch; Institution starts off.
+    expect(tickIn('Account Type')).not.toBeNull();
+    expect(tickIn('Institution')).toBeNull();
+
+    fireEvent.click(switchFor('Institution'));
+    expect(tickIn('Account Type')).not.toBeNull();
+    expect(tickIn('Institution')).not.toBeNull();
+
+    fireEvent.click(switchFor('Account Type'));
+    expect(tickIn('Account Type')).toBeNull();
+    expect(tickIn('Institution')).not.toBeNull();
+  });
+
+  it('leaves Sort — a single choice — without ticks', () => {
+    renderList();
+
+    // The distinction is the whole point: if the segmented single-choice wore
+    // the same glyph, the tick would stop meaning "and also".
+    ['Default', 'Name A–Z'].forEach(label => {
+      expect(screen.getByRole('button', { name: label }).querySelector('svg')).toBeNull();
+    });
+  });
+
+  it('says it with aria-pressed, not with the glyph, and does not say it twice', () => {
+    renderList();
+
+    // The tick is decoration over a state the button already announces.
+    expect(isOn('Account Type')).toBe(true);
+    expect(switchFor('Account Type').querySelector('[aria-hidden="true"]')).not.toBeNull();
+    // The accessible name is still just the words — the switches are found by
+    // name all over this file, and a glyph that leaked into it would rename
+    // the control every time it was pressed.
+    expect(switchFor('Account Type')).toHaveAccessibleName('Account Type');
   });
 });
 
@@ -235,9 +296,9 @@ describe('Reconciliation — the switches are remembered, and are this page\'s o
     expect(isOn('Account Type')).toBe(false);
     expect(isOn('Institution')).toBe(true);
     expect(sections()).toEqual([
-      'Invented Bank(2)',
-      'Rival Invented Bank(1)',
-      'Other Accounts(1)',
+      'Invented Bank(2 accounts)',
+      'Rival Invented Bank(1 account)',
+      'Other Accounts(1 account)',
     ]);
   });
 });

@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
-import { ArrowLeftIcon, CheckCircleIcon } from '../components/icons';
+import { ArrowLeftIcon, CheckCircleIcon, CheckIcon } from '../components/icons';
 import { useReconciliation, type ReconciliationSummary } from '../hooks/useReconciliation';
 import ReconciliationAccountList from '../components/reconciliation/ReconciliationAccountList';
 import {
@@ -79,13 +79,20 @@ export default function Reconciliation() {
   const [onlyAttention, setOnlyAttention] = useState<boolean>(() =>
     preferences.getItem('reconciliationOnlyAttention') === 'true'
   );
-  const handleOnlyAttentionToggle = useCallback(() => {
-    setOnlyAttention(prev => {
-      const next = !prev;
-      try { preferences.setItem('reconciliationOnlyAttention', String(next)); } catch { /* storage unavailable */ }
-      return next;
-    });
+  // One writer for the switch, because there are now two ways to move it: the
+  // control itself, and the "Show all accounts" remedy the filtered-empty state
+  // offers. A remedy that set the state without persisting it would put the
+  // list back and then take it away again on the next visit.
+  const setOnlyAttentionPersisted = useCallback((next: boolean) => {
+    setOnlyAttention(next);
+    try { preferences.setItem('reconciliationOnlyAttention', String(next)); } catch { /* storage unavailable */ }
   }, []);
+  const handleOnlyAttentionToggle = useCallback(() => {
+    setOnlyAttentionPersisted(!onlyAttention);
+  }, [onlyAttention, setOnlyAttentionPersisted]);
+  const handleShowAllAccounts = useCallback(() => {
+    setOnlyAttentionPersisted(false);
+  }, [setOnlyAttentionPersisted]);
   const [showFinalizationModal, setShowFinalizationModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -250,6 +257,16 @@ export default function Reconciliation() {
     setSearchParams(prev => preserveRuntimeControlParams(prev));
     window.scrollTo(0, 0);
   }, [cameFromAccounts, searchParams, navigate, setSearchParams]);
+
+  /**
+   * The remedy on the genuinely-empty state: there is nowhere on THIS page to
+   * make an account, so the empty state hands over to the page where there is
+   * one rather than describing the trip.
+   */
+  const handleGoToAccounts = useCallback(() => {
+    const params = new URLSearchParams(preserveRuntimeControlParams(searchParams));
+    navigate({ pathname: '/accounts', search: params.toString() });
+  }, [searchParams, navigate]);
 
   const applyCleared = useCallback(async (requestedIds: string[], cleared: boolean) => {
     // Drop ids that already have a write in flight — the checkbox is disabled
@@ -499,19 +516,34 @@ export default function Reconciliation() {
                 on" is a state the page can be in: institution sub-bands nested
                 inside the type sections. Off and off is one flat list. The
                 owner's report was precisely that this page refused the
-                combination its twin allows. */}
+                combination its twin allows.
+
+                AND NOW THEY LOOK LIKE IT. Both-on is a real state, but wearing
+                the same navy fill as Sort's segmented single-choice beside it,
+                two filled pills read as a broken radio group rather than as two
+                things ticked — a design pass filed it as a bug on exactly that
+                reading. The control has to say which KIND it is before it can
+                be believed about which state it is in, so a pressed toggle now
+                carries a tick: the one glyph that means "this one too" rather
+                than "this one instead". The slot is held open while a switch is
+                off, so ticking one does not shove its own label sideways. */}
             <div className="grid grid-flow-col auto-cols-fr flex-1 sm:flex-none sm:inline-flex gap-2 p-0.5">
               <button
                 type="button"
                 onClick={() => handleGroupingChange({ ...grouping, byType: !grouping.byType })}
                 aria-pressed={grouping.byType}
                 title="Band the list into account-type sections"
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
                   grouping.byType
                     ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
                     : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
               >
+                {/* aria-hidden: `aria-pressed` already says this to a screen
+                    reader, and the tick would announce it a second time. */}
+                <span aria-hidden="true" className="w-3.5 flex-shrink-0">
+                  {grouping.byType && <CheckIcon size={14} />}
+                </span>
                 Account Type
               </button>
               <button
@@ -519,12 +551,15 @@ export default function Reconciliation() {
                 onClick={() => handleGroupingChange({ ...grouping, byInstitution: !grouping.byInstitution })}
                 aria-pressed={grouping.byInstitution}
                 title="Band the list by institution"
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
                   grouping.byInstitution
                     ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
                     : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
               >
+                <span aria-hidden="true" className="w-3.5 flex-shrink-0">
+                  {grouping.byInstitution && <CheckIcon size={14} />}
+                </span>
                 Institution
               </button>
             </div>
@@ -583,6 +618,21 @@ export default function Reconciliation() {
         <ReconciliationAccountList
           grouping={accountGrouping}
           onSelectAccount={handleSelectAccount}
+          /* Only when the switch is actually on AND there is something behind
+             it. With no accounts at all, "Needs attention only" is hiding
+             nothing and the honest state is the empty one — the filter is not
+             to blame for a list that would be empty without it. */
+          filter={onlyAttention && reconciliationDetails.length > 0
+            ? {
+                label: 'Needs attention only',
+                // Written as the difference rather than as the total, so it
+                // stays the count of accounts the filter is REMOVING even if
+                // this state is ever reached with some rows still showing.
+                hiddenCount: reconciliationDetails.length - attentionCount,
+                onClear: handleShowAllAccounts,
+              }
+            : undefined}
+          onGoToAccounts={handleGoToAccounts}
         />
       </div>
     );

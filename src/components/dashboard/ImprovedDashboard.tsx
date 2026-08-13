@@ -51,6 +51,7 @@ import { computeIncomeExpense } from '../../utils/incomeExpense';
 import { computeAccountBalances } from '../../utils/accountBalances';
 import { buildAccountDistribution, type AccountDistributionEntry } from '../../utils/accountDistribution';
 import { groupAccountsBySection } from '../../utils/accountGrouping';
+import { buildCategoryNameLookup } from '../../utils/categoryNames';
 import { buildAttentionItems } from '../../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../../utils/bankAutoSync';
 import { buildAccountBankLinks } from '../../hooks/accountBankLinks';
@@ -247,6 +248,7 @@ export function ImprovedDashboard() {
     // the budget's category REDUCES spend (refunds arrive as income-typed
     // rows, so there is deliberately no type filter — only transfers skip).
     const recentExpanded = expandSplitTransactions(recentTransactions, transactionSplits);
+    const categoryNameFor = buildCategoryNameLookup(categories);
     const budgetStatus = activeBudgets.map(budget => {
       const categoryTransactions = recentExpanded.filter(t =>
         t.category === budget.categoryId && t.type !== 'transfer'
@@ -261,6 +263,14 @@ export function ImprovedDashboard() {
 
       return {
         ...budget,
+        // The budget's own category, NAMED. It was rendering `categoryId`
+        // straight onto the screen — three raw UUIDs down the dashboard where
+        // "Food & Drink" belongs — which is precisely what
+        // `buildCategoryNameLookup` exists to prevent, in its own words: "a raw
+        // category id must never reach a screen." Resolved once here so the
+        // label, the group's aria-label and the progress bar's all say the same
+        // thing.
+        categoryName: categoryNameFor(budget.categoryId),
         spent,
         remaining,
         percentUsed,
@@ -283,7 +293,7 @@ export function ImprovedDashboard() {
       totalSpentOnBudgets,
       overallBudgetPercent
     };
-  }, [accounts, accountBalanceMap, transactions, transactionSplits, budgets]);
+  }, [accounts, accountBalanceMap, transactions, transactionSplits, budgets, categories]);
 
   // Performance figures for the SELECTED period. Income/expenses come from
   // CATEGORY SEMANTICS (utils/incomeExpense): a refund filed under an expense
@@ -744,10 +754,10 @@ export function ImprovedDashboard() {
           
           <div className="space-y-3">
             {metrics.budgetStatus.slice(0, 3).map(budget => (
-              <div key={budget.id} className="space-y-2" role="group" aria-label={`Budget for ${budget.categoryId}`}>
+              <div key={budget.id} className="space-y-2" role="group" aria-label={`Budget for ${budget.categoryName}`}>
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium text-gray-700 dark:text-gray-300">
-                    {budget.categoryId}
+                    {budget.categoryName}
                   </span>
                   <span className={`font-medium ${
                     budget.isOverBudget ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'
@@ -761,7 +771,7 @@ export function ImprovedDashboard() {
                   aria-valuenow={Math.min(budget.percentUsed, 100)}
                   aria-valuemin={0}
                   aria-valuemax={100}
-                  aria-label={`${budget.categoryId} budget: ${Math.min(budget.percentUsed, 100).toFixed(0)}% used`}
+                  aria-label={`${budget.categoryName} budget: ${Math.min(budget.percentUsed, 100).toFixed(0)}% used`}
                 >
                   <div 
                     className={`h-full transition-all duration-300 ${
