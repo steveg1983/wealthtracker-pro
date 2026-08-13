@@ -56,6 +56,19 @@ export default {
         income: '#0a7d57', // 5.14:1 on #fff (was #0d9f6f, 3.38:1)
         'income-fill': '#0d9f6f', // chart series only
         expense: '#c9304a', // 5.24:1 on #fff (was #d94052, 4.37:1)
+        // The expense counterpart to income-fill, and the same story: the two
+        // colours the amounts RETIRED for failing the 4.5:1 text bar are
+        // exactly the two that clear the 3:1 bar a chart series owes, so the
+        // retired pair becomes the series pair rather than a third definition
+        // of income and expense (PHONE_CAPTURES_REVIEW_2026-08-13 §4).
+        // MEASURED with ColorContrastChecker, 2026-08-13, on all four surfaces
+        // a chart can sit on — a series colour is ONE hex for both themes, so
+        // unlike text it has to clear its bar on the dark card as well:
+        //   income-fill  #0d9f6f  3.38 / 3.21 / 4.34 / 5.24  ✓ (#fff, #f8f9fb, #1f2937, #111827)
+        //   expense-fill #d94052  4.37 / 4.15 / 3.36 / 4.06  ✓
+        // Both stay UNDER 4.5:1 on white: they are not text colours, and
+        // semantic-contrast.test.ts fails if either is promoted to one.
+        'expense-fill': '#d94052', // chart series only
         success: '#0a7d57',
         danger: '#c9304a',
         warning: '#e5a00d',

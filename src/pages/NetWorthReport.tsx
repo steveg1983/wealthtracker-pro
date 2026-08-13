@@ -14,6 +14,8 @@ import {
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Modal, ModalBody } from '../components/common/Modal';
+import NetWorthSummary from '../components/NetWorthSummary';
+import { singlePointDot } from '../components/charts/singlePointDots';
 import { toDecimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { preserveDemoParam } from '../utils/navigation';
@@ -164,26 +166,39 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
   return (
     <div className="max-w-[1400px] mx-auto">
       {/* The period comes from the hub, so it persists between reports. */}
-      {/* Headline */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-[#1a2332] dark:bg-gray-700 rounded-2xl p-6 text-white">
-          <p className="text-xs text-white/60 uppercase tracking-wider font-medium">Net Worth {latest ? `— ${latest.label}` : ''}</p>
-          <p className="text-2xl font-bold mt-1">{latest ? formatCurrency(latest.netWorth) : '—'}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
-          <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Change over period</p>
-          <p className={`text-2xl font-bold mt-1 ${change.greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600'}`}>
+      {/*
+        THE SAME THREE FIGURES AS THE DASHBOARD AND THE ACCOUNTS LIST, SO THE
+        SAME CARD (PHONE_CAPTURES_REVIEW_2026-08-13 §4).
+
+        What used to be here was the navy slab plus two white cards that
+        NetWorthSummary was written to abolish — and opting out of the shared
+        card is not free. The dark-mode fault that card's comment documents was
+        found and fixed ONCE and reached all three surfaces that use it; this
+        page, which had copied the markup instead, was still carrying its own
+        version of the same class of bug: `text-red-600` with NO `dark:`
+        variant, so Liabilities rendered #dc2626 on the #1f2937 dark card. That
+        is the whole argument for sharing, and it is why the copy is gone.
+
+        The three magnitudes are navy in the shared card because none of them is
+        a direction of travel (RULINGS_ON_CAUSE_2026-08-13 §1). The CHANGE below
+        them is the exception that proves it: a delta is nothing BUT a direction
+        of travel, so it is the one figure on this page that keeps the semantic
+        colours — which is also what stops green and red here from being
+        decoration.
+      */}
+      <div className="mb-6 space-y-2">
+        <NetWorthSummary
+          netWorth={latest ? formatCurrency(latest.netWorth) : '—'}
+          assets={latest ? formatCurrency(latest.assets) : '—'}
+          liabilities={latest ? formatCurrency(latest.liabilities) : '—'}
+        />
+        <p className="text-body text-gray-600 dark:text-gray-400">
+          {latest ? <>As at <span className="font-medium text-gray-900 dark:text-gray-100">{latest.label}</span>. </> : null}
+          Change over the period{' '}
+          <span className={change.greaterThanOrEqualTo(0) ? 'font-medium text-green-600 dark:text-green-400' : 'font-medium text-red-600 dark:text-red-400'}>
             {change.greaterThanOrEqualTo(0) ? '+' : ''}{formatCurrency(change.toNumber())}
-          </p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
-          <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Assets / Liabilities {latest ? `— ${latest.label}` : ''}</p>
-          <p className="text-lg font-semibold mt-1">
-            <span className="text-green-600 dark:text-green-400">{latest ? formatCurrency(latest.assets) : '—'}</span>
-            <span className="text-gray-400 mx-2">/</span>
-            <span className="text-red-600">{latest ? formatCurrency(latest.liabilities) : '—'}</span>
-          </p>
-        </div>
+          </span>.
+        </p>
       </div>
 
       {/* Opening-date caveat — shown right above the chart it qualifies, and
@@ -276,13 +291,13 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                   // as context lines. Same data, same click-to-drill.
                   <Bar dataKey="netWorth" name="Net Worth" fill="#1a2332" radius={[3, 3, 0, 0]} cursor="pointer" />
                 ) : (
-                  <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke="#1a2332" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke="#1a2332" strokeWidth={2.5} dot={singlePointDot(snapshots, '#1a2332')} activeDot={{ r: 5 }} />
                 )}
                 {showDetail && (
-                  <Line type="monotone" dataKey="assets" name="Assets" stroke="#10B981" strokeWidth={1.5} dot={false} />
+                  <Line type="monotone" dataKey="assets" name="Assets" stroke="#10B981" strokeWidth={1.5} dot={singlePointDot(snapshots, '#10B981')} />
                 )}
                 {showDetail && (
-                  <Line type="monotone" dataKey="liabilities" name="Liabilities" stroke="#EF4444" strokeWidth={1.5} dot={false} />
+                  <Line type="monotone" dataKey="liabilities" name="Liabilities" stroke="#EF4444" strokeWidth={1.5} dot={singlePointDot(snapshots, '#EF4444')} />
                 )}
               </ComposedChart>
             </ResponsiveContainer>

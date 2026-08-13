@@ -62,7 +62,7 @@ describe('CategorySelect', () => {
         />
       );
       
-      expect(screen.getByRole('option', { name: 'Uncategorized' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Uncategorised' })).toBeInTheDocument();
     });
 
     it('hides uncategorized option when showUncategorized is false', () => {
@@ -75,7 +75,7 @@ describe('CategorySelect', () => {
         />
       );
       
-      expect(screen.queryByRole('option', { name: 'Uncategorized' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: 'Uncategorised' })).not.toBeInTheDocument();
     });
 
     it('shows multiple option when showMultiple is true', () => {
@@ -275,7 +275,7 @@ describe('CategorySelect', () => {
       );
       
       // Should only show uncategorized option
-      expect(screen.getByRole('option', { name: 'Uncategorized' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Uncategorised' })).toBeInTheDocument();
       expect(screen.getAllByRole('option')).toHaveLength(1);
     });
 
@@ -325,7 +325,7 @@ describe('CategorySelect', () => {
         />
       );
       
-      expect(screen.getByRole('option', { name: 'Uncategorized' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Uncategorised' })).toBeInTheDocument();
       expect(screen.getByRole('option', { name: 'Multiple' })).toBeInTheDocument();
       // Placeholder not shown when showUncategorized is true
       expect(screen.queryByRole('option', { name: 'Pick one' })).not.toBeInTheDocument();

@@ -130,7 +130,7 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
                 setIsRevealed(null);
               }}
               className="p-3 bg-yellow-500 text-white rounded-lg"
-              aria-label="Favorite"
+              aria-label="Favourite"
             >
               <StarIcon size={20} />
             </button>
@@ -150,7 +150,7 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
                 setIsRevealed(null);
               }}
               className="p-3 bg-purple-500 text-white rounded-lg"
-              aria-label="Categorize"
+              aria-label="Categorise"
             >
               <FolderIcon size={20} />
             </button>

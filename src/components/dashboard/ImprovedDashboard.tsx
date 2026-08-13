@@ -819,7 +819,7 @@ export function ImprovedDashboard() {
           <button
             onClick={() => setShowAccountSettings(!showAccountSettings)}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            aria-label="Customize displayed accounts"
+            aria-label="Customise displayed accounts"
             aria-expanded={showAccountSettings}
           >
             <SettingsIcon size={20} className="text-gray-500" />

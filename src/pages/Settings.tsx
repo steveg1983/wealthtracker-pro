@@ -91,7 +91,7 @@ export default function Settings() {
             "bullet" seven times. */}
         <ul className="mt-2 list-disc pl-5 space-y-1 text-body text-gray-500 dark:text-gray-400">
           <li>Account management and tracking</li>
-          <li>Transaction recording and categorization</li>
+          <li>Transaction recording and categorisation</li>
           <li>Budget planning and monitoring</li>
           <li>Investment portfolio tracking</li>
           <li>Financial goal setting</li>

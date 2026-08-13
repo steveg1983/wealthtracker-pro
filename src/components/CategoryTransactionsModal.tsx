@@ -271,6 +271,8 @@ export default function CategoryTransactionsModal({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search transactions..."
+                spellCheck={false}
+                autoCapitalize="none"
                 className="w-full pl-9 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm"
               />
               {searchQuery && (

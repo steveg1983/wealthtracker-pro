@@ -168,7 +168,7 @@ describe('CashFlowForecast', () => {
       render(<CashFlowForecast />);
       
       expect(screen.getByTestId('loading-state')).toBeInTheDocument();
-      expect(screen.getByText('Analyzing cash flow patterns...')).toBeInTheDocument();
+      expect(screen.getByText('Analysing cash flow patterns...')).toBeInTheDocument();
     });
 
     it('shows error state', () => {

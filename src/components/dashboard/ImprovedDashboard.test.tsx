@@ -207,7 +207,7 @@ describe('Key Account Balances — select all / clear all', () => {
   });
 
   const openPanel = (): void => {
-    fireEvent.click(screen.getByLabelText('Customize displayed accounts'));
+    fireEvent.click(screen.getByLabelText('Customise displayed accounts'));
   };
 
   it('takes every listed account in one click', () => {

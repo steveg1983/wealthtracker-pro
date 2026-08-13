@@ -1114,6 +1114,10 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
               <input
                 ref={amountInputRef}
                 type="text"
+                // Hand-rolled rather than MoneyInput, so it needs saying here
+                // too: an amount has nothing to spell.
+                spellCheck={false}
+                autoCapitalize="none"
                 value={formattedAmount}
                 onChange={(e) => {
                   const value = e.target.value;

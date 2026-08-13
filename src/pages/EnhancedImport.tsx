@@ -213,13 +213,13 @@ export default function EnhancedImport(): React.JSX.Element {
         {/* ── Automation ───────────────────────────────────────────── */}
         <Section
           title="Automation"
-          description="Rules that categorize and transform transactions as they come in."
+          description="Rules that categorise and transform transactions as they come in."
         >
           <div className="flex items-center justify-between gap-4">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {activeRules.length > 0
                 ? `${activeRules.length} active rule${activeRules.length === 1 ? '' : 's'} run on every import.`
-                : 'No import rules yet — create one to auto-categorize incoming transactions.'}
+                : 'No import rules yet — create one to auto-categorise incoming transactions.'}
             </p>
             <button
               onClick={() => setShowRulesManager(true)}

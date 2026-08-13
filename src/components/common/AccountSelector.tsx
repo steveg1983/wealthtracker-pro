@@ -587,6 +587,10 @@ export default function AccountSelector<T extends SelectableAccount>({
                 // The trigger toggles the menu; a click that lands in the
                 // search box is placing a cursor, not asking to close.
                 onClick={e => e.stopPropagation()}
+                // Filtering a list of account names, none of which the
+                // dictionary has heard of.
+                spellCheck={false}
+                autoCapitalize="none"
                 placeholder={searchPlaceholder ?? placeholder}
                 aria-autocomplete="list"
                 aria-controls={listboxId}

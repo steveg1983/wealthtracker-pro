@@ -266,6 +266,8 @@ export default function DocumentManager({
             <input
               type="text"
               placeholder="Search documents..."
+              spellCheck={false}
+              autoCapitalize="none"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
@@ -356,7 +358,7 @@ export default function DocumentManager({
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             {documents.length === 0 
-              ? 'Upload receipts, invoices, and other documents to keep them organized'
+              ? 'Upload receipts, invoices, and other documents to keep them organised'
               : 'Try adjusting your search or filters'
             }
           </p>

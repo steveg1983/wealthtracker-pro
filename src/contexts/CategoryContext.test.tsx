@@ -363,20 +363,20 @@ describe('CategoryContext', () => {
       expect(path).toBe('Income');
     });
 
-    it('returns Uncategorized for empty id', () => {
+    it('returns Uncategorised for empty id', () => {
       const { result } = renderHook(() => useCategories(), { wrapper });
 
       const path = result.current.getCategoryPath('');
 
-      expect(path).toBe('Uncategorized');
+      expect(path).toBe('Uncategorised');
     });
 
-    it('returns Uncategorized for non-existent id', () => {
+    it('returns Uncategorised for non-existent id', () => {
       const { result } = renderHook(() => useCategories(), { wrapper });
 
       const path = result.current.getCategoryPath('non-existent');
 
-      expect(path).toBe('Uncategorized');
+      expect(path).toBe('Uncategorised');
     });
 
     it('handles broken parent chain gracefully', () => {

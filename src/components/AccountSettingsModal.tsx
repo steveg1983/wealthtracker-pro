@@ -431,6 +431,9 @@ export default function AccountSettingsModal({
                 id="account-number"
                 type="text"
                 inputMode="numeric"
+                // A reference number, not a word.
+                spellCheck={false}
+                autoCapitalize="none"
                 value={formData.accountNumber}
                 onChange={handleAccountNumberChange}
                 placeholder={isCreditCard ? '1234' : '12345678'}

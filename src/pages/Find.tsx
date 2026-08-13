@@ -13,6 +13,7 @@ import { SearchIcon, XIcon } from '../components/icons';
 import { transactionRowDomId } from '../components/transactionRowDomId';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
 import { createCategoryLabeller } from '../utils/categoryLabel';
+import { UNCATEGORISED_LABEL } from '../utils/categoryNames';
 import { isMarkedAwaitingFinalize, isReconciled } from '../utils/transactionReconciliation';
 import { isAwaitingReview } from '../utils/transactionReview';
 import {
@@ -346,6 +347,13 @@ export default function Find(): React.JSX.Element {
             onChange={event => setText(event.target.value)}
             // autoFocus: this page has one job, and the user came here to type.
             autoFocus
+            // This box takes a description OR an amount, so the spell-checker
+            // is offered merchant names and "141.50" and has an opinion about
+            // both. A red underline under a search term reads as "you typed it
+            // wrong" at the exact moment the page is saying "nothing matched" —
+            // two accusations for one perfectly good query.
+            spellCheck={false}
+            autoCapitalize="none"
             placeholder="Find a description or an amount…"
             aria-label="Find transactions by description or amount"
             className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500"
@@ -504,7 +512,7 @@ export default function Find(): React.JSX.Element {
                         {awaitingReview && <span className="sr-only"> — new, not reviewed yet</span>}
                       </td>
                       <td className="py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
-                        {categoryLabel(transaction) || <span className="italic text-gray-400">Uncategorized</span>}
+                        {categoryLabel(transaction) || <span className="italic text-gray-400">{UNCATEGORISED_LABEL}</span>}
                       </td>
                       <td className={`py-2 pl-3 pr-4 text-sm text-right font-medium whitespace-nowrap ${isExpense ? 'text-red-600' : 'text-green-600'}`}>
                         {/* Accounting notation, as every other list here draws

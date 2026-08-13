@@ -34,7 +34,7 @@ export default function CategorySelect({
       className={className}
       disabled={disabled}
     >
-      {showUncategorized && <option value="">Uncategorized</option>}
+      {showUncategorized && <option value="">Uncategorised</option>}
       {showMultiple && <option value="multiple">Multiple</option>}
       {placeholder && !showUncategorized && !value && (
         <option value="" disabled>{placeholder}</option>

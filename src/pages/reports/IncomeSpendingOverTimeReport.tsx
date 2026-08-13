@@ -20,6 +20,8 @@ import ReportCumulativeToggle from '../../components/reports/ReportCumulativeTog
 import UncategorisedReviewBand from '../../components/reports/UncategorisedReviewBand';
 import { buildMonthlyTrend } from '../../utils/monthlyTrend';
 import { toCumulativeTrend } from '../../utils/cumulativeSeries';
+import { SEMANTIC_SERIES } from '../../components/charts/chartColors';
+import { singlePointDot } from '../../components/charts/singlePointDots';
 import { toDecimal } from '../../utils/decimal';
 import { formatDecimal } from '../../utils/decimal-format';
 import { useCumulativeReport } from '../../hooks/useCumulativeReport';
@@ -221,29 +223,29 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
                 />
                 <Legend />
                 {chartType === 'bar' ? (
-                  <Bar dataKey="income" name={incomeSeriesName} fill="#10B981" radius={[3, 3, 0, 0]} cursor="pointer" isAnimationActive={false} onClick={handlePointClick('income')} />
+                  <Bar dataKey="income" name={incomeSeriesName} fill={SEMANTIC_SERIES.income} radius={[3, 3, 0, 0]} cursor="pointer" isAnimationActive={false} onClick={handlePointClick('income')} />
                 ) : (
                   <Line
                     type="monotone"
                     dataKey="income"
                     name={incomeSeriesName}
-                    stroke="#10B981"
+                    stroke={SEMANTIC_SERIES.income}
                     strokeWidth={2}
-                    dot={false}
+                    dot={singlePointDot(series, SEMANTIC_SERIES.income)}
                     isAnimationActive={false}
                     activeDot={{ r: 6, cursor: 'pointer', onClick: handlePointClick('income') }}
                   />
                 )}
                 {chartType === 'bar' ? (
-                  <Bar dataKey="expenses" name={expenseSeriesName} fill="#EF4444" radius={[3, 3, 0, 0]} cursor="pointer" isAnimationActive={false} onClick={handlePointClick('expenses')} />
+                  <Bar dataKey="expenses" name={expenseSeriesName} fill={SEMANTIC_SERIES.expense} radius={[3, 3, 0, 0]} cursor="pointer" isAnimationActive={false} onClick={handlePointClick('expenses')} />
                 ) : (
                   <Line
                     type="monotone"
                     dataKey="expenses"
                     name={expenseSeriesName}
-                    stroke="#EF4444"
+                    stroke={SEMANTIC_SERIES.expense}
                     strokeWidth={2}
-                    dot={false}
+                    dot={singlePointDot(series, SEMANTIC_SERIES.expense)}
                     isAnimationActive={false}
                     activeDot={{ r: 6, cursor: 'pointer', onClick: handlePointClick('expenses') }}
                   />

@@ -130,3 +130,60 @@ export function useCategoricalRamp(): readonly string[] {
 
   return categoricalRamp(dark);
 }
+
+/**
+ * ─ THE TWO SEMANTIC SERIES — NOT PART OF THE RAMP ABOVE ────────────────────
+ *
+ * Everything above this line is the CATEGORICAL ramp: colours that separate
+ * one arbitrary slice from another and mean nothing individually. These two
+ * mean something. A series called "Income" is the same idea as a `+£141.50`
+ * in the register, and it had been painted `#10B981`/`#EF4444` in five files —
+ * a SECOND definition of income and expense, living beside the instrumented
+ * one and free to drift from it (PHONE_CAPTURES_REVIEW_2026-08-13 §4).
+ *
+ * That is why green and red are still banned from the ramp and are declared
+ * here instead: the ban was never on the hues, it was on spending them where
+ * they mean nothing. A chart of income against expenses is the one place in a
+ * chart they mean exactly what they mean everywhere else.
+ *
+ * ─ WHY THESE ARE THE FILL COLOURS AND NOT text-income / text-expense ───────
+ * WCAG asks 4.5:1 of text and 3:1 of a graphical object (1.4.11). The amount
+ * colours are built for the harder bar and are correspondingly dark; a 1.5px
+ * line in a dark green reads as black on a chart. The token sheet already had
+ * `income-fill` for exactly this, being the green the amounts gave up when
+ * they moved to the 4.5:1 pair — `expense-fill` is now its counterpart, the
+ * red they gave up in the same change. So the series pair is the retired text
+ * pair, which is why it is the same family of colour and not a new one.
+ *
+ * ─ WHY ONE VALUE SERVES BOTH THEMES, WHEN THE RAMP NEEDED TWO ──────────────
+ * The ramp walks navy→slate, so its ends are invisible on one ground or the
+ * other and it has to be entered from the end that contrasts. These two sit in
+ * the middle of the lightness range, and MEASURED with the repo's own harness
+ * (ColorContrastChecker, 2026-08-13) they clear the 3:1 graphics bar on every
+ * surface a chart is drawn on in either theme:
+ *
+ *                     #fff   #f8f9fb   #1f2937   #111827
+ *     income-fill     3.38     3.21      4.34      5.24   ✓ all four
+ *     expense-fill    4.37     4.15      3.36      4.06   ✓ all four
+ *
+ * Both are deliberately under 4.5:1 on white: they are series colours, and
+ * `semantic-contrast.test.ts` fails if one is promoted to text.
+ *
+ * ─ THE COST, STATED ────────────────────────────────────────────────────────
+ * Green against red is the one pair colour-blind readers cannot separate, and
+ * these two are 1.29:1 apart in luminance, so contrast does not rescue it
+ * either. Every consumer therefore direct-labels: each of the four charts
+ * draws a `<Legend />` and names the series in its tooltip, which is the same
+ * rule the ramp above works under — colour groups the series, the label
+ * identifies it. A chart that cannot label its series must not use this pair.
+ *
+ * Declared in `tailwind.config.js` (`income-fill` / `expense-fill`) and
+ * mirrored here because recharts takes a colour, not a class name. The mirror
+ * is pinned to the token sheet by semantic-contrast.test.ts, the same way the
+ * amount colours are pinned across their three files — a copy nobody checks is
+ * how there came to be five palettes.
+ */
+export const SEMANTIC_SERIES = {
+  income: '#0d9f6f',
+  expense: '#d94052',
+} as const;

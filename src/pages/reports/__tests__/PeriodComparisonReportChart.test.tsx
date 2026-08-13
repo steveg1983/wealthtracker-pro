@@ -7,6 +7,7 @@ import { ToastProvider } from '../../../contexts/ToastContext';
 import { usePeriod } from '../../../hooks/usePeriod';
 import { __setAppContextValue, __resetAppContextValue } from '../../../test/mocks/AppContextSupabase';
 import PeriodComparisonReport from '../PeriodComparisonReport';
+import { SEMANTIC_SERIES } from '../../../components/charts/chartColors';
 import type { Account, Category, Transaction } from '../../../types';
 
 /**
@@ -27,8 +28,11 @@ vi.mock('recharts', async importOriginal => {
   };
 });
 
-const INCOME_FILL = '#10B981';
-const EXPENSE_FILL = '#EF4444';
+// Read from the token module, not re-typed: a test that hard-codes the colour
+// it expects passes just as happily when the chart and the token sheet have
+// drifted apart, which is the failure this pair of tokens exists to stop.
+const INCOME_FILL = SEMANTIC_SERIES.income;
+const EXPENSE_FILL = SEMANTIC_SERIES.expense;
 const COMPARISON_FILL = '#94A3B8';
 
 const ACCOUNTS: Account[] = [

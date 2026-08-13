@@ -33,6 +33,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ColorContrastChecker } from '../../utils/color-contrast-checker';
+import { CATEGORICAL_AXIS, SEMANTIC_SERIES } from '../../components/charts/chartColors';
 
 const read = (repoPath: string): string =>
   readFileSync(resolve(process.cwd(), repoPath), 'utf8');
@@ -58,6 +59,7 @@ const token = {
   income: extract(tailwindConfig, /\bincome: '(#[0-9a-f]{6})'/i, 'tailwind income'),
   incomeFill: extract(tailwindConfig, /'income-fill': '(#[0-9a-f]{6})'/i, 'tailwind income-fill'),
   expense: extract(tailwindConfig, /\bexpense: '(#[0-9a-f]{6})'/i, 'tailwind expense'),
+  expenseFill: extract(tailwindConfig, /'expense-fill': '(#[0-9a-f]{6})'/i, 'tailwind expense-fill'),
   accentText: extract(tailwindConfig, /'accent-text': '(#[0-9a-f]{6})'/i, 'tailwind accent-text'),
 };
 
@@ -112,6 +114,62 @@ describe('semantic amount colours (DESIGN_PASS_2026-08 §2.1)', () => {
     // to a text token this stops being the right test — see §2.1.
     expect(ratio(token.incomeFill, '#ffffff')).toBeGreaterThanOrEqual(AA_GRAPHICS);
     expect(ratio(token.incomeFill, '#ffffff')).toBeLessThan(AA_TEXT);
+  });
+
+  /**
+   * THE CHART SERIES PAIR (PHONE_CAPTURES_REVIEW_2026-08-13 §4).
+   *
+   * `#10B981`/`#EF4444` were a second definition of income and expense, hard
+   * coded in five files. The series now read the token sheet, and these pin
+   * the two things that made the old arrangement rot: that the pair agrees
+   * with the tokens, and that it is measured at the bar it actually owes.
+   *
+   * A series colour differs from a text colour in one way that matters here:
+   * it is ONE hex for both themes — recharts takes a colour, not a class, so
+   * there is no `dark:` variant to fall back on. It therefore has to clear
+   * 3:1 on the dark card as well, which is a test the text pairs never sit.
+   */
+  describe('the chart series pair', () => {
+    const SURFACES_ALL = [...SURFACES_LIGHT, ...SURFACES_DARK] as const;
+
+    it('agrees with the module the charts actually read', () => {
+      // The tokens are the declaration; SEMANTIC_SERIES is the copy recharts
+      // consumes. Same rule as income/expense across their three files — an
+      // unchecked copy is how there came to be five chart palettes.
+      expect(SEMANTIC_SERIES.income.toLowerCase()).toBe(token.incomeFill);
+      expect(SEMANTIC_SERIES.expense.toLowerCase()).toBe(token.expenseFill);
+    });
+
+    it('clears the 3:1 graphics bar on every surface a chart is drawn on', () => {
+      for (const surface of SURFACES_ALL) {
+        expect(ratio(token.incomeFill, surface)).toBeGreaterThanOrEqual(AA_GRAPHICS);
+        expect(ratio(token.expenseFill, surface)).toBeGreaterThanOrEqual(AA_GRAPHICS);
+      }
+    });
+
+    it('is not text, and fails here if someone makes it text', () => {
+      // Both sit under 4.5:1 on white BY DESIGN: they are the colours the
+      // amounts retired for exactly that reason. An amount that wants green
+      // wants `income`, which is measured against the text bar above.
+      expect(ratio(token.incomeFill, '#ffffff')).toBeLessThan(AA_TEXT);
+      expect(ratio(token.expenseFill, '#ffffff')).toBeLessThan(AA_TEXT);
+    });
+
+    it('is not the same colour as the amounts, and not the old hard-coded pair', () => {
+      expect(token.incomeFill).not.toBe(token.income);
+      expect(token.expenseFill).not.toBe(token.expense);
+      expect([token.incomeFill, token.expenseFill]).not.toContain('#10b981');
+      expect([token.incomeFill, token.expenseFill]).not.toContain('#ef4444');
+    });
+
+    it('keeps green and red out of the categorical ramp (RULINGS §2)', () => {
+      // The ramp is navy through slate. If a semantic hue ever appears in it,
+      // a pie slice starts claiming to be income.
+      for (const step of CATEGORICAL_AXIS) {
+        expect(step.toLowerCase()).not.toBe(token.incomeFill);
+        expect(step.toLowerCase()).not.toBe(token.expenseFill);
+      }
+    });
   });
 
   it('tabular figures are the app-wide default (P5)', () => {
