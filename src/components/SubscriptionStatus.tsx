@@ -236,19 +236,39 @@ export default function SubscriptionStatus(): React.JSX.Element {
           </ul>
         </div>
 
-        {/* Action Buttons */}
-        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+        {/*
+          ─ ACTION BUTTONS, AND WHY THEY WRAP ──────────────────────────────
+          `flex gap-3` with `flex-1` on the upgrades and no wrapping. At
+          375px — the first card on the Settings page, so the first thing a
+          phone user meets — three buttons divided one row between them and
+          `flex-1` let each shrink BELOW its own text, so the labels spilled
+          out of their borders and clipped at both edges: "Upgrade to
+          Premium" rendered as "Upgrad / to / remiun". `flex-wrap` and
+          content-width buttons instead: they sit in a row where there is
+          room and stack where there is not, and a label can never be
+          narrower than its own words.
+
+          The purple went with it. `border-purple-600` and `bg-purple-600`
+          were a fifth and sixth button style in a product that has four
+          (P7: primary navy, secondary outline, quiet text, destructive),
+          in a hue belonging to no token — the same purple that had just
+          been removed from the gradient tile one card up. Upgrading is the
+          primary action here and Pro is the secondary one, which is a
+          hierarchy the four roles already express. Radius 6 via `rounded`,
+          hairline borders, no shadows, per the shipped scale.
+        */}
+        <div className="mt-6 pt-6 border-t border-line dark:border-gray-700 flex flex-wrap gap-3">
           {tier === 'free' && (
             <>
               <button
                 onClick={() => handleUpgrade('premium')}
-                className="flex-1 justify-center px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-secondary transition-colors duration-state"
               >
                 Upgrade to Premium
               </button>
               <button
                 onClick={() => handleUpgrade('pro')}
-                className="flex-1 justify-center px-4 py-2 border border-purple-600 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                className="px-4 py-2 border border-line-strong dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-surface-secondary dark:hover:bg-gray-700 transition-colors duration-state"
               >
                 Upgrade to Pro
               </button>
@@ -259,14 +279,14 @@ export default function SubscriptionStatus(): React.JSX.Element {
             <>
               <button
                 onClick={() => handleUpgrade('pro')}
-                className="flex-1 justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-secondary transition-colors duration-state"
               >
                 Upgrade to Pro
               </button>
               {!cancelAtPeriodEnd && (
                 <button
                   onClick={handleCancel}
-                  className="px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                  className="px-4 py-2 text-expense hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors duration-state"
                 >
                   Cancel Subscription
                 </button>
@@ -277,7 +297,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
           {tier === 'pro' && !cancelAtPeriodEnd && (
             <button
               onClick={handleCancel}
-              className="px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+              className="px-4 py-2 text-expense hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors duration-state"
             >
               Cancel Subscription
             </button>
@@ -285,7 +305,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
 
           <button
             onClick={() => window.open('/billing', '_blank')}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+            className="px-4 py-2 border border-line-strong dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-surface-secondary dark:hover:bg-gray-700 transition-colors duration-state flex items-center gap-2"
           >
             <CreditCardIcon size={16} />
             Manage Billing
