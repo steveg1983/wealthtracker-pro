@@ -336,30 +336,38 @@ export function AccountCountCell({
       <p className={ROW_LABEL_CLASS}>{label}</p>
       <p
         /*
-         * SIZE AND WEIGHT CARRY IT, NOT A HUE.
+         * A FILLED SHAPE, NOT LOUDER TEXT.
          *
-         * The two states used to differ by colour alone — slate-600 against
-         * gray-400, both `font-semibold` — and the owner reported the outcome
-         * that matters: "I miss them because when there are these things to do,
-         * they dont stand out vs all the other accounts with zero's."
+         * Three attempts at this column, and the first two were the same idea
+         * at different volumes. It began as colour alone — slate-600 against
+         * gray-400, both `font-semibold` — and the owner could not find the
+         * rows that mattered: "I miss them because when there are these things
+         * to do, they dont stand out vs all the other accounts with zero's."
+         * Near-black, bold and a step larger was better and still not enough:
+         * "BETTER BUT IT NEEDS TO STAND OUT MORE."
          *
-         * He was right to expect this to be contentious and it is not. The
-         * ruling below bans AMBER, because amber marks the one control you
-         * should touch next and a count is not clickable; and it bans a loud
-         * ZERO, because nothing is not something to attend to. Neither says a
-         * count with work in it must whisper. "Colour marks what needs
-         * attention" is the argument FOR separating these, and hierarchy in
-         * this app is carried by size and weight before any new colour is
-         * spent (the summary card makes the same move).
+         * It was never going to be enough, because every one of those is text
+         * competing with text down a column of 130 rows. A filled pill breaks
+         * the rhythm instead of raising its voice within it — the eye finds a
+         * SHAPE among words without reading any of them.
          *
-         * So a count with work is a step larger, bolder and near-black, and a
-         * zero drops to normal weight and recedes. No hue is spent, the yellow
-         * thread keeps its monopoly on "do this next", and a page of zeroes
-         * still reads as a page of zeroes.
+         * ─ WHY NAVY, AND WHY THAT IS NOT THE THING RULING A BANNED ──────────
+         * Amber belongs to the one CONTROL you should touch next and this is
+         * not clickable; green and red mean money in and money out, and a count
+         * is neither. Navy is the brand's own ink, already the fill of every
+         * primary control, and it says "here" without claiming to be a
+         * direction or an alarm. It is also the shape ActivityBadge already
+         * uses for a count that carries a figure, so the app has one idiom for
+         * this rather than two.
+         *
+         * The ZERO is untouched by all of it: still plain, still light, still
+         * receding. Ruling A's correction — that nothing is not something to
+         * attend to — is exactly why the contrast between the two can be this
+         * strong without the zero shouting.
          */
         className={`tabular-nums ${
           count > 0
-            ? 'text-base font-bold text-gray-900 dark:text-white'
+            ? 'inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 rounded-full bg-primary text-white text-sm font-bold'
             : 'text-sm font-normal text-gray-400 dark:text-gray-500'
         }`}
       >

@@ -176,13 +176,13 @@ describe('Accounts list — the To Review column', () => {
      * all the other accounts with zero's." Two steps on the grey ramp is not a
      * difference you can find down 130 rows.
      *
-     * It is now separated by SIZE and WEIGHT as well — near-black, a step
-     * larger, bold — which is how this app carries hierarchy everywhere and
-     * spends no hue doing it. See AccountCountCell.test.tsx.
+     * Near-black and bold was the second attempt and drew "BETTER BUT IT NEEDS
+     * TO STAND OUT MORE". Both attempts were text competing with text; a filled
+     * navy pill breaks the rhythm instead. See AccountCountCell.test.tsx.
      */
-    expect(waiting?.className).toContain('text-gray-900');
+    expect(waiting?.className).toContain('bg-primary');
+    expect(waiting?.className).toContain('rounded-full');
     expect(waiting?.className).toContain('font-bold');
-    expect(waiting?.className).toContain('text-base');
     // NOT the app's link blue, which is what a zero wore until this was
     // corrected — de-ambering the working state had left the count with
     // NOTHING to do as the loudest figure on the row. Colour marks what needs
