@@ -12,6 +12,7 @@ import {
 } from '../utils/fx';
 import { useFxQuote } from '../hooks/useFxQuote';
 import type { ConfirmedConversion } from '../utils/crossCurrencyTransfer';
+import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 
 /**
  * The one question a cross-currency transfer has to ask, asked once.
@@ -73,6 +74,7 @@ const asMoneyText = (value: DecimalInstance): string => value.toFixed(AMOUNT_DP)
  * returns `null` rather than clamping.
  */
 function readPositive(text: string): DecimalInstance | null {
+
   const trimmed = text.trim();
   if (trimmed === '') return null;
   try {
@@ -95,6 +97,9 @@ export default function CrossCurrencyTransferDialog({
   onConfirm,
   onCancel,
 }: CrossCurrencyTransferDialogProps): React.JSX.Element | null {
+  // Press AND release must both be on the backdrop — see useBackdropDismiss.
+  const backdropDismiss = useBackdropDismiss(onCancel);
+
   const quote = useFxQuote(isOpen ? sourceCurrency : null, isOpen ? destinationCurrency : null);
 
   const [rateText, setRateText] = useState('');
@@ -205,7 +210,7 @@ export default function CrossCurrencyTransferDialog({
   return createPortal(
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+      {...backdropDismiss}
     >
       <div
         role="dialog"

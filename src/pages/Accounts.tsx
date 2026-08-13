@@ -62,6 +62,7 @@ import FilteredEmptyState from '../components/FilteredEmptyState';
 import { TableSkeleton, type TableSkeletonColumn } from '../components/loading/TableSkeleton';
 import {
   AccountRowColumns,
+  AccountColumnHeader,
   AccountBalanceCell,
   AccountCountCell,
   AccountRowEmptyCell,
@@ -73,6 +74,7 @@ import { useArrivalRowFocus } from '../hooks/useArrivalFocus';
 // The same predicate the Transactions table asks, kept in one place: a click on
 // a row's own button belongs to the button, on both pages.
 import { clickedOwnControl } from '../hooks/useRowClickGesture';
+import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 import {
   currentPageProvenance,
   readResumeCrumbs,
@@ -309,6 +311,13 @@ export default function Accounts() {
   }, [location.pathname, location.search, navigate]);
 
   const { getUnreconciledCount, computeAccountBalance: computeLedgerBalance } = useReconciliation(accounts, transactions);
+
+  // Both of this page's own dialogs dismiss only when the press AND the release
+  // are on the backdrop — a selection that ends outside is not a dismissal.
+  const closeBankConnections = useCallback(() => setBankConnectionsView(null), []);
+  const closePortfolio = useCallback(() => setPortfolioAccountId(null), []);
+  const bankConnectionsDismiss = useBackdropDismiss(closeBankConnections);
+  const portfolioDismiss = useBackdropDismiss(closePortfolio);
 
   /**
    * How much freshly-imported work is waiting in each account.
@@ -1589,6 +1598,16 @@ export default function Accounts() {
 
         {isExpanded && (
           <div id={regionId} className="bg-white dark:bg-gray-800">
+            {/* ONE STRIP PER BAND, not four labels on every row.
+                Twenty-odd repetitions of "Bank Bal / Account Bal /
+                Unreconciled / To Review" were the cost of a card that has to
+                explain itself in isolation — the reconciliation list was given
+                one strip per group in the August design pass and this page
+                never was. It sits above the sub-bands rather than inside each
+                one, so an account list grouped by nine institutions says the
+                four words once, not nine times. Phones keep the per-row labels
+                (see AccountRowColumns): below `sm` there is no grid to head. */}
+            <AccountColumnHeader />
             {subBands
               ? subBands.map(sub => {
                   // Count and total describe the WHOLE sub-band, as the section
@@ -2206,7 +2225,7 @@ export default function Accounts() {
       {bankConnectionsView !== null && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) setBankConnectionsView(null); }}
+          {...bankConnectionsDismiss}
         >
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
@@ -2243,7 +2262,7 @@ export default function Accounts() {
         return (
           <div
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => { if (e.target === e.currentTarget) setPortfolioAccountId(null); }}
+            {...portfolioDismiss}
           >
             <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
               <div className="p-6">

@@ -27,6 +27,7 @@ import DashboardWidgetCard from './DashboardWidgetCard';
 import CardPeriodControl from './CardPeriodControl';
 import { WIDGET_CHART_HEIGHT } from './widgetChrome';
 import { useReportDrill } from './useReportDrill';
+import { useHistoricalAccounts } from '../../../hooks/useHistoricalAccounts';
 
 /**
  * Compact, live versions of the Reports-hub reports for the Dashboard's
@@ -77,9 +78,17 @@ export function NetWorthWidget({ picker, pin }: {
   picker: UsePeriodResult;
   pin?: CardPeriodPin;
 }): React.JSX.Element {
-  const { accounts, transactions } = useApp();
+  const { accounts: openAccounts, transactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const openReport = useReportDrill();
+
+  /**
+   * OPEN AND CLOSED. This card draws the same series as the full report and
+   * must not disagree with it: the app context holds open accounts only, so
+   * both used to omit whatever the owner's closed accounts held at each point
+   * in the past. See useHistoricalAccounts.
+   */
+  const accounts = useHistoricalAccounts(openAccounts);
 
   const snapshots = useMemo(
     () => buildNetWorthSnapshots(accounts, transactions, picker.range),

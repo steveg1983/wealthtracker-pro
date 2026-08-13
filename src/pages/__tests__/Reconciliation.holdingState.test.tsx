@@ -129,8 +129,19 @@ const renderAccounts = () =>
   );
 
 /** The figure under a stat column's label on the Accounts page. */
+/**
+ * The figure under a column heading ON AN ACCOUNT ROW.
+ *
+ * Scoped to `[data-account-columns]` — a row's grid — rather than taking the
+ * first "Unreconciled" on the page. The band now carries a column-header strip
+ * that says the same four words once above the rows, so the first match became
+ * a heading whose next sibling is the NEXT heading: this asserted 'To Review'
+ * where it meant '3'. The row is what the test was always about.
+ */
 const accountsStat = (label: string): string => {
-  const labelNode = screen.getAllByText(label)[0];
+  const row = document.querySelector('[data-account-columns]');
+  if (!(row instanceof HTMLElement)) throw new Error('no account row rendered');
+  const labelNode = within(row).getAllByText(label)[0];
   const value = labelNode.nextElementSibling;
   if (!(value instanceof HTMLElement)) throw new Error(`"${label}" has no figure under it`);
   return value.textContent ?? '';

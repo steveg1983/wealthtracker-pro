@@ -23,8 +23,10 @@ import { buildNetWorthSnapshots, netWorthPointToken } from '../utils/netWorthSer
 import { useArrivalAction } from '../hooks/useArrivalFocus';
 import { resolveEffectiveOpeningDates } from '../utils/openingDates';
 import { TrendingUpIcon, ChevronRightIcon } from '../components/icons';
+import { DECOMPOSITION_SERIES } from '../components/charts/chartColors';
 import type { ReportViewProps } from './reports/types';
 import { preferences } from '../services/preferencesService';
+import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
 
 /**
  * Net worth over time — the Microsoft Money report, rebuilt on real data.
@@ -39,6 +41,53 @@ import { preferences } from '../services/preferencesService';
  */
 
 
+/**
+ * The legend, drawing each series as the LINE IT ACTUALLY IS.
+ *
+ * The design ruling that separated these three by shape rather than colour came
+ * with one condition attached: "the legend must show the actual dash pattern,
+ * not a coloured square. A legend that renders three identical navy squares is
+ * worse than the bug we started with."
+ *
+ * Recharts' default legend does not meet that. Measured before writing this:
+ * its swatch is a `<path>` carrying `stroke` and no `stroke-dasharray` at all,
+ * so Assets and Liabilities — deliberately the same hue — came out as two
+ * identical navy lines. The whole point of the ruling is that shape carries
+ * identity, and the default legend is the one place shape was being dropped.
+ *
+ * So the swatch is drawn here from the same `DECOMPOSITION_SERIES` entry the
+ * chart draws from, which is also what stops the two drifting: there is no
+ * second copy of the pattern to forget to update.
+ */
+function DecompositionLegend({ payload }: { payload?: readonly { value?: string }[] }): React.JSX.Element {
+  const style = (name: string | undefined): typeof DECOMPOSITION_SERIES[keyof typeof DECOMPOSITION_SERIES] =>
+    name === 'Assets' ? DECOMPOSITION_SERIES.part
+      : name === 'Liabilities' ? DECOMPOSITION_SERIES.counterpart
+        : DECOMPOSITION_SERIES.total;
+
+  return (
+    <ul className="flex flex-wrap items-center justify-center gap-4 pt-1">
+      {(payload ?? []).map(entry => {
+        const series = style(entry.value);
+        return (
+          <li key={entry.value} className="flex items-center gap-1.5 text-label text-gray-600 dark:text-gray-300">
+            {/* 24px of the real line: same colour, same weight, same dash. */}
+            <svg width="24" height="10" aria-hidden="true" className="flex-shrink-0">
+              <line
+                x1="0" y1="5" x2="24" y2="5"
+                stroke={series.color}
+                strokeWidth={series.width}
+                strokeDasharray={series.dash}
+              />
+            </svg>
+            {entry.value}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 const compactTick = (value: number): string => {
   const abs = Math.abs(value);
   const sign = value < 0 ? '-' : '';
@@ -48,7 +97,21 @@ const compactTick = (value: number): string => {
 };
 
 export default function NetWorthReport({ picker, focus }: ReportViewProps): React.JSX.Element {
-  const { accounts, transactions } = useApp();
+  const { accounts: openAccounts, transactions } = useApp();
+  /**
+   * OPEN AND CLOSED, because this page walks history.
+   *
+   * The app context holds open accounts only (`getAccounts` filters on
+   * `is_active`), so every point on this chart used to omit whatever the
+   * owner's 110 closed accounts held at the time — understating the past, and
+   * understating it more the further back you look. See useHistoricalAccounts.
+   *
+   * Everything on this page reads from it: the series, the effective opening
+   * dates, the per-date drill and the caveat note. They must agree, and the
+   * headline above the chart is the LAST POINT of the series rather than a
+   * separately-computed figure, so it moves with them.
+   */
+  const accounts = useHistoricalAccounts(openAccounts);
   const { formatCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -285,19 +348,46 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                   formatter={(value: number | string) => formatCurrency(typeof value === 'number' ? value : Number(value))}
                   contentStyle={{ borderRadius: '8px' }}
                 />
-                <Legend />
+                <Legend content={<DecompositionLegend />} />
                 {chartType === 'bar' ? (
                   // Money-style bar view: net worth as bars, assets/liabilities
                   // as context lines. Same data, same click-to-drill.
-                  <Bar dataKey="netWorth" name="Net Worth" fill="#1a2332" radius={[3, 3, 0, 0]} cursor="pointer" />
+                  <Bar dataKey="netWorth" name="Net Worth" fill={DECOMPOSITION_SERIES.total.color} radius={[3, 3, 0, 0]} cursor="pointer" />
                 ) : (
-                  <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke="#1a2332" strokeWidth={2.5} dot={singlePointDot(snapshots, '#1a2332')} activeDot={{ r: 5 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="netWorth"
+                    name="Net Worth"
+                    stroke={DECOMPOSITION_SERIES.total.color}
+                    strokeWidth={DECOMPOSITION_SERIES.total.width}
+                    dot={singlePointDot(snapshots, DECOMPOSITION_SERIES.total.color)}
+                    activeDot={{ r: 5 }}
+                    isAnimationActive={false}
+                  />
                 )}
                 {showDetail && (
-                  <Line type="monotone" dataKey="assets" name="Assets" stroke="#10B981" strokeWidth={1.5} dot={singlePointDot(snapshots, '#10B981')} />
+                  <Line
+                    type="monotone"
+                    dataKey="assets"
+                    name="Assets"
+                    stroke={DECOMPOSITION_SERIES.part.color}
+                    strokeWidth={DECOMPOSITION_SERIES.part.width}
+                    strokeDasharray={DECOMPOSITION_SERIES.part.dash}
+                    dot={singlePointDot(snapshots, DECOMPOSITION_SERIES.part.color)}
+                    isAnimationActive={false}
+                  />
                 )}
                 {showDetail && (
-                  <Line type="monotone" dataKey="liabilities" name="Liabilities" stroke="#EF4444" strokeWidth={1.5} dot={singlePointDot(snapshots, '#EF4444')} />
+                  <Line
+                    type="monotone"
+                    dataKey="liabilities"
+                    name="Liabilities"
+                    stroke={DECOMPOSITION_SERIES.counterpart.color}
+                    strokeWidth={DECOMPOSITION_SERIES.counterpart.width}
+                    strokeDasharray={DECOMPOSITION_SERIES.counterpart.dash}
+                    dot={singlePointDot(snapshots, DECOMPOSITION_SERIES.counterpart.color)}
+                    isAnimationActive={false}
+                  />
                 )}
               </ComposedChart>
             </ResponsiveContainer>

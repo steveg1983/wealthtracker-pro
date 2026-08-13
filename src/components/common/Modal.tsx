@@ -41,6 +41,14 @@ export function Modal({
 }: ModalProps): React.JSX.Element | null {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
+  /**
+   * Did the press that is about to become a click START on the backdrop?
+   *
+   * A ref rather than state: it is written during a pointer event and read in
+   * the click that follows, and nothing renders from it — making it state would
+   * re-render every open modal on every press for a value no one draws.
+   */
+  const pressedOnBackdrop = useRef(false);
 
   // Latest-callback ref: callers routinely pass inline `onClose={() => …}`
   // handlers whose identity changes every render. With onClose in the effect
@@ -180,10 +188,31 @@ export function Modal({
       {/* Modal Container - Top-aligned below search bar. The container covers
           the whole screen ABOVE the backdrop, so outside-clicks land here —
           close only when the click is on the container itself, never on
-          anything inside the panel. */}
+          anything inside the panel.
+
+          ── AND ONLY WHEN THE PRESS BEGAN THERE TOO ──────────────────────────
+          `e.target === e.currentTarget` alone is not "clicked outside", it is
+          "the click EVENT was attributed to the container" — and a browser
+          attributes a click to the nearest common ancestor of where the button
+          went down and where it came up. So selecting text in a field and
+          releasing the mouse a few pixels outside the panel produced a click on
+          this container and threw the dialog away mid-edit, losing whatever had
+          been typed. The owner hit it on Account Settings while selecting an
+          institution name, and it was live on all 35 surfaces that use this
+          component, not just that one.
+
+          Recording the pointer-down settles it: a dismissal now needs the press
+          AND the release to be on the container. Same shape as the fix the
+          dashboard's period menu needed, and the same lesson — a click is five
+          events, and treating the last one as the whole gesture is what makes a
+          control unusable in ways no test that fires `click` can see. */}
       <div
         className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-16 pb-6 overflow-y-auto"
-        onClick={closeOnBackdrop ? (e) => { if (e.target === e.currentTarget) onClose(); } : undefined}
+        onPointerDown={closeOnBackdrop ? (e) => { pressedOnBackdrop.current = e.target === e.currentTarget; } : undefined}
+        onClick={closeOnBackdrop ? (e) => {
+          if (e.target === e.currentTarget && pressedOnBackdrop.current) onClose();
+          pressedOnBackdrop.current = false;
+        } : undefined}
       >
         <div
           ref={modalRef}
