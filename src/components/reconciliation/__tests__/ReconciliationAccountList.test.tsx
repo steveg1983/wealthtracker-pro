@@ -126,6 +126,105 @@ describe('ReconciliationAccountList — a missing figure names its remedy', () =
   });
 });
 
+/**
+ * THE ROWS ARE ROWS (DESIGN_PASS §3.3, ruled for Accounts and applied here).
+ *
+ * Twenty-nine bordered, shadowed cards; a link-blue badge on the state that is
+ * the absence of work; a link-blue £0.00. Everything below is the same claim
+ * from different angles: on this page colour and lift belong to the rows that
+ * need attention, and to nothing else.
+ */
+describe('ReconciliationAccountList — rows, not cards', () => {
+  const rowClasses = (name: string): string => rowFor(name).className;
+
+  it('separates rows with a hairline instead of boxing each one', () => {
+    renderList();
+    const classes = rowClasses('Second Account');
+
+    expect(classes).toContain('border-b-line');
+    // The card and its lift are gone: no rounded box, no shadow on hover.
+    expect(classes).not.toMatch(/rounded-(xl|2xl|lg)/);
+    expect(classes).not.toContain('shadow');
+    expect(classes).not.toContain('border-2');
+  });
+
+  it('marks the row that needs attention down its leading edge, in amber', () => {
+    renderList();
+    // 'Second Account' states £220.00 against a £250.00 balance — they disagree.
+    expect(rowClasses('Second Account')).toContain('border-l-amber-400');
+    // …and the row with no closing balance entered has nothing to disagree
+    // with, so it carries no mark.
+    expect(rowClasses('Everyday Account')).not.toContain('amber');
+    expect(rowClasses('Everyday Account')).toContain('border-l-transparent');
+  });
+
+  it('holds the mark\'s width open on every row so nothing shifts sideways', () => {
+    renderList();
+    // The 3px is geometry, present whatever the state; only the colour moves.
+    // Without this the marked rows would indent their own contents relative to
+    // their neighbours, and the column strip would label thin air.
+    expect(rowClasses('Everyday Account')).toContain('border-l-[3px]');
+    expect(rowClasses('Second Account')).toContain('border-l-[3px]');
+  });
+
+  it('keeps the label strip on the row\'s own horizontal metrics', () => {
+    renderList();
+    const strip = screen.getByTestId('reconciliation-column-labels');
+
+    // Shared constant, not two literals that happen to agree: a strip padded
+    // differently from its rows labels the wrong columns.
+    ['border-l-[3px]', 'px-3', 'sm:px-4'].forEach(utility => {
+      expect(strip.className).toContain(utility);
+      expect(rowClasses('Everyday Account')).toContain(utility);
+    });
+  });
+
+  it('spends no colour on the resting state', () => {
+    const reconciled: ReconciliationGrouping = {
+      mode: 'flat',
+      summaries: [{ ...summary('a5', 'Settled Account', 100, 100), unreconciledCount: 0 }],
+    };
+    renderGrouping(reconciled);
+    const badge = screen.getByText('All reconciled');
+
+    // It was `bg-blue-100 text-blue-700` — the app's LINK blue, on a thing that
+    // is not a link, on every unremarkable row at once.
+    expect(badge.className).not.toMatch(/blue|amber|green|red/);
+    // And no pill: the filled shape stays with the state that carries a figure.
+    expect(badge.className).not.toContain('rounded-full');
+    expect(badge.className).not.toMatch(/\bbg-/);
+  });
+
+  it('keeps the pill, and the count, where there IS work', () => {
+    renderList();
+    const badge = within(rowFor('Everyday Account')).getByText('3 unreconciled');
+
+    // Neutral since the de-amber pass, and still a chip — it holds a figure.
+    expect(badge.className).toContain('rounded-full');
+    expect(badge.className).not.toMatch(/amber|blue/);
+  });
+
+  it('stops printing a difference of zero in link blue', () => {
+    const settled: ReconciliationGrouping = {
+      mode: 'flat',
+      summaries: [summary('a6', 'Balanced Account', 100, 100)],
+    };
+    renderGrouping(settled);
+    const difference = within(rowFor('Balanced Account')).getByText('£0.00');
+
+    expect(difference.className).not.toContain('blue');
+  });
+
+  it('still colours the difference that disagrees', () => {
+    renderList();
+    // The one figure on the page that means something is wrong keeps its red,
+    // and its weight: colour is reserved for the rows that need attention.
+    const difference = within(rowFor('Second Account')).getByText('-£30.00');
+    expect(difference.className).toContain('text-red-600');
+    expect(difference.className).toContain('font-bold');
+  });
+});
+
 describe('ReconciliationAccountList — one label strip per group', () => {
   it('heads the group once instead of every row', () => {
     renderList();
@@ -215,7 +314,7 @@ describe('ReconciliationAccountList — both switches on', () => {
     // The type sections are still the outline: h2, as they were.
     const sections = screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent);
     // The count sits in a span with a CSS margin, so textContent runs on.
-    expect(sections).toEqual(['Current Accounts(3)', 'Savings Accounts(1)']);
+    expect(sections).toEqual(['Current Accounts(3 accounts)', 'Savings Accounts(1 account)']);
 
     // The institutions are groups rather than headings, so the page's outline
     // stays section → account name. The same treatment the Accounts page gives
@@ -250,7 +349,7 @@ describe('ReconciliationAccountList — both switches on', () => {
     // that counted only the rows of its first sub-band would be a section
     // lying about its own size.
     expect(screen.getByRole('heading', { level: 2, name: /Current Accounts/ }).textContent)
-      .toContain('(3)');
+      .toContain('(3 accounts)');
   });
 });
 
@@ -277,7 +376,7 @@ describe('ReconciliationAccountList — one switch, and none', () => {
     });
 
     expect(screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent)).toEqual([
-      'Invented Bank(1)',
+      'Invented Bank(1 account)',
     ]);
     expect(strips()).toHaveLength(1);
   });
@@ -299,10 +398,126 @@ describe('ReconciliationAccountList — one switch, and none', () => {
     expect(screen.getByRole('button', { name: /Rainy Day Account/ })).toBeInTheDocument();
   });
 
-  it('says so when the filters have left nothing to reconcile', () => {
+  it('says so when there is genuinely nothing to reconcile', () => {
     renderGrouping({ mode: 'flat', summaries: [] });
 
     expect(screen.getByText('No accounts to reconcile')).toBeInTheDocument();
     expect(screen.queryAllByTestId('reconciliation-column-labels')).toHaveLength(0);
+  });
+});
+
+/**
+ * FILTERED-EMPTY IS NOT EMPTY — the gate condition on batch 7 pass 2, said back
+ * in assertions: "for every surface wired, confirm the *filtered*-empty path is
+ * distinguishable from the empty path — conflating them is the failure mode,
+ * and a shared component makes it easy to wire only one."
+ *
+ * So these tests do not merely check that each path renders. They check the two
+ * paths render DIFFERENT things, from the same empty list, with the filter as
+ * the only difference between them.
+ */
+describe('ReconciliationAccountList — an empty list has two meanings', () => {
+  const filter = {
+    label: 'Needs attention only',
+    hiddenCount: 29,
+    onClear: vi.fn(),
+  };
+
+  it('names the filter, the accounts it is hiding, and the way out', () => {
+    render(
+      <PreferencesProvider>
+        <ReconciliationAccountList
+          grouping={{ mode: 'flat', summaries: [] }}
+          onSelectAccount={vi.fn()}
+          filter={filter}
+        />
+      </PreferencesProvider>
+    );
+
+    expect(screen.getByText('Nothing needs attention right now')).toBeInTheDocument();
+    // The two facts that turn "my accounts are gone" back into "my accounts are
+    // hidden": how many, and what by.
+    expect(document.body.textContent).toContain('29 accounts are hidden by');
+    expect(screen.getByText('Needs attention only')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show all accounts' })).toBeInTheDocument();
+  });
+
+  it('gives the remedy back to the caller', () => {
+    const onClear = vi.fn();
+    render(
+      <PreferencesProvider>
+        <ReconciliationAccountList
+          grouping={{ mode: 'flat', summaries: [] }}
+          onSelectAccount={vi.fn()}
+          filter={{ ...filter, onClear }}
+        />
+      </PreferencesProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all accounts' }));
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  it('is not the same screen as the empty one — same empty list, different state', () => {
+    const { unmount } = render(
+      <PreferencesProvider>
+        <ReconciliationAccountList
+          grouping={{ mode: 'flat', summaries: [] }}
+          onSelectAccount={vi.fn()}
+          filter={filter}
+        />
+      </PreferencesProvider>
+    );
+    const filtered = document.body.textContent ?? '';
+    unmount();
+
+    renderGrouping({ mode: 'flat', summaries: [] });
+    const empty = document.body.textContent ?? '';
+
+    // Distinguishable without reading carefully: different headline, and only
+    // one of them claims there is nothing here.
+    expect(filtered).not.toBe(empty);
+    expect(filtered).toContain('Nothing needs attention right now');
+    expect(filtered).not.toContain('No accounts to reconcile');
+    expect(empty).toContain('No accounts to reconcile');
+    expect(empty).not.toContain('hidden by');
+  });
+
+  it('calls an empty list empty when the filter is hiding nothing', () => {
+    // A filter that is on over no accounts at all has not hidden anything, and
+    // blaming it would send the user to press "Show all accounts" and find the
+    // same blank list.
+    render(
+      <PreferencesProvider>
+        <ReconciliationAccountList
+          grouping={{ mode: 'flat', summaries: [] }}
+          onSelectAccount={vi.fn()}
+          filter={{ ...filter, hiddenCount: 0 }}
+        />
+      </PreferencesProvider>
+    );
+
+    expect(screen.getByText('No accounts to reconcile')).toBeInTheDocument();
+    expect(screen.queryByText('Nothing needs attention right now')).not.toBeInTheDocument();
+  });
+
+  it('is left-aligned in both states, never centred', () => {
+    // DESIGN_PASS §4: a centred block with a picture is a greeting; this is a
+    // consequence and a remedy, and it reads down the left edge like the rest
+    // of the page.
+    const { unmount } = render(
+      <PreferencesProvider>
+        <ReconciliationAccountList
+          grouping={{ mode: 'flat', summaries: [] }}
+          onSelectAccount={vi.fn()}
+          filter={filter}
+        />
+      </PreferencesProvider>
+    );
+    expect(document.querySelector('.text-center')).toBeNull();
+    unmount();
+
+    renderGrouping({ mode: 'flat', summaries: [] });
+    expect(document.querySelector('.text-center')).toBeNull();
   });
 });

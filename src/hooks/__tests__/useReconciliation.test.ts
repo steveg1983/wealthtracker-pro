@@ -245,6 +245,102 @@ describe('useReconciliation', () => {
     });
   });
 
+  /**
+   * THE HEADLINE AND THE ROWS COUNT THE SAME THING.
+   *
+   * The tests above this one all assert an absolute: "should be 3", worked out
+   * by hand from the fixture. Every one of them passed on the day the page
+   * displayed 2,447 over a screen of rows that each said "All reconciled",
+   * because not one of them put the two numbers in the same expression. That is
+   * the same failure mode as the pin bug — two facts written from different
+   * sources, read back under different trust rules, and a test suite that could
+   * not see the contradiction because nothing compared them.
+   *
+   * So this block asserts a RELATION rather than a value, and it holds whatever
+   * the fixture is: the headline is the sum of the per-row badges, always. A
+   * future edit that reaches for a different predicate on one side and not the
+   * other fails here, even if it keeps every absolute above green.
+   */
+  describe('the headline is the sum of the rows', () => {
+    /** What the page's own row badges add up to. */
+    const badgeTotal = (details: { unreconciledCount: number }[]): number =>
+      details.reduce((sum, d) => sum + d.unreconciledCount, 0);
+
+    it('agrees with the rows on the ordinary fixture', () => {
+      const { result } = renderHook(() =>
+        useReconciliation(mockAccounts, mockTransactions)
+      );
+
+      expect(result.current.totalUnreconciledCount)
+        .toBe(badgeTotal(result.current.reconciliationDetails));
+    });
+
+    it('still agrees when rows exist on accounts the page is not given', () => {
+      // The owner's book, in miniature: unreconciled rows sitting on an account
+      // this page never lists. Whatever the headline decides to do about them,
+      // it must decide the same thing the rows do — and the rows cannot show a
+      // badge for an account that is not there, so the headline cannot count
+      // one either.
+      const onAClosedAccount: Transaction = {
+        ...mockTransactions[0],
+        id: 'tx-closed',
+        accountId: 'closed-account',
+        cleared: false,
+      };
+
+      const { result } = renderHook(() =>
+        useReconciliation(mockAccounts, [...mockTransactions, onAClosedAccount])
+      );
+
+      expect(result.current.totalUnreconciledCount)
+        .toBe(badgeTotal(result.current.reconciliationDetails));
+    });
+
+    it('still agrees when a row is committed rather than merely marked', () => {
+      // `reconciled` is authoritative where it speaks and `cleared` answers
+      // where it does not (transactionReconciliation.ts). A headline that read
+      // one flag while the badges read the predicate would drift on exactly
+      // these rows and on no others.
+      const committed: Transaction = {
+        ...mockTransactions[0],
+        id: 'tx-committed',
+        cleared: true,
+        reconciled: true,
+      };
+      const markedOnly: Transaction = {
+        ...mockTransactions[0],
+        id: 'tx-marked-only',
+        cleared: true,
+        reconciled: false,
+      };
+
+      const { result } = renderHook(() =>
+        useReconciliation(mockAccounts, [...mockTransactions, committed, markedOnly])
+      );
+
+      expect(result.current.totalUnreconciledCount)
+        .toBe(badgeTotal(result.current.reconciliationDetails));
+      // And the marked-but-uncommitted row is genuinely being counted, so the
+      // agreement above is not two zeroes agreeing.
+      expect(result.current.totalUnreconciledCount).toBe(4);
+    });
+
+    it('agrees at zero, and agrees with no accounts at all', () => {
+      const allCommitted = mockTransactions.map(tx => ({ ...tx, reconciled: true }));
+      const { result } = renderHook(() =>
+        useReconciliation(mockAccounts, allCommitted)
+      );
+
+      expect(result.current.totalUnreconciledCount)
+        .toBe(badgeTotal(result.current.reconciliationDetails));
+      expect(result.current.totalUnreconciledCount).toBe(0);
+
+      const { result: empty } = renderHook(() => useReconciliation([], mockTransactions));
+      expect(empty.current.totalUnreconciledCount)
+        .toBe(badgeTotal(empty.current.reconciliationDetails));
+    });
+  });
+
   describe('getUnreconciledCount', () => {
     it('should return count for specific account', () => {
       const { result } = renderHook(() =>

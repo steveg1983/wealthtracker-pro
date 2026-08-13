@@ -1,6 +1,8 @@
 import React from 'react';
 import { Building2Icon, ChevronRightIcon } from '../icons';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import EmptyState from '../EmptyState';
+import FilteredEmptyState from '../FilteredEmptyState';
 import type { ReconciliationSummary } from '../../hooks/useReconciliation';
 import type { ReconciliationGrouping } from './reconciliationGrouping';
 
@@ -12,6 +14,26 @@ interface ReconciliationAccountListProps {
    */
   grouping: ReconciliationGrouping;
   onSelectAccount: (accountId: string) => void;
+  /**
+   * The filter that is hiding rows, when one is on — and the way out of it.
+   *
+   * Present or absent is what decides which of the two empty states this list
+   * draws, and they are NOT the same state: an empty list with no filter means
+   * there is nothing here, while an empty list with a filter on means the rows
+   * exist and something is covering them. Conflating the two is the failure
+   * mode a shared component makes easy (design ruling 2026-08-12 §2, the gate
+   * condition on batch 7 pass 2), so the caller has to say which it is.
+   */
+  filter?: {
+    /** The filter's name, as the user set it. */
+    label: string;
+    /** Accounts that exist on this page and are currently hidden by it. */
+    hiddenCount: number;
+    /** Puts it away. */
+    onClear: () => void;
+  };
+  /** Where a user with no accounts at all goes to make one. */
+  onGoToAccounts?: () => void;
 }
 
 /**
@@ -60,12 +82,33 @@ const COLUMN_WIDTH = {
   difference: 'md:min-w-[100px]',
 } as const;
 
-/** "3 accounts" / "1 account" — a sub-band's count, spoken as well as seen. */
+/**
+ * The horizontal box metrics of a row — worn by the rows AND by the strip that
+ * heads them, for the same reason `COLUMN_WIDTH` is shared.
+ *
+ * Column WIDTHS were already shared; padding is the second alignment axis and
+ * was two literals that happened to agree (`px-5` over a `p-5` card). Un-nesting
+ * changed the row's padding, and a strip that kept the old number would have
+ * labelled columns 3px out of true down the whole page.
+ *
+ * The 3px left border is geometry, not decoration: it is on every row at every
+ * moment and only its COLOUR changes, so a row that gains the attention mark
+ * does not shove its own contents sideways relative to its neighbours. (The
+ * same trick the Accounts row plays with its 1px border.) The colour is
+ * supplied per state rather than defaulted here, because two `border-l-*`
+ * colour utilities in one class list are resolved by stylesheet order, not by
+ * the order they are written in — the transparent one could win.
+ */
+const ROW_INSET_CLASS = 'border-l-[3px] px-3 sm:px-4';
+
+/** "3 accounts" / "1 account" — a band's count, spoken as well as seen. */
 const countLabel = (n: number): string => `${n} ${n === 1 ? 'account' : 'accounts'}`;
 
 export default function ReconciliationAccountList({
   grouping,
   onSelectAccount,
+  filter,
+  onGoToAccounts,
 }: ReconciliationAccountListProps): React.JSX.Element {
   const { formatCurrency } = useCurrencyDecimal();
 
@@ -74,10 +117,43 @@ export default function ReconciliationAccountList({
       ? grouping.summaries.length
       : grouping.groups.reduce((n, g) => n + g.summaries.length, 0);
   if (total === 0) {
+    /**
+     * FILTERED-EMPTY IS NOT EMPTY (DESIGN_PASS §4).
+     *
+     * This page used to answer both with one centred block reading "No accounts
+     * to reconcile / All accounts are fully reconciled" — which is empty-state
+     * copy, asserts something nobody asked it to assert, and offers no way
+     * back. With `Needs attention only` on it was also the more alarming of the
+     * two readings: the accounts had not gone anywhere, they were behind a
+     * switch the user could not see from here.
+     */
+    if (filter && filter.hiddenCount > 0) {
+      return (
+        <div className="bg-white dark:bg-gray-800">
+          <FilteredEmptyState
+            // What is TRUE once the headline counts what the rows count: if no
+            // account needs attention then no listed account has an
+            // unreconciled row, so there is no second figure to report and the
+            // design's example sentence about transactions still outstanding
+            // would be a number this page can no longer produce.
+            title="Nothing needs attention right now"
+            hiddenCount={filter.hiddenCount}
+            scope="accounts"
+            filters={[filter.label]}
+            clearLabel="Show all accounts"
+            onClear={filter.onClear}
+          />
+        </div>
+      );
+    }
+
     return (
-      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-        <p className="text-lg font-medium">No accounts to reconcile</p>
-        <p className="text-sm mt-1">All accounts are fully reconciled</p>
+      <div className="bg-white dark:bg-gray-800">
+        <EmptyState
+          title="No accounts to reconcile"
+          description="Reconciliation works from your open accounts, and there are none here. A closed account keeps its history but has no statement left to agree, so it is never listed on this page."
+          action={onGoToAccounts ? { label: 'Go to accounts', onClick: onGoToAccounts, icon: null } : undefined}
+        />
       </div>
     );
   }
@@ -117,7 +193,7 @@ export default function ReconciliationAccountList({
         // exactly one per run of rows at every nesting level — the invariant
         // this helper exists to hold.
         data-testid="reconciliation-column-labels"
-        className="hidden md:flex w-full items-center gap-4 border-2 border-transparent px-5 pb-1"
+        className={`hidden md:flex w-full items-center gap-4 border-l-transparent pb-1 ${ROW_INSET_CLASS}`}
       >
         <div className="flex-1" />
         <p className={`${STRIP_LABEL_CLASS} ${COLUMN_WIDTH.bankBalance}`}>Bank Balance</p>
@@ -126,7 +202,13 @@ export default function ReconciliationAccountList({
         {/* The chevron's column, so the labels clear it. */}
         <div className="w-5 ml-2 flex-shrink-0" />
       </div>
-      <div className="grid gap-3">
+      {/* ROWS, NOT CARDS (DESIGN_PASS §3.3, ruled for Accounts and applied here
+          verbatim). Twenty-nine bordered, shadowed ~96px boxes made a list you
+          scroll out of a list you scan; per P4 a row is separated from the next
+          one by a hairline, and the group above it by weight and space. The
+          white is on the run of rows, so the band reads as one surface rather
+          than as twenty-nine floating ones. */}
+      <div className="bg-white dark:bg-gray-800">
         {summaries.map(({ account, unreconciledCount, bankBalance, accountBalance, difference }) => {
           const hasDifference = difference != null && Math.abs(difference) > 0.005;
 
@@ -135,16 +217,31 @@ export default function ReconciliationAccountList({
               key={account.id}
               type="button"
               onClick={() => onSelectAccount(account.id)}
-              className={`w-full text-left bg-white dark:bg-gray-800 rounded-xl border-2 transition-all hover:shadow-md ${
+              /* No focus ring of its own: the app-wide `outline` in
+                 accessibility-colors.css carries `!important`, and a private
+                 ring on top of it is what produced the double border the
+                 Accounts rows had to have removed. */
+              className={`w-full text-left bg-white dark:bg-gray-800 py-3 sm:py-4 border-b border-b-line dark:border-b-gray-700 last:border-b-transparent dark:last:border-b-transparent transition-colors duration-state ${ROW_INSET_CLASS} ${
                 hasDifference
-                  ? 'border-amber-400 dark:border-amber-500'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-primary'
-              } p-4 md:p-5`}
+                  ? // THE ATTENTION SIGNAL, WITHOUT A CARD TO PUT IT ON.
+                    // It was a 2px amber ring around the whole box; a box is
+                    // exactly what the un-nesting removes, and a ring is the
+                    // one thing that cannot survive losing it. So the amber
+                    // becomes a mark down the row's leading edge — the same
+                    // idiom §3.4 reaches for when it asks the demo banner to
+                    // stop being a full-bleed gold bar and become a navy one
+                    // with a gold mark. It reads as a rail down the page at
+                    // the rows that need work, which is stronger at a glance
+                    // than 29 outlines of which a few were amber, and it
+                    // spends less amber, not more (P3).
+                    'border-l-amber-400 dark:border-l-amber-500 hover:bg-amber-50/40 dark:hover:bg-amber-900/10'
+                  : 'border-l-transparent hover:bg-surface-secondary dark:hover:bg-gray-700/40'
+              }`}
             >
               {/* w-full so the columns spread edge-to-edge and the icons
                   line up in a straight rail down the page */}
               {/* The min-widths below add up to 660px, which is what
-                  kept this card off the edge of a phone. They only apply
+                  kept this row off the edge of a phone. They only apply
                   from md up now; under that the row wraps. */}
               <div className="w-full flex flex-wrap items-end md:items-center gap-3 md:gap-4">
                 <div className="flex items-center gap-3 min-w-0 basis-full md:basis-auto md:min-w-[200px]">
@@ -171,11 +268,25 @@ export default function ReconciliationAccountList({
                       {unreconciledCount} unreconciled
                     </span>
                   ) : (
-                    // "Reconciled", not "cleared": this badge is the answer
-                    // to "is there anything left to do here?", and marks are
-                    // not an answer to that — only a finished reconciliation
-                    // is.
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                    // "Reconciled", not "cleared": this is the answer to "is
+                    // there anything left to do here?", and marks are not an
+                    // answer to that — only a finished reconciliation is.
+                    //
+                    // NO PILL, AND NO COLOUR. It wore a filled badge in the
+                    // app's LINK blue, on up to twenty-nine rows at once, for
+                    // the state that is the ABSENCE of work — which spent
+                    // blue on "row" and "figure" as well as "link", and gave
+                    // the unremarkable rows a shape as loud as the ones
+                    // asking for something. Colour on this page belongs to
+                    // the rows that need attention (P2), and the pill stays
+                    // with the state that carries a figure.
+                    //
+                    // The words stay, though, because the Difference column
+                    // cannot say this: on every account with no closing
+                    // balance entered that column reads "—", so delegating
+                    // the answer to it would leave the question unanswered on
+                    // exactly the rows this page exists for.
+                    <span className="inline-flex items-center py-1 text-xs font-medium text-gray-500 dark:text-gray-400">
                       All reconciled
                     </span>
                   )}
@@ -232,12 +343,19 @@ export default function ReconciliationAccountList({
                   {/* No second remedy here. The difference is missing for
                       exactly the reason the bank balance is, and the row
                       has already said what to do about it once. */}
-                  <p className={`text-sm font-bold tabular-nums ${
+                  {/* £0.00 IS NOT A LINK. It was set in the same blue the
+                      app's links wear, so a page carrying no links at all
+                      spent link-blue on its most repeated figure. A closed
+                      difference is the quiet confirmation that two numbers
+                      agree; weight and colour are held back for the one that
+                      does not (P4 — weight before boxes, and the register's
+                      own rule that weight says "this is the line"). */}
+                  <p className={`text-sm tabular-nums ${
                     difference == null
-                      ? 'text-gray-400 dark:text-gray-500'
+                      ? 'font-semibold text-gray-400 dark:text-gray-500'
                       : Math.abs(difference) < 0.005
-                      ? 'text-blue-600 dark:text-blue-400'
-                      : 'text-red-600 dark:text-red-400'
+                      ? 'font-semibold text-gray-500 dark:text-gray-400'
+                      : 'font-bold text-red-600 dark:text-red-400'
                   }`}>
                     {difference != null
                       ? formatCurrency(difference, account.currency)
@@ -265,10 +383,17 @@ export default function ReconciliationAccountList({
     <div className="space-y-6">
       {grouping.groups.map(group => (
         <section key={group.label}>
+          {/* THE COUNT NAMES ITS UNIT. This page puts two different units on
+              one screen — the headline counts TRANSACTIONS, a band counts
+              ACCOUNTS — and a bare "(29)" under a headline reading 2,447 left
+              the reader to work out that the two were not the same kind of
+              thing. Naming it costs one word and matches both the Accounts
+              page's bands and the label this band already announces to a
+              screen reader. */}
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
             {group.title}
             <span className="ml-2 font-normal normal-case text-gray-400 dark:text-gray-500">
-              ({group.summaries.length})
+              ({countLabel(group.summaries.length)})
             </span>
           </h2>
           {group.subGroups ? (
@@ -310,7 +435,7 @@ export default function ReconciliationAccountList({
                   <p className="mb-2 flex items-baseline gap-2 border-b border-line dark:border-gray-700 pb-1.5 text-label uppercase font-semibold text-gray-500 dark:text-gray-400">
                     <span className="truncate">{sub.title}</span>
                     <span className="shrink-0 font-normal normal-case tracking-normal text-gray-400 dark:text-gray-500">
-                      ({sub.summaries.length})
+                      ({countLabel(sub.summaries.length)})
                     </span>
                   </p>
                   {renderRowGroup(sub.summaries)}
