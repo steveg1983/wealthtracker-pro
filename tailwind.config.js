@@ -9,8 +9,17 @@ export default {
     extend: {
       colors: {
         // Wealth/finance brand palette
-        primary: 'var(--color-primary, #1a2332)',
-        secondary: 'var(--color-secondary, #2d3a4d)',
+        // `rgb(var(--…-rgb) / <alpha-value>)`, not `var(--color-primary)`.
+        // Tailwind 3.4 cannot parse a bare var() as a colour, so it emitted NO
+        // RULE for any opacity modifier on these two — `bg-primary/10` was
+        // absent from the stylesheet and computed to transparent, taking
+        // thirteen selected-state and hover tints with it, silently. The
+        // alpha-value placeholder is how a CSS-variable token keeps its
+        // modifiers; the variables themselves are defined in src/index.css,
+        // which derives the plain colour form from the same triple so the
+        // fifty-four raw `var(--color-primary)` readers are untouched.
+        primary: 'rgb(var(--color-primary-rgb, 26 35 50) / <alpha-value>)',
+        secondary: 'rgb(var(--color-secondary-rgb, 45 58 77) / <alpha-value>)',
         // Gold is a FILL colour only (chips, marks, the yellow thread's box).
         // As text on white it measures 2.21:1 — that is what accent-text is
         // for. (DESIGN_PASS_2026-08 §2.1, instrumented 2026-08-12.)
