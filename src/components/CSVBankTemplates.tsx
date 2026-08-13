@@ -84,6 +84,8 @@ export default function CSVBankTemplates({
       <input
         id={searchId}
         type="search"
+        spellCheck={false}
+        autoCapitalize="none"
         value={query}
         onChange={event => setQuery(event.target.value)}
         placeholder="Barclays, Monzo, Wells Fargo, &quot;paid out&quot;…"

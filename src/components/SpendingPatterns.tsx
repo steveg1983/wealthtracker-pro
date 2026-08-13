@@ -160,7 +160,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
           className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary)]/90 disabled:opacity-50"
         >
           <RefreshCwIcon size={16} className={isAnalyzing ? 'animate-spin' : ''} />
-          {isAnalyzing ? 'Analyzing...' : 'Analyze Patterns'}
+          {isAnalyzing ? 'Analysing...' : 'Analyse Patterns'}
         </button>
       </div>
 

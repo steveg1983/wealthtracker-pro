@@ -4,6 +4,7 @@ import { useSeasonalAnalysis } from '../hooks/useCashFlowForecast';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import { LoadingState } from './loading/LoadingState';
+import { SEMANTIC_SERIES } from './charts/chartColors';
 import { CalendarIcon, TrendingUpIcon, TrendingDownIcon } from './icons';
 
 const monthNames = [
@@ -20,7 +21,7 @@ export default function SeasonalTrends({ className = '' }: SeasonalTrendsProps) 
   const seasonalTrends = useSeasonalAnalysis();
 
   if (!seasonalTrends) {
-    return <LoadingState message="Analyzing seasonal patterns..." />;
+    return <LoadingState message="Analysing seasonal patterns..." />;
   }
 
   // Convert Map to chart data
@@ -141,15 +142,15 @@ export default function SeasonalTrends({ className = '' }: SeasonalTrendsProps) 
                 }}
               />
               <Legend />
-              <Bar 
-                dataKey="income" 
-                fill="#10b981" 
+              <Bar
+                dataKey="income"
+                fill={SEMANTIC_SERIES.income}
                 name="Income"
                 radius={[4, 4, 0, 0]}
               />
-              <Bar 
-                dataKey="expenses" 
-                fill="#ef4444" 
+              <Bar
+                dataKey="expenses"
+                fill={SEMANTIC_SERIES.expense}
                 name="Expenses"
                 radius={[4, 4, 0, 0]}
               />

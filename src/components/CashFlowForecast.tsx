@@ -41,7 +41,7 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
   });
 
   if (isLoading) {
-    return <LoadingState message="Analyzing cash flow patterns..." />;
+    return <LoadingState message="Analysing cash flow patterns..." />;
   }
 
   if (error) {

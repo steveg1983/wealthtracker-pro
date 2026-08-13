@@ -501,9 +501,9 @@ export default function TaxPlanning(): React.JSX.Element {
                 ) : (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                     <CheckCircleIcon size={48} className="mx-auto mb-3 opacity-50" />
-                    <p>Your tax strategy is well optimized!</p>
+                    <p>Your tax strategy is well optimised!</p>
                     <p className="text-sm mt-2">
-                      We'll notify you when new optimization opportunities arise.
+                      We'll notify you when new optimisation opportunities arise.
                     </p>
                   </div>
                 )}

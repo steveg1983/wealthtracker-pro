@@ -245,6 +245,8 @@ export default function CrossCurrencyTransferDialog({
                 ref={rateBoxRef}
                 type="text"
                 inputMode="decimal"
+                spellCheck={false}
+                autoCapitalize="none"
                 value={rateText}
                 onChange={(e) => handleRateChange(e.target.value)}
                 disabled={busy}
@@ -267,6 +269,8 @@ export default function CrossCurrencyTransferDialog({
                 id="cross-currency-destination"
                 type="text"
                 inputMode="decimal"
+                spellCheck={false}
+                autoCapitalize="none"
                 value={destinationText}
                 onChange={(e) => handleDestinationChange(e.target.value)}
                 disabled={busy}

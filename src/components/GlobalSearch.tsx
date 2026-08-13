@@ -260,6 +260,11 @@ const GlobalSearch = forwardRef<GlobalSearchHandle, GlobalSearchProps>(
             placeholder={placeholder}
             className="w-full pl-10 pr-4 py-3 bg-transparent border-0 text-gray-900 dark:text-white placeholder-gray-500"
             autoComplete="off"
+            // Payees, account names and amounts — the three things typed here —
+            // are none of them dictionary words, so the spell-checker's only
+            // possible contribution is a red underline under a correct search.
+            spellCheck={false}
+            autoCapitalize="none"
             role="combobox"
             aria-label="Search transactions, accounts and pages"
             aria-autocomplete="list"

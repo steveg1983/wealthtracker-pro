@@ -208,6 +208,8 @@ export default function ReconciliationTransactionList({
           <input
             type="text"
             placeholder="Search transactions..."
+            spellCheck={false}
+            autoCapitalize="none"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg dark:text-white"

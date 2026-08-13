@@ -562,6 +562,100 @@ describe('Accounts page — closed accounts ordering', () => {
 });
 
 /**
+ * THE ARCHIVE OBEYS THE SEARCH.
+ *
+ * A phone capture caught the page saying "87 of your accounts are hidden by
+ * Search: …" with a live **Closed Accounts (110)** band directly beneath it —
+ * reporting that nothing matched while showing a group bigger than the count
+ * it had just quoted. The band was the one list on the page the search did not
+ * touch.
+ *
+ * The three facts below are the fix, and they are one rule seen from three
+ * sides: what is on screen is what matched.
+ */
+describe('Accounts page — the closed band obeys the search', () => {
+  const closedAccount = (id: string, name: string, type: Account['type']): Account => ({
+    id, name, type, balance: 0, currency: 'GBP', lastUpdated: new Date(),
+    openingBalance: 0, isActive: false,
+  });
+
+  const closed: Account[] = [
+    closedAccount('c1', 'Zephyr Current', 'current'),
+    closedAccount('c2', 'Nimbus Card', 'credit'),
+  ];
+
+  const searchFor = (term: string): void => {
+    fireEvent.change(screen.getByLabelText('Search accounts by name or institution'), {
+      target: { value: term },
+    });
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.spyOn(DataService, 'listClosedAccounts').mockResolvedValue(closed);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('renders no closed band at all when the search matches nothing anywhere', async () => {
+    renderAccounts();
+    // Finding the band by its count waits out the async closed load, so the
+    // disappearance below is a real removal rather than a slow arrival.
+    await screen.findByRole('button', { name: /Closed Accounts \(2\)/ });
+
+    searchFor('quenchless ironmongery');
+
+    expect(screen.queryByRole('button', { name: /Closed Accounts/ })).not.toBeInTheDocument();
+    // …and THEN the page is allowed to say nothing matched.
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'No accounts match your search' })
+    ).toBeInTheDocument();
+  });
+
+  it('still shows a closed account that matches, counting only what it shows', async () => {
+    renderAccounts();
+    await screen.findByRole('button', { name: /Closed Accounts \(2\)/ });
+
+    searchFor('zephyr');
+
+    // One of the two survived, and the heading says one — not two, and not the
+    // number in the database.
+    expect(screen.getByRole('button', { name: /Closed Accounts \(1\)/ })).toBeInTheDocument();
+    const closedSection = screen.getByTestId('closed-accounts');
+    expect(within(closedSection).getByText('Zephyr Current')).toBeInTheDocument();
+    expect(within(closedSection).queryByText('Nimbus Card')).not.toBeInTheDocument();
+  });
+
+  it('does not claim nothing matched while a closed match is on screen', async () => {
+    renderAccounts();
+    await screen.findByRole('button', { name: /Closed Accounts \(2\)/ });
+
+    // A term no OPEN account can match, that one CLOSED account does. The old
+    // gate looked only at the open list and would have printed the empty state
+    // directly above the band holding the hit.
+    searchFor('zephyr');
+
+    expect(
+      screen.queryByRole('heading', { name: 'No accounts match your search' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens the archive while searching, so a fold cannot swallow the hit', async () => {
+    renderAccounts();
+    // The band starts folded — proved by the absence of its contents.
+    await screen.findByRole('button', { name: /Closed Accounts \(2\)/ });
+    expect(screen.queryByTestId('closed-accounts')).not.toBeInTheDocument();
+
+    searchFor('zephyr');
+
+    // No click: the search opened it. A closed door with a count on it would
+    // make the count the only evidence the search found anything.
+    expect(screen.getByTestId('closed-accounts')).toBeInTheDocument();
+  });
+});
+
+/**
  * Settings on a closed account, without reopening it. Reopen–edit–close was
  * three steps to check or correct one fact (its name, its opening date), so
  * every closed row carries its own settings button. The archive still stays an

@@ -102,6 +102,10 @@ export default function StockSymbolSearch({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={placeholder}
+          // A ticker is not a word. Autocapitalise is worse than the squiggle
+          // here — it rewrites what was typed, and the symbol is the query.
+          spellCheck={false}
+          autoCapitalize="none"
           aria-label="Search for a stock, fund or ETF"
           aria-controls={listId}
           aria-expanded={matches.length > 0}

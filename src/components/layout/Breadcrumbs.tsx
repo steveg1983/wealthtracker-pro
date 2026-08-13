@@ -32,36 +32,62 @@ const routeLabels: Record<string, string> = {
   'reconciliation': 'Reconciliation'
 };
 
-// Mobile-only back link to the parent route. Deliberately not a breadcrumb
-// trail — the trail was removed app-wide as it crowded narrow viewports.
+/**
+ * Mobile-only back link to the PARENT route. Deliberately not a breadcrumb
+ * trail — the trail was removed app-wide as it crowded narrow viewports.
+ *
+ * ─ WHY IT RENDERS NOTHING ON A TOP-LEVEL PAGE ──────────────────────────────
+ * On `/find` this row said "‹ Find", directly above a page title reading
+ * "Find", directly above a nav bar whose middle tab reads "Find" — three in
+ * about 250px of a 812px screen, of which this row spent ~60px
+ * (PHONE_CAPTURES_REVIEW_2026-08-13 §3.4).
+ *
+ * The repetition was a symptom of something worse: the row was labelled with
+ * the page you are ON and linked to the page you would GO to. On `/find` that
+ * is a control saying "Find" which takes you to the Dashboard. So on a
+ * top-level route it was simultaneously the title again and a mis-signed exit,
+ * and the honest back affordance is the one already on screen — the bottom nav
+ * reaches every top-level route, and the OS edge gesture reaches the last one.
+ *
+ * ─ WHY IT STILL RENDERS ON A NESTED ONE ────────────────────────────────────
+ * "Drop it on mobile" would take the row out everywhere, because `sm:hidden`
+ * means mobile is the only place it has ever rendered. But `/settings/tags`
+ * has no tab in the bottom nav (Home · Accounts · Find · Reconcile ·
+ * Categorise), so up-one-level is genuinely unreachable there without this.
+ * The rule that keeps both facts is therefore about DEPTH, not width: a route
+ * with one segment repeats the title and is covered by the nav; a route with
+ * two or more has a parent worth a control.
+ *
+ * And the surviving row now names its DESTINATION — "‹ Settings" from
+ * `/settings/tags`, "‹ Accounts" from an account register — so it no longer
+ * repeats the title of the page it sits on, which was the finding.
+ */
 export function MobileBreadcrumb() {
   const location = useLocation();
   const { accounts } = useApp();
   const pathSegments = location.pathname.split('/').filter(Boolean);
 
-  // Don't show on home page
-  if (pathSegments.length === 0) {
+  // Home, and every top-level page: the bottom nav is the affordance.
+  if (pathSegments.length < 2) {
     return null;
   }
 
-  const currentPage = pathSegments[pathSegments.length - 1];
-  const matchedAccount = accounts.find(a => a.id === currentPage);
+  const parentPath = `/${pathSegments.slice(0, -1).join('/')}`;
+  const parentSegment = pathSegments[pathSegments.length - 2];
+  // A route nested under a single account names that account, not its id.
+  const matchedAccount = accounts.find(a => a.id === parentSegment);
   const label = matchedAccount
     ? matchedAccount.name
-    : routeLabels[currentPage] || currentPage.charAt(0).toUpperCase() + currentPage.slice(1);
-
-  // Determine parent path
-  const parentPath = pathSegments.length > 1 
-    ? `/${pathSegments.slice(0, -1).join('/')}`
-    : '/';
+    : routeLabels[parentSegment] || parentSegment.charAt(0).toUpperCase() + parentSegment.slice(1);
 
   return (
     <div className="sm:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
       <Link
         to={preserveDemoParam(parentPath, location.search)}
+        aria-label={`Back to ${label}`}
         className="flex items-center gap-2 text-primary dark:text-primary-light"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
         <span className="text-sm font-medium">{label}</span>

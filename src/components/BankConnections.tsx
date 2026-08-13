@@ -485,6 +485,8 @@ export default function BankConnections({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search for your bank..."
+              spellCheck={false}
+              autoCapitalize="none"
               className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
             />
           </div>

@@ -8,7 +8,7 @@ export default function TaxPlanningPage() {
     <PageWrapper 
       title="Tax Planning"
       rightContent={
-        <div className="cursor-pointer" title="Tax Planning & Optimization">
+        <div className="cursor-pointer" title="Tax Planning & Optimisation">
           <svg
             width="48"
             height="48"

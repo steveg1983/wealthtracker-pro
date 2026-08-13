@@ -283,6 +283,8 @@ export default function MerchantEnrichment({ onDataChange: _onDataChange }: Merc
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search merchants..."
+            spellCheck={false}
+            autoCapitalize="none"
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           />
         </div>

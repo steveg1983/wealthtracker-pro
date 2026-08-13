@@ -372,6 +372,9 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                     id="add-account-number"
                     type="text"
                     inputMode="numeric"
+                    // A reference number, not a word.
+                    spellCheck={false}
+                    autoCapitalize="none"
                     value={formData.accountNumber}
                     onChange={(e) => updateField('accountNumber', nextAccountNumberValue(e.target.value, isCreditCard))}
                     className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-primary dark:text-white transition-all duration-200"

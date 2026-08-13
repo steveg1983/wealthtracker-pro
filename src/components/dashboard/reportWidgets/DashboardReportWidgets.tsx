@@ -13,7 +13,8 @@ import {
 } from 'recharts';
 import { useApp } from '../../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../../hooks/useCurrencyDecimal';
-import { categoricalColor, useCategoricalRamp } from '../../charts/chartColors';
+import { categoricalColor, useCategoricalRamp, SEMANTIC_SERIES } from '../../charts/chartColors';
+import { singlePointDot } from '../../charts/singlePointDots';
 import { buildMonthlyTrend } from '../../../utils/monthlyTrend';
 import { buildNetWorthSnapshots, netWorthPointToken } from '../../../utils/netWorthSeries';
 import { computeExpenseCategoryNetTotals } from '../../../utils/categoryNetting';
@@ -108,9 +109,13 @@ export function NetWorthWidget({ picker, pin }: {
           {/* Clicking a point opens the report on the same window with THAT
               day's balances already showing — the report's own answer to a
               point, reached from the card. The chart carries the click (not
-              each dot) because the line is drawn without dots: recharts hands
-              back the label under the pointer, which is enough to name the
-              snapshot. */}
+              each dot) because the line is normally drawn without dots:
+              recharts hands back the label under the pointer, which is enough
+              to name the snapshot. (A window holding ONE snapshot draws a
+              solid mark instead: recharts gives a lone point a white-filled
+              3px ring that reads as an empty plot — see
+              charts/singlePointDots for the measurement. The click still
+              comes from the chart, so that case needs nothing extra here.) */}
           <LineChart
             data={snapshots}
             style={{ cursor: 'pointer' }}
@@ -122,7 +127,7 @@ export function NetWorthWidget({ picker, pin }: {
             <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 10 }} minTickGap={32} />
             <YAxis tick={{ fill: '#6B7280', fontSize: 10 }} tickFormatter={compactTick} width={44} />
             <Tooltip formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
-            <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke="#1a2332" strokeWidth={2} dot={false} isAnimationActive={false} />
+            <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke="#1a2332" strokeWidth={2} dot={singlePointDot(snapshots, '#1a2332')} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -188,8 +193,8 @@ export function IncomeExpenseTrendWidget({ picker, pin }: {
             <XAxis dataKey="month" tick={{ fill: '#6B7280', fontSize: 10 }} minTickGap={32} />
             <YAxis tick={{ fill: '#6B7280', fontSize: 10 }} tickFormatter={compactTick} width={44} />
             <Tooltip formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
-            <Line type="monotone" dataKey="income" name="Income" stroke="#10B981" strokeWidth={2} dot={false} isAnimationActive={false} />
-            <Line type="monotone" dataKey="expenses" name="Expenses" stroke="#EF4444" strokeWidth={2} dot={false} isAnimationActive={false} />
+            <Line type="monotone" dataKey="income" name="Income" stroke={SEMANTIC_SERIES.income} strokeWidth={2} dot={singlePointDot(data, SEMANTIC_SERIES.income)} isAnimationActive={false} />
+            <Line type="monotone" dataKey="expenses" name="Expenses" stroke={SEMANTIC_SERIES.expense} strokeWidth={2} dot={singlePointDot(data, SEMANTIC_SERIES.expense)} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>

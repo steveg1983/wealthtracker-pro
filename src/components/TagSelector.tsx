@@ -160,6 +160,11 @@ export default function TagSelector({
           onChange={handleInputChange}
           onFocus={handleInputFocus}
           onKeyDown={handleKeyDown}
+          // Tags are lowercase tokens, and this box both searches them and
+          // creates them — so an autocapitalised first letter would not merely
+          // look wrong, it would be stored.
+          spellCheck={false}
+          autoCapitalize="none"
           placeholder={placeholder}
           className="w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
         />

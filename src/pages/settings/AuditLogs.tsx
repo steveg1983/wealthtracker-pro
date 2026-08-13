@@ -269,6 +269,8 @@ export default function AuditLogs() {
                   value={filters.search}
                   onChange={(e) => handleFilterChange('search', e.target.value)}
                   placeholder="Search logs..."
+                  spellCheck={false}
+                  autoCapitalize="none"
                   className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>

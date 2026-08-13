@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { getDefaultCategories } from '../data/defaultCategories';
+import { UNCATEGORISED_LABEL } from '../utils/categoryNames';
 
 interface Category {
   id: string;
@@ -86,7 +87,7 @@ export function CategoryProvider({ children, initialCategories }: CategoryProvid
     const pathCache = new Map<string, string>();
     
     return (categoryId: string): string => {
-      if (!categoryId) return 'Uncategorized';
+      if (!categoryId) return UNCATEGORISED_LABEL;
       
       // Check cache first
       if (pathCache.has(categoryId)) {
@@ -94,7 +95,7 @@ export function CategoryProvider({ children, initialCategories }: CategoryProvid
       }
       
       const category = categories.find(c => c.id === categoryId);
-      if (!category) return 'Uncategorized';
+      if (!category) return UNCATEGORISED_LABEL;
       
       // Build the full path for the category
       let path = category.name;

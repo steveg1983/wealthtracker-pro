@@ -1,7 +1,7 @@
 import type { Transaction, Account, Category } from '../types';
 import type { PeriodKey } from '../hooks/usePeriod';
 import { formatDecimal } from '../utils/decimal-format';
-import { buildCategoryNameLookup } from '../utils/categoryNames';
+import { buildCategoryNameLookup, UNCATEGORISED_LABEL } from '../utils/categoryNames';
 import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
 import { preferences } from './preferencesService';
 
@@ -381,7 +381,7 @@ export class ExportService {
           // Amounts are stored signed (expenses negative), so emit as-is — no per-type '-' prefix
           qifContent += `T${formatDecimal(transaction.amount, 2)}\n`;
           qifContent += `P${transaction.description || ''}\n`;
-          qifContent += `L${categoryName ? categoryName(transaction.category) : (transaction.category || 'Uncategorized')}\n`;
+          qifContent += `L${categoryName ? categoryName(transaction.category) : (transaction.category || UNCATEGORISED_LABEL)}\n`;
 
           if (transaction.notes) {
             qifContent += `M${transaction.notes}\n`;

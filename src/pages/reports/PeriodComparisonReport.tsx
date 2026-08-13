@@ -7,6 +7,7 @@ import ReportAccountMultiSelect from '../../components/reports/ReportAccountMult
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
 import ReportExportBar from '../../components/reports/ReportExportBar';
 import UncategorisedReviewBand from '../../components/reports/UncategorisedReviewBand';
+import { SEMANTIC_SERIES } from '../../components/charts/chartColors';
 import { computeIncomeExpense } from '../../utils/incomeExpense';
 import {
   buildPeriodComparison,
@@ -36,9 +37,14 @@ import { preferences } from '../../services/preferencesService';
 
 const BASIS_KEY = 'reportsComparisonBasis';
 
-/** The app's chart colours for the two sides of the money — as on every other report. */
-const INCOME_FILL = '#10B981';
-const EXPENSE_FILL = '#EF4444';
+/**
+ * The app's chart colours for the two sides of the money — as on every other
+ * report, and now literally so: these were a local pair of hexes that happened
+ * to match four other files, which is how a second definition of income and
+ * expense stays in step until the day it doesn't.
+ */
+const INCOME_FILL = SEMANTIC_SERIES.income;
+const EXPENSE_FILL = SEMANTIC_SERIES.expense;
 /** The comparison window is deliberately colourless: it is the yardstick, not the news. */
 const COMPARISON_FILL = '#94A3B8';
 

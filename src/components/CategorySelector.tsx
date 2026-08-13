@@ -649,6 +649,9 @@ export default function CategorySelector({
                   onChange={handleInputChange}
                   onFocus={handleInputFocus}
                   onKeyDown={(e) => handleSearchKeyDown(e, flatOptions)}
+                  // Filtering a list of the user's own category names.
+                  spellCheck={false}
+                  autoCapitalize="none"
                   placeholder={placeholder}
                   aria-autocomplete="list"
                   aria-controls={listboxId}

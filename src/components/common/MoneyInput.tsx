@@ -110,6 +110,15 @@ const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(function MoneyI
       ref={setRefs}
       type="text"
       inputMode="decimal"
+      // A SPELL-CHECKED AMOUNT IS NONSENSE. This field is deliberately
+      // `type="text"` so it can hold "1,234.50" while it is being typed — which
+      // also hands it to the browser's dictionary, and a red underline under
+      // somebody's opening balance says the app thinks the money is misspelled.
+      // Autocapitalise has even less to answer for: there is no letter here it
+      // could capitalise, and on a phone it puts the keyboard in the wrong
+      // shift state to start a number.
+      spellCheck={false}
+      autoCapitalize="none"
       value={draft ?? formatMoneyForDisplay(value, decimals)}
       onChange={handleChange}
       onBlur={handleBlur}

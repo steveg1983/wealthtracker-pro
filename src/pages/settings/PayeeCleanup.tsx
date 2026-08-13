@@ -878,6 +878,11 @@ export default function PayeeCleanup(): React.JSX.Element {
             }}
             placeholder="Search payees — try amazon, or interest"
             aria-label="Search payees"
+            // Raw payee strings off a bank feed are the least dictionary-like
+            // text in the app; this is the box most likely to be underlined
+            // end to end.
+            spellCheck={false}
+            autoCapitalize="none"
             className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-900 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
           />
         </div>

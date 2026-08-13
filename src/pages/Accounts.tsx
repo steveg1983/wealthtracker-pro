@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef, Suspense, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, useId, Suspense, type ReactNode } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
@@ -12,7 +12,7 @@ import { formatDate } from '../utils/dateFormatter';
 import { accountHasHistory } from '../utils/accountHistory';
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
-import { ArchiveIcon, SettingsIcon, WalletIcon, CheckCircleIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon, SearchIcon } from '../components/icons';
+import { ArchiveIcon, SettingsIcon, WalletIcon, CheckCircleIcon, CheckIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon, SearchIcon } from '../components/icons';
 // Both bank-feed surfaces on this page come through `@service`, the seam for
 // what a shared page says about the account you hold WITH somebody. On a
 // device the badge draws nothing and the hook answers no connections, which
@@ -256,6 +256,47 @@ export default function Accounts() {
   // is a substring test over a couple of hundred rows.
   const [accountSearch, setAccountSearch] = useState('');
 
+  /**
+   * FOUR ROWS OF CONTROLS BEFORE ANY DATA — on the page whose content is a list.
+   *
+   * On a phone the toolbar stacks: search, Group by, Sort, then the feed
+   * actions, each full width, together about 40% of the viewport above the
+   * first account. P1 charges chrome rent, and four rows of it is more than
+   * this page can pay before it has shown a single balance.
+   *
+   * Search and Sort stay: one finds an account among two hundred, the other
+   * decides what the top of the list means, and both are wanted BEFORE
+   * looking. Grouping and the two bank-feed actions go behind one switch —
+   * grouping is a preference you set once and it persists, and the feeds are
+   * an errand rather than a way of reading the list.
+   *
+   * A DISCLOSURE, NOT A MENU, AND NOT A HOOK.
+   * The register's toolbar already solves this exact problem this exact way
+   * (a button that reveals the rest of its controls), and the disclosure —
+   * `aria-expanded` + `aria-controls` on a button that shows a block — is the
+   * most-repeated control idiom in the app. A popover would be a fifth
+   * hand-rolled anchored panel with its own focus management, which P7 calls a
+   * bug report. And the reveal is a STYLE swap over one DOM, so it is Tailwind
+   * classes rather than `useIsMobileViewport`, exactly as `useMediaQuery`'s own
+   * doc comment instructs: the hook is for a component swap, and everything
+   * else in this app is an `sm:` class.
+   *
+   * WHICH IS WHY THE DESKTOP CANNOT NOTICE. Every hidden thing is `sm:flex`
+   * and the switch itself is `sm:hidden`, so from 640px up the browser
+   * computes precisely what it computed before — same elements, same order,
+   * same gaps — and this state is not consulted at all.
+   *
+   * No "active" dot on the switch, though the register has one. Grouping is ON
+   * by default (`DEFAULT_ACCOUNT_GROUPING` is byType), so a dot meaning "a
+   * control in here is set" would be lit for nearly every user nearly always,
+   * and a light that is always on is not a signal. The banded list behind it
+   * already says the list is banded.
+   */
+  const [showMoreControls, setShowMoreControls] = useState(false);
+  const controlsId = useId();
+  const groupPanelId = `${controlsId}-group`;
+  const feedPanelId = `${controlsId}-feeds`;
+
   // The mobile +'s "Add Account" deep-links /accounts?action=add — open the
   // modal and consume the param (replace), so back/refresh cannot re-open it.
   useEffect(() => {
@@ -366,21 +407,6 @@ export default function Accounts() {
       setReopeningId(null);
     }
   }, [reopeningId, updateAccount, refreshAccountsAndTransactions, refreshCategories, loadClosedAccounts, showError]);
-
-  // Closed accounts get the SAME grouping as the open list, in all four switch
-  // combinations, so the archive reads the way the live list does. Rows within
-  // a group are alphabetical by name; that was the whole point of this change
-  // (they used to arrive in no order at all). The grouping preserves input
-  // order, so sorting once up front sorts every band. Empty bands don't render.
-  // Kept independent of `sortMode`: the live list's Value/Default sorts are for
-  // triage, but an archive you're scanning for one name always wants A–Z.
-  const closedAccountBands = useMemo(
-    () => groupAccountsForDisplay(
-      [...closedAccounts].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
-      grouping
-    ),
-    [closedAccounts, grouping]
-  );
 
   // Convert accounts to decimal for calculations
   const decimalAccounts = useMemo(() => openAccounts.map(a => ({
@@ -653,6 +679,54 @@ export default function Accounts() {
   const matchedTopLevelCount = isSearching
     ? topLevelAccounts.filter(accountOrChildMatches).length
     : topLevelAccounts.length;
+
+  /**
+   * THE CLOSED BAND OBEYS THE SEARCH, LIKE EVERYTHING ELSE ON THE PAGE.
+   *
+   * It did not, and a phone capture caught what that costs: "87 of your
+   * accounts are hidden by Search: …" printed directly above a live
+   * **Closed Accounts (110)** band. The page was simultaneously reporting that
+   * nothing matched and showing a group larger than the count it had just
+   * quoted. Either half could be defended alone; together they say the search
+   * cannot be trusted, on the page where trusting it is the whole point.
+   *
+   * The filter is the same predicate the open list uses — `accountMatchesSearch`
+   * rather than `accountOrChildMatches`, because nesting is an OPEN-list idea:
+   * `nestedByParent` is built from open accounts and closed rows are always
+   * drawn flat, so a closed account has no child that could keep it on screen.
+   *
+   * Three consequences follow, and they are all just "the count means what is
+   * on screen":
+   *   · a search that matches no closed account renders no band at all;
+   *   · a search that matches one still shows it — the user asked for it by
+   *     name, and an archive that hides a name you typed is worse than no
+   *     archive;
+   *   · the heading counts the rows in the band, not the rows in the database.
+   */
+  const matchedClosedAccounts = useMemo(
+    () => (isSearching ? closedAccounts.filter(accountMatchesSearch) : closedAccounts),
+    [isSearching, closedAccounts, accountMatchesSearch]
+  );
+
+  // Closed accounts get the SAME grouping as the open list, in all four switch
+  // combinations, so the archive reads the way the live list does. Rows within
+  // a group are alphabetical by name; that was the whole point of this change
+  // (they used to arrive in no order at all). The grouping preserves input
+  // order, so sorting once up front sorts every band. Empty bands don't render.
+  // Kept independent of `sortMode`: the live list's Value/Default sorts are for
+  // triage, but an archive you're scanning for one name always wants A–Z.
+  const closedAccountBands = useMemo(
+    () => groupAccountsForDisplay(
+      [...matchedClosedAccounts].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+      grouping
+    ),
+    [matchedClosedAccounts, grouping]
+  );
+
+  // The archive's fold is the user's while they are browsing, and the search's
+  // while they are searching — same rule, and the same words, as the open
+  // bands above.
+  const closedBandExpanded = showClosedAccounts || isSearching;
 
   // The collapsed-set key and the region id both key off the band's dimension
   // and label — see `collapsedGroups` for why the dimension is part of the key.
@@ -1697,8 +1771,26 @@ export default function Accounts() {
             on their own they band the list one way, together they nest
             institutions inside the type sections, and off they leave one flat
             list. The p-0.5 is not decoration — it matches the height the Sort
-            group gets from its own border and padding, so the two rows line up. */}
-        <div className="w-full sm:w-auto flex items-center gap-2">
+            group gets from its own border and padding, so the two rows line up.
+
+            AND THEY HAVE TO LOOK LIKE IT. Both-on is a real state, but wearing
+            the same navy fill as Sort's segmented single-choice directly
+            beneath, two filled pills read as a broken radio group rather than
+            as two things ticked — a phone capture of THIS page is what filed
+            it, twice. The control has to say which KIND it is before it can be
+            believed about which state it is in, so a pressed toggle carries a
+            tick: the one glyph that means "this one too" rather than "this one
+            instead". The slot is held open while a switch is off, so ticking
+            one does not shove its own label sideways.
+
+            Identical to the reconciliation page's, deliberately — same glyph,
+            same size, same held-open slot. Two pages, one idiom; a tick that
+            meant something subtly different on each would be worse than no
+            tick at all. */}
+        <div
+          id={groupPanelId}
+          className={`w-full sm:w-auto ${showMoreControls ? 'flex' : 'hidden'} sm:flex items-center gap-2`}
+        >
           {/* Semibold, and a grade darker: these two words are the only thing
               telling anyone what the row of pills beside them does, and at
               gray-500/normal they read as a footnote to the buttons rather than
@@ -1710,12 +1802,17 @@ export default function Accounts() {
               onClick={() => handleGroupingChange({ ...grouping, byType: !grouping.byType })}
               aria-pressed={grouping.byType}
               title="Band the list into account-type sections"
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+              className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
                 grouping.byType
                   ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
                   : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >
+              {/* aria-hidden: `aria-pressed` already says this to a screen
+                  reader, and the tick would announce it a second time. */}
+              <span aria-hidden="true" className="w-3.5 flex-shrink-0">
+                {grouping.byType && <CheckIcon size={14} />}
+              </span>
               Account Type
             </button>
             <button
@@ -1723,12 +1820,15 @@ export default function Accounts() {
               onClick={() => handleGroupingChange({ ...grouping, byInstitution: !grouping.byInstitution })}
               aria-pressed={grouping.byInstitution}
               title="Band the list by institution"
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+              className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
                 grouping.byInstitution
                   ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
                   : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >
+              <span aria-hidden="true" className="w-3.5 flex-shrink-0">
+                {grouping.byInstitution && <CheckIcon size={14} />}
+              </span>
               Institution
             </button>
           </div>
@@ -1788,45 +1888,128 @@ export default function Accounts() {
               being refused by the input's own intrinsic width. */}
           <div className="relative flex-1 min-w-0">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+            {/* A SEARCH TERM IS NOT PROSE. A phone capture caught the browser
+                underlining a search term in red, which is the platform telling
+                somebody their bank is misspelled. Institution names, sort codes
+                and account nicknames are in no dictionary, so the squiggle is
+                at best noise and at worst a suggestion that the reason nothing
+                matched is that they typed it wrong.
+                Autocapitalise is the same argument on a phone keyboard: the
+                match is a case-insensitive substring test, so capitalising the
+                first letter changes nothing except what the user watches
+                themselves type. */}
             <input
               id="account-search"
               type="search"
               value={accountSearch}
               onChange={(e) => setAccountSearch(e.target.value)}
               placeholder="Search accounts…"
+              spellCheck={false}
+              autoCapitalize="none"
               className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:border-transparent"
             />
           </div>
           {isSearching && (
             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap" aria-live="polite">
-              {matchedTopLevelCount} of {topLevelAccounts.length} accounts
+              {matchedTopLevelCount + matchedClosedAccounts.length} of {topLevelAccounts.length + closedAccounts.length} accounts
             </span>
           )}
+          {/* THE SWITCH RIDES THE SEARCH ROW rather than taking one of its own,
+              which would spend a row to save two. Phone only — `sm:hidden` —
+              so at every width the toolbar was designed for, this button does
+              not exist.
+
+              The visible word is the accessible name's first word, not a
+              shorter alias for it: a control whose spoken name has nothing to
+              do with its printed one is unusable by voice, and "More" alone
+              would be unusable by everyone else. The `sr-only` half is how
+              this app already says the part that does not fit (see the report
+              filter's own hidden label). */}
+          <button
+            type="button"
+            onClick={() => setShowMoreControls(prev => !prev)}
+            aria-expanded={showMoreControls}
+            aria-controls={`${groupPanelId} ${feedPanelId}`}
+            className="sm:hidden shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+          >
+            More
+            <span className="sr-only"> controls: grouping and bank connections</span>
+            {/* SWAPPED, NOT ROTATED — and that is a measurement, not a taste.
+                `rotate-90` computes to no rotation in this app: the utility
+                sets `--tw-rotate: 90deg` and then a `transform` built from
+                `--tw-translate-x`, `--tw-skew-*` and `--tw-scale-*`, which are
+                not initialised on the element, so the whole declaration is
+                invalid and the computed transform is the identity matrix.
+                Verified in the browser on this button — the class was present
+                and the glyph did not move. (The same dead class sits on the
+                band chevron at :1572, ArchiveManager and CSVImportWizard; that
+                is a global fix, not this change's business.)
+                So this uses the fold idiom the CLOSED ACCOUNTS band below
+                already uses — two different glyphs — which needs no transform
+                and cannot be silently switched off. */}
+            {showMoreControls ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
+          </button>
         </div>
-        <div className="basis-full sm:basis-auto sm:ml-auto flex items-center gap-2">
+        {/* THE BADGES DO NOT GO IN THE DRAWER. Both render `null` unless a
+            banking incident is actually live, which makes them alarms rather
+            than controls, and an alarm behind a switch labelled "More" is an
+            alarm nobody hears. They stay in the always-visible half; only the
+            two errands fold away. */}
+        {/* `contents` while the drawer is shut, and it is load-bearing rather
+            than clever: measured at 375px, a container holding two null badges
+            and one hidden wrapper still claimed a whole wrap line, so the
+            toolbar stood at three rows when the point of the exercise was two.
+            `display: contents` makes the box itself stop existing while its
+            children go on being laid out by the toolbar — so a live incident
+            badge still appears (as a flex item of the row above), and nothing
+            appears when there is no badge and no open drawer.
+            The register's toolbar already dissolves a wrapper this way at
+            phone widths; `sm:flex` takes the box back at every width the
+            desktop uses. */}
+        <div className={`${showMoreControls ? 'basis-full flex' : 'contents'} sm:basis-auto sm:ml-auto sm:flex items-center gap-2`}>
           <BankingCriticalIncidentBadge onClick={() => setBankConnectionsView('critical')} />
           <BankingCriticalIncidentBadge mode="truelayer_jwks" onClick={() => setBankConnectionsView('jwks')} />
-          {/* One hit for every feed — the per-account buttons remain for a
-              single stubborn connection. Rendered whenever any connection
-              exists so the toolbar's shape stays put. */}
-          {connectedCount > 0 && (
-            <button
-              onClick={() => void syncAllConnections()}
-              disabled={isSyncingAny}
-              className="w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-wait"
-              title="Pull fresh data from every connected bank"
-            >
-              <RefreshCwIcon size={16} className={isSyncingAny ? 'animate-spin' : ''} />
-              {isSyncingAny ? 'Refreshing…' : 'Refresh feeds'}
-            </button>
-          )}
-          <button
-            onClick={() => setBankConnectionsView('plain')}
-            className="w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors flex items-center gap-2"
+          {/* The inner wrapper is what the switch actually hides, and it is
+              built so the desktop cannot tell it arrived: `gap-2` inside
+              matching `gap-2` outside leaves every button exactly 8px from its
+              neighbour, which is where they were. */}
+          <div
+            id={feedPanelId}
+            className={`w-full sm:w-auto ${showMoreControls ? 'flex' : 'hidden'} sm:flex items-center gap-2`}
           >
-            <BankIcon size={16} />
-            Bank Connections
-          </button>
+            {/* One hit for every feed — the per-account buttons remain for a
+                single stubborn connection. Rendered whenever any connection
+                exists so the toolbar's shape stays put. */}
+            {connectedCount > 0 && (
+              <button
+                onClick={() => void syncAllConnections()}
+                disabled={isSyncingAny}
+                className="w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-wait"
+                title="Pull fresh data from every connected bank"
+              >
+                <RefreshCwIcon size={16} className={isSyncingAny ? 'animate-spin' : ''} />
+                {isSyncingAny ? 'Refreshing…' : 'Refresh feeds'}
+              </button>
+            )}
+            {/* SECONDARY, AND SPELT LIKE ITS NEIGHBOUR.
+                It wore the navy fill — primary weight — for going to a screen,
+                while the page's actual primary action (Add Account) sits in the
+                header wearing the same navy. Two navy buttons on one page teach
+                that navy means "a button", which spends the one signal that
+                says "this is the thing to do here". P7 allows four roles and
+                this is the second: quiet outline, identical to Refresh feeds
+                beside it, because they are peers.
+                And "Bank Connections" was Title Case standing next to "Refresh
+                feeds" in sentence case — two spellings of one convention, 8px
+                apart. */}
+            <button
+              onClick={() => setBankConnectionsView('plain')}
+              className="w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+            >
+              <BankIcon size={16} />
+              Bank connections
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1878,13 +2061,24 @@ export default function Accounts() {
           them is terrifying, so this one names how many accounts are still
           there, what is hiding them, and the control that gives them back.
           Search is the only thing on this page that hides a row: the group and
-          sort switches rearrange the list, and closed accounts have their own
-          section below rather than being filtered out of this one. */}
-      {!isLoading && isSearching && matchedTopLevelCount === 0 && openAccounts.length > 0 && (
+          sort switches rearrange the list.
+
+          "NOTHING MATCHED" HAS TO MEAN NOTHING MATCHED. The closed band is
+          searched now too, so a hit down there is a hit — printing this card
+          above it would be the page contradicting itself in the other
+          direction, which is how the contradiction was found in the first
+          place. Hence the closed-match gate.
+
+          And the count covers both populations, for the reason the count
+          exists: it is the promise that Clear filters gives them back, so it
+          has to count everything this search is holding — the top-level cards
+          in the list and the closed rows in the band beneath it. The figure and
+          the remedy describe the same set or neither is worth printing. */}
+      {!isLoading && isSearching && matchedTopLevelCount === 0 && matchedClosedAccounts.length === 0 && openAccounts.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
           <FilteredEmptyState
             title="No accounts match your search"
-            hiddenCount={topLevelAccounts.length}
+            hiddenCount={topLevelAccounts.length + closedAccounts.length}
             scope="of your accounts"
             filters={[`Search: ${accountSearch.trim()}`]}
             onClear={() => setAccountSearch('')}
@@ -1908,23 +2102,36 @@ export default function Accounts() {
         </div>
       )}
 
-      {/* Closed Accounts (Microsoft Money model: hidden, never deleted) */}
-      {closedAccounts.length > 0 && (
+      {/* Closed Accounts (Microsoft Money model: hidden, never deleted)
+
+          Gated on the SEARCHED list, and counted from it. With the box clear
+          the two are the same list and this section is exactly what it always
+          was; with a search running, the band is a band of results like every
+          other band on the page, and a search that matches nothing in the
+          archive leaves no archive on screen to contradict it.
+
+          Forced open while searching, for the reason the open bands ignore
+          their collapsed state while searching (see `displayedList`): a folded
+          section must not swallow a result somebody is actively looking for.
+          Here it would be worse than a fold — the band would be a closed door
+          with a count on it, and the count would be the only evidence the
+          search had found anything at all. */}
+      {matchedClosedAccounts.length > 0 && (
         <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
           <button
             onClick={() => setShowClosedAccounts(prev => !prev)}
             className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
           >
             <span className="flex items-center gap-2 text-sm font-semibold text-gray-600 dark:text-gray-300">
-              {showClosedAccounts ? <ChevronDownIcon size={16} /> : <ChevronRightIcon size={16} />}
-              Closed Accounts ({closedAccounts.length})
+              {closedBandExpanded ? <ChevronDownIcon size={16} /> : <ChevronRightIcon size={16} />}
+              Closed Accounts ({matchedClosedAccounts.length})
             </span>
             <span className="text-xs text-gray-400 dark:text-gray-500">
               History preserved — reopen any time
             </span>
           </button>
 
-          {showClosedAccounts && (
+          {closedBandExpanded && (
             <div data-testid="closed-accounts" className="border-t border-gray-100 dark:border-gray-700">
               {/* Grouped exactly like the open list — both switches included,
                   so an institution sub-band nests here too — but kept quiet: a

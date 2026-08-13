@@ -167,7 +167,7 @@ export function UpgradeBenefits({ feature, className = '' }: UpgradeBenefitsProp
     accounts: [
       'Unlimited bank accounts',
       'Unlimited investment accounts',
-      'Advanced account categorization',
+      'Advanced account categorisation',
       'Account performance tracking'
     ],
     transactions: [
