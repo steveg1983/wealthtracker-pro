@@ -202,7 +202,28 @@ const clerkAppearance: Appearance = {
     headerTitle: { color: '#111827' },
     headerSubtitle: { color: '#6b7280' },
     // Social / secondary buttons stay neutral (near-black label, never blue).
-    socialButtonsBlockButton: { color: '#111827' }
+    socialButtonsBlockButton: { color: '#111827' },
+    /*
+     * THE AVATAR, which is the most-seen element in the product and was the
+     * only gradient in it.
+     *
+     * The design review flagged a purple→blue gradient "top-right of every page
+     * in the app" and reasonably assumed it was ours. It is not — it is Clerk's
+     * generated initials avatar, which is why searching our source for
+     * `from-purple-500 to-blue-600` finds nothing. But the conclusion that we
+     * could not change it was also wrong: this appearance object reaches every
+     * Clerk surface, and it simply had no rule for the avatar.
+     *
+     * `backgroundImage: 'none'` first, because the default is a background
+     * IMAGE — a colour alone would paint underneath it and change nothing.
+     * Slate with a white initial, matching the ruling and every other Clerk
+     * surface above.
+     */
+    avatarBox: {
+      backgroundImage: 'none',
+      backgroundColor: '#1a2332',
+      color: '#ffffff'
+    }
   }
 };
 
