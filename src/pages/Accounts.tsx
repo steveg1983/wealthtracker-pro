@@ -1697,11 +1697,32 @@ export default function Accounts() {
     >
 
 
-      {/* Desktop: the net-worth summary + controls stay pinned while the
-          account list scrolls in its own region — Add Account, view switches
-          and the totals remain reachable from anywhere in a long list. */}
-      <div className="lg:flex lg:flex-col lg:h-[calc(100vh-13rem)]">
-      <div className="lg:shrink-0">
+      {/* ONE SCROLLER. This page used to pin the summary and controls and give
+          the list a scrolling region of its own, sized
+          `lg:h-[calc(100vh-13rem)]` — the viewport minus a HAND-COUNTED 208px
+          for the chrome above it.
+
+          That number is a measurement of other people's markup, so it was only
+          ever right on the day it was written. Measured 2026-08-13 at 1440×900:
+          the chrome above is 168px, not 208 — the region was 40px short of the
+          fold before anything changed, and restructuring the control block that
+          same day moved it again. Both errors show as the same defect the owner
+          reported: the list's own scrollbar ends part-way up the window, the
+          page keeps scrolling past it into dead space, and the bottom of the
+          list appears to rise as you scroll because the two scrollers are
+          consuming the same gesture.
+
+          A phone never had this — the classes were all `lg:`, so the small
+          screen has always scrolled as one document, like every other page in
+          the app. The desktop now matches it. Nothing here can drift again,
+          because there is no longer a number to be wrong.
+
+          If pinned chrome is wanted back, the way to do it is `position:
+          sticky` on the chrome itself, which needs no arithmetic about anything
+          below it — but 168px of permanently-parked header is rent (P1), and
+          that is a design call, not a layout repair. */}
+      <div>
+      <div>
       {/* Net Worth Summary Bar */}
       {!isLoading && accounts.length > 0 && (() => {
         const totalBalance = calculateTotalBalance(decimalAccounts, decimalTransactions);
@@ -1934,19 +1955,27 @@ export default function Accounts() {
           >
             More
             <span className="sr-only"> controls: grouping and bank connections</span>
-            {/* SWAPPED, NOT ROTATED — and that is a measurement, not a taste.
-                `rotate-90` computes to no rotation in this app: the utility
-                sets `--tw-rotate: 90deg` and then a `transform` built from
-                `--tw-translate-x`, `--tw-skew-*` and `--tw-scale-*`, which are
-                not initialised on the element, so the whole declaration is
-                invalid and the computed transform is the identity matrix.
-                Verified in the browser on this button — the class was present
-                and the glyph did not move. (The same dead class sits on the
-                band chevron at :1572, ArchiveManager and CSVImportWizard; that
-                is a global fix, not this change's business.)
-                So this uses the fold idiom the CLOSED ACCOUNTS band below
-                already uses — two different glyphs — which needs no transform
-                and cannot be silently switched off. */}
+            {/* SWAPPED, NOT ROTATED — the fold idiom the CLOSED ACCOUNTS band
+                below already uses, so the two disclosures on this page open the
+                same way.
+
+                A correction is recorded here because the wrong reason was
+                written down first: this comment used to claim `rotate-90`
+                computes to no rotation in this app, on the strength of a
+                console reading of the identity matrix. It does rotate.
+                Re-measured 2026-08-13 — `.rotate-90` compiles correctly, the
+                base layer initialises all six sibling `--tw-*` variables on
+                `*, ::before, ::after`, and with `transition: none` an element
+                toggles cleanly between `matrix(0, 1, -1, 0, 0, 0)` and `none`.
+
+                The identity matrix was an artefact of WHERE it was measured: an
+                automated browser tab reports `document.visibilityState ===
+                'hidden'`, and a hidden tab does not advance CSS transitions —
+                a 100ms `transition-transform` had not finished after 1991ms,
+                and mid-flight it reads as its own start value. Every chevron on
+                this page carries `transition-transform`, so all of them look
+                frozen there and none of them is.
+                See design-system/__tests__/transformUtilities.test.ts. */}
             {showMoreControls ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
           </button>
         </div>
@@ -2013,27 +2042,19 @@ export default function Accounts() {
         </div>
       </div>
 
-      </div>{/* end pinned chrome */}
+      </div>
 
-      {/* THE SCROLL REGION CLIPS SIDEWAYS TOO, WHICH IS WHY IT IS PADDED.
-          `overflow-y: auto` cannot be had on its own: CSS promotes the other
-          axis from `visible` to `auto` whenever one axis is not visible, so this
-          box clips horizontally whether or not anything asked it to. The rows
-          inside it are the full width of its content box, and the selected row's
-          ring is a box-shadow drawn 1px OUTSIDE its border box — off the end of
-          the content box, and therefore cut away. Measured at 1280px: the row
-          and the content box both began at x=32, so the ring's left stroke had
-          nowhere to land and vanished, while `pr-1` on the right had always
-          given that side 4px to paint into. One edge of the ring missing is the
-          "the border disappears on the left" half of the same bug report.
+      {/* The `-ml-1 pl-1 pr-1` that used to be here went with the scroll
+          region, and had to: `overflow-y: auto` cannot be had on one axis
+          alone — CSS promotes the other from `visible` to `auto` — so the box
+          clipped sideways too, and cut the left stroke off the selected row's
+          focus ring, which is a box-shadow drawn 1px outside the border box.
+          The padding bought that stroke 4px to land in.
 
-          `-ml-1 pl-1` buys the missing room WITHOUT moving anything: the box
-          grows 4px leftward into the page gutter (32px of it there, and no
-          clipping ancestor above — checked) and pads the 4px straight back, so
-          every row stays at exactly the x it had. 4px is the figure the right
-          side already uses and it covers the ring (1px) with room to spare for
-          the lift, whose horizontal reach is ~4.5px at its widest layer. */}
-      <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:-ml-1 lg:pl-1 lg:pr-1">
+          With no clipping box there is nothing to escape, so the compensation
+          goes rather than being carried as cargo. Re-verified after the change:
+          the selected row's ring is whole on all four sides. */}
+      <div>
       {/* Accounts grid */}
       <div className="grid gap-6">
         {isLoading ? (
