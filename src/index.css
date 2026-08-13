@@ -117,12 +117,36 @@ input[type="range"] {
 
 /* WealthTracker Brand Colors */
 :root {
-  --color-primary: #1a2332;
+  /*
+   * THE BRAND NAVY, AS A TRIPLE AND AS A COLOUR — one source, two forms.
+   *
+   * The triple is what Tailwind needs. A token defined as a bare
+   * `var(--color-primary)` cannot be parsed as a colour by Tailwind 3.4, so an
+   * opacity modifier on it emits NO RULE AT ALL — silently. `bg-primary`
+   * worked; `bg-primary/10` produced nothing and computed to transparent, and
+   * thirteen call sites across the app were painting selected states, hover
+   * fills and highlight tints that simply did not exist. Nobody saw an error
+   * because there was nothing to see: the class was absent from the
+   * stylesheet, not broken in it. Proven by compiling the real config against
+   * a probe — `.bg-primary\/10` was missing while `.bg-nav-bg\/10` (a literal
+   * hex) compiled correctly.
+   *
+   * The colour form stays because fifty-four places already read
+   * `var(--color-primary)` directly — the `!important` blocks below, the skip
+   * link, `accent-color` on checkboxes — and they want a colour, not three
+   * numbers. Deriving one from the other keeps a single definition: change the
+   * triple and both forms move. Never write a hex here again; write the
+   * triple.
+   */
+  --color-primary-rgb: 26 35 50;
+  --color-primary: rgb(var(--color-primary-rgb));
   /* Secondary is the app's structural accent (heading/button fills, hovers,
      focus). Kept in the navy family (was green #2d4a3e) so the default theme
      reads as one consistent dark scheme; the green/red/pink themes below keep
-     their own accents. */
-  --color-secondary: #2d3a4d;
+     their own accents. Same two-form treatment as primary, for the same
+     reason — `hover:bg-secondary/90` was one of the dead classes. */
+  --color-secondary-rgb: 45 58 77;
+  --color-secondary: rgb(var(--color-secondary-rgb));
   --color-tertiary: #d4a843;
   --color-light-bg: #f8f9fb;
   --color-light-card: #ffffff;
