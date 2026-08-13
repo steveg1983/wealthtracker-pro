@@ -90,7 +90,7 @@ export default function DeleteProfileConfirm({
             ref={cancelRef}
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-200"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-200"
           >
             Keep it
           </button>
@@ -98,7 +98,7 @@ export default function DeleteProfileConfirm({
             ref={confirmRef}
             type="button"
             onClick={onConfirm}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
           >
             Delete profile
           </button>

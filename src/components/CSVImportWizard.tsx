@@ -1220,7 +1220,7 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
                   type="button"
                   onClick={() => setShowTemplates(value => !value)}
                   aria-expanded={showTemplates}
-                  className="flex items-center gap-2 text-sm font-medium text-primary hover:text-secondary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                  className="flex items-center gap-2 text-sm font-medium text-primary hover:text-secondary transition-colors rounded"
                 >
                   <ChevronRightIcon
                     size={16}
@@ -1299,7 +1299,7 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
                       type="button"
                       onClick={() => setShowHeaderPicker(value => !value)}
                       aria-expanded={showHeaderPicker}
-                      className="text-sm text-primary hover:text-secondary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                      className="text-sm text-primary hover:text-secondary transition-colors rounded"
                     >
                       {showHeaderPicker ? 'Hide the file’s first lines' : 'Not right? Choose the heading line'}
                     </button>
@@ -1382,7 +1382,7 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
                       );
                     }}
                     aria-describedby={dateFormatNote ? 'csv-date-format-note' : undefined}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
                   >
                     {/* 'auto' stays the selected value until the user moves it,
                         even when the file is ambiguous and we can name the
@@ -1482,7 +1482,7 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
                   onAccountChange={setDestinationAccountId}
                   placeholder="Search or select an account…"
                   formatLabel={(account: Account) => `${account.name} (${account.type})`}
-                  className="w-full px-3 py-2 h-[42px] border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  className="w-full px-3 py-2 h-[42px] border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
                   usePortal
                   required
                   ariaLabel="Import these transactions into"
@@ -1567,7 +1567,7 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
                     if (profile) loadProfile(profile);
                     else setSelectedProfile(null);
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
                 >
                   <option value="">Select a saved profile...</option>
                   {profiles.map(profile => (
@@ -1596,7 +1596,7 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
                           aria-label={`CSV column for mapping ${index + 1}`}
                           value={mapping.sourceColumn}
                           onChange={(e) => updateMapping(index, 'sourceColumn', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
                         >
                           <option value="">Select CSV column...</option>
                           {headers.map(header => (
@@ -1633,7 +1633,7 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
                           aria-label={`Target field for mapping ${index + 1}`}
                           value={mapping.targetField}
                           onChange={(e) => updateMapping(index, 'targetField', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
                         >
                           <option value="">Select target field...</option>
                           {targetFields.map(field => (
@@ -1736,7 +1736,7 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
                       type="checkbox"
                       checked={showDuplicates}
                       onChange={(e) => setShowDuplicates(e.target.checked)}
-                      className="rounded border-gray-300 text-primary focus:ring-primary"
+                      className="rounded border-gray-300 text-primary"
                     />
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Skip duplicate transactions
@@ -1752,7 +1752,7 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
                       onChange={(e) => setDuplicateThreshold(Number(e.target.value))}
                       min="50"
                       max="100"
-                      className="w-16 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      className="w-16 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:border-transparent dark:bg-gray-700 dark:text-white"
                     />
                     <span className="text-sm text-gray-600 dark:text-gray-400">%</span>
                   </div>

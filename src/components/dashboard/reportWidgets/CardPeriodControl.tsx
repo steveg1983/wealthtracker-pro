@@ -119,7 +119,7 @@ export default function CardPeriodControl({ cardLabel, period, pin }: {
         aria-label={pin.isPinned
           ? `${cardLabel}: pinned to ${PERIOD_LABELS[period]}. Choose a different period for this card`
           : `${cardLabel}: period follows the page. Pin this card to its own period`}
-        className="flex items-center rounded px-1.5 py-0.5 text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/50 dark:hover:text-gray-200 transition-colors duration-state focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        className="flex items-center rounded px-1.5 py-0.5 text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/50 dark:hover:text-gray-200 transition-colors duration-state"
       >
         {pin.isPinned ? (
           <span
@@ -143,7 +143,7 @@ export default function CardPeriodControl({ cardLabel, period, pin }: {
           type="button"
           onClick={pin.follow}
           aria-label={`${cardLabel}: follow the page period`}
-          className="rounded px-1.5 py-0.5 text-label whitespace-nowrap text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/50 dark:hover:text-gray-200 transition-colors duration-state focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="rounded px-1.5 py-0.5 text-label whitespace-nowrap text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/50 dark:hover:text-gray-200 transition-colors duration-state"
         >
           Follow page
         </button>

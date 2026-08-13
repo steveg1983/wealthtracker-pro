@@ -95,7 +95,7 @@ export default function AppSettings() {
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             placeholder="Enter your first name"
-            className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
           />
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
             This will be used in the welcome message on your dashboard. Leave blank to use "User".
@@ -119,7 +119,7 @@ export default function AppSettings() {
           aria-label="Default currency"
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
-          className="w-full px-4 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+          className="w-full px-4 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
         >
           {currencies.map((curr) => (
             <option key={curr.code} value={curr.code}>
@@ -172,7 +172,7 @@ export default function AppSettings() {
                   type="checkbox"
                   checked={themeSchedule.enabled}
                   onChange={(e) => setThemeSchedule({ ...themeSchedule, enabled: e.target.checked })}
-                  className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                  className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">Enable scheduling</span>
               </label>
@@ -187,7 +187,7 @@ export default function AppSettings() {
                       type="time"
                       value={themeSchedule.lightStartTime}
                       onChange={(e) => setThemeSchedule({ ...themeSchedule, lightStartTime: e.target.value })}
-                      className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent dark:text-white text-sm"
                     />
                   </div>
                   <div>
@@ -198,7 +198,7 @@ export default function AppSettings() {
                       type="time"
                       value={themeSchedule.darkStartTime}
                       onChange={(e) => setThemeSchedule({ ...themeSchedule, darkStartTime: e.target.value })}
-                      className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent dark:text-white text-sm"
                     />
                   </div>
                 </div>

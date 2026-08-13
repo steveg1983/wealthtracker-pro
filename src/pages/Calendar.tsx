@@ -272,7 +272,7 @@ export default function Calendar() {
                 min-h-[60px] sm:min-h-[100px] p-1 sm:p-2 border-b border-r border-gray-50 dark:border-gray-700/50
                 ${!day.isCurrentMonth ? 'bg-gray-50 dark:bg-gray-800/50 opacity-40' : 'bg-white dark:bg-gray-800'}
                 ${day.isToday ? 'ring-2 ring-inset ring-blue-500' : ''}
-                ${day.transactionCount > 0 ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500' : ''}
+                ${day.transactionCount > 0 ?'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50':''}
                 transition-colors
               `}
             >

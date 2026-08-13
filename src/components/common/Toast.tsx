@@ -103,7 +103,6 @@ export function Toast({ toast, onDismiss }: ToastProps): React.JSX.Element {
             className={`
               mt-2 text-sm font-medium underline
               ${textColors[toast.type]} hover:no-underline
-              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary
             `}
           >
             {toast.action.label}
@@ -116,7 +115,6 @@ export function Toast({ toast, onDismiss }: ToastProps): React.JSX.Element {
         className={`
           flex-shrink-0 p-1 rounded-md
           ${textColors[toast.type]} hover:bg-black/5 dark:hover:bg-white/5
-          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary
           min-w-[44px] min-h-[44px] flex items-center justify-center
         `}
         aria-label="Dismiss notification"

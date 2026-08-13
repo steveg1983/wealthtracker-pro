@@ -127,7 +127,7 @@ export default function EditCategoryModal({
                 if (e.key === 'Enter') void handleSave();
               }}
               autoFocus
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
             />
           </div>
 
@@ -145,7 +145,7 @@ export default function EditCategoryModal({
                     type="checkbox"
                     checked={isAdjustment}
                     onChange={(e) => setIsAdjustment(e.target.checked)}
-                    className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 dark:border-gray-600 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+                    className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 dark:border-gray-600 text-[var(--color-primary)]"
                   />
                   <span>
                     <span className="block text-sm font-medium text-gray-900 dark:text-white">

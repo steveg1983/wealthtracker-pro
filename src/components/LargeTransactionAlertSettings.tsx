@@ -54,7 +54,7 @@ export default function LargeTransactionAlertSettings() {
                 // An emptied field falls back to the default threshold, as before.
                 onChange={(value) => setLargeTransactionThreshold(parseMoneyInput(value) || 500)}
                 disabled={!largeTransactionAlertsEnabled}
-                className="flex-1 px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <span className="text-lg font-semibold text-primary min-w-[100px] text-right">
                 {formatCurrency(largeTransactionThreshold)}

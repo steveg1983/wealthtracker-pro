@@ -211,7 +211,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                 type="text"
                 value={formData.name}
                 onChange={(e) => updateField('name', e.target.value)}
-                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-primary dark:text-white transition-all duration-200"
                 placeholder="e.g., Main Checking Account"
                 required
                 autoFocus
@@ -282,7 +282,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                     allowNegative
                     value={formData.balance}
                     onChange={(value) => updateField('balance', value)}
-                    className="w-full pl-8 pr-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                    className="w-full pl-8 pr-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-primary dark:text-white transition-all duration-200"
                     required
                     disabled={isSubmitting}
                   />
@@ -299,7 +299,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                   value={formData.currency}
                   onChange={(e) => updateField('currency', e.target.value)}
                   disabled={isSubmitting}
-                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200 appearance-none cursor-pointer"
+                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-primary dark:text-white transition-all duration-200 appearance-none cursor-pointer"
                   style={{
                     backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                     backgroundPosition: 'right 0.5rem center',
@@ -330,7 +330,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                   type="text"
                   value={formData.institution}
                   onChange={(e) => updateField('institution', e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                  className="w-full pl-11 pr-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-primary dark:text-white transition-all duration-200"
                   placeholder="e.g., Barclays, HSBC, NatWest"
                   disabled={isSubmitting}
                 />
@@ -355,7 +355,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                       type="text"
                       value={formData.sortCode}
                       onChange={(e) => updateField('sortCode', formatSortCode(e.target.value))}
-                      className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                      className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-primary dark:text-white transition-all duration-200"
                       placeholder="XX-XX-XX"
                       maxLength={8}
                       aria-label="Bank sort code"
@@ -374,7 +374,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                     inputMode="numeric"
                     value={formData.accountNumber}
                     onChange={(e) => updateField('accountNumber', nextAccountNumberValue(e.target.value, isCreditCard))}
-                    className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                    className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-primary dark:text-white transition-all duration-200"
                     placeholder={isCreditCard ? '1234' : '12345678'}
                     // No aria-label for a card: it would override the visible
                     // "Card Number — last 4 digits only" with wording that does

@@ -150,7 +150,7 @@ const SuggestionRow = React.memo(function SuggestionRow({
         aria-pressed={active}
         // ring-inset, because the row is flush to the sides of a box that
         // scrolls: an outset focus ring would be clipped by the overflow.
-        className={`w-full flex items-baseline gap-3 px-3 py-2 text-left text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
+        className={`w-full flex items-baseline gap-3 px-3 py-2 text-left text-xs transition-colors ${
           active
             ? 'bg-blue-50 text-blue-900 dark:bg-blue-900/40 dark:text-blue-100'
             : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -878,7 +878,7 @@ export default function PayeeCleanup(): React.JSX.Element {
             }}
             placeholder="Search payees — try amazon, or interest"
             aria-label="Search payees"
-            className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-900 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+            className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-900 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
           />
         </div>
 

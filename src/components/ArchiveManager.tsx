@@ -267,7 +267,7 @@ export default function ArchiveManager() {
               type="button"
               onClick={event => { event.stopPropagation(); openAccountHistory(account.id); }}
               title={`Open ${account.name} with archived transactions shown`}
-              className="text-left hover:underline focus:outline-none focus:ring-2 focus:ring-[#1a2332] dark:focus:ring-blue-500 rounded"
+              className="text-left hover:underline rounded"
             >
               {account.name}
             </button>

@@ -353,7 +353,7 @@ export default function PortfolioManager({
                 if (chosen) setAssetType(chosen);
               }}
               disabled={isSaving}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
             >
               {INVESTMENT_ASSET_TYPES.map((type) => (
                 <option key={type} value={type}>
@@ -379,7 +379,7 @@ export default function PortfolioManager({
               step="any"
               min="0"
               disabled={isSaving}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Fractional units are fine — funds are usually held to several decimal places.
@@ -397,7 +397,7 @@ export default function PortfolioManager({
               id="holding-average-cost"
               value={averageCost}
               onChange={setAverageCost}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
               disabled={isSaving}
             />
           </div>

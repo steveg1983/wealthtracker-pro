@@ -996,7 +996,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
               <DatePicker
                 value={formData.date}
                 onChange={(val) => updateField('date', val)}
-                className="min-w-0 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
+                className="min-w-0 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:border-transparent dark:text-white"
                 required
                 aria-label="Transaction date"
               />
@@ -1018,7 +1018,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 onAccountChange={(accountId) => updateField('accountId', accountId)}
                 placeholder="Search or select account…"
                 formatLabel={(acc) => `${acc.name} (${acc.type})`}
-                className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
+                className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:border-transparent dark:text-white"
                 usePortal
                 required
               />
@@ -1034,7 +1034,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 type="text"
                 value={formData.description}
                 onChange={(e) => updateField('description', e.target.value)}
-                className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
+                className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:border-transparent dark:text-white"
                 required
               />
             </div>
@@ -1140,7 +1140,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   }
                 }}
                 placeholder="0.00"
-                className={`w-full px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent ${
+                className={`w-full px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent ${
                   formData.amount && (parseMoneyInput(formData.amount) ?? 0) < 0
                     ? 'text-red-600 dark:text-red-400'
                     : formData.amount && (parseMoneyInput(formData.amount) ?? 0) > 0
@@ -1347,7 +1347,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                                 // shop reduces the total), so negatives stay enterable.
                                 allowNegative
                                 aria-label={`Split line ${index + 1} amount`}
-                                className="w-28 shrink-0 px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 dark:text-white"
+                                className="w-28 shrink-0 px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent text-gray-900 dark:text-white"
                               />
                             )}
                             {splitLines.length > 2 && !lockedLeg && (

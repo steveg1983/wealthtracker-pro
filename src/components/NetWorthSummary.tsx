@@ -76,36 +76,67 @@ export default function NetWorthSummary({
   unconverted = [],
   displayCurrency,
 }: NetWorthSummaryProps): React.JSX.Element {
+  /**
+   * ALL THREE figures are navy. None of them is a direction of travel.
+   *
+   * This card used to argue the point for one cell and then contradict itself
+   * in the next two: net worth was navy because "net worth is the answer, not a
+   * direction of travel, and the sign in front of it says which way it went"
+   * — and then Assets rendered in `text-income` and Liabilities in
+   * `text-expense`. But Assets is a magnitude, exactly as net worth is. So is
+   * Liabilities. The reasoning was written down and applied to one cell in
+   * three (RULINGS_ON_CAUSE_2026-08-13 §1).
+   *
+   * What the inconsistency cost is not on this card, it is everywhere else:
+   * green and red mean money in and money out, and spending them on two
+   * standing magnitudes makes them quieter in the register, where direction is
+   * the whole point (P2 — colour is a signal, never a surface).
+   *
+   * Hierarchy is carried by SIZE, not colour — `display` for the headline,
+   * `page` for the two components it is made of. That is the same job the old
+   * navy slab was doing with a background, and it still works with every cell
+   * the same colour.
+   *
+   * ─ WHY `text-gray-900` AND NOT `text-primary` ──────────────────────────────
+   * index.css locks `.text-primary { color: var(--color-primary) !important }`,
+   * and `!important` beats a `dark:` variant whatever its specificity. So
+   * `text-primary dark:text-white` — which is what the net worth cell actually
+   * shipped — never flipped: MEASURED in the running app, the figure computed
+   * to #1a2332 on the #1f2937 dark card, a contrast of 1.08:1. Net worth was
+   * invisible in dark mode, and applying that class to the other two cells
+   * would have made all three so.
+   * The app's documented way out (see SimpleSignIn) is that anything which
+   * must flip for dark mode uses the neutral gray tokens, which are not
+   * locked. `text-gray-900` is #111827 against the brand's #1a2332 — the same
+   * near-black navy to the eye, and the colour the rest of the app's headline
+   * figures already use.
+   */
+  const NET_FIGURE_CLASS = 'text-display font-semibold text-gray-900 dark:text-white';
+  const COMPONENT_FIGURE_CLASS = 'text-page font-semibold text-gray-900 dark:text-white';
+
   const cells: ReadonlyArray<{
     figure: NetWorthFigure;
     label: string;
     value: string;
-    /**
-     * Net worth is the headline, at `display`; its two components read one
-     * step down at `page`, which is the hierarchy the old navy slab was using
-     * a background colour to state.
-     */
     figureClass: string;
   }> = [
     {
       figure: 'net',
       label: 'Net worth',
       value: netWorth,
-      // Navy, not green/red: net worth is the answer, not a direction of
-      // travel, and the sign in front of it says which way it went (P2).
-      figureClass: 'text-display font-semibold text-primary dark:text-white',
+      figureClass: NET_FIGURE_CLASS,
     },
     {
       figure: 'assets',
       label: 'Assets',
       value: assets,
-      figureClass: 'text-page font-semibold text-income dark:text-green-400',
+      figureClass: COMPONENT_FIGURE_CLASS,
     },
     {
       figure: 'liabilities',
       label: 'Liabilities',
       value: liabilities,
-      figureClass: 'text-page font-semibold text-expense dark:text-red-400',
+      figureClass: COMPONENT_FIGURE_CLASS,
     },
   ];
 
@@ -129,7 +160,7 @@ export default function NetWorthSummary({
               key={figure}
               type="button"
               onClick={() => onSelect(figure)}
-              className="flex flex-col items-start p-4 text-left transition-colors duration-state hover:bg-surface-secondary dark:hover:bg-gray-700/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 !shadow-none"
+              className="flex flex-col items-start p-4 text-left transition-colors duration-state hover:bg-surface-secondary dark:hover:bg-gray-700/50 !shadow-none"
               title="See the accounts behind this figure"
             >
               {content}

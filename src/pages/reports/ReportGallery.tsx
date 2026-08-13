@@ -62,7 +62,7 @@ export default function ReportGallery(): React.JSX.Element {
                         either — a 20px glyph does not need a box to be found. */}
                     <Link
                       to={preserveDemoParam(`/reports/${report.id}`, location.search)}
-                      className="group h-full flex items-start gap-3 bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 hover:border-primary dark:hover:border-blue-500 transition-colors duration-state focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      className="group h-full flex items-start gap-3 bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 hover:border-primary dark:hover:border-blue-500 transition-colors duration-state"
                     >
                       <Icon
                         size={20}

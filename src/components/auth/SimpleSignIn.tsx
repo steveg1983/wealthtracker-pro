@@ -35,7 +35,7 @@ export default function SimpleSignIn(): React.JSX.Element {
             <SignInButton mode="modal">
               <button
                 type="button"
-                className="w-full justify-center py-3 px-4 rounded-xl border border-transparent dark:border-white/20 bg-primary text-white font-semibold hover:bg-secondary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800"
+                className="w-full justify-center py-3 px-4 rounded-xl border border-transparent dark:border-white/20 bg-primary text-white font-semibold hover:bg-secondary transition-colors"
               >
                 Sign in
               </button>
@@ -44,7 +44,7 @@ export default function SimpleSignIn(): React.JSX.Element {
             <SignUpButton mode="modal">
               <button
                 type="button"
-                className="w-full justify-center py-3 px-4 rounded-xl border border-primary/20 dark:border-gray-600 text-gray-900 dark:text-white font-semibold hover:bg-surface-secondary dark:hover:bg-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800"
+                className="w-full justify-center py-3 px-4 rounded-xl border border-primary/20 dark:border-gray-600 text-gray-900 dark:text-white font-semibold hover:bg-surface-secondary dark:hover:bg-gray-700 transition-colors"
               >
                 Create account
               </button>
@@ -68,7 +68,7 @@ export default function SimpleSignIn(): React.JSX.Element {
             </div>
             <a
               href="/dashboard"
-              className="block w-full py-3 px-4 rounded-xl border border-transparent dark:border-white/20 bg-primary text-white font-semibold hover:bg-secondary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800"
+              className="block w-full py-3 px-4 rounded-xl border border-transparent dark:border-white/20 bg-primary text-white font-semibold hover:bg-secondary transition-colors"
             >
               Go to Dashboard
             </a>

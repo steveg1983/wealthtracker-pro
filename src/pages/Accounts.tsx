@@ -1323,7 +1323,7 @@ export default function Accounts() {
                           key={child.id}
                           ref={isArrivalRow(child.id) ? arrivalRowRef : undefined}
                           {...rowProps(child.id)}
-                          className={`group/row mt-3 ml-6 sm:ml-9 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-xl border border-dashed pl-3 pr-3 sm:pr-0 py-2.5 cursor-pointer select-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${rowSkin(
+                          className={`group/row mt-3 ml-6 sm:ml-9 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-xl border border-dashed pl-3 pr-3 sm:pr-0 py-2.5 cursor-pointer select-none transition-colors ${rowSkin(
                             child.id,
                             'border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-700/60 hover:border-gray-400 dark:hover:border-gray-400'
                           )}`}
@@ -1794,7 +1794,7 @@ export default function Accounts() {
               value={accountSearch}
               onChange={(e) => setAccountSearch(e.target.value)}
               placeholder="Search accounts…"
-              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:border-transparent"
             />
           </div>
           {isSearching && (

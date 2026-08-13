@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { useApp } from '../../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../../hooks/useCurrencyDecimal';
+import { categoricalColor, useCategoricalRamp } from '../../charts/chartColors';
 import { buildMonthlyTrend } from '../../../utils/monthlyTrend';
 import { buildNetWorthSnapshots, netWorthPointToken } from '../../../utils/netWorthSeries';
 import { computeExpenseCategoryNetTotals } from '../../../utils/categoryNetting';
@@ -60,11 +61,6 @@ import { useReportDrill } from './useReportDrill';
  * `pin` is optional: a card rendered without it is a card with no period
  * affordance, which is exactly what these three were before the pin existed.
  */
-
-const CATEGORY_COLORS = [
-  '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
-  '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'
-];
 
 const compactTick = (value: number): string => {
   const abs = Math.abs(value);
@@ -211,6 +207,9 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
   const { formatCurrency } = useCurrencyDecimal();
   const openReport = useReportDrill();
   const { range } = picker;
+  // The shared ramp — see charts/chartColors. The copy that used to live in
+  // this file was byte-identical to three others and drifted from a fourth.
+  const ramp = useCategoricalRamp();
 
   const data = useMemo(() => {
     const rows = expandSplitTransactions(transactions, transactionSplits).filter(t => {
@@ -270,7 +269,7 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
                   }}
                 >
                   {data.map((entry, index) => (
-                    <Cell key={entry.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
+                    <Cell key={entry.name} fill={categoricalColor(ramp, index)} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
@@ -289,7 +288,7 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
                   title={`${d.name} — open the full report on this category`}
                   className="w-full flex items-center gap-1.5 rounded px-1 py-0.5 text-left text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                 >
-                  <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }} aria-hidden="true" />
+                  <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: categoricalColor(ramp, i) }} aria-hidden="true" />
                   <span className="truncate">{d.name}</span>
                 </button>
               </li>

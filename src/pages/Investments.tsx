@@ -27,6 +27,7 @@ import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolio
 import { dataPort } from '@data';
 import type { InvestmentHolding } from '@data';
 import { fetchQuotes } from '../services/stockPriceService';
+import { categoricalColor, useCategoricalRamp } from '../components/charts/chartColors';
 
 export default function Investments() {
   const { accounts, transactions, transactionSplits, categories } = useApp();
@@ -233,8 +234,10 @@ export default function Investments() {
   // must never be confused for each other on this page.
   const portfolioLines = summary.lines;
   const isGain = summary.totalReturn.greaterThanOrEqualTo(0);
-  // Use consistent colors for better visual coherence
-  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
+  // The shared ramp. The array that stood here claimed to be "consistent
+  // colors" while being the only one of the app's palettes to differ from its
+  // twin — positions seven and eight had drifted to a cyan and a lime.
+  const ramp = useCategoricalRamp();
 
   // If no investment accounts, show empty state
   if (investmentAccounts.length === 0) {
@@ -268,7 +271,7 @@ export default function Investments() {
           <button
             type="button"
             onClick={() => setShowAddInvestmentModal(true)}
-            className="cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="cursor-pointer rounded-full"
             aria-label="Add investment"
           >
             <svg
@@ -522,7 +525,7 @@ export default function Investments() {
                       <div className="flex items-center gap-2">
                         <div
                           className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                          style={{ backgroundColor: categoricalColor(ramp, index) }}
                         />
                         <div>
                           <h3 className="font-medium text-gray-900 dark:text-white">
@@ -558,7 +561,7 @@ export default function Investments() {
                             // negative amount, and a negative width renders
                             // nothing anywhere.
                             width: `${Math.min(100, Math.max(0, line.allocation.toNumber()))}%`,
-                            backgroundColor: COLORS[index % COLORS.length]
+                            backgroundColor: categoricalColor(ramp, index)
                           }}
                         />
                       </div>
@@ -595,7 +598,7 @@ export default function Investments() {
                       dataKey="value"
                     >
                       {allocationData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell key={`cell-${index}`} fill={categoricalColor(ramp, index)} />
                       ))}
                     </Pie>
                     <Tooltip
@@ -615,7 +618,7 @@ export default function Investments() {
                     <div className="flex items-center gap-2">
                       <div
                         className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        style={{ backgroundColor: categoricalColor(ramp, index) }}
                       />
                       <span className="text-gray-700 dark:text-gray-300">{line.institution || 'N/A'}</span>
                     </div>
@@ -722,7 +725,7 @@ export default function Investments() {
               id="manage-account"
               value={managingAccountId || ''}
               onChange={(e) => setManagingAccountId(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
             >
               <option value="">Choose an account...</option>
               {/* Grouped and alphabetised like every other account

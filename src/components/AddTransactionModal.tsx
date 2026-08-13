@@ -464,7 +464,7 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
                 onAccountChange={(accountId) => updateField('accountId', accountId)}
                 placeholder="Search or select account…"
                 formatLabel={(account) => `${account.name} (${account.type})`}
-                className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
+                className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                 usePortal
                 required
                 ariaLabel="Select account for transaction"
@@ -485,7 +485,7 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
                     setValidationErrors(prev => ({ ...prev, description: '' }));
                   }
                 }}
-                className={`w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 ${validationErrors.description ? 'border-red-500' : 'border-gray-300 dark:border-gray-500'} rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]`}
+                className={`w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 ${validationErrors.description ?'border-red-500':'border-gray-300 dark:border-gray-500'} rounded-lg focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]`}
                 placeholder="e.g., Grocery shopping"
                 maxLength={500}
                 required
@@ -515,7 +515,7 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
                     setValidationErrors(prev => ({ ...prev, amount: '' }));
                   }
                 }}
-                className={`w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 ${validationErrors.amount ? 'border-red-500' : 'border-gray-300 dark:border-gray-500'} rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]`}
+                className={`w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 ${validationErrors.amount ?'border-red-500':'border-gray-300 dark:border-gray-500'} rounded-lg focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]`}
                 required
                 aria-label="Transaction amount"
                 aria-describedby={validationErrors.amount ? "amount-error" : undefined}
@@ -552,7 +552,7 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
                   }}
                   placeholder="Search or select the account the money moved to…"
                   formatLabel={(account) => `${account.name} (${account.type})`}
-                  className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
+                  className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                   usePortal
                   required
                   ariaLabel="Select the account to transfer to"
@@ -588,7 +588,7 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
                     updateField('subCategory', e.target.value);
                     updateField('category', ''); // Reset detail category
                   }}
-                  className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
+                  className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                   required
                   aria-label="Select transaction category"
                 >
@@ -609,7 +609,7 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
                     id="subcategory-select"
                     value={formData.category}
                     onChange={(e) => updateField('category', e.target.value)}
-                    className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
+                    className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                     required
                     aria-label="Select transaction sub-category"
                   >
@@ -641,7 +641,7 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
                 id="date-input"
                 value={formData.date}
                 onChange={(val) => updateField('date', val)}
-                className="text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
+                className="text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                 required
                 aria-label="Transaction date"
               />

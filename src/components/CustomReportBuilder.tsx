@@ -448,7 +448,7 @@ export default function CustomReportBuilder({
               type="text"
               value={reportName}
               onChange={(e) => setReportName(e.target.value)}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
               placeholder="Monthly Financial Summary"
             />
           </div>
@@ -460,7 +460,7 @@ export default function CustomReportBuilder({
               type="text"
               value={reportDescription}
               onChange={(e) => setReportDescription(e.target.value)}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
               placeholder="Overview of monthly income, expenses, and savings"
             />
           </div>

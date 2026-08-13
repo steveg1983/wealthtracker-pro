@@ -72,7 +72,14 @@
   outline-offset: 2px !important;
 }
 
-/* Focus indicators - ensure 3:1 contrast */
+/* Focus indicators - ensure 3:1 contrast.
+   THIS IS THE APP'S ONE FOCUS RING (RULINGS_ON_CAUSE_2026-08-13 §3). No
+   component declares its own. Roughly 200 Tailwind `focus-visible:ring-*` /
+   `focus:ring-*` utilities used to sit on top of it, and because the rule
+   below carries `!important` their `focus:outline-none` never took — so those
+   controls painted BOTH, a coloured ring inside this outline. Where a control
+   needs a different ring COLOUR, it overrides --focus-ring-color in its own
+   scope (see .focus-ring-on-dark below); it does not add a second ring. */
 *:focus-visible {
   outline: 2px solid var(--focus-ring-color, #94a3b8) !important;
   outline-offset: 2px !important;
@@ -82,6 +89,19 @@
 button:focus-visible {
   outline: 2px solid var(--focus-ring-color, #94a3b8) !important;
   outline-offset: 2px !important;
+}
+
+/* The one legitimate reason to change the ring: the GROUND under it.
+   `outline-offset: 2px` draws the ring just outside the control, so what it
+   lands on is the PARENT's background, not the control's. That is why a red
+   destructive button needs nothing here — its ring falls on the modal behind
+   it. A control inside a navy panel is the real exception: light mode resolves
+   --focus-ring-color to the brand navy (#1a2332), which on a navy panel is
+   invisible. Redefining the variable propagates to all six rules in this file
+   at once — a second ring would not. */
+.focus-ring-on-dark {
+  --focus-ring-color: #ffffff;
+  --color-border-focus: #ffffff;
 }
 
 /* Link focus states */

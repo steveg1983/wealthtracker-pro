@@ -42,7 +42,6 @@ const ToggleSwitch = forwardRef<HTMLButtonElement, ToggleSwitchProps>(function T
       <span
         aria-hidden="true"
         className={`relative inline-block h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ease-in-out
-          group-focus-visible:ring-2 group-focus-visible:ring-offset-2 group-focus-visible:ring-[#1a2332] dark:group-focus-visible:ring-blue-500 dark:group-focus-visible:ring-offset-gray-800
           ${checked
             ? 'bg-[#1a2332] dark:bg-blue-600'
             : 'bg-gray-300 dark:bg-gray-600'}

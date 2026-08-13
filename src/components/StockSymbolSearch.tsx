@@ -106,7 +106,7 @@ export default function StockSymbolSearch({
           aria-controls={listId}
           aria-expanded={matches.length > 0}
           autoFocus={autoFocus}
-          className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+          className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:border-transparent"
         />
         {isSearching && (
           <RefreshCwIcon

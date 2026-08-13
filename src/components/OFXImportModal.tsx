@@ -701,7 +701,7 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
                 onAccountChange={handleAccountChange}
                 placeholder="Search or select an account…"
                 formatLabel={(account) => `${account.name} (${account.type})`}
-                className="w-full px-3 py-2 h-[42px] border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 h-[42px] border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
                 usePortal
                 required
                 ariaLabel="Import to Account"
@@ -717,7 +717,7 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
                       type="checkbox"
                       checked={saveDetails}
                       onChange={(e) => setSaveDetailsOverride(e.target.checked)}
-                      className="mt-0.5 rounded border-gray-300 text-primary focus:ring-primary"
+                      className="mt-0.5 rounded border-gray-300 text-primary"
                     />
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Save this file&apos;s {detailsToSave.summary} to {selectedAccount.name}
@@ -749,7 +749,7 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
                   type="checkbox"
                   checked={skipDuplicates}
                   onChange={(e) => setSkipDuplicates(e.target.checked)}
-                  className="rounded border-gray-300 text-primary focus:ring-primary"
+                  className="rounded border-gray-300 text-primary"
                 />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Skip transactions you already have
@@ -797,7 +797,7 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
                           type="checkbox"
                           checked={match.fitId !== null && importAnywayFitIds.has(match.fitId)}
                           onChange={() => toggleImportAnyway(match.fitId)}
-                          className="mt-1 rounded border-gray-300 text-primary focus:ring-primary"
+                          className="mt-1 rounded border-gray-300 text-primary"
                         />
                         <span className="flex-1 min-w-0 text-sm">
                           <span className="block font-medium text-gray-900 dark:text-white">

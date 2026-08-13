@@ -137,7 +137,7 @@ export default function RenamePayeesModal({
             onChange={(e) => setNewName(e.target.value)}
             disabled={renaming}
             placeholder="e.g. Amazon"
-            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white disabled:opacity-50"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white disabled:opacity-50"
           />
           {sharedMerchant !== null && trimmedName !== sharedMerchant && (
             <button

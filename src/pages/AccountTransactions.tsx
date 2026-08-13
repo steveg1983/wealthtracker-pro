@@ -3320,7 +3320,7 @@ export default function AccountTransactions() {
                   placeholder="Search by description, amount, category..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
+                  className="w-full pl-10 pr-4 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                 />
               </div>
             </div>
@@ -3380,7 +3380,7 @@ export default function AccountTransactions() {
                 <DatePicker
                   value={dateFrom}
                   onChange={(val) => setDateFrom(val)}
-                  className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white text-sm"
+                  className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-lg dark:text-white text-sm"
                   aria-label="Filter from date"
                 />
               </div>
@@ -3389,7 +3389,7 @@ export default function AccountTransactions() {
                 <DatePicker
                   value={dateTo}
                   onChange={(val) => setDateTo(val)}
-                  className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white text-sm"
+                  className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-lg dark:text-white text-sm"
                   aria-label="Filter to date"
                 />
               </div>
@@ -3504,7 +3504,7 @@ export default function AccountTransactions() {
         // at 60% while the same figures are fetched again. Blanking a register
         // to reload it is indistinguishable, for the half-second it lasts,
         // from losing the data (DESIGN_PASS §4).
-        className={`hidden lg:block overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 ${
+        className={`hidden lg:block overflow-hidden ${
           isLoading ? 'opacity-60 transition-opacity duration-enter' : ''
         }`}
         role="grid"
@@ -3671,7 +3671,7 @@ export default function AccountTransactions() {
                 id="quick-add-date"
                 value={quickAddForm.date}
                 onChange={(val) => { clearQuickAddError(); setQuickAddForm({ ...quickAddForm, date: val }); }}
-                className="h-auto sm:h-[32px] bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white text-xs"
+                className="h-auto sm:h-[32px] bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg dark:text-white text-xs"
               />
             </div>
 
@@ -3732,10 +3732,10 @@ export default function AccountTransactions() {
                 required
                 aria-invalid={quickAddError?.field === 'description' ? true : undefined}
                 aria-describedby={quickAddError?.field === 'description' ? QUICK_ADD_ERROR_ID : undefined}
-                className={`w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs bg-white dark:bg-gray-700 border rounded-lg focus:outline-none focus:ring-1 dark:text-white ${
+                className={`w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs bg-white dark:bg-gray-700 border rounded-lg dark:text-white ${
                   quickAddError?.field === 'description'
-                    ? 'border-red-500 dark:border-red-400 focus:ring-red-500'
-                    : 'border-gray-300 dark:border-gray-600 focus:ring-primary'
+                    ?'border-red-500 dark:border-red-400'
+                    :'border-gray-300 dark:border-gray-600'
                 }`}
               />
             </div>
@@ -3823,10 +3823,10 @@ export default function AccountTransactions() {
                 onChange={(value) => { clearQuickAddError(); setQuickAddForm({ ...quickAddForm, amount: value }); }}
                 aria-invalid={quickAddError?.field === 'amount' ? true : undefined}
                 aria-describedby={quickAddError?.field === 'amount' ? QUICK_ADD_ERROR_ID : undefined}
-                className={`w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs text-right bg-white dark:bg-gray-700 border rounded-lg focus:outline-none focus:ring-1 dark:text-white ${
+                className={`w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs text-right bg-white dark:bg-gray-700 border rounded-lg dark:text-white ${
                   quickAddError?.field === 'amount'
-                    ? 'border-red-500 dark:border-red-400 focus:ring-red-500'
-                    : 'border-gray-300 dark:border-gray-600 focus:ring-primary'
+                    ?'border-red-500 dark:border-red-400'
+                    :'border-gray-300 dark:border-gray-600'
                 }`}
                 required
               />

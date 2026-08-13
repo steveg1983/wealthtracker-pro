@@ -124,7 +124,7 @@ export default function ReportAccountMultiSelect({
   };
 
   const actionClass =
-    'text-xs font-medium text-primary dark:text-blue-400 rounded px-1 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary';
+'text-xs font-medium text-primary dark:text-blue-400 rounded px-1 hover:underline';
 
   return (
     <div className="flex items-center gap-2">
@@ -136,7 +136,7 @@ export default function ReportAccountMultiSelect({
           onClick={() => (open ? cancel() : openPanel())}
           aria-expanded={open}
           aria-controls={open ? panelId : undefined}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
+          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg text-gray-900 dark:text-white"
         >
           {/* The visible text is the value; the control still has to say what
               it is for. */}
@@ -197,7 +197,7 @@ export default function ReportAccountMultiSelect({
                           type="checkbox"
                           checked={draft.has(account.id)}
                           onChange={() => toggleDraft(account.id)}
-                          className="rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-2 focus:ring-primary"
+                          className="rounded border-gray-300 dark:border-gray-600 text-primary"
                         />
                         <span className="truncate text-gray-900 dark:text-white">{account.name}</span>
                       </label>
@@ -212,14 +212,14 @@ export default function ReportAccountMultiSelect({
               <button
                 type="button"
                 onClick={cancel}
-                className="px-3 py-1 text-sm font-medium rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="px-3 py-1 text-sm font-medium rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={save}
-                className="px-3 py-1 text-sm font-medium rounded-md bg-[#1a2332] dark:bg-blue-600 text-white hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="px-3 py-1 text-sm font-medium rounded-md bg-[#1a2332] dark:bg-blue-600 text-white hover:opacity-90"
               >
                 Save
               </button>

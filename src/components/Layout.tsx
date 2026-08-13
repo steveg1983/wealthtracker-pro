@@ -254,13 +254,13 @@ export default function Layout(): React.JSX.Element {
       <div className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50">
         <a 
           href="#main-content" 
-          className="inline-block px-4 py-2 bg-[#1a2332] text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+          className="inline-block px-4 py-2 bg-[#1a2332] text-white rounded-md"
         >
           Skip to main content
         </a>
         <a 
           href="#main-navigation" 
-          className="inline-block px-4 py-2 ml-2 bg-[#1a2332] text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+          className="inline-block px-4 py-2 ml-2 bg-[#1a2332] text-white rounded-md"
         >
           Skip to navigation
         </a>
@@ -515,7 +515,7 @@ export default function Layout(): React.JSX.Element {
         >
           <nav 
             id="mobile-menu"
-            className="w-full max-w-sm h-full bg-[#1a2332] dark:bg-gray-800 shadow-2xl overflow-y-auto rounded-r-2xl"
+            className="focus-ring-on-dark w-full max-w-sm h-full bg-[#1a2332] dark:bg-gray-800 shadow-2xl overflow-y-auto rounded-r-2xl"
             onClick={e => e.stopPropagation()}
             role="navigation"
             aria-label="Mobile navigation menu"
@@ -530,14 +530,14 @@ export default function Layout(): React.JSX.Element {
                       openMobileSearch();
                       toggleMobileMenu();
                     }}
-                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-white/50"
+                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
                     aria-label="Open global search"
                   >
                     <SearchIcon size={24} className="text-white dark:text-gray-300" />
                   </button>
                   <button
                     onClick={toggleMobileMenu}
-                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-white/50"
+                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
                     aria-label="Close navigation menu"
                   >
                     <XIcon size={24} className="text-white dark:text-gray-300" />

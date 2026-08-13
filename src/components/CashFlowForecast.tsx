@@ -92,7 +92,7 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
           <select
             value={forecastMonths}
             onChange={(e) => setForecastMonths(Number(e.target.value))}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
           >
             <option value={3}>3 months</option>
             <option value={6}>6 months</option>

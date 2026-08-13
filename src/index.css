@@ -221,9 +221,6 @@ body {
   background-color: var(--color-secondary) !important;
 }
 
-.focus\:ring-primary:focus {
-  --tw-ring-color: var(--color-primary) !important;
-}
 
 .bg-secondary {
   background-color: var(--color-secondary) !important;
@@ -361,11 +358,20 @@ button[style*="borderRadius"], button.rounded-full {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
-/* Completely remove all borders and outlines from circular buttons */
+/* Remove all BORDERS from circular buttons.
+   The `outline: none !important` that used to sit in both blocks below is
+   gone. It was written to kill the browser's default focus ring, but `*` is
+   not what it hit: `button.rounded-full` outranks the app-wide
+   `*:focus-visible` rule in accessibility-colors.css on specificity, and
+   carried `!important` where borders.css's replacement did not — so every
+   circular button in the app had NO focus indicator at all, and the repair
+   written for it in borders.css could never win. A keyboard user tabbing onto
+   one saw nothing move.
+   Mouse clicks stay clean without it, because `:focus:not(:focus-visible)`
+   further down this file already suppresses the outline for pointer focus. */
 button.rounded-full,
 .no-border-button {
   border: none !important;
-  outline: none !important;
   box-shadow: none !important;
   -webkit-appearance: none !important;
   -moz-appearance: none !important;
@@ -382,17 +388,17 @@ button.rounded-full:focus-visible,
 .no-border-button:hover,
 .no-border-button:focus-visible {
   border: none !important;
-  outline: none !important;
   box-shadow: none !important;
   -webkit-appearance: none !important;
   -moz-appearance: none !important;
   appearance: none !important;
 }
 
-/* Specific fix for the lock button */
+/* Specific fix for the lock button. `outline: none !important` came out for
+   the same reason as the circular buttons above: it also outranked the
+   app-wide focus rule, so this control could be tabbed to and never said so. */
 .lock-button {
   border: none !important;
-  outline: none !important;
   box-shadow: none !important;
   background-clip: padding-box !important;
   -webkit-tap-highlight-color: transparent !important;
@@ -527,10 +533,13 @@ button.rounded-full:focus-visible,
     }
   }
   
-  /* Improved focus states for mobile */
+  /* Improved focus states for mobile. Same variable as every other focus
+     rule — this used to reach for --color-primary, which is the same navy in
+     light mode but does NOT follow the .dark override, so a touch user in
+     dark mode got a navy outline on a near-black panel. */
   @media (hover: none) {
     button:focus, a:focus {
-      outline: 2px solid var(--color-primary);
+      outline: 2px solid var(--focus-ring-color, #94a3b8);
       outline-offset: 2px;
     }
   }
@@ -617,11 +626,6 @@ button.rounded-full:focus-visible,
     }
   }
   
-  /* Focus indicators for accessibility */
-  .focus-visible {
-    @apply outline-2 outline-offset-2 outline-[var(--color-primary)];
-  }
-  
   /* Skip link for screen readers */
   .skip-link {
     @apply absolute -top-10 left-4 z-50 bg-[var(--color-primary)] text-white px-4 py-2 rounded-md;
@@ -672,12 +676,6 @@ button.rounded-full:focus-visible,
     white-space: normal;
   }
 
-  /* Focus Visible for Better Keyboard Navigation */
-  :focus-visible {
-    outline: 2px solid #94a3b8;
-    outline-offset: 2px;
-  }
-
   /* Remove default focus styles for mouse users */
   :focus:not(:focus-visible) {
     outline: none;
@@ -685,9 +683,12 @@ button.rounded-full:focus-visible,
 
   /* High Contrast Mode Support */
   @media (prefers-contrast: high) {
+    /* !important because accessibility-colors.css declares the app's focus
+       ring with it; without a match here this block lost every cascade and
+       high-contrast users silently got the ordinary 2px ring. */
     :focus-visible {
-      outline: 3px solid;
-      outline-offset: 3px;
+      outline: 3px solid !important;
+      outline-offset: 3px !important;
     }
     
     .border {

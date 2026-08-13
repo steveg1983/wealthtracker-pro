@@ -96,7 +96,7 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
               type="checkbox"
               checked={showRevaluations}
               onChange={toggleRevaluations}
-              className="rounded border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-primary"
+              className="rounded border-gray-300 dark:border-gray-600"
             />
             Show gains, losses &amp; adjustments
           </label>

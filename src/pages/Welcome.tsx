@@ -62,7 +62,7 @@ export default function Welcome(): React.JSX.Element {
           read as one thing. */}
       <section
         aria-labelledby="welcome-heading"
-        className="rounded-2xl bg-primary px-6 py-12 sm:px-10 sm:py-14 text-center shadow-lg"
+        className="focus-ring-on-dark rounded-2xl bg-primary px-6 py-12 sm:px-10 sm:py-14 text-center shadow-lg"
       >
         <div className="flex items-center justify-center gap-2 text-white/70">
           <WalletIcon size={20} />
@@ -85,7 +85,7 @@ export default function Welcome(): React.JSX.Element {
           <SignUpButton mode="modal">
             <button
               type="button"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-primary font-semibold shadow-sm hover:bg-white/90 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-primary font-semibold shadow-sm hover:bg-white/90 transition-colors"
             >
               Get started
               <ArrowRightIcon size={18} />
@@ -94,7 +94,7 @@ export default function Welcome(): React.JSX.Element {
           <SignInButton mode="modal">
             <button
               type="button"
-              className="inline-flex items-center justify-center px-6 py-3 rounded-xl border border-white/25 text-white font-semibold hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+              className="inline-flex items-center justify-center px-6 py-3 rounded-xl border border-white/25 text-white font-semibold hover:bg-white/10 transition-colors"
             >
               Sign in
             </button>

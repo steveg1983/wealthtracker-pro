@@ -196,7 +196,7 @@ export default function CrossCurrencyTransferDialog({
   const controlClass =
     'w-full px-3 py-2 h-[42px] text-right tabular-nums bg-white dark:bg-gray-800 ' +
     'border border-line dark:border-gray-600 rounded ' +
-    'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent ' +
+'focus:border-transparent'+
     'text-gray-900 dark:text-white';
 
   // Portalled to document.body for the reason TransferMatchDialog gives: a

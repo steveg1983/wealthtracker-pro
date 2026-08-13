@@ -331,7 +331,7 @@ export default function DataManagementSettings() {
                 onChange={(e) => setClearConfirmText(e.target.value)}
                 disabled={isClearing}
                 placeholder="DELETE"
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-40"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white disabled:opacity-40"
               />
             </div>
 

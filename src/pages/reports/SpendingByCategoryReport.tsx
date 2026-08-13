@@ -13,6 +13,7 @@ import { formatDecimal } from '../../utils/decimal-format';
 import { ARRIVAL_ROW_CLASS, useArrivalRowFocus } from '../../hooks/useArrivalFocus';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
+import { categoricalColor, useCategoricalRamp } from '../../components/charts/chartColors';
 
 /**
  * "Spending by category" — where the money went, ranked.
@@ -24,15 +25,15 @@ import type { ReportViewProps } from './types';
  * through to the transactions behind it.
  */
 
-const CATEGORY_COLORS = [
-  '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
-  '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6',
-];
-
 /** Slices beyond this become hard to tell apart; the table still lists all. */
 const PIE_SLICES = 8;
 
 export default function SpendingByCategoryReport({ picker, focus }: ReportViewProps): React.JSX.Element {
+  // The shared ramp. Note it is five long per theme against PIE_SLICES of
+  // eight, so the last three slices repeat a colour — the stated cost of a
+  // single-hue ramp. The legend and tooltip name every slice, which is what
+  // actually identifies it.
+  const ramp = useCategoricalRamp();
   const selection = useReportAccountSelection();
   // A slice clicked on the Dashboard's Expense Categories card names a
   // category; its row in the ranked table below is highlighted and scrolled to,
@@ -138,7 +139,7 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
                   }}
                 >
                   {pieData.map((entry, index) => (
-                    <Cell key={entry.categoryId} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
+                    <Cell key={entry.categoryId} fill={categoricalColor(ramp, index)} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -197,7 +198,7 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
                       <button
                         type="button"
                         onClick={() => drillIntoCategory(entry.key, entry.name, entry.value)}
-                        className="text-sm text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                        className="text-sm text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
                         title={`${entry.name} — view these transactions`}
                       >
                         {entry.name}

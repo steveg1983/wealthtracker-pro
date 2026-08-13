@@ -50,7 +50,7 @@ export function AccessibleFormField({
 
   const baseInputClasses = `w-full px-3 py-2 bg-white dark:bg-gray-700 border-2 ${
     error ? 'border-red-500' : 'border-gray-300 dark:border-gray-500'
-  } rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white`;
+  } rounded-lg focus:border-transparent dark:text-white`;
 
   const renderField = () => {
     switch (type) {
