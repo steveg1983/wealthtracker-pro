@@ -1,9 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { getDefaultCategories } from '../data/defaultCategories';
-import { UNCATEGORISED_LABEL } from '../utils/categoryNames';
 
 interface Category {
   id: string;
@@ -22,7 +21,6 @@ interface CategoryContextType {
   updateCategory: (id: string, updates: Partial<Category>) => void;
   deleteCategory: (id: string) => void;
   getCategoryById: (id: string) => Category | undefined;
-  getCategoryPath: (categoryId: string) => string;
   getSubCategories: (parentId: string) => Category[];
   getDetailCategories: (parentId: string) => Category[];
 }
@@ -82,40 +80,23 @@ export function CategoryProvider({ children, initialCategories }: CategoryProvid
     return categories.find(category => category.id === id);
   };
 
-  // Memoized function to get category path
-  const getCategoryPath = useMemo(() => {
-    const pathCache = new Map<string, string>();
-    
-    return (categoryId: string): string => {
-      if (!categoryId) return UNCATEGORISED_LABEL;
-      
-      // Check cache first
-      if (pathCache.has(categoryId)) {
-        return pathCache.get(categoryId)!;
-      }
-      
-      const category = categories.find(c => c.id === categoryId);
-      if (!category) return UNCATEGORISED_LABEL;
-      
-      // Build the full path for the category
-      let path = category.name;
-      let currentCategory = category;
-      
-      while (currentCategory.parentId) {
-        const parent = categories.find(c => c.id === currentCategory.parentId);
-        if (parent) {
-          path = `${parent.name} > ${path}`;
-          currentCategory = parent;
-        } else {
-          break;
-        }
-      }
-      
-      // Cache the result
-      pathCache.set(categoryId, path);
-      return path;
-    };
-  }, [categories]);
+  /*
+   * `getCategoryPath` was here, and is deleted 2026-08-13 with the rest of a
+   * dead-code sweep.
+   *
+   * It built "Parent > Child" with its own memoised cache, and nothing in the
+   * app ever called it: its only references were this context's own tests and
+   * one field in `src/test/mocks/AppContextSupabase.ts` — a mock of a DIFFERENT
+   * context, which does not declare the method either. So a mock was the sole
+   * reason a reader would believe the function was wanted, and thirteen
+   * assertions kept it green while it did nothing.
+   *
+   * The live way to name a category is `utils/categoryNames`
+   * (`buildCategoryNameLookup`), which every screen, CSV and PDF already uses
+   * and which punctuates "Parent : Child" the way this app does — a second
+   * implementation with a different separator was a bug waiting for its first
+   * caller.
+   */
 
   const getSubCategories = (parentId: string) => {
     return categories.filter(c => c.parentId === parentId && c.level === 'sub');
@@ -132,7 +113,6 @@ export function CategoryProvider({ children, initialCategories }: CategoryProvid
       updateCategory,
       deleteCategory,
       getCategoryById,
-      getCategoryPath,
       getSubCategories,
       getDetailCategories
     }}>
