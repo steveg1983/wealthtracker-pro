@@ -73,6 +73,22 @@ import { preferences } from '../../services/preferencesService';
 const DASHBOARD_PERIOD_KEY = 'dashboardReports';
 
 /**
+ * The heading of the two-figure card, in one place because it is also the name
+ * its period control announces and the name the report drill-through uses. The
+ * STORAGE key stays `…pin.performance`: renaming a heading must not lose
+ * anyone's pinned window, and the key is not something a user ever reads.
+ *
+ * NOT "Money in, money out", which was the first choice and is wrong in this
+ * app specifically. Money moves in and out for reasons that are neither income
+ * nor an expense — a revaluation, an account adjustment, a transfer between two
+ * of your own accounts — and this card counts none of them: `bucketByCategoryDirection`
+ * admits only rows whose CATEGORY says income or expense. A heading promising
+ * every movement, over two figures that exclude three kinds of movement, would
+ * be a number that does not add up to its own title.
+ */
+const INCOME_AND_EXPENSES_TITLE = 'Income and Expenses';
+
+/**
  * What a balance card is shaped like, for the placeholder that waits in its
  * place (DESIGN_PASS §4).
  *
@@ -493,18 +509,25 @@ export function ImprovedDashboard() {
         />
       </section>
 
-      {/* Secondary Focus: Performance over the chosen period */}
+      {/* WHAT CAME IN AND WHAT WENT OUT, over the chosen period.
+          Called "Performance" until 2026-08-13, which measured nothing:
+          performance is a return against something — a benchmark, a target, a
+          previous period — and this card holds two totals and compares them to
+          nothing at all. "Money in, money out" is what the two figures are, and
+          it cannot be misread as the Income vs Expenses chart it can now be
+          locked to, which "Income and expenses" would have been.
+
+          Reads over the page's period like everything else below the bar, until
+          it is pinned or locked — and then it says "pinned · …" or "locked · …"
+          instead of the bare window name, because the same words in the same
+          place would no longer be saying the same thing. */}
       <section
         aria-labelledby="performance-heading"
         className="group/card bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
       >
-        {/* Reads over the page's period like everything else below the bar,
-            until it is pinned — and then it says "pinned · …" instead of the
-            bare window name, because the same words in the same place would no
-            longer be saying the same thing. */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <h3 id="performance-heading" className="text-lg font-semibold text-gray-900 dark:text-white">
-            Performance
+            {INCOME_AND_EXPENSES_TITLE}
           </h3>
           {!performanceCard.pin.isPinned && (
             <span className="text-body text-gray-500 dark:text-gray-400">
@@ -512,7 +535,7 @@ export function ImprovedDashboard() {
             </span>
           )}
           <CardPeriodControl
-            cardLabel="Performance"
+            cardLabel={INCOME_AND_EXPENSES_TITLE}
             picker={performancePeriod}
             pin={performanceCard.pin}
           />
@@ -616,12 +639,15 @@ export function ImprovedDashboard() {
                   }
                   onOpen={() => openReport('account-distribution')}
                 >
-                  {/* Chart takes a fixed column; the legend gets ALL remaining
-                      width so account names show as much text as the card
-                      allows. Stacked below sm, where neither fits beside the
-                      other. */}
+                  {/* A SQUARE for the ring, ALL remaining width for the names —
+                      the same rule the Expense Categories card follows, so the
+                      two donuts on this page sit at the same size and start at
+                      the same x. The column used to be `sm:w-48 lg:w-56`, which
+                      at lg was 224px around a 208px-tall ring: 16px the account
+                      names could have had, spent on a margin nobody asked for.
+                      Stacked below sm, where neither fits beside the other. */}
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <div className={`${WIDGET_CHART_HEIGHT} sm:w-48 lg:w-56 sm:flex-shrink-0`}>
+                    <div className={`${WIDGET_CHART_HEIGHT} sm:aspect-square sm:flex-shrink-0`}>
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart
                           data={pieData}

@@ -253,7 +253,18 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
         </div>
       ) : (
         <div className={`flex items-center gap-3 ${WIDGET_CHART_HEIGHT}`}>
-          <div className="h-full flex-1 basis-0 min-w-[120px]">
+          {/* A SQUARE FOR THE DONUT, EVERY REMAINING PIXEL FOR THE NAMES.
+              The chart box used to be `flex-1` and the legend a fixed `w-36`,
+              which is backwards: a donut is circular, so a box wider than it is
+              tall just centres the ring and wastes the difference on both
+              sides, while the words beside it — real category names, which are
+              long — were rationed to 144px and truncated to "Servicing,
+              Mainten…". The card was spending its width on emptiness and
+              charging the text for it. Now the ring takes a square of the
+              card's height and the list takes the rest, which both moves the
+              chart left and buys the names roughly 60px each. `min-w-0` is
+              what lets `truncate` keep working in a flex child. */}
+          <div className="h-full aspect-square shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <RechartsPieChart>
                 {/* A slice opens the report with that category's row
@@ -284,7 +295,7 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
           {/* The legend does the same as the slice beside it, and is the only
               one of the two a keyboard can reach: an SVG sector is not a
               control. Same idiom as the Account Distribution card's legend. */}
-          <ul className="w-36 space-y-1">
+          <ul className="flex-1 min-w-0 space-y-1">
             {data.slice(0, 5).map((d, i) => (
               <li key={d.categoryId}>
                 <button

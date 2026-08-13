@@ -132,14 +132,22 @@ beforeEach(() => {
 });
 
 const periodBar = (): HTMLElement => screen.getByRole('group', { name: 'Period for this dashboard' });
-const performanceCard = (): HTMLElement => screen.getByRole('region', { name: 'Performance' });
+/**
+ * The two-figure card. Named "Money in, money out" since 2026-08-13 —
+ * "Performance" measured nothing, since performance is a return against a
+ * benchmark and this card compares its two totals to nothing at all. The
+ * STORAGE key is still `…pin.performance`, deliberately: a heading is not a
+ * key, and renaming one must not lose anyone's pinned window.
+ */
+const CARD_NAME = 'Income and Expenses';
+const performanceCard = (): HTMLElement => screen.getByRole('region', { name: CARD_NAME });
 
 /** Pin the Performance card through the control a user would actually use. */
 const pinPerformanceTo = (label: string): void => {
   fireEvent.click(within(performanceCard()).getByRole('button', {
-    name: 'Performance: period follows the page. Pin this card to its own period',
+    name: `${CARD_NAME}: period follows the page. Pin this card to its own period`,
   }));
-  const menu = screen.getByRole('menu', { name: 'Window for Performance' });
+  const menu = screen.getByRole('menu', { name: `Window for ${CARD_NAME}` });
   fireEvent.click(within(menu).getByRole('menuitemradio', { name: label }));
 };
 
@@ -151,9 +159,9 @@ const pinPerformanceTo = (label: string): void => {
  */
 const releasePerformance = (from: string): void => {
   fireEvent.click(within(performanceCard()).getByRole('button', {
-    name: `Performance: pinned to ${from}. Choose a different period for this card`,
+    name: `${CARD_NAME}: pinned to ${from}. Choose a different period for this card`,
   }));
-  fireEvent.click(within(screen.getByRole('menu', { name: 'Window for Performance' }))
+  fireEvent.click(within(screen.getByRole('menu', { name: `Window for ${CARD_NAME}` }))
     .getByRole('menuitemradio', { name: 'Default' }));
 };
 

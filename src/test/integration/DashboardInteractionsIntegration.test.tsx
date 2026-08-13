@@ -82,9 +82,11 @@ describe('Dashboard Interactions Integration', () => {
     it('should display performance metrics for the selected period', async () => {
       renderWithProviders(<Dashboard />);
 
-      // The section is period-adjustable now, so it is titled "Performance"
-      // with a period picker beside it rather than a fixed "This Month's".
-      const performanceHeading = await screen.findByRole('heading', { name: /^performance$/i });
+      // Titled "Income and Expenses" with a period control beside it, rather
+      // than a fixed "This Month's". It was "Performance" until 2026-08-13,
+      // which measured nothing — performance is a return against a benchmark,
+      // and this card compares its two totals to nothing at all.
+      const performanceHeading = await screen.findByRole('heading', { name: /^income and expenses$/i });
       expect(performanceHeading).toBeInTheDocument();
       // Scoped to the Performance section: the page tip's copy now mentions
       // income and expenses too, so a page-wide /income/i matched twice. What
@@ -111,8 +113,8 @@ describe('Dashboard Interactions Integration', () => {
       await waitFor(() => {
         expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
-      // The Performance section always renders once the dashboard body is up.
-      await screen.findByRole('heading', { name: /^performance$/i }, { timeout: 15000 });
+      // The Income and Expenses section always renders once the body is up.
+      await screen.findByRole('heading', { name: /^income and expenses$/i }, { timeout: 15000 });
 
       expect(screen.queryByText(/recent transactions/i)).not.toBeInTheDocument();
     }, 20000);
@@ -190,9 +192,9 @@ describe('Dashboard Interactions Integration', () => {
       await waitFor(() => {
         expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
-      // The Performance section always renders once the dashboard body is up,
+      // The Income and Expenses section always renders once the body is up,
       // so absence is being asserted against a painted page.
-      await screen.findByRole('heading', { name: /^performance$/i }, { timeout: 15000 });
+      await screen.findByRole('heading', { name: /^income and expenses$/i }, { timeout: 15000 });
 
       expect(screen.queryByRole('navigation', { name: /quick actions/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /add a new transaction/i })).not.toBeInTheDocument();
