@@ -154,7 +154,7 @@ describe('Accounts list — the To Review column', () => {
     expect(within(columns).getByText('To Review')).toBeInTheDocument();
   });
 
-  it('reads quiet slate while there is work and blue when there is none — a count is not a next action (ruling A)', async () => {
+  it('reads legibly while there is work and recedes when there is none — and the zero is never the louder of the two', async () => {
     __setAppContextValue({
       accounts: [NATWEST, MONZO],
       transactions: [
@@ -170,6 +170,11 @@ describe('Accounts list — the To Review column', () => {
     const waiting = within(card('Synthetic Natwest')).getByText('To Review').nextElementSibling;
     const clear = within(card('Synthetic Monzo')).getByText('To Review').nextElementSibling;
     expect(waiting?.className).toContain('text-slate-600');
-    expect(clear?.className).toContain('text-blue-600');
+    // NOT the app's link blue, which is what a zero wore until this was
+    // corrected — de-ambering the working state had left the count with
+    // NOTHING to do as the loudest figure on the row. Colour marks what needs
+    // attention (ruling A's own argument) and a zero needs nothing.
+    expect(clear?.className).not.toContain('text-blue-600');
+    expect(clear?.className).toContain('text-gray-400');
   });
 });
