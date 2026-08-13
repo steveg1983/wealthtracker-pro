@@ -120,6 +120,49 @@ export default function CardPeriodControl({ cardLabel, picker, pin }: {
   const firstItemRef = useRef<HTMLButtonElement>(null);
   const menuId = `${useId()}-card-period`;
 
+  /**
+   * True from the moment a pointer goes down INSIDE this control until the
+   * click it belongs to has been delivered.
+   *
+   * ── WHY A FLAG AND NOT A SMARTER `relatedTarget` TEST ───────────────────────
+   *
+   * A menu item was unclickable with a real mouse and perfectly clickable with
+   * `element.click()`. That difference is the whole diagnosis: `.click()` fires
+   * one event, while a physical click fires pointerdown → mousedown → a focus
+   * change → mouseup → click. Something in the early phase was dismissing the
+   * menu, so by the time `click` arrived React had already unmounted the item
+   * it was aimed at. Instrumented in the owner's own Safari: the synthetic
+   * click set `pinned to All time` and wrote the keys; his mouse did nothing at
+   * all, four cards still reading "period follows the page".
+   *
+   * The previous attempt guessed at WHICH focus target Safari reports during
+   * that phase (`null`, then also `document.body`) and guessed wrong twice.
+   * This stops guessing. If a pointer went down inside this control, whatever
+   * focus does next is part of that interaction and is not a departure —
+   * regardless of what any engine names as the thing being focused.
+   *
+   * Genuine departures are untouched: Tab moves focus with no pointer down, and
+   * a click outside never sets the flag and is caught by the mousedown listener
+   * below, which is where outside clicks have always been handled.
+   */
+  const pointerInside = useRef(false);
+
+  useEffect(() => {
+    // Cleared on the window, not the control: a press that starts inside and
+    // releases anywhere — including outside, or off the edge of the screen —
+    // still has to end, or the flag would stay raised and the menu would stop
+    // dismissing on blur for good.
+    const release = (): void => { pointerInside.current = false; };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('mouseup', release);
+    window.addEventListener('touchend', release);
+    return () => {
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('mouseup', release);
+      window.removeEventListener('touchend', release);
+    };
+  }, []);
+
   // Clicking anywhere else dismisses — mousedown, so the click that opens
   // another control is not swallowed by this menu closing first.
   useEffect(() => {
@@ -161,30 +204,32 @@ export default function CardPeriodControl({ cardLabel, picker, pin }: {
           close();
         }
       }}
+      onPointerDown={() => { pointerInside.current = true; }}
+      onMouseDown={() => { pointerInside.current = true; }}
+      onTouchStart={() => { pointerInside.current = true; }}
       onBlur={(event) => {
         /**
-         * Tabbing out dismisses. A CLICK MUST NOT — and on Safari that is the
-         * same event.
+         * Tabbing out dismisses. A CLICK MUST NOT — and on Safari those arrive
+         * as the same event.
          *
-         * THE BUG THIS FIXES, because it cost the owner two days of a feature
-         * that looked completely finished: Safari (macOS and iOS) does not
-         * focus a `<button>` when you click it. WebKit follows the platform
-         * convention that only text fields take focus from a click. So a
-         * mousedown on one of the menu items below moves focus off the item
-         * this effect just focused and onto `<body>` — and `document.body` is
-         * a `Node` that this container does not contain. The old test passed,
-         * the menu closed on MOUSEDOWN, React unmounted the item, and the
-         * `click` that followed landed on nothing. Every period in the menu was
-         * unselectable: the menu opened, dismissed itself, and the chart never
-         * moved. Chromium focuses clicked buttons, so it worked perfectly in
-         * every browser we had automated — which is exactly why it survived.
+         * Safari does not focus a `<button>` when you click it: WebKit follows
+         * the platform convention that only text fields take focus from a
+         * click. So pressing a menu item moved focus off the item this control
+         * had focused on opening, this handler read that as a departure, the
+         * menu closed on MOUSEDOWN, and the `click` that followed landed on an
+         * element React had already removed. Every period was unselectable.
          *
-         * `relatedTarget` of `body` means "focus went nowhere", which is a
-         * click, not a departure. Genuine departures — Tab, or a click landing
-         * on some other control — name that control, and still close. A click
-         * on empty space outside is caught by the mousedown listener above,
-         * which is where outside-clicks were always handled anyway.
+         * Two earlier attempts guessed at what Safari names as the new focus
+         * target — first `null`, then also `document.body` — and both were
+         * wrong, which is how this survived being "fixed" twice. The pointer
+         * flag replaces the guess with a fact: if a press started inside this
+         * control, whatever focus does next belongs to that press.
+         *
+         * Chromium focuses clicked buttons, so it worked there throughout —
+         * including in every browser we can automate, which is exactly why only
+         * the owner could see it.
          */
+        if (pointerInside.current) return;
         const next = event.relatedTarget;
         if (next === null || next === document.body) return;
         if (next instanceof Node && !containerRef.current?.contains(next)) setOpen(false);

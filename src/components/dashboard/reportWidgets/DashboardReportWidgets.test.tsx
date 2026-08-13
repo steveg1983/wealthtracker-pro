@@ -321,6 +321,44 @@ describe('a report card’s period pin', () => {
    * describe the focus behaviour rather than a browser, so they hold whichever
    * engine is doing the clicking.
    */
+  it('survives the FULL press sequence a real mouse delivers', () => {
+    /**
+     * The test the previous two attempts at this bug did not write, which is
+     * why both shipped broken.
+     *
+     * `fireEvent.click` fires ONE event. A real mouse fires pointerdown →
+     * mousedown → a focus change → mouseup → click, and it was the focus change
+     * in the middle that dismissed the menu, so the click arrived at an element
+     * React had already unmounted. Every assertion here is about the ORDER.
+     *
+     * Confirmed against the owner's Safari before it was written: a synthetic
+     * click pinned the card, and his mouse did not.
+     */
+    const pinTo = vi.fn();
+    render(<NetWorthWidget picker={pickerOn('this-month')} pin={pinned({ pinTo })} />);
+
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Net Worth Over Time: pinned to This month. Choose a different period for this card',
+    }));
+    const item = within(screen.getByRole('menu', { name: 'Window for Net Worth Over Time' }))
+      .getByRole('menuitemradio', { name: 'All time' });
+
+    // The press begins…
+    fireEvent.pointerDown(item);
+    fireEvent.mouseDown(item);
+    // …and Safari, focusing no button, moves focus away mid-press. `body` is
+    // what it reported here; the fix does not depend on that being the value.
+    fireEvent.focusOut(item, { relatedTarget: document.body });
+
+    // The item must still exist, or the click has nothing to land on.
+    expect(screen.getByRole('menu', { name: 'Window for Net Worth Over Time' })).toBeInTheDocument();
+
+    fireEvent.mouseUp(item);
+    fireEvent.click(item);
+
+    expect(pinTo).toHaveBeenCalledWith('all');
+  });
+
   it('stays open when focus falls to the body — that is a click, not a departure', () => {
     render(<NetWorthWidget picker={pickerOn('all')} pin={pinned()} />);
 
