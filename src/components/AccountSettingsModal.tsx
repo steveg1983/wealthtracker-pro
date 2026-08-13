@@ -222,9 +222,32 @@ export default function AccountSettingsModal({
         type: account.type || 'current',
         currency: account.currency || 'GBP',
         openingBalance: account.openingBalance != null ? account.openingBalance.toFixed(2) : '',
+        /*
+         * BLANK WHEN THERE IS NO DATE. It used to pre-fill TODAY, and that was
+         * not a default — it was a fabrication with a save button under it.
+         *
+         * Most imported accounts have no opening date, correctly: Money records
+         * `dtOpen` only sometimes, and our importer writes `undefined` rather
+         * than inventing one (import/msMoney/transform.ts). The app then applies
+         * the opening balance from the account's FIRST TRANSACTION
+         * (utils/openingDates, rung 2) and the net-worth report says so out loud
+         * — "5 accounts' opening dates are inferred from their first activity".
+         *
+         * With today's date pre-filled, opening this dialog to change an
+         * account's NAME and pressing Save stamped that inference into a stored
+         * fact of the wrong day. The owner found it on an account imported days
+         * earlier that claimed to have opened this morning. For an account with
+         * transactions the damage is bounded — rung 1 clamps a stored date back
+         * to the first transaction — but an account with no transactions has
+         * nothing to clamp against, and its opening balance would land on
+         * whichever day the dialog happened to be opened.
+         *
+         * Blank is the honest representation of "not set", and the note under
+         * the field says what blank does.
+         */
         openingBalanceDate: account.openingBalanceDate
           ? new Date(account.openingBalanceDate).toISOString().split('T')[0]
-          : new Date().toISOString().split('T')[0],
+          : '',
         sortCode: account.sortCode || '',
         accountNumber: account.accountNumber || '',
         institution: account.institution || '',
@@ -400,6 +423,15 @@ export default function AccountSettingsModal({
                 className="bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
                 aria-label="Opening balance date"
               />
+              {/* Says what BLANK does, because blank is now the normal state for
+                  an imported account and an unexplained empty date field reads
+                  as something missing rather than something inferred. */}
+              {formData.openingBalanceDate === '' && (
+                <p className="text-label text-gray-500 dark:text-gray-400">
+                  Left blank, the opening balance applies from this account's first
+                  transaction. Set a date only if the account opened earlier.
+                </p>
+              )}
             </div>
           </div>
 
