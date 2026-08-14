@@ -19,8 +19,7 @@ const noResult: TestDataSeedResult = {
   categoriesCreated: 0,
   accounts: 0,
   transactions: 0,
-  budgets: 0,
-  goals: 0
+  budgets: 0
 };
 
 describe('LoadTestDataModal', () => {
@@ -39,7 +38,6 @@ describe('LoadTestDataModal', () => {
     expect(screen.getByText(new RegExp(`${TEST_DATA_COUNTS.accounts} accounts`))).toBeTruthy();
     expect(screen.getByText(new RegExp(`${TEST_DATA_COUNTS.transactions} transactions`))).toBeTruthy();
     expect(screen.getByText(new RegExp(`${TEST_DATA_COUNTS.budgets} monthly budgets`))).toBeTruthy();
-    expect(screen.getByText(new RegExp(`${TEST_DATA_COUNTS.goals} savings goals`))).toBeTruthy();
   });
 
   it('says what it created, using the counts the seed reported', async () => {
@@ -48,8 +46,7 @@ describe('LoadTestDataModal', () => {
         categoriesCreated: 16,
         accounts: 4,
         transactions: 60,
-        budgets: 4,
-        goals: 3
+        budgets: 4
       })
     });
 
@@ -58,7 +55,7 @@ describe('LoadTestDataModal', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Created 4 accounts, 60 transactions, 4 budgets and 3 goals.')
+        screen.getByText('Created 4 accounts, 60 transactions and 4 budgets.')
       ).toBeTruthy();
     });
     expect(screen.getByText(/16 categories added/)).toBeTruthy();

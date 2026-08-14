@@ -12,8 +12,7 @@ import {
   SearchIcon,
   WalletIcon,
   CreditCardIcon,
-  TargetIcon,
-  GoalIcon
+  TargetIcon
 } from './icons';
 import { useGlobalSearch, type SearchResult } from '../hooks/useGlobalSearch';
 import { useDebounce } from '../hooks/useDebounce';
@@ -39,8 +38,6 @@ const getResultIcon = (type: SearchResult['type']): React.ElementType => {
       return CreditCardIcon;
     case 'budget':
       return TargetIcon;
-    case 'goal':
-      return GoalIcon;
     default:
       return SearchIcon;
   }
@@ -88,8 +85,6 @@ const getResultRoute = (result: SearchResult): string => {
     }
     case 'budget':
       return '/budget';
-    case 'goal':
-      return '/goals';
     default:
       return '/';
   }

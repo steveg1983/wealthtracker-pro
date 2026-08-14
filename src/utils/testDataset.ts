@@ -411,7 +411,6 @@ export interface TestDataSeedResult {
   accounts: number;
   transactions: number;
   budgets: number;
-  goals: number;
 }
 
 /**
@@ -422,6 +421,5 @@ export interface TestDataSeedResult {
 export const TEST_DATA_COUNTS = {
   accounts: demoAccounts.length,
   transactions: TEST_DATA_TRANSACTION_COUNT,
-  budgets: demoBudgets.length,
-  goals: demoGoals.length
+  budgets: demoBudgets.length
 } as const;

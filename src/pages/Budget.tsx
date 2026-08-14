@@ -498,8 +498,14 @@ export default function Budget() {
               {/* Named where the wrong figure is read, and by its consequence:
                   no rate is applied to another currency in this wave, so the
                   spend shown is short of what was actually spent. */}
+              {/* Neutral, permanent, no tint and no icon — the ruling on
+                  caveats. "Spending on accounts in another currency is left
+                  out" is a standing truth about what this figure can cover, the
+                  same species as the uncategorised note on the Reports gallery.
+                  Amber made it look like a transient problem with the data,
+                  which is the opposite of what it is. */}
               {budget.excludedForeignCount > 0 && (
-                <p className="text-dense text-amber-700 dark:text-amber-400">
+                <p className="text-dense text-gray-500 dark:text-gray-400">
                   Spending on accounts in another currency is left out, so you have spent more than this.
                 </p>
               )}

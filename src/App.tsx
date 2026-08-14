@@ -52,7 +52,6 @@ const Investments = lazyWithPreload(() => import(/* webpackChunkName: "investmen
 const Budget = lazyWithPreload(() => import(/* webpackChunkName: "budget", webpackPreload: true */ './pages/Budget'));
 const Calendar = lazyWithPreload(() => import(/* webpackChunkName: "calendar" */ './pages/Calendar'));
 const ReportsHub = lazyWithPreload(() => import(/* webpackChunkName: "reports-hub" */ './pages/ReportsHub'));
-const Goals = lazyWithPreload(() => import(/* webpackChunkName: "goals" */ './pages/Goals'));
 const CustomReports = lazyWithPreload(() => import(/* webpackChunkName: "custom-reports" */ './pages/CustomReports'));
 const SettingsPage = lazyWithPreload(() => import(/* webpackChunkName: "settings" */ './pages/Settings'));
 const AppSettings = lazyWithPreload(() => import(/* webpackChunkName: "app-settings" */ './pages/settings/AppSettings'));
@@ -257,11 +256,6 @@ function App(): React.JSX.Element {
                           <Route path="reports/:reportId" element={
                             <ProtectedSuspense>
                               <ReportsHub />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="goals" element={
-                            <ProtectedSuspense>
-                              <Goals />
                             </ProtectedSuspense>
                           } />
                           {/* Analytics folded into the Reports hub (one

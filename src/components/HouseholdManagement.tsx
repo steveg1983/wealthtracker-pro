@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { householdService, type Household, type HouseholdMember, type MemberActivity, type HouseholdInvite, type MemberContribution } from '../services/householdService';
-import SharedBudgetsGoals from './SharedBudgetsGoals';
+import SharedBudgets from './SharedBudgets';
 import MoneyInput from './common/MoneyInput';
 import { parseMoneyInput } from '../utils/decimal';
 import {
@@ -766,7 +766,7 @@ export default function HouseholdManagement() {
 
       {/* Finances Tab */}
       {activeTab === 'finances' && (
-        <SharedBudgetsGoals />
+        <SharedBudgets />
       )}
     </div>
   );

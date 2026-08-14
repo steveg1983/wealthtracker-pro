@@ -92,7 +92,10 @@ describe('buildTestDataset', () => {
     expect(dataset.accounts).toHaveLength(TEST_DATA_COUNTS.accounts);
     expect(dataset.transactions).toHaveLength(TEST_DATA_COUNTS.transactions);
     expect(dataset.budgets).toHaveLength(TEST_DATA_COUNTS.budgets);
-    expect(dataset.goals).toHaveLength(TEST_DATA_COUNTS.goals);
+    // No goals line: the dialog no longer quotes a goal count, because nothing
+    // seeds goals any more. The fixture still BUILDS them and other tests here
+    // still check their shape — inert data, removed with the rest of the
+    // Goal type rather than piecemeal.
   });
 
   it('reads each transaction type off its own sign', () => {

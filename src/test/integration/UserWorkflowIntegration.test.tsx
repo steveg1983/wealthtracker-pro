@@ -146,53 +146,6 @@ vi.mock('../../pages/Budget', () => {
   return { default: BudgetMock };
 });
 
-vi.mock('../../pages/Goals', () => {
-  type GoalsMockProps = {
-    goals?: Array<{
-      id: string;
-      name: string;
-      currentAmount: number;
-      targetAmount: number;
-    }>;
-  };
-
-  const GoalsMock: React.FC<GoalsMockProps> = ({ goals }) => {
-    const [showModal, setShowModal] = React.useState(false);
-    
-    return (
-      <div>
-        <h1>Goals</h1>
-        <button onClick={() => setShowModal(true)}>Add Goal</button>
-        {goals?.map((goal) => (
-          <div key={goal.id}>
-            <div>{goal.name}</div>
-            <div>{formatDecimal((goal.currentAmount / goal.targetAmount) * 100, 0)}%</div>
-          </div>
-        ))}
-        {showModal && (
-          <div>
-            <label>
-              Goal Name
-              <input type="text" />
-            </label>
-            <label>
-              Target Amount
-              <input type="number" />
-            </label>
-            <label>
-              Current Amount
-              <input type="number" />
-            </label>
-            <button>Create</button>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  return { default: GoalsMock };
-});
-
 vi.mock('../../pages/Reports', () => ({
   default: ({ transactions, categories }: any) => {
     const income = transactions?.filter((t: any) => t.type === 'income')
@@ -346,34 +299,6 @@ describe('User Workflow Integration Tests', () => {
       await waitFor(() => {
         expect(screen.getByText('Food & Dining')).toBeInTheDocument();
         expect(screen.getByText(/over budget/i)).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Goal Tracking Workflow', () => {
-    it('supports setting financial goals', async () => {
-      const Goals = (await import('../../pages/Goals')).default;
-      
-      renderWithProviders(<Goals goals={[]} />, {
-      });
-
-      const addButton = screen.getByRole('button', { name: /add goal/i });
-      fireEvent.click(addButton);
-
-      await waitFor(() => {
-        expect(screen.getByText('Goal Name')).toBeInTheDocument();
-      });
-    });
-
-    it('tracks progress toward goals', async () => {
-      const testData = createTestData();
-      const Goals = (await import('../../pages/Goals')).default;
-      
-      renderWithProviders(<Goals goals={testData.goals} />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Emergency Fund')).toBeInTheDocument();
-        expect(screen.getByText('50%')).toBeInTheDocument();
       });
     });
   });

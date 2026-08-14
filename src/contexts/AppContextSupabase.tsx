@@ -47,7 +47,6 @@ import { useEditionSession } from '@session';
 // because neither bundle's graph can reach it. See docs/edition-gating.md.
 import { dataPort } from '@data';
 import type { DataPortCapabilities } from '@data';
-import { goalAchievementService } from '../services/goalAchievementService';
 // The reports service, for its ADOPTION alone: the four persistence calls below
 // go straight through the seam like every other entity's, and this is the one
 // piece of report behaviour that is neither a read nor a write but a one-time
@@ -58,7 +57,6 @@ import { getDefaultCategories } from '../data/defaultCategories';
 import {
   toDecimalTransaction,
   toDecimalAccount,
-  toDecimalGoal
 } from '../utils/decimal-converters';
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import { normalizeTransactionDates } from '../utils/dateBoundary';
@@ -75,7 +73,7 @@ import {
   type TestDataSeedResult
 } from '../utils/testDataset';
 import type { ServerAccountBalance } from '../utils/accountBalances';
-import type { DecimalTransaction, DecimalAccount, DecimalGoal } from '../types/decimal-types';
+import type { DecimalTransaction, DecimalAccount } from '../types/decimal-types';
 import type {
   Account,
   AccountUpdate,
@@ -158,10 +156,6 @@ export interface AppContextType extends AppState {
   updateBudget: (id: string, updates: Partial<Budget>) => Promise<void>;
   deleteBudget: (id: string) => Promise<void>;
 
-  // Goal operations — async so callers can surface persistence failures
-  addGoal: (goal: Omit<Goal, 'id' | 'progress'>) => Promise<void>;
-  updateGoal: (id: string, updates: Partial<Goal>) => Promise<void>;
-  deleteGoal: (id: string) => Promise<void>;
   /**
    * Every report this login has built, in hand before the first paint.
    *
@@ -184,7 +178,6 @@ export interface AppContextType extends AppState {
    */
   saveCustomReport: (report: CustomReport) => Promise<CustomReport>;
   deleteCustomReport: (id: string) => Promise<void>;
-  contributeToGoal: (id: string, amount: number) => Promise<void>;
   
   // Category operations — async so callers can surface persistence failures
   /** Returns the created category so callers can use its real id immediately. */
@@ -224,7 +217,6 @@ export interface AppContextType extends AppState {
   resetLoadedData: () => Promise<void>;
   getDecimalTransactions: () => DecimalTransaction[];
   getDecimalAccounts: () => DecimalAccount[];
-  getDecimalGoals: () => DecimalGoal[];
   
   // Sync status
   isLoading: boolean;
@@ -1763,61 +1755,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Goal operations — persisted through the seam, which resolves the owner
-  // itself, for the reason written over the budget operations above.
-  const addGoal = useCallback(async (goal: Omit<Goal, 'id' | 'progress'>) => {
-    try {
-      const created = await dataPort.createGoal(goal);
-      setGoals(prev => [...prev, created]);
-    } catch (error) {
-      appLogger.error('Failed to add goal', error);
-      throw error;
-    }
-  }, []);
-
-  const updateGoal = useCallback(async (id: string, updates: Partial<Goal>) => {
-    try {
-      const updated = await dataPort.updateGoal(id, updates);
-      setGoals(prev => prev.map(g => g.id === id ? updated : g));
-    } catch (error) {
-      appLogger.error('Failed to update goal', error);
-      throw error;
-    }
-  }, []);
-
-  const deleteGoal = useCallback(async (id: string) => {
-    try {
-      await dataPort.deleteGoal(id);
-      setGoals(prev => prev.filter(g => g.id !== id));
-      // The goal is gone, so its trophy and its "already celebrated" flag go
-      // with it — otherwise the achievement history keeps listing a goal that
-      // no longer exists.
-      goalAchievementService.forgetGoal(id);
-    } catch (error) {
-      appLogger.error('Failed to delete goal', error);
-      throw error;
-    }
-  }, []);
-
-  const contributeToGoal = useCallback(async (id: string, amount: number) => {
-    const goal = goals.find(g => g.id === id);
-    if (!goal) return;
-    const newProgress = toDecimal(goal.progress || 0)
-      .plus(toDecimal(amount))
-      .toNumber();
-    const cappedProgress = Math.min(newProgress, goal.targetAmount);
-    try {
-      const updated = await dataPort.updateGoal(
-        id,
-        { progress: cappedProgress, currentAmount: cappedProgress }
-      );
-      setGoals(prev => prev.map(g => g.id === id ? updated : g));
-    } catch (error) {
-      appLogger.error('Failed to contribute to goal', error);
-      throw error;
-    }
-  }, [goals]);
-
   // Custom report operations — persisted through the seam, which resolves the
   // owner itself, for the reason written over the budget operations above.
   //
@@ -2145,11 +2082,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return accounts.map(toDecimalAccount);
   }, [accounts]);
 
-  const getDecimalGoals = useCallback((): DecimalGoal[] => {
-    // Convert all goals to decimal format for precise calculations
-    return goals.map(toDecimalGoal);
-  }, [goals]);
-
   /**
    * Forget what this session has loaded — the React state, and only that.
    *
@@ -2180,7 +2112,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    * Create the sample dataset in this login.
    *
    * Every row goes through the ordinary context operation for its kind —
-   * addCategory, addAccount, addTransaction, addBudget, addGoal — so a seeded
+   * addCategory, addAccount, addTransaction, addBudget — so a seeded
    * account is written, audited and balanced exactly like one the user typed
    * in, and it works the same in a cloud login as in demo mode because those
    * operations already know which store they are talking to. Nothing here
@@ -2291,25 +2223,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         `Adding budgets… ${index + 1} of ${dataset.budgets.length}`);
     }
 
-    // 5. Goals. `category` here is a label the user typed, not a reference.
-    let goalsCreated = 0;
-    for (const [index, goal] of dataset.goals.entries()) {
-      await addGoal({
-        name: goal.name,
-        type: goal.type,
-        targetAmount: goal.targetAmount,
-        currentAmount: goal.currentAmount,
-        targetDate: goal.targetDate,
-        category: goal.category,
-        priority: goal.priority,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-      goalsCreated += 1;
-      report('goals', 0.85 + 0.05 * ((index + 1) / dataset.goals.length),
-        `Adding goals… ${index + 1} of ${dataset.goals.length}`);
-    }
 
     // 6. Re-read what was actually stored. The optimistic updates each
     // operation made are correct, but re-reading is what proves it: the
@@ -2333,11 +2246,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       accounts: accountIdByKey.size,
       transactions: transactionsCreated,
       budgets: budgetsCreated,
-      goals: goalsCreated
     };
     appLogger.info('Test data loaded', result);
     return result;
-  }, [categories, addCategory, addAccount, addTransaction, addBudget, addGoal,
+  }, [categories, addCategory, addAccount, addTransaction, addBudget,
     refreshAccountsAndTransactions, refreshCategories]);
 
   const value: AppContextType = {
@@ -2345,6 +2257,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     accounts,
     transactions,
     budgets,
+    // Still here because AppState declares it and the boot payload fills it.
+    // Inert: nothing can create, edit or delete one any more.
     goals,
     customReports,
     categories,
@@ -2392,10 +2306,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     deleteBudget,
     
     // Goal operations
-    addGoal,
-    updateGoal,
-    deleteGoal,
-    contributeToGoal,
 
     // Custom report operations — ONE save rather than an add/update pair,
     // because the builder has one button and the id is what says which happened.
@@ -2424,7 +2334,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     resetLoadedData,
     getDecimalTransactions,
     getDecimalAccounts,
-    getDecimalGoals,
     
     // Sync status
     isLoading,
