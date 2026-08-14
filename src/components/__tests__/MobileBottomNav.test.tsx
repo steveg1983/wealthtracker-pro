@@ -67,13 +67,58 @@ describe('MobileBottomNav', () => {
     expect(screen.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current');
   });
 
-  it('gives every slot a 48px touch target', () => {
+  it('gives every slot a 44px touch target', () => {
+    /*
+     * 44, not the 48 this asserted before, and the four pixels were bought
+     * rather than given away.
+     *
+     * The bar became a floating pill and the quick-add moved INTO it, so six
+     * things now share a row that used to hold five — and the pill is inset
+     * from the window on top of that. Measured at 320px (the width the owner's
+     * phone reports with Display Zoom on), a 48px floor does not fit beside
+     * five whole labels: the slots want 265px, the button 44, and there are
+     * 296 to go round. Something had to give, and the candidates were the
+     * labels, the button, or these four pixels.
+     *
+     * The labels are load-bearing — "Reconcile" and "Categorise" are not
+     * guessable from an icon, which is the whole reason this nav has captions
+     * when Instagram's does not. So the floor drops to 44, which is not a
+     * shrug: it is Apple's own figure, and it is the number this project's
+     * own guidance has always specified. The 48 was Material's, stricter than
+     * the rule it was enforcing.
+     *
+     * Verified at 320px after the change: no label clipped, every slot at
+     * least 44x53, and the pill inside the viewport.
+     */
     renderAt('/dashboard');
 
     const nav = screen.getByRole('navigation', { name: 'Mobile navigation' });
     for (const link of Array.from(nav.querySelectorAll('a'))) {
-      expect(link.className).toContain('min-w-[48px]');
+      expect(link.className).toContain('min-w-[44px]');
       expect(link.className).toContain('min-h-[48px]');
+    }
+  });
+
+  it('keeps every label whole rather than dividing the row evenly', () => {
+    /*
+     * `flex-1` would be the obvious class and it is the bug: `flex: 1 1 0%`
+     * starts every slot at zero and hands them identical widths, so "Find"
+     * (21px of text) got exactly as much room as "Categorise" (57px) and three
+     * of the five clipped once the quick-add joined the row. `flex-auto` is
+     * `flex: 1 1 auto` — each slot starts at its own content width and only the
+     * SPARE room is shared — and `shrink-0` stops the browser clawing it back
+     * when the row is tight.
+     *
+     * jsdom does no layout, so this asserts the mechanism rather than the
+     * pixels; the pixels were measured in a real engine at 320 and 390.
+     */
+    renderAt('/dashboard');
+
+    const nav = screen.getByRole('navigation', { name: 'Mobile navigation' });
+    for (const link of Array.from(nav.querySelectorAll('a'))) {
+      expect(link.className).toContain('flex-auto');
+      expect(link.className).toContain('shrink-0');
+      expect(link.className).not.toMatch(/\bflex-1\b/);
     }
   });
 });
@@ -89,9 +134,21 @@ describe('the phone quick-add', () => {
     renderAt('/dashboard');
 
     const fab = screen.getByRole('button', { name: 'Quick actions' });
-    // Phone only, and clear of the bottom bar and the home indicator.
-    expect(fab.className).toContain('md:hidden');
-    expect(fab.className).toContain('fixed');
+    /*
+     * It is no longer `md:hidden fixed` in its own right: it is a slot INSIDE
+     * the nav, which is itself the thing that is phone-only and pinned. Two
+     * floating round objects stacked in one corner is what the pill shape
+     * stops looking calm about — and folding it in gave 3.5rem of reserved
+     * screen back to every mobile page.
+     *
+     * So the invariant moves up a level: the button must LIVE in the phone nav,
+     * which is a stronger statement than owning the two utilities itself, and
+     * it does not silently pass if someone drops the button back onto the page.
+     */
+    const nav = screen.getByRole('navigation', { name: 'Mobile navigation' });
+    expect(nav.className).toContain('md:hidden');
+    expect(nav.className).toContain('fixed');
+    expect(nav.contains(fab)).toBe(true);
 
     fireEvent.click(fab);
 
