@@ -9,7 +9,7 @@ import { render, renderHook, screen, act } from '@testing-library/react';
 import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 import { NotificationProvider, useNotifications } from './NotificationContext';
 import type { Notification, BudgetAlert } from './NotificationContext';
-import type { Goal, Budget, Transaction, Category } from '../types';
+import type { Budget, Transaction, Category } from '../types';
 
 vi.mock('../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
@@ -1089,40 +1089,6 @@ describe('NotificationContext', () => {
       expect(result.current.notifications[0]).toMatchObject(mockNotifications[0]);
     });
 
-    it('uses notificationService for goal progress', () => {
-      const { result } = renderHook(() => useNotifications(), { wrapper });
-
-      const mockGoals: Goal[] = [];
-      const mockPreviousGoals: Goal[] = [];
-      
-      const mockNotifications: Notification[] = [
-        {
-          id: 'service-3',
-          type: 'success',
-          title: 'Goal Achieved!',
-          timestamp: new Date(),
-          read: false,
-        },
-      ];
-
-      (notificationService.checkGoalProgress as any).mockReturnValue(mockNotifications);
-
-      act(() => {
-        result.current.checkGoalProgress(mockGoals, mockPreviousGoals);
-      });
-
-      expect(notificationService.checkGoalProgress).toHaveBeenCalledWith(
-        mockGoals,
-        mockPreviousGoals
-      );
-      // Labelled on the way in, because notificationService builds alerts from
-      // generic rules and cannot say what a batch is about — but the caller
-      // asking for goal progress always can. The label is what routes the
-      // alert to the Goals filter in the notification bell.
-      expect(result.current.notifications).toEqual(
-        mockNotifications.map((notification) => ({ ...notification, category: 'goal' }))
-      );
-    });
   });
 
   // The alerts computed here are rendered by the notification bell in the

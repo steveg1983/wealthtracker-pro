@@ -77,7 +77,6 @@ export function useGlobalKeyboardShortcuts(onHelpOpen?: () => void): UseGlobalKe
         case 'i': navigate('/investments'); break;
         case 'b': navigate('/budget'); break;
         case 'c': navigate('/calendar'); break;
-        case 'g': navigate('/goals'); break;
         case 'r': navigate('/reports'); break;
         case 's': navigate('/settings'); break;
       }
@@ -89,7 +88,6 @@ export function useGlobalKeyboardShortcuts(onHelpOpen?: () => void): UseGlobalKe
         // on /accounts the shorter word already means "add an account".
         case 't': navigate('/accounts?action=add-transaction'); break;
         case 'a': navigate('/accounts?action=add'); break;
-        case 'g': navigate('/goals?action=add'); break;
         case 'b': navigate('/budget?action=add'); break;
       }
     }
@@ -161,13 +159,6 @@ export function useGlobalKeyboardShortcuts(onHelpOpen?: () => void): UseGlobalKe
       altKey: true,
       description: 'Go to Budget',
       action: () => navigate('/budget'),
-      category: 'Navigation',
-    },
-    {
-      key: 'g',
-      altKey: true,
-      description: 'Go to Goals',
-      action: () => navigate('/goals'),
       category: 'Navigation',
     },
     {

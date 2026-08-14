@@ -1,16 +1,15 @@
 import { useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import type { Account, Transaction, Budget, Goal } from '../types';
+import type { Account, Transaction, Budget } from '../types';
 import { formatCurrency } from '../utils/currency-decimal';
-import { Decimal, toDecimal } from '../utils/decimal';
-import { formatDecimal } from '../utils/decimal-format';
+import { toDecimal } from '../utils/decimal';
 
 export interface SearchResult {
   id: string;
-  type: 'account' | 'transaction' | 'budget' | 'goal' | 'category';
+  type: 'account' | 'transaction' | 'budget' | 'category';
   title: string;
   description: string;
-  data: Account | Transaction | Budget | Goal | { id: string; name: string };
+  data: Account | Transaction | Budget | { id: string; name: string };
   score: number;
   matches: string[];
   icon?: React.ComponentType<Record<string, unknown>>;
@@ -24,7 +23,7 @@ export function useGlobalSearch(query: string): {
   hasResults: boolean;
   resultCount: number;
 } {
-  const { accounts, transactions, budgets, goals, categories } = useApp();
+  const { accounts, transactions, budgets, categories } = useApp();
 
   const searchResults = useMemo(() => {
     if (!query || query.length < 2) {
@@ -150,47 +149,13 @@ export function useGlobalSearch(query: string): {
       }
     });
 
-    // Search goals
-    goals.forEach(goal => {
-      try {
-        const nameScore = calculateScore(goal.name, searchTerms);
-        const typeScore = calculateScore(goal.type, searchTerms);
-        const targetScore = calculateScore(goal.targetAmount?.toString() || '', searchTerms);
-        const currentScore = calculateScore(goal.currentAmount?.toString() || '', searchTerms);
-        
-        const totalScore = nameScore.score + typeScore.score + targetScore.score + currentScore.score;
-        const allMatches = [...nameScore.matches, ...typeScore.matches, ...targetScore.matches, ...currentScore.matches];
-
-        if (totalScore > 0) {
-          const currentAmountDecimal = toDecimal(goal.currentAmount ?? 0);
-          const targetAmountDecimal = toDecimal(goal.targetAmount ?? 0);
-          const progressDecimal = targetAmountDecimal.equals(0)
-            ? new Decimal(0)
-            : currentAmountDecimal.dividedBy(targetAmountDecimal).times(100);
-          const progressDisplay = formatDecimal(progressDecimal, 1);
-          
-          results.push({
-            id: goal.id,
-            type: 'goal',
-            title: goal.name,
-            description: `${goal.type} goal - ${formatCurrency(currentAmountDecimal, 'GBP')} / ${formatCurrency(targetAmountDecimal, 'GBP')} (${progressDisplay}%)`,
-            data: goal,
-            score: totalScore,
-            matches: [...new Set(allMatches)],
-          });
-        }
-      } catch (error) {
-        searchLogger.error('Error searching goal:', goal.id, error as Error);
-      }
-    });
-
     // Sort by score (highest first)
     return results.sort((a, b) => b.score - a.score);
     } catch (error) {
       searchLogger.error('Error in global search:', error as Error);
       return [];
     }
-  }, [query, accounts, transactions, budgets, goals, categories]);
+  }, [query, accounts, transactions, budgets, categories]);
 
   return {
     results: searchResults,

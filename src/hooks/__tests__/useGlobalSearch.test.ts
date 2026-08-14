@@ -154,16 +154,6 @@ describe('useGlobalSearch', () => {
       expect(budgetResult).toBeDefined();
     });
 
-    it('searches goals', () => {
-      const { result } = renderHook(() => useGlobalSearch('goal'), {
-        wrapper: AllProviders
-      });
-
-      expect(result.current.hasResults).toBe(true);
-      const goalResult = result.current.results.find(r => r.type === 'goal');
-      expect(goalResult).toBeDefined();
-      expect(goalResult?.title).toContain('Goal');
-    });
   });
 
   describe('scoring and sorting', () => {

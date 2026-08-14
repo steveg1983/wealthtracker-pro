@@ -13,7 +13,7 @@ import { useSubscription, useUsageLimit } from '../../contexts/SubscriptionConte
 import { AlertTriangleIcon, ArrowUpIcon, CheckIcon } from '../icons';
 
 interface UsageLimitWarningProps {
-  feature: 'accounts' | 'transactions' | 'budgets' | 'goals';
+  feature: 'accounts' | 'transactions' | 'budgets';
   showProgressBar?: boolean;
   className?: string;
 }
@@ -181,12 +181,6 @@ export function UpgradeBenefits({ feature, className = '' }: UpgradeBenefitsProp
       'Advanced budget templates',
       'Budget forecasting',
       'Budget performance analytics'
-    ],
-    goals: [
-      'Unlimited financial goals',
-      'Advanced goal tracking',
-      'Goal achievement analytics',
-      'Goal milestone notifications'
     ]
   };
 

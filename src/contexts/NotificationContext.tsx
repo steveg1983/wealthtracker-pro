@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { notificationService, type BudgetAlertContext } from '../services/notificationService';
-import type { Goal, Budget, Transaction, Category } from '../types';
+import type { Budget, Transaction, Category } from '../types';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { logActivity } from '../hooks/useActivityTracking';
 import { preferences } from '../services/preferencesService';
@@ -10,7 +10,7 @@ import { preferences } from '../services/preferencesService';
 const NOTIFICATION_TYPES = ['info', 'success', 'warning', 'error'] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
-const NOTIFICATION_CATEGORIES = ['transaction', 'account', 'budget', 'goal'] as const;
+const NOTIFICATION_CATEGORIES = ['transaction', 'account', 'budget'] as const;
 /**
  * What the alert is ABOUT, as opposed to how loud it is (`NotificationType`).
  *
@@ -34,8 +34,7 @@ export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 const CATEGORY_ROUTES: Record<NotificationCategory, string> = {
   transaction: '/accounts',
   account: '/accounts',
-  budget: '/budget',
-  goal: '/goals'
+  budget: '/budget'
 };
 
 export interface Notification {
@@ -297,7 +296,6 @@ interface NotificationContextType {
     context?: BudgetAlertContext
   ) => void;
   checkEnhancedTransactionAlerts: (transaction: Transaction, allTransactions: Transaction[]) => void;
-  checkGoalProgress: (goals: Goal[], previousGoals?: Goal[]) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -576,13 +574,6 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
     }
   }, [largeTransactionAlertsEnabled, addNotifications]);
 
-  const checkGoalProgress = useCallback((goals: Goal[], previousGoals?: Goal[]): void => {
-    const newNotifications = notificationService.checkGoalProgress(goals, previousGoals);
-    if (newNotifications.length > 0) {
-      addNotifications(withCategory(newNotifications, 'goal'));
-    }
-  }, [addNotifications]);
-
   return (
     <NotificationContext.Provider value={{
       notifications,
@@ -605,7 +596,6 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       checkLargeTransaction,
       checkEnhancedBudgetAlerts,
       checkEnhancedTransactionAlerts,
-      checkGoalProgress
     }}>
       {children}
     </NotificationContext.Provider>
