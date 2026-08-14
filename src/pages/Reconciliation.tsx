@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { ArrowLeftIcon, CheckCircleIcon, CheckIcon } from '../components/icons';
@@ -22,6 +22,7 @@ import { todayIsoDay } from '../utils/statementBankBalance';
 import { toDecimal } from '../utils/decimal';
 import type { Transaction } from '../types';
 import { preferences } from '../services/preferencesService';
+import { readProvenance, returnState } from '../utils/navigationProvenance';
 import { STICKY_UNDER_APP_BAR } from '../components/layout/chromeOffsets';
 
 /**
@@ -50,6 +51,24 @@ export default function Reconciliation() {
     searchParams.get('account') || null
   );
   const navigate = useNavigate();
+  const location = useLocation();
+  /*
+   * THE WAY BACK, AND THE ROW TO LAND ON.
+   *
+   * The Accounts page sends its own crumbs (`{ accountId }`) when it opens this
+   * page, exactly as it does for a register. Handing them back is what puts the
+   * user on the account they left rather than at the top of a long list —
+   * "each time it drops me back to the top of the page, and not to the account
+   * that I clicked from ... if I have a long list of accounts and I am
+   * reconciling a few accounts at the bottom, each time I have to re-scroll".
+   *
+   * `returnState` is undefined when there are no crumbs (a direct arrival, or a
+   * link from an older build), which leaves a clean history entry and the old
+   * behaviour — this page never looks inside the crumbs, so the Accounts page
+   * goes on owning their shape.
+   */
+  const backProvenance = readProvenance(location.state);
+  const backState = backProvenance ? returnState(backProvenance) : undefined;
   // Where the user CAME FROM, captured once — later in-page query rewrites
   // (selecting an account re-writes the whole search string) would drop it.
   // Arriving via an Accounts-page reconcile button means "done" and "Back"
@@ -251,13 +270,13 @@ export default function Reconciliation() {
       // Return whence the user came: the Accounts page sent them here for ONE
       // account, so leaving that account means leaving this page too.
       const params = new URLSearchParams(preserveRuntimeControlParams(searchParams));
-      navigate({ pathname: '/accounts', search: params.toString() });
+      navigate({ pathname: '/accounts', search: params.toString() }, { state: backState });
       return;
     }
     setSelectedAccountId(null);
     setSearchParams(prev => preserveRuntimeControlParams(prev));
     window.scrollTo(0, 0);
-  }, [cameFromAccounts, searchParams, navigate, setSearchParams]);
+  }, [cameFromAccounts, searchParams, navigate, setSearchParams, backState]);
 
   /**
    * The remedy on the genuinely-empty state: there is nowhere on THIS page to

@@ -1128,7 +1128,12 @@ export default function Accounts() {
   const renderReconcileButton = (account: Account): ReactNode => (
     <button
       type="button"
-      onClick={() => navigate(preserveDemoParam(`/reconciliation?account=${account.id}&from=accounts`, location.search))}
+      onClick={() => navigate(
+        preserveDemoParam(`/reconciliation?account=${account.id}&from=accounts`, location.search),
+        // The SAME crumbs the register is sent, so the trip back lands on this
+        // row rather than at the top of the list — see `registerLinkState`.
+        { state: registerLinkState(account.id) }
+      )}
       className={`p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg relative group ${ROW_ACTION_REVEAL_CLASS}`}
       title={`Reconcile ${account.name}`}
       aria-label={`Reconcile ${account.name}`}
@@ -1329,6 +1334,7 @@ export default function Accounts() {
                                 label="Unreconciled"
                                 count={getUnreconciledCount(account.id)}
                                 to={reconcileHref(account.id)}
+                                toState={registerLinkState(account.id)}
                                 openLabel={`Reconcile ${account.name}`}
                               />
                               {/* To Review — freshly imported rows nobody has
@@ -1514,6 +1520,7 @@ export default function Accounts() {
                               label="Unreconciled"
                               count={getUnreconciledCount(child.id)}
                               to={reconcileHref(child.id)}
+                              toState={registerLinkState(child.id)}
                               openLabel={`Reconcile ${child.name}`}
                             />
                             {/* Its own register means its own arrivals to deal

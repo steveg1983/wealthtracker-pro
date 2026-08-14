@@ -389,6 +389,7 @@ export function AccountCountCell({
   count,
   to,
   openLabel,
+  toState,
 }: {
   label: string;
   count: number;
@@ -399,6 +400,12 @@ export function AccountCountCell({
   to?: string;
   /** Spoken form of the destination, e.g. "Reconcile Main Checking". */
   openLabel?: string;
+  /**
+   * Router state for the jump — the origin's provenance crumbs, so the trip
+   * BACK lands on this row instead of the top of the list. Optional: a caller
+   * with nowhere to return to simply omits it.
+   */
+  toState?: unknown;
 }): React.JSX.Element {
   /*
    * THE PILL BECAME A DOOR — the owner's ask: "if we click on a highlighted
@@ -447,6 +454,7 @@ export function AccountCountCell({
         <div className={CELL_FIGURE_LINE_CLASS}>
         <Link
           to={to}
+          state={toState}
           aria-label={openLabel}
           onClick={event => { event.stopPropagation(); }}
           /*
