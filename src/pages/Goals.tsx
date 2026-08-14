@@ -338,21 +338,21 @@ export default function Goals(): React.JSX.Element {
       <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Active Goals</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{activeViews.length}</p>
+              <p className="text-gray-500 dark:text-gray-400 text-body">Active Goals</p>
+              <p className="text-page font-bold text-gray-900 dark:text-white">{activeViews.length}</p>
             </div>
             <TargetIcon className="h-8 w-8 text-blue-600" />
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Total Target</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="text-gray-500 dark:text-gray-400 text-body">Total Target</p>
+              <p className="text-page font-bold text-gray-900 dark:text-white">
                 {formatCurrency(totalTargetAmount)}
               </p>
             </div>
@@ -360,11 +360,11 @@ export default function Goals(): React.JSX.Element {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Total Saved</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="text-gray-500 dark:text-gray-400 text-body">Total Saved</p>
+              <p className="text-page font-bold text-gray-900 dark:text-white">
                 {formatCurrency(totalCurrentAmount)}
               </p>
             </div>
@@ -385,13 +385,13 @@ export default function Goals(): React.JSX.Element {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Completed</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{completedViews.length}</p>
+              <p className="text-gray-500 dark:text-gray-400 text-body">Completed</p>
+              <p className="text-page font-bold text-gray-900 dark:text-white">{completedViews.length}</p>
             </div>
-            <div className="text-2xl">🏆</div>
+            <div className="text-page">🏆</div>
           </div>
         </div>
         </div>
@@ -400,7 +400,7 @@ export default function Goals(): React.JSX.Element {
         <div className="pt-4">
           {activeViews.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Active Goals</h2>
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white mb-4">Active Goals</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {activeViews.map((view) => {
               const { goal } = view;
@@ -416,13 +416,13 @@ export default function Goals(): React.JSX.Element {
               });
 
               return (
-                <div key={goal.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+                <div key={goal.id} className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-start gap-3">
-                      <span className="text-2xl">{getGoalIcon(goal.type)}</span>
+                      <span className="text-page">{getGoalIcon(goal.type)}</span>
                       <div>
                         <h3 className="font-semibold text-gray-900 dark:text-white">{goal.name}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">{(goal.type ?? "savings").replace("-", " ")}</p>
+                        <p className="text-body text-gray-500 dark:text-gray-400 capitalize">{(goal.type ?? "savings").replace("-", " ")}</p>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -446,12 +446,12 @@ export default function Goals(): React.JSX.Element {
                   </div>
 
                   {goal.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{goal.description}</p>
+                    <p className="text-body text-gray-600 dark:text-gray-400 mb-4">{goal.description}</p>
                   )}
 
                   <div className="space-y-4">
                     <div>
-                      <div className="flex justify-between text-sm mb-1">
+                      <div className="flex justify-between text-body mb-1">
                         <span className="text-gray-600 dark:text-gray-400">Progress</span>
                         <span className="font-medium text-gray-900 dark:text-white">{progressDisplay}%</span>
                       </div>
@@ -465,7 +465,7 @@ export default function Goals(): React.JSX.Element {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-2 gap-4 text-body">
                       <div>
                         <p className="text-gray-500 dark:text-gray-400">Current</p>
                         <p className="font-semibold text-gray-900 dark:text-white">
@@ -481,12 +481,12 @@ export default function Goals(): React.JSX.Element {
                     </div>
 
                     {monthlyTarget && (
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <p className="text-body font-medium text-gray-700 dark:text-gray-300">
                         {formatCurrency(monthlyTarget)}/month to stay on track
                       </p>
                     )}
 
-                    <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-4 text-body">
                       <div className="flex items-center gap-1">
                         <CalendarIcon className="h-4 w-4 text-gray-400" />
                         <span className={isDeadlineUrgent(daysLeft) ? "text-red-600" : "text-gray-600 dark:text-gray-400"}>
@@ -509,7 +509,7 @@ export default function Goals(): React.JSX.Element {
                             key={account.id}
                             type="button"
                             onClick={() => openAccount(account.id)}
-                            className="px-2 py-1 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+                            className="px-2 py-1 rounded-lg text-dense font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
                             aria-label={`Open ${account.name}`}
                           >
                             {account.name}
@@ -519,7 +519,7 @@ export default function Goals(): React.JSX.Element {
                     )}
 
                     {view.unavailableCount > 0 && (
-                      <p className="text-sm text-amber-700 dark:text-amber-400">
+                      <p className="text-body text-amber-700 dark:text-amber-400">
                         {view.unavailableCount === 1
                           ? '1 linked account unavailable'
                           : `${view.unavailableCount} linked accounts unavailable`}
@@ -538,10 +538,10 @@ export default function Goals(): React.JSX.Element {
 
       {activeViews.length === 0 && goals.length === 0 && (
         /* Empty state when no goals at all */
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12" data-testid="empty-state">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-12" data-testid="empty-state">
           <div className="text-center">
             <TargetIcon className="h-24 w-24 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            <h3 className="text-card font-semibold text-gray-900 dark:text-white mb-2">
               No goals yet
             </h3>
             <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
@@ -556,24 +556,24 @@ export default function Goals(): React.JSX.Element {
             </button>
 
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <div className="text-2xl mb-2">💰</div>
-                <h4 className="font-medium text-gray-900 dark:text-white text-sm">Savings Goal</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
+                <div className="text-page mb-2">💰</div>
+                <h4 className="font-medium text-gray-900 dark:text-white text-body">Savings Goal</h4>
+                <p className="text-dense text-gray-600 dark:text-gray-400 mt-1">
                   Build your emergency fund or save for a big purchase
                 </p>
               </div>
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <div className="text-2xl mb-2">💳</div>
-                <h4 className="font-medium text-gray-900 dark:text-white text-sm">Debt Payoff</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
+                <div className="text-page mb-2">💳</div>
+                <h4 className="font-medium text-gray-900 dark:text-white text-body">Debt Payoff</h4>
+                <p className="text-dense text-gray-600 dark:text-gray-400 mt-1">
                   Track progress on paying down credit cards or loans
                 </p>
               </div>
-              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <div className="text-2xl mb-2">📈</div>
-                <h4 className="font-medium text-gray-900 dark:text-white text-sm">Investment</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
+                <div className="text-page mb-2">📈</div>
+                <h4 className="font-medium text-gray-900 dark:text-white text-body">Investment</h4>
+                <p className="text-dense text-gray-600 dark:text-gray-400 mt-1">
                   Monitor your investment portfolio growth targets
                 </p>
               </div>
@@ -585,10 +585,10 @@ export default function Goals(): React.JSX.Element {
       {activeViews.length === 0 && goals.length > 0 && (
         /* Goals exist, none of them active: say which, rather than claiming
            everything is finished when some are merely paused. */
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12" data-testid="empty-state">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-12" data-testid="empty-state">
           <div className="text-center">
             <div className="text-5xl mb-4">{completedViews.length > 0 ? '🎉' : '⏸️'}</div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            <h3 className="text-card font-semibold text-gray-900 dark:text-white mb-2">
               {completedViews.length > 0 && pausedViews.length === 0
                 ? 'All goals completed!'
                 : 'No active goals'}
@@ -612,8 +612,8 @@ export default function Goals(): React.JSX.Element {
       {/* Paused Goals */}
       {pausedViews.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Paused Goals</h2>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white mb-4">Paused Goals</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {pausedViews.map((view) => (
                 <div key={view.goal.id} className="p-4 flex items-center justify-between">
@@ -621,7 +621,7 @@ export default function Goals(): React.JSX.Element {
                     <span className="text-xl opacity-50">{getGoalIcon(view.goal.type)}</span>
                     <div>
                       <h4 className="font-medium text-gray-900 dark:text-white">{view.goal.name}</h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <p className="text-body text-gray-500 dark:text-gray-400">
                         Paused • {formatCurrency(view.current)} of {formatCurrency(view.target)}
                       </p>
                     </div>
@@ -654,8 +654,8 @@ export default function Goals(): React.JSX.Element {
       {/* Completed Goals */}
       {completedViews.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Completed Goals</h2>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white mb-4">Completed Goals</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {completedViews.map((view) => (
                 <div key={view.goal.id} className="p-4 flex items-center justify-between">
@@ -663,7 +663,7 @@ export default function Goals(): React.JSX.Element {
                     <span className="text-xl opacity-50">{getGoalIcon(view.goal.type)}</span>
                     <div>
                       <h4 className="font-medium text-gray-900 dark:text-white">{view.goal.name}</h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <p className="text-body text-gray-500 dark:text-gray-400">
                         {view.goal.completedAt
                           ? `Completed ${format(new Date(view.goal.completedAt), 'd MMM yyyy')}`
                           : 'Completed'} • {formatCurrency(view.target)}
