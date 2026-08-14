@@ -4,13 +4,10 @@ import { householdService } from '../services/householdService';
 import {
   sharedFinanceService,
   type SharedBudget,
-  type SharedGoal,
   type BudgetApproval,
   type SharedFinanceActivity
 } from '../services/sharedFinanceService';
 import {
-  TargetIcon,
-  GoalIcon,
   PlusIcon,
   UsersIcon,
   CheckIcon,
@@ -18,13 +15,12 @@ import {
   AlertCircleIcon,
   ClockIcon
 } from './icons';
-import { CreateBudgetModal, CreateGoalModal } from './SharedBudgetsModals';
+import { CreateBudgetModal } from './SharedBudgetsModals';
 import { useCurrency } from '../hooks/useCurrency';
 import { toDecimal, toStorageNumber } from '../utils/decimal';
 import { expandSplitTransactions } from '../utils/transactionSplits';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
-import { daysUntil, formatDaysRemaining } from '../utils/goalDates';
 import { format } from 'date-fns';
 
 type BudgetPeriod = 'monthly' | 'weekly' | 'yearly';
@@ -42,16 +38,7 @@ interface BudgetFormState {
   approvalThreshold: string;
 }
 
-interface GoalFormState {
-  name: string;
-  targetAmount: string;
-  targetDate: string;
-  categoryId: string;
-  description: string;
-  isHouseholdGoal: boolean;
-}
-
-export default function SharedBudgetsGoals() {
+export default function SharedBudgets() {
   const { transactions: rawTransactions, transactionSplits, categories, addBudget } = useApp();
   // Split parents expand into per-line rows so shared-budget spending counts
   // split lines against their categories.
@@ -64,13 +51,10 @@ export default function SharedBudgetsGoals() {
   const [currentMember] = useState(household?.members[0]); // Assume first member is current user
   
   const [sharedBudgets, setSharedBudgets] = useState<SharedBudget[]>([]);
-  const [sharedGoals, setSharedGoals] = useState<SharedGoal[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<BudgetApproval[]>([]);
   const [activities, setActivities] = useState<SharedFinanceActivity[]>([]);
   
-  const [activeTab, setActiveTab] = useState<'budgets' | 'goals'>('budgets');
   const [showCreateBudget, setShowCreateBudget] = useState(false);
-  const [showCreateGoal, setShowCreateGoal] = useState(false);
   
   // Form states
   const [budgetForm, setBudgetForm] = useState<BudgetFormState>({
@@ -82,23 +66,12 @@ export default function SharedBudgetsGoals() {
     approvalThreshold: '100'
   });
   
-  const [goalForm, setGoalForm] = useState<GoalFormState>({
-    name: '',
-    targetAmount: '',
-    targetDate: '',
-    categoryId: '',
-    description: '',
-    isHouseholdGoal: true
-  });
 
   const loadSharedData = useCallback(() => {
     if (!household) return;
     
     const budgets = sharedFinanceService.getHouseholdBudgets(household.id, currentMember?.id);
     setSharedBudgets(budgets);
-    
-    const goals = sharedFinanceService.getHouseholdGoals(household.id, currentMember?.id);
-    setSharedGoals(goals);
     
     const approvals = sharedFinanceService.getPendingApprovals(household.id);
     setPendingApprovals(approvals);
@@ -159,62 +132,6 @@ export default function SharedBudgetsGoals() {
       loadSharedData();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create shared budget';
-      alert(message);
-    }
-  };
-
-  const handleCreateGoal = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!household || !currentMember) return;
-
-    try {
-      // ONE goal, not two. This used to also create a private copy in the app
-      // context: a second goal with the same name that no contribution ever
-      // reached, so the household saw its shared goal climbing while the
-      // Goals page showed the twin stuck at £0 forever. A shared goal lives
-      // in the household; it is shown here.
-      sharedFinanceService.createSharedGoal(
-        {
-          name: goalForm.name,
-          targetAmount: toStorageNumber(toDecimal(goalForm.targetAmount || 0)),
-          currentAmount: 0,
-          targetDate: new Date(goalForm.targetDate),
-          description: goalForm.description,
-          type: 'savings' as const,
-          isActive: true,
-          progress: 0,
-          updatedAt: new Date()
-        },
-        household.id,
-        currentMember.id,
-        currentMember.name,
-        goalForm.isHouseholdGoal
-      );
-
-      setShowCreateGoal(false);
-      setGoalForm({
-        name: '',
-        targetAmount: '',
-        targetDate: '',
-        categoryId: '',
-        description: '',
-        isHouseholdGoal: true
-      });
-      loadSharedData();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create shared goal';
-      alert(message);
-    }
-  };
-
-  const handleContributeToGoal = (goalId: string, amount: number) => {
-    if (!currentMember) return;
-
-    try {
-      sharedFinanceService.updateGoalProgress(goalId, currentMember.id, currentMember.name, amount);
-      loadSharedData();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to contribute to goal';
       alert(message);
     }
   };
@@ -321,34 +238,12 @@ export default function SharedBudgetsGoals() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-1 flex">
-        <button
-          onClick={() => setActiveTab('budgets')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
-            activeTab === 'budgets'
-              ? 'bg-indigo-600 text-white'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-          }`}
-        >
-          <TargetIcon size={20} />
-          <span className="font-medium">Shared Budgets</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('goals')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
-            activeTab === 'goals'
-              ? 'bg-purple-600 text-white'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-          }`}
-        >
-          <GoalIcon size={20} />
-          <span className="font-medium">Shared Goals</span>
-        </button>
-      </div>
+      {/* No tab bar. This panel offered Shared Budgets and Shared Goals;
+          goals went with the feature, and one destination needs no chooser. */}
 
       {/* Content */}
-      {activeTab === 'budgets' ? (
+      {/* Shared budgets, unconditionally: the goals tab that this used to
+          alternate with went with the feature. */}
         <div className="space-y-4">
           {/* Create Button */}
           {currentMember?.permissions.canEditBudgets && (
@@ -442,135 +337,7 @@ export default function SharedBudgetsGoals() {
             </div>
           )}
         </div>
-      ) : (
-        <div className="space-y-4">
-          {/* Create Button */}
-          {currentMember?.permissions.canEditGoals && (
-            <button
-              onClick={() => setShowCreateGoal(true)}
-              className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 transition-colors flex items-center justify-center gap-2"
-            >
-              <PlusIcon size={20} />
-              Create Shared Goal
-            </button>
-          )}
 
-          {/* Goals List */}
-          {sharedGoals.map(goal => {
-            const targetAmountDecimal = toDecimal(goal.targetAmount ?? 0);
-            const currentAmountDecimal = toDecimal(goal.currentAmount ?? 0);
-            const percentageDecimal = targetAmountDecimal.greaterThan(0)
-              ? currentAmountDecimal.dividedBy(targetAmountDecimal).times(100)
-              : toDecimal(0);
-            // Calendar days in local time (shared with the Goals page), so a
-            // goal due today reads "Due today" rather than "Overdue".
-            const daysLeft = daysUntil(new Date(goal.targetDate));
-            const myContribution = goal.contributors.find(c => c.memberId === currentMember?.id);
-
-            return (
-              <div key={goal.id} className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold">{goal.name}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {goal.description}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold">
-                      {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
-                    </p>
-                    <p className={`text-sm ${daysLeft < 30 ? 'text-orange-600' : 'text-gray-600'}`}>
-                      {formatDaysRemaining(daysLeft)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="mb-4">
-                  <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-                    <div 
-                      className={`h-full transition-all duration-300 ${
-                        goal.completedAt ? 'bg-blue-600' : 'bg-purple-500'
-                      }`}
-                      style={{ width: `${Math.min(percentageDecimal.toNumber(), 100)}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">{`${formatPercentage(percentageDecimal, 0)}% complete`}</p>
-                </div>
-
-                {/* Contributors */}
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Contributors:</p>
-                  {goal.contributors.map(contributor => (
-                    <div key={contributor.memberId} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-                          style={{ 
-                            backgroundColor: household.members.find(m => m.id === contributor.memberId)?.color 
-                          }}
-                        >
-                          {contributor.memberName.charAt(0)}
-                        </div>
-                        <span>{contributor.memberName}</span>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">
-                          {formatCurrency(contributor.currentAmount)} / {formatCurrency(contributor.targetAmount)}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {`${formatPercentage(
-                            contributor.targetAmount > 0
-                              ? toDecimal(contributor.currentAmount).dividedBy(contributor.targetAmount).times(100)
-                              : 0,
-                            0
-                          )}%`}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Quick Contribute */}
-                {!goal.completedAt && myContribution && currentMember?.permissions.canEditGoals && (
-                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <div className="flex gap-2">
-                      {/* The user's currency, not a hard-coded dollar sign —
-                          this is a UK-first app and the rest of the card is
-                          already formatted properly. */}
-                      {[10, 25, 50, 100].map(amount => (
-                        <button
-                          key={amount}
-                          onClick={() => handleContributeToGoal(goal.id, amount)}
-                          className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded hover:bg-purple-200 dark:hover:bg-purple-900/50 text-sm"
-                        >
-                          +{formatCurrency(amount)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {goal.completedAt && (
-                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
-                      <CheckIcon size={16} className="inline mr-1" />
-                      Goal achieved on {format(goal.completedAt!, 'MMM d, yyyy')}!
-                    </p>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {sharedGoals.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No shared goals yet
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Recent Activity */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
@@ -602,17 +369,6 @@ export default function SharedBudgetsGoals() {
           categories={categories}
           onSubmit={handleCreateBudget}
           onClose={() => setShowCreateBudget(false)}
-        />
-      )}
-
-      {/* Create Goal Modal */}
-      {showCreateGoal && (
-        <CreateGoalModal
-          form={goalForm}
-          setForm={setGoalForm}
-          categories={categories}
-          onSubmit={handleCreateGoal}
-          onClose={() => setShowCreateGoal(false)}
         />
       )}
     </div>
