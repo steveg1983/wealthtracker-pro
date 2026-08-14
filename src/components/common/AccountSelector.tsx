@@ -7,6 +7,7 @@ import {
   NO_INSTITUTION_TITLE,
   type GroupableAccount,
 } from '../../utils/accountGrouping';
+import { buildTopLevelIdByAccountId } from '../../utils/accountNesting';
 import { ChevronDownIcon, PlusIcon } from '../icons';
 import FitLabel from './FitLabel';
 
@@ -24,9 +25,15 @@ import FitLabel from './FitLabel';
  * that page can never disagree about where an account belongs.
  */
 
-/** What an option needs: an id to report, plus what groups and finds it. */
+/**
+ * What an option needs: an id to report, plus what groups and finds it.
+ *
+ * `parentAccountId` is optional and most callers never set it — but where it IS
+ * set it decides which SECTION the option lands in. See the `sections` memo.
+ */
 export interface SelectableAccount extends GroupableAccount {
   id: string;
+  parentAccountId?: string | null;
 }
 
 /** Fixed-position coordinates for the portaled dropdown (usePortal mode). */
@@ -221,7 +228,64 @@ export default function AccountSelector<T extends SelectableAccount>({
     const pool = accounts.filter(
       account => !excluded.has(account.id) && accountMatchesQuery(account, searchTerm)
     );
-    const grouped = groupAccountsForDisplay(pool, NESTED_BANDS);
+    /*
+     * A LINKED CASH ACCOUNT IS FILED WHERE ITS INVESTMENT LIVES, not where its
+     * own type would put it.
+     *
+     * Reported from the transfer picker: "(Beards) - Wiseville Investments" and
+     * "Coutts - Investment P…" are the cash sleeves of investment accounts, and
+     * both were listed under CURRENT ACCOUNTS — while the Accounts page shows
+     * them nested inside their investment parent. The owner's rule, which is
+     * simply the page's own behaviour written down: "linked, it sits within the
+     * investment account it is linked to; unlink, and it moves up to current
+     * accounts."
+     *
+     * The header of this file already promised that this picker "and that page
+     * can never disagree about where an account belongs". They did disagree,
+     * because the page groups only TOP-LEVEL accounts and renders children
+     * inside their parent's row, while this list handed every account to the
+     * grouper on its own terms — so a cash sleeve was sectioned by `type:
+     * 'current'` rather than by the investment it belongs to.
+     *
+     * Sectioning is therefore done with the ANCESTOR's type and institution,
+     * and only the sectioning: the option that gets rendered, searched, and
+     * reported is the real account, so its own name and type still show. The
+     * ancestor is resolved against the FULL account list rather than the
+     * filtered pool, because a search that matches the child but not its parent
+     * must still file the child correctly.
+     */
+    const topLevelIdByAccountId = buildTopLevelIdByAccountId(accounts);
+    const byId = new Map(accounts.map(account => [account.id, account]));
+    const forGrouping = pool.map(account => {
+      const topLevelId = topLevelIdByAccountId.get(account.id);
+      const ancestor = topLevelId !== undefined && topLevelId !== account.id
+        ? byId.get(topLevelId)
+        : undefined;
+      return {
+        // Everything the grouper reads, taken from the ancestor when there is
+        // one; everything the LIST reads comes off `source` below.
+        name: account.name,
+        type: ancestor?.type ?? account.type,
+        institution: ancestor?.institution ?? account.institution,
+        sortCode: account.sortCode,
+        source: account,
+      };
+    });
+
+    const groupedProxies = groupAccountsForDisplay(forGrouping, NESTED_BANDS);
+    const grouped = groupedProxies.mode === 'grouped'
+      ? {
+          mode: 'grouped' as const,
+          groups: groupedProxies.groups.map(group => ({
+            ...group,
+            accounts: group.accounts.map(proxy => proxy.source),
+            subGroups: group.subGroups?.map(sub => ({
+              ...sub,
+              accounts: sub.accounts.map(proxy => proxy.source),
+            })),
+          })),
+        }
+      : { mode: 'flat' as const, accounts: groupedProxies.accounts.map(proxy => proxy.source) };
     // byType is on, so grouping is always banded; [] is the honest floor.
     const groups = grouped.mode === 'grouped' ? grouped.groups : [];
     return groups.map(group => {
