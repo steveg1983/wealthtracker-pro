@@ -24,8 +24,6 @@ export default function AppSettings() {
     setThemeSchedule,
     showInvestments,
     setShowInvestments,
-    enableGoalCelebrations,
-    setEnableGoalCelebrations
   } = usePreferences();
 
   const currencies = [
@@ -255,24 +253,10 @@ export default function AppSettings() {
       {/* Large Transaction Alerts */}
       <LargeTransactionAlertSettings />
 
-      {/* Goal Celebrations */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
-        <h3 className="text-card font-semibold text-gray-900 dark:text-white mb-4">Goal Celebrations</h3>
-        
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-medium text-gray-900 dark:text-white">Enable Celebrations</p>
-            <p className="text-body text-gray-500 dark:text-gray-400">
-              Show confetti and celebration messages when you achieve your goals
-            </p>
-          </div>
-          <ToggleSwitch
-            checked={enableGoalCelebrations}
-            onChange={setEnableGoalCelebrations}
-            aria-label="Enable goal celebrations"
-          />
-        </div>
-      </div>
+      {/* Goal Celebrations retired 2026-08-14 with the Goals page. The toggle promised
+          "confetti and celebration messages when you achieve your goals" and, once Goals
+          went, nothing read the preference and no goal could be achieved. A control that
+          changes nothing is worse than a missing one: it is a claim the app can't keep. */}
 
       {/* Page Tips */}
       <ShowTipsAgain />

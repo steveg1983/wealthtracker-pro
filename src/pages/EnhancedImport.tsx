@@ -118,7 +118,9 @@ export default function EnhancedImport(): React.JSX.Element {
                 bank files, or another app.
               </p>
             </div>
-            <UploadIcon size={48} className="text-white/80" />
+            {/* Decorative — see ExportManager's twin. text-white/80 was invisible once
+                the navy slab became a white card. */}
+            <UploadIcon size={48} className="text-gray-300 dark:text-gray-600" />
           </div>
         </div>
 

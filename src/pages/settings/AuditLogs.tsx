@@ -173,7 +173,7 @@ export default function AuditLogs() {
       width: '120px',
       accessor: (log) => (
         <div className="flex items-center gap-2">
-          <span className="text-lg">{getActionIcon(log.action)}</span>
+          <span className="text-card">{getActionIcon(log.action)}</span>
           <span className={`text-sm font-medium capitalize ${getActionColor(log.action)}`}>
             {log.action}
           </span>
@@ -240,7 +240,7 @@ export default function AuditLogs() {
         <div className="bg-gradient-to-r from-gray-600 to-gray-800 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6 mb-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Audit Logs</h1>
+              <h1 className="text-page font-bold mb-2">Audit Logs</h1>
               <p className="text-gray-100">
                 Complete history of all system activities and changes
               </p>

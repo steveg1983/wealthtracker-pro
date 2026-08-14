@@ -285,7 +285,10 @@ export default function ExportManager(): React.JSX.Element {
                 Generate reports, export to Excel, and save reusable export templates
               </p>
             </div>
-            <DownloadIcon size={48} className="text-white/80" />
+            {/* Decorative. Grey, not ink: the heading beside it already names the page,
+                and at 48px full-contrast ink would outweigh it. Was text-white/80 — correct
+                on the navy slab this card replaced, invisible on white. */}
+            <DownloadIcon size={48} className="text-gray-300 dark:text-gray-600" />
           </div>
         </div>
 

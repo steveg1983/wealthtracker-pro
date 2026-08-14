@@ -731,7 +731,7 @@ export default function PayeeCleanup(): React.JSX.Element {
       </p>
 
       {allClusters.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-100 dark:border-gray-700 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4">
           <div className="flex flex-wrap items-center gap-3 mb-1">
             {/* The total, in the heading, because the owner could not tell how
                 much work the page was proposing: "when you tidy up one, the
@@ -861,7 +861,7 @@ export default function PayeeCleanup(): React.JSX.Element {
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-100 dark:border-gray-700 p-4 space-y-3">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 space-y-3">
         <div className="relative">
           <SearchIcon
             size={16}

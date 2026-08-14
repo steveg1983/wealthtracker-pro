@@ -143,8 +143,8 @@ export default function Tags() {
 
       {/* Add/Edit Form */}
       {showAddForm && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 mb-6">
-          <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6 mb-6">
+          <h2 className="text-card font-semibold text-blue-800 dark:text-white mb-4">
             {editingTag ? 'Edit Tag' : 'Add New Tag'}
           </h2>
           
@@ -229,9 +229,9 @@ export default function Tags() {
       )}
 
       {/* Tags List */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-blue-800 dark:text-white">
+          <h2 className="text-card font-semibold text-blue-800 dark:text-white">
             All Tags ({tags.length})
           </h2>
         </div>
@@ -239,7 +239,7 @@ export default function Tags() {
         {tags.length === 0 ? (
           <div className="p-8 text-center">
             <HashIcon className="mx-auto text-gray-400 mb-4" size={48} />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            <h3 className="text-card font-medium text-gray-900 dark:text-white mb-2">
               No tags yet
             </h3>
             <p className="text-gray-500 dark:text-gray-400 mb-4">
@@ -301,14 +301,14 @@ export default function Tags() {
 
       {/* Usage Statistics */}
       {tags.length > 0 && (
-        <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
+          <h3 className="text-card font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <AlertCircleIcon size={20} />
             Tag Usage Statistics
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
-              <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">
+              <div className="text-page font-bold text-blue-700 dark:text-blue-400">
                 {tags.length}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -316,7 +316,7 @@ export default function Tags() {
               </div>
             </div>
             <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <div className="text-page font-bold text-blue-600 dark:text-blue-400">
                 {tags.filter(tag => getTagUsageCount(tag.name) > 0).length}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -324,7 +324,7 @@ export default function Tags() {
               </div>
             </div>
             <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-2xl">
-              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+              <div className="text-page font-bold text-orange-600 dark:text-orange-400">
                 {tags.filter(tag => getTagUsageCount(tag.name) === 0).length}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">

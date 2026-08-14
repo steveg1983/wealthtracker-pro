@@ -27,7 +27,11 @@ export default function SecuritySettings() {
   const [showTwoFactorSetup, setShowTwoFactorSetup] = useState(false);
   const [twoFactorSecret, setTwoFactorSecret] = useState<ReturnType<typeof securityService.generateTwoFactorSecret> | null>(null);
   const [verificationCode, setVerificationCode] = useState('');
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  // null until the capability check answers. P8 — nothing may speak until it knows:
+  // initialised to `false` this told people with Face ID that their device hasn't got
+  // it, and disabled the button that would have proved otherwise. The three states are
+  // distinct on purpose; a device that genuinely can't do this must STILL be told so.
+  const [biometricAvailable, setBiometricAvailable] = useState<boolean | null>(null);
   const [setupMessage, setSetupMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -119,15 +123,15 @@ export default function SecuritySettings() {
     <PageWrapper title="Security Settings">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="bg-[#1a2332] dark:bg-gray-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div className="bg-white dark:bg-gray-800 border border-line dark:border-gray-700 rounded-lg p-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Security Settings</h1>
-              <p className="text-white/70">
+              <h1 className="text-page font-semibold mb-2 text-gray-900 dark:text-white">Security Settings</h1>
+              <p className="text-body text-gray-500 dark:text-gray-400">
                 Protect your financial data with advanced security features
               </p>
             </div>
-            <ShieldIcon size={48} className="text-white/80" />
+            <ShieldIcon size={48} className="text-gray-300 dark:text-gray-600" />
           </div>
         </div>
 
@@ -153,7 +157,7 @@ export default function SecuritySettings() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                   <PhoneIcon size={20} className="text-indigo-600 dark:text-indigo-400" />
                   Two-Factor Authentication
                 </h3>
@@ -187,7 +191,7 @@ export default function SecuritySettings() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                   <FingerprintIcon size={20} className="text-purple-600 dark:text-purple-400" />
                   Biometric Authentication
                 </h3>
@@ -197,25 +201,32 @@ export default function SecuritySettings() {
               </div>
               <button
                 onClick={handleToggleBiometric}
-                disabled={!biometricAvailable}
+                disabled={biometricAvailable !== true}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  !biometricAvailable
+                  biometricAvailable !== true
                     ? 'bg-gray-100 text-gray-400 dark:bg-gray-700 cursor-not-allowed'
                     : settings.biometricEnabled
                     ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
                     : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
                 }`}
               >
-                {!biometricAvailable ? 'Not Available' : settings.biometricEnabled ? 'Disable' : 'Enable'}
+                {biometricAvailable === null
+                  ? 'Checking…'
+                  : biometricAvailable === false
+                  ? 'Not Available'
+                  : settings.biometricEnabled
+                  ? 'Disable'
+                  : 'Enable'}
               </button>
             </div>
-            
-            {!biometricAvailable && (
-              <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  Biometric authentication is not available on this device
-                </p>
-              </div>
+
+            {/* Only once the check has answered, and only on false. A caveat about what
+                this device can do is a standing truth, not a transient problem, so it
+                takes neutral text rather than the warning tint it used to wear. */}
+            {biometricAvailable === false && (
+              <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                Biometric authentication is not available on this device
+              </p>
             )}
           </div>
 
@@ -223,7 +234,7 @@ export default function SecuritySettings() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                   <LockIcon size={20} className="text-blue-600 dark:text-blue-400" />
                   End-to-End Encryption
                 </h3>
@@ -257,7 +268,7 @@ export default function SecuritySettings() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                   <EyeIcon size={20} className="text-blue-700 dark:text-blue-400" />
                   Read-Only Mode
                 </h3>
@@ -289,7 +300,7 @@ export default function SecuritySettings() {
 
           {/* Session Timeout */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+            <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
               <RefreshCwIcon size={20} className="text-orange-600 dark:text-orange-400" />
               Session Timeout
             </h3>
@@ -319,7 +330,7 @@ export default function SecuritySettings() {
 
           {/* Audit Logs */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+            <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
               <FileTextIcon size={20} className="text-gray-600 dark:text-gray-400" />
               Security Information
             </h3>
@@ -357,7 +368,7 @@ export default function SecuritySettings() {
         {showTwoFactorSetup && twoFactorSecret && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              <h3 className="text-card font-semibold text-gray-900 dark:text-white mb-4">
                 Set Up Two-Factor Authentication
               </h3>
               
@@ -393,7 +404,7 @@ export default function SecuritySettings() {
                     onChange={(e) => setVerificationCode(e.target.value)}
                     placeholder="000000"
                     maxLength={6}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center font-mono text-lg"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center font-mono text-card"
                   />
                 </div>
                 

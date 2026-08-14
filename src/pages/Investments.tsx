@@ -243,8 +243,10 @@ export default function Investments() {
   if (investmentAccounts.length === 0) {
     return (
       <div>
-        <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4 mb-6">
-          <h1 className="text-display font-bold text-white">Investments</h1>
+        {/* The conversion pass reached the populated page and not this branch, because an
+            early return is easy to read past. Same hairline card, same ink, as everywhere. */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 mb-6">
+          <h1 className="text-page font-semibold text-gray-900 dark:text-white">Investments</h1>
         </div>
         
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-8 text-center">
