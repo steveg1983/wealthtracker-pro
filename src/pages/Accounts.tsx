@@ -1096,6 +1096,19 @@ export default function Accounts() {
    * Named for the account it belongs to: a card now shows two of these, and
    * "Reconcile" twice over is a control nobody can tell apart by ear.
    */
+  /*
+   * WHERE A COUNT'S WORK IS DONE. Two doors, one per column, and neither is a
+   * new destination — Unreconciled goes exactly where the row's own Reconcile
+   * button goes, and To Review goes to the register the account name already
+   * opens, arriving with the register's existing To Review filter switched on.
+   * The feature is the shortcut, not a new screen.
+   */
+  const reconcileHref = (accountId: string): string =>
+    preserveDemoParam(`/reconciliation?account=${accountId}&from=accounts`, location.search);
+
+  const reviewHref = (accountId: string): string =>
+    preserveDemoParam(`/accounts/${accountId}?review=1`, location.search);
+
   const renderReconcileButton = (account: Account): ReactNode => (
     <button
       type="button"
@@ -1279,7 +1292,12 @@ export default function Accounts() {
                                 value={formatDisplayCurrency(computeAccountBalance(account.id), account.currency)}
                                 smOnly
                               />
-                              <AccountCountCell label="Unreconciled" count={getUnreconciledCount(account.id)} />
+                              <AccountCountCell
+                                label="Unreconciled"
+                                count={getUnreconciledCount(account.id)}
+                                to={reconcileHref(account.id)}
+                                openLabel={`Reconcile ${account.name}`}
+                              />
                               {/* To Review — freshly imported rows nobody has
                                   dealt with, so the size of the job is visible
                                   from the list rather than only from inside the
@@ -1287,7 +1305,12 @@ export default function Accounts() {
                                   the two are the same shape of question — how
                                   much is outstanding — and reading them as a
                                   pair is the point. */}
-                              <AccountCountCell label="To Review" count={toReviewByAccount.get(account.id) ?? 0} />
+                              <AccountCountCell
+                                label="To Review"
+                                count={toReviewByAccount.get(account.id) ?? 0}
+                                to={reviewHref(account.id)}
+                                openLabel={`Review new transactions in ${account.name}`}
+                              />
                               <AccountRowActionSlot>
                                 {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
                                 <button
@@ -1454,10 +1477,20 @@ export default function Accounts() {
                               value={formatDisplayCurrency(computeAccountBalance(child.id), child.currency)}
                               smOnly
                             />
-                            <AccountCountCell label="Unreconciled" count={getUnreconciledCount(child.id)} />
+                            <AccountCountCell
+                              label="Unreconciled"
+                              count={getUnreconciledCount(child.id)}
+                              to={reconcileHref(child.id)}
+                              openLabel={`Reconcile ${child.name}`}
+                            />
                             {/* Its own register means its own arrivals to deal
                                 with, so it gets this column too. */}
-                            <AccountCountCell label="To Review" count={toReviewByAccount.get(child.id) ?? 0} />
+                            <AccountCountCell
+                              label="To Review"
+                              count={toReviewByAccount.get(child.id) ?? 0}
+                              to={reviewHref(child.id)}
+                              openLabel={`Review new transactions in ${child.name}`}
+                            />
                             {/* Portfolio, feed and settings: not this row's to
                                 offer. The slots stay so the Reconcile button
                                 lands under its parent's. */}

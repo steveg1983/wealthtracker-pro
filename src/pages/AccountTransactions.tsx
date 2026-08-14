@@ -582,7 +582,8 @@ export default function AccountTransactions() {
     const params = new URLSearchParams(location.search);
     const txn = params.get('txn');
     const hasShowArchived = params.has('showArchived');
-    if (!txn && !hasShowArchived) return;
+    const hasReview = params.has('review');
+    if (!txn && !hasShowArchived && !hasReview) return;
     if (txn) {
       pendingTxnRef.current = txn;
       openedAtFootRef.current = accountId ?? null;
@@ -595,6 +596,30 @@ export default function AccountTransactions() {
       // state above.
       if (params.get('showArchived') === '1') setShowArchived(true);
       params.delete('showArchived');
+    }
+    if (hasReview) {
+      /*
+       * ARRIVING ALREADY FILTERED, from the To Review count on the accounts
+       * list. The owner's ask: clicking that figure should take you to "that
+       * specific view in the account register, filtered to show items 'to
+       * review' only".
+       *
+       * A URL PARAMETER RATHER THAN STORED STATE, and deliberately: the
+       * comment on `reviewOnly` argues that a filter must not outlive the
+       * session that set it, because "coming back to a register showing four
+       * of its nine hundred rows, with no memory of why" reads as data loss.
+       * A parameter is the opposite of stored — it is consumed and deleted in
+       * the same pass as `txn` and `showArchived` below, so the filter is on
+       * because the user asked for it one click ago and is gone the moment
+       * they navigate away. `=== '1'` so `?review=0` can turn it off rather
+       * than mean the same as `?review=1`.
+       *
+       * The register drops the filter by itself when the count reaches zero
+       * (the effect beside `toReviewCount`), so this cannot strand anyone on
+       * an empty list after they have dealt with the last arrival.
+       */
+      if (params.get('review') === '1') setReviewOnly(true);
+      params.delete('review');
     }
     // The state is carried across by hand. React Router gives a replaced entry
     // null state unless told otherwise, and the state here is the provenance

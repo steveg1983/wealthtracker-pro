@@ -27,7 +27,8 @@
  * flattens the two states back together.
  */
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { AccountCountCell } from '../AccountRowColumns';
 
 const classesFor = (count: number): string => {
@@ -82,6 +83,107 @@ describe('a count of outstanding work', () => {
   });
 
   it('still renders the number itself, and keeps digits aligned', () => {
+    // A column of counts is read down, so the figures stay tabular whatever
+    // else changes about them.
+    expect(classesFor(12)).toContain('tabular-nums');
+    render(<AccountCountCell label="To Review" count={12} />);
+    expect(screen.getByText('12')).toBeInTheDocument();
+  });
+});
+
+/**
+ * ─ THE COUNT IS ALSO A DOOR ────────────────────────────────────────────────
+ * "If we click on a highlighted 'Unreconciled' figure or a 'To Review' figure,
+ * that has something to reconcile, or review, it takes you to that specific
+ * reconciliation page, or that specific view in the account register."
+ *
+ * The invariant worth guarding is not the destination — that is the caller's —
+ * but WHEN the cell becomes a link at all, because the answer is not simply
+ * "when a link was offered".
+ */
+describe('a count you can act on', () => {
+  const renderLinked = (count: number) =>
+    render(
+      <MemoryRouter>
+        <AccountCountCell
+          label="Unreconciled"
+          count={count}
+          to="/reconciliation?account=abc&from=accounts"
+          openLabel="Reconcile Current Account"
+        />
+      </MemoryRouter>
+    );
+
+  it('opens the work when there is work', () => {
+    renderLinked(3);
+    const link = screen.getByRole('link', { name: 'Reconcile Current Account' });
+    expect(link).toHaveAttribute('href', '/reconciliation?account=abc&from=accounts');
+    // Still the same pill — becoming clickable must not restyle it, or the
+    // column strip stops lining up with the figures it names.
+    expect(link.getAttribute('class')).toContain('bg-primary');
+    expect(link.getAttribute('class')).toContain('rounded-full');
+  });
+
+  it('is NOT a link when the count is zero, even though one was offered', () => {
+    /*
+     * The whole point. A zero is not a door: there is nothing behind it, and a
+     * row of 130 clickable noughts would hand the eye 130 things to consider
+     * and 130 dead ends to discover. This is the same argument that keeps the
+     * zero out of the pill — nothing is not something to attend to — applied
+     * to behaviour rather than to colour.
+     */
+    renderLinked(0);
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByText('0')).toBeInTheDocument();
+  });
+
+  it('keeps a touch target without taking any layout for it', () => {
+    /*
+     * The pill is ~24px, under the 44px a thumb needs. The room is bought with
+     * an absolutely-positioned pseudo-element, which occupies no space, rather
+     * than with padding, which would drag this cell out of alignment with the
+     * parked column strip above it.
+     */
+    renderLinked(7);
+    const cls = screen.getByRole('link').getAttribute('class') ?? '';
+    expect(cls).toContain('after:absolute');
+    expect(cls).toContain('after:-inset-[10px]');
+    expect(cls).not.toMatch(/\bp-[3-9]\b/);
+  });
+
+  it('does not let opening the work also select the row behind it', () => {
+    // The row is itself clickable. Without stopPropagation the click would
+    // both navigate and pick out the account, so coming back would land on a
+    // selection nobody made.
+    //
+    // The cell is rendered INSIDE the clickable row, in one React tree, because
+    // that is the only arrangement that tests anything: React delivers events
+    // through its own root listener, so a handler bolted onto a detached node
+    // never hears them and the assertion passes for the wrong reason.
+    let rowClicks = 0;
+    render(
+      <MemoryRouter>
+        <div onClick={() => { rowClicks += 1; }}>
+          <AccountCountCell
+            label="Unreconciled"
+            count={4}
+            to="/reconciliation?account=abc&from=accounts"
+            openLabel="Reconcile Current Account"
+          />
+        </div>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('link'));
+    expect(rowClicks).toBe(0);
+  });
+});
+
+describe('the unlinked cell is unchanged', () => {
+  it('renders without a router at all', () => {
+    // Nested cash rows and any future caller that offers no destination must
+    // keep working outside a Router — the Link is conditional, not universal.
+    expect(() => render(<AccountCountCell label="Unreconciled" count={5} />)).not.toThrow();
     // A column of counts is read down, so the figures stay tabular whatever
     // else changes about them.
     expect(classesFor(12)).toContain('tabular-nums');

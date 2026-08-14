@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 
 /**
  * The ONE column definition the Accounts list's rows share.
@@ -327,10 +328,77 @@ export function AccountBalanceCell({
 export function AccountCountCell({
   label,
   count,
+  to,
+  openLabel,
 }: {
   label: string;
   count: number;
+  /**
+   * Where this count's work is done. Given only when there IS somewhere: a
+   * count of zero is never a door, because there is nothing behind it.
+   */
+  to?: string;
+  /** Spoken form of the destination, e.g. "Reconcile Main Checking". */
+  openLabel?: string;
 }): React.JSX.Element {
+  /*
+   * THE PILL BECAME A DOOR — the owner's ask: "if we click on a highlighted
+   * 'Unreconciled' figure or a 'To Review' figure, that has something to
+   * reconcile, or review, it takes you to that specific reconciliation page,
+   * or that specific view in the account register".
+   *
+   * It reads as one because it already looks like one: a filled navy shape is
+   * what this app's primary controls wear, and the figure was ALREADY the
+   * thing the eye lands on when scanning for work. The only thing it was
+   * missing was the ability to act on what it found.
+   *
+   * ─ AND IT IS STILL NOT AMBER ────────────────────────────────────────────
+   * The comment above says navy partly "because this is not clickable", and
+   * that half of the argument has just expired — so here is the half that has
+   * not. Ruling A gives amber to the ONE control you should touch next. A
+   * count is now clickable but it is not singular: a list can show eight of
+   * them at once, and eight ambers is precisely the erosion the ruling exists
+   * to prevent. Amber's monopoly is on "this one, next" — not on "clickable".
+   */
+  const pillClass = `tabular-nums ${
+    count > 0
+      ? 'inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 rounded-full bg-primary text-white text-sm font-bold'
+      : 'text-sm font-normal text-gray-400 dark:text-gray-500'
+  }`;
+
+  if (count > 0 && to !== undefined) {
+    return (
+      <div className="text-right">
+        <p className={ROW_LABEL_CLASS}>{label}</p>
+        <Link
+          to={to}
+          aria-label={openLabel}
+          onClick={event => { event.stopPropagation(); }}
+          /*
+           * THE BOX IS UNCHANGED, and that is load-bearing. The column strip's
+           * labels are aligned to these cells to the pixel (verified across
+           * all four columns), so a link that added padding to reach a 44px
+           * touch target would drag "Unreconciled" out of line with the
+           * figures it names.
+           *
+           * `after:-inset-[10px]` grows the TAPPABLE area to ~44px in every
+           * direction without occupying a single pixel of layout — an absolute
+           * pseudo-element takes no space. The phone gets a target it can hit;
+           * the grid does not move.
+           *
+           * `stopPropagation` because the row itself is clickable (it selects
+           * the account): without it, opening the reconciliation view would
+           * also pick out the row behind it, and coming back would land on a
+           * selection the user never made.
+           */
+          className={`${pillClass} relative after:absolute after:-inset-[10px] after:content-[''] hover:brightness-125 transition-[filter] duration-state`}
+        >
+          {count}
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="text-right">
       <p className={ROW_LABEL_CLASS}>{label}</p>
