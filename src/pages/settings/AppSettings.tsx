@@ -84,10 +84,10 @@ export default function AppSettings() {
       <BankFeedRefreshSettings />
 
       {/* Personal Information */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
-        <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Personal Information</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
+        <h2 className="text-card font-semibold text-theme-heading dark:text-white mb-4">Personal Information</h2>
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+          <label className="block text-body font-medium text-gray-700 dark:text-gray-300 mb-3">
             First Name
           </label>
           <input
@@ -97,7 +97,7 @@ export default function AppSettings() {
             placeholder="Enter your first name"
             className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
           />
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-2 text-body text-gray-500 dark:text-gray-400">
             This will be used in the welcome message on your dashboard. Leave blank to use "User".
           </p>
         </div>
@@ -107,10 +107,10 @@ export default function AppSettings() {
       <LocaleSelector />
 
       {/* Base Currency */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-4">
           <GlobeIcon className="text-gray-600 dark:text-gray-400" size={20} />
-          <h2 className="text-xl font-semibold text-theme-heading dark:text-white">Base Currency</h2>
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white">Base Currency</h2>
         </div>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
           Choose your preferred base currency for displaying your net worth and performing currency conversions
@@ -130,12 +130,12 @@ export default function AppSettings() {
       </div>
 
       {/* Appearance */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
-        <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Appearance</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
+        <h2 className="text-card font-semibold text-theme-heading dark:text-white mb-4">Appearance</h2>
         
         {/* Theme Selection */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+          <label className="block text-body font-medium text-gray-700 dark:text-gray-300 mb-3">
             Theme
           </label>
           <div className="grid grid-cols-3 gap-3">
@@ -161,7 +161,7 @@ export default function AppSettings() {
           <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <div className="flex items-center gap-2 mb-3">
               <ClockIcon size={20} className="text-primary" />
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <h3 className="text-body font-medium text-gray-700 dark:text-gray-300">
                 Schedule Settings
               </h3>
             </div>
@@ -174,31 +174,31 @@ export default function AppSettings() {
                   onChange={(e) => setThemeSchedule({ ...themeSchedule, enabled: e.target.checked })}
                   className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600"
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">Enable scheduling</span>
+                <span className="text-body text-gray-700 dark:text-gray-300">Enable scheduling</span>
               </label>
               
               {themeSchedule.enabled && (
                 <div className="grid grid-cols-2 gap-4 ml-7">
                   <div>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    <label className="block text-dense text-gray-600 dark:text-gray-400 mb-1">
                       Light theme starts at
                     </label>
                     <input
                       type="time"
                       value={themeSchedule.lightStartTime}
                       onChange={(e) => setThemeSchedule({ ...themeSchedule, lightStartTime: e.target.value })}
-                      className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent dark:text-white text-sm"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent dark:text-white text-body"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    <label className="block text-dense text-gray-600 dark:text-gray-400 mb-1">
                       Dark theme starts at
                     </label>
                     <input
                       type="time"
                       value={themeSchedule.darkStartTime}
                       onChange={(e) => setThemeSchedule({ ...themeSchedule, darkStartTime: e.target.value })}
-                      className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent dark:text-white text-sm"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent dark:text-white text-body"
                     />
                   </div>
                 </div>
@@ -209,8 +209,8 @@ export default function AppSettings() {
       </div>
 
       {/* Page Visibility */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
-        <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Page Visibility</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
+        <h2 className="text-card font-semibold text-theme-heading dark:text-white mb-4">Page Visibility</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-6">
           Choose which pages appear in the navigation sidebar
         </p>
@@ -229,7 +229,7 @@ export default function AppSettings() {
                   />
                   <h3 className="font-medium text-gray-900 dark:text-white">{toggle.title}</h3>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 ml-8">
+                <p className="text-body text-gray-600 dark:text-gray-400 mt-1 ml-8">
                   {toggle.description}
                 </p>
               </div>
@@ -243,7 +243,7 @@ export default function AppSettings() {
         </div>
 
         <div className="mt-6 p-4 bg-theme-accent dark:bg-gray-800/50 rounded-2xl">
-          <p className="text-sm text-theme-heading dark:text-gray-300">
+          <p className="text-body text-theme-heading dark:text-gray-300">
             <strong>Note:</strong> Hidden pages will not appear in the sidebar navigation but can still be accessed if you have a direct link.
           </p>
         </div>
@@ -257,12 +257,12 @@ export default function AppSettings() {
 
       {/* Goal Celebrations */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Goal Celebrations</h3>
+        <h3 className="text-card font-semibold text-gray-900 dark:text-white mb-4">Goal Celebrations</h3>
         
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium text-gray-900 dark:text-white">Enable Celebrations</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-body text-gray-500 dark:text-gray-400">
               Show confetti and celebration messages when you achieve your goals
             </p>
           </div>
