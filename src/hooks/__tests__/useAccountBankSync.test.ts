@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildAccountBankLinks } from '../useAccountBankSync';
+import { buildAccountBankLinks, countFeedsNeedingAttention } from '../useAccountBankSync';
 import type { BankConnection } from '../../services/bankConnectionService';
 
 function makeConnection(overrides: Partial<BankConnection>): BankConnection {
@@ -63,5 +63,49 @@ describe('buildAccountBankLinks', () => {
       makeConnection({ id: 'conn-new', linkedAccountIds: ['acc-x'] })
     ]);
     expect(links.get('acc-x')?.connectionId).toBe('conn-new');
+  });
+});
+
+/**
+ * ─ WHICH FEEDS COUNT AS BROKEN ─────────────────────────────────────────────
+ *
+ * This number decides whether the Accounts page's "Bank connections" button
+ * goes amber. The owner asked for it after finding a dead link only by opening
+ * the bank-feeds page: "would it be possible to change the colour ... if any of
+ * my account links have an error?"
+ */
+describe('countFeedsNeedingAttention', () => {
+  it('counts an outright error', () => {
+    expect(countFeedsNeedingAttention([makeConnection({ status: 'error' })])).toBe(1);
+  });
+
+  it('counts an EXPIRED CONSENT too — the failure that looks like nothing', () => {
+    /*
+     * The one worth being deliberate about. `reauth_required` shows no error
+     * anywhere on the Accounts page: the feed simply stops and the balances go
+     * quietly stale, which is indistinguishable from an account nobody has
+     * spent from. If anything deserves the amber it is this.
+     */
+    expect(countFeedsNeedingAttention([makeConnection({ status: 'reauth_required' })])).toBe(1);
+  });
+
+  it('does not count healthy connections', () => {
+    expect(countFeedsNeedingAttention([
+      makeConnection({ id: 'a', status: 'connected' }),
+      makeConnection({ id: 'b', status: 'connected' }),
+    ])).toBe(0);
+  });
+
+  it('counts each broken connection once, and ignores the healthy ones beside them', () => {
+    // The owner's own shape: one dead Revolut among two working banks.
+    expect(countFeedsNeedingAttention([
+      makeConnection({ id: 'revolut', status: 'error' }),
+      makeConnection({ id: 'amex', status: 'connected' }),
+      makeConnection({ id: 'hsbc', status: 'connected' }),
+    ])).toBe(1);
+  });
+
+  it('is 0 for no connections at all, which is the desktop edition', () => {
+    expect(countFeedsNeedingAttention([])).toBe(0);
   });
 });

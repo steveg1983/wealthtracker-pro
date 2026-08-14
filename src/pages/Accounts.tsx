@@ -350,7 +350,7 @@ export default function Accounts() {
     [seededBalances, computeLedgerBalance]
   );
   // Per-account bank connection metadata + one-click "pull fresh bank data".
-  const { getAccountLink, isAccountSyncing, syncAccount, syncAllConnections, connectedCount, isSyncingAny } = useAccountBankSync({ onSynced: refreshAccountsAndTransactions });
+  const { getAccountLink, isAccountSyncing, syncAccount, syncAllConnections, connectedCount, feedsNeedingAttention, isSyncingAny } = useAccountBankSync({ onSynced: refreshAccountsAndTransactions });
 
   // Only OPEN accounts appear in the main list and totals; closed ones live in
   // the Closed Accounts section below (the Microsoft Money model — closing
@@ -2204,12 +2204,44 @@ export default function Accounts() {
                 And "Bank Connections" was Title Case standing next to "Refresh
                 feeds" in sentence case — two spellings of one convention, 8px
                 apart. */}
+            {/* ─ AND IT TURNS AMBER WHEN A FEED HAS STOPPED ──────────────────
+                "Would it be possible to change the colour of the 'Bank
+                Connections' button on the accounts page if any of my account
+                links have an error?"
+
+                Yes — and this is the yellow thread's own case rather than an
+                exception to it. Ruling A gives amber to the ONE control you
+                should touch next, which is why a COUNT was taken off it: a
+                count is not clickable and there can be eight of them. A broken
+                feed is the opposite on both counts. There is a single control
+                that fixes it, this is that control, and until it is pressed the
+                balances on this page are quietly going stale — the page cannot
+                say so anywhere else, because a stopped feed looks exactly like
+                an account nobody has spent from.
+
+                Colour is not the only carrier: the label changes too, so the
+                reason survives for anyone who cannot see the difference, and
+                the button says how many rather than merely that something is
+                wrong. `reauth_required` counts as broken — see
+                `feedsNeedingAttention` — because an expired consent is the
+                failure that looks like nothing at all.
+
+                The amber is `accessible-colors.ts`'s warning pair, not a hand
+                mixed one: amber-700 on amber-100 measures 5.5:1, amber-300 on
+                amber-900 10.7:1. Its neighbour Refresh feeds keeps the quiet
+                outline, so there is still exactly one loud control here. */}
             <button
               onClick={() => setBankConnectionsView('plain')}
-              className="w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+              className={`w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors flex items-center gap-2 ${
+                feedsNeedingAttention > 0
+                  ? 'border-amber-400 bg-amber-100 text-amber-700 hover:bg-amber-200 dark:border-amber-500 dark:bg-amber-900 dark:text-amber-300 dark:hover:bg-amber-800'
+                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
             >
               <BankIcon size={16} />
-              Bank connections
+              {feedsNeedingAttention > 0
+                ? `Bank connections — ${feedsNeedingAttention} need${feedsNeedingAttention === 1 ? 's' : ''} attention`
+                : 'Bank connections'}
             </button>
           </div>
         </div>
