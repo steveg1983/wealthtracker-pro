@@ -16,6 +16,7 @@ interface TestAccount {
   institution?: string;
   sortCode?: string;
   balance?: number;
+  parentAccountId?: string | null;
 }
 
 const PLACEHOLDER = 'Search or select account…';
@@ -483,5 +484,88 @@ describe('AccountSelector', () => {
 
       expect(container.contains(screen.getByRole('listbox'))).toBe(true);
     });
+  });
+});
+
+/**
+ * ─ A LINKED CASH SLEEVE IS FILED WHERE ITS INVESTMENT LIVES ────────────────
+ *
+ * Reported from the transfer picker: "(Beards) - Wiseville Investments" and
+ * "Coutts - Investment P…" are the cash sleeves of investment accounts, and
+ * both were listed under CURRENT ACCOUNTS — while the Accounts page shows them
+ * nested inside their investment parent.
+ *
+ * The owner's rule is the page's own behaviour written down: "linked, it sits
+ * within the investment account it is linked to; unlink, and it moves up to
+ * current accounts." This file's header already promised that this picker "and
+ * that page can never disagree about where an account belongs" — so this is
+ * that promise being kept, not a new idea.
+ */
+describe('a cash account linked to an investment', () => {
+  const sleeve: TestAccount = {
+    id: 'cash-linked',
+    name: 'Wiseville Cash',
+    type: 'current',
+    institution: 'Beards',
+    parentAccountId: 'inv1',
+  };
+  const investment: TestAccount = {
+    id: 'inv1',
+    name: 'Wiseville Investments',
+    type: 'investment',
+    institution: 'Beards',
+  };
+  const loose: TestAccount = {
+    id: 'cash-loose',
+    name: 'Wiseville Spare Cash',
+    type: 'current',
+    institution: 'Beards',
+  };
+
+  const pickerFor = (list: TestAccount[], onAccountChange = vi.fn()) => {
+    render(
+      <AccountSelector
+        accounts={list}
+        selectedAccountId=""
+        onAccountChange={onAccountChange}
+        placeholder={PLACEHOLDER}
+        formatLabel={(account) => `${account.name} (${account.type})`}
+      />
+    );
+    open();
+    return onAccountChange;
+  };
+
+  it('files the sleeve under Investments, leaving no Current Accounts section', () => {
+    /*
+     * The sharp version of the rule: the ONLY `type: current` account here is
+     * the sleeve, so if it is filed correctly there is no current-accounts
+     * section left to draw. Asserting the absence is what makes this fail on
+     * the old behaviour rather than merely on a reordering.
+     */
+    pickerFor([sleeve, investment]);
+
+    expect(headings()).not.toContain('Current Accounts');
+    expect(headings()).toContain('Investments');
+    expect(screen.getByText('Wiseville Cash (current)')).toBeInTheDocument();
+  });
+
+  it('keeps its own name and type on the row, and reports its own id', () => {
+    // Sectioning borrows the parent's type; the OPTION stays the real account,
+    // or the picker would hand back an investment where cash was chosen.
+    const onAccountChange = pickerFor([sleeve, investment]);
+    fireEvent.click(screen.getByText('Wiseville Cash (current)'));
+
+    expect(onAccountChange).toHaveBeenCalledWith('cash-linked');
+  });
+
+  it('leaves an UNLINKED cash account under Current Accounts', () => {
+    // The rule keys on the LINK, not on the name or the institution — which
+    // this sibling shares with the sleeve, and is why it is the useful control.
+    pickerFor([sleeve, investment, loose]);
+
+    expect(headings()).toContain('Current Accounts');
+    expect(headings()).toContain('Investments');
+    expect(screen.getByText('Wiseville Spare Cash (current)')).toBeInTheDocument();
   });
 });
