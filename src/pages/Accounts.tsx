@@ -681,6 +681,117 @@ export default function Accounts() {
       (nestedByParent.get(account.id) ?? []).some(accountMatchesSearch),
     [accountMatchesSearch, nestedByParent]
   );
+  /*
+   * ─ THE TRAVELLING AMBER, AND THE VIEW IT OPENS ─────────────────────────────
+   *
+   * With institutions and sections foldable, a page in summary form can hide
+   * every account that has work waiting in it: "if I do have everything hidden
+   * ... if I have anything to review or to reconcile, it could be very hard to
+   * know that unless I periodically opened everything up and scrolled down them
+   * all to check."
+   *
+   * The answer is ONE control that names the next job and carries its count,
+   * and a view that shows only the accounts that job belongs to.
+   *
+   * ─ WHY ONE CONTROL AND NOT TWO ────────────────────────────────────────────
+   * Ruling A gives amber to the ONE control you should touch next, so two amber
+   * controls side by side would be the erosion it exists to prevent — and the
+   * owner's first sketch, an amber column HEADING, would also have made a label
+   * into a control. Instead this borrows the reconciliation page's travelling
+   * yellow: the colour sits on the step you are on and MOVES as you finish it.
+   * Review comes before reconcile because you file what arrived before you
+   * agree the balance it lands in, so "next" has an order and the control can
+   * simply follow it.
+   *
+   * A BROKEN FEED OUTRANKS BOTH, which is what keeps the count at exactly one
+   * amber on the page: money that is not arriving makes the figures wrong,
+   * where unfiled money only makes them untidy. Bank connections keeps the
+   * colour while a feed is down and this control waits its turn.
+   */
+  const reviewTotal = useMemo(
+    () => topLevelAccounts.reduce(
+      (sum, a) => sum + (toReviewByAccount.get(a.id) ?? 0)
+        + (nestedByParent.get(a.id) ?? []).reduce((n, c) => n + (toReviewByAccount.get(c.id) ?? 0), 0),
+      0
+    ),
+    [topLevelAccounts, nestedByParent, toReviewByAccount]
+  );
+
+  const reconcileAccountCount = useMemo(
+    () => topLevelAccounts.filter(
+      a => getUnreconciledCount(a.id) > 0
+        || (nestedByParent.get(a.id) ?? []).some(c => getUnreconciledCount(c.id) > 0)
+    ).length,
+    [topLevelAccounts, nestedByParent, getUnreconciledCount]
+  );
+
+  /** Which job the page is focused on, or null for the ordinary list. */
+  const [focusMode, setFocusMode] = useState<'review' | 'reconcile' | null>(null);
+
+  /**
+   * The folds to put back when focus ends. Null means "there were none to
+   * restore", which is the owner's stated fallback: come back to everything
+   * folded to institution level rather than to a wall of rows.
+   */
+  const foldsBeforeFocusRef = useRef<Set<string> | null>(null);
+
+  /** Does this account (or a cash account nested in it) carry the focused work? */
+  const accountHasFocusedWork = useCallback(
+    (account: Account): boolean => {
+      const has = (id: string): boolean =>
+        focusMode === 'review'
+          ? (toReviewByAccount.get(id) ?? 0) > 0
+          : getUnreconciledCount(id) > 0;
+      return has(account.id) || (nestedByParent.get(account.id) ?? []).some(c => has(c.id));
+    },
+    [focusMode, toReviewByAccount, getUnreconciledCount, nestedByParent]
+  );
+
+  const isFocused = focusMode !== null;
+
+  /**
+   * Enter a focus view, remembering the folds so leaving can put them back.
+   * Switching straight from one job to the other keeps the ORIGINAL folds:
+   * the snapshot is taken on the way in and not overwritten on the way across.
+   */
+  const enterFocus = useCallback((mode: 'review' | 'reconcile'): void => {
+    setFocusMode(prev => {
+      if (prev === null) {
+        foldsBeforeFocusRef.current = new Set(collapsedGroups);
+      }
+      return mode;
+    });
+  }, [collapsedGroups]);
+
+  /**
+   * Leave, and put the page back the way it was found — the owner's choice
+   * between the two endings he offered. The fallback is his other one: when
+   * there was nothing folded to restore, everything folds to institution level
+   * rather than dropping the reader into a wall of rows.
+   */
+  const exitFocus = useCallback((): void => {
+    const restored = foldsBeforeFocusRef.current;
+    foldsBeforeFocusRef.current = null;
+    setFocusMode(null);
+    if (restored !== null && restored.size > 0) {
+      setCollapsedGroups(restored);
+      return;
+    }
+    // Built from the SOURCE bands rather than the displayed ones: the displayed
+    // list is still narrowed to the focused work at this moment, so folding
+    // "everything on screen" would fold only the handful just dealt with.
+    const everyInstitution = new Set<string>();
+    if (accountBands.mode === 'grouped') {
+      for (const group of accountBands.groups) {
+        for (const sub of group.subGroups ?? []) {
+          everyInstitution.add(subBandCollapseKeyFor(group.label, sub.label));
+        }
+      }
+    }
+    setCollapsedGroups(everyInstitution);
+  }, [accountBands]);
+
+
   const matchedTopLevelCount = isSearching
     ? topLevelAccounts.filter(accountOrChildMatches).length
     : topLevelAccounts.length;
@@ -736,6 +847,30 @@ export default function Accounts() {
   // The collapsed-set key and the region id both key off the band's dimension
   // and label — see `collapsedGroups` for why the dimension is part of the key.
   const collapseKeyFor = (kind: AccountGroupKind, label: string) => `${kind}:${label}`;
+
+  /*
+   * A SUB-BAND'S FOLD BELONGS TO ITS SECTION, not to the institution alone.
+   *
+   * This keyed on `institution:<label>` when institutions first learned to fold,
+   * and I wrote the consequence down as though stating it made it acceptable:
+   * folding "Coutts" folded it in every type section at once. The owner hit
+   * exactly that — "if all my Coutts accounts are showing and I 'hide' my Coutts
+   * credit card account, all of my Coutts accounts hide, including the current
+   * accounts and the investment account. I would want it that if I want to hide
+   * my Coutts current accounts but keep in view my Coutts investment account I
+   * would want to."
+   *
+   * He is right and the original reasoning was wrong. The argument for keying by
+   * dimension is that a fold should survive the grouping switches being flipped
+   * — but a fold the user cannot aim is worth less than one that does not
+   * survive a switch, and "hide this bank's credit cards" is a thing a person
+   * actually wants where "hide this bank everywhere at once" is not.
+   *
+   * The section is part of the key; the `institution:` prefix stays so a
+   * sub-band can never collide with a top-level band of the same name.
+   */
+  const subBandCollapseKeyFor = (sectionLabel: string, institutionLabel: string) =>
+    `institution:${sectionLabel}:${institutionLabel}`;
   const groupRegionId = (kind: AccountGroupKind, label: string) =>
     `account-group-${kind}-${label.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
 
@@ -749,20 +884,35 @@ export default function Accounts() {
    * folded band or a filtered row.
    */
   const displayedList = useMemo<DisplayedList>(() => {
+    /*
+     * SEARCH AND FOCUS NARROW THE LIST THE SAME WAY, through one predicate, so
+     * the two can never disagree about which rows are on screen. Focus is
+     * simply a different question asked of the same machinery: search asks
+     * "does this match what I typed", focus asks "does this carry the work I
+     * am doing". Both then force every surviving band open, because a fold
+     * that swallowed a hit would defeat either of them.
+     */
+    const narrowing = isSearching || isFocused;
+    const survives = (account: Account): boolean =>
+      (!isSearching || accountOrChildMatches(account)) &&
+      (!isFocused || accountHasFocusedWork(account));
+
     if (accountBands.mode === 'flat') {
       return {
         mode: 'flat',
         accounts: sortAccounts(
-          isSearching ? accountBands.accounts.filter(accountOrChildMatches) : accountBands.accounts
+          narrowing ? accountBands.accounts.filter(survives) : accountBands.accounts
         ),
       };
     }
     const bands: DisplayedBand[] = [];
     for (const group of accountBands.groups) {
-      const displayed = isSearching ? group.accounts.filter(accountOrChildMatches) : group.accounts;
+      const displayed = narrowing ? group.accounts.filter(survives) : group.accounts;
       // A search that hides its own hits would be worse than no search, so a
       // band with no match drops out entirely instead of showing an empty card.
-      if (isSearching && displayed.length === 0) continue;
+      // Focus behaves identically: a section with nothing to review is not a
+      // section with an empty list, it is a section that is finished.
+      if (narrowing && displayed.length === 0) continue;
       // Sub-bands are filtered the same way, and an all-miss sub-band drops out
       // while its siblings keep their headings.
       const subBands = group.subGroups
@@ -770,7 +920,7 @@ export default function Accounts() {
           label: sub.label,
           title: sub.title,
           accounts: sub.accounts,
-          displayed: sortAccounts(isSearching ? sub.accounts.filter(accountOrChildMatches) : sub.accounts),
+          displayed: sortAccounts(narrowing ? sub.accounts.filter(survives) : sub.accounts),
           /*
            * AN INSTITUTION FOLDS TOO, on the same terms as the section above it.
            * "It means that if I just want to see an institutions summary — name
@@ -791,7 +941,7 @@ export default function Accounts() {
            * Search ignores the fold for the same reason it does above: a folded
            * institution must not swallow a row the user is hunting for.
            */
-          isExpanded: isSearching || !collapsedGroups.has(collapseKeyFor('institution', sub.label)),
+          isExpanded: narrowing || !collapsedGroups.has(subBandCollapseKeyFor(group.label, sub.label)),
         }))
         .filter(sub => sub.displayed.length > 0) ?? null;
       bands.push({
@@ -800,11 +950,11 @@ export default function Accounts() {
         subBands,
         // While searching, collapse is deliberately ignored: a folded section
         // must not swallow a result the user is actively looking for.
-        isExpanded: isSearching || !collapsedGroups.has(collapseKeyFor(group.kind, group.label)),
+        isExpanded: narrowing || !collapsedGroups.has(collapseKeyFor(group.kind, group.label)),
       });
     }
     return { mode: 'grouped', bands };
-  }, [accountBands, isSearching, accountOrChildMatches, sortAccounts, collapsedGroups]);
+  }, [accountBands, isSearching, isFocused, accountHasFocusedWork, accountOrChildMatches, sortAccounts, collapsedGroups]);
 
   /**
    * Every row on screen, top to bottom.
@@ -1767,7 +1917,7 @@ export default function Accounts() {
                           summary — name and total amount I can". */}
                       <button
                         type="button"
-                        onClick={() => toggleGroupCollapsed(collapseKeyFor('institution', sub.label))}
+                        onClick={() => toggleGroupCollapsed(subBandCollapseKeyFor(group.label, sub.label))}
                         aria-expanded={sub.isExpanded}
                         aria-controls={subRegionId}
                         className="w-full text-left flex items-center justify-between gap-2 mt-4 first:mt-0 border-t-2 first:border-t-0 border-b border-line dark:border-gray-700 bg-surface-secondary dark:bg-gray-700/50 hover:bg-surface-tertiary dark:hover:bg-gray-700 transition-colors duration-state px-4 sm:px-6 py-2"
@@ -2306,6 +2456,58 @@ export default function Accounts() {
                 ? `Bank connections — ${feedsNeedingAttention} need${feedsNeedingAttention === 1 ? 's' : ''} attention`
                 : 'Bank connections'}
             </button>
+            {/* ─ THE TRAVELLING AMBER ─────────────────────────────────────────
+                See `focusMode` for the whole argument. In short: one control
+                naming the next job, which MOVES to the next one as each is
+                finished, rather than two controls competing for the same
+                colour or a column heading pretending to be a button.
+
+                It goes quiet — outline, not amber — while a bank feed is down,
+                because its neighbour is then the thing to touch next and there
+                is only ever one amber on this page. It still works; it just
+                stops shouting over something more urgent.
+
+                While a view is focused this becomes the way OUT, and the other
+                job (if it has any work) is offered beside it in the quiet
+                style — the reconciliation page's arrangement exactly: yellow on
+                the step you are on, the alternative in a plain control. */}
+            {(reviewTotal > 0 || reconcileAccountCount > 0) && (() => {
+              const nextJob: 'review' | 'reconcile' = reviewTotal > 0 ? 'review' : 'reconcile';
+              const label = nextJob === 'review'
+                ? `Review ${reviewTotal} transaction${reviewTotal === 1 ? '' : 's'}`
+                : `Reconcile ${reconcileAccountCount} account${reconcileAccountCount === 1 ? '' : 's'}`;
+              const wearsAmber = feedsNeedingAttention === 0 && !isFocused;
+              const other: 'review' | 'reconcile' = focusMode === 'review' ? 'reconcile' : 'review';
+              const otherHasWork = other === 'review' ? reviewTotal > 0 : reconcileAccountCount > 0;
+              return (
+                <>
+                  <button
+                    onClick={() => (isFocused ? exitFocus() : enterFocus(nextJob))}
+                    aria-pressed={isFocused}
+                    className={`w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors flex items-center gap-2 ${
+                      wearsAmber
+                        ? 'border-amber-400 bg-amber-100 text-amber-700 hover:bg-amber-200 dark:border-amber-500 dark:bg-amber-900 dark:text-amber-300 dark:hover:bg-amber-800'
+                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    <CheckCircleIcon size={16} />
+                    {isFocused
+                      ? `Showing ${focusMode === 'review' ? 'to review' : 'to reconcile'} — show all`
+                      : label}
+                  </button>
+                  {isFocused && otherHasWork && (
+                    <button
+                      onClick={() => enterFocus(other)}
+                      className="w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+                    >
+                      {other === 'review'
+                        ? `Review ${reviewTotal} instead`
+                        : `Reconcile ${reconcileAccountCount} instead`}
+                    </button>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
