@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef, Suspense } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 
 // THE FRAME'S EDITION-VARYING FURNITURE, through a specifier that names no
@@ -44,45 +44,14 @@ import { useSwipeGestures } from '../hooks/useSwipeGestures';
 import ViewportDebugOverlay from './ViewportDebugOverlay';
 import SyncStatusIndicator from './SyncStatusIndicator';
 import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
+import { APP_BAR_HEIGHT_VAR, TOP_CHROME_OFFSET } from './layout/chromeOffsets';
 
-/**
- * The vertical room the demo banner needs, or nothing at all when it is not
- * showing. Set by whatever `@chrome` resolves `DemoBanner` to, which is the only
- * thing that can measure it — see the comment on BANNER_HEIGHT_VAR in
- * `components/DemoModeIndicator.tsx`. An edition with no demo mode publishes
- * nothing and every consumer here falls back to 0px, which is exactly what a
- * browser outside demo mode already does.
+/*
+ * The top-of-window offsets live in `layout/chromeOffsets.ts` rather than here.
+ * A page needs one of them to park its own chrome, and Layout renders the
+ * router's Outlet — so importing back from this file closes a cycle that lint
+ * and strict TypeScript both accept and the browser does not. See that file.
  */
-const DEMO_BANNER_OFFSET = 'var(--wt-demo-banner-height, 0px)';
-
-/**
- * Everything pinned to the top of the window starts BELOW the phone's status
- * bar — the clock, the signal bars, the battery.
- *
- * `index.html` asks for `apple-mobile-web-app-status-bar-style:
- * black-translucent` with `viewport-fit=cover`, and that pairing means exactly
- * what it says: once the app is installed to a home screen, the page is drawn
- * UNDER the status bar rather than beneath it. That is the right choice — it is
- * what makes an installed app look like an app instead of a web page in a box —
- * but it is only half a decision. The other half is `env(safe-area-inset-top)`,
- * and nothing in this codebase was using it: `.safe-padding-top` had been
- * defined in index.css and had ZERO consumers.
- *
- * So the mobile header sat at y=0, underneath the clock and the battery, and
- * the identity menu in its top-right corner — the only way to sign out on a
- * phone — was physically unreachable behind them. Reported by the owner from
- * his own home screen, with a screenshot of the avatar hiding behind his wifi
- * indicator.
- *
- * In a browser tab the inset resolves to 0px, so this changes nothing there;
- * it only pays out where the status bar actually overlaps, which is the case
- * that was broken. The demo banner and the header both use it, and the banner
- * publishes its measured height on top, so the two stack in the right order.
- */
-const SAFE_AREA_TOP = 'env(safe-area-inset-top, 0px)';
-
-/** Below the status bar, and below the demo banner when there is one. */
-const TOP_CHROME_OFFSET = `calc(${SAFE_AREA_TOP} + ${DEMO_BANNER_OFFSET})`;
 
 export default function Layout(): React.JSX.Element {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -94,6 +63,8 @@ export default function Layout(): React.JSX.Element {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [isMobileSearchVisible, setIsMobileSearchVisible] = useState(false);
   const desktopSearchRef = useRef<GlobalSearchHandle | null>(null);
+  const desktopNavRef = useRef<HTMLElement | null>(null);
+  const mobileHeaderRef = useRef<HTMLElement | null>(null);
   const mobileSearchRef = useRef<GlobalSearchHandle | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -119,7 +90,64 @@ export default function Layout(): React.JSX.Element {
       desktopSearchRef.current?.focusInput();
     }
   }, [openMobileSearch]);
-  
+
+  // Publishes APP_BAR_HEIGHT_VAR — see the comment on it in
+  // `layout/chromeOffsets`, and on BANNER_HEIGHT_VAR in DemoModeIndicator,
+  // which this deliberately mirrors. In a LAYOUT effect, before paint, so a
+  // page's parked chrome is in the right place on the first frame rather than
+  // dropping into position after it.
+  useLayoutEffect((): (() => void) => {
+    const root = document.documentElement;
+    const publishHeight = (): void => {
+      // Whichever bar is hidden at this width measures 0, so the larger of the
+      // two is the one on screen — which is how this survives a breakpoint
+      // change without knowing where the breakpoint is.
+      const height = Math.max(
+        desktopNavRef.current?.offsetHeight ?? 0,
+        mobileHeaderRef.current?.offsetHeight ?? 0
+      );
+      root.style.setProperty(APP_BAR_HEIGHT_VAR, `${height}px`);
+    };
+
+    publishHeight();
+
+    // WATCHING THE TWO BARS IS NOT ENOUGH, and the failure is silent. A
+    // ResizeObserver does not report an element that is not being rendered, so
+    // the one moment the answer changes — crossing `md`, one bar going
+    // `display: none` as the other appears — fires no callback at all.
+    // Measured: after 1280→390 the variable still said 48px, the desktop bar's
+    // height, and the accounts toolbar parked 28px UNDER a 76px mobile header.
+    //
+    // So the document element is observed as well — always rendered, always
+    // changing with the viewport — and `resize` and `orientationchange` are
+    // listened for on top. That is three subscriptions for one fact, and it is
+    // deliberate belt-and-braces rather than indecision: every callback runs
+    // the same two `offsetHeight` reads, so a duplicate costs nothing and a
+    // missing one costs a toolbar parked behind the header.
+    //
+    // ⚠️ WHAT IS AND IS NOT PROVEN. Verified by measurement: the published
+    // value is correct on load at 1280 (48px) and at 390 (76px), and the
+    // handler produces the right answer when invoked. The CROSSING itself
+    // could not be tested here — the automated browser changes the viewport
+    // without dispatching anything, confirmed by counting hits on all three
+    // subscriptions across a 1280→390 change: 0, 0 and 0, while `innerWidth`
+    // reported the new value. A real browser fires all three. This is the same
+    // family of blind spot as the harness being unable to see CSS transitions.
+    const observer = new ResizeObserver(publishHeight);
+    observer.observe(document.documentElement);
+    if (desktopNavRef.current !== null) observer.observe(desktopNavRef.current);
+    if (mobileHeaderRef.current !== null) observer.observe(mobileHeaderRef.current);
+    window.addEventListener('resize', publishHeight);
+    window.addEventListener('orientationchange', publishHeight);
+
+    return (): void => {
+      observer.disconnect();
+      window.removeEventListener('resize', publishHeight);
+      window.removeEventListener('orientationchange', publishHeight);
+      root.style.removeProperty(APP_BAR_HEIGHT_VAR);
+    };
+  }, []);
+
   // Initialize conflict resolution
   const {
     currentConflict,
@@ -301,6 +329,7 @@ export default function Layout(): React.JSX.Element {
       </div>
       {/* Desktop Top Navigation Bar */}
       <nav
+        ref={desktopNavRef}
         id="main-navigation"
         className="hidden md:block fixed top-0 left-0 right-0 z-40 bg-[#1a2332] shadow-md"
         // Sits BELOW the demo banner rather than under it. The banner publishes
@@ -485,6 +514,7 @@ export default function Layout(): React.JSX.Element {
 
       {/* Mobile Header */}
       <header
+        ref={mobileHeaderRef}
         className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 shadow-md"
         // The status bar's room as well as the banner's — see TOP_CHROME_OFFSET.
         // This header carries the identity menu, so getting it wrong took the
