@@ -47,6 +47,33 @@ export default function BankConnections({
   const [isLoading, setIsLoading] = useState(false);
   const [syncingConnections, setSyncingConnections] = useState<Set<string>>(new Set());
   const [configStatus, setConfigStatus] = useState({ plaid: false, trueLayer: false });
+  /*
+   * ─ WHAT WE KNOW, AS OPPOSED TO WHAT WE HAVE NOT ASKED YET ──────────────────
+   *
+   * Both of these start false and become true when their own fetch resolves,
+   * and they exist because this panel used to say two untrue things on its way
+   * to saying a true one. Reported: "there seems to be 2 other pages that occupy
+   * the pop up before it settles ... the app flicks through them that quick I
+   * cannot get a screenshot."
+   *
+   * They were these, in order:
+   *   1. "Bank connections not configured — add your provider credentials to
+   *      the backend environment variables", because `configStatus` defaults to
+   *      neither provider being on and the warning renders on `!plaid &&
+   *      !trueLayer`;
+   *   2. "No banks connected — Connect Your First Bank", because `connections`
+   *      defaults to `[]` and the list renders on `connections.length > 0`.
+   *
+   * Both are the same mistake: an EMPTY initial value rendered as a finding.
+   * On an account with three live banks the modal opened by announcing that
+   * the feature was unconfigured and that nothing was linked — which, for the
+   * half-second it lasted, is indistinguishable from having lost them.
+   *
+   * Two flags rather than one, because the two fetches are independent and one
+   * being slow must not hold back the other's answer.
+   */
+  const [connectionsLoaded, setConnectionsLoaded] = useState(false);
+  const [configChecked, setConfigChecked] = useState(false);
   const [linkingConnectionId, setLinkingConnectionId] = useState<string | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
   // What an incomplete sync could not do. It used to go to the console only,
@@ -132,8 +159,21 @@ export default function BankConnections({
   };
 
   const loadConnections = async () => {
-    await bankConnectionService.refreshConnections();
-    setConnections(bankConnectionService.getConnections());
+    try {
+      await bankConnectionService.refreshConnections();
+      setConnections(bankConnectionService.getConnections());
+    } catch (error) {
+      // Caught rather than left to bubble: both loaders are started with
+      // `void`, so a rejection here became an unhandled promise rejection —
+      // which predates the flags but only showed up once a test held a refresh
+      // open and failed it on purpose.
+      logger.error('Failed to load bank connections', error as Error);
+    } finally {
+      // In `finally` so a failed refresh still stops the panel waiting: a fetch
+      // that threw has told us as much as it is going to, and holding the blank
+      // forever would be its own kind of lie.
+      setConnectionsLoaded(true);
+    }
   };
 
   const loadInstitutions = async () => {
@@ -142,8 +182,14 @@ export default function BankConnections({
   };
 
   const checkConfig = async () => {
-    await bankConnectionService.refreshConfigStatus();
-    setConfigStatus(bankConnectionService.getConfigStatus());
+    try {
+      await bankConnectionService.refreshConfigStatus();
+      setConfigStatus(bankConnectionService.getConfigStatus());
+    } catch (error) {
+      logger.error('Failed to check bank provider configuration', error as Error);
+    } finally {
+      setConfigChecked(true);
+    }
   };
 
   const handleConnect = async (institution: BankInstitution) => {
@@ -261,7 +307,7 @@ export default function BankConnections({
   return (
     <div className="space-y-6">
       {/* Configuration Warning */}
-      {!configStatus.plaid && !configStatus.trueLayer && (
+      {configChecked && !configStatus.plaid && !configStatus.trueLayer && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
           <div className="flex items-start gap-3">
             <AlertCircleIcon className="text-yellow-600 dark:text-yellow-400 mt-0.5" size={20} />
@@ -370,7 +416,7 @@ export default function BankConnections({
       </div>
 
       {/* Connected Banks List */}
-      {connections.length > 0 ? (
+      {!connectionsLoaded ? null : connections.length > 0 ? (
         <div className="space-y-3">
           {connections.map(connection => (
             <div
