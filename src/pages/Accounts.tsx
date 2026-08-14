@@ -736,6 +736,30 @@ export default function Accounts() {
   // The collapsed-set key and the region id both key off the band's dimension
   // and label — see `collapsedGroups` for why the dimension is part of the key.
   const collapseKeyFor = (kind: AccountGroupKind, label: string) => `${kind}:${label}`;
+
+  /*
+   * A SUB-BAND'S FOLD BELONGS TO ITS SECTION, not to the institution alone.
+   *
+   * This keyed on `institution:<label>` when institutions first learned to fold,
+   * and I wrote the consequence down as though stating it made it acceptable:
+   * folding "Coutts" folded it in every type section at once. The owner hit
+   * exactly that — "if all my Coutts accounts are showing and I 'hide' my Coutts
+   * credit card account, all of my Coutts accounts hide, including the current
+   * accounts and the investment account. I would want it that if I want to hide
+   * my Coutts current accounts but keep in view my Coutts investment account I
+   * would want to."
+   *
+   * He is right and the original reasoning was wrong. The argument for keying by
+   * dimension is that a fold should survive the grouping switches being flipped
+   * — but a fold the user cannot aim is worth less than one that does not
+   * survive a switch, and "hide this bank's credit cards" is a thing a person
+   * actually wants where "hide this bank everywhere at once" is not.
+   *
+   * The section is part of the key; the `institution:` prefix stays so a
+   * sub-band can never collide with a top-level band of the same name.
+   */
+  const subBandCollapseKeyFor = (sectionLabel: string, institutionLabel: string) =>
+    `institution:${sectionLabel}:${institutionLabel}`;
   const groupRegionId = (kind: AccountGroupKind, label: string) =>
     `account-group-${kind}-${label.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
 
@@ -791,7 +815,7 @@ export default function Accounts() {
            * Search ignores the fold for the same reason it does above: a folded
            * institution must not swallow a row the user is hunting for.
            */
-          isExpanded: isSearching || !collapsedGroups.has(collapseKeyFor('institution', sub.label)),
+          isExpanded: isSearching || !collapsedGroups.has(subBandCollapseKeyFor(group.label, sub.label)),
         }))
         .filter(sub => sub.displayed.length > 0) ?? null;
       bands.push({
@@ -1767,7 +1791,7 @@ export default function Accounts() {
                           summary — name and total amount I can". */}
                       <button
                         type="button"
-                        onClick={() => toggleGroupCollapsed(collapseKeyFor('institution', sub.label))}
+                        onClick={() => toggleGroupCollapsed(subBandCollapseKeyFor(group.label, sub.label))}
                         aria-expanded={sub.isExpanded}
                         aria-controls={subRegionId}
                         className="w-full text-left flex items-center justify-between gap-2 mt-4 first:mt-0 border-t-2 first:border-t-0 border-b border-line dark:border-gray-700 bg-surface-secondary dark:bg-gray-700/50 hover:bg-surface-tertiary dark:hover:bg-gray-700 transition-colors duration-state px-4 sm:px-6 py-2"
