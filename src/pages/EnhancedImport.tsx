@@ -109,11 +109,11 @@ export default function EnhancedImport(): React.JSX.Element {
     <PageWrapper title="Import Data">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="bg-[#1a2332] dark:bg-gray-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div className="bg-white dark:bg-gray-800 border border-line dark:border-gray-700 rounded-lg p-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Import Data</h1>
-              <p className="text-white/70">
+              <h1 className="text-page font-semibold mb-2 text-gray-900 dark:text-white">Import Data</h1>
+              <p className="text-body text-gray-500 dark:text-gray-400">
                 Every way to bring your data in — a full Microsoft Money migration, your own backup file,
                 bank files, or another app.
               </p>
@@ -132,7 +132,7 @@ export default function EnhancedImport(): React.JSX.Element {
           </span>
           <span className="min-w-0">
             <span className="block font-semibold text-gray-900 dark:text-white">Import from Microsoft Money</span>
-            <span className="block text-sm text-gray-500 dark:text-gray-400">
+            <span className="block text-body text-gray-500 dark:text-gray-400">
               Migrate your entire <code>.mny</code> file — every account, transaction and transfer. Replaces all current data.
             </span>
           </span>
@@ -153,12 +153,12 @@ export default function EnhancedImport(): React.JSX.Element {
           {/* Named as the button actually reads on the Export page, and as the
               restore dialog itself names it — a page and the dialog it opens
               must not send someone looking for two different buttons. */}
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-body text-gray-600 dark:text-gray-400">
             A restore reads back the JSON file from <strong>Manage &rarr; Export &rarr; &ldquo;Download full
             backup (JSON)&rdquo;</strong> — every account, transaction, budget and goal in one go. It is
             not a CSV, OFX or QIF import and it cannot read a bank statement.
           </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-body text-gray-600 dark:text-gray-400">
             It only ever writes into an <strong>empty login</strong>. Unlike the Microsoft Money
             migration above, it will not replace what is already here: if this login holds data the
             restore stops and asks you to erase it first, which is a separate confirmation you type
@@ -216,7 +216,7 @@ export default function EnhancedImport(): React.JSX.Element {
           description="Rules that categorise and transform transactions as they come in."
         >
           <div className="flex items-center justify-between gap-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-body text-gray-600 dark:text-gray-400">
               {activeRules.length > 0
                 ? `${activeRules.length} active rule${activeRules.length === 1 ? '' : 's'} run on every import.`
                 : 'No import rules yet — create one to auto-categorise incoming transactions.'}
@@ -233,21 +233,21 @@ export default function EnhancedImport(): React.JSX.Element {
 
         {/* Supported bank formats — reassurance that the file will be understood */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <h3 className="text-card font-semibold text-gray-900 dark:text-white mb-4">
             Recognised bank formats ({bankFormats.length}+)
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {bankFormats.map(bank => (
               <div key={bank} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <GlobeIcon size={14} className="text-blue-700 dark:text-blue-400 flex-shrink-0" />
-                <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{bank}</span>
+                <span className="text-body text-gray-700 dark:text-gray-300 truncate">{bank}</span>
               </div>
             ))}
           </div>
-          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div className="mt-4 p-4 bg-white dark:bg-gray-800 border border-line dark:border-gray-700 rounded-lg">
             <div className="flex items-start gap-3">
               <AlertCircleIcon size={20} className="text-blue-700 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-              <div className="text-sm">
+              <div className="text-body">
                 <p className="text-blue-900 dark:text-blue-100 font-medium mb-1">Don't see your bank?</p>
                 <p className="text-blue-800 dark:text-blue-200">
                   Use CSV Import to map columns for any file, or create an import rule to transform data from any institution.
@@ -333,7 +333,7 @@ export default function EnhancedImport(): React.JSX.Element {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Import Rules & Transformations</h2>
+              <h2 className="text-card font-semibold text-gray-900 dark:text-white">Import Rules & Transformations</h2>
               <button
                 onClick={() => setShowRulesManager(false)}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500 dark:text-gray-400"
@@ -362,8 +362,8 @@ function Section({ title, description, children }: {
 }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{description}</p>
+      <h3 className="text-card font-semibold text-gray-900 dark:text-white">{title}</h3>
+      <p className="text-body text-gray-500 dark:text-gray-400 mb-4">{description}</p>
       <div className="space-y-3">{children}</div>
     </div>
   );
@@ -382,8 +382,8 @@ function ActionButton({ icon: Icon, title, description, onClick }: {
         <Icon size={18} />
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-medium text-gray-900 dark:text-white">{title}</span>
-        <span className="block text-xs text-gray-500 dark:text-gray-400">{description}</span>
+        <span className="block text-body font-medium text-gray-900 dark:text-white">{title}</span>
+        <span className="block text-dense text-gray-500 dark:text-gray-400">{description}</span>
       </span>
     </button>
   );
