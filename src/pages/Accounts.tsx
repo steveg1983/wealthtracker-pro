@@ -75,6 +75,7 @@ import { useArrivalRowFocus } from '../hooks/useArrivalFocus';
 // a row's own button belongs to the button, on both pages.
 import { clickedOwnControl } from '../hooks/useRowClickGesture';
 import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
+import { STICKY_UNDER_APP_BAR } from '../components/layout/chromeOffsets';
 import {
   currentPageProvenance,
   readResumeCrumbs,
@@ -1581,11 +1582,26 @@ export default function Accounts() {
                 className={`flex-shrink-0 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
               />
               {bandHeadingIcon(group)}
-              {/* Caps label, not a heading-sized title: the band's name is a
-                  label for the figure beside it, and the figure is the thing
-                  worth reading (P1). Still an h2 — the outline, and the way a
-                  screen-reader user walks this page, are unchanged. */}
-              <h2 className="text-body uppercase font-bold tracking-wide text-gray-900 dark:text-white">{group.title}</h2>
+              {/* THE NAME OUTRANKS THE FIGURE HERE, and it took two goes to
+                  believe it. P1 said a band's name is a label for its total,
+                  so the label was set one step under the money — 14px word,
+                  16px figure. The owner read the result back: "the words like
+                  'Current Accounts' and 'Credit Cards' are now smaller than the
+                  figures next to them."
+
+                  He is right, and P1 is not wrong — it is answering a different
+                  question. On a card you have already found, the total is what
+                  you came for. This is a 130-row list being SCROLLED, and the
+                  heading's job there is to tell you where you have got to; a
+                  band total nobody navigates by was winning that contest on
+                  size alone. So the name goes to `text-card`, level with the
+                  figure it introduces, and the institution line below it to
+                  `text-body`, keeping the one-step drop BETWEEN the two tiers
+                  rather than between a heading and its own number.
+
+                  Still an h2 — the outline, and the way a screen-reader user
+                  walks this page, are unchanged. */}
+              <h2 className="text-card uppercase font-bold tracking-wide text-gray-900 dark:text-white">{group.title}</h2>
               <span className="text-dense text-gray-400 dark:text-gray-500">
                 ({group.accounts.length} {group.accounts.length === 1 ? 'account' : 'accounts'})
               </span>
@@ -1598,16 +1614,11 @@ export default function Accounts() {
 
         {isExpanded && (
           <div id={regionId} className="bg-white dark:bg-gray-800">
-            {/* ONE STRIP PER BAND, not four labels on every row.
-                Twenty-odd repetitions of "Bank Bal / Account Bal /
-                Unreconciled / To Review" were the cost of a card that has to
-                explain itself in isolation — the reconciliation list was given
-                one strip per group in the August design pass and this page
-                never was. It sits above the sub-bands rather than inside each
-                one, so an account list grouped by nine institutions says the
-                four words once, not nine times. Phones keep the per-row labels
-                (see AccountRowColumns): below `sm` there is no grid to head. */}
-            <AccountColumnHeader />
+            {/* The strip that used to be here is now parked at the top of the
+                page with the controls, so it heads every band instead of
+                scrolling away with this one. Phones never had it and still do
+                not — below `sm` there is no grid to head, and the per-row
+                labels in AccountRowColumns do that job. */}
             {subBands
               ? subBands.map(sub => {
                   // Count and total describe the WHOLE sub-band, as the section
@@ -1629,13 +1640,13 @@ export default function Accounts() {
                       {/* The same treatment as the band above it, one step
                           quieter: a line, not a pill with a border of its own. */}
                       <div className="flex items-center justify-between gap-2 border-b border-line dark:border-gray-700 bg-surface-secondary/60 dark:bg-gray-700/30 px-4 sm:px-6 py-1.5">
-                        <p className="text-dense uppercase font-semibold tracking-wide text-gray-700 dark:text-gray-200 truncate">
+                        <p className="text-body uppercase font-bold tracking-wide text-gray-900 dark:text-white truncate">
                           {sub.title}
                           <span className="ml-2 font-normal normal-case tracking-normal text-gray-400 dark:text-gray-500">
                             ({countLabel})
                           </span>
                         </p>
-                        <p className="shrink-0 text-dense font-semibold text-gray-600 dark:text-gray-300">
+                        <p className="shrink-0 text-body font-semibold text-gray-700 dark:text-gray-300">
                           {/* The container already carries the spoken form in
                               its group label, so the mark is decoration here. */}
                           <span aria-hidden="true">{subTotal.text}</span>
@@ -1802,6 +1813,74 @@ export default function Accounts() {
           and it is what lines the pill groups up under each other; side by side
           each label is its own width, 8px from its controls and 32 from the
           group before. */}
+      </div>
+
+      {/* THE CHROME PARKS, AND THE LIST SCROLLS UNDER IT.
+          ────────────────────────────────────────────────────────────────────
+          The owner's ask, verbatim: "we fix the information at the top of the
+          page to the top of the page, and just scroll the accounts below … as
+          when you start to scroll down you loose the ability to see column
+          headings and also loose the ability to change the view or refresh
+          feeds because you can no longer see anything at the top."
+
+          Note what is and is NOT in this box, because the difference is the
+          whole design argument. Parked: the controls, and the column strip.
+          Scrolling away as before: the page title, and the net-worth summary
+          card. A summary is read once on arrival and then it is rent — the
+          same P1 objection that kept this page unpinned until now. Controls
+          and column labels are read CONTINUOUSLY while scrolling a 130-row
+          list, which is the case for pinning them and the reason the earlier
+          ruling allowed sticky on a strip and refused it for the header block.
+
+          THE STRIP RIDES INSIDE THIS BOX rather than under it. That is not
+          tidiness — it is what makes the whole thing arithmetic-free. A second
+          sticky layer would need to know this one's height, and this one wraps
+          from one row to two at narrow widths and grows again when the "More"
+          drawer opens, so any `top` written for the strip would be a
+          measurement of other people's markup: exactly the mistake that made
+          `calc(100vh-13rem)` 40px wrong. One box, one offset, nothing to drift.
+          It also lands the strip above the "Current Accounts" heading, which is
+          where the owner asked for it.
+
+          The offset is `STICKY_UNDER_APP_BAR`, not a number. The reconciliation
+          page's `top-16 md:top-12` was the obvious thing to copy and it is
+          wrong three ways, all measured here: it omits the demo banner (36px,
+          so the controls park BEHIND the nav in demo mode — seen in a
+          screenshot before it was believed), it omits the status-bar inset that
+          an installed home-screen app has, and its mobile figure is 64px for a
+          header that measures 76. The app bar now publishes its own height the
+          way the demo banner already published its own, and the constant adds
+          up whatever those three are right now. The negative margins let the
+          parked background span the page gutter so rows do not show at its
+          edges as they pass beneath.
+
+          `md:sticky` — IT DOES NOT PARK ON A PHONE, and that is a refusal of
+          part of the ask rather than an oversight. Built at every width first
+          and screenshotted at 390: the block is two rows there, the search box
+          on one and the sort pills on the next, and it took 190px of a 760px
+          screen while clipping the card beneath it mid-figure. A quarter of the
+          phone held permanently by a search field is the "parked header is
+          rent" objection at its worst. Nothing is lost by letting it scroll:
+          the strip is `hidden sm:flex` so a phone has no column headings to
+          lose, and the bottom nav is already the fixed furniture there. The two
+          things the owner named — column headings, and reaching the view
+          controls and Refresh feeds — are desktop problems, and this is where
+          they are solved.
+
+          IT IS A SIBLING OF THE BANDS ON PURPOSE, and this is the one thing
+          here that will look like pointless nesting and is not. A sticky box
+          travels only within its OWN PARENT: written one level in, sharing a
+          wrapper with the summary card, everything above was correct — the
+          computed style really said `position: sticky, top: 48px` — and it
+          still scrolled away, because that wrapper is 253px tall and ends
+          before the first band. Measured at 1280×700: parked top should be 48,
+          was 18 at scrollY 400 and −111 at the bottom. Nothing in the CSS was
+          wrong; the box was in the wrong box. Keep it a direct sibling of the
+          list it heads, or it silently stops sticking again. */}
+      <div
+        className="md:sticky z-30 -mx-4 px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 pt-2 bg-[#f8f9fb] dark:bg-gray-900"
+        style={{ top: STICKY_UNDER_APP_BAR }}
+      >
       <div className="flex flex-wrap items-center gap-x-8 gap-y-2 mb-4">
         {/* w-full below sm: each control needs to OWN its row for the pill
             group inside to stretch — as content-sized flex items the two
@@ -2060,7 +2139,20 @@ export default function Accounts() {
           </div>
         </div>
       </div>
+      {/* ONE STRIP FOR THE PAGE, not one per band and not four labels per row.
+          It used to sit inside each band's expanded region — already an
+          improvement on twenty-odd repetitions, but it scrolled away with the
+          band, which is the half of the owner's report about column headings.
+          Parked here it heads every band at once, which it can do because all
+          nine bands share one grid.
 
+          Alignment survives the move for a structural reason rather than a
+          lucky one: a band is a plain `<div>` with no inset of its own and the
+          rows sit directly on it, so a band's content edges ARE the page's
+          content edges — the same ones this sticky box is measured to. The
+          strip goes on wearing the row card's box (see AccountRowColumns) to
+          match the inset the CARD adds, which is the part that would drift. */}
+      <AccountColumnHeader />
       </div>
 
       {/* The `-ml-1 pl-1 pr-1` that used to be here went with the scroll
