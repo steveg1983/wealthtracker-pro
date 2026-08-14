@@ -136,12 +136,29 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
   return (
     <>
       {/* Notification Bell Button */}
+      {/*
+        THE BELL LIVES ON THE NAVY BAR, so it is painted for the navy bar.
+
+        It was `text-gray-700` — #374151, a DARK grey — sitting on the header's
+        #1a2332. Measured: 1.53:1, against the 3:1 WCAG asks of a non-text
+        control, and the owner's report was the plain version of that number:
+        "I still cant see the notification bell."
+
+        `text-white/60`, and the hover, are copied from the Help button
+        immediately to its right, which has been legible at 6.7:1 all along —
+        so this is the header's own idiom rather than a new one. The hover
+        background moves from `gray-100` (a light-mode fill, invisible here) to
+        the same `white/10` its neighbour uses.
+
+        It renders NOWHERE ELSE: Layout mounts it twice, both in this bar, and
+        the desktop edition's chrome returns null for it.
+      */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center"
+        className="relative p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center"
         aria-label={`Notifications${counts.unread > 0 ? ` (${counts.unread} unread)` : ''}`}
       >
-        <BellIcon size={20} className="text-gray-700 dark:text-gray-200" />
+        <BellIcon size={20} />
         
         {/*
           Unread badge — a COUNT, so it is neutral (design ruling A, and the
