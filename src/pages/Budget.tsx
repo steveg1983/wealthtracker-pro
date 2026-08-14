@@ -267,7 +267,7 @@ export default function Budget() {
       rightContent={
         <button
           onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white text-sm font-medium rounded-lg hover:bg-[#2d3a4d] transition-colors shadow-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white text-body font-medium rounded-lg hover:bg-[#2d3a4d] transition-colors shadow-sm"
           title="Add Budget"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -282,7 +282,7 @@ export default function Budget() {
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-6">
         <button
           onClick={() => setActiveTab('traditional')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
             activeTab === 'traditional'
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -294,7 +294,7 @@ export default function Budget() {
         </button>
         <button
           onClick={() => setActiveTab('envelope')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
             activeTab === 'envelope'
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -306,7 +306,7 @@ export default function Budget() {
         </button>
         <button
           onClick={() => setActiveTab('templates')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
             activeTab === 'templates'
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -317,7 +317,7 @@ export default function Budget() {
         </button>
         <button
           onClick={() => setActiveTab('rollover')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
             activeTab === 'rollover'
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -328,7 +328,7 @@ export default function Budget() {
         </button>
         <button
           onClick={() => setActiveTab('alerts')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
             activeTab === 'alerts'
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -339,7 +339,7 @@ export default function Budget() {
         </button>
         <button
           onClick={() => setActiveTab('zero-based')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
             activeTab === 'zero-based'
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -355,11 +355,11 @@ export default function Budget() {
         <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">Total Budgeted</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="text-gray-600 dark:text-gray-400 text-body">Total Budgeted</p>
+              <p className="text-page font-bold text-gray-900 dark:text-white">
                 {isLoading ? <SkeletonText className="w-32 h-8" /> : totalBudgeted}
               </p>
             </div>
@@ -367,11 +367,11 @@ export default function Budget() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">Total Spent</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="text-gray-600 dark:text-gray-400 text-body">Total Spent</p>
+              <p className="text-page font-bold text-gray-900 dark:text-white">
                 {isLoading ? <SkeletonText className="w-32 h-8" /> : totalSpent}
               </p>
             </div>
@@ -379,11 +379,11 @@ export default function Budget() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">Total Remaining</p>
-              <p className={`text-2xl font-bold ${
+              <p className="text-gray-600 dark:text-gray-400 text-body">Total Remaining</p>
+              <p className={`text-page font-bold ${
                 totalRemainingValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
               }`}>
                 {isLoading ? <SkeletonText className="w-32 h-8" /> : totalRemaining}
@@ -407,16 +407,16 @@ export default function Budget() {
         ) : budgetsWithSpent.map(budget => budget && (
           <div
             key={budget.id}
-            className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 ${
+            className={`bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6 ${
               budget.isActive === false ? 'opacity-60' : ''
             }`}
           >
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h3 className="text-card font-semibold text-gray-900 dark:text-white">
                   {getBudgetCategoryLabel(budget)}
                 </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-body text-gray-600 dark:text-gray-400">
                   {/* The budget's ACTUAL period — a weekly or quarterly budget
                       used to be captioned "Yearly" because anything that was
                       not monthly fell through to the same branch. */}
@@ -427,7 +427,7 @@ export default function Budget() {
               <div className="flex gap-3">
                 <button
                   onClick={() => void handleToggleActive(budget.id, budget.isActive)}
-                  className={`px-3 py-1 text-sm rounded ${
+                  className={`px-3 py-1 text-body rounded ${
                     budget.isActive !== false
                       ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -459,7 +459,7 @@ export default function Budget() {
             </div>
 
             <div className="space-y-3">
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-body">
                 <span className="text-gray-600 dark:text-gray-400">Spent</span>
                 <span className="font-medium text-gray-900 dark:text-white">
                   {formatCurrency(budget.spent)} of {formatCurrency(budget.effectiveAmount)}
@@ -482,7 +482,7 @@ export default function Budget() {
                 />
               </div>
 
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-body">
                 <span className="text-gray-600 dark:text-gray-400">
                   {`${formatPercentage(budget.percentage, 0)}% used`}
                 </span>
@@ -499,7 +499,7 @@ export default function Budget() {
                   no rate is applied to another currency in this wave, so the
                   spend shown is short of what was actually spent. */}
               {budget.excludedForeignCount > 0 && (
-                <p className="text-xs text-amber-700 dark:text-amber-400">
+                <p className="text-dense text-amber-700 dark:text-amber-400">
                   Spending on accounts in another currency is left out, so you have spent more than this.
                 </p>
               )}
@@ -509,7 +509,7 @@ export default function Budget() {
           </div>
 
           {budgets.length === 0 && (
-          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
             <p className="text-gray-500 dark:text-gray-400 mb-4">No budgets set up yet</p>
             <button
               onClick={() => setIsModalOpen(true)}
