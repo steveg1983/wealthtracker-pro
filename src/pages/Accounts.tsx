@@ -1585,7 +1585,7 @@ export default function Accounts() {
                   label for the figure beside it, and the figure is the thing
                   worth reading (P1). Still an h2 — the outline, and the way a
                   screen-reader user walks this page, are unchanged. */}
-              <h2 className="text-label uppercase font-semibold text-gray-600 dark:text-gray-300">{group.title}</h2>
+              <h2 className="text-body uppercase font-bold tracking-wide text-gray-900 dark:text-white">{group.title}</h2>
               <span className="text-dense text-gray-400 dark:text-gray-500">
                 ({group.accounts.length} {group.accounts.length === 1 ? 'account' : 'accounts'})
               </span>
@@ -1629,7 +1629,7 @@ export default function Accounts() {
                       {/* The same treatment as the band above it, one step
                           quieter: a line, not a pill with a border of its own. */}
                       <div className="flex items-center justify-between gap-2 border-b border-line dark:border-gray-700 bg-surface-secondary/60 dark:bg-gray-700/30 px-4 sm:px-6 py-1.5">
-                        <p className="text-label uppercase font-semibold text-gray-500 dark:text-gray-400 truncate">
+                        <p className="text-dense uppercase font-semibold tracking-wide text-gray-700 dark:text-gray-200 truncate">
                           {sub.title}
                           <span className="ml-2 font-normal normal-case tracking-normal text-gray-400 dark:text-gray-500">
                             ({countLabel})
