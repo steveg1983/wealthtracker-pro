@@ -39,22 +39,35 @@ const classesFor = (count: number): string => {
 };
 
 describe('a count of outstanding work', () => {
-  it('is bigger and bolder when there IS work than when there is none', () => {
+  it('is a filled pill when there IS work, and plain text when there is none', () => {
     const withWork = classesFor(3);
     const none = classesFor(0);
 
     expect(withWork).not.toBe(none);
-    // Two independent signals, so neither a font stack that flattens weights
-    // nor a colour-blind reader is left with one.
-    expect(withWork).toContain('text-base');
+    /*
+     * A SHAPE, not louder text. Colour alone was missed entirely; near-black
+     * and bold was "better but it needs to stand out more". Both were text
+     * competing with text down a column of 130 rows — the eye finds a filled
+     * disc among words without reading any of them.
+     */
+    expect(withWork).toContain('rounded-full');
+    expect(withWork).toContain('bg-primary');
     expect(withWork).toContain('font-bold');
-    expect(none).toContain('text-sm');
+    // The zero gains nothing: no fill, no ring, no weight.
+    expect(none).not.toContain('rounded-full');
+    expect(none).not.toMatch(/\bbg-/);
     expect(none).toContain('font-normal');
   });
 
-  it('spends no hue on either state', () => {
-    // Amber belongs to the next-action control; green and red mean money in
-    // and money out. A count is a quantity and gets the neutral ramp.
+  it('spends no SEMANTIC colour on either state', () => {
+    /*
+     * The fill is the brand navy, which is a hue — so the invariant is not
+     * "no colour" but "no colour that already MEANS something else". Amber
+     * belongs to the one control you should touch next and this is not
+     * clickable; green and red mean money in and money out, and a count is
+     * neither. Navy is the app's own ink, already the fill of every primary
+     * control, and it says "here" without claiming a direction or an alarm.
+     */
     for (const className of [classesFor(7), classesFor(0)]) {
       expect(className).not.toMatch(/amber|yellow|text-income|text-expense|red-|green-/);
     }
@@ -64,7 +77,8 @@ describe('a count of outstanding work', () => {
     // The inversion that had to be fixed once already: a row with nothing to do
     // must not shout across the page while a row with thirty murmurs.
     expect(classesFor(0)).toMatch(/text-gray-4|text-gray-5/);
-    expect(classesFor(3)).toMatch(/text-gray-900|text-white/);
+    // White ON the navy fill — the count's ink, not a colour of its own.
+    expect(classesFor(3)).toContain('text-white');
   });
 
   it('still renders the number itself, and keeps digits aligned', () => {

@@ -763,28 +763,25 @@ button.rounded-full:focus-visible,
 }
 
 /*
- * CLERK'S GENERATED AVATAR, AND ONLY THAT.
+ * CLERK'S GENERATED AVATAR — REVERTED, AND WHY.
  *
- * The design review's "single most-seen element in the product and the only
- * gradient in it" is a purple→blue disc top-right of every page. It is not ours
- * — Clerk generates it for a user who has uploaded no photo — and it is not a
- * background either, which is why setting one in the appearance object changed
- * nothing visible: measured in the owner's console, `span.cl-avatarBox` had
- * `background-color: rgb(26, 35, 50)` applied and an `<img>` from
- * img.clerk.com sitting on top of it.
+ * A rule here hid Clerk's generated default avatar image so the slate box set
+ * in main.tsx would show instead, answering the design review's "the only
+ * gradient in the product". It shipped and broke the header: the box colour is
+ * the app slate #1a2332, which is EXACTLY the colour of the nav bar it sits on,
+ * so removing the picture left a navy disc on navy — the owner's report was
+ * "you cant see notifications now or the user avatar icon".
  *
- * ── WHY THE SELECTOR IS THIS FUSSY ─────────────────────────────────────────
- * `display: none` on every avatar image would also hide a REAL photo the day
- * anyone uploads one. Clerk encodes what the image is into the URL: the srcset
- * carries base64 whose first field is `{"type":"default",` — decoded from the
- * marker below, not guessed. So this hides the generated disc and leaves an
- * uploaded portrait alone.
+ * The colour was only half of it. Clerk's span contains the image and nothing
+ * else, so hiding it leaves an EMPTY disc at any colour: there is no initial
+ * underneath to fall back to, because the generated image IS how Clerk draws
+ * the initial. A visible purple avatar beats an invisible correct one, so the
+ * gradient comes back until there is a real answer.
  *
- * If Clerk ever changes that payload the rule stops matching and the gradient
- * comes back — visible, and the wrong colour, rather than silently wrong about
- * a number. That is the right way round for a failure nobody is watching for.
+ * THE REAL ANSWER is our own avatar in place of Clerk's — an initial we render
+ * ourselves on #f1f3f7, which is the review's own second option and the one
+ * that does not depend on what Clerk puts inside its box. That is a component,
+ * not a stylesheet rule, and it is not a thing to attempt blind at the end of
+ * an evening.
  */
-.cl-avatarBox img[srcset*="eyJ0eXBlIjoiZGVmYXVsdCIs"],
-.cl-avatarBox img[src*="eyJ0eXBlIjoiZGVmYXVsdCIs"] {
-  display: none;
-}
+
