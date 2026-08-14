@@ -48,41 +48,41 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
   const signClass = (value: number): string =>
     value < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white';
 
-  const headCell = 'px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400';
-  const cell = 'px-3 py-2 text-sm text-right tabular-nums whitespace-nowrap';
+  const headCell = 'px-3 py-2 text-dense font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400';
+  const cell = 'px-3 py-2 text-body text-right tabular-nums whitespace-nowrap';
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-[#1a2332] dark:bg-gray-700 rounded-2xl p-6 text-white">
-          <p className="text-xs text-white/60 uppercase tracking-wider font-medium">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-line dark:border-gray-700">
+          <p className="text-label uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
             Total balance
           </p>
-          <p className="text-2xl font-bold mt-1">{money(report.netWorth)}</p>
-          <p className="text-xs text-white/60 mt-1">
+          <p className="text-page font-bold mt-1">{money(report.netWorth)}</p>
+          <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
             As at {report.asOf.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
-          <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">In credit</p>
-          <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-line dark:border-gray-700">
+          <p className="text-dense text-gray-500 uppercase tracking-wider font-medium">In credit</p>
+          <p className="text-page font-semibold mt-1 text-primary dark:text-white">
             {formatCurrency(report.assets)}
           </p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
-          <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Overdrawn / owed</p>
-          <p className="text-2xl font-bold mt-1 text-red-600 dark:text-red-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-line dark:border-gray-700">
+          <p className="text-dense text-gray-500 uppercase tracking-wider font-medium">Overdrawn / owed</p>
+          <p className="text-page font-semibold mt-1 text-primary dark:text-white">
             {formatCurrency(report.liabilities)}
           </p>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
         <div className="p-6 pb-3">
           <h2 className="text-lg font-semibold text-theme-heading dark:text-white">
             Balances by account
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-body text-gray-500 dark:text-gray-400 mt-1">
             {PERIOD_LABELS[picker.period]} — click an account to see the transactions behind its movement.
           </p>
         </div>
@@ -92,7 +92,7 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
         ) : (
           /* The table scrolls inside its own box; the page never scrolls sideways. */
           <div className="overflow-x-auto rounded-b-2xl">
-            <table className="min-w-full text-sm">
+            <table className="min-w-full text-body">
               <caption className="sr-only">
                 Opening balance, money in and out, and closing balance for every account
               </caption>
@@ -112,7 +112,7 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
                   <tr className="bg-gray-50 dark:bg-gray-700/50">
                     <th
                       scope="row"
-                      className="px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300"
+                      className="px-3 py-1.5 text-left text-dense font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300"
                     >
                       {group.label}
                     </th>
@@ -129,7 +129,7 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
                         <button
                           type="button"
                           onClick={() => drillIntoAccount(row)}
-                          className="text-sm text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
+                          className="text-body text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
                           title={`${row.name} — view these transactions`}
                         >
                           {row.name}
@@ -159,7 +159,7 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
               ))}
               <tfoot className="border-t-2 border-gray-200 dark:border-gray-600">
                 <tr>
-                  <th scope="row" className="px-3 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                  <th scope="row" className="px-3 py-3 text-left text-body font-semibold text-gray-900 dark:text-white">
                     Total
                   </th>
                   <td className={`${cell} font-semibold ${signClass(report.openingNetWorth)}`}>
