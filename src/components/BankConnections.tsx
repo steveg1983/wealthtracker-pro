@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { bankConnectionService, type BankConnection, type BankInstitution } from '../services/bankConnectionService';
 import { Modal } from './common/Modal';
@@ -18,6 +18,11 @@ import {
 } from './icons';
 import { format } from 'date-fns';
 import { createScopedLogger } from '../loggers/scopedLogger';
+
+// Module scope, not a useMemo: the loaders below are started from a mount
+// effect, and a logger created inside the component makes them look unstable to
+// react-hooks/exhaustive-deps. `useAccountBankSync.ts` already does it this way.
+const logger = createScopedLogger('BankConnections');
 
 interface BankConnectionsProps {
   onAccountsLinked?: () => void;
@@ -81,7 +86,7 @@ export default function BankConnections({
   // reported a balance to open them with left the user staring at a connection
   // with nothing under it and no reason given.
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
-  const logger = useMemo(() => createScopedLogger('BankConnections'), []);
+
   const { getToken } = useClerkAuth();
 
   useEffect(() => {

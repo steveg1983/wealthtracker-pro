@@ -195,11 +195,21 @@ export default function Calendar() {
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Money out</span>
-          <p className="text-lg font-semibold text-red-600">{formatCurrency(monthSummary.totalExpense)}</p>
+          {/* `dark:text-red-400` is not decoration — without it this figure is
+              unreadable at night. `styles/accessibility-colors.css` remaps
+              `.text-red-600` to the brand expense red (#c9304a) with
+              `!important` and publishes NO dark-mode counterpart; the dark
+              handling lives entirely in `.dark .dark\:text-red-400`, which only
+              applies to elements that carry that class. So a bare
+              `text-red-600` paints #c9304a on a gray-800 card in dark mode —
+              measured 2.8:1, against the 4.5:1 text needs. The income figure
+              four lines up has carried the pair all along, which is why only
+              the expense went dark. */}
+          <p className="text-lg font-semibold text-red-600 dark:text-red-400">{formatCurrency(monthSummary.totalExpense)}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Net</span>
-          <p className={`text-lg font-semibold ${toDecimal(monthSummary.totalIncome).minus(toDecimal(monthSummary.totalExpense)).greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600'}`}>
+          <p className={`text-lg font-semibold ${toDecimal(monthSummary.totalIncome).minus(toDecimal(monthSummary.totalExpense)).greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
             {formatCurrency(toDecimal(monthSummary.totalIncome).minus(toDecimal(monthSummary.totalExpense)).toNumber())}
           </p>
         </div>
