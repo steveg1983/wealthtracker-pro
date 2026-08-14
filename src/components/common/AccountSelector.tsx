@@ -455,13 +455,35 @@ export default function AccountSelector<T extends SelectableAccount>({
         break;
       case 'Enter': {
         e.preventDefault();
-        // With no explicit highlight, Enter takes the sole matching ACCOUNT —
+        // With no explicit highlight, Enter takes the top matching ACCOUNT —
         // never the clear or create row, which are not what a search narrowed to.
         const accountsOnly = flatOptions.filter(
           option => option.id !== CLEAR_ID && option.id !== createOption?.value
         );
+        /*
+         * ─ THE TOP MATCH, NOT ONLY THE SOLE ONE ────────────────────────────
+         *
+         * This read `accountsOnly.length === 1`, and CategorySelector had the
+         * identical line — so both pickers chose nothing when a filter left
+         * SEVERAL matches and nothing was highlighted, which is always the case
+         * after typing: the highlight is reset to -1 on every change to the
+         * option list (the effect above). `preventDefault` then swallowed the
+         * key, so the control looked as though it had accepted something.
+         *
+         * Unreachable with a mouse, unavoidable with the keyboard. Found in
+         * CategorySelector when the owner noticed his edits kept reverting —
+         * "the only difference this time to what I did before is I pressed next
+         * & save with the mouse" — and fixed HERE in the same breath because he
+         * asked the right next question: "if this is a problem in a few areas
+         * will it be fixed in all?" Two pickers share the idiom; both are fixed.
+         *
+         * With NO search term there is nothing to be top of — the list is every
+         * account — so the sole-match rule still stands there and Enter on an
+         * unfiltered list with no highlight goes on doing nothing.
+         */
         const chosen =
-          flatOptions[highlightIndex] ?? (accountsOnly.length === 1 ? accountsOnly[0] : undefined);
+          flatOptions[highlightIndex]
+          ?? (searchTerm.trim() !== '' || accountsOnly.length === 1 ? accountsOnly[0] : undefined);
         if (chosen) handleSelect(chosen.id);
         break;
       }
