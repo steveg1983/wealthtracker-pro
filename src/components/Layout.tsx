@@ -40,7 +40,6 @@ import { useKeyboardShortcutsHelp } from '../hooks/useKeyboardShortcutsHelp';
 import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import KeyboardSequenceIndicator from './KeyboardSequenceIndicator';
 import MobileBottomNav from './MobileBottomNav';
-import { useSwipeGestures } from '../hooks/useSwipeGestures';
 import ViewportDebugOverlay from './ViewportDebugOverlay';
 import SyncStatusIndicator from './SyncStatusIndicator';
 import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
@@ -161,37 +160,34 @@ export default function Layout(): React.JSX.Element {
   // Initialize global keyboard shortcuts
   const { activeSequence } = useGlobalKeyboardShortcuts(openHelp);
 
-  // Simple page navigation helper. Swipe walks the PAGES a phone browses;
-  // Find is a question you ask, not somewhere you swipe into, so it is not
-  // here (nor is the retired /transactions it replaced).
-  const getNextPrevPage = (direction: 'next' | 'prev', currentPath: string): string | null => {
-    const pages = ['/dashboard', '/accounts', '/investments', '/reports'];
-    const currentIndex = pages.indexOf(currentPath);
-    
-    if (currentIndex === -1) return null;
-    
-    if (direction === 'next') {
-      return currentIndex < pages.length - 1 ? pages[currentIndex + 1] : null;
-    } else {
-      return currentIndex > 0 ? pages[currentIndex - 1] : null;
-    }
-  };
-
-  // Swipe navigation for mobile
-  const swipeRef = useSwipeGestures({
-    onSwipeLeft: () => {
-      if (window.innerWidth <= 768) { // Only on mobile
-        const nextPage = getNextPrevPage('next', location.pathname);
-        if (nextPage) navigate(nextPage);
-      }
-    },
-    onSwipeRight: () => {
-      if (window.innerWidth <= 768) { // Only on mobile
-        const prevPage = getNextPrevPage('prev', location.pathname);
-        if (prevPage) navigate(prevPage);
-      }
-    }
-  });
+  /*
+   * NO SWIPE-BETWEEN-PAGES. A horizontal swipe anywhere in `main` used to walk
+   * /dashboard → /accounts → /investments → /reports, and it is gone rather
+   * than narrowed.
+   *
+   * ─ WHY ─────────────────────────────────────────────────────────────────────
+   * A page-level horizontal gesture cannot coexist with horizontally scrollable
+   * CONTENT, and it loses the argument every time, because the content is what
+   * the user is deliberately reaching for. Reported from a phone: the account
+   * rows' settings / reconcile / close buttons sat off to the right, and
+   * "if I scroll a little to the right to make them visible, the page thinks I
+   * am trying to scroll 'forward' a page and takes me to the investment page."
+   * The gesture did not merely conflict with the reach — it PUNISHED it, by
+   * throwing the page away mid-reach.
+   *
+   * It is also a second, worse copy of a gesture the platform already owns:
+   * iOS Safari's edge swipe is back/forward, so the same flick meant two
+   * different things depending on how near the bezel it started.
+   *
+   * Nothing is lost. The bottom nav is on every phone screen and goes to these
+   * pages directly, by name, in one tap — a discoverable control replacing an
+   * invisible one whose main effect was accidental navigation. The owner asked
+   * for exactly this: "we disable the ability to 'scroll through pages' by
+   * scrolling left and right".
+   *
+   * `useSwipeGestures` itself stays — BottomSheet and SwipeableTransactionRow
+   * use it for gestures scoped to one element, which is where a swipe belongs.
+   */
 
   // Close dropdown on route change
   useEffect(() => {
@@ -703,7 +699,6 @@ export default function Layout(): React.JSX.Element {
 
       {/* Main Content */}
       <main
-        ref={swipeRef.ref}
         id="main-content"
         // A plain block child now — flex-1/min-w-0 died with the parent's
         // flex row. (Their history: min-w-0 once stopped a non-wrapping row
