@@ -184,7 +184,6 @@ export const DESKTOP_ROUTES = [
   { path: 'reports', at: 'reports', title: 'Reports' },
   { path: 'reports/:reportId', at: 'reports/:reportId', title: 'Reports' },
   { path: 'custom-reports', at: 'custom-reports', title: 'Custom reports' },
-  { path: 'goals', at: 'goals', title: 'Goals' },
   { path: 'investments', at: 'investments', title: 'Investments' },
   { path: 'analytics', at: 'analytics', title: 'Reports' },
   { path: 'summaries', at: 'summaries', title: 'Summaries' },

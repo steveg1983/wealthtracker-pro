@@ -212,19 +212,29 @@ describe('Layout — the Plan menu and split triggers', () => {
   it('groups the forward-looking pages under Plan, not as top-level items', () => {
     renderWithProviders(<Layout />);
 
-    // Plan's label navigates to Budget, its menu holds all three.
+    // Plan's label navigates to Budget, its menu holds both.
     expect(navLink('Plan')).toHaveAttribute('href', '/budget');
     fireEvent.click(menuButton('Plan'));
     expect(navLink('Budget')).toHaveAttribute('href', '/budget');
     expect(navLink('Calendar')).toHaveAttribute('href', '/calendar');
-    expect(navLink('Goals')).toHaveAttribute('href', '/goals');
   });
 
-  it('no longer lists Goals under Manage — Manage is data admin', () => {
+  it('offers Goals nowhere at all — the feature is gone', () => {
+    /*
+     * This used to assert Goals was under PLAN rather than under Manage, which
+     * was a question about where it belonged. The owner has since removed the
+     * feature outright — "let's completely do away with 'Goals page' and
+     * anything relating to it" — on the way to a budget page and a full
+     * cash-flow forecast. So the assertion is no longer about placement: there
+     * is no such destination, and a nav that offers one is a nav pointing at a
+     * route that does not exist.
+     */
     renderWithProviders(<Layout />);
 
-    fireEvent.click(menuButton('Manage'));
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
+    fireEvent.click(menuButton('Plan'));
+    expect(within(nav).queryByRole('link', { name: 'Goals' })).not.toBeInTheDocument();
+    fireEvent.click(menuButton('Manage'));
     expect(within(nav).getByRole('link', { name: 'Categories' })).toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'Goals' })).not.toBeInTheDocument();
   });

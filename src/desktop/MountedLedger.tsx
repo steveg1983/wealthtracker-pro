@@ -80,7 +80,6 @@ const ReportsHub = lazyWithPreload(() => import(/* webpackChunkName: "reports-hu
 // there is. The page was already reachable in this window through the hub's
 // registry, so this gives it the address it was already answering at.
 const CustomReports = lazyWithPreload(() => import(/* webpackChunkName: "custom-reports" */ '../pages/CustomReports'));
-const Goals = lazyWithPreload(() => import(/* webpackChunkName: "goals" */ '../pages/Goals'));
 const FinancialSummaries = lazyWithPreload(() => import(/* webpackChunkName: "financial-summaries" */ '../pages/FinancialSummaries'));
 // The three slice 31 took off `AWAITING_THE_MOUNT`. Each was blocked by a
 // MEASURED import chain rather than by a decision, and each chain is gone: the
@@ -239,7 +238,6 @@ export default function MountedLedger(): ReactElement {
     reports: page(<ReportsHub />),
     'reports/:reportId': page(<ReportsHub />),
     'custom-reports': page(<CustomReports />),
-    goals: page(<Goals />),
     investments: page(<Investments />),
     analytics: <RedirectWithSearch to="/reports" />,
     summaries: page(<FinancialSummaries />),

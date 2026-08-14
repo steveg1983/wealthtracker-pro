@@ -174,7 +174,7 @@ describe('the desktop router', () => {
     // short version is that the premise ("a device edition has no plans") was
     // wrong rather than the reasoning, because a one-time purchase IS a plan and
     // its buyer is on it.
-    expect(mounted.length).toBe(41);
+    expect(mounted.length).toBe(40);
 
     // EMPTY, and the list is kept rather than deleted — `routes.ts` says why:
     // this is one of three ANSWERS a route can have, not an exception to a rule,

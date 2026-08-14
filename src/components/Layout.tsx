@@ -21,7 +21,7 @@ import {
   RealtimeDot,
   type GlobalSearchHandle
 } from '@chrome';
-import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, TargetIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon, UsersIcon } from '../components/icons';
+import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, TargetIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon, UsersIcon } from '../components/icons';
 import { SidebarLink, TopNavItem, TopNavDropdown } from './layout/NavComponents';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
@@ -390,9 +390,8 @@ export default function Layout(): React.JSX.Element {
               items={[
                 { to: '/budget', icon: BarChart3Icon, label: 'Budget' },
                 { to: '/calendar', icon: CalendarIcon, label: 'Calendar' },
-                { to: '/goals', icon: GoalIcon, label: 'Goals' },
               ]}
-              activePaths={['/budget', '/calendar', '/goals']}
+              activePaths={['/budget', '/calendar']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
@@ -471,7 +470,6 @@ export default function Layout(): React.JSX.Element {
                   '/budget': 'Set and track budgets by category. Try envelope budgeting or zero-based budgeting.',
                   '/calendar': 'See your income and expenses laid out by day on a monthly calendar.',
                   '/reports': 'A gallery of reports — net worth, account balances, spending by category or payee, period comparisons, and your own custom reports. The period you choose follows you between them.',
-                  '/goals': 'Track savings targets, debt payoff goals, and investment milestones.',
                   '/investments': 'Portfolio overview with holdings, performance, and allocation analysis.',
                   '/settings': 'App preferences, data management, security, and account configuration.',
                 };
