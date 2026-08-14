@@ -25,7 +25,7 @@ import { preferences } from '../services/preferencesService';
 // Bank connection management lives on this page (the natural home for it);
 // the Data Management page keeps only its URL-driven deep links for ops alerts.
 import type { Account } from '../types';
-import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSections';
+import { ALL_ACCOUNT_SECTIONS } from '../utils/accountSections';
 import {
   groupAccountsForDisplay,
   parseAccountGroupingPreference,
@@ -637,17 +637,6 @@ export default function Accounts() {
     return sorted;
   }, [sortMode, computeAccountBalance]);
 
-  // Get icon for account type
-  const getAccountTypeIcon = (type: string) => {
-    const typeConfig = accountTypes.find(t => t.type === sectionTypeForAccount(type));
-    return typeConfig?.icon || WalletIcon;
-  };
-
-  const getAccountTypeColor = (type: string) => {
-    const typeConfig = accountTypes.find(t => t.type === sectionTypeForAccount(type));
-    return typeConfig?.color || 'text-gray-600';
-  };
-
   const handleClose = (accountId: string) => {
     if (window.confirm('Close this account? It moves to the Closed Accounts section — every transaction is preserved and you can reopen it at any time. Its transfer category is hidden from transaction dropdowns while closed.')) {
       void (async () => {
@@ -1130,8 +1119,11 @@ export default function Accounts() {
   const renderAccountCard = (account: Account) => {
     const bankLink = getAccountLink(account.id);
     const syncing = isAccountSyncing(account.id);
-    const TypeIcon = getAccountTypeIcon(account.type);
-    const typeColor = getAccountTypeColor(account.type);
+    // No TypeIcon/typeColor here any more — the row stopped drawing a per-account
+    // type glyph (see the name row below). The two helpers that fed them went
+    // with it: the BAND headings have always drawn their own icon through
+    // `bandHeadingIcon`, so nothing else was reading them. Lint is what caught
+    // the first version of this comment claiming otherwise.
     // '' when the date is absent or unparseable — formatDate answers that way
     // rather than throwing or handing back "Invalid Date".
     const lastUpdated = formatDate(account.lastUpdated);
@@ -1179,8 +1171,22 @@ export default function Accounts() {
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                       <div className="flex-1 min-w-0">
+                        {/* NO TYPE ICON ON THE ROW. Every account carried a
+                            16px glyph saying what KIND it is — and it sat
+                            inside a band already headed "Current Accounts",
+                            with its own icon, above rows that are all that
+                            kind. It repeated the heading once per row and
+                            bought nothing: the owner, "do we need the icons
+                            next to every account name? I think we dont, and it
+                            is just used up space especially with the limited
+                            real estate we have on mobile."
+
+                            The band headings keep theirs, which is where the
+                            distinction is actually being drawn — one icon per
+                            KIND rather than one per row. Worth ~24px of a
+                            phone's width back on every line, on the page whose
+                            names were overflowing it. */}
                         <div className="flex items-center gap-2">
-                          <TypeIcon className={typeColor} size={16} />
                           {/* The name is the way IN — a real link, so it can be
                               opened in a new tab, followed from the keyboard,
                               or copied as an address. The rest of the row means
@@ -1690,9 +1696,25 @@ export default function Accounts() {
                       role="group"
                       aria-label={`${sub.title}, ${countLabel}, total ${subTotal.spoken}`}
                     >
-                      {/* The same treatment as the band above it, one step
-                          quieter: a line, not a pill with a border of its own. */}
-                      <div className="flex items-center justify-between gap-2 border-b border-line dark:border-gray-700 bg-surface-secondary/60 dark:bg-gray-700/30 px-4 sm:px-6 py-1.5">
+                      {/* ONE INSTITUTION HAS TO END BEFORE THE NEXT BEGINS.
+                          This was a single hairline UNDER the name with a 60%
+                          wash behind it — enough to head a list, not enough to
+                          close one. Scrolling nine Coutts accounts into seven
+                          AMEX ones, the join read as another row: "the
+                          separation between institutions needs to be more
+                          visible, both on desktop but certainly on mobile."
+
+                          Three changes, all of them separation rather than
+                          decoration: a rule ABOVE as well as below (the one
+                          that actually ends the previous institution), space
+                          before it so the gap does the first half of the work,
+                          and a solid wash instead of 60% so the strip reads as
+                          a band rather than a tinted row.
+
+                          `first:` resets all three: the opening institution in
+                          a band sits directly under that band's own heading and
+                          has nothing above it to be separated from. */}
+                      <div className="flex items-center justify-between gap-2 mt-4 first:mt-0 border-t-2 first:border-t-0 border-b border-line dark:border-gray-700 bg-surface-secondary dark:bg-gray-700/50 px-4 sm:px-6 py-2">
                         <p className="text-body uppercase font-bold tracking-wide text-gray-900 dark:text-white truncate">
                           {sub.title}
                           <span className="ml-2 font-normal normal-case tracking-normal text-gray-400 dark:text-gray-500">
