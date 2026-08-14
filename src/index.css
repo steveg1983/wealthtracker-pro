@@ -521,10 +521,30 @@ button.rounded-full:focus-visible,
    * honours it too and the whole stack shifts up on a phone with a home
    * indicator. Above `md` the media query does not apply and the page's own
    * `md:pb-8` takes over — neither the nav nor the button exists there.
+   *
+   * ─ 2026-08-14: 9.5rem → 6.25rem, AND THE PAGE GOT THE DIFFERENCE ──────────
+   * The stack above is no longer what is down there. The quick-add button is
+   * not floating over the nav any more — it is a slot INSIDE the nav, which is
+   * now a pill inset from the window rather than a bar welded to its edge. So
+   * the 3.5rem reserved for a button that no longer floats was 56px of blank
+   * screen at the foot of every mobile page, on the smallest screens the app
+   * runs on.
+   *
+   * 6.25rem = 4.3 (the pill, MEASURED at 69px — icon, 11px label and its own
+   * padding; 67px at 320px where the label steps down a size) + 0.75 (the gap
+   * it floats above the window) + 1 (the same air as before) + the inset,
+   * which the pill's own `bottom` honours and the page therefore must too.
+   * Checked at 390x760: the pill's whole footprint is 80px from the window's
+   * bottom edge against the 100px reserved here, so content stops 20px clear
+   * of it rather than under it.
+   *
+   * If the pill's height changes, this changes with it. That is the same
+   * contract the old number had, and the same reason it lives here beside its
+   * own arithmetic instead of as a `pb-` class at the call site.
    */
   @media (max-width: 767px) {
     .page-bottom-gutter {
-      padding-bottom: calc(9.5rem + env(safe-area-inset-bottom));
+      padding-bottom: calc(6.25rem + env(safe-area-inset-bottom));
     }
   }
   
