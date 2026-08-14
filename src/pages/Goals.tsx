@@ -457,8 +457,30 @@ export default function Goals(): React.JSX.Element {
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div
+                          /* ONE HUE, WALKED — not a traffic light.
+                             This ran gray → yellow → navy → blue by
+                             threshold, which is traffic-light vocabulary
+                             applied to something with no failure state: a goal
+                             60% funded is a SCALE, and a scale has no bad end.
+                             Amber at the midpoint said "caution" about a goal
+                             that is simply in progress, and spent the yellow
+                             thread on a bar with nothing to press.
+
+                             Navy walked from the end that contrasts with the
+                             ground, exactly as the categorical ramp does, so
+                             fuller reads as further along rather than as a
+                             different KIND of thing. `bg-nav-bg`, not
+                             `bg-primary`: Tailwind cannot put an opacity
+                             modifier on a bare `var()` and emits no rule at
+                             all — see the probe recorded in index.css. */
                           className={`h-2 rounded-full transition-all duration-300 ${
-                            view.progress >= 100 ? "bg-blue-600" : view.progress >= 75 ? "bg-[#1a2332]" : view.progress >= 50 ? "bg-yellow-600" : "bg-gray-400"
+                            view.progress >= 100
+                              ? "bg-nav-bg"
+                              : view.progress >= 75
+                                ? "bg-nav-bg/80"
+                                : view.progress >= 50
+                                  ? "bg-nav-bg/60"
+                                  : "bg-nav-bg/40"
                           }`}
                           style={{ width: `${barWidth}%` }}
                         />
@@ -518,8 +540,12 @@ export default function Goals(): React.JSX.Element {
                       </div>
                     )}
 
+                    {/* A CAVEAT, not a next action. It is a standing statement
+                        about what this figure cannot include, and amber made a
+                        permanent truth about the data look like a transient
+                        problem with it. Neutral, and it says the same thing. */}
                     {view.unavailableCount > 0 && (
-                      <p className="text-body text-amber-700 dark:text-amber-400">
+                      <p className="text-body text-gray-500 dark:text-gray-400">
                         {view.unavailableCount === 1
                           ? '1 linked account unavailable'
                           : `${view.unavailableCount} linked accounts unavailable`}
