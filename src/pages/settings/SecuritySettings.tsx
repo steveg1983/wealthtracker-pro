@@ -27,7 +27,11 @@ export default function SecuritySettings() {
   const [showTwoFactorSetup, setShowTwoFactorSetup] = useState(false);
   const [twoFactorSecret, setTwoFactorSecret] = useState<ReturnType<typeof securityService.generateTwoFactorSecret> | null>(null);
   const [verificationCode, setVerificationCode] = useState('');
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  // null until the capability check answers. P8 — nothing may speak until it knows:
+  // initialised to `false` this told people with Face ID that their device hasn't got
+  // it, and disabled the button that would have proved otherwise. The three states are
+  // distinct on purpose; a device that genuinely can't do this must STILL be told so.
+  const [biometricAvailable, setBiometricAvailable] = useState<boolean | null>(null);
   const [setupMessage, setSetupMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -197,25 +201,32 @@ export default function SecuritySettings() {
               </div>
               <button
                 onClick={handleToggleBiometric}
-                disabled={!biometricAvailable}
+                disabled={biometricAvailable !== true}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  !biometricAvailable
+                  biometricAvailable !== true
                     ? 'bg-gray-100 text-gray-400 dark:bg-gray-700 cursor-not-allowed'
                     : settings.biometricEnabled
                     ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
                     : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
                 }`}
               >
-                {!biometricAvailable ? 'Not Available' : settings.biometricEnabled ? 'Disable' : 'Enable'}
+                {biometricAvailable === null
+                  ? 'Checking…'
+                  : biometricAvailable === false
+                  ? 'Not Available'
+                  : settings.biometricEnabled
+                  ? 'Disable'
+                  : 'Enable'}
               </button>
             </div>
-            
-            {!biometricAvailable && (
-              <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  Biometric authentication is not available on this device
-                </p>
-              </div>
+
+            {/* Only once the check has answered, and only on false. A caveat about what
+                this device can do is a standing truth, not a transient problem, so it
+                takes neutral text rather than the warning tint it used to wear. */}
+            {biometricAvailable === false && (
+              <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                Biometric authentication is not available on this device
+              </p>
             )}
           </div>
 
