@@ -32,12 +32,28 @@ import { Link } from 'react-router-dom';
  * than dropping the column: an omitted cell pulls everything to its right one
  * place along, which is precisely the alignment this file exists to keep.
  *
- * ─ PHONES ──────────────────────────────────────────────────────────────────
- * Below sm the grid gives way to a wrapping row: the stat columns need about
- * 490px and a phone card offers ~330, so the figures take one line and the
- * buttons the next. The balance is shown beside the account NAME at that width
- * instead (where a banking app puts it), which is why AccountBalanceCell can be
- * asked to keep itself off small screens rather than saying it twice.
+ * ─ PHONES, AND WHY THE GRID STARTS AT `lg` AND NOT AT `sm` ─────────────────
+ * Below the breakpoint the grid gives way to a wrapping row: the figures take
+ * one line and the buttons the next. The balance is shown beside the account
+ * NAME at that width instead (where a banking app puts it), which is why
+ * AccountBalanceCell can be asked to keep itself off small screens rather than
+ * saying it twice.
+ *
+ * That breakpoint was `sm` (640px) until 2026-08-14, and it was too low by a
+ * whole class of device. The grid's tracks are FIXED — 104 + 120 + 88 + 88 +
+ * five 48s, plus gaps — so it cannot be squeezed; it can only overflow. Turn a
+ * phone on its side and the viewport is 844px, comfortably past `sm`, so a
+ * landscape phone was handed the desktop table: measured at 844x390, the rows
+ * wanted 915px and the page scrolled sideways by 95. The owner's report was
+ * the plain version of that: "in landscape it should all fit in a page width
+ * and I should not have to scroll right to look at anything."
+ *
+ * `lg` (1024px) is the first width where the whole template genuinely fits, so
+ * it is where it now begins. Everything that dresses the grid moves with it —
+ * the per-row labels that hide when the column strip takes over, the strip
+ * itself, the balance cell's small-screen twin, and the empty spacer cells —
+ * because a grid at one breakpoint and its captions at another is how a row
+ * ends up with both, or neither.
  */
 
 /**
@@ -46,9 +62,9 @@ import { Link } from 'react-router-dom';
  * up with each other is the whole point.
  */
 export const ACCOUNT_ROW_COLUMNS_CLASS =
-  'flex flex-wrap items-center justify-end gap-x-4 gap-y-1 sm:grid ' +
-  'sm:grid-cols-[6.5rem_7.5rem_5.5rem_5.5rem_repeat(5,3rem)] ' +
-  'sm:justify-items-end sm:items-center sm:gap-x-2 sm:gap-y-0';
+  'flex flex-wrap items-center justify-end gap-x-4 gap-y-1 lg:grid ' +
+  'lg:grid-cols-[6.5rem_7.5rem_5.5rem_5.5rem_repeat(5,3rem)] ' +
+  'lg:justify-items-end lg:items-center lg:gap-x-2 lg:gap-y-0';
 
 /**
  * The look of a row the user has picked out, echoing the register's own active
@@ -175,10 +191,39 @@ const CELL_LABEL_CLASS = 'text-[10px] uppercase tracking-wide text-gray-400 dark
  * otherwise hear four bare figures. The strip is `aria-hidden` for the mirror
  * image of the same reason.
  */
-const ROW_LABEL_CLASS = `${CELL_LABEL_CLASS} sm:sr-only`;
+const ROW_LABEL_CLASS = `${CELL_LABEL_CLASS} lg:sr-only`;
 
 /** The figures themselves: tabular so the digits line up down the column. */
 const CELL_FIGURE_CLASS = 'text-sm font-semibold tabular-nums';
+
+/**
+ * THE LINE A FIGURE SITS ON, held at one height for every cell in the row.
+ *
+ * ─ WHY THIS EXISTS ─────────────────────────────────────────────────────────
+ * Reported from a phone: "the highlighted number looks oval and not round, and
+ * you can see the 'Unreconciled' word above has risen and sits higher than
+ * 'Bank Bal' and 'To Review'."
+ *
+ * Both halves were one cause. A count with work in it became a LINK when the
+ * counts turned into doors, and `index.css` gives every `a` on a touch device
+ * `min-width: 44px; min-height: 44px` — a floor meant for thumbs, applied to a
+ * 20px figure. Measured at 390px: the pill came out 31 wide by 44 tall (the
+ * oval), which made its cell 24px taller than its neighbours, which lifted its
+ * label 12px above theirs. Nothing was wrong with the pill's own styling; it
+ * was being inflated from outside, by a rule that never matches a desktop
+ * browser — the same media block that once put the floating + button at the
+ * left edge of the screen.
+ *
+ * The fix is the owner's own second option — "increase the default height of
+ * everything else on the same row" — because it is the one that cannot come
+ * undone. Levelling the pill alone would hold only until the next cell learns
+ * a state with a different height. A shared line height means a figure may be
+ * text, money, or a filled disc and the labels above them still agree.
+ *
+ * 24px because that is the disc's diameter; plain text at `text-sm` is 20 and
+ * centres inside it without moving.
+ */
+const CELL_FIGURE_LINE_CLASS = 'flex items-center justify-end min-h-[24px]';
 
 /**
  * The columns of one row.
@@ -250,7 +295,7 @@ export function AccountColumnHeader(): React.JSX.Element {
        * carries `p-4` and a 1px border inside the band's own `px-4 sm:px-6`, so
        * the strip repeats both to land on the same right edge.
        */
-      className="hidden sm:flex justify-end pb-1"
+      className="hidden lg:flex justify-end pb-1"
     >
       {/* AN INVISIBLE ROW CARD around the labels, rather than a hand-tuned
           right margin. A row's grid is inset from the band by the card's own
@@ -289,9 +334,9 @@ export function AccountBalanceCell({
   smOnly?: boolean;
 }): React.JSX.Element {
   return (
-    <div className={smOnly ? 'hidden sm:block text-right' : 'text-right'}>
+    <div className={smOnly ? 'hidden lg:block text-right' : 'text-right'}>
       <p className={ROW_LABEL_CLASS}>{label}</p>
-      <p className={`${CELL_FIGURE_CLASS} text-gray-900 dark:text-white`}>{value}</p>
+      <p className={`${CELL_FIGURE_LINE_CLASS} ${CELL_FIGURE_CLASS} text-gray-900 dark:text-white`}>{value}</p>
     </div>
   );
 }
@@ -360,9 +405,24 @@ export function AccountCountCell({
    * them at once, and eight ambers is precisely the erosion the ruling exists
    * to prevent. Amber's monopoly is on "this one, next" — not on "clickable".
    */
+  /*
+   * A CIRCLE UNTIL THE NUMBER OUTGROWS ONE. "The highlighted number looks oval
+   * and not round" — and it stayed faintly oval even after the 44px floor was
+   * lifted, because a width of `min-w + padding` lands wherever the digits put
+   * it: 31 across against 24 down for two digits.
+   *
+   * So one and two digits get a FIXED 24x24 — a real disc, the shape that was
+   * asked for and the shape a count badge is everywhere else. Three digits and
+   * up keep the padded form and become a lozenge, which is the honest answer:
+   * 130 does not fit in a 24px circle, and squeezing it would either shrink the
+   * type or clip it. The break is at 100 because that is where the width has to
+   * give, not because of anything about the number.
+   */
   const pillClass = `tabular-nums ${
     count > 0
-      ? 'inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 rounded-full bg-primary text-white text-sm font-bold'
+      ? `inline-flex items-center justify-center h-6 rounded-full bg-primary text-white text-sm font-bold ${
+          count < 100 ? 'w-6' : 'min-w-[24px] px-1.5'
+        }`
       : 'text-sm font-normal text-gray-400 dark:text-gray-500'
   }`;
 
@@ -370,31 +430,43 @@ export function AccountCountCell({
     return (
       <div className="text-right">
         <p className={ROW_LABEL_CLASS}>{label}</p>
+        <div className={CELL_FIGURE_LINE_CLASS}>
         <Link
           to={to}
           aria-label={openLabel}
           onClick={event => { event.stopPropagation(); }}
           /*
-           * THE BOX IS UNCHANGED, and that is load-bearing. The column strip's
-           * labels are aligned to these cells to the pixel (verified across
-           * all four columns), so a link that added padding to reach a 44px
-           * touch target would drag "Unreconciled" out of line with the
-           * figures it names.
+           * `touch-target-small` and `min-h-0` are BOTH required, and neither
+           * is decoration.
            *
-           * `after:-inset-[10px]` grows the TAPPABLE area to ~44px in every
-           * direction without occupying a single pixel of layout — an absolute
-           * pseudo-element takes no space. The phone gets a target it can hit;
-           * the grid does not move.
+           * `min-h-0 min-w-0` is the pair that undoes the damage, and it took
+           * two passes to learn it needs BOTH. On a touch device `index.css`
+           * floors every `a` at 44x44 — sound for a control, wrong for a 20px
+           * figure — and it inflated this disc to 31x44, lifting its label 12px
+           * above its neighbours'. Undoing only the height fixed the label and
+           * left a 44x24 lozenge: `min-width` had simply taken over from
+           * `min-height` as the thing overriding the disc's own size, and
+           * `w-6` cannot win against a min-width whatever it says. A utility
+           * outranks that element rule, so this is where the disc gets its size
+           * back — on both axes, or not at all.
+           *
+           * `touch-target-small` is what gives the thumb its 44px back, and it
+           * is the app's OWN opt-in for exactly this problem — a centred 44x44
+           * pseudo-element over a small visible control, taking no layout. It
+           * replaces a hand-rolled `after:-inset-[10px]` written here before I
+           * noticed index.css already had the idiom; one mechanism, in one
+           * place, is worth more than a slightly tidier inset.
            *
            * `stopPropagation` because the row itself is clickable (it selects
            * the account): without it, opening the reconciliation view would
            * also pick out the row behind it, and coming back would land on a
            * selection the user never made.
            */
-          className={`${pillClass} relative after:absolute after:-inset-[10px] after:content-[''] hover:brightness-125 transition-[filter] duration-state`}
+          className={`${pillClass} min-h-0 min-w-0 touch-target-small hover:brightness-125 transition-[filter] duration-state`}
         >
           {count}
         </Link>
+        </div>
       </div>
     );
   }
@@ -402,6 +474,7 @@ export function AccountCountCell({
   return (
     <div className="text-right">
       <p className={ROW_LABEL_CLASS}>{label}</p>
+      <div className={CELL_FIGURE_LINE_CLASS}>
       <p
         /*
          * A FILLED SHAPE, NOT LOUDER TEXT.
@@ -441,6 +514,7 @@ export function AccountCountCell({
       >
         {count}
       </p>
+      </div>
     </div>
   );
 }
@@ -453,7 +527,7 @@ export function AccountCountCell({
  * wrapping flex row, and an invisible item there would only add a gap.
  */
 export function AccountRowEmptyCell(): React.JSX.Element {
-  return <div className="hidden sm:block" aria-hidden="true" />;
+  return <div className="hidden lg:block" aria-hidden="true" />;
 }
 
 /**

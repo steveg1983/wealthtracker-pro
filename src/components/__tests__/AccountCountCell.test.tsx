@@ -139,16 +139,58 @@ describe('a count you can act on', () => {
 
   it('keeps a touch target without taking any layout for it', () => {
     /*
-     * The pill is ~24px, under the 44px a thumb needs. The room is bought with
-     * an absolutely-positioned pseudo-element, which occupies no space, rather
-     * than with padding, which would drag this cell out of alignment with the
-     * parked column strip above it.
+     * The pill is 24px, under the 44px a thumb needs. The room comes from
+     * `touch-target-small` — the app's OWN opt-in in index.css, a centred 44x44
+     * pseudo-element that occupies no layout — rather than from padding, which
+     * would drag this cell out of alignment with the parked column strip.
      */
     renderLinked(7);
     const cls = screen.getByRole('link').getAttribute('class') ?? '';
-    expect(cls).toContain('after:absolute');
-    expect(cls).toContain('after:-inset-[10px]');
+    expect(cls).toContain('touch-target-small');
     expect(cls).not.toMatch(/\bp-[3-9]\b/);
+  });
+
+  it('refuses the 44px floor that index.css puts under every link', () => {
+    /*
+     * THE REGRESSION THIS FILE EXISTS TO STOP HAPPENING TWICE.
+     *
+     * `index.css` floors every `a` at 44x44 inside
+     * `@media (hover: none) and (pointer: coarse)` — right for a control,
+     * ruinous for a 20px figure, and invisible on every desktop because that
+     * query never matches one. Shipped: the disc came out 31 wide by 44 tall,
+     * which the owner reported as "the highlighted number looks oval and not
+     * round", and its inflated cell lifted "Unreconciled" 12px above "Bank Bal"
+     * and "To Review" beside it.
+     *
+     * BOTH axes, because fixing only the height moved the problem rather than
+     * solving it: min-width simply took over as the thing overriding the disc,
+     * leaving a 44x24 lozenge. A `w-6` cannot beat a `min-width`.
+     */
+    renderLinked(7);
+    const cls = screen.getByRole('link').getAttribute('class') ?? '';
+    expect(cls).toContain('min-h-0');
+    expect(cls).toContain('min-w-0');
+  });
+
+  it('is a circle for one and two digits, and a lozenge beyond', () => {
+    // 130 does not fit in a 24px circle; squeezing it would shrink or clip the
+    // type. Under 100 the disc is fixed at 24x24 so it is round rather than
+    // "however wide the digits made it".
+    render(
+      <MemoryRouter>
+        <AccountCountCell label="Unreconciled" count={38} to="/x" openLabel="a" />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('link').getAttribute('class')).toContain('w-6');
+
+    render(
+      <MemoryRouter>
+        <AccountCountCell label="Unreconciled" count={130} to="/y" openLabel="b" />
+      </MemoryRouter>
+    );
+    const wide = screen.getByRole('link', { name: 'b' }).getAttribute('class') ?? '';
+    expect(wide).not.toMatch(/\bw-6\b/);
+    expect(wide).toContain('min-w-[24px]');
   });
 
   it('does not let opening the work also select the row behind it', () => {
