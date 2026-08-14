@@ -277,11 +277,11 @@ export default function ExportManager(): React.JSX.Element {
     <PageWrapper title="Export Data">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="bg-[#1a2332] dark:bg-gray-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div className="bg-white dark:bg-gray-800 border border-line dark:border-gray-700 rounded-lg p-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Export Data</h1>
-              <p className="text-white/70">
+              <h1 className="text-page font-semibold mb-2 text-gray-900 dark:text-white">Export Data</h1>
+              <p className="text-body text-gray-500 dark:text-gray-400">
                 Generate reports, export to Excel, and save reusable export templates
               </p>
             </div>
@@ -295,7 +295,7 @@ export default function ExportManager(): React.JSX.Element {
             <nav className="flex space-x-8 overflow-x-auto">
               <button
                 onClick={() => setActiveTab('export')}
-                className={`py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap ${
+                className={`py-4 px-6 border-b-2 font-medium text-body whitespace-nowrap ${
                   activeTab === 'export'
                     ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
@@ -308,7 +308,7 @@ export default function ExportManager(): React.JSX.Element {
               </button>
               <button
                 onClick={() => setActiveTab('templates')}
-                className={`py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap ${
+                className={`py-4 px-6 border-b-2 font-medium text-body whitespace-nowrap ${
                   activeTab === 'templates'
                     ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
@@ -329,12 +329,12 @@ export default function ExportManager(): React.JSX.Element {
             {/* Export Options */}
             <div className="lg:col-span-2 space-y-6">
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Options</h3>
+                <h3 className="text-card font-semibold text-gray-900 dark:text-white mb-4">Export Options</h3>
 
                 {/* Period — the same control, and the same meaning, as every
                     report in the app. */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-body font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Period
                   </label>
                   <PeriodPicker picker={picker} label="Export period" />
@@ -344,7 +344,7 @@ export default function ExportManager(): React.JSX.Element {
                 <div className="mb-6 max-w-sm">
                   <label
                     htmlFor="export-format"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    className="block text-body font-medium text-gray-700 dark:text-gray-300 mb-2"
                   >
                     Format
                   </label>
@@ -367,7 +367,7 @@ export default function ExportManager(): React.JSX.Element {
 
                 {/* Include Options */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  <label className="block text-body font-medium text-gray-700 dark:text-gray-300 mb-3">
                     Include in Export
                   </label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -405,7 +405,7 @@ export default function ExportManager(): React.JSX.Element {
                         }`}>
                           {checked && <CheckIcon size={12} />}
                         </div>
-                        <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+                        <span className="text-body text-gray-700 dark:text-gray-300">{label}</span>
                       </button>
                     ))}
                   </div>
@@ -415,7 +415,7 @@ export default function ExportManager(): React.JSX.Element {
                       a hard-coded empty list, budgets were never passed at all,
                       and "Charts" printed the sentence "Charts would be rendered
                       here from DOM elements" into the PDF. */}
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
+                  <p className="text-body text-gray-600 dark:text-gray-400 mt-3">
                     {interchange
                       ? 'QIF and OFX describe transactions grouped under the accounts they belong to, so both are always included — and only accounts with transactions in this period are named, to avoid creating empty ones wherever you import the file.'
                       : format === 'csv'
@@ -470,8 +470,8 @@ export default function ExportManager(): React.JSX.Element {
                   financial life on their disk. Both facts need saying where
                   the button is, not in a tooltip. */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Full backup</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-4">
+                <h3 className="text-card font-semibold text-gray-900 dark:text-white">Full backup</h3>
+                <p className="text-body text-gray-600 dark:text-gray-400 mt-1 mb-4">
                   {capabilities.edition === 'cloud'
                     ? 'Every record we hold for you, straight from the database — accounts, transactions, splits, categories, budgets, goals, investments and the rest.'
                     : 'Everything this browser is holding — accounts, transactions, splits, categories, budgets and goals. Nothing here has been sent anywhere, so this file is the only copy that exists.'}
@@ -481,7 +481,7 @@ export default function ExportManager(): React.JSX.Element {
 
                 <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 mb-4 flex items-start gap-3">
                   <AlertTriangleIcon className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" size={18} />
-                  <p className="text-sm text-amber-900 dark:text-amber-200">
+                  <p className="text-body text-amber-900 dark:text-amber-200">
                     This file is plain, readable JSON and it is <strong>not encrypted</strong>. Anyone who
                     opens it can see every account name, balance and transaction you have. Keep it
                     somewhere you would be willing to keep a bank statement — not a shared drive, not a
@@ -502,14 +502,14 @@ export default function ExportManager(): React.JSX.Element {
                     the button reports what it is on rather than sitting silent
                     long enough to look broken. */}
                 {backupProgress && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-3" aria-live="polite">
+                  <p className="text-body text-gray-600 dark:text-gray-400 mt-3" aria-live="polite">
                     {backupProgress.entity.replace(/_/g, ' ')} ({backupProgress.entityNumber} of{' '}
                     {backupProgress.entityCount}) — {backupProgress.rows.toLocaleString()} rows
                   </p>
                 )}
 
                 {backupError && (
-                  <p className="text-sm text-red-600 dark:text-red-400 mt-3">
+                  <p className="text-body text-red-600 dark:text-red-400 mt-3">
                     The backup stopped and no file was written: {backupError}
                   </p>
                 )}
@@ -519,8 +519,8 @@ export default function ExportManager(): React.JSX.Element {
             {/* Preview — a description of the FILE, not of the dataset. Every
                 figure here comes from the same selection the export writes. */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 self-start">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Preview</h3>
-              <div className="space-y-3 text-sm">
+              <h3 className="text-card font-semibold text-gray-900 dark:text-white mb-4">Preview</h3>
+              <div className="space-y-3 text-body">
                 <div className="flex justify-between gap-4">
                   <span className="text-gray-600 dark:text-gray-400">Period:</span>
                   <span className="text-gray-900 dark:text-white text-right">{rangeDescription}</span>
@@ -544,7 +544,7 @@ export default function ExportManager(): React.JSX.Element {
               </div>
 
               {!hasSomethingToExport && (
-                <p className="text-sm text-amber-700 dark:text-amber-300 mt-4">
+                <p className="text-body text-amber-700 dark:text-amber-300 mt-4">
                   Nothing falls in this period with these options, so there is no file to write.
                 </p>
               )}
@@ -557,7 +557,7 @@ export default function ExportManager(): React.JSX.Element {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Export Templates</h3>
+                <h3 className="text-card font-semibold text-gray-900 dark:text-white">Export Templates</h3>
                 <button
                   onClick={() => setActiveTab('export')}
                   className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary)]/90"
@@ -573,7 +573,7 @@ export default function ExportManager(): React.JSX.Element {
                 <div className="text-center py-8">
                   <FileTextIcon size={48} className="mx-auto mb-4 text-gray-400" />
                   <p className="text-gray-500 dark:text-gray-400">No templates</p>
-                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                  <p className="text-body text-gray-400 dark:text-gray-500 mt-2">
                     Set up an export the way you like it, then use Save as Template on the Quick Export tab.
                   </p>
                 </div>
@@ -587,7 +587,7 @@ export default function ExportManager(): React.JSX.Element {
                           {/* A label, not a lock: these came with the app, and
                               they delete like any other. */}
                           {template.isStarter && (
-                            <span className="ml-2 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200 px-2 py-1 rounded">
+                            <span className="ml-2 text-dense bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200 px-2 py-1 rounded">
                               Starter
                             </span>
                           )}
@@ -611,10 +611,10 @@ export default function ExportManager(): React.JSX.Element {
                           </button>
                         </div>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      <p className="text-body text-gray-600 dark:text-gray-400 mb-3">
                         {template.description}
                       </p>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                      <div className="text-dense text-gray-500 dark:text-gray-400 space-y-1">
                         <div>Format: {template.options.format.toUpperCase()}</div>
                         {/* The period is stored as a RULE, so it says what it
                             will do next time — not what it did in the month it

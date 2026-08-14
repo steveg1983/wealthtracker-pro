@@ -244,18 +244,18 @@ export default function Investments() {
     return (
       <div>
         <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4 mb-6">
-          <h1 className="text-3xl font-bold text-white">Investments</h1>
+          <h1 className="text-display font-bold text-white">Investments</h1>
         </div>
         
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-8 text-center">
           <BarChart3Icon className="mx-auto text-gray-400 mb-4" size={64} />
-          <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-2">
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white mb-2">
             No Investment Accounts Yet
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             Add an investment account to start tracking your portfolio performance.
           </p>
-          <p className="text-sm text-gray-500 dark:text-gray-500">
+          <p className="text-body text-gray-500 dark:text-gray-500">
             Go to Accounts → Add Account → Choose "Investment" as the account type
           </p>
         </div>
@@ -311,7 +311,7 @@ export default function Investments() {
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-6">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
             activeTab === 'overview'
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -322,7 +322,7 @@ export default function Investments() {
         </button>
         <button
           onClick={() => setActiveTab('watchlist')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
             activeTab === 'watchlist'
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -333,7 +333,7 @@ export default function Investments() {
         </button>
         <button
           onClick={() => setActiveTab('portfolio')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
             activeTab === 'portfolio'
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -344,7 +344,7 @@ export default function Investments() {
         </button>
         <button
           onClick={() => setActiveTab('manage')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
             activeTab === 'manage'
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -360,11 +360,11 @@ export default function Investments() {
         <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Portfolio Value</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="text-body text-gray-500 dark:text-gray-400">Portfolio Value</p>
+              <p className="text-page font-bold text-gray-900 dark:text-white">
                 {formatCurrency(summary.value)}
               </p>
             </div>
@@ -372,14 +372,14 @@ export default function Investments() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Net Contributions</p>
-              <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">
+              <p className="text-body text-gray-500 dark:text-gray-400">Net Contributions</p>
+              <p className="text-page font-bold text-blue-700 dark:text-blue-400">
                 {formatCurrency(summary.netContributions)}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
                 Transferred in, less transferred out
               </p>
             </div>
@@ -387,11 +387,11 @@ export default function Investments() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Return</p>
-              <p className={`text-2xl font-bold ${isGain ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              <p className="text-body text-gray-500 dark:text-gray-400">Total Return</p>
+              <p className={`text-page font-bold ${isGain ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 {isGain ? '+' : ''}{formatCurrency(summary.totalReturn)}
               </p>
             </div>
@@ -399,19 +399,19 @@ export default function Investments() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Return %</p>
+              <p className="text-body text-gray-500 dark:text-gray-400">Return %</p>
               {summary.returnPercent === null ? (
                 <>
-                  <p className="text-2xl font-bold text-gray-500 dark:text-gray-400">—</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-page font-bold text-gray-500 dark:text-gray-400">—</p>
+                  <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
                     No contributions to measure a return against
                   </p>
                 </>
               ) : (
-                <p className={`text-2xl font-bold ${isGain ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                <p className={`text-page font-bold ${isGain ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                   {isGain ? '+' : ''}{formatPercentage(summary.returnPercent)}
                 </p>
               )}
@@ -432,8 +432,8 @@ export default function Investments() {
             with it, not how many rows there are — and renders nothing at all
             when every transfer is accounted for. */}
         {summary.unattributedTransfers.count > 0 && (
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4">
-            <p className="text-sm text-amber-900 dark:text-amber-200">
+          <div className="rounded-lg p-4">
+            <p className="text-body text-gray-500 dark:text-gray-400">
               {formatCurrency(summary.unattributedTransfers.amount)} of transfers in and out of
               these accounts have no matching row in another account, so they are counted as
               money from outside. Any that were moves within the portfolio make Net Contributions
@@ -443,15 +443,15 @@ export default function Investments() {
         )}
 
         {/* Performance Chart */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-theme-heading dark:text-white">Portfolio Performance</h2>
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white">Portfolio Performance</h2>
           <div className="flex gap-2">
             {['1M', '3M', '6M', '1Y', 'ALL'].map((period) => (
               <button
                 key={period}
                 onClick={() => setSelectedPeriod(period as '1M' | '3M' | '6M' | '1Y' | 'ALL')}
-                className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                className={`px-3 py-1 text-body rounded-lg transition-colors ${
                   selectedPeriod === period
                     ? 'bg-[#1a2332] text-white'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -504,8 +504,8 @@ export default function Investments() {
         {/* Holdings */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Holdings List */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
-          <h2 className="text-xl font-semibold mb-4 text-theme-heading dark:text-white">Holdings</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
+          <h2 className="text-card font-semibold mb-4 text-theme-heading dark:text-white">Holdings</h2>
           {portfolioLines.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
               No holdings to display
@@ -531,7 +531,7 @@ export default function Investments() {
                           <h3 className="font-medium text-gray-900 dark:text-white">
                             {line.name}
                           </h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                          <p className="text-body text-gray-500 dark:text-gray-400">
                             {line.institution || 'N/A'}
                           </p>
                         </div>
@@ -546,7 +546,7 @@ export default function Investments() {
                     {line.cash.map(cash => (
                       <p
                         key={cash.accountId}
-                        className="ml-5 mb-2 flex justify-between text-xs text-gray-500 dark:text-gray-400"
+                        className="ml-5 mb-2 flex justify-between text-dense text-gray-500 dark:text-gray-400"
                       >
                         <span>{cash.label}</span>
                         <span className="tabular-nums">{formatCurrency(cash.value)}</span>
@@ -565,7 +565,7 @@ export default function Investments() {
                           }}
                         />
                       </div>
-                      <span className="text-sm text-gray-600 dark:text-gray-400 w-12 text-right">
+                      <span className="text-body text-gray-600 dark:text-gray-400 w-12 text-right">
                         {formatPercentage(line.allocation)}
                       </span>
                     </div>
@@ -577,8 +577,8 @@ export default function Investments() {
         </div>
 
         {/* Allocation Chart */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
-          <h2 className="text-xl font-semibold mb-4 text-theme-heading dark:text-white">Asset Allocation</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
+          <h2 className="text-card font-semibold mb-4 text-theme-heading dark:text-white">Asset Allocation</h2>
           {portfolioLines.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
               No data to display
@@ -614,7 +614,7 @@ export default function Investments() {
               </div>
               <div className="mt-4 space-y-2">
                 {portfolioLines.map((line, index) => (
-                  <div key={line.accountId} className="flex items-center justify-between text-sm">
+                  <div key={line.accountId} className="flex items-center justify-between text-body">
                     <div className="flex items-center gap-2">
                       <div
                         className="w-3 h-3 rounded-full"
@@ -634,12 +634,12 @@ export default function Investments() {
         </div>
 
         {/* Investment Tips */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6">
+        <div className="bg-white dark:bg-gray-800 border border-line dark:border-gray-700 rounded-lg p-6">
           <div className="flex items-start gap-3">
             <AlertCircleIcon className="text-blue-700 dark:text-blue-400 mt-1" size={20} />
             <div>
               <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">How these figures are worked out</h3>
-              <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+              <ul className="text-body text-blue-800 dark:text-blue-200 space-y-1">
                 <li>• A line is worth the investment account plus any cash account paired with it — set the pairing in Account Settings → Part of investment account</li>
                 <li>• Money transferred in from elsewhere counts as a contribution; moving money between an investment account and its own cash does not</li>
                 <li>• Total Return is what the portfolio is worth today less what was put into it</li>
@@ -667,23 +667,23 @@ export default function Investments() {
         <div className="space-y-6">
           {holdingsError && (
             <div role="alert" className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4">
-              <p className="text-sm text-red-700 dark:text-red-300">{holdingsError}</p>
+              <p className="text-body text-red-700 dark:text-red-300">{holdingsError}</p>
             </div>
           )}
 
           {investmentAccounts.map((account) => {
             const accountHoldings = holdingsByAccount.get(account.id) ?? [];
             return (
-              <div key={account.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+              <div key={account.id} className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
                 <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{account.name}</h3>
+                  <h3 className="text-card font-semibold text-gray-900 dark:text-white">{account.name}</h3>
                   <button
                     type="button"
                     onClick={() => {
                       setManagingAccountId(account.id);
                       setActiveTab('manage');
                     }}
-                    className="text-sm text-primary hover:text-secondary transition-colors"
+                    className="text-body text-primary hover:text-secondary transition-colors"
                   >
                     Manage holdings →
                   </button>
@@ -712,13 +712,13 @@ export default function Investments() {
         <div className="space-y-6">
           {holdingsError && (
             <div role="alert" className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4">
-              <p className="text-sm text-red-700 dark:text-red-300">{holdingsError}</p>
+              <p className="text-body text-red-700 dark:text-red-300">{holdingsError}</p>
             </div>
           )}
 
           {/* Account Selector */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
-            <label htmlFor="manage-account" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4">
+            <label htmlFor="manage-account" className="block text-body font-medium text-gray-700 dark:text-gray-300 mb-2">
               Select investment account
             </label>
             <select
@@ -739,7 +739,7 @@ export default function Investments() {
             if (!account) return null;
 
             return (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
                 <PortfolioManager
                   holdings={holdingsByAccount.get(account.id) ?? []}
                   currency={account.currency}
