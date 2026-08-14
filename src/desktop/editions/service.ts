@@ -152,6 +152,9 @@ export const useAccountBankSync: UseServiceBankSync = () => ({
   syncAccount: () => Promise.resolve(),
   syncAllConnections: () => Promise.resolve(),
   connectedCount: 0,
+  // No connections at all, so none of them can be broken — the Accounts page's
+  // own guard reads this as "nothing to warn about" and the button stays quiet.
+  feedsNeedingAttention: 0,
   isSyncingAny: false,
   reloadConnections: () => Promise.resolve()
 });

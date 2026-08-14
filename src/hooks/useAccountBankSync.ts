@@ -20,10 +20,10 @@ import { createScopedLogger } from '../loggers/scopedLogger';
 // put `@clerk/clerk-react` in front of the Dashboard and the register in a
 // desktop build.
 export type { AccountBankLink, UseAccountBankSyncResult } from './accountBankLinks';
-export { buildAccountBankLinks } from './accountBankLinks';
+export { buildAccountBankLinks, countFeedsNeedingAttention } from './accountBankLinks';
 
 // …and imported for this module's own use, because a re-export is not a binding.
-import { buildAccountBankLinks } from './accountBankLinks';
+import { buildAccountBankLinks, countFeedsNeedingAttention } from './accountBankLinks';
 import type { UseAccountBankSyncResult } from './accountBankLinks';
 
 const logger = createScopedLogger('useAccountBankSync');
@@ -205,12 +205,27 @@ export function useAccountBankSync(options?: { onSynced?: () => void | Promise<v
     [connections]
   );
 
+  /**
+   * Feeds that have stopped and need the user to do something about it.
+   *
+   * BOTH failing statuses count, because from the outside they are the same
+   * event: the money stopped arriving. `error` is the bank refusing or failing;
+   * `reauth_required` is a consent that has expired — the quieter and more
+   * dangerous of the two, since nothing looks broken, the balances simply go
+   * stale. A count rather than a boolean so the caller can say how many.
+   */
+  const feedsNeedingAttention = useMemo(
+    () => countFeedsNeedingAttention(connections),
+    [connections]
+  );
+
   return {
     getAccountLink,
     isAccountSyncing,
     syncAccount,
     syncAllConnections,
     connectedCount,
+    feedsNeedingAttention,
     isSyncingAny: syncingConnectionIds.size > 0,
     reloadConnections,
   };

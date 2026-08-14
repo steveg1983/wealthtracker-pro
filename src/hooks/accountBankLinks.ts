@@ -34,10 +34,37 @@ export interface UseAccountBankSyncResult {
   syncAllConnections: () => Promise<void>;
   /** How many connections a refresh-all would touch. */
   connectedCount: number;
+  /**
+   * How many connections have STOPPED and need the user to act — `error` or
+   * `reauth_required`. Both count: from outside they are one event, the money
+   * stopped arriving, and the expired-consent case is the more dangerous
+   * because nothing looks broken, the balances just go stale.
+   */
+  feedsNeedingAttention: number;
   /** True while any connection is mid-sync. */
   isSyncingAny: boolean;
   /** Re-fetch connection metadata (last sync, status) without triggering a sync. */
   reloadConnections: () => Promise<void>;
+}
+
+/**
+ * How many connections have STOPPED and need the user to act.
+ *
+ * BOTH failing statuses count, because from outside they are one event: the
+ * money stopped arriving. `error` is the bank refusing or failing;
+ * `reauth_required` is a consent that has expired — the quieter and more
+ * dangerous of the two, because nothing looks broken, the balances simply go
+ * stale, and a stale account is indistinguishable from one nobody has spent
+ * from.
+ *
+ * Pure, and here rather than inside the hook, for the same reason
+ * `buildAccountBankLinks` is: it is the part worth testing without mounting
+ * anything.
+ */
+export function countFeedsNeedingAttention(connections: readonly BankConnection[]): number {
+  return connections.filter(
+    (connection) => connection.status === 'error' || connection.status === 'reauth_required'
+  ).length;
 }
 
 /**
