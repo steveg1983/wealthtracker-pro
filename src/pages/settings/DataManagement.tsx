@@ -213,8 +213,8 @@ export default function DataManagementSettings() {
 
   return (
     <div>
-      <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4 mb-6">
-        <h1 className="text-3xl font-bold text-white">Data Management</h1>
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 mb-6">
+        <h1 className="text-page font-semibold text-gray-900 dark:text-white">Data Management</h1>
       </div>
 
       {/* Retired 2026-08-07: the orange "Test Data Active" banner and the
@@ -277,7 +277,7 @@ export default function DataManagementSettings() {
 
       {/* ── Danger Zone ────────────────────────────────────────── */}
       <div className="rounded-2xl border border-red-200 dark:border-red-900/50 bg-white dark:bg-gray-800 shadow-sm p-6 mb-6">
-        <h3 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-1">Danger Zone</h3>
+        <h3 className="text-card font-semibold text-red-700 dark:text-red-400 mb-1">Danger Zone</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Irreversible actions — handle with care.</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
@@ -309,7 +309,7 @@ export default function DataManagementSettings() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <AlertCircleIcon className="text-red-500" size={24} />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Confirm Delete All Data</h3>
+              <h3 className="text-card font-semibold text-gray-900 dark:text-white">Confirm Delete All Data</h3>
             </div>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               Are you sure you want to delete all data? This will permanently remove:
@@ -453,7 +453,7 @@ export default function DataManagementSettings() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Bank Connections</h2>
+              <h2 className="text-page font-bold text-gray-900 dark:text-white">Bank Connections</h2>
               <button
                 onClick={closeBankConnections}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -489,8 +489,8 @@ function Section({ title, description, children }: {
   title: string; description: string; children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6 mb-6">
+      <h3 className="text-card font-semibold text-gray-900 dark:text-white">{title}</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{description}</p>
       <div className="space-y-3">{children}</div>
     </div>

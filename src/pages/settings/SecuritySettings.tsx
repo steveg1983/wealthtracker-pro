@@ -119,15 +119,15 @@ export default function SecuritySettings() {
     <PageWrapper title="Security Settings">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="bg-[#1a2332] dark:bg-gray-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div className="bg-white dark:bg-gray-800 border border-line dark:border-gray-700 rounded-lg p-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Security Settings</h1>
-              <p className="text-white/70">
+              <h1 className="text-page font-semibold mb-2 text-gray-900 dark:text-white">Security Settings</h1>
+              <p className="text-body text-gray-500 dark:text-gray-400">
                 Protect your financial data with advanced security features
               </p>
             </div>
-            <ShieldIcon size={48} className="text-white/80" />
+            <ShieldIcon size={48} className="text-gray-300 dark:text-gray-600" />
           </div>
         </div>
 
@@ -153,7 +153,7 @@ export default function SecuritySettings() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                   <PhoneIcon size={20} className="text-indigo-600 dark:text-indigo-400" />
                   Two-Factor Authentication
                 </h3>
@@ -187,7 +187,7 @@ export default function SecuritySettings() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                   <FingerprintIcon size={20} className="text-purple-600 dark:text-purple-400" />
                   Biometric Authentication
                 </h3>
@@ -223,7 +223,7 @@ export default function SecuritySettings() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                   <LockIcon size={20} className="text-blue-600 dark:text-blue-400" />
                   End-to-End Encryption
                 </h3>
@@ -257,7 +257,7 @@ export default function SecuritySettings() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                   <EyeIcon size={20} className="text-blue-700 dark:text-blue-400" />
                   Read-Only Mode
                 </h3>
@@ -289,7 +289,7 @@ export default function SecuritySettings() {
 
           {/* Session Timeout */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+            <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
               <RefreshCwIcon size={20} className="text-orange-600 dark:text-orange-400" />
               Session Timeout
             </h3>
@@ -319,7 +319,7 @@ export default function SecuritySettings() {
 
           {/* Audit Logs */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+            <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
               <FileTextIcon size={20} className="text-gray-600 dark:text-gray-400" />
               Security Information
             </h3>
@@ -357,7 +357,7 @@ export default function SecuritySettings() {
         {showTwoFactorSetup && twoFactorSecret && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              <h3 className="text-card font-semibold text-gray-900 dark:text-white mb-4">
                 Set Up Two-Factor Authentication
               </h3>
               
@@ -393,7 +393,7 @@ export default function SecuritySettings() {
                     onChange={(e) => setVerificationCode(e.target.value)}
                     placeholder="000000"
                     maxLength={6}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center font-mono text-lg"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center font-mono text-card"
                   />
                 </div>
                 

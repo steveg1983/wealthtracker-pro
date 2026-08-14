@@ -782,7 +782,7 @@ export default function CategoriesSettings() {
     
     return (
       <div>
-        <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">{title}</h3>
+        <h3 className="text-card font-medium text-gray-700 dark:text-gray-300 mb-3">{title}</h3>
         <SortableContext 
           items={[...orderedSubCategories.map(c => c.id), ...allDetailIds]}
           strategy={verticalListSortingStrategy}
@@ -1016,7 +1016,7 @@ export default function CategoriesSettings() {
 
       {/* Starter set import */}
       {!isEditMode && !isDeleteMode && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
               Standard category set
@@ -1047,7 +1047,7 @@ export default function CategoriesSettings() {
       />
 
       {/* Categories Tree */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
         <DndContext 
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -1061,7 +1061,7 @@ export default function CategoriesSettings() {
           
           {/* Other Categories */}
           <div>
-            <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">Other Categories</h3>
+            <h3 className="text-card font-medium text-gray-700 dark:text-gray-300 mb-3">Other Categories</h3>
             <div className="space-y-1">
               {categories.filter(cat => cat.type === 'both' && cat.level === 'detail' && !cat.parentId && cat.isActive !== false).map(category => {
                 const transactionCount = categoryTransactionCounts.get(category.id) ?? 0;
@@ -1114,7 +1114,7 @@ export default function CategoriesSettings() {
           >
             <div className="flex items-center gap-3 mb-4">
               <AlertCircleIcon className="text-orange-500" size={24} />
-              <h3 id="delete-category-heading" className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h3 id="delete-category-heading" className="text-card font-semibold text-gray-900 dark:text-white">
                 Delete Category
               </h3>
             </div>
@@ -1214,7 +1214,7 @@ export default function CategoriesSettings() {
           >
             <div className="flex items-center gap-3 mb-4">
               <MergeIcon className="text-primary" size={24} />
-              <h3 id="merge-category-heading" className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h3 id="merge-category-heading" className="text-card font-semibold text-gray-900 dark:text-white">
                 Merge Category
               </h3>
             </div>
@@ -1327,7 +1327,7 @@ export default function CategoriesSettings() {
       {viewingCategoryId && !showTransactionsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            <h3 className="text-card font-semibold text-gray-900 dark:text-white mb-4">
               View Transactions
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">

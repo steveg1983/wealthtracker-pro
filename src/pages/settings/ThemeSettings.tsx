@@ -119,19 +119,19 @@ export default function ThemeSettings() {
     <PageWrapper title="Theme Settings">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="bg-[#1a2332] dark:bg-gray-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div className="bg-white dark:bg-gray-800 border border-line dark:border-gray-700 rounded-lg p-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Theme Settings</h1>
-              <p className="text-white/70">
-                Customize appearance and automate theme switching
+              <h1 className="text-page font-semibold mb-2 text-gray-900 dark:text-white">Theme Settings</h1>
+              <p className="text-body text-gray-500 dark:text-gray-400">
+                Customise appearance and automate theme switching
               </p>
             </div>
             <div className="flex items-center gap-4">
               {getCurrentTheme() === 'dark' ? (
-                <MoonIcon size={48} className="text-white/80" />
+                <MoonIcon size={48} className="text-gray-300 dark:text-gray-600" />
               ) : (
-                <SunIcon size={48} className="text-white/80" />
+                <SunIcon size={48} className="text-gray-300 dark:text-gray-600" />
               )}
             </div>
           </div>
@@ -231,7 +231,7 @@ export default function ThemeSettings() {
         {activeTab === 'schedules' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Theme Schedules</h3>
+              <h3 className="text-card font-semibold text-gray-900 dark:text-white">Theme Schedules</h3>
               <button
                 onClick={() => setShowCreateSchedule(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary)]/90"
@@ -359,7 +359,7 @@ export default function ThemeSettings() {
         {activeTab === 'presets' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Theme Presets</h3>
+              <h3 className="text-card font-semibold text-gray-900 dark:text-white">Theme Presets</h3>
               <button
                 onClick={() => setShowCreatePreset(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary)]/90"
@@ -443,7 +443,7 @@ export default function ThemeSettings() {
         {/* Settings Tab */}
         {activeTab === 'settings' && (
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Advanced Settings</h3>
+            <h3 className="text-card font-semibold text-gray-900 dark:text-white">Advanced Settings</h3>
             
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
               <h4 className="font-medium text-gray-900 dark:text-white mb-4">System Integration</h4>
@@ -501,7 +501,7 @@ export default function ThemeSettings() {
         {showCreateSchedule && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              <h3 className="text-card font-semibold text-gray-900 dark:text-white mb-4">
                 Create Theme Schedule
               </h3>
               <p className="text-gray-600 dark:text-gray-400 mb-4">

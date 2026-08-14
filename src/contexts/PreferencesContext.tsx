@@ -44,9 +44,6 @@ interface PreferencesContextType {
   // Page visibility settings
   showInvestments: boolean;
   setShowInvestments: (value: boolean) => void;
-  // Goal celebrations
-  enableGoalCelebrations: boolean;
-  setEnableGoalCelebrations: (value: boolean) => void;
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -106,10 +103,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
     (): string => preferences.getItem('money_management_first_name') || ''
   );
 
-  const [enableGoalCelebrations, setEnableGoalCelebrations] = useState(
-    (): boolean => preferences.getItem('money_management_goal_celebrations') !== 'false'
-  );
-
   // Page visibility settings
   const [showInvestments, setShowInvestments] = useState(
     (): boolean => preferences.getItem('money_management_show_investments') !== 'false'
@@ -137,7 +130,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       const storedTheme = preferences.getItem('money_management_theme');
       setTheme(isThemeChoice(storedTheme) ? storedTheme : 'light');
       setFirstName(preferences.getItem('money_management_first_name') || '');
-      setEnableGoalCelebrations(preferences.getItem('money_management_goal_celebrations') !== 'false');
       setShowInvestments(preferences.getItem('money_management_show_investments') !== 'false');
       setThemeSchedule(readThemeSchedule());
     });
@@ -245,13 +237,12 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       preferences.setItem('money_management_first_name', firstName);
       preferences.setItem('money_management_show_investments', showInvestments.toString());
       preferences.setItem('money_management_theme_schedule', JSON.stringify(themeSchedule));
-      preferences.setItem('money_management_goal_celebrations', enableGoalCelebrations.toString());
     };
 
     const timeoutId = setTimeout(savePreferences, 300);
 
     return (): void => clearTimeout(timeoutId);
-  }, [compactView, currency, theme, firstName, showInvestments, themeSchedule, enableGoalCelebrations]);
+  }, [compactView, currency, theme, firstName, showInvestments, themeSchedule]);
 
   return (
     <PreferencesContext.Provider value={{
@@ -268,8 +259,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       setThemeSchedule,
       showInvestments,
       setShowInvestments,
-      enableGoalCelebrations,
-      setEnableGoalCelebrations,
     }}>
       {children}
     </PreferencesContext.Provider>
