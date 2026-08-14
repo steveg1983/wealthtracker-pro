@@ -102,7 +102,6 @@ export default function LoadTestDataModal({ isOpen, onClose }: Props): React.JSX
               <li>{plural(TEST_DATA_COUNTS.accounts, 'account')} — a current account, savings, an investment portfolio and a credit card</li>
               <li>{plural(TEST_DATA_COUNTS.transactions, 'transaction')} across those accounts, over the last 90 days</li>
               <li>{plural(TEST_DATA_COUNTS.budgets, 'monthly budget')}</li>
-              <li>{plural(TEST_DATA_COUNTS.goals, 'savings goal')}</li>
               <li>Any categories the sample uses that you don't already have — matched by name, so nothing of yours is renamed or replaced</li>
             </ul>
             <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -143,8 +142,7 @@ export default function LoadTestDataModal({ isOpen, onClose }: Props): React.JSX
                 Created {sentenceList([
                   plural(result.accounts, 'account'),
                   plural(result.transactions, 'transaction'),
-                  plural(result.budgets, 'budget'),
-                  plural(result.goals, 'goal')
+                  plural(result.budgets, 'budget')
                 ])}.
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400">
