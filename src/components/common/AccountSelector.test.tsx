@@ -569,3 +569,51 @@ describe('a cash account linked to an investment', () => {
     expect(screen.getByText('Wiseville Spare Cash (current)')).toBeInTheDocument();
   });
 });
+
+/**
+ * ─ THE SAME KEYBOARD GAP CategorySelector HAD ──────────────────────────────
+ *
+ * Both pickers chose nothing when a filter left SEVERAL matches and nothing was
+ * highlighted — which is always the case after typing, because the highlight is
+ * reset on every change to the option list. `preventDefault` swallowed the key,
+ * so the control looked as though it had accepted something.
+ *
+ * Found in CategorySelector, fixed in both after the owner asked the right
+ * question: "if this is a problem in a few areas will it be fixed in all?"
+ */
+describe('Enter after typing', () => {
+  it('picks the top match when the filter leaves several', () => {
+    const { onAccountChange } = renderPicker();
+    open();
+    const search = screen.getByPlaceholderText(PLACEHOLDER);
+
+    // 'Natwest' matches the current account, the savings account and the ISA.
+    fireEvent.change(search, { target: { value: 'nat' } });
+    expect(screen.getAllByRole('option').length).toBeGreaterThan(1);
+
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(onAccountChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('does nothing on Enter with no search and nothing highlighted', () => {
+    // No filter means no "best match" — the list is simply every account, and
+    // quietly choosing the first would be worse than doing nothing.
+    const { onAccountChange } = renderPicker();
+    open();
+    fireEvent.keyDown(screen.getByPlaceholderText(PLACEHOLDER), { key: 'Enter' });
+    expect(onAccountChange).not.toHaveBeenCalled();
+  });
+
+  it('never lets a filtered Enter fall on the clear row', () => {
+    // The clear row is pinned FIRST, so "top match" has to mean top matching
+    // ACCOUNT or a search would file "no account" the moment it narrowed.
+    const { onAccountChange } = renderPicker({ clearOption: 'Keep in current account' });
+    open();
+    const search = screen.getByPlaceholderText(PLACEHOLDER);
+    fireEvent.change(search, { target: { value: 'nat' } });
+    fireEvent.keyDown(search, { key: 'Enter' });
+
+    expect(onAccountChange).toHaveBeenCalledTimes(1);
+    expect(onAccountChange).not.toHaveBeenCalledWith('');
+  });
+});

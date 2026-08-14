@@ -547,8 +547,34 @@ export default function CategorySelector({
         break;
       case 'Enter': {
         e.preventDefault();
-        const chosen = flatOptions[highlightIndex] ??
-          (flatOptions.length === 1 ? flatOptions[0] : undefined);
+        /*
+         * ─ ENTER AFTER TYPING CHOOSES THE TOP MATCH ────────────────────────
+         *
+         * It used to choose the highlighted option, or the only option if the
+         * filter had left exactly one, and OTHERWISE NOTHING AT ALL — while
+         * `preventDefault` above swallowed the keystroke, so the row looked as
+         * though it had accepted a category it had not.
+         *
+         * That is unreachable with a mouse and unavoidable with the keyboard,
+         * because the highlight is reset to -1 on every change to `searchTerm`
+         * (see the effect beside it: "any change to the option list invalidates
+         * the highlight"). So typing a filter ALWAYS left nothing highlighted,
+         * and unless the text happened to narrow the list to one, Enter was a
+         * key that did nothing and said nothing.
+         *
+         * The owner found the difference by doing the same edit twice: "the
+         * only difference this time to what I did before is I pressed next &
+         * save with the mouse and last time I was typing the category and then
+         * pressing enter > enter."
+         *
+         * With a search term the first option is the best match by the list's
+         * own ordering, so it is what Enter means. With NO search term there is
+         * no match to be top of — the list is simply every category — and
+         * silently filing the alphabetically-first one would be worse than
+         * doing nothing, so the old behaviour stands there.
+         */
+        const chosen = flatOptions[highlightIndex]
+          ?? (searchTerm.trim() !== '' || flatOptions.length === 1 ? flatOptions[0] : undefined);
         if (chosen) handleCategorySelect(chosen.id);
         break;
       }

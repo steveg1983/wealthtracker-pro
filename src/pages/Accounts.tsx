@@ -167,6 +167,12 @@ interface DisplayedSubBand {
   accounts: readonly Account[];
   /** What actually renders, sorted and filtered. */
   displayed: Account[];
+  /**
+   * Whether this institution is unfolded. Folded, it leaves its name, its count
+   * and its total — which is what makes folding worth doing rather than merely
+   * possible. Always true while searching; see where this is computed.
+   */
+  isExpanded: boolean;
 }
 
 interface DisplayedBand {
@@ -765,6 +771,27 @@ export default function Accounts() {
           title: sub.title,
           accounts: sub.accounts,
           displayed: sortAccounts(isSearching ? sub.accounts.filter(accountOrChildMatches) : sub.accounts),
+          /*
+           * AN INSTITUTION FOLDS TOO, on the same terms as the section above it.
+           * "It means that if I just want to see an institutions summary — name
+           * and total amount I can … it may help make the scrolling less if you
+           * want to hide some accounts on view."
+           *
+           * The same key shape as a top-level band, `institution:<label>`, and
+           * that has a consequence worth stating rather than discovering:
+           * folding "Coutts" folds it in EVERY type section it appears in, and
+           * a Coutts folded here stays folded if the Account Type switch is
+           * turned off and Coutts becomes a top-level band. That is the design
+           * `collapsedGroups` already committed to — the key names the
+           * DIMENSION and the label, never the path — and the alternative
+           * (keying by "which section is it under") would lose the fold every
+           * time the grouping switches flip, which is exactly what that comment
+           * says it set out to avoid.
+           *
+           * Search ignores the fold for the same reason it does above: a folded
+           * institution must not swallow a row the user is hunting for.
+           */
+          isExpanded: isSearching || !collapsedGroups.has(collapseKeyFor('institution', sub.label)),
         }))
         .filter(sub => sub.displayed.length > 0) ?? null;
       bands.push({
@@ -1687,6 +1714,11 @@ export default function Accounts() {
                     subBandTotalKey(group.kind, group.label, sub.label),
                     sub.accounts
                   );
+                  // Scoped to the SECTION as well as the institution: the same
+                  // bank appears under Current Accounts and under Credit Cards,
+                  // and two elements may not share a DOM id even when they fold
+                  // together.
+                  const subRegionId = `${groupRegionId(group.kind, group.label)}-${groupRegionId('institution', sub.label)}`;
                   return (
                     // A sub-band is a group, not a heading: the outline stays
                     // section (h2) → account name (h3), and screen readers get
@@ -1714,10 +1746,32 @@ export default function Accounts() {
                           `first:` resets all three: the opening institution in
                           a band sits directly under that band's own heading and
                           has nothing above it to be separated from. */}
-                      <div className="flex items-center justify-between gap-2 mt-4 first:mt-0 border-t-2 first:border-t-0 border-b border-line dark:border-gray-700 bg-surface-secondary dark:bg-gray-700/50 px-4 sm:px-6 py-2">
-                        <p className="text-body uppercase font-bold tracking-wide text-gray-900 dark:text-white truncate">
-                          {sub.title}
-                          <span className="ml-2 font-normal normal-case tracking-normal text-gray-400 dark:text-gray-500">
+                      {/* A BUTTON NOW, not a caption — see `isExpanded` on the
+                          sub-band. It is the section heading's control one rung
+                          down and is spelt identically: same chevron, same
+                          rotation, same `aria-expanded`/`aria-controls` pair,
+                          so the two folds are one idiom rather than two.
+
+                          The count and the total stay in the heading precisely
+                          BECAUSE it folds: what a collapsed institution leaves
+                          on screen is its name, how many accounts are inside
+                          and what they come to, which is the whole point of
+                          folding it — "if I just want to see an institutions
+                          summary — name and total amount I can". */}
+                      <button
+                        type="button"
+                        onClick={() => toggleGroupCollapsed(collapseKeyFor('institution', sub.label))}
+                        aria-expanded={sub.isExpanded}
+                        aria-controls={subRegionId}
+                        className="w-full text-left flex items-center justify-between gap-2 mt-4 first:mt-0 border-t-2 first:border-t-0 border-b border-line dark:border-gray-700 bg-surface-secondary dark:bg-gray-700/50 hover:bg-surface-tertiary dark:hover:bg-gray-700 transition-colors duration-state px-4 sm:px-6 py-2"
+                      >
+                        <p className="flex items-center gap-2 min-w-0 text-body uppercase font-bold tracking-wide text-gray-900 dark:text-white truncate">
+                          <ChevronRightIcon
+                            size={14}
+                            className={`flex-shrink-0 text-gray-400 transition-transform duration-200 ${sub.isExpanded ? 'rotate-90' : ''}`}
+                          />
+                          <span className="truncate">{sub.title}</span>
+                          <span className="shrink-0 font-normal normal-case tracking-normal text-gray-400 dark:text-gray-500">
                             ({countLabel})
                           </span>
                         </p>
@@ -1726,8 +1780,10 @@ export default function Accounts() {
                               its group label, so the mark is decoration here. */}
                           <span aria-hidden="true">{subTotal.text}</span>
                         </p>
+                      </button>
+                      <div id={subRegionId}>
+                        {sub.isExpanded && sub.displayed.map(renderAccountCard)}
                       </div>
-                      {sub.displayed.map(renderAccountCard)}
                     </div>
                   );
                 })

@@ -166,6 +166,47 @@ describe('CategorySelector', () => {
       expect(onCategoryChange).toHaveBeenCalledWith('det-groceries');
     });
 
+    it('picks the TOP MATCH with Enter when the filter leaves several', () => {
+      /*
+       * The one that was silently broken, and the reason the owner's edits kept
+       * reverting to their suggested category.
+       *
+       * The highlight is reset to -1 on every change to `searchTerm`, so typing
+       * a filter always leaves nothing highlighted. Enter used to choose the
+       * highlighted option, or the only survivor when the filter left exactly
+       * one, and OTHERWISE NOTHING — with `preventDefault` swallowing the key,
+       * so the row looked as though it had taken a category it had not.
+       *
+       * Unreachable with a mouse, unavoidable with the keyboard: "the only
+       * difference this time to what I did before is I pressed next & save with
+       * the mouse and last time I was typing the category and then pressing
+       * enter > enter."
+       *
+       * A filter that leaves SEVERAL is the case this covers — one survivor
+       * already worked, which is exactly why the gap went unnoticed.
+       */
+      const { onCategoryChange } = renderOpen({ includeAllTypes: true });
+      const input = screen.getByPlaceholderText(PLACEHOLDER);
+
+      // A substring both options share, so the list keeps more than one.
+      fireEvent.change(input, { target: { value: 'o' } });
+      expect(screen.getAllByRole('option').length).toBeGreaterThan(1);
+
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onCategoryChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('still does nothing on Enter with no search and nothing highlighted', () => {
+      // With no filter there is no "best match" to be top of — the list is
+      // simply every category, and quietly filing the first one would be worse
+      // than doing nothing.
+      const { onCategoryChange } = renderOpen({ includeAllTypes: true });
+      const input = screen.getByPlaceholderText(PLACEHOLDER);
+
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onCategoryChange).not.toHaveBeenCalled();
+    });
+
     it('closes with Escape and returns focus to the trigger', () => {
       renderOpen();
       const input = screen.getByPlaceholderText(PLACEHOLDER);
