@@ -176,7 +176,21 @@ export const ACCOUNT_ROW_SELECTED_CLASS =
  * like the full width of the row.
  */
 export const ACCOUNT_ROW_NAME_LINK_CLASS =
-  'block w-fit max-w-full truncate rounded transition-colors ' +
+  // ─ `min-h-0 touch-target-small`: THE NAME SAT HIGHER THAN ITS OWN BALANCE ──
+  // The same trap as the count pill, two rows down. `index.css` floors every
+  // `a` at 44px tall on a touch device, so this link's box was 44 while the
+  // balance beside it was 24 — and the row centres both, which put the two
+  // texts 10px apart. Measured at 390px before the fix: link 708→752, balance
+  // 718→742. The owner: "the account name sits higher than the amount on the
+  // right hand side."
+  //
+  // `min-h-0` gives the box back its own height so the two line up; the thumb
+  // keeps its 44px through `touch-target-small`, the app's own opt-in, which
+  // spends no layout to do it. `font-semibold` because he asked for both to be
+  // bold — the name and the figure are one statement, and the name was the
+  // quieter half at 500 against the balance's 600.
+  'block w-fit max-w-full truncate rounded transition-colors font-semibold ' +
+  'min-h-0 touch-target-small ' +
   'hover:text-blue-600 dark:hover:text-blue-400 hover:underline';
 
 /** The column heading over a figure — small, quiet, and the same for every row. */
