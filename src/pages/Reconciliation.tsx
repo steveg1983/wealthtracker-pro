@@ -22,6 +22,7 @@ import { todayIsoDay } from '../utils/statementBankBalance';
 import { toDecimal } from '../utils/decimal';
 import type { Transaction } from '../types';
 import { preferences } from '../services/preferencesService';
+import { STICKY_UNDER_APP_BAR } from '../components/layout/chromeOffsets';
 
 /**
  * Does this account still want work?
@@ -646,8 +647,31 @@ export default function Reconciliation() {
           cleared balance approach the bank's figure, so the numbers — and the
           way out, Finalize — must never scroll away. The negative margins
           bleed the strip across the page gutters so passing rows (and their
-          shadows) never peek out at the sides. */}
-      <div className="sticky top-16 md:top-12 z-30 bg-[#f8f9fb] dark:bg-gray-900 -mx-4 px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 pb-2 flex flex-col gap-4">
+          shadows) never peek out at the sides.
+
+          ─ THE OFFSET IS A CONSTANT, NOT TWO NUMBERS ────────────────────────
+          This read `top-16 md:top-12` until 2026-08-14, and those literals are
+          the bar HEIGHTS with everything above them left out. Measured while
+          building the equivalent on the accounts page (#276), all three ways
+          they are wrong:
+
+            · the demo banner is not counted, so in demo mode this strip parked
+              BEHIND the fixed app nav — the nav is itself pushed down by
+              `var(--wt-demo-banner-height)` and this was not;
+            · `env(safe-area-inset-top)` is not counted, which is non-zero on an
+              installed home-screen app — where the owner actually runs this;
+            · and `top-16` is 64px for a mobile header that measures 76, because
+              that header is `p-4` around its content rather than a fixed height.
+
+          `STICKY_UNDER_APP_BAR` adds up whatever those three are at the moment
+          it is read. Imported from `layout/chromeOffsets`, which is a LEAF
+          module — importing the same constant from `Layout` closes a cycle
+          (Layout renders the router's Outlet) and throws `ReferenceError` at
+          runtime, with lint and strict TypeScript both passing on it. */}
+      <div
+        className="sticky z-30 bg-[#f8f9fb] dark:bg-gray-900 -mx-4 px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 pb-2 flex flex-col gap-4"
+        style={{ top: STICKY_UNDER_APP_BAR }}
+      >
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">

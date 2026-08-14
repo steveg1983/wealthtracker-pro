@@ -17,6 +17,7 @@
  *      STICKY_UNDER_APP_BAR is not defined`.
  */
 import { describe, it, expect } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -54,6 +55,58 @@ describe('where a page may park its own chrome', () => {
     // measuring from different origins.
     expect(TOP_CHROME_OFFSET).toContain(SAFE_AREA_TOP);
     expect(TOP_CHROME_OFFSET).toContain(DEMO_BANNER_OFFSET);
+  });
+});
+
+describe('no page re-invents the offset with literals', () => {
+  it('has no `top-16 md:top-12` left anywhere in src', () => {
+    /*
+     * The exact pair that was wrong on two pages. Accounts copied it from
+     * Reconciliation, which is how a wrong number spreads — it looked like the
+     * established idiom, because it WAS the established idiom.
+     *
+     * Both now use STICKY_UNDER_APP_BAR. This fails if a third page copies the
+     * literals from the git history, or from a screenshot, or from an LLM that
+     * learned them from this repo before today.
+     *
+     * Scoped to that exact pair rather than to `top-16` generally: plenty of
+     * elements legitimately sit 4rem from something, and a guard that shouts at
+     * all of them would be turned off within a week.
+     *
+     * It matches the pair only where it is APPLIED — on a `className` — and not
+     * where it is merely named. Written as a bare string first, this failed
+     * immediately on six hits, every one of them prose: the comments on both
+     * fixed pages explaining what the numbers used to be, the constant's own
+     * doc block, and this file. A guard that forbids DESCRIBING the bug would
+     * be paid for by deleting the explanations of it, which is a bad trade.
+     */
+    const repoRoot = join(__dirname, '..', '..', '..', '..');
+    /*
+     * Assembled from pieces so this FILE never contains the phrase it is
+     * hunting. Spelled out in one string, the only thing the guard found was
+     * its own search pattern — a test that fails because of itself, which is
+     * the same defect as one that passes because of itself.
+     */
+    const pattern = `className=.*${['top-16', 'md:top-12'].join(' ')}`;
+    let offenders: string;
+    try {
+      offenders = execFileSync(
+        'git',
+        ['grep', '-l', '-E', '-e', pattern, '--', 'src'],
+        { cwd: repoRoot, encoding: 'utf8' }
+      ).trim();
+    } catch (error) {
+      /*
+       * `git grep` exits 1 when it finds NOTHING, which is the passing case —
+       * so this catch must distinguish "clean" from "git failed", or the guard
+       * would go green on a broken checkout and prove nothing at all.
+       */
+      const failure = error as { status?: number; stdout?: string };
+      if (failure.status !== 1) throw error;
+      offenders = (failure.stdout ?? '').trim();
+    }
+
+    expect(offenders).toBe('');
   });
 });
 

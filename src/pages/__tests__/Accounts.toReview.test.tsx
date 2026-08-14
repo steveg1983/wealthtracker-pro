@@ -167,8 +167,22 @@ describe('Accounts list — the To Review column', () => {
     renderAccounts();
     await screen.findByRole('heading', { level: 3, name: 'Synthetic Natwest' });
 
-    const waiting = within(card('Synthetic Natwest')).getByText('To Review').nextElementSibling;
-    const clear = within(card('Synthetic Monzo')).getByText('To Review').nextElementSibling;
+    /*
+     * `.firstElementChild` because the figure now sits inside a fixed-height
+     * LINE BOX rather than being the label's immediate sibling — see
+     * CELL_FIGURE_LINE_CLASS in AccountRowColumns, which exists so that a cell
+     * showing a 24px disc stays level with cells showing 20px text.
+     *
+     * Worth stepping into rather than loosening: `clear` below asserts what the
+     * class does NOT contain, and a bare wrapper satisfies that trivially. Left
+     * pointing at the wrapper, half of this test would have gone on passing
+     * while measuring nothing at all.
+     */
+    const figure = (name: string): Element | null | undefined =>
+      within(card(name)).getByText('To Review').nextElementSibling?.firstElementChild;
+
+    const waiting = figure('Synthetic Natwest');
+    const clear = figure('Synthetic Monzo');
     /*
      * The working state was `text-slate-600` at the same size and weight as the
      * zero until 2026-08-13, when the owner reported the consequence: "I miss

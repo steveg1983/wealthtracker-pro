@@ -1600,7 +1600,27 @@ export default function Accounts() {
       // directly on white below, and the 24px between one band and the next is
       // the `gap-6` of the grid this returns into. One border and one shadow
       // fewer per group.
-      <div key={`${group.kind}:${group.label}`}>
+      //
+      // ─ `min-w-0`: WITHOUT IT A LONG ACCOUNT NAME DRAGS THE PAGE SIDEWAYS ──
+      // A band is an item of the `grid gap-6` that lists them, and a grid item
+      // defaults to `min-width: auto` — it may not shrink below its own
+      // MIN-CONTENT. The name link already says `max-w-full truncate` and every
+      // box between it and here already says `min-w-0`, so the truncation was
+      // specified correctly the whole way down and simply never got the chance:
+      // the band refused to be narrower than its widest descendant, so there
+      // was nothing for the name to truncate against.
+      //
+      // Measured at 390px with a name the length of the owner's real ones
+      // ("Mortgage - Corporation Avenue, Llanelli"): the grid track was 358px,
+      // the band took 426, and the document scrolled sideways by 54 — which is
+      // why his row actions sat off the right edge with only the settings cog
+      // reachable. Demo data never showed it, because "Main Checking" fits.
+      //
+      // The odd empty strips he saw at the top and bottom are the same defect
+      // from the other side: once the document is wider than the window,
+      // scrolling right reveals background beside chrome that was only ever as
+      // wide as the viewport.
+      <div key={`${group.kind}:${group.label}`} className="min-w-0">
         <button
           type="button"
           onClick={() => toggleGroupCollapsed(collapseKeyFor(group.kind, group.label))}
