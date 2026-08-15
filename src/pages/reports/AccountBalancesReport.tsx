@@ -42,9 +42,7 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
   };
 
   const money = (value: number, currency?: string): string =>
-    value < 0
-      ? `-${formatCurrency(Math.abs(value), currency)}`
-      : formatCurrency(value, currency);
+    formatCurrency(value, currency);
 
   const signClass = (value: number): string =>
     value < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white';

@@ -325,7 +325,7 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
                       <td className={`px-6 py-2 text-sm text-right font-semibold tabular-nums ${
                         net < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'
                       }`}>
-                        {net < 0 ? `-${formatCurrency(Math.abs(net))}` : formatCurrency(net)}
+                        {formatCurrency(net)}
                       </td>
                     </tr>
                   );
@@ -345,7 +345,7 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
                   <td className={`px-6 py-3 text-sm text-right font-bold tabular-nums ${
                     totals.net < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'
                   }`}>
-                    {totals.net < 0 ? `-${formatCurrency(Math.abs(totals.net))}` : formatCurrency(totals.net)}
+                    {formatCurrency(totals.net)}
                   </td>
                 </tr>
               </tfoot>

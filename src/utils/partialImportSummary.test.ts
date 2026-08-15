@@ -18,7 +18,7 @@ describe('summariseMissingRows', () => {
     );
 
     expect(summary.count).toBe(1);
-    expect(summary.named).toEqual(['05/02/2024 · DIRECT DEBIT THAMES WATER · -£12.75']);
+    expect(summary.named).toEqual(['05/02/2024 · DIRECT DEBIT THAMES WATER · (£12.75)']);
     expect(summary.hidden).toBe(0);
   });
 
@@ -26,7 +26,7 @@ describe('summariseMissingRows', () => {
     // Naming a dollar payment in pounds makes it unfindable on the statement.
     const summary = summariseMissingRows([row('2024-02-05', 'AMAZON MKTPLACE', -19.99)], 'USD');
 
-    expect(summary.named[0]).toContain('-$19.99');
+    expect(summary.named[0]).toContain('($19.99)');
   });
 
   it('caps the list and says how many more there are', () => {

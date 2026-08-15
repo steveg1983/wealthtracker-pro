@@ -82,7 +82,7 @@ export default function SpendingByPayeeReport({ picker }: ReportViewProps): Reac
   };
 
   const money = (value: number): string =>
-    value < 0 ? `-${formatCurrency(Math.abs(value))}` : formatCurrency(value);
+    formatCurrency(value);
 
   const sideLabel = side === 'income' ? 'Received from' : 'Paid to';
 

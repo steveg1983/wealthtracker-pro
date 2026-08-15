@@ -298,7 +298,7 @@ describe('pdfExport', () => {
       // Should use red color for negative net income
       expect(mockSetFillColor).toHaveBeenCalledWith(254, 242, 242); // Light red background
       expect(mockSetTextColor).toHaveBeenCalledWith(239, 68, 68); // Red text
-      expect(mockText).toHaveBeenCalledWith('-£500.00', expect.any(Number), expect.any(Number));
+      expect(mockText).toHaveBeenCalledWith('(£500.00)', expect.any(Number), expect.any(Number));
     });
 
     it('handles page breaks for long content', async () => {
@@ -449,6 +449,8 @@ describe('pdfExport', () => {
 
       // Expense should be red
       expect(mockSetTextColor).toHaveBeenCalledWith(239, 68, 68);
+      // The +/- PAIR, which Design's ruling explicitly leaves alone: these are
+      // direction markers on positive magnitudes, not negative numbers.
       expect(mockText).toHaveBeenCalledWith('-£100.00', expect.any(Number), expect.any(Number));
     });
 
@@ -553,7 +555,7 @@ describe('pdfExport', () => {
         transactions: [makeRow(1, { amount: -1234.5 })]
       });
 
-      expect(printedText()).toContain('-£1,234.50');
+      expect(printedText()).toContain('(£1,234.50)');
       expect(printedText()).not.toContain('$');
     });
 

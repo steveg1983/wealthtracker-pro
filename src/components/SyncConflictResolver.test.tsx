@@ -115,7 +115,7 @@ describe('SyncConflictResolver', () => {
     // Local version is money leaving the account; the server copy has it as
     // money arriving. Stripping the sign made both read "£45.50" and there was
     // no way to tell which version to keep.
-    expect(await screen.findByText('-£45.50')).toBeInTheDocument();
+    expect(await screen.findByText('(£45.50)')).toBeInTheDocument();
     expect(screen.getByText('£45.50')).toBeInTheDocument();
   });
 
@@ -134,7 +134,7 @@ describe('SyncConflictResolver', () => {
 
     const local = panelFor(await screen.findByText('Local Version'));
     const server = panelFor(await screen.findByText('Server Version'));
-    expect(within(local).getByText('-£45.50')).toBeInTheDocument();
+    expect(within(local).getByText('(£45.50)')).toBeInTheDocument();
     expect(within(server).getByText('£45.50')).toBeInTheDocument();
   });
 
@@ -152,7 +152,7 @@ describe('SyncConflictResolver', () => {
     await user.click(await screen.findByRole('button', { name: /transaction conflict/i }));
 
     expect(await screen.findAllByText('£0.00')).toHaveLength(2);
-    expect(screen.queryByText('-£0.00')).not.toBeInTheDocument();
+    expect(screen.queryByText('(£0.00)')).not.toBeInTheDocument();
   });
 
   it('ignores a conflict load that resolves after unmount (teardown race)', async () => {

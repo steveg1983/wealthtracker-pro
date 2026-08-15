@@ -83,7 +83,7 @@ export default function MonthlyIncomeExpenseMatrix({
   const showTotal = months.length > 1;
 
   const money = (value: number): string =>
-    value < 0 ? `-${formatCurrency(Math.abs(value))}` : formatCurrency(value);
+    formatCurrency(value);
 
   // A cumulative column is the period UP TO that month, and its drill-in
   // carries every month behind it — so the label has to say "to Feb 26",

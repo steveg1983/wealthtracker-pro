@@ -61,7 +61,7 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
   };
 
   const money = (value: number, currency?: string): string =>
-    value < 0 ? `-${formatCurrency(Math.abs(value), currency)}` : formatCurrency(value, currency);
+    formatCurrency(value, currency);
 
   const section = (
     title: string,

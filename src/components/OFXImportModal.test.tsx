@@ -1730,7 +1730,7 @@ describe('OFXImportModal', () => {
         bankBalance: -1234.56,
         bankBalanceDate: '2026-03-31'
       });
-      expect(screen.getByText(/Bank Balance set to -£1,234\.56/)).toBeInTheDocument();
+      expect(screen.getByText(/Bank Balance set to \(£1,234\.56\)/)).toBeInTheDocument();
     });
 
     it('says plainly when the file states no closing balance', async () => {

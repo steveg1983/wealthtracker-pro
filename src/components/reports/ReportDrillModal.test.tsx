@@ -79,7 +79,17 @@ vi.mock('../../contexts/ToastContext', () => ({
 
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (n: number) => `£${Math.abs(Number(n)).toFixed(2)}`,
+    // Matches the REAL convention, brackets and all. It used to be
+    // `£${Math.abs(n)}` — a fake that discarded the sign, which meant this
+    // suite never exercised how a negative actually reads, and the component
+    // had a `value < 0 ? '-' + format(abs) : format(value)` arm that was
+    // redundant against the real formatter and load-bearing only against this.
+    // A mock that formats differently from the thing it stands in for is a
+    // test asserting the mock.
+    formatCurrency: (n: number) =>
+      Number(n) < 0
+        ? `(£${Math.abs(Number(n)).toFixed(2)})`
+        : `£${Number(n).toFixed(2)}`,
   }),
 }));
 
@@ -265,7 +275,7 @@ describe('ReportDrillModal — the uncategorised list is a chore list', () => {
 
     expect(screen.getAllByText('synthetic split parent')).toHaveLength(1);
     expect(within(rowFor('synthetic split parent')).getByText('Unassigned')).toBeInTheDocument();
-    expect(within(rowFor('synthetic split parent')).getByText('-£40.00')).toBeInTheDocument();
+    expect(within(rowFor('synthetic split parent')).getByText('(£40.00)')).toBeInTheDocument();
   });
 
   it('drops a row that has just become a split, as the page does', () => {
@@ -434,11 +444,11 @@ describe('ReportDrillModal — the other buckets', () => {
 
     // The register view: a split parent is one row of its own, not two lines.
     expect(screen.getByText('synthetic split parent')).toBeInTheDocument();
-    expect(within(rowFor('synthetic account row')).getByText('-£30.00')).toBeInTheDocument();
+    expect(within(rowFor('synthetic account row')).getByText('(£30.00)')).toBeInTheDocument();
 
     editInContext('a1', { description: 'synthetic account row (edited)', amount: -35 });
 
-    expect(within(rowFor('synthetic account row (edited)')).getByText('-£35.00')).toBeInTheDocument();
+    expect(within(rowFor('synthetic account row (edited)')).getByText('(£35.00)')).toBeInTheDocument();
     expect(screen.getByText('synthetic split parent')).toBeInTheDocument();
   });
 });

@@ -330,7 +330,7 @@ describe("the CSV wizard, walked as its owner walked it", () => {
       await reachPreview();
 
       const cafe = screen.getByText('ORCHARD LANE CAFE').closest('tr');
-      expect(cafe).toHaveTextContent('-£4.20');
+      expect(cafe).toHaveTextContent('(£4.20)');
       expect(cafe).toHaveTextContent('expense');
 
       const salary = screen.getByText('SALARY MERIDIAN LTD').closest('tr');

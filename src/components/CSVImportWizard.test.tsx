@@ -507,7 +507,7 @@ describe('CSVImportWizard', () => {
       expect(screen.queryByRole('columnheader', { name: 'Category' })).not.toBeInTheDocument();
 
       // Signed and formatted as money, not reprinted as the file's text.
-      expect(screen.getByText('-£85.50')).toBeInTheDocument();
+      expect(screen.getByText('(£85.50)')).toBeInTheDocument();
       expect(screen.getByText('£2,000.00')).toBeInTheDocument();
       expect(screen.getByText('Grocery Store')).toBeInTheDocument();
       expect(screen.getByText('15/01/2023')).toBeInTheDocument();
@@ -585,7 +585,7 @@ describe('CSVImportWizard', () => {
 
       const salary = screen.getByText('SALARY').closest('tr');
       expect(salary).toHaveTextContent('£100.00');
-      expect(salary).not.toHaveTextContent('-£100.00');
+      expect(salary).not.toHaveTextContent('(£100.00)');
       expect(salary).toHaveTextContent('income');
     });
 
@@ -593,7 +593,7 @@ describe('CSVImportWizard', () => {
       await previewLloydsFile();
 
       const shop = screen.getByText('CORNER SHOP').closest('tr');
-      expect(shop).toHaveTextContent('-£50.00');
+      expect(shop).toHaveTextContent('(£50.00)');
       expect(shop).toHaveTextContent('expense');
     });
 

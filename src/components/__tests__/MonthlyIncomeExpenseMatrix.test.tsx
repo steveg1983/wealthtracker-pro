@@ -95,7 +95,7 @@ describe('MonthlyIncomeExpenseMatrix', () => {
     expect(net).not.toBeNull();
     // Jan: 2000 − 40, Feb: 0 − 60, period: 2000 − 100
     expect(within(net as HTMLElement).getByText('£1,960.00')).toBeInTheDocument();
-    expect(within(net as HTMLElement).getByText('-£60.00')).toBeInTheDocument();
+    expect(within(net as HTMLElement).getByText('(£60.00)')).toBeInTheDocument();
     expect(within(net as HTMLElement).getByText('£1,900.00')).toBeInTheDocument();
     expect(screen.getByRole('rowheader', { name: 'Total Expenses' })).toBeInTheDocument();
     expect(screen.getByRole('rowheader', { name: 'Total Income' })).toBeInTheDocument();

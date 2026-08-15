@@ -300,7 +300,9 @@ describe('CashFlowForecast', () => {
 
       render(<CashFlowForecast />);
       
-      expect(screen.getByText('-$200.00')).toHaveClass('text-red-600');
+      expect(// Savings is a GENUINE negative passed through formatCurrency, unlike the
+      // expenses line above it, which is a '-' marker on a positive magnitude.
+      screen.getByText('($200.00)')).toHaveClass('text-red-600');
     });
   });
 

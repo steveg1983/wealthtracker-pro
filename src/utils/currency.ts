@@ -37,14 +37,22 @@ export function formatDisplayCurrency(amount: number, currency: string = 'GBP'):
 export function parseCurrency(value: string): number {
   if (!value || typeof value !== 'string') return 0;
 
-  // Remove currency symbols and commas
-  const cleanValue = value
+  // `(£417.54)` is how the app has DISPLAYED a negative since 15 August, so
+  // the notional inverse has to read it back. Unwrapped before the symbols are
+  // stripped, because the bracket is the sign and losing it silently would
+  // turn a debt into a credit — the worst possible rounding of this change.
+  const trimmed = value.trim();
+  const bracketed = /^\((.*)\)$/.exec(trimmed);
+  const body = bracketed ? bracketed[1] : trimmed;
+
+  const cleanValue = body
     .replace(/[£$€¥₹]/g, '')
     .replace(/CHF/g, '')
     .replace(/,/g, '')
     .trim();
 
-  return parseMoneyInput(cleanValue) ?? 0;
+  const parsed = parseMoneyInput(cleanValue) ?? 0;
+  return bracketed ? -Math.abs(parsed) : parsed;
 }
 
 // Static exchange rates for testing

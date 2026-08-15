@@ -219,7 +219,7 @@ describe('ReconciliationAccountList — rows, not cards', () => {
     renderList();
     // The one figure on the page that means something is wrong keeps its red,
     // and its weight: colour is reserved for the rows that need attention.
-    const difference = within(rowFor('Second Account')).getByText('-£30.00');
+    const difference = within(rowFor('Second Account')).getByText('(£30.00)');
     expect(difference.className).toContain('text-red-600');
     expect(difference.className).toContain('font-bold');
   });

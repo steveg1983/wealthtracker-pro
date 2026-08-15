@@ -105,19 +105,65 @@ export function getCurrencySymbol(currency: string): string {
 const showsMinus = (decimal: DecimalInstance): boolean =>
   decimal.isNegative() && !decimal.isZero();
 
-// Format amount with currency (accepts Decimal or number)
+/**
+ * ─ NEGATIVES WEAR PARENTHESES, NOT A MINUS ─────────────────────────────────
+ *
+ * `(£417.54)`, never `-£417.54`. Claude Design's ruling of 15 August, and it
+ * strengthens P2 rather than adding anything: colour is a signal, but P2 never
+ * said colour may be the ONLY signal — and for sign it was. A reader in
+ * greyscale, in print, with a colour vision deficiency, or on a badly
+ * calibrated monitor had one carrier for the difference between owing and
+ * owning: a glyph four pixels wide, right-aligned, first to be clipped.
+ *
+ * Parentheses are the accounting convention for exactly this reason. They
+ * predate colour displays and they read at any size. Same argument that put
+ * dash patterns on the net-worth series rather than a third hue:
+ *
+ *     Colour may reinforce a distinction but may never be its only carrier.
+ *
+ * The symbol sits INSIDE the brackets, per convention: `(£417.54)`.
+ * Colour is unchanged — the instrumented expense red still applies, and the
+ * parentheses are an ADDITIONAL carrier rather than a replacement.
+ *
+ * Zero never wears them: `showsMinus` already refuses a negative zero, so a
+ * day that nets out reads `£0.00` and not `(£0.00)`.
+ *
+ * NOT used by the exports. `csvExport` formats its own figures through
+ * `formatDecimal`, which keeps the minus — parentheses are a display
+ * convention and would break anything that parses the file. The PDF DOES come
+ * through here, and should: it is a rendered document a person reads, which is
+ * where the convention comes from.
+ */
 export function formatCurrency(amount: DecimalInstance | number, currency: string = 'GBP'): string {
   const decimal = toDecimal(amount).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
   const symbol = getCurrencySymbol(currency);
   const isNegative = showsMinus(decimal);
-  const absolute = decimal.abs();
-  const formatted = formatDecimal(absolute, 2, { group: true });
+  const formatted = formatDecimal(decimal.abs(), 2, { group: true });
+  const body = currency === 'CHF' ? `${formatted} ${symbol}` : `${symbol}${formatted}`;
 
-  if (currency === 'CHF') {
-    return isNegative ? `-${formatted} ${symbol}` : `${formatted} ${symbol}`;
-  }
+  return isNegative ? `(${body})` : body;
+}
 
-  return isNegative ? `-${symbol}${formatted}` : `${symbol}${formatted}`;
+/**
+ * The same amount, said out loud.
+ *
+ * Screen readers at default punctuation verbosity DO NOT announce brackets, so
+ * `(£417.54)` and `£417.54` sound identical — which would take the sign away
+ * from exactly the readers the change is meant to help. The visible text may
+ * change; the accessible name may not degrade.
+ *
+ * Pair them with `<Amount>`, or with an `aria-label` at the call site.
+ */
+export function formatCurrencyForSpeech(
+  amount: DecimalInstance | number,
+  currency: string = 'GBP'
+): string {
+  const decimal = toDecimal(amount).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+  const symbol = getCurrencySymbol(currency);
+  const formatted = formatDecimal(decimal.abs(), 2, { group: true });
+  const body = currency === 'CHF' ? `${formatted} ${symbol}` : `${symbol}${formatted}`;
+
+  return showsMinus(decimal) ? `minus ${body}` : body;
 }
 
 // Format currency without fractional digits (floored values) for dashboard summaries
@@ -133,11 +179,9 @@ export function formatCurrencyWhole(
   const symbol = getCurrencySymbol(currency);
   const grouped = formatDecimal(rounded.abs(), 0, { group: true });
 
-  if (currency === 'CHF') {
-    return isNegative ? `-${grouped} ${symbol}` : `${grouped} ${symbol}`;
-  }
-
-  return isNegative ? `-${symbol}${grouped}` : `${symbol}${grouped}`;
+  // Same convention as `formatCurrency` above, for the same reason.
+  const body = currency === 'CHF' ? `${grouped} ${symbol}` : `${symbol}${grouped}`;
+  return isNegative ? `(${body})` : body;
 }
 
 // Fetch exchange rates from a free API
