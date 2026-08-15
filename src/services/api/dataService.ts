@@ -200,6 +200,14 @@ type CloudSessionChecker = () => boolean;
 type DateProvider = () => Date;
 type UuidGenerator = () => string;
 
+/** Only what the wipe needs of the banking service, so a test can stand in. */
+export interface BankingEngineLike {
+  bankConnectionService: {
+    refreshConnections(): Promise<Array<{ id: string }>>;
+    disconnect(connectionId: string): Promise<boolean>;
+  };
+}
+
 export interface DataServiceOptions {
   accountService?: AccountServiceLike;
   transactionService?: TransactionServiceLike;
@@ -235,6 +243,12 @@ export interface DataServiceOptions {
    * of the reason: a total migration replaces every row a person has.
    */
   msMoneyEngine?: MsMoneyEngineLike;
+  /**
+   * The bank-connection engine the wipe revokes through. Injectable for the
+   * same reason as the wipe's client: so a test can watch what a "delete
+   * everything" actually disconnects, without a bank on the other end.
+   */
+  banking?: BankingEngineLike;
   /**
    * The authenticated Postgres client the chunked wipe and the cloud migration
    * are handed. Defaults to the app's own. Injectable so a test can watch what
@@ -280,6 +294,7 @@ class DataServiceImpl implements DataPort {
   private readonly injectedCloudBackup: CloudBackupLike | null;
   private readonly injectedDeviceBackup: DeviceBackupLike | null;
   private readonly injectedMsMoneyEngine: MsMoneyEngineLike | null;
+  private readonly injectedBanking: BankingEngineLike | null;
   private readonly cloudClient: SupabaseClient | null;
   private readonly authTokenProvider: AuthTokenProvider;
 
@@ -314,6 +329,7 @@ class DataServiceImpl implements DataPort {
     this.injectedCloudBackup = options.cloudBackup ?? null;
     this.injectedDeviceBackup = options.deviceBackup ?? null;
     this.injectedMsMoneyEngine = options.msMoneyEngine ?? null;
+    this.injectedBanking = options.banking ?? null;
     this.cloudClient = options.cloudClient !== undefined ? options.cloudClient : supabase;
     this.authTokenProvider = options.authTokenProvider ?? getSupabaseAccessToken;
   }
@@ -1097,6 +1113,16 @@ class DataServiceImpl implements DataPort {
     return import('../backupService');
   }
 
+  /**
+   * The bank-connection engine, fetched only when a wipe has connections to
+   * revoke. Lazy for the same reason as the two above: nothing that merely
+   * reads a ledger should pull the banking client into its graph.
+   */
+  private async bankingEngine(): Promise<BankingEngineLike> {
+    if (this.injectedBanking) return this.injectedBanking;
+    return import('../bankConnectionService');
+  }
+
   /** The device backup engine. Loaded on demand for the same reason. */
   private async deviceBackupEngine(): Promise<DeviceBackupLike> {
     if (this.injectedDeviceBackup) return this.injectedDeviceBackup;
@@ -1345,6 +1371,44 @@ class DataServiceImpl implements DataPort {
    * cloud's cache to empty it. Every caller of the wipe already called both in
    * this order, so nothing about the behaviour changed.
    */
+  /**
+   * Revoke every bank connection this login holds.
+   *
+   * Best-effort per connection and total in aggregate: each is attempted even
+   * if an earlier one failed, and the whole thing reports afterwards. Silence
+   * on failure is what created the original bug, so a connection that would
+   * not revoke must be said out loud rather than left to resurrect the ledger.
+   */
+  private async disconnectAllBanks(): Promise<void> {
+    const { bankConnectionService } = await this.bankingEngine();
+
+    let connections: Array<{ id: string }>;
+    try {
+      connections = await bankConnectionService.refreshConnections();
+    } catch {
+      // No connections list means nothing to revoke that we can see. The
+      // ledger is already gone; refusing the whole wipe over this would be
+      // worse than saying nothing, and there is nothing useful to name.
+      return;
+    }
+
+    const failed: string[] = [];
+    for (const connection of connections) {
+      try {
+        await bankConnectionService.disconnect(connection.id);
+      } catch {
+        failed.push(connection.id);
+      }
+    }
+
+    if (failed.length > 0) {
+      throw new Error(
+        `Your data was deleted, but ${failed.length === 1 ? 'one bank connection' : `${failed.length} bank connections`} could not be disconnected. ` +
+        'Disconnect them on the Open Banking page, or the next sync will import those accounts again.'
+      );
+    }
+  }
+
   async wipeAllFinancialData(options: {
     onProgress?: (progress: WipeProgress) => void;
   } = {}): Promise<void> {
@@ -1355,6 +1419,29 @@ class DataServiceImpl implements DataPort {
       await wipeCloudData(client, userId, { onProgress: options.onProgress });
       const { wipeUserFinancialData } = await this.cloudBackupEngine();
       await wipeUserFinancialData(DataServiceImpl.WIPE_CONFIRMATION, userId);
+
+      // ── AND THE BANK CONNECTIONS, WHICH USED TO SURVIVE ──────────────────
+      //
+      // They were deliberately kept, and the effect was that "Delete All Data"
+      // was not. The accounts DID go — but the connection outlived them, and
+      // the next feed sync recreated the accounts and re-imported their
+      // transactions. The owner deleted everything, watched two accounts come
+      // back with 487 transactions to review, and asked the only reasonable
+      // question: "surely if it is delete all data, it is delete all data?"
+      //
+      // A destructive action that silently under-delivers is worse than one
+      // that refuses: the user believes the ledger is empty and it is not.
+      //
+      // Revoked through `disconnect` rather than deleted in SQL, because that
+      // is the path that also withdraws consent at the BANK. A row deleted
+      // here while the consent stood would leave the provider still holding an
+      // authorisation the user believes they have destroyed.
+      //
+      // Failures are collected and thrown at the END: one bank refusing must
+      // not leave the others connected, and the wipe of the ledger above has
+      // already succeeded either way.
+      await this.disconnectAllBanks();
+
       await transactionCache.clear();
       return;
     }

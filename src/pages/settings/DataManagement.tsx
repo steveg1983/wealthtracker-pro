@@ -314,10 +314,17 @@ export default function DataManagementSettings() {
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               Are you sure you want to delete all data? This will permanently remove:
             </p>
-            <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-6">
+            <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-4">
               <li>{accounts.length} accounts</li>
               <li>{transactions.length} transactions</li>
               <li>{budgets.length} budgets</li>
+              {/* SAID BEFORE, not discovered after. Connections used to survive
+                  a wipe, and the next sync put their accounts and transactions
+                  straight back — so "delete all data" quietly wasn't. They are
+                  revoked now, and revoking means re-authorising with the bank,
+                  which is a consequence somebody deserves to know BEFORE they
+                  type the word rather than when they next open the page. */}
+              <li>every bank connection, which you would need to re-authorise</li>
             </ul>
             <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-4">
               This action cannot be undone!
