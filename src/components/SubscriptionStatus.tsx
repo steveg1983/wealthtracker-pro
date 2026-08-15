@@ -3,6 +3,7 @@ import { CheckIcon, AlertCircleIcon, CreditCardIcon, CrownIcon, ZapIcon, UsersIc
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { formatDistanceToNow } from 'date-fns';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { NEXT_ACTION_YELLOW } from './reconciliation/nextActionYellow';
 
 interface PlanFeature {
   name: string;
@@ -197,17 +198,37 @@ export default function SubscriptionStatus(): React.JSX.Element {
                 </div>
               )}
 
+              {/* ─ A NEXT ACTION, IN THE APP'S OWN YELLOW ────────────────────
+                  This is Ruling A's own case: a condition, and exactly one
+                  control that ends it. It was wearing hand-rolled `yellow-50`
+                  with `yellow-600` text — off the palette (the app's amber is
+                  amber, not yellow) and, measured, **2.84:1**, which fails
+                  WCAG AA for text outright. So this was not a token tidy; the
+                  sentence telling somebody their subscription is ending was
+                  the least readable thing on the page.
+
+                  `NEXT_ACTION_YELLOW` is amber-800 on amber-100 — 6.15:1
+                  measured, and 10.7:1 for the dark pair. Swapped in whole
+                  rather than appended, per the constant's own constraint:
+                  Tailwind resolves two utilities for one property by source
+                  order, so mixing them leaves the winner to the compiler.
+
+                  Note on its home: the constant lives under
+                  `components/reconciliation/` because that is where the idea
+                  was born, and it is no longer only theirs — Accounts wears it
+                  and now so does this. Moving it up is a follow-up, not a
+                  rider on an accessibility fix. */}
               {cancelAtPeriodEnd && (
-                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                <div className={`p-3 rounded-lg border ${NEXT_ACTION_YELLOW}`}>
                   <div className="flex items-start gap-2">
-                    <AlertCircleIcon size={16} className="text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                    <AlertCircleIcon size={16} className="mt-0.5" />
                     <div className="flex-1">
-                      <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                      <p className="text-sm">
                         Your subscription will end {formatDistanceToNow(new Date(nextBillingDate!), { addSuffix: true })}
                       </p>
                       <button
                         onClick={handleReactivate}
-                        className="mt-2 text-sm text-yellow-700 dark:text-yellow-300 hover:underline"
+                        className="mt-2 text-sm font-medium underline"
                       >
                         Reactivate subscription
                       </button>
