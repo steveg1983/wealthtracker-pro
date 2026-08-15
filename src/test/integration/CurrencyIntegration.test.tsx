@@ -67,9 +67,9 @@ describe('Currency Integration Tests', () => {
     });
 
     it('formats negative amounts correctly', () => {
-      expect(formatCurrency(-1234.56, 'GBP')).toBe('-£1,234.56');
-      expect(formatCurrency(-1234.56, 'USD')).toBe('-$1,234.56');
-      expect(formatCurrency(-1234.56, 'EUR')).toBe('-€1,234.56');
+      expect(formatCurrency(-1234.56, 'GBP')).toBe('(£1,234.56)');
+      expect(formatCurrency(-1234.56, 'USD')).toBe('($1,234.56)');
+      expect(formatCurrency(-1234.56, 'EUR')).toBe('(€1,234.56)');
     });
 
     it('formats zero amounts correctly', () => {

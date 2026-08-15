@@ -152,7 +152,7 @@ describe('Budget page — what a card says has been spent', () => {
       renderBudget();
 
       // Total Remaining is the same overspend, not a floored zero.
-      expect(screen.getByText('-£30.00')).toBeInTheDocument();
+      expect(screen.getByText('(£30.00)')).toBeInTheDocument();
     });
   });
 

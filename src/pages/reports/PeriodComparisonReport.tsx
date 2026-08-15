@@ -187,7 +187,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
   };
 
   const money = (value: number): string =>
-    value < 0 ? `-${formatCurrency(Math.abs(value))}` : formatCurrency(value);
+    formatCurrency(value);
 
   const percent = (figure: ComparisonFigure): string =>
     figure.changePercent === null

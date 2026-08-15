@@ -65,7 +65,7 @@ describe('EnhancedConflictResolutionModal', () => {
     renderModal();
     const { client, server } = amountPanels();
 
-    expect(within(client).getByText('-£45.50')).toBeInTheDocument();
+    expect(within(client).getByText('(£45.50)')).toBeInTheDocument();
     expect(within(server).getByText('£45.50')).toBeInTheDocument();
   });
 
@@ -76,7 +76,7 @@ describe('EnhancedConflictResolutionModal', () => {
     });
     const { client, server } = amountPanels();
 
-    expect(within(client).getByText('-£45.50')).toBeInTheDocument();
+    expect(within(client).getByText('(£45.50)')).toBeInTheDocument();
     expect(within(server).getByText('£45.50')).toBeInTheDocument();
   });
 
@@ -86,7 +86,7 @@ describe('EnhancedConflictResolutionModal', () => {
       renderModal();
       const { client, server } = amountPanels();
 
-      expect(within(client).getByText('-$45.50')).toBeInTheDocument();
+      expect(within(client).getByText('($45.50)')).toBeInTheDocument();
       expect(within(server).getByText('$45.50')).toBeInTheDocument();
     } finally {
       localStorage.removeItem('money_management_currency');

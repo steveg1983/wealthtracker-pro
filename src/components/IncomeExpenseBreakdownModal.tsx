@@ -310,7 +310,7 @@ export default function IncomeExpenseBreakdownModal({
           </td>
         )}
         <td className={`block sm:table-cell py-2 text-sm font-medium text-right whitespace-nowrap tabular-nums ${rowColour}`}>
-          {value < 0 ? `-${formatCurrency(Math.abs(value))}` : formatCurrency(value)}
+          {formatCurrency(value)}
         </td>
       </tr>
     );
@@ -366,9 +366,7 @@ export default function IncomeExpenseBreakdownModal({
                         </span>
                       </td>
                       <td className={`block sm:table-cell py-1.5 text-xs font-semibold text-right tabular-nums ${colourClass || signedColour(section.subtotal)}`}>
-                        {section.subtotal < 0
-                          ? `-${formatCurrency(Math.abs(section.subtotal))}`
-                          : formatCurrency(section.subtotal)}
+                        {formatCurrency(section.subtotal)}
                       </td>
                     </tr>
                   )}

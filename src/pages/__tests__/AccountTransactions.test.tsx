@@ -358,7 +358,7 @@ describe('Account register — the running Balance column', () => {
    * zero. Anything the register prints outside this set is a figure the account
    * never held.
    */
-  const STATEMENT_BALANCES = ['£0.00', '-£12.75', '-£312.75', '-£450.00'];
+  const STATEMENT_BALANCES = ['£0.00', '(£12.75)', '(£312.75)', '(£450.00)'];
 
   /** The Balance column, top row first, exactly as rendered. */
   const balanceColumn = (): string[] =>
@@ -409,7 +409,7 @@ describe('Account register — the running Balance column', () => {
     // payment it offsets, showing the day's money in without its money out.
     expect(balanceColumn()[0]).not.toBe('£450.00');
     // Nor a signed zero, which reads like a rounding error in the user's money.
-    expect(balanceColumn()[0]).not.toBe('-£0.00');
+    expect(balanceColumn()[0]).not.toBe('(£0.00)');
   });
 
   it('walks a day in the bank\'s order: -12.75, -312.75, then swept to 0.00', async () => {
@@ -419,10 +419,10 @@ describe('Account register — the running Balance column', () => {
     // exactly as the statement prints it, then day two.
     expect(balanceColumn()).toEqual([
       '£0.00',        // Opening Balance
-      '-£12.75',      // direct debit
-      '-£312.75',     // standing order
+      '(£12.75)',      // direct debit
+      '(£312.75)',     // standing order
       '£0.00',        // evening sweep restores it
-      '-£450.00',     // day two payment
+      '(£450.00)',     // day two payment
       '£0.00'         // day two sweep
     ]);
 
@@ -430,7 +430,7 @@ describe('Account register — the running Balance column', () => {
 
     // Descending is the exact reverse.
     expect(balanceColumn()).toEqual([
-      '£0.00', '-£450.00', '£0.00', '-£312.75', '-£12.75', '£0.00'
+      '£0.00', '(£450.00)', '£0.00', '(£312.75)', '(£12.75)', '£0.00'
     ]);
   });
 
@@ -486,7 +486,7 @@ describe('Account register — the running Balance column', () => {
     await openRegister();
 
     expect(balanceColumn()).toEqual([
-      '£0.00', '-£12.75', '-£312.75', '£0.00', '-£25.00'
+      '£0.00', '(£12.75)', '(£312.75)', '£0.00', '(£25.00)'
     ]);
   });
 
@@ -498,7 +498,7 @@ describe('Account register — the running Balance column', () => {
     // Alphabetical by description — each row still carrying the balance
     // immediately after it, which no longer runs down the page.
     expect(balanceColumn()).toEqual([
-      '£0.00', '-£12.75', '-£450.00', '-£312.75', '£0.00', '£0.00'
+      '£0.00', '(£12.75)', '(£450.00)', '(£312.75)', '£0.00', '£0.00'
     ]);
     expect(
       screen.getByText(/Sorted by Description, so the Balance column doesn't run down the page/)

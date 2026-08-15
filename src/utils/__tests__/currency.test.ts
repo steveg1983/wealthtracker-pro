@@ -12,7 +12,7 @@ describe('Currency Utilities', () => {
     it('formats GBP correctly', () => {
       expect(formatCurrency(1234.56, 'GBP')).toBe('£1,234.56');
       expect(formatCurrency(0, 'GBP')).toBe('£0.00');
-      expect(formatCurrency(-99.99, 'GBP')).toBe('-£99.99');
+      expect(formatCurrency(-99.99, 'GBP')).toBe('(£99.99)');
     });
 
     it('formats USD correctly', () => {
@@ -60,7 +60,10 @@ describe('Currency Utilities', () => {
     });
 
     it('handles negative values', () => {
+      // Both forms: the minus is what a file or a typed entry carries, the
+      // brackets are what the app has displayed since 15 August.
       expect(parseCurrency('-£1,234.56')).toBe(-1234.56);
+      expect(parseCurrency('(£1,234.56)')).toBe(-1234.56);
       expect(parseCurrency('£-1,234.56')).toBe(-1234.56);
     });
 

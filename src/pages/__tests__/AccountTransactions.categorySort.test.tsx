@@ -303,14 +303,14 @@ describe('Account register — the Balance column under a Category sort', () => 
     // in the new order they no longer run down the page, which is precisely
     // what the line beneath the table says.
     expect(columnInOrder('Balance')).toEqual([
-      '-£180.00', // Aqua quarter one
-      '-£300.00', // Aqua quarter two
+      '(£180.00)', // Aqua quarter one
+      '(£300.00)', // Aqua quarter two
       '£90.00',   // Corner Market
-      '-£190.00', // Harbour Insurance
-      '-£170.00', // Sweep to savings
-      '-£290.00', // Standing order to savings
+      '(£190.00)', // Harbour Insurance
+      '(£170.00)', // Sweep to savings
+      '(£290.00)', // Standing order to savings
       '£80.00',   // Unnamed debit
-      '-£310.00', // Unrecognised card payment
+      '(£310.00)', // Unrecognised card payment
     ]);
     expect(
       screen.getByText(/Sorted by Category, so the Balance column doesn't run down the page/)

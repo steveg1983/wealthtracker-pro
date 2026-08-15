@@ -143,7 +143,7 @@ export default function IncomeExpenseSummaryCards({
                 ? <SkeletonText className="w-32 h-8" />
                 : summary.revaluation >= 0
                   ? `+${formatCurrency(summary.revaluation)}`
-                  : `-${formatCurrency(Math.abs(summary.revaluation))}`}
+                  : formatCurrency(summary.revaluation)}
             </div>
           </div>
           <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
