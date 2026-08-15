@@ -55,6 +55,7 @@ import {
   buildTopLevelIdByAccountId,
   selectTopLevelAccounts,
 } from '../utils/accountNesting';
+import { buildSecuredByTarget } from '../utils/accountSecuring';
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import EmptyState from '../components/EmptyState';
 import FilteredEmptyState from '../components/FilteredEmptyState';
@@ -388,18 +389,7 @@ export default function Accounts() {
    * reason nesting checks it: a row keyed under a card that is not on the page
    * is a row nobody ever sees.
    */
-  const securedByTarget = useMemo(() => {
-    const byId = new Map(openAccounts.map(a => [a.id, a]));
-    const map = new Map<string, Account[]>();
-    for (const account of openAccounts) {
-      const targetId = account.securedAgainstAccountId;
-      if (!targetId || targetId === account.id || !byId.has(targetId)) continue;
-      const list = map.get(targetId);
-      if (list) list.push(account);
-      else map.set(targetId, [account]);
-    }
-    return map;
-  }, [openAccounts]);
+  const securedByTarget = useMemo(() => buildSecuredByTarget(openAccounts), [openAccounts]);
 
   const topLevelAccounts = useMemo(() => selectTopLevelAccounts(openAccounts), [openAccounts]);
   const [closedAccounts, setClosedAccounts] = useState<Account[]>([]);

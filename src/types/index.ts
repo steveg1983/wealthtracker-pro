@@ -43,8 +43,12 @@ export interface Account {
   parentAccountId?: string | null;
   /**
    * What this liability is HELD AGAINST — a mortgage against its property, a
-   * loan against the portfolio it is drawn on. Set on the LIABILITY, pointing
-   * at the asset. NULL/undefined = an ordinary unsecured liability.
+   * loan against the portfolios it is drawn on. Set on the LIABILITY, naming
+   * the assets. Empty/undefined = an ordinary unsecured liability.
+   *
+   * SEVERAL, because a loan can be drawn against more than one portfolio. The
+   * targets are NOT thereby linked to each other: this is a label each of them
+   * carries, not a grouping.
    *
    * DELIBERATELY NOT `parentAccountId`, and the difference is the whole point.
    * A parent means "belongs inside, and counts toward": a cash sleeve moves
@@ -59,7 +63,7 @@ export interface Account {
    * either way — it already counts the asset and the debt separately, and
    * always did.
    */
-  securedAgainstAccountId?: string | null;
+  securedAgainstAccountIds?: string[];
   holdings?: Holding[];
   notes?: string;
   isActive?: boolean;

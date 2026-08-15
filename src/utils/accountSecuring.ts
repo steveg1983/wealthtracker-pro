@@ -70,10 +70,68 @@ export function resolveSecuring(
 
   // A target that has since been closed stays listed, or saving any other
   // change on the form would silently drop the link.
-  const current = account.securedAgainstAccountId
-    ? accounts.find(a => a.id === account.securedAgainstAccountId)
-    : undefined;
-  if (current && !options.some(a => a.id === current.id)) options.push(current);
+  for (const id of account.securedAgainstAccountIds ?? []) {
+    if (options.some(a => a.id === id)) continue;
+    const current = accounts.find(a => a.id === id);
+    if (current) options.push(current);
+  }
 
   return { offered: options.length > 0, options };
+}
+
+/**
+ * The stored list, cleaned: no blanks, no duplicates, nothing pointing at the
+ * account itself.
+ *
+ * Both the form and every reader go through this, because the three faults it
+ * removes arrive from different directions — a blank from an untouched "add
+ * another" row, a duplicate from picking the same account twice, and a
+ * self-reference from an account that was retyped after being linked. A
+ * duplicate is the one that would do arithmetic damage if it ever reached the
+ * Investments page, so it is removed at the source rather than guarded against
+ * at each use.
+ */
+export function normaliseSecuredIds(
+  ids: readonly (string | null | undefined)[],
+  selfId?: string
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    if (!id || id === selfId || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+/**
+ * Target account id → the liabilities secured against it.
+ *
+ * Deliberately NOT built with `buildChildrenByParent`, even though the shape
+ * is nearly identical. That helper answers "where does this account's money
+ * belong", and the answer for a secured liability is "exactly where it already
+ * is". Everything downstream of the nesting utilities is right to count what
+ * it groups, so this must not travel through any of it.
+ *
+ * A target that is not in `accounts` is skipped — closed, filtered out of the
+ * current view, or deleted (the column has no foreign key). All three look the
+ * same from here and all three want the same answer: a row keyed under a card
+ * that is not on the page is a row nobody sees.
+ */
+export function buildSecuredByTarget<T extends {
+  id: string;
+  securedAgainstAccountIds?: string[];
+}>(accounts: readonly T[]): Map<string, T[]> {
+  const present = new Set(accounts.map(a => a.id));
+  const map = new Map<string, T[]>();
+  for (const account of accounts) {
+    for (const targetId of normaliseSecuredIds(account.securedAgainstAccountIds ?? [], account.id)) {
+      if (!present.has(targetId)) continue;
+      const list = map.get(targetId);
+      if (list) list.push(account);
+      else map.set(targetId, [account]);
+    }
+  }
+  return map;
 }

@@ -175,9 +175,11 @@ export function mapAccountFromDb(row: Record<string, unknown>): Account {
     notes: text(row.notes) ?? '',
     archiveThroughDate: timestamp(row.archive_through_date) ?? null,
     parentAccountId: text(row.parent_account_id) ?? null,
-    // A database without migration 20260815200000 has no such column, which
-    // reads as null — an unsecured liability, which is the honest default.
-    securedAgainstAccountId: text(row.secured_against_account_id) ?? null,
+    // A database without migration 20260815210000 has no such column, which
+    // reads as [] — an unsecured liability, the honest default.
+    securedAgainstAccountIds: Array.isArray(row.secured_against_account_ids)
+      ? row.secured_against_account_ids.filter((id): id is string => typeof id === 'string')
+      : [],
     // Strictly true: a database without migration 20260709140000 has no such
     // column, and "no column" must read as off rather than as undefined, which
     // the settings modal would then show as off anyway.
@@ -210,7 +212,7 @@ const ACCOUNT_FIELD_TO_COLUMN: Record<string, string> = {
   // of 'accounts' in the schema cache" — and PostgREST rejects the whole
   // update, taking the user's real edit (a rename, a type change) down with an
   // unrelated field they never touched.
-  securedAgainstAccountId: 'secured_against_account_id',
+  securedAgainstAccountIds: 'secured_against_account_ids',
   plaidConnectionId: 'plaid_connection_id',
   plaidAccountId: 'plaid_account_id',
   createdAt: 'created_at',

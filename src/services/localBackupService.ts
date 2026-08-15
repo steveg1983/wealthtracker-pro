@@ -250,7 +250,7 @@ function accountToRow(app: Record<string, unknown>): BackupRow {
   put(row, 'opening_balance_date', dateColumn(app.openingBalanceDate));
   put(row, 'archive_through_date', app.archiveThroughDate === null ? null : dateColumn(app.archiveThroughDate));
   put(row, 'parent_account_id', app.parentAccountId === null ? null : text(app.parentAccountId));
-  put(row, 'secured_against_account_id', app.securedAgainstAccountId === null ? null : text(app.securedAgainstAccountId));
+  put(row, 'secured_against_account_ids', Array.isArray(app.securedAgainstAccountIds) ? app.securedAgainstAccountIds : undefined);
   put(row, 'notes', app.notes ?? undefined);
   put(row, 'is_active', bool(app.isActive));
   put(row, 'sort_code', text(app.sortCode));
@@ -281,7 +281,7 @@ function accountFromRow(row: BackupRow): Record<string, unknown> {
     openingBalanceDate: text(row.opening_balance_date),
     archiveThroughDate: row.archive_through_date === null ? null : text(row.archive_through_date),
     parentAccountId: row.parent_account_id === null ? null : text(row.parent_account_id),
-    securedAgainstAccountId: row.secured_against_account_id === null ? null : text(row.secured_against_account_id),
+    securedAgainstAccountIds: Array.isArray(row.secured_against_account_ids) ? row.secured_against_account_ids : undefined,
     notes: text(row.notes),
     isActive: bool(row.is_active),
     sortCode: text(row.sort_code),
@@ -990,10 +990,8 @@ function applyLinks(bundle: BackupBundle): {
   transactionsRelinked: number;
 } {
   const parents = new Map<string, string>();
-  const secured = new Map<string, string>();
   for (const link of bundle.links.account_parents) {
     if (link.parent_account_id) parents.set(link.id, link.parent_account_id);
-    if (link.secured_against_account_id) secured.set(link.id, link.secured_against_account_id);
   }
 
   const transfers = new Map<string, { transfer: string | null; split: string | null }>();
@@ -1007,14 +1005,9 @@ function applyLinks(bundle: BackupBundle): {
   const accounts = bundle.data.accounts.map((row) => {
     const id = typeof row.id === 'string' ? row.id : null;
     const parent = id === null ? undefined : parents.get(id);
-    const securedAgainst = id === null ? undefined : secured.get(id);
-    if (parent === undefined && securedAgainst === undefined) return row;
+    if (parent === undefined) return row;
     accountsRelinked += 1;
-    return {
-      ...row,
-      ...(parent === undefined ? {} : { parent_account_id: parent }),
-      ...(securedAgainst === undefined ? {} : { secured_against_account_id: securedAgainst })
-    };
+    return { ...row, parent_account_id: parent };
   });
 
   let transactionsRelinked = 0;

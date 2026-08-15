@@ -349,7 +349,7 @@ export const ACCOUNT_COLUMNS: readonly Column[] = [
   { key: 'parent_account_id', field: 'parentAccountId', kind: 'text' },
   // Display + one opt-in total only — never nests, never counts. See the
   // Account type and migration 20260815200000.
-  { key: 'secured_against_account_id', field: 'securedAgainstAccountId', kind: 'text' }
+  { key: 'secured_against_account_ids', field: 'securedAgainstAccountIds', kind: 'strings' }
 ];
 
 /**

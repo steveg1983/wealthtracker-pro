@@ -18,15 +18,15 @@ import {
   buildTopLevelIdByAccountId
 } from '../utils/accountNesting';
 import { extractAccountParents, buildBackupBundle, remapBackupIds } from '../services/backup/format';
-import { resolveSecuring } from '../utils/accountSecuring';
+import { resolveSecuring, normaliseSecuredIds, buildSecuredByTarget } from '../utils/accountSecuring';
 import { mapAccountToDb } from '../services/api/accountMapping';
 import type { Account } from '../types';
 
 /** The nesting utilities read exactly two fields; this carries a third. */
-const property = { id: 'prop-1', parentAccountId: null, securedAgainstAccountId: null };
-const mortgage = { id: 'debt-1', parentAccountId: null, securedAgainstAccountId: 'prop-1' };
-const cashSleeve = { id: 'cash-1', parentAccountId: 'inv-1', securedAgainstAccountId: null };
-const portfolio = { id: 'inv-1', parentAccountId: null, securedAgainstAccountId: null };
+const property = { id: 'prop-1', parentAccountId: null, securedAgainstAccountIds: [] };
+const mortgage = { id: 'debt-1', parentAccountId: null, securedAgainstAccountIds: ['prop-1'] };
+const cashSleeve = { id: 'cash-1', parentAccountId: 'inv-1', securedAgainstAccountIds: [] };
+const portfolio = { id: 'inv-1', parentAccountId: null, securedAgainstAccountIds: [] };
 
 const all = [property, mortgage, cashSleeve, portfolio];
 
@@ -117,9 +117,58 @@ describe('which accounts may be secured, and against what', () => {
 
   it('keeps a closed target listed, so saving does not silently drop the link', () => {
     const closed = acc('sold-house', 'assets', { isActive: false });
-    const debt = acc('debt', 'loan', { securedAgainstAccountId: 'sold-house' });
+    const debt = acc('debt', 'loan', { securedAgainstAccountIds: ['sold-house'] });
     const targets = resolveSecuring(debt, [debt, closed]).options.map(a => a.id);
     expect(targets).toContain('sold-house');
+  });
+});
+
+describe('a debt held against SEVERAL accounts', () => {
+  /*
+   * The owner's case: a loan drawn against two investment portfolios, labelled
+   * against both without tying the two portfolios to each other.
+   *
+   * The arithmetic trap lives here. A liability names N targets, so anything
+   * that iterates LINKS rather than LIABILITIES counts the debt N times — and
+   * on a portfolio page that is millions removed from a total for a debt that
+   * exists once.
+   */
+  const debt = { id: 'loan', securedAgainstAccountIds: ['inv-a', 'inv-b'] };
+  const invA = { id: 'inv-a', securedAgainstAccountIds: [] };
+  const invB = { id: 'inv-b', securedAgainstAccountIds: [] };
+
+  it('appears under every account it is secured against', () => {
+    const byTarget = buildSecuredByTarget([debt, invA, invB]);
+    expect(byTarget.get('inv-a')?.map(a => a.id)).toEqual(['loan']);
+    expect(byTarget.get('inv-b')?.map(a => a.id)).toEqual(['loan']);
+  });
+
+  it('does not link the two targets to each other', () => {
+    // The owner's words: "not tie the investments together, just put a label
+    // against both of them." Neither portfolio names anything.
+    const byTarget = buildSecuredByTarget([debt, invA, invB]);
+    expect(byTarget.has('loan')).toBe(false);
+    expect(invA.securedAgainstAccountIds).toEqual([]);
+  });
+
+  it('skips a target that is not present — closed, filtered or deleted', () => {
+    // The column has no foreign key, so a deleted account leaves its id behind.
+    // All three cases look the same here and want the same answer.
+    const byTarget = buildSecuredByTarget([debt, invA]);
+    expect(byTarget.get('inv-a')?.map(a => a.id)).toEqual(['loan']);
+    expect(byTarget.has('inv-b')).toBe(false);
+  });
+
+  it('counts a duplicated target once, and drops blanks and self-references', () => {
+    // A duplicate is the one fault that would do arithmetic damage: the same
+    // portfolio chosen twice would subtract the loan twice.
+    expect(normaliseSecuredIds(['inv-a', 'inv-a', '', null, 'loan', 'inv-b'], 'loan'))
+      .toEqual(['inv-a', 'inv-b']);
+  });
+
+  it('lists a doubly-linked debt once under each target, never twice under one', () => {
+    const doubled = { id: 'loan', securedAgainstAccountIds: ['inv-a', 'inv-a'] };
+    expect(buildSecuredByTarget([doubled, invA]).get('inv-a')?.length).toBe(1);
   });
 });
 
@@ -134,21 +183,22 @@ describe('the write path names a real column', () => {
    * and the owner got "Could not find the 'securedAgainstAccountId' column of
    * 'accounts' in the schema cache" while renaming an account type.
    */
-  it('maps securedAgainstAccountId to its snake_case column', () => {
-    expect(mapAccountToDb({ securedAgainstAccountId: 'prop-1' }))
-      .toEqual({ secured_against_account_id: 'prop-1' });
+  it('maps securedAgainstAccountIds to its snake_case column', () => {
+    expect(mapAccountToDb({ securedAgainstAccountIds: ['prop-1', 'inv-1'] }))
+      .toEqual({ secured_against_account_ids: ['prop-1', 'inv-1'] });
   });
 
-  it('sends null through, because null is how a link is CLEARED', () => {
-    // `undefined` means "leave alone" and is dropped; null must survive.
-    expect(mapAccountToDb({ securedAgainstAccountId: null }))
-      .toEqual({ secured_against_account_id: null });
+  it('sends an EMPTY array through, because [] is how every link is cleared', () => {
+    // `undefined` means "leave alone" and is dropped; [] must survive, or
+    // unlinking the last target would silently leave it linked.
+    expect(mapAccountToDb({ securedAgainstAccountIds: [] }))
+      .toEqual({ secured_against_account_ids: [] });
   });
 
   it('emits no camelCase key for any account field it maps', () => {
     // The general form of the bug, so the next field added cannot repeat it.
     const columns = mapAccountToDb({
-      securedAgainstAccountId: 'a',
+      securedAgainstAccountIds: ['a'],
       parentAccountId: 'b',
       openingBalanceDate: new Date('2026-01-01T00:00:00.000Z')
     });
@@ -164,31 +214,16 @@ describe('the backup carries the link through a restore', () => {
    * account→account references are re-applied afterwards from a side channel.
    * A new reference that is not in that channel restores as null, silently.
    */
-  it('extracts a liability that has only a secured link and no parent', () => {
-    // The case that a parent-shaped extractor drops on the floor, which is ALL
-    // of them: securing deliberately does not nest, so there is never a parent.
-    const links = extractAccountParents([
-      { id: 'debt-1', secured_against_account_id: 'prop-1' }
-    ]);
-    expect(links).toEqual([
-      { id: 'debt-1', parent_account_id: null, secured_against_account_id: 'prop-1' }
-    ]);
-  });
-
-  it('still extracts an ordinary parent link, and both together', () => {
+  it('extracts an ordinary parent link', () => {
     expect(extractAccountParents([{ id: 'cash-1', parent_account_id: 'inv-1' }]))
       .toEqual([{ id: 'cash-1', parent_account_id: 'inv-1' }]);
-
-    expect(extractAccountParents([
-      { id: 'x', parent_account_id: 'p', secured_against_account_id: 's' }
-    ])).toEqual([{ id: 'x', parent_account_id: 'p', secured_against_account_id: 's' }]);
   });
 
-  it('emits nothing for an account with neither link', () => {
+  it('emits nothing for an account with no parent', () => {
     expect(extractAccountParents([{ id: 'plain-1' }])).toEqual([]);
   });
 
-  it('REMAPS the secured id on the account row, not just the link', () => {
+  it('REMAPS EVERY id in the secured array, not just the first', () => {
     /*
      * The one that would fail silently. `ENTITY_REFERENCES` declares which
      * columns hold ids that a restore must translate; a new account→account
@@ -205,7 +240,8 @@ describe('the backup carries the link through a restore', () => {
       data: {
         accounts: [
           { id: 'prop-1', name: 'Flat 3' },
-          { id: 'debt-1', name: 'Mortgage', secured_against_account_id: 'prop-1' }
+          { id: 'inv-1', name: 'Portfolio' },
+          { id: 'debt-1', name: 'Mortgage', secured_against_account_ids: ['prop-1', 'inv-1'] }
         ]
       },
       preferences: null
@@ -217,12 +253,13 @@ describe('the backup carries the link through a restore', () => {
     })());
 
     const property = remapped.data.accounts.find(r => r.name === 'Flat 3');
+    const portfolio = remapped.data.accounts.find(r => r.name === 'Portfolio');
     const debt = remapped.data.accounts.find(r => r.name === 'Mortgage');
 
     expect(property?.id).toBe('new-1');
-    expect(debt?.id).toBe('new-2');
-    // The point: it follows the property to its NEW id.
-    expect(debt?.secured_against_account_id).toBe('new-1');
-    expect(debt?.secured_against_account_id).not.toBe('prop-1');
+    expect(portfolio?.id).toBe('new-2');
+    // The point: BOTH follow their targets to the new ids. A remap that
+    // handled element 0 and stopped would restore the second link dangling.
+    expect(debt?.secured_against_account_ids).toEqual(['new-1', 'new-2']);
   });
 });
