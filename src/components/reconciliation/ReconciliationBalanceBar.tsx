@@ -3,7 +3,8 @@ import { parseMoneyInput, toDecimal } from '../../utils/decimal';
 import MoneyInput from '../common/MoneyInput';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { formatDate } from '../../utils/dateFormatter';
-import { NEXT_ACTION_YELLOW, CONFIRM_BALANCE_HINT_ID } from './nextActionYellow';
+import { NEXT_ACTION_YELLOW } from '../../design-system/nextActionYellow';
+import { CONFIRM_BALANCE_HINT_ID } from './nextActionYellow';
 import type { ClearedSummary } from '../../hooks/useReconciliation';
 
 interface ReconciliationBalanceBarProps {

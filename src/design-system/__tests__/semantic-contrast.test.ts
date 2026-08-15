@@ -176,3 +176,104 @@ describe('semantic amount colours (DESIGN_PASS_2026-08 §2.1)', () => {
     expect(indexCss).toMatch(/body\s*\{[^}]*font-variant-numeric:\s*tabular-nums/);
   });
 });
+
+/**
+ * NEXT_ACTION_YELLOW, instrumented.
+ *
+ * Added 15 August 2026, when the constant moved out of
+ * `components/reconciliation/` and into the design system. The move surfaced
+ * why it needed a gate: the ratios were written in prose in the constant's
+ * header AND again at a call site, and the copies had drifted — 6.37 against
+ * 6.15 for the same light pair, and a dark figure measured on the gray-900
+ * page quoted for a panel sitting on a gray-800 card, where the real number is
+ * a point and a half lower. Nothing failed AA, which is exactly why it went
+ * unnoticed for three PRs.
+ *
+ * So the shades are read out of the constant itself rather than restated here.
+ * Change `text-amber-800` to `text-amber-600` and this re-measures and fails;
+ * hardcode the utilities in this file instead and it would happily keep
+ * measuring a colour the app no longer uses.
+ *
+ * BORDERS ARE DELIBERATELY NOT ASSERTED. `border-amber-300` on `bg-amber-100`
+ * is nowhere near 3:1, and should not be: the panel is identified by its
+ * background and its text, not by its edge, so WCAG 1.4.11 does not bite. An
+ * assertion invented here would only have had to be weakened later.
+ */
+describe('NEXT_ACTION_YELLOW (the one "your next action is here" colour)', () => {
+  // Tailwind v3 defaults; this project does not override amber.
+  const AMBER: Readonly<Record<string, string>> = {
+    '100': '#fef3c7', '200': '#fde68a', '300': '#fcd34d', '400': '#fbbf24',
+    '500': '#f59e0b', '600': '#d97706', '700': '#b45309', '800': '#92400e',
+    '900': '#78350f'
+  };
+
+  const source = read('src/design-system/nextActionYellow.ts');
+  const declaration = extract(
+    source,
+    /export const NEXT_ACTION_YELLOW\s*=([\s\S]*?);/,
+    'the NEXT_ACTION_YELLOW declaration'
+  );
+  const utilities = declaration.replace(/['"+]/g, ' ').split(/\s+/).filter(Boolean);
+
+  /** The hex a `bg-amber-900/30`-style utility actually paints on `surface`. */
+  const paint = (utility: string, surface: string): string => {
+    const match = utility.match(/amber-(\d+)(?:\/(\d+))?$/);
+    if (match === null) throw new Error(`Not an amber utility: ${utility}`);
+    const hex = AMBER[match[1]];
+    if (hex === undefined) throw new Error(`Unknown amber shade in ${utility}`);
+    if (match[2] === undefined) return hex;
+
+    const alpha = Number(match[2]) / 100;
+    const fg = ColorContrastChecker.hexToRgb(hex);
+    const bg = ColorContrastChecker.hexToRgb(surface);
+    return ColorContrastChecker.rgbToHex({
+      r: Math.round(fg.r * alpha + bg.r * (1 - alpha)),
+      g: Math.round(fg.g * alpha + bg.g * (1 - alpha)),
+      b: Math.round(fg.b * alpha + bg.b * (1 - alpha))
+    });
+  };
+
+  const only = (prefix: string): string[] =>
+    utilities.filter((u) => u.startsWith(prefix));
+
+  it('is colour ONLY, and all of it amber (the constant\'s own constraint)', () => {
+    // Border width, radius, padding and type belong to each element; a stray
+    // `px-3` here would silently impose a header button's padding on a figure
+    // in a four-up grid. And a non-amber utility would break the structural
+    // test that compares two elements' yellow exactly.
+    expect(utilities.length).toBeGreaterThan(0);
+    for (const utility of utilities) {
+      expect(utility).toMatch(/^(dark:)?(hover:)?(bg|text|border)-amber-\d+(\/\d+)?$/);
+    }
+  });
+
+  it('clears AA in light mode, at rest and on hover', () => {
+    const text = paint(only('text-amber')[0], '#ffffff');
+    const backgrounds = [...only('bg-amber'), ...only('hover:bg-amber')];
+    expect(backgrounds.length).toBe(2); // rest + hover, or the sweep below is partial
+
+    for (const background of backgrounds) {
+      const measured = ratio(text, paint(background, '#ffffff'));
+      expect(measured, `${text} on ${background}`).toBeGreaterThanOrEqual(AA_TEXT);
+    }
+  });
+
+  it('clears AA in dark on the gray-900 page AND the gray-800 cards', () => {
+    // The rule this whole file exists for: contrast is measured against the
+    // SURFACE the text sits on, not the page it sits in. This constant is worn
+    // on both — Reconciliation's balance bar sits on the page, the
+    // subscription notice sits in a card — and the two differ by ~1.5:1.
+    const darkText = only('dark:text-amber')[0];
+    const backgrounds = [...only('dark:bg-amber'), ...only('dark:hover:bg-amber')];
+    expect(backgrounds.length).toBe(2);
+
+    for (const surface of SURFACES_DARK) {
+      const text = paint(darkText, surface);
+      for (const background of backgrounds) {
+        const measured = ratio(text, paint(background, surface));
+        expect(measured, `${darkText} on ${background} over ${surface}`)
+          .toBeGreaterThanOrEqual(AA_TEXT);
+      }
+    }
+  });
+});

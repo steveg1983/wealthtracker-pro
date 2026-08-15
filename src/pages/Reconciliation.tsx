@@ -13,7 +13,8 @@ import {
 } from '../components/reconciliation/reconciliationGrouping';
 import type { AccountGroupingOptions } from '../utils/accountGrouping';
 import ReconciliationBalanceBar, { CONFIRM_BALANCE_CONSEQUENCE } from '../components/reconciliation/ReconciliationBalanceBar';
-import { NEXT_ACTION_YELLOW, CONFIRM_BALANCE_HINT_ID } from '../components/reconciliation/nextActionYellow';
+import { NEXT_ACTION_YELLOW } from '../design-system/nextActionYellow';
+import { CONFIRM_BALANCE_HINT_ID } from '../components/reconciliation/nextActionYellow';
 import ReconciliationTransactionList from '../components/reconciliation/ReconciliationTransactionList';
 import ReconciliationFinalizationModal from '../components/reconciliation/ReconciliationFinalizationModal';
 import EditTransactionModal from '../components/EditTransactionModal';

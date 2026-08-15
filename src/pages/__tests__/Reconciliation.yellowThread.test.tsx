@@ -33,10 +33,8 @@ import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { ToastProvider } from '../../contexts/ToastContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import Reconciliation from '../Reconciliation';
-import {
-  NEXT_ACTION_YELLOW,
-  CONFIRM_BALANCE_HINT_ID,
-} from '../../components/reconciliation/nextActionYellow';
+import { NEXT_ACTION_YELLOW } from '../../design-system/nextActionYellow';
+import { CONFIRM_BALANCE_HINT_ID } from '../../components/reconciliation/nextActionYellow';
 import { __setAppContextValue, __resetAppContextValue } from '../../test/mocks/AppContextSupabase';
 import type { Account, Transaction } from '../../types';
 
