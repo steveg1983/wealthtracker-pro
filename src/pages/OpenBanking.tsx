@@ -166,7 +166,7 @@ export default function OpenBanking() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Connected Banks</p>
-              <p className="text-2xl font-bold">{connectedCount}</p>
+              <p className="text-page font-semibold text-gray-900 dark:text-white">{connectedCount}</p>
             </div>
             <BankIcon size={32} className="text-blue-600" />
           </div>
@@ -175,7 +175,7 @@ export default function OpenBanking() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Synced Accounts</p>
-              <p className="text-2xl font-bold">{totalAccounts}</p>
+              <p className="text-page font-semibold text-gray-900 dark:text-white">{totalAccounts}</p>
             </div>
             <CheckCircleIcon size={32} className="text-blue-600" />
           </div>
@@ -193,7 +193,7 @@ export default function OpenBanking() {
 
       {/* Connect Bank */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-        <h3 className="text-lg font-semibold mb-2">Connect Your Bank</h3>
+        <h3 className="text-card font-semibold mb-2 text-gray-900 dark:text-white">Connect Your Bank</h3>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
           Securely connect your bank accounts to automatically import transactions and keep your balances up to date.
         </p>
@@ -212,7 +212,7 @@ export default function OpenBanking() {
             <span>{connectError}</span>
           </div>
         )}
-        <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+        <p className="text-xs text-gray-500 dark:text-gray-500 dark:text-gray-400 mt-2">
           Bank connections are secured with 256-bit encryption
         </p>
       </div>
@@ -240,11 +240,11 @@ export default function OpenBanking() {
 
       {/* Connected Banks */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-        <h3 className="text-lg font-semibold mb-4">Connected Banks</h3>
+        <h3 className="text-card font-semibold mb-4 text-gray-900 dark:text-white">Connected Banks</h3>
         {isLoading ? (
-          <p className="text-gray-500">Loading connections...</p>
+          <p className="text-gray-500 dark:text-gray-400">Loading connections...</p>
         ) : connections.length === 0 ? (
-          <p className="text-gray-500">No bank connections yet. Click &ldquo;Connect Bank Account&rdquo; to get started.</p>
+          <p className="text-gray-500 dark:text-gray-400">No bank connections yet. Click &ldquo;Connect Bank Account&rdquo; to get started.</p>
         ) : (
           <div className="space-y-3">
             {connections.map(connection => (
@@ -254,14 +254,14 @@ export default function OpenBanking() {
               >
                 <div className="flex items-center gap-3">
                   <div>
-                    <p className="font-medium">{connection.institutionName}</p>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <p className="font-medium text-gray-900 dark:text-white">{connection.institutionName}</p>
+                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                       <span>
                         {connection.accountsCount ?? 0} account{(connection.accountsCount ?? 0) !== 1 ? 's' : ''}
                       </span>
                       {connection.lastSync && (
                         <>
-                          <span className="text-gray-300 dark:text-gray-600">&middot;</span>
+                          <span className="text-gray-300 dark:text-gray-600 dark:text-gray-400">&middot;</span>
                           <span>Last synced: {new Date(connection.lastSync).toLocaleString()}</span>
                         </>
                       )}
@@ -284,7 +284,7 @@ export default function OpenBanking() {
                   <button
                     type="button"
                     onClick={() => setLinkingConnectionId(connection.id)}
-                    className="p-2 text-gray-500 hover:text-primary hover:bg-[#1a2332]/10 rounded-lg transition-colors"
+                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-primary hover:bg-[#1a2332]/10 rounded-lg transition-colors"
                     title="Link bank accounts to your app accounts"
                   >
                     <LinkIcon size={18} />
@@ -293,7 +293,7 @@ export default function OpenBanking() {
                     type="button"
                     onClick={() => handleSync(connection.id)}
                     disabled={syncingIds.has(connection.id)}
-                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg disabled:opacity-50 transition-colors"
+                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg disabled:opacity-50 transition-colors"
                     title="Sync accounts & transactions"
                   >
                     <RefreshCwIcon size={18} className={syncingIds.has(connection.id) ? 'animate-spin' : ''} />
@@ -302,7 +302,7 @@ export default function OpenBanking() {
                     type="button"
                     onClick={() => handleDisconnect(connection.id)}
                     disabled={deletingIds.has(connection.id)}
-                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg disabled:opacity-50 transition-colors"
+                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg disabled:opacity-50 transition-colors"
                     title="Disconnect bank"
                   >
                     <TrashIcon size={18} />
@@ -316,13 +316,13 @@ export default function OpenBanking() {
 
       {/* How It Works */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-        <h3 className="text-lg font-semibold mb-4">How It Works</h3>
+        <h3 className="text-card font-semibold mb-4 text-gray-900 dark:text-white">How It Works</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="text-center">
             <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
               <span className="text-blue-600 font-bold">1</span>
             </div>
-            <h4 className="font-medium mb-1">Connect</h4>
+            <h4 className="font-medium mb-1 text-gray-900 dark:text-white">Connect</h4>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Select your bank and authorize read-only access via Open Banking
             </p>
@@ -331,7 +331,7 @@ export default function OpenBanking() {
             <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
               <span className="text-blue-600 font-bold">2</span>
             </div>
-            <h4 className="font-medium mb-1">Sync</h4>
+            <h4 className="font-medium mb-1 text-gray-900 dark:text-white">Sync</h4>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Your accounts and transactions are securely imported
             </p>
@@ -340,7 +340,7 @@ export default function OpenBanking() {
             <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
               <span className="text-blue-600 font-bold">3</span>
             </div>
-            <h4 className="font-medium mb-1">Track</h4>
+            <h4 className="font-medium mb-1 text-gray-900 dark:text-white">Track</h4>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               View all your finances in one place with automatic updates
             </p>
@@ -352,11 +352,11 @@ export default function OpenBanking() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <div className="flex items-center gap-3 mb-4">
           <ShieldIcon size={24} className="text-blue-600" />
-          <h3 className="text-lg font-semibold">Bank-Level Security</h3>
+          <h3 className="text-card font-semibold text-gray-900 dark:text-white">Bank-Level Security</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h4 className="font-medium mb-2">Data Protection</h4>
+            <h4 className="font-medium mb-2 text-gray-900 dark:text-white">Data Protection</h4>
             <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
               <li>• 256-bit encryption for all data</li>
               <li>• Read-only access to your accounts</li>
@@ -365,7 +365,7 @@ export default function OpenBanking() {
             </ul>
           </div>
           <div>
-            <h4 className="font-medium mb-2">Privacy First</h4>
+            <h4 className="font-medium mb-2 text-gray-900 dark:text-white">Privacy First</h4>
             <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
               <li>• FCA-regulated Open Banking provider</li>
               <li>• No third-party data sharing</li>

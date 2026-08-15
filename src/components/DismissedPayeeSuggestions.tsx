@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { PayeeDismissalKind, SuggestionDismissal } from '../types';
 import { isPayeeDismissalKind, readPayeeDismissalKey } from '../utils/suggestionDismissals';
+import { getDateLocale } from '../utils/dateFormatter';
 
 /**
  * The way back from a refused payee suggestion.
@@ -146,7 +147,7 @@ export default function DismissedPayeeSuggestions({
                     </span>
                   </td>
                   <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                    {dismissal.dismissedAt.toLocaleDateString('en-GB', {
+                    {dismissal.dismissedAt.toLocaleDateString(getDateLocale(), {
                       day: '2-digit', month: 'short', year: '2-digit',
                     })}
                   </td>

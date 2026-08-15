@@ -2,6 +2,7 @@ import type { Account, Transaction } from '../types';
 import { toDecimal } from './decimal';
 import { resolveEffectiveOpeningDates } from './openingDates';
 import type { PeriodRange } from '../hooks/usePeriod';
+import { getDateLocale } from '../utils/dateFormatter';
 
 export interface NetWorthSnapshot {
   date: Date;
@@ -125,7 +126,7 @@ export function buildNetWorthSnapshots(
     }
     out.push({
       date: point,
-      label: point.toLocaleDateString('en-GB', monthly
+      label: point.toLocaleDateString(getDateLocale(), monthly
         ? { month: 'short', year: '2-digit' }
         : { day: '2-digit', month: 'short' }),
       assets: assets.toNumber(),

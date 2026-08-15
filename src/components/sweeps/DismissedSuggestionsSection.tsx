@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { DismissalKind, SuggestionDismissal, Transaction } from '../../types';
+import { getDateLocale } from '../../utils/dateFormatter';
 
 /**
  * The way back. Every persistent refusal is listed here with a Restore beside
@@ -78,7 +79,7 @@ export default function DismissedSuggestionsSection({
           {', '}
           {accountName(first.accountId)}
           {', '}
-          {new Date(first.date).toLocaleDateString('en-GB', {
+          {new Date(first.date).toLocaleDateString(getDateLocale(), {
             day: '2-digit', month: 'short', year: '2-digit',
           })}
           {rows.length > 1 && ` and ${rows.length - 1} other row${rows.length > 2 ? 's' : ''}`}
@@ -131,7 +132,7 @@ export default function DismissedSuggestionsSection({
                     {KIND_LABELS[dismissal.kind]}
                   </td>
                   <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                    {dismissal.dismissedAt.toLocaleDateString('en-GB', {
+                    {dismissal.dismissedAt.toLocaleDateString(getDateLocale(), {
                       day: '2-digit', month: 'short', year: '2-digit',
                     })}
                   </td>

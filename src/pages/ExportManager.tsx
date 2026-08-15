@@ -30,6 +30,7 @@ import { downloadBackupBundle, type ExportProgress } from '../services/backup/fo
 import { encryptBackupBundle, downloadEncryptedBackup } from '../services/backup/encryption';
 import { selectExportData, describeExportRange, type AccountsScope } from '../utils/exportSelection';
 import { generateDataExportPDF } from '../utils/pdfExport';
+import { getDateLocale } from '../utils/dateFormatter';
 import {
   exportTransactionsToCSV,
   exportAccountsToCSV,
@@ -308,7 +309,7 @@ export default function ExportManager(): React.JSX.Element {
       : PERIOD_LABELS[options.range];
 
   const formatDate = (date: Date): string =>
-    date.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
+    date.toLocaleDateString(getDateLocale(), { year: 'numeric', month: 'short', day: 'numeric' });
 
   return (
     <PageWrapper title="Export Data">

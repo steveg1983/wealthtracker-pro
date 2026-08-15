@@ -10,6 +10,7 @@ import DatePicker from './common/DatePicker';
 import { expandSplitTransactions, type SplitExpandedTransaction } from '../utils/transactionSplits';
 import type { Transaction } from '../types';
 import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
+import { getDateLocale } from '../utils/dateFormatter';
 
 interface CategoryTransactionsModalProps {
   isOpen: boolean;
@@ -106,7 +107,7 @@ export default function CategoryTransactionsModal({
           t.type,
           t.categoryName || categoryName,
           new Date(t.date).toLocaleDateString(),
-          new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+          new Date(t.date).toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }),
           t.notes || '',
           t.tags?.join(' ') || ''
         ];

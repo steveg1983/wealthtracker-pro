@@ -4,36 +4,94 @@
  */
 import { preferences } from '../services/preferencesService';
 
-// Detect user's locale from browser settings
-export function getUserLocale(): string {
-  // Check navigator.language first, then fall back to navigator.languages
-  const browserLocale = navigator.language || 
-    (navigator.languages && navigator.languages[0]) || 
-    'en-US';
-  
-  // A chosen locale travels with the account: it decides how every date and
-  // amount in the app reads, and someone who set it once should not have to
-  // set it again on the next machine.
-  const storedLocale = preferences.getItem('preferredLocale');
-  if (storedLocale) {
-    return storedLocale;
-  }
+/**
+ * ─ THE LOCALE, AND WHY IT NOW REACHES ANYTHING ─────────────────────────────
+ *
+ * Settings ▸ Locale & Date Format offered eight regions, stored the choice, and
+ * showed the chosen format back to the reader — while every formatter below it
+ * used a hard-coded `const locale = 'en-GB'`, and `getDateFormatPlaceholder`
+ * returned the literal string 'dd/mm/yyyy'.
+ *
+ * So picking "English (United States)" made the settings card say
+ * **mm/dd/yyyy · 12/31/2024** and left every date in the app reading
+ * 31/12/2024. That is worse than the dead Goal Celebrations toggle: a dead
+ * toggle accepts input and reports a state, but this one made a specific,
+ * checkable, FALSE statement about how the app would behave.
+ *
+ * ─ THE DEFAULT IS STILL en-GB, DELIBERATELY ────────────────────────────────
+ *
+ * `getUserLocale` reads the browser and, until today, WROTE that value into
+ * preferences as a side effect of being read. So existing accounts may hold a
+ * `preferredLocale` nobody ever chose. Honouring that blindly would have
+ * changed how dates read for people who never asked for a change, which is not
+ * a locale feature — it is a surprise.
+ *
+ * `getDateLocale` therefore answers with the EXPLICIT choice, and en-GB when
+ * there is none. The app is UK-positioned and states so; the selector is what
+ * moves it, and nothing else.
+ */
+const DEFAULT_LOCALE = 'en-GB';
+const LOCALE_KEY = 'preferredLocale';
 
-  preferences.setItem('preferredLocale', browserLocale);
-  return browserLocale;
+/**
+ * Cached because this is called once per rendered date, and a register can put
+ * five thousand on a page. Invalidated by `setUserLocale`, which is the only
+ * thing that can change the answer.
+ */
+let cachedLocale: string | null = null;
+
+/** The locale the user actually chose, or the app's default. */
+export function getDateLocale(): string {
+  if (cachedLocale !== null) return cachedLocale;
+  const stored = preferences.getItem(LOCALE_KEY);
+  cachedLocale = stored !== null && stored !== '' ? stored : DEFAULT_LOCALE;
+  return cachedLocale;
+}
+
+/**
+ * What the browser says, for the settings card to offer as a starting point.
+ * No longer writes what it read — a getter with a side effect is how accounts
+ * ended up holding a preference nobody set.
+ */
+export function getUserLocale(): string {
+  const stored = preferences.getItem(LOCALE_KEY);
+  if (stored !== null && stored !== '') return stored;
+  return navigator.language || (navigator.languages && navigator.languages[0]) || DEFAULT_LOCALE;
 }
 
 // Set user's preferred locale
 export function setUserLocale(locale: string): void {
-  preferences.setItem('preferredLocale', locale);
+  preferences.setItem(LOCALE_KEY, locale);
+  cachedLocale = locale;
 }
 
-// Determine if the user prefers UK date format (dd/mm/yyyy)
-// For consistency with UK market positioning, always use UK format
+/** For tests, and for a restore that rewrites preferences underneath us. */
+export function forgetCachedLocale(): void {
+  cachedLocale = null;
+}
+
+/**
+ * Does the chosen locale put the day first?
+ *
+ * Returned `true` unconditionally, which was the honest thing to write while
+ * every formatter was pinned to en-GB and a lie the moment they stopped being.
+ * Derived from the locale itself rather than from a list of countries, so a
+ * region nobody thought of still gets the right answer.
+ */
 export function isUKDateFormat(): boolean {
-  // Always return true to ensure UK date format (dd/mm/yyyy) is used throughout
-  // This ensures consistency as requested in the UI/UX review
-  return true;
+  return dayComesFirst(getDateLocale());
+}
+
+/** Whether `locale` orders a numeric date day-then-month. */
+function dayComesFirst(locale: string): boolean {
+  try {
+    const parts = new Intl.DateTimeFormat(locale).formatToParts(new Date(2024, 11, 31));
+    const day = parts.findIndex((part) => part.type === 'day');
+    const month = parts.findIndex((part) => part.type === 'month');
+    return day !== -1 && month !== -1 && day < month;
+  } catch {
+    return true;
+  }
 }
 
 // Format date according to user's locale (always UK format for consistency)
@@ -43,8 +101,7 @@ export function formatDate(date: Date | string | null | undefined, options?: Int
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(dateObj.getTime())) return '';
   
-  // Always use en-GB locale for UK date format consistency
-  const locale = 'en-GB';
+  const locale = getDateLocale();
   
   // Default options if none provided
   const defaultOptions: Intl.DateTimeFormatOptions = {
@@ -56,19 +113,33 @@ export function formatDate(date: Date | string | null | undefined, options?: Int
   return dateObj.toLocaleDateString(locale, options || defaultOptions);
 }
 
-// Format date for display in short format (always dd/mm/yyyy for UK market)
+/**
+ * The app's most-used date format — and the one that could never have followed
+ * a locale, because it did not ask one.
+ *
+ * It assembled `${day}/${month}/${year}` by hand. Every other formatter here
+ * had a hard-coded `'en-GB'` that could at least be swapped for a lookup; this
+ * one had the ORDER built into the string, so no amount of fixing the locale
+ * elsewhere would have moved it. Zero-padded two-digit parts, through Intl,
+ * which gives dd/mm/yyyy for en-GB exactly as before.
+ */
 export function formatShortDate(date: Date | string | null | undefined): string {
   if (!date) return '';
-  
+
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(dateObj.getTime())) return '';
-  
-  const day = dateObj.getDate().toString().padStart(2, '0');
-  const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-  const year = dateObj.getFullYear();
-  
-  // Always use UK format (dd/mm/yyyy) for consistency
-  return `${day}/${month}/${year}`;
+
+  try {
+    return dateObj.toLocaleDateString(getDateLocale(), {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  } catch {
+    const day = dateObj.getDate().toString().padStart(2, '0');
+    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+    return `${day}/${month}/${dateObj.getFullYear()}`;
+  }
 }
 
 // Format date for input fields (always yyyy-mm-dd for HTML date inputs)
@@ -115,8 +186,7 @@ export function formatDateTime(date: Date | string | null | undefined): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(dateObj.getTime())) return '';
   
-  // Always use en-GB locale for UK format consistency
-  const locale = 'en-GB';
+  const locale = getDateLocale();
   
   return dateObj.toLocaleString(locale, {
     year: 'numeric',
@@ -159,15 +229,38 @@ export function formatRelativeDate(date: Date | string | null | undefined): stri
   }
 }
 
-// Get date format placeholder for input fields
+/**
+ * The pattern to show beside a date input, in the chosen locale's order.
+ *
+ * Returned the literal 'dd/mm/yyyy' regardless — so the settings card could
+ * show "mm/dd/yyyy" for the United States while every input in the app still
+ * told the reader to type the day first. Asked of Intl rather than looked up,
+ * for the same reason as `dayComesFirst`.
+ */
 export function getDateFormatPlaceholder(): string {
-  // Always return UK format for consistency
-  return 'dd/mm/yyyy';
+  const locale = getDateLocale();
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
+      .formatToParts(new Date(2024, 11, 31))
+      .map((part) => {
+        if (part.type === 'day') return 'dd';
+        if (part.type === 'month') return 'mm';
+        if (part.type === 'year') return 'yyyy';
+        return part.value;
+      })
+      .join('');
+  } catch {
+    return 'dd/mm/yyyy';
+  }
 }
 
 // Get month names in user's locale (UK format)
 export function getMonthNames(format: 'long' | 'short' = 'long'): string[] {
-  const locale = 'en-GB';
+  const locale = getDateLocale();
   const months: string[] = [];
   
   for (let i = 0; i < 12; i++) {
@@ -180,7 +273,7 @@ export function getMonthNames(format: 'long' | 'short' = 'long'): string[] {
 
 // Get day names in user's locale (UK format)
 export function getDayNames(format: 'long' | 'short' | 'narrow' = 'long'): string[] {
-  const locale = 'en-GB';
+  const locale = getDateLocale();
   const days: string[] = [];
   
   // Start with Sunday (0) to Saturday (6)

@@ -6,6 +6,7 @@ import { formatCurrency as formatCurrencyDecimal } from './currency-decimal';
 import { formatDecimal } from './decimal-format';
 import { toDecimal } from './decimal';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { getDateLocale } from '../utils/dateFormatter';
 
 type JsPDFInstance = InstanceType<typeof import('jspdf').default>;
 type RGB = readonly [number, number, number];
@@ -200,7 +201,7 @@ async function loadHtml2Canvas(): Promise<typeof import('html2canvas').default> 
 function stampFooter(pdf: JsPDFInstance, writer: PdfWriter): void {
   pdf.setFontSize(8);
   pdf.setTextColor(150, 150, 150);
-  const footerText = `Generated on ${new Date().toLocaleDateString('en-GB')} at ${new Date().toLocaleTimeString('en-GB')}`;
+  const footerText = `Generated on ${new Date().toLocaleDateString(getDateLocale())} at ${new Date().toLocaleTimeString(getDateLocale())}`;
   pdf.text(footerText, writer.pageWidth / 2, writer.pageHeight - 10, { align: 'center' });
 }
 
@@ -358,7 +359,7 @@ export async function generatePDFReport(data: ReportData, _accounts: Account[]):
   writer.heading('Top Transactions');
   writer.table({
     columns: [
-      { header: 'Date', x: 2, cell: t => new Date(t.date).toLocaleDateString('en-GB') },
+      { header: 'Date', x: 2, cell: t => new Date(t.date).toLocaleDateString(getDateLocale()) },
       { header: 'Description', x: 25, cell: t => t.description, maxChars: 30 },
       // Never the raw id: the caller resolves the name, blank if it has none.
       { header: 'Category', x: 100, cell: t => t.categoryLabel ?? '' },
@@ -478,7 +479,7 @@ export async function generateDataExportPDF(data: DataExportPdfData): Promise<vo
     writer.heading('Transactions');
     writer.table({
       columns: [
-        { header: 'Date', x: 2, cell: t => new Date(t.date).toLocaleDateString('en-GB') },
+        { header: 'Date', x: 2, cell: t => new Date(t.date).toLocaleDateString(getDateLocale()) },
         { header: 'Description', x: 24, cell: t => t.description, maxChars: 30 },
         { header: 'Category', x: 78, cell: t => t.categoryLabel, maxChars: 22 },
         { header: 'Account', x: 118, cell: t => t.accountLabel, maxChars: 16 },
@@ -516,7 +517,7 @@ export async function generateDataExportPDF(data: DataExportPdfData): Promise<vo
     pdf.setFontSize(8);
     pdf.setTextColor(150, 150, 150);
     pdf.text(
-      `Page ${page} of ${pageCount} — generated on ${new Date().toLocaleDateString('en-GB')}`,
+      `Page ${page} of ${pageCount} — generated on ${new Date().toLocaleDateString(getDateLocale())}`,
       writer.pageWidth / 2,
       writer.pageHeight - 10,
       { align: 'center' }

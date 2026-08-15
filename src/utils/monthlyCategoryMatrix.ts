@@ -2,6 +2,7 @@ import type { Category } from '../types';
 import type { PeriodRange } from '../hooks/usePeriod';
 import type { SplitExpandedTransaction } from './transactionSplits';
 import { toDecimal, type DecimalInstance } from './decimal';
+import { getDateLocale } from '../utils/dateFormatter';
 
 /**
  * "Monthly income and expenses" — the Microsoft Money report, as a
@@ -88,7 +89,7 @@ export function monthKeyOf(date: Date | string): string {
 function monthLabelOf(key: string): string {
   const year = Number(key.slice(0, 4));
   const month = Number(key.slice(5, 7));
-  return new Date(year, month - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+  return new Date(year, month - 1, 1).toLocaleDateString(getDateLocale(), { month: 'short', year: '2-digit' });
 }
 
 /** The group a category belongs to: its topmost ancestor below the type node. */

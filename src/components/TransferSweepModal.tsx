@@ -29,6 +29,7 @@ import DismissedSuggestionsSection from './sweeps/DismissedSuggestionsSection';
 import { useAccountNames } from '../hooks/useAccountNames';
 import { AlertTriangleIcon, ArrowRightIcon } from './icons';
 import type { DismissalKind, SuggestionDismissal, Transaction } from '../types';
+import { getDateLocale } from '../utils/dateFormatter';
 
 /**
  * Bulk transfer matching: find every unlinked equal-and-opposite pair in the
@@ -611,7 +612,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
         </p>
         <p className="text-sm text-gray-600 dark:text-gray-400 break-words">{t.description}</p>
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
+          {new Date(t.date).toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'long', year: 'numeric' })}
         </p>
         {note && (
           <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">{note}</p>
@@ -651,7 +652,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
         </p>
         <p className="text-sm text-gray-600 dark:text-gray-400 break-words">{parent.description}</p>
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          {new Date(parent.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
+          {new Date(parent.date).toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'long', year: 'numeric' })}
         </p>
         <p className="mt-2 text-xs font-medium text-blue-700 dark:text-blue-300">
           {formatCurrency(Math.abs(split.amount))} of the {formatCurrency(Math.abs(parent.amount))} in this split,
@@ -794,7 +795,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                         />
                       </td>
                       <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        {new Date(row.pair.outgoing.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
+                        {new Date(row.pair.outgoing.date).toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'short', year: '2-digit' })}
                         {row.pair.daysApart > 0 && (
                           <span className="ml-1 text-xs text-gray-400">+{Math.round(row.pair.daysApart)}d</span>
                         )}
@@ -873,7 +874,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                         />
                       </td>
                       <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        {new Date(row.leg.parent.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
+                        {new Date(row.leg.parent.date).toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'short', year: '2-digit' })}
                         {row.leg.daysApart > 0 && (
                           <span className="ml-1 text-xs text-gray-400">+{Math.round(row.leg.daysApart)}d</span>
                         )}
@@ -990,7 +991,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                       title="Look at the evidence for this row"
                     >
                       <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        {new Date(f.row.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
+                        {new Date(f.row.date).toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'short', year: '2-digit' })}
                       </td>
                       <td className="py-2 text-sm text-gray-700 dark:text-gray-300">
                         <span className="block truncate max-w-[140px]">{accountName(f.row.accountId)}</span>
@@ -1073,7 +1074,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                       className="border-b border-gray-50 dark:border-gray-700/50 align-top"
                     >
                       <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        {new Date(f.parent.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
+                        {new Date(f.parent.date).toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'short', year: '2-digit' })}
                       </td>
                       <td className="py-2 text-sm text-gray-700 dark:text-gray-300">
                         <span className="block truncate max-w-[140px]">{accountName(f.parent.accountId)}</span>

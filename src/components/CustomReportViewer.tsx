@@ -18,6 +18,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp } from './charts/chartColors';
 import { formatDecimal } from '../utils/decimal-format';
 import type { CustomReport, ReportComponent } from './CustomReportBuilder';
+import { getDateLocale } from '../utils/dateFormatter';
 
 /**
  * Renders a generated custom report. Until now "Generate" computed the data
@@ -269,7 +270,7 @@ export default function CustomReportViewer({
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{report.name}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {report.description ? `${report.description} · ` : ''}
-            {dateRange.startDate.toLocaleDateString('en-GB')} – {dateRange.endDate.toLocaleDateString('en-GB')}
+            {dateRange.startDate.toLocaleDateString(getDateLocale())} – {dateRange.endDate.toLocaleDateString(getDateLocale())}
           </p>
         </div>
         <button

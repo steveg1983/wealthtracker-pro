@@ -10,6 +10,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { buildPayeeGroups, type PayeeGroup } from '../utils/payeeGroups';
 import { ArrowDownIcon, ArrowUpIcon, XIcon } from './icons';
+import { getDateLocale } from '../utils/dateFormatter';
 
 /**
  * Bulk categorise by payee: file a whole merchant in one decision.
@@ -264,9 +265,9 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                             </button>
                           </span>
                           <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                            {new Date(group.earliest).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+                            {new Date(group.earliest).toLocaleDateString(getDateLocale(), { month: 'short', year: 'numeric' })}
                             {' – '}
-                            {new Date(group.latest).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+                            {new Date(group.latest).toLocaleDateString(getDateLocale(), { month: 'short', year: 'numeric' })}
                             {group.accountIds.length === 1
                               ? ` · ${accountName(group.accountIds[0])}`
                               : ` · ${group.accountIds.length} accounts`}

@@ -27,6 +27,7 @@ import { DECOMPOSITION_SERIES } from '../components/charts/chartColors';
 import type { ReportViewProps } from './reports/types';
 import { preferences } from '../services/preferencesService';
 import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
+import { getDateLocale } from '../utils/dateFormatter';
 
 /**
  * Net worth over time — the Microsoft Money report, rebuilt on real data.
@@ -399,7 +400,7 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
       <Modal
         isOpen={drillDate !== null}
         onClose={() => setDrillDate(null)}
-        title={drillDate ? `Balances on ${drillDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
+        title={drillDate ? `Balances on ${drillDate.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
         size="md"
       >
         <ModalBody>
