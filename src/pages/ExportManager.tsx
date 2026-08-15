@@ -27,6 +27,7 @@ import { dataPort } from '@data';
 // bundle through `dataPort` and only needs the file's own vocabulary, while
 // `backupService` opens with a Supabase client. See docs/edition-gating.md.
 import { downloadBackupBundle, type ExportProgress } from '../services/backup/format';
+import { encryptBackupBundle, downloadEncryptedBackup } from '../services/backup/encryption';
 import { selectExportData, describeExportRange, type AccountsScope } from '../utils/exportSelection';
 import { generateDataExportPDF } from '../utils/pdfExport';
 import {
@@ -87,6 +88,15 @@ export default function ExportManager(): React.JSX.Element {
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [backupProgress, setBackupProgress] = useState<ExportProgress | null>(null);
   const [backupError, setBackupError] = useState('');
+  // Password-protection is OPT-IN, and stays that way. A forgotten password
+  // makes the file unopenable by anyone including us, and a backup you cannot
+  // open is worse than none: you spent the months since believing you had one.
+  // Plain JSON also stays genuinely useful — readable, greppable, scriptable —
+  // which is most of what makes it a portability export.
+  const [protectBackup, setProtectBackup] = useState(false);
+  const [backupPassword, setBackupPassword] = useState('');
+  const [backupPasswordConfirm, setBackupPasswordConfirm] = useState('');
+  const [isProtecting, setIsProtecting] = useState(false);
   const [format, setFormat] = useState<ExportFormat>('pdf');
   const [includeTransactions, setIncludeTransactions] = useState(true);
   const [includeAccounts, setIncludeAccounts] = useState(true);
@@ -209,7 +219,16 @@ export default function ExportManager(): React.JSX.Element {
     setBackupProgress(null);
     try {
       const bundle = await dataPort.collectBackup({ onProgress: setBackupProgress });
-      downloadBackupBundle(bundle);
+      if (protectBackup) {
+        // Key derivation is deliberately slow — 600,000 PBKDF2 rounds, about
+        // half a second — so the button has to say what it is doing or it
+        // reads as hung right at the end of a long read.
+        setBackupProgress(null);
+        setIsProtecting(true);
+        downloadEncryptedBackup(await encryptBackupBundle(bundle, backupPassword));
+      } else {
+        downloadBackupBundle(bundle);
+      }
     } catch (error) {
       exportManagerLogger.error('Full backup failed', error);
       // Say what the database said. A half-read backup that downloads anyway is
@@ -217,9 +236,27 @@ export default function ExportManager(): React.JSX.Element {
       setBackupError(error instanceof Error ? error.message : 'The backup could not be completed.');
     } finally {
       setIsBackingUp(false);
+      setIsProtecting(false);
       setBackupProgress(null);
     }
   };
+
+  /**
+   * The reason the button is disabled, or null. Said out loud rather than left
+   * for the user to deduce from a dead control — the same rule that governs
+   * every other refusal in the app.
+   *
+   * Eight characters is a floor, not advice. The thing that actually protects
+   * this file is the 600,000-round derivation behind it; a short password is
+   * still the weak end, so the copy asks for a phrase rather than a password.
+   */
+  const backupPasswordProblem = useMemo((): string | null => {
+    if (!protectBackup) return null;
+    if (backupPassword.length === 0) return 'Enter a password to protect the file.';
+    if (backupPassword.length < 8) return 'Use at least 8 characters.';
+    if (backupPasswordConfirm !== backupPassword) return 'The two passwords do not match.';
+    return null;
+  }, [protectBackup, backupPassword, backupPasswordConfirm]);
 
   /**
    * Apply a template — ALL of it. The previous version overwrote the saved
@@ -482,23 +519,120 @@ export default function ExportManager(): React.JSX.Element {
                   &rarr; Restore from backup reads it back. It also satisfies a data-portability request.
                 </p>
 
-                <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 mb-4 flex items-start gap-3">
-                  <AlertTriangleIcon className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" size={18} />
-                  <p className="text-body text-amber-900 dark:text-amber-200">
-                    This file is plain, readable JSON and it is <strong>not encrypted</strong>. Anyone who
-                    opens it can see every account name, balance and transaction you have. Keep it
-                    somewhere you would be willing to keep a bank statement — not a shared drive, not a
-                    Downloads folder you never empty.
-                  </p>
+                {/* CONDITIONAL, and that is Claude Design's ruling rather than a
+                    convenience (answers of 15 Aug, §1). This is a WARNING, not a
+                    caveat: a caveat describes the view and costs a skimmer
+                    nothing, while this describes what happens to the file after
+                    it leaves the app, where we can no longer protect it. So it
+                    keeps the warning pair and its position beside the button —
+                    and it disappears when the file is protected, because then it
+                    is not true. Amber that can be absent is the same property
+                    the yellow thread has, and the reason it still means
+                    something when present. */}
+                {!protectBackup && (
+                  <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 mb-4 flex items-start gap-3">
+                    <AlertTriangleIcon className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" size={18} />
+                    <p className="text-body text-amber-900 dark:text-amber-200">
+                      This file is plain, readable JSON and it is <strong>not encrypted</strong>. Anyone who
+                      opens it can see every account name, balance and transaction you have. Keep it
+                      somewhere you would be willing to keep a bank statement — not a shared drive, not a
+                      Downloads folder you never empty.
+                    </p>
+                  </div>
+                )}
+
+                <div className="mb-4">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={protectBackup}
+                      onChange={(e) => {
+                        setProtectBackup(e.target.checked);
+                        // Not left lying in state once the choice is reversed.
+                        if (!e.target.checked) {
+                          setBackupPassword('');
+                          setBackupPasswordConfirm('');
+                        }
+                      }}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600"
+                    />
+                    <span>
+                      <span className="block text-body font-medium text-gray-900 dark:text-white">
+                        Protect this backup with a password
+                      </span>
+                      <span className="block text-body text-gray-500 dark:text-gray-400">
+                        Encrypts the file so its contents cannot be read without the password.
+                        You will be asked for it when restoring.
+                      </span>
+                    </span>
+                  </label>
+
+                  {protectBackup && (
+                    <div className="mt-3 pl-7 space-y-3">
+                      <div>
+                        <label htmlFor="backup-password" className="block text-body font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Password
+                        </label>
+                        <input
+                          id="backup-password"
+                          type="password"
+                          autoComplete="new-password"
+                          value={backupPassword}
+                          onChange={(e) => setBackupPassword(e.target.value)}
+                          className="w-full max-w-sm px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="backup-password-confirm" className="block text-body font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Password again
+                        </label>
+                        <input
+                          id="backup-password-confirm"
+                          type="password"
+                          autoComplete="new-password"
+                          value={backupPasswordConfirm}
+                          onChange={(e) => setBackupPasswordConfirm(e.target.value)}
+                          className="w-full max-w-sm px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                      </div>
+
+                      {/* The consequence first, then the remedy — and the
+                          consequence here is total. Nobody can open this file
+                          without the password: not another device, not a
+                          support request, not us. That is the point of it, and
+                          it is the one thing someone ticking this box may not
+                          have thought through. */}
+                      <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 flex items-start gap-3">
+                        <AlertTriangleIcon className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" size={18} />
+                        <p className="text-body text-amber-900 dark:text-amber-200">
+                          <strong>If you lose this password the backup cannot be opened</strong> — not by
+                          another device, not by us. There is no reset. Write it down somewhere separate
+                          from the file, or keep it in a password manager.
+                        </p>
+                      </div>
+
+                      {backupPasswordProblem && (
+                        <p className="text-body text-gray-600 dark:text-gray-400" aria-live="polite">
+                          {backupPasswordProblem}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <button
                   onClick={() => { void handleExportEverything(); }}
-                  disabled={isBackingUp}
+                  disabled={isBackingUp || backupPasswordProblem !== null}
                   className="flex items-center gap-2 px-4 py-3 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isBackingUp ? <RefreshCwIcon size={16} className="animate-spin" /> : <DownloadIcon size={16} />}
-                  {isBackingUp ? 'Reading your data…' : 'Download full backup (JSON)'}
+                  {isProtecting
+                    ? 'Protecting the file…'
+                    : isBackingUp
+                    ? 'Reading your data…'
+                    : protectBackup
+                    ? 'Download protected backup (JSON)'
+                    : 'Download full backup (JSON)'}
                 </button>
 
                 {/* A real dataset is 50k+ transactions and 50+ round trips, so

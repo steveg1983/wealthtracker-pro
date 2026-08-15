@@ -191,3 +191,24 @@ global.requestAnimationFrame = vi.fn((callback) => {
 global.cancelAnimationFrame = vi.fn((id) => {
   clearTimeout(id);
 });
+
+// WEB CRYPTO — a SHIM, and worth being precise about which kind.
+//
+// jsdom supplies `crypto.getRandomValues` and an object at `crypto.subtle`,
+// but that object is a stub: `deriveKey` is not a function. So a feature
+// built on PBKDF2 + AES-GCM typechecks, runs in every real browser, and dies
+// only under test — the worst shape a gap can have.
+//
+// Node's `webcrypto` is the SAME SPEC and the same algorithms, so this is a
+// polyfill rather than a mock: the backup encryption tests exercise real
+// cryptography and would catch a real break. Nothing here is faked, and no
+// test may assert against a stubbed cipher.
+import { webcrypto } from 'node:crypto';
+
+if (typeof globalThis.crypto?.subtle?.deriveKey !== 'function') {
+  Object.defineProperty(globalThis, 'crypto', {
+    value: webcrypto,
+    configurable: true,
+    writable: true,
+  });
+}
