@@ -93,7 +93,10 @@ vi.mock('../hooks/usePayeeMemory', () => ({
 }));
 
 vi.mock('../hooks/useCurrencyDecimal', () => ({
-  useCurrencyDecimal: () => ({ formatCurrency: (n: number) => `£${Math.abs(Number(n)).toFixed(2)}` }),
+  useCurrencyDecimal: () => ({ formatCurrency: (n: number) =>
+      Number(n) < 0
+        ? `(£${Math.abs(Number(n)).toFixed(2)})`
+        : `£${Number(n).toFixed(2)}` }),
 }));
 
 function RowEditor(props: Omit<QuickEditRowProviderProps, 'children'>): React.JSX.Element {

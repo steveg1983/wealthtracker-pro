@@ -21,7 +21,10 @@ import { SwipeableTransactionRow } from './SwipeableTransactionRow';
 import type { Transaction } from '../types';
 
 const handlers = {
-  formatCurrency: (n: number) => `£${Math.abs(n).toFixed(2)}`,
+  formatCurrency: (n: number) =>
+      Number(n) < 0
+        ? `(£${Math.abs(Number(n)).toFixed(2)})`
+        : `£${Number(n).toFixed(2)}`,
   onEdit: vi.fn(),
   onDelete: vi.fn(),
   onView: vi.fn(),

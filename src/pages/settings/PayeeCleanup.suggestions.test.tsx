@@ -41,7 +41,10 @@ vi.mock('../../contexts/ToastContext', () => ({
 
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (amount: number) => `£${Math.abs(amount).toFixed(2)}`,
+    formatCurrency: (amount: number) =>
+      Number(amount) < 0
+        ? `(£${Math.abs(Number(amount)).toFixed(2)})`
+        : `£${Number(amount).toFixed(2)}`,
     displayCurrency: 'GBP',
     getCurrencySymbol: () => '£',
     convert: vi.fn(), convertAndFormat: vi.fn(), convertAndSum: vi.fn(),
