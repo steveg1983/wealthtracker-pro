@@ -324,7 +324,7 @@ export default function DataManagementSettings() {
                   revoked now, and revoking means re-authorising with the bank,
                   which is a consequence somebody deserves to know BEFORE they
                   type the word rather than when they next open the page. */}
-              <li>every bank connection, which you would need to set up again</li>
+              <li>every bank connection, which you would need to authorise again</li>
             </ul>
             <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-4">
               This action cannot be undone!

@@ -178,9 +178,9 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
 
       <UncategorisedReviewBand flows={flows} categories={categories} />
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
         <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
-          <h2 className="text-lg font-semibold text-theme-heading dark:text-white">
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white">
             {cumulative ? 'Income against spending, running totals' : 'Income against spending'}
           </h2>
           <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
@@ -256,9 +256,9 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
         )}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
         <div className="p-6 pb-3">
-          <h2 className="text-lg font-semibold text-theme-heading dark:text-white">Month by month</h2>
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white">Month by month</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {cumulative
               ? 'Running totals: every row is the period up to the end of that month.'

@@ -122,12 +122,12 @@ export default function SpendingByPayeeReport({ picker }: ReportViewProps): Reac
 
       <UncategorisedReviewBand flows={flows} categories={categories} />
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
-          <h2 className="text-lg font-semibold text-theme-heading dark:text-white">
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white">
             {side === 'income' ? 'Biggest sources' : 'Biggest payees'}
           </h2>
-          <span className={`text-lg font-bold tabular-nums ${
+          <span className={`text-card font-bold tabular-nums ${
             side === 'income' ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
           }`}>
             {money(totals.total)}
@@ -184,9 +184,9 @@ export default function SpendingByPayeeReport({ picker }: ReportViewProps): Reac
         )}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
         <div className="p-6 pb-3">
-          <h2 className="text-lg font-semibold text-theme-heading dark:text-white">Every payee</h2>
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white">Every payee</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Ranked by value, with the category each payee is usually filed under.
           </p>

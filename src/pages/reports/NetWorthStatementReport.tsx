@@ -69,10 +69,10 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
     total: number,
     emptyText: string
   ): React.JSX.Element => (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
       <div className="flex items-baseline justify-between gap-3 p-6 pb-3">
-        <h2 className="text-lg font-semibold text-theme-heading dark:text-white">{title}</h2>
-        <span className="text-lg font-bold tabular-nums text-gray-900 dark:text-white">
+        <h2 className="text-card font-semibold text-theme-heading dark:text-white">{title}</h2>
+        <span className="text-card font-bold tabular-nums text-gray-900 dark:text-white">
           {formatCurrency(total)}
         </span>
       </div>
