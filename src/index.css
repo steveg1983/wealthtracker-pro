@@ -62,7 +62,25 @@
     margin-top: 8px;
   }
   
-  /* Touch-friendly form elements */
+  /* Touch-friendly form elements.
+   *
+   * MIN-HEIGHT ONLY. This also set `padding: 8px 12px`, and that is a bug with
+   * a very long reach: `input[type="text"]` scores (0,1,1) — an attribute
+   * selector plus a type — while a Tailwind utility like `pl-10` scores
+   * (0,1,0). The element selector WINS, so on every touch device this quietly
+   * flattened the considered padding of all 69 text inputs in the app.
+   *
+   * What it looked like: the watchlist's search field puts its magnifier at
+   * `left-3` and reserves `pl-10` for it. On a phone the padding became 12px,
+   * so the placeholder started underneath the icon — reported as "the search
+   * icon sits in front of the default text". Invisible on a desktop, because
+   * this block is `(hover: none) and (pointer: coarse)` and never matches one.
+   *
+   * The rule's job is the HIT AREA, and `min-height: 44px` is the whole of
+   * that. Horizontal padding is a component's own decision and it was never
+   * this block's business to overrule it. Third distinct bug traced to this
+   * media query — see the note at the top of the file about the `position`
+   * line that once moved every fixed button in the app. */
   input[type="text"],
   input[type="email"],
   input[type="password"],
@@ -72,15 +90,18 @@
   select,
   textarea {
     min-height: 44px;
-    padding: 8px 12px;
   }
   
-  /* Touch-friendly checkboxes and radio buttons */
+  /* hit-area: the margin IS the hit area here, not spacing — a 24px box with
+     10px on each side is the 44px target, which is the one way to give a
+     checkbox a finger-sized region without drawing a finger-sized checkbox.
+     Declared so the guard can tell it from the `padding: 8px 12px` that used
+     to sit above it and was pure layout. */
   input[type="checkbox"],
   input[type="radio"] {
     width: 24px;
     height: 24px;
-    margin: 10px; /* Total 44px with margin */
+    margin: 10px;
   }
 }
 

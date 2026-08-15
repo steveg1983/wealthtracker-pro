@@ -74,6 +74,21 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     // Upstream failures are logged server-side; the caller gets a message it can
     // show, never Yahoo's body or our stack.
     console.error('[quotes-search] Lookup failed', error);
+
+    // 429 is not "unavailable", it is "not right now", and the difference is
+    // the whole of what a reader can do about it. Yahoo rate-limits by IP and
+    // both hosts share the limit, so a busy minute takes the lookup out
+    // entirely — which is a fact worth saying rather than hiding behind a
+    // generic failure that also covers genuine outages.
+    const status = (error as { upstreamStatus?: number })?.upstreamStatus;
+    if (status === 429) {
+      return createErrorResponse(
+        res,
+        429,
+        'The price provider is rate-limiting us at the moment. Search will work again shortly.',
+        'upstream_rate_limited'
+      );
+    }
     return createErrorResponse(res, 502, 'Symbol lookup is unavailable', 'upstream_error');
   }
 }

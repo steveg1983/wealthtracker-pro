@@ -357,6 +357,7 @@ export const searchSymbols = async (
   // having a bad minute.
   let body: unknown = null;
   let lastMessage = 'no response';
+  let lastStatus: number | undefined;
   for (const host of CHART_HOSTS) {
     const url =
       `${host}/v1/finance/search?q=${encodeURIComponent(trimmed)}` +
@@ -365,6 +366,7 @@ export const searchSymbols = async (
       const response = await doFetch(url, { headers: YAHOO_HEADERS, signal: timeoutSignal() });
       if (!response.ok) {
         lastMessage = `upstream returned ${response.status}`;
+        lastStatus = response.status;
         continue;
       }
       body = await response.json();
@@ -375,7 +377,13 @@ export const searchSymbols = async (
   }
 
   if (body === null) {
-    throw new Error(lastMessage);
+    // The STATUS travels with the message. Every upstream failure used to
+    // surface as one indistinguishable "Symbol lookup is unavailable", so a
+    // Yahoo rate limit and a genuine outage read the same — which is exactly
+    // why the owner's watchlist failure could not be diagnosed from the screen.
+    const failure = new Error(lastMessage) as Error & { upstreamStatus?: number };
+    failure.upstreamStatus = lastStatus;
+    throw failure;
   }
   if (!isRecord(body) || !Array.isArray(body.quotes)) {
     return [];
