@@ -220,7 +220,7 @@ export default function BudgetModal({ isOpen, onClose, budget, onEditExisting }:
               required
               value={formData.amount}
               onChange={(value) => updateField('amount', value)}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
             />
           </div>
 
@@ -231,7 +231,7 @@ export default function BudgetModal({ isOpen, onClose, budget, onEditExisting }:
             <select
               value={formData.period}
               onChange={(e) => updateField('period', toBudgetPeriod(e.target.value))}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
             >
               {PERIOD_OPTIONS.map(option => (
                 <option key={option.value} value={option.value}>{option.label}</option>

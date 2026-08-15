@@ -157,7 +157,7 @@ export default function Tags() {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className={`w-full px-3 py-2 bg-white dark:bg-gray-800-sm border rounded-xl focus:border-transparent dark:text-white ${
+                className={`w-full px-3 py-2 bg-white dark:bg-gray-800 border rounded-xl focus:border-transparent dark:text-white ${
                   errors.name ? 'border-red-500/50' : 'border-gray-300/50 dark:border-gray-600/50'
                 }`}
                 placeholder="Enter tag name"
@@ -201,7 +201,7 @@ export default function Tags() {
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
                 rows={3}
                 placeholder="Enter tag description"
               />

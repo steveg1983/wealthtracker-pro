@@ -44,7 +44,7 @@ export default function SimpleSignIn(): React.JSX.Element {
             <SignUpButton mode="modal">
               <button
                 type="button"
-                className="w-full justify-center py-3 px-4 rounded-xl border border-primary/20 dark:border-gray-600 text-gray-900 dark:text-white font-semibold hover:bg-surface-secondary dark:hover:bg-gray-700 transition-colors"
+                className="w-full justify-center py-3 px-4 rounded-xl border border-[#1a2332]/20 dark:border-gray-600 text-gray-900 dark:text-white font-semibold hover:bg-surface-secondary dark:hover:bg-gray-700 transition-colors"
               >
                 Create account
               </button>

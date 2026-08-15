@@ -357,7 +357,7 @@ export default function LinkBankAccountsModal({
                     key={da.externalAccountId}
                     className={`rounded-xl border-2 p-4 transition-colors ${
                       selectedId
-                        ? 'border-primary/50 bg-primary/5 dark:bg-[#1a2332]/10'
+                        ? 'border-[#1a2332]/50 bg-[#1a2332]/5 dark:bg-[#1a2332]/10'
                         : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
                     }`}
                   >

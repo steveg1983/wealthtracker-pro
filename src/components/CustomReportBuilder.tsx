@@ -430,7 +430,7 @@ export default function CustomReportBuilder({
             </button>
             <button
               onClick={handleSave}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-primary/90"
+              className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#1a2332]/90"
             >
               <SaveIcon size={16} />
               Save Report

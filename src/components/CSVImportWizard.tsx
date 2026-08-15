@@ -2177,7 +2177,7 @@ function StepIndicator({
       <div className="relative">
         {/* Animated ring for active step */}
         {isActive && (
-          <div className="absolute inset-0 w-10 h-10 rounded-full bg-primary/20 animate-ping" />
+          <div className="absolute inset-0 w-10 h-10 rounded-full bg-[#1a2332]/20 animate-ping" />
         )}
         <div
           className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${

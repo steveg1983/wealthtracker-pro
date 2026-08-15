@@ -166,7 +166,7 @@ export default function TagSelector({
           spellCheck={false}
           autoCapitalize="none"
           placeholder={placeholder}
-          className="w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
+          className="w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
         />
         
         {/* Dropdown */}

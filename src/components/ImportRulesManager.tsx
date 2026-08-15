@@ -446,7 +446,7 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent"
                   required
                 />
               </div>
@@ -459,7 +459,7 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                   type="text"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent"
                 />
               </div>
 
@@ -473,7 +473,7 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                     min="1"
                     value={formData.priority}
                     onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent"
                   />
                 </div>
 

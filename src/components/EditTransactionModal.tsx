@@ -1144,7 +1144,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   }
                 }}
                 placeholder="0.00"
-                className={`w-full px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent ${
+                className={`w-full px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent ${
                   formData.amount && (parseMoneyInput(formData.amount) ?? 0) < 0
                     ? 'text-red-600 dark:text-red-400'
                     : formData.amount && (parseMoneyInput(formData.amount) ?? 0) > 0
@@ -1351,7 +1351,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                                 // shop reduces the total), so negatives stay enterable.
                                 allowNegative
                                 aria-label={`Split line ${index + 1} amount`}
-                                className="w-28 shrink-0 px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent text-gray-900 dark:text-white"
+                                className="w-28 shrink-0 px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent text-gray-900 dark:text-white"
                               />
                             )}
                             {splitLines.length > 2 && !lockedLeg && (

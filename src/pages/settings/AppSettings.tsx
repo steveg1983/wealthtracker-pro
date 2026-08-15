@@ -93,7 +93,7 @@ export default function AppSettings() {
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             placeholder="Enter your first name"
-            className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
           />
           <p className="mt-2 text-body text-gray-500 dark:text-gray-400">
             This will be used in the welcome message on your dashboard. Leave blank to use "User".
@@ -117,7 +117,7 @@ export default function AppSettings() {
           aria-label="Default currency"
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
-          className="w-full px-4 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
+          className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
         >
           {currencies.map((curr) => (
             <option key={curr.code} value={curr.code}>
@@ -142,8 +142,16 @@ export default function AppSettings() {
                 key={value}
                 onClick={() => setTheme(value as 'light' | 'dark' | 'auto' | 'scheduled')}
                 className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${
+                  /* The selected state used to read, in dark mode,
+                     `dark:bg-primary/20 dark:text-primary` — and produced
+                     NEITHER. `--color-primary` is the near-black navy, so the
+                     label was navy on near-black; and an opacity on a bare
+                     `var()` emits no CSS at all, so there was no surface under
+                     it either. The theme you were actually using was the one
+                     option you could not see. Dark mode now gets a real surface
+                     and real ink. See darkModeUtilities.test.ts. */
                   theme === value
-                    ? 'border-primary bg-[#1a2332]/10 text-primary dark:bg-primary/20 dark:text-primary'
+                    ? 'border-primary bg-[#1a2332]/10 text-primary dark:border-gray-400 dark:bg-gray-700 dark:text-white'
                     : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
                 }`}
               >
@@ -185,7 +193,7 @@ export default function AppSettings() {
                       type="time"
                       value={themeSchedule.lightStartTime}
                       onChange={(e) => setThemeSchedule({ ...themeSchedule, lightStartTime: e.target.value })}
-                      className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent dark:text-white text-body"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent dark:text-white text-body"
                     />
                   </div>
                   <div>
@@ -196,7 +204,7 @@ export default function AppSettings() {
                       type="time"
                       value={themeSchedule.darkStartTime}
                       onChange={(e) => setThemeSchedule({ ...themeSchedule, darkStartTime: e.target.value })}
-                      className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent dark:text-white text-body"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:border-transparent dark:text-white text-body"
                     />
                   </div>
                 </div>
