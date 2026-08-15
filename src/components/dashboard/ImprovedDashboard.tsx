@@ -688,9 +688,19 @@ export function ImprovedDashboard() {
                   onOpen={() => openReport('account-distribution')}
                 >
                   {pieData.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                      No account balances to compare yet
-                    </p>
+                    /* THE SAME BOX THE CHART WOULD FILL, which is what makes
+                       this card the same height as Expense Categories beside
+                       it. Shipped first as a bare `py-8`, and the owner saw it
+                       immediately: an empty card that shrinks is a card that
+                       does not line up with its neighbour, and on a fresh
+                       ledger every card is empty, so they ALL disagree. The
+                       height is the shared `WIDGET_CHART_HEIGHT` rather than a
+                       number, so the two can never drift apart again. */
+                    <div className={`${WIDGET_CHART_HEIGHT} flex items-center justify-center`}>
+                      <p className="text-center text-sm text-gray-400">
+                        No account balances to compare yet
+                      </p>
+                    </div>
                   ) : (
                   <>
                   {/* A SQUARE for the ring, ALL remaining width for the names —
