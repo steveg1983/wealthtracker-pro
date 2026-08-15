@@ -22,12 +22,14 @@ import SubscriptionStatusComponent from '../../components/SubscriptionStatus';
 import BankFeedRefreshSettingsComponent from '../../components/settings/BankFeedRefreshSettings';
 import DangerZoneComponent from '../../components/settings/DangerZone';
 import SignOutPanelComponent from '../../components/settings/SignOutPanel';
+import SessionGuardComponent from '../../components/SessionGuard';
 import BankingCriticalIncidentBadgeComponent from '../../components/BankingCriticalIncidentBadge';
 import { useAccountBankSync as useAccountBankSyncHook } from '../../hooks/useAccountBankSync';
 import { useBankConnectionSnapshot as useBankConnectionSnapshotHook } from '../../hooks/useBankConnectionSnapshot';
 import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
 import type {
   ServiceBankConnections,
+  ServiceSessionGuard,
   ServiceIncidentBadge,
   ServicePanel,
   UseServiceBankConnections,
@@ -57,6 +59,7 @@ export const DangerZone: ServicePanel = DangerZoneComponent;
 
 /** End the session, from the page people look on for it. */
 export const SignOutPanel: ServicePanel = SignOutPanelComponent;
+export const SessionGuard: ServiceSessionGuard = SessionGuardComponent;
 
 /** "The bank feed is having an incident", on /accounts. */
 export const BankingCriticalIncidentBadge: ServiceIncidentBadge =

@@ -296,4 +296,44 @@ describe('symbol search', () => {
     // a user their real ticker does not exist is the worse of the two.
     await expect(searchSymbols('shell', searchStub({}, 502))).rejects.toThrow(/502/);
   });
+
+  /*
+   * FAILOVER, which this had and the quote path always did.
+   *
+   * The owner typed "Apple" into the watchlist and got "Symbol lookup is
+   * unavailable" while prices kept working — because `fetchQuote` loops
+   * CHART_HOSTS and this asked query1 alone, then threw on anything but a 200.
+   * Yahoo rate-limits and 502s per host, so a single-host lookup is not one
+   * that occasionally fails; it is one that fails whenever that host is having
+   * a bad minute.
+   */
+  it('falls over to the second host when the first refuses', async () => {
+    const stub = vi.fn(async (url: string) =>
+      url.includes('query1')
+        ? new Response('{}', { status: 502 })
+        : new Response(JSON.stringify(SEARCH_SHELL), { status: 200 })
+    ) as unknown as FetchLike;
+
+    const matches = await searchSymbols('shell', stub);
+
+    expect(matches.map((m) => m.symbol)).toEqual(['SHEL.L', 'SHEL']);
+    expect(stub).toHaveBeenCalledTimes(2);
+  });
+
+  it('only throws once BOTH hosts have refused', async () => {
+    const stub = vi.fn(async () => new Response('{}', { status: 502 })) as unknown as FetchLike;
+
+    await expect(searchSymbols('shell', stub)).rejects.toThrow(/502/);
+    expect(stub).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not call the second host when the first answers', async () => {
+    const stub = vi.fn(async () =>
+      new Response(JSON.stringify(SEARCH_SHELL), { status: 200 })
+    ) as unknown as FetchLike;
+
+    await searchSymbols('shell', stub);
+
+    expect(stub).toHaveBeenCalledTimes(1);
+  });
 });

@@ -346,15 +346,37 @@ export const searchSymbols = async (
   if (trimmed === '') return [];
 
   const doFetch = getFetch(fetchImpl);
-  const url =
-    `${CHART_HOSTS[0]}/v1/finance/search?q=${encodeURIComponent(trimmed)}` +
-    `&quotesCount=${SEARCH_LIMIT}&newsCount=0&listsCount=0`;
 
-  const response = await doFetch(url, { headers: YAHOO_HEADERS, signal: timeoutSignal() });
-  if (!response.ok) {
-    throw new Error(`upstream returned ${response.status}`);
+  // BOTH HOSTS, like `fetchQuote` above. This asked `CHART_HOSTS[0]` alone and
+  // threw the moment query1 said anything but 200 — which is why the watchlist
+  // reported "Symbol lookup is unavailable" while prices kept working: the
+  // quote path has always failed over to query2 and this one never did.
+  //
+  // Yahoo rate-limits and 502s per host, so a single-host lookup is not a
+  // lookup that sometimes fails, it is one that fails whenever that host is
+  // having a bad minute.
+  let body: unknown = null;
+  let lastMessage = 'no response';
+  for (const host of CHART_HOSTS) {
+    const url =
+      `${host}/v1/finance/search?q=${encodeURIComponent(trimmed)}` +
+      `&quotesCount=${SEARCH_LIMIT}&newsCount=0&listsCount=0`;
+    try {
+      const response = await doFetch(url, { headers: YAHOO_HEADERS, signal: timeoutSignal() });
+      if (!response.ok) {
+        lastMessage = `upstream returned ${response.status}`;
+        continue;
+      }
+      body = await response.json();
+      break;
+    } catch (error) {
+      lastMessage = error instanceof Error ? error.message : 'request failed';
+    }
   }
-  const body: unknown = await response.json();
+
+  if (body === null) {
+    throw new Error(lastMessage);
+  }
   if (!isRecord(body) || !Array.isArray(body.quotes)) {
     return [];
   }

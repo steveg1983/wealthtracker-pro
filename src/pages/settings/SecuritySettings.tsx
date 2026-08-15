@@ -1,16 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { securityService } from '../../services/securityService';
-import { 
-  LockIcon,
+import {
   ShieldIcon,
-  KeyIcon,
-  EyeIcon,
   FileTextIcon,
-  AlertCircleIcon,
-  CheckCircleIcon,
-  RefreshCwIcon,
-  PhoneIcon,
-  FingerprintIcon
+  RefreshCwIcon
 } from '../../components/icons';
 import PageWrapper from '../../components/PageWrapper';
 // Through the seam: this deletes an ACCOUNT WITH A COMPANY — Stripe, the rows,
@@ -24,95 +17,6 @@ export default function SecuritySettings() {
   const [settings, setSettings] = useState<SecuritySettingsType>(
     securityService.getSecuritySettings()
   );
-  const [showTwoFactorSetup, setShowTwoFactorSetup] = useState(false);
-  const [twoFactorSecret, setTwoFactorSecret] = useState<ReturnType<typeof securityService.generateTwoFactorSecret> | null>(null);
-  const [verificationCode, setVerificationCode] = useState('');
-  // null until the capability check answers. P8 — nothing may speak until it knows:
-  // initialised to `false` this told people with Face ID that their device hasn't got
-  // it, and disabled the button that would have proved otherwise. The three states are
-  // distinct on purpose; a device that genuinely can't do this must STILL be told so.
-  const [biometricAvailable, setBiometricAvailable] = useState<boolean | null>(null);
-  const [setupMessage, setSetupMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  useEffect(() => {
-    checkBiometricAvailability();
-  }, []);
-
-  const checkBiometricAvailability = async () => {
-    const available = await securityService.isBiometricAvailable();
-    setBiometricAvailable(available);
-  };
-
-  const handleToggleTwoFactor = () => {
-    if (!settings.twoFactorEnabled) {
-      const setup = securityService.generateTwoFactorSecret();
-      setTwoFactorSecret(setup);
-      setShowTwoFactorSetup(true);
-    } else {
-      // Disable 2FA
-      securityService.updateSecuritySettings({ twoFactorEnabled: false });
-      setSettings({ ...settings, twoFactorEnabled: false });
-      setSetupMessage({ type: 'success', text: 'Two-factor authentication disabled' });
-    }
-  };
-
-  const handleVerifyTwoFactor = () => {
-    if (twoFactorSecret && verificationCode) {
-      const isValid = securityService.verifyTwoFactorCode(verificationCode, twoFactorSecret.secret);
-      
-      if (isValid) {
-        securityService.updateSecuritySettings({ twoFactorEnabled: true });
-        setSettings({ ...settings, twoFactorEnabled: true });
-        setShowTwoFactorSetup(false);
-        setTwoFactorSecret(null);
-        setVerificationCode('');
-        setSetupMessage({ type: 'success', text: 'Two-factor authentication enabled successfully' });
-      } else {
-        setSetupMessage({ type: 'error', text: 'Invalid verification code' });
-      }
-    }
-  };
-
-  const handleToggleBiometric = async () => {
-    if (!settings.biometricEnabled) {
-      try {
-        const credential = await securityService.setupBiometric();
-        if (credential) {
-          securityService.updateSecuritySettings({ biometricEnabled: true });
-          setSettings({ ...settings, biometricEnabled: true });
-          setSetupMessage({ type: 'success', text: 'Biometric authentication enabled' });
-        } else {
-          setSetupMessage({ type: 'error', text: 'Failed to setup biometric authentication' });
-        }
-      } catch {
-        setSetupMessage({ type: 'error', text: 'Biometric authentication not available' });
-      }
-    } else {
-      securityService.updateSecuritySettings({ biometricEnabled: false });
-      setSettings({ ...settings, biometricEnabled: false });
-      setSetupMessage({ type: 'success', text: 'Biometric authentication disabled' });
-    }
-  };
-
-  const handleToggleReadOnly = () => {
-    const newValue = !settings.readOnlyMode;
-    securityService.toggleReadOnlyMode(newValue);
-    setSettings({ ...settings, readOnlyMode: newValue });
-    setSetupMessage({ 
-      type: 'success', 
-      text: newValue ? 'Read-only mode enabled' : 'Read-only mode disabled' 
-    });
-  };
-
-  const handleToggleEncryption = () => {
-    const newValue = !settings.encryptionEnabled;
-    securityService.updateSecuritySettings({ encryptionEnabled: newValue });
-    setSettings({ ...settings, encryptionEnabled: newValue });
-    setSetupMessage({ 
-      type: 'success', 
-      text: newValue ? 'Data encryption enabled' : 'Data encryption disabled' 
-    });
-  };
 
   const handleSessionTimeoutChange = (timeout: number) => {
     securityService.updateSecuritySettings({ sessionTimeout: timeout });
@@ -135,168 +39,35 @@ export default function SecuritySettings() {
           </div>
         </div>
 
-        {/* Setup Messages */}
-        {setupMessage && (
-          <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
-            setupMessage.type === 'success' 
-              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200'
-              : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200'
-          }`}>
-            {setupMessage.type === 'success' ? (
-              <CheckCircleIcon size={20} />
-            ) : (
-              <AlertCircleIcon size={20} />
-            )}
-            <p>{setupMessage.text}</p>
-          </div>
-        )}
 
         {/* Security Features */}
         <div className="space-y-6">
-          {/* Two-Factor Authentication */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <PhoneIcon size={20} className="text-indigo-600 dark:text-indigo-400" />
-                  Two-Factor Authentication
-                </h3>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                  Add an extra layer of security with time-based one-time passwords
-                </p>
-              </div>
-              <button
-                onClick={handleToggleTwoFactor}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  settings.twoFactorEnabled
-                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
-                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
-                }`}
-              >
-                {settings.twoFactorEnabled ? 'Disable' : 'Enable'}
-              </button>
-            </div>
-            
-            {settings.twoFactorEnabled && (
-              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
-                  <CheckCircleIcon size={16} />
-                  Two-factor authentication is active
-                </p>
-              </div>
-            )}
-          </div>
+          {/* ─ FOUR PANELS REMOVED, 15 August 2026 ────────────────────────
+              Two-Factor Authentication, Biometric Authentication, End-to-End
+              Encryption and Read-Only Mode. All four were DEAD, and dead in
+              the one place where a dead control is not an inconvenience but a
+              false statement about safety:
 
-          {/* Biometric Authentication */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <FingerprintIcon size={20} className="text-purple-600 dark:text-purple-400" />
-                  Biometric Authentication
-                </h3>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                  Use Face ID, Touch ID, or Windows Hello for quick access
-                </p>
-              </div>
-              <button
-                onClick={handleToggleBiometric}
-                disabled={biometricAvailable !== true}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  biometricAvailable !== true
-                    ? 'bg-gray-100 text-gray-400 dark:bg-gray-700 cursor-not-allowed'
-                    : settings.biometricEnabled
-                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
-                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
-                }`}
-              >
-                {biometricAvailable === null
-                  ? 'Checking…'
-                  : biometricAvailable === false
-                  ? 'Not Available'
-                  : settings.biometricEnabled
-                  ? 'Disable'
-                  : 'Enable'}
-              </button>
-            </div>
+                - nothing anywhere read `readOnlyMode`;
+                - `verifyBiometric()` was defined and never called, so enabling
+                  it registered a credential nothing ever asked for;
+                - `encryptData`/`decryptData` were never called by anything, so
+                  "End-to-End Encryption" encrypted nothing;
+                - the only `twoFactorEnabled` reader was `authService` reading
+                  CLERK's own unrelated property.
 
-            {/* Only once the check has answered, and only on false. A caveat about what
-                this device can do is a standing truth, not a transient problem, so it
-                takes neutral text rather than the warning tint it used to wear. */}
-            {biometricAvailable === false && (
-              <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-                Biometric authentication is not available on this device
-              </p>
-            )}
-          </div>
+              A dead toggle accepts input and reports a state back, so a user
+              files it as a protection they have chosen. Removed rather than
+              relabelled "coming soon", which is still a claim.
 
-          {/* Data Encryption */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <LockIcon size={20} className="text-blue-600 dark:text-blue-400" />
-                  End-to-End Encryption
-                </h3>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                  Encrypt all sensitive data stored locally
-                </p>
-              </div>
-              <button
-                onClick={handleToggleEncryption}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  settings.encryptionEnabled
-                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
-                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
-                }`}
-              >
-                {settings.encryptionEnabled ? 'Disable' : 'Enable'}
-              </button>
-            </div>
-            
-            {settings.encryptionEnabled && (
-              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
-                  <CheckCircleIcon size={16} />
-                  All data is encrypted using AES-256-GCM
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Read-Only Mode */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="text-card font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <EyeIcon size={20} className="text-blue-700 dark:text-blue-400" />
-                  Read-Only Mode
-                </h3>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                  View your data without the ability to make changes
-                </p>
-              </div>
-              <button
-                onClick={handleToggleReadOnly}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  settings.readOnlyMode
-                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
-                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
-                }`}
-              >
-                {settings.readOnlyMode ? 'Disable' : 'Enable'}
-              </button>
-            </div>
-            
-            {settings.readOnlyMode && (
-              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
-                  <EyeIcon size={16} />
-                  Read-only mode is active - no changes can be made
-                </p>
-              </div>
-            )}
-          </div>
+              Where each goes instead, on the owner's ruling:
+                - two-factor is Clerk's and should be handed to Clerk rather
+                  than reimplemented here;
+                - read-only was not wanted;
+                - encryption in TRANSIT is TLS and always on, at REST is
+                  Supabase's, and the file a user carries away got real
+                  encryption this morning. Nothing was left for a toggle to
+                  decide. */}
 
           {/* Session Timeout */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
@@ -318,6 +89,11 @@ export default function SecuritySettings() {
                   onChange={(e) => handleSessionTimeoutChange(Number(e.target.value))}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
+                  {/* 0 is NEVER, and the hook does nothing at all when it is
+                      set — no listeners, no interval. A "never" that quietly
+                      kept measuring would be the same lie in the other
+                      direction. */}
+                  <option value={0}>Never</option>
                   <option value={5}>5 minutes</option>
                   <option value={15}>15 minutes</option>
                   <option value={30}>30 minutes</option>
@@ -365,85 +141,11 @@ export default function SecuritySettings() {
         </div>
 
         {/* Two-Factor Setup Modal */}
-        {showTwoFactorSetup && twoFactorSecret && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
-              <h3 className="text-card font-semibold text-gray-900 dark:text-white mb-4">
-                Set Up Two-Factor Authentication
-              </h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    1. Scan this QR code with your authenticator app:
-                  </p>
-                  <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center">
-                    <div className="inline-block p-4 bg-white dark:bg-gray-800 rounded">
-                      <KeyIcon size={48} className="text-gray-400" />
-                      <p className="text-xs text-gray-500 mt-2">QR Code Placeholder</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    2. Or enter this secret manually:
-                  </p>
-                  <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded font-mono text-sm break-all">
-                    {twoFactorSecret.secret}
-                  </div>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    3. Enter the 6-digit code from your app:
-                  </p>
-                  <input
-                    type="text"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value)}
-                    placeholder="000000"
-                    maxLength={6}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center font-mono text-card"
-                  />
-                </div>
-                
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    4. Save these backup codes in a safe place:
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 p-3 bg-gray-100 dark:bg-gray-700 rounded">
-                    {twoFactorSecret.backupCodes.slice(0, 6).map((code: string, index: number) => (
-                      <span key={index} className="font-mono text-sm">
-                        {code}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowTwoFactorSetup(false);
-                    setTwoFactorSecret(null);
-                    setVerificationCode('');
-                  }}
-                  className="flex-1 justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleVerifyTwoFactor}
-                  disabled={verificationCode.length !== 6}
-                  className="flex-1 justify-center px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary)]/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Verify & Enable
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* The 2FA SETUP MODAL went with its panel. It generated a secret
+            and backup codes that nothing ever checked at sign-in — the
+            ceremony of security without the thing itself, which is worse
+            than its absence because it is convincing. Clerk does this
+            properly and already holds the session. */}
       </div>
     </PageWrapper>
   );

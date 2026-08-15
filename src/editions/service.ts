@@ -108,6 +108,13 @@ import type {
 export type ServicePanel = ComponentType;
 
 /**
+ * Mounted beside the router and renders nothing: it signs a session out after
+ * a period of inactivity. Cloud-only for the reason `SignOutPanel` is — a
+ * device window has nobody signed in to sign out.
+ */
+export type ServiceSessionGuard = ComponentType;
+
+/**
  * Which of the two banking circuit breakers a badge is reporting on.
  *
  * `'all'` and not `'critical'`, which is what the Accounts page's own state
