@@ -371,6 +371,36 @@ export default function Accounts() {
   // can never disagree about what a paired account is worth.
   const nestedByParent = useMemo(() => buildChildrenByParent(openAccounts), [openAccounts]);
 
+  /**
+   * Secured liabilities, keyed by the account they are held AGAINST — a
+   * mortgage under its property, a loan under the portfolio it is drawn on.
+   *
+   * Deliberately NOT built with `buildChildrenByParent`, even though the shape
+   * is identical. That helper answers "where does this account's money belong",
+   * and the answer for a secured liability is "exactly where it already is".
+   * Everything downstream of the nesting utilities — the band totals, the
+   * top-level walk, the portfolio summary — is right to count what it groups,
+   * so this must not travel through any of it. A separate map that only the
+   * renderer reads is the difference between showing a relationship and
+   * asserting one.
+   *
+   * The target must be OPEN and must not be the liability itself, for the same
+   * reason nesting checks it: a row keyed under a card that is not on the page
+   * is a row nobody ever sees.
+   */
+  const securedByTarget = useMemo(() => {
+    const byId = new Map(openAccounts.map(a => [a.id, a]));
+    const map = new Map<string, Account[]>();
+    for (const account of openAccounts) {
+      const targetId = account.securedAgainstAccountId;
+      if (!targetId || targetId === account.id || !byId.has(targetId)) continue;
+      const list = map.get(targetId);
+      if (list) list.push(account);
+      else map.set(targetId, [account]);
+    }
+    return map;
+  }, [openAccounts]);
+
   const topLevelAccounts = useMemo(() => selectTopLevelAccounts(openAccounts), [openAccounts]);
   const [closedAccounts, setClosedAccounts] = useState<Account[]>([]);
   const [showClosedAccounts, setShowClosedAccounts] = useState(false);
@@ -1695,6 +1725,57 @@ export default function Accounts() {
                         </div>
                       );
                     })}
+
+                    {/* ─ WHAT IS HELD AGAINST THIS ACCOUNT ────────────────────
+                        A mortgage under its property, a loan under the
+                        portfolio it is drawn on. These rows are NOT the same
+                        kind of thing as the cash sleeves above them, and the
+                        design has to say so before the reader assumes they are:
+
+                          · the cash sleeve is part of this account and its
+                            money is already in the figure above. A secured
+                            liability is somebody else's claim, counted in
+                            Liabilities, and adding it here would restate the
+                            value of a house as its equity.
+                          · so this row prints no columns. AccountRowColumns is
+                            the grammar of "a row that participates"; borrowing
+                            it would put a debt in the Account Bal column and
+                            invite exactly the arithmetic this must not imply.
+
+                        NO FIGURE, on the owner's ruling, and it is the sharper
+                        version of the same argument: "we are just highlighting
+                        that this account is linked with a liability —
+                        fundamentally it does not change the workings of the
+                        accounts page." A balance printed here would sit inches
+                        under the account's own and invite the subtraction, no
+                        matter what the caption said. A name cannot be added up.
+                        The figure lives where the debt lives, in Liabilities,
+                        and on the Investments page where a net position can be
+                        asked for deliberately.
+
+                        No colour and no icon of alarm. A mortgage against a
+                        house needs no attention — it is the ordinary shape of
+                        owning one — and colour marks what needs attention. */}
+                    {(securedByTarget.get(account.id) ?? []).length > 0 && (
+                      <p className="mt-2 ml-6 sm:ml-9 text-[11px] text-gray-500 dark:text-gray-400">
+                        <span className="font-medium">Linked liabilities:</span>{' '}
+                        {(securedByTarget.get(account.id) ?? []).map((liability, i) => (
+                          <span key={liability.id}>
+                            {i > 0 && ', '}
+                            <Link
+                              to={registerPath(liability.id)}
+                              state={registerLinkState(liability.id)}
+                              className={`${ACCOUNT_ROW_NAME_LINK_CLASS} underline decoration-dotted underline-offset-2`}
+                              title={`Open ${liability.name}`}
+                            >
+                              {liability.name}
+                            </Link>
+                          </span>
+                        ))}
+                        {' — '}shown for information; counted under Liabilities,
+                        not here.
+                      </p>
+                    )}
                   </div>
     );
   };

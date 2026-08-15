@@ -175,6 +175,9 @@ export function mapAccountFromDb(row: Record<string, unknown>): Account {
     notes: text(row.notes) ?? '',
     archiveThroughDate: timestamp(row.archive_through_date) ?? null,
     parentAccountId: text(row.parent_account_id) ?? null,
+    // A database without migration 20260815200000 has no such column, which
+    // reads as null — an unsecured liability, which is the honest default.
+    securedAgainstAccountId: text(row.secured_against_account_id) ?? null,
     // Strictly true: a database without migration 20260709140000 has no such
     // column, and "no column" must read as off rather than as undefined, which
     // the settings modal would then show as off anyway.

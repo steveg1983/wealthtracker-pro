@@ -51,15 +51,38 @@ describe('backup encryption', () => {
 
     it('puts nothing readable in the envelope', async () => {
       const envelope = await encryptBackupBundle(bundleFixture(), PASSWORD);
-      const asText = JSON.stringify(envelope);
 
-      // The values a person would care about leaking, checked individually so
-      // a failure names which one escaped.
-      expect(asText).not.toContain('Everyday');
-      expect(asText).not.toContain('1234.56');
-      expect(asText).not.toContain('19.99');
-      expect(asText).not.toContain('acc-1');
-      expect(asText).not.toContain('GBP');
+      /*
+       * SEARCHED IN THE DECODED BYTES, NOT IN THE BASE64.
+       *
+       * This test used to run `JSON.stringify(envelope)` and assert the
+       * secrets were absent from THAT — which includes the base64 ciphertext.
+       * Base64 of random bytes is random text over [A-Za-z0-9+/], so any short
+       * needle drawn from that alphabet turns up by chance eventually. On 15
+       * August it did: the ciphertext contained "…aeCGBPHPgd…" and CI failed
+       * on a PR that had not touched encryption. Roughly a 1-in-380 run for a
+       * three-character needle across ~700 characters of ciphertext, which is
+       * frequent enough to erode trust in the suite and rare enough to be
+       * blamed on whatever change was in flight.
+       *
+       * The property actually worth asserting is that the PLAINTEXT is not
+       * recoverable from the envelope, so decode the ciphertext and look in
+       * the bytes. A match there would be a real leak; a match in the base64
+       * is an artefact of the encoding.
+       */
+      const cipherBytes = Uint8Array.from(atob(envelope.ciphertext), c => c.charCodeAt(0));
+      const asBytes = new TextDecoder('utf-8', { fatal: false }).decode(cipherBytes);
+
+      // The metadata is the other half: everything OUTSIDE the ciphertext is
+      // published in clear, so it is checked in clear.
+      const { ciphertext: _ciphertext, ...metadata } = envelope;
+      const asMetadata = JSON.stringify(metadata);
+
+      // Checked individually so a failure names which one escaped.
+      for (const secret of ['Everyday', '1234.56', '19.99', 'acc-1', 'GBP']) {
+        expect(asBytes, `${secret} found in the ciphertext`).not.toContain(secret);
+        expect(asMetadata, `${secret} found in the envelope metadata`).not.toContain(secret);
+      }
     });
 
     it('publishes the date, and only the date', async () => {

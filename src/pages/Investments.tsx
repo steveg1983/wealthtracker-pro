@@ -9,6 +9,7 @@ import StockWatchlist from '../components/StockWatchlist';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from '../components/charts/OptimizedCharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import PageWrapper from '../components/PageWrapper';
@@ -253,6 +254,53 @@ export default function Investments() {
     [openAccounts, transactions, transactionSplits, categories]
   );
 
+  /**
+   * GROSS OR NET — the one place a secured liability is allowed near a total.
+   *
+   * `securedAgainstAccountId` is display-only everywhere else by design: a
+   * mortgage does not move section and is never added to the asset it is held
+   * against. This is the deliberate exception, and it is opt-in for the reason
+   * that makes it safe — GROSS is the default and is what this page has always
+   * shown, so nobody's portfolio value changes meaning without them asking.
+   *
+   * Only liabilities secured against an account that COUNTS toward this
+   * portfolio are subtracted, which is the pairs the summary already walks:
+   * a loan drawn against a cash sleeve is drawn against the portfolio, because
+   * the sleeve's money is in the portfolio's value.
+   */
+  const [showNetPosition, setShowNetPosition] = useLocalStorage<boolean>(
+    'wt_investments_net_position',
+    false
+  );
+
+  const securedAgainstPortfolio = useMemo(() => {
+    // Every account whose money counts toward an investment account.
+    const withinPortfolio = new Set<string>();
+    for (const account of openAccounts) {
+      if (account.type === 'investment') withinPortfolio.add(account.id);
+    }
+    for (const account of openAccounts) {
+      const parentId = account.parentAccountId;
+      if (parentId && withinPortfolio.has(parentId)) withinPortfolio.add(account.id);
+    }
+
+    let total = toDecimal(0);
+    const names: string[] = [];
+    for (const account of openAccounts) {
+      const target = account.securedAgainstAccountId;
+      if (!target || !withinPortfolio.has(target)) continue;
+      // A debt is carried negative, and this is a magnitude to subtract.
+      total = total.plus(toDecimal(Math.abs(account.balance ?? 0)));
+      names.push(account.name);
+    }
+    return { total, names };
+  }, [openAccounts]);
+
+  const netPortfolioValue = useMemo(
+    () => toDecimal(summary.value).minus(securedAgainstPortfolio.total),
+    [summary.value, securedAgainstPortfolio.total]
+  );
+
   // The window the chart covers. 'ALL' is unbounded at both ends, which the
   // history walk reads as "first transaction until today".
   const historyRange = useMemo(() => {
@@ -475,11 +523,43 @@ export default function Investments() {
                 again in a picture; the arrows on Total Return and Return %
                 below stay, because those carry DIRECTION and a direction is
                 not decoration. Same reduction as #281 and #296. */}
-            <div>
-              <p className="text-body text-gray-500 dark:text-gray-400">Portfolio Value</p>
-              <p className="text-page font-bold text-gray-900 dark:text-white">
-                {formatCurrency(summary.value)}
+            <div className="min-w-0">
+              <p className="text-body text-gray-500 dark:text-gray-400">
+                {showNetPosition && securedAgainstPortfolio.names.length > 0
+                  ? 'Portfolio Value (net)'
+                  : 'Portfolio Value'}
               </p>
+              <p className="text-page font-bold text-gray-900 dark:text-white">
+                {formatCurrency(
+                  showNetPosition && securedAgainstPortfolio.names.length > 0
+                    ? netPortfolioValue
+                    : summary.value
+                )}
+              </p>
+              {/* The control appears ONLY when something is actually secured
+                  against this portfolio. A gross/net switch with nothing to
+                  net off is a question about a distinction that does not exist
+                  here, and answering it changes no number — which teaches the
+                  reader that the switch does nothing.
+
+                  When it IS shown, the label says which liabilities, because
+                  "net" is not self-explanatory and a total whose composition
+                  you cannot see is a total you cannot check. */}
+              {securedAgainstPortfolio.names.length > 0 && (
+                <div className="mt-3">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showNetPosition}
+                      onChange={(e) => setShowNetPosition(e.target.checked)}
+                      className="mt-0.5 shrink-0"
+                    />
+                    <span className="text-dense text-gray-500 dark:text-gray-400">
+                      Subtract secured liabilities ({securedAgainstPortfolio.names.join(', ')})
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
           </div>
         </div>

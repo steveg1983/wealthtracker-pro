@@ -41,6 +41,25 @@ export interface Account {
    * transfers, reconciliation). NULL/undefined = a normal top-level account.
    */
   parentAccountId?: string | null;
+  /**
+   * What this liability is HELD AGAINST — a mortgage against its property, a
+   * loan against the portfolio it is drawn on. Set on the LIABILITY, pointing
+   * at the asset. NULL/undefined = an ordinary unsecured liability.
+   *
+   * DELIBERATELY NOT `parentAccountId`, and the difference is the whole point.
+   * A parent means "belongs inside, and counts toward": a cash sleeve moves
+   * into its portfolio's card and into its total, because it genuinely is part
+   * of it. A secured liability does neither. It stays in Liabilities, where a
+   * debt belongs, and it is never added to the asset's total — doing that
+   * would silently restate the value of a house as its equity.
+   *
+   * So this field is read by DISPLAY, and by exactly one opt-in total: the
+   * Investments page can show a NET position (portfolio less what is secured
+   * against it) when asked. Gross stays the default. Net worth is untouched
+   * either way — it already counts the asset and the debt separately, and
+   * always did.
+   */
+  securedAgainstAccountId?: string | null;
   holdings?: Holding[];
   notes?: string;
   isActive?: boolean;
