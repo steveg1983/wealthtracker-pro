@@ -6,7 +6,10 @@ import type { TransferCandidate } from '../utils/transferMatch';
 
 vi.mock('../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (n: number) => `£${Math.abs(Number(n)).toFixed(2)}`,
+    formatCurrency: (n: number) =>
+      Number(n) < 0
+        ? `(£${Math.abs(Number(n)).toFixed(2)})`
+        : `£${Number(n).toFixed(2)}`,
   }),
 }));
 

@@ -30,6 +30,7 @@ import type { InvestmentHolding } from '@data';
 import { fetchQuotes } from '../services/stockPriceService';
 import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp, useChartTooltipStyle } from '../components/charts/chartColors';
 import { resolvePeriod } from '../hooks/usePeriod';
+import DatePicker from '../components/common/DatePicker';
 
 /**
  * The windows this chart offers, in the app's own words.
@@ -37,7 +38,7 @@ import { resolvePeriod } from '../hooks/usePeriod';
  * `3 months` rather than `3M`: the abbreviation saved eleven characters on a
  * control that has room, at the cost of matching nothing else in the product.
  */
-const INVESTMENT_PERIODS = ['1-month', '3-months', '6-months', '12-months', 'tax-year', 'all'] as const;
+const INVESTMENT_PERIODS = ['1-month', '3-months', '6-months', '12-months', 'tax-year', 'all', 'custom'] as const;
 type InvestmentPeriod = (typeof INVESTMENT_PERIODS)[number];
 
 const INVESTMENT_PERIOD_LABELS: Record<InvestmentPeriod, string> = {
@@ -47,6 +48,7 @@ const INVESTMENT_PERIOD_LABELS: Record<InvestmentPeriod, string> = {
   '12-months': '12 months',
   'tax-year': 'Tax year',
   all: 'All time',
+  custom: 'Custom',
 };
 
 /** Trailing windows only; 'tax-year' and 'all' resolve elsewhere. */
@@ -76,6 +78,11 @@ export default function Investments() {
    * April here and on the Dashboard, forever, from one definition.
    */
   const [selectedPeriod, setSelectedPeriod] = useState<InvestmentPeriod>('12-months');
+  // Bare yyyy-mm-dd, which is what `DatePicker` speaks and what a date input
+  // needs. Empty means unbounded on that side, so choosing Custom and setting
+  // only a start reads as "from then until today" rather than showing nothing.
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
   const [showAddInvestmentModal, setShowAddInvestmentModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'watchlist' | 'portfolio' | 'manage'>('overview');
   const [managingAccountId, setManagingAccountId] = useState<string | null>(null);
@@ -254,10 +261,14 @@ export default function Investments() {
     // starts — including in the days between 1 and 5 April, which is exactly
     // when a second implementation would have been caught.
     if (selectedPeriod === 'tax-year') return resolvePeriod('tax-year', '', '');
+    // Straight through the app's own resolver, so "Custom" means here exactly
+    // what it means on the Dashboard and on Reports — including how it treats
+    // a half-filled range.
+    if (selectedPeriod === 'custom') return resolvePeriod('custom', customStart, customEnd);
     const months = INVESTMENT_PERIOD_MONTHS[selectedPeriod];
     const now = new Date();
     return { from: new Date(now.getFullYear(), now.getMonth() - months, now.getDate()), to: now };
-  }, [selectedPeriod]);
+  }, [selectedPeriod, customStart, customEnd]);
 
   // Real history: what the pair was worth on each date, never a projection of
   // today's figure backwards.
@@ -542,9 +553,11 @@ export default function Investments() {
 
         {/* Performance Chart */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
-        <div className="flex justify-between items-center mb-4">
+        {/* Wraps: seven pills at ~90px each need ~630px, and a phone offers
+            ~340. `items-start` so the heading stays put when they do. */}
+        <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
           <h2 className="text-card font-semibold text-theme-heading dark:text-white">Portfolio Performance</h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {INVESTMENT_PERIODS.map((period) => (
               <button
                 key={period}
@@ -560,6 +573,34 @@ export default function Investments() {
             ))}
           </div>
         </div>
+
+        {/* The two bounds, in the same shape the Dashboard and Reports use —
+            `DatePicker` rather than a bare date input, so the field reads
+            dd/mm/yyyy like every other date in the app instead of taking the
+            browser's locale. */}
+        {selectedPeriod === 'custom' && (
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <div className="w-36">
+              <DatePicker
+                size="sm"
+                value={customStart}
+                onChange={setCustomStart}
+                aria-label="Custom period start date"
+                className="text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              />
+            </div>
+            <span className="text-body text-gray-500 dark:text-gray-400">to</span>
+            <div className="w-36">
+              <DatePicker
+                size="sm"
+                value={customEnd}
+                onChange={setCustomEnd}
+                aria-label="Custom period end date"
+                className="text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              />
+            </div>
+          </div>
+        )}
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={performanceData}>
@@ -670,6 +711,14 @@ export default function Investments() {
           )}
         </div>
 
+        {/* THE RIGHT-HAND COLUMN, which is now a STACK of two.
+            "Asset Allocation" answers where the money is kept; "Allocation by
+            holding" beneath it answers what it is in. Both are short — five
+            slices each since the cap — and the Holdings list beside them is
+            long, so the column had a screen of empty space under one legend
+            while the second ring sat below the fold in a full-width card of
+            its own. */}
+        <div className="space-y-6">
         {/* Allocation Chart */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
           <h2 className="text-card font-semibold mb-4 text-theme-heading dark:text-white">Asset Allocation</h2>
@@ -679,16 +728,19 @@ export default function Investments() {
             </p>
           ) : (
             <>
-              <div className="h-64">
+              {/* h-44, not h-64: this ring carried a twelve-row legend when it
+                  was sized, and carries five now. The height it was keeping is
+                  what "Allocation by holding" moved into. */}
+              <div className="h-44">
                 <ResponsiveContainer width="100%" height="100%">
                   <RePieChart>
                     <Pie
                       data={allocationData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
+                      innerRadius="60%"
+                      outerRadius="90%"
+                      paddingAngle={3}
                       dataKey="value"
                     >
                       {allocationData.map((_, index) => (
@@ -741,14 +793,13 @@ export default function Investments() {
             </>
           )}
         </div>
-        </div>
 
         {/* ─ WHAT IT IS IN ────────────────────────────────────────────────────
             A second ring, because the first one's card was mostly empty space
             below a twelve-row legend and because it answers a different
             question. Where the money is KEPT and what it is INVESTED IN are
             not the same fact, and only the second one is a decision. */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6 mt-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
           <h2 className="text-card font-semibold mb-1 text-theme-heading dark:text-white">
             Allocation by holding
           </h2>
@@ -763,16 +814,16 @@ export default function Investments() {
                 : 'No priced holdings and no settlement cash, so there is nothing to divide up yet.'}
             </p>
           ) : (
-            <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-              <div className="h-56 w-full lg:w-56 shrink-0">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="h-44 w-full sm:w-44 shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <RePieChart>
                     <Pie
                       data={holdingSlices}
                       cx="50%"
                       cy="50%"
-                      innerRadius={55}
-                      outerRadius={80}
+                      innerRadius="60%"
+                      outerRadius="90%"
                       paddingAngle={3}
                       dataKey="value"
                     >
@@ -825,6 +876,8 @@ export default function Investments() {
               </div>
             </div>
           )}
+        </div>
+        </div>
         </div>
 
         {/* Investment Tips */}

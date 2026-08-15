@@ -20,7 +20,10 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
 // Mock currency hook
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (amount: number) => `£${Math.abs(amount).toFixed(2)}`,
+    formatCurrency: (amount: number) =>
+      Number(amount) < 0
+        ? `(£${Math.abs(Number(amount)).toFixed(2)})`
+        : `£${Number(amount).toFixed(2)}`,
   }),
 }));
 
