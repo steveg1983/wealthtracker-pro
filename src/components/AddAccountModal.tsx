@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import DatePicker from './common/DatePicker';
 import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
@@ -43,6 +44,8 @@ interface AccountFormData {
   institution: string;
   sortCode: string;
   accountNumber: string;
+  /** yyyy-mm-dd, the date the opening balance was true. */
+  openingBalanceDate: string;
 }
 
 const accountTypes = [
@@ -59,6 +62,14 @@ const accountTypes = [
 // account was made. See constants/accountCurrencies.
 const currencies = ACCOUNT_CURRENCIES;
 
+/** Today as yyyy-mm-dd, which is what a date input speaks. */
+const todayForInput = (): string => {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+};
+
 export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCreated }: AddAccountModalProps): React.JSX.Element {
   const { addAccount } = useApp();
   const { currency: defaultCurrency } = usePreferences();
@@ -72,7 +83,8 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
     currency: defaultCurrency,
     institution: '',
     sortCode: '',
-    accountNumber: ''
+    accountNumber: '',
+    openingBalanceDate: todayForInput()
   });
 
   // Reset form when modal opens (seed from prefill if provided)
@@ -86,6 +98,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
         institution: prefill?.institution ?? '',
         sortCode: prefill?.sortCode ? formatSortCode(prefill.sortCode) : '',
         accountNumber: prefill?.accountNumber ?? '',
+        openingBalanceDate: todayForInput(),
       });
       setError(null);
       setIsSubmitting(false);
@@ -144,7 +157,10 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
         institution: formData.institution.trim() || undefined,
         lastUpdated: new Date(),
         openingBalance: balance,
-        openingBalanceDate: new Date(),
+        // The date the user gave, not the moment the row was written.
+        openingBalanceDate: formData.openingBalanceDate
+          ? new Date(formData.openingBalanceDate)
+          : new Date(),
         isActive: true,
         sortCode: rawSortCode || undefined,
         // A card is created holding its last 4 digits and nothing else — the
@@ -167,6 +183,9 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
         institution: '',
         sortCode: '',
         accountNumber: '',
+        // Back to today, not to whatever the last account used: the next
+        // account is a different account.
+        openingBalanceDate: todayForInput(),
       });
       setIsSubmitting(false);
 
@@ -211,7 +230,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
             {/* Account Name */}
             <div>
               <label htmlFor="add-account-name" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                Account Name *
+                Account name
               </label>
               <input
                 id="add-account-name"
@@ -230,7 +249,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
             <div>
               {/* Not a <label>: the control is a group of buttons, not a single input */}
               <span id="add-account-type-label" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                Account Type *
+                Account type
               </span>
               <div role="group" aria-labelledby="add-account-type-label" className="grid grid-cols-2 gap-3">
                 {accountTypes.map((type) => {
@@ -282,7 +301,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
               {/* Current Balance */}
               <div>
                 <label htmlFor="add-account-balance" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                  Current Balance *
+                  Opening balance
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">
@@ -308,7 +327,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
               {/* Currency */}
               <div>
                 <label htmlFor="add-account-currency" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                  Currency *
+                  Currency
                 </label>
                 <select
                   id="add-account-currency"
@@ -351,6 +370,39 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                   disabled={isSubmitting}
                 />
               </div>
+            </div>
+
+            {/* ─ WHEN THE OPENING BALANCE APPLIES ────────────────────────────
+                This was written silently as `new Date()` and never shown, so
+                every account's opening balance was dated the day it was created
+                whether or not that was true.
+
+                It matters because the register builds its running balance
+                FORWARD from this figure (AccountTransactions.tsx). Add an
+                account, type what the bank says today, then import a year of
+                history into it, and the year lands ON TOP of a figure that
+                already included it.
+
+                Today is still the default — it is right for an account you are
+                starting fresh — but it is now a default rather than a fact,
+                and somebody importing history can set it to before their
+                earliest transaction, which is what makes the running balance
+                mean anything. */}
+            <div>
+              <label htmlFor="add-account-opening-date" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                Opening balance as of
+              </label>
+              <DatePicker
+                id="add-account-opening-date"
+                value={formData.openingBalanceDate}
+                onChange={(value) => updateField('openingBalanceDate', value)}
+                aria-label="Opening balance as of"
+                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-primary dark:text-white transition-all duration-200"
+              />
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                The date that balance was true. If you are about to import older
+                transactions, set this to before the earliest of them.
+              </p>
             </div>
 
             {/* Bank details: sort code + account number for a UK bank account,
