@@ -271,7 +271,7 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
           <p className="text-center text-sm text-gray-400">No categorised spending in this period</p>
         </div>
       ) : (
-        <div className={`flex items-center gap-3 ${WIDGET_CHART_HEIGHT}`}>
+        <div className={`flex items-center gap-4 ${WIDGET_CHART_HEIGHT}`}>
           {/* A SQUARE FOR THE DONUT, EVERY REMAINING PIXEL FOR THE NAMES.
               The chart box used to be `flex-1` and the legend a fixed `w-36`,
               which is backwards: a donut is circular, so a box wider than it is
@@ -293,8 +293,13 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
                   data={data}
                   dataKey="value"
                   nameKey="name"
-                  innerRadius="55%"
-                  outerRadius="88%"
+                  /* 60/90, which is what the Account Distribution card's
+                     shared PieChart draws. It was 55/88 — a ring a shade
+                     thicker and visibly smaller inside an identical box, so
+                     two cards side by side looked like two different chart
+                     styles rather than one. */
+                  innerRadius="60%"
+                  outerRadius="90%"
                   strokeWidth={0}
                   isAnimationActive={false}
                   cursor="pointer"
@@ -324,26 +329,33 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
               sum to 84.6% — a number nothing on screen accounted for. Six rows
               fit the card's height, so the list and the ring say the same
               thing and the percentages close at 100. */}
-          <ul className="flex-1 min-w-0 space-y-1">
+          {/* SAME RHYTHM AS THE CARD BESIDE IT. This was space-y-1 with
+              px-1 py-0.5 rows at text-xs and 8px swatches, against the
+              distribution card's space-y-2, px-2 py-1.5, text-sm and 12px —
+              so one legend read as a dense table and the other as a list, on
+              two cards that draw the same picture of the same shape of data.
+              The owner asked for the roomier of the two, both. Five rows at
+              this rhythm are ~192px inside the 208px the card allows. */}
+          <ul className="flex-1 min-w-0 space-y-2">
             {data.map((d, i) => (
               <li key={d.categoryId}>
                 <button
                   type="button"
                   onClick={() => open(d.categoryId)}
                   title={`${d.name} — open the full report on this category`}
-                  className="w-full flex items-center gap-2 rounded px-1 py-0.5 text-left text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                  className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                 >
-                  <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: categoricalColor(ramp, i) }} aria-hidden="true" />
-                  <span className="flex-1 min-w-0 truncate">{d.name}</span>
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: categoricalColor(ramp, i) }} aria-hidden="true" />
+                  <span className="flex-1 min-w-0 truncate text-sm text-gray-700 dark:text-gray-300">{d.name}</span>
                   {/* The figure takes what it needs and the name yields — a
                       truncated CATEGORY is still readable, a truncated amount
                       is a wrong number. */}
-                  <span className="shrink-0 tabular-nums font-medium text-gray-900 dark:text-white">
+                  <span className="text-sm font-medium tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
                     {formatCurrency(d.value)}
                   </span>
                   {/* The share is context rather than the answer, so it recedes
                       — same weight and width as the distribution card's. */}
-                  <span className="w-10 shrink-0 text-right tabular-nums text-gray-400 dark:text-gray-500">
+                  <span className="w-12 shrink-0 text-right text-xs tabular-nums text-gray-400 dark:text-gray-500">
                     {formatDecimal(d.share, 1)}%
                   </span>
                 </button>
