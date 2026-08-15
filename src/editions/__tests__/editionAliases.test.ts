@@ -227,11 +227,20 @@ describe('the edition seams', () => {
     // mounts — the same shape as `DangerZone`, one page over — so it arrived
     // through the seam rather than as a Clerk import on a shared page. The
     // equality is what would have caught the second half being forgotten.
+    //
+    // `SessionGuard` is the NINTH, added 15 August, and it arrived for the same
+    // reason `SignOutPanel` did: the Security Settings page had a Session
+    // Timeout dropdown that stored a number nothing read, so a person could
+    // choose "5 minutes" and stay signed in for a week. Making it true needs
+    // `signOut`, which is `auth`, which a shared page may not import — so it
+    // came through the seam rather than as a Clerk import beside the router.
+    // This equality is what stops the desktop half being forgotten.
     expect(valueExportsOf('src/desktop/editions/service.ts')).toEqual([
       'BankConnections',
       'BankFeedRefreshSettings',
       'BankingCriticalIncidentBadge',
       'DangerZone',
+      'SessionGuard',
       'SignOutPanel',
       'SubscriptionStatus',
       'useAccountBankSync',

@@ -814,8 +814,18 @@ export default function Investments() {
                 : 'No priced holdings and no settlement cash, so there is nothing to divide up yet.'}
             </p>
           ) : (
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="h-44 w-full sm:w-44 shrink-0">
+            <div>
+              {/* Ring ABOVE the legend, matching "Asset Allocation" directly
+                  above it — it was ring-beside-legend, so two cards in one
+                  column drew the same shape of data two different ways. Three
+                  class changes and no structural edit: the wrapper stops being
+                  a row, the ring stops being a fixed-width column, the legend
+                  stops being the flex remainder.
+
+                  The comment lives INSIDE the div because the `) : (` slot of
+                  a ternary takes exactly one expression, and a JSX comment is
+                  one. Third time this has bitten in this session. */}
+              <div className="h-44">
                 <ResponsiveContainer width="100%" height="100%">
                   <RePieChart>
                     <Pie
@@ -839,7 +849,7 @@ export default function Investments() {
                 </ResponsiveContainer>
               </div>
 
-              <div className="flex-1 min-w-0 space-y-2">
+              <div className="mt-4 space-y-2">
                 {holdingSlices.map((slice, index) => (
                   <div key={slice.name} className="flex items-center justify-between gap-3 text-body">
                     <div className="flex items-center gap-2 min-w-0">

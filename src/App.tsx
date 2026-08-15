@@ -15,6 +15,7 @@ import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ActivityLoggerProvider } from './components/ActivityLoggerProvider';
 import Layout from './components/Layout';
+import { SessionGuard } from '@service';
 import PageLoader from './components/PageLoader';
 import ScrollResetOnNavigate from './components/ScrollResetOnNavigate';
 // NOTE: performanceService is dynamically imported in the startup effect
@@ -156,6 +157,12 @@ function App(): React.JSX.Element {
                                 <ScrollResetOnNavigate />
                                 <SafariWarning />
                                 <ConsentBanner />
+                                {/* Renders nothing; signs a session out after a
+                                    period of inactivity. Beside the router
+                                    rather than inside a route, or its timer
+                                    would restart on every navigation. Cloud
+                                    only — see src/editions/service.ts. */}
+                                <SessionGuard />
                         <Routes>
                         {/* Login route outside of Layout */}
                         <Route path="/login" element={

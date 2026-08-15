@@ -107,6 +107,7 @@ import type {
   ServiceBankConnections,
   ServiceIncidentBadge,
   ServicePanel,
+  ServiceSessionGuard,
   UseServiceBankConnections,
   UseServiceBankSync
 } from '../../editions/service';
@@ -134,6 +135,9 @@ export const DangerZone: ServicePanel = () => null;
 
 /** Nobody is signed in, so there is no session to end. See the header. */
 export const SignOutPanel: ServicePanel = () => null;
+
+/** …and therefore no session to time out either. */
+export const SessionGuard: ServiceSessionGuard = () => null;
 
 /** No feed, so no incident. */
 export const BankingCriticalIncidentBadge: ServiceIncidentBadge = () => null;
