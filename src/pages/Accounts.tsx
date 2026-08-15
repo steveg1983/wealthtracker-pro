@@ -1826,12 +1826,50 @@ export default function Accounts() {
               why the earlier fix looked complete and was not. The name
               truncates rather than wrapping, so a long band title cannot push
               the figure off. */}
-          <div className="flex items-center justify-between gap-3">
+          {/* ─ `min-w-0`, AND WHY THE TOTALS DID NOT LINE UP ─────────────────
+              This row is a flex ITEM of the header button, and `src/index.css`
+              declares `button { display: inline-flex }` app-wide. A flex item
+              defaults to `min-width: auto`, so it REFUSES to shrink below its
+              own min-content — the name, the count and the figure all on one
+              line. The button honoured `w-full` (343px at a 375px viewport)
+              while this row stayed 370px and simply drew past it.
+
+              That is both of the things reported. The figure sat wherever its
+              row happened to end, so bands with shorter names ended further
+              left and read as "inset"; and the widest band dragged the whole
+              document to 402px, which is why the fixed header and the demo
+              banner were 27px wider than the screen.
+
+              `min-w-0` is what lets the truncation that was specified all the
+              way down actually happen. The name has said `truncate` since it
+              was written and never once got the chance.
+
+              `w-full` is the OTHER half, and measuring is the only reason it
+              is here: with `min-w-0` alone the overflow stopped but the totals
+              still did not line up, because a flex item does not grow to fill
+              its container unless told to (`flex-grow: 0` is the default).
+              Each row shrank to its own content — 311px, 306px, 255px, 253px —
+              so `justify-between` pushed each total to the end of a DIFFERENT
+              box. Flush right within a row nobody can see the edge of is not
+              flush right. */}
+          <div className="flex w-full items-center justify-between gap-3 min-w-0">
             <div className="flex items-center gap-2 md:gap-3 min-w-0">
               <ChevronRightIcon
                 size={16}
                 className={`flex-shrink-0 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
               />
+              {/* THE COUNT DROPS UNDER THE NAME (owner's ruling). Three things
+                  were competing for one line — the band's name, "(17
+                  accounts)" and a figure that may run to eleven characters —
+                  and the count is the one with no claim to that space: it
+                  qualifies the name, it is not read across to the total. Above
+                  `sm` there is room for all three, but the stack costs nothing
+                  there and one arrangement is easier to trust than two.
+
+                  It also removes the wrapping the owner saw first, where
+                  "(17\naccounts)" broke across two lines INSIDE the row and
+                  pushed the heading's own baseline around. */}
+              <div className="flex flex-col min-w-0">
               {/* THE NAME OUTRANKS THE FIGURE HERE, and it took two goes to
                   believe it. P1 said a band's name is a label for its total,
                   so the label was set one step under the money — 14px word,
@@ -1852,9 +1890,14 @@ export default function Accounts() {
                   Still an h2 — the outline, and the way a screen-reader user
                   walks this page, are unchanged. */}
               <h2 className="text-card uppercase font-bold tracking-wide text-gray-900 dark:text-white truncate">{group.title}</h2>
-              <span className="text-dense text-gray-400 dark:text-gray-500">
-                ({group.accounts.length} {group.accounts.length === 1 ? 'account' : 'accounts'})
-              </span>
+                {/* Brackets kept. They are redundant on their own line, but the
+                    sub-bands below still print "(1 account)" inline and one
+                    spelling across the page beats a defensible inconsistency.
+                    The ask was where the count sits, not how it is written. */}
+                <span className="text-dense text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                  ({group.accounts.length} {group.accounts.length === 1 ? 'account' : 'accounts'})
+                </span>
+              </div>
             </div>
             <p className="text-card font-semibold text-primary dark:text-white whitespace-nowrap shrink-0">
               {bandTotalNode(bandTotal)}

@@ -210,6 +210,44 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * THE DOCUMENT ITSELF HAS TO BE PAINTED, OR THE STATUS BAR IS WHITE.
+ *
+ * The app's ground has always been declared on a DIV — `min-h-screen
+ * bg-[#f8f9fb] dark:bg-gray-900`, several levels inside the tree. Everywhere
+ * that div reaches, that is the colour; everywhere it does not, the page shows
+ * `body`, and `body` had no background at all. On a normal browser tab nobody
+ * ever sees that, because the div covers the viewport.
+ *
+ * On an iPhone home-screen install it is the first thing you see. index.html
+ * asks for `apple-mobile-web-app-status-bar-style: black-translucent` with
+ * `viewport-fit=cover` specifically so the content runs UNDER the status bar —
+ * its own comment says the point is "so the app's own slate meets the top of
+ * the screen rather than a white band". But the slate stops at that div, and
+ * the strip behind the clock and the battery was showing the unpainted body:
+ * a white haze over the app name and the avatar, and black status-bar text
+ * because iOS samples a light background to decide.
+ *
+ * So the ground is declared at the root, where a ground belongs, and the div
+ * keeps its own copy — it is what paints the page while a shorter route is
+ * still mounting, and removing it would trade this bug for a flash.
+ *
+ * `html` as well as `body`: overscroll on iOS rubber-bands past the body box
+ * and reveals the canvas behind it, which is taken from `html`.
+ */
+html,
+body {
+  background-color: #f8f9fb;
+}
+
+/* `html.dark`, not `.dark html` — PreferencesContext puts the class on
+   `document.documentElement`, so `html` IS the element carrying it and has no
+   ancestor to be a descendant of. */
+html.dark,
+html.dark body {
+  background-color: #111827; /* gray-900, the same ground the app div paints */
+}
+
 /* The colour-theme variants (green/red/pink primary swaps) were retired
    2026-07-10: WealthTracker has one brand identity — the navy scheme in :root,
    accents included — plus light/dark modes. (Both of the 2026-07-10 audit's
@@ -741,8 +779,28 @@ button.rounded-full:focus-visible,
     input[type="password"],
     select,
     textarea {
-      @apply text-base; /* Prevent zoom on iOS */
-      padding: 12px 16px;
+      /* FONT SIZE ONLY, and the radius. `padding: 12px 16px` used to be here
+         and it was THE SAME BUG as the one described at the top of this file,
+         in a second copy nobody looked for: `input[type="text"]` scores
+         (0,1,1) — attribute selector plus type — while a Tailwind utility like
+         `pl-10` scores (0,1,0), so the element selector WINS and flattens the
+         considered padding of all 69 text inputs in the app.
+
+         The first copy lived in the touch block and was removed when the
+         owner reported the watchlist magnifier sitting on top of its own
+         placeholder. He reported it AGAIN afterwards, because this copy was
+         still here — and this one is worse: it keys on WIDTH rather than
+         pointer type, so it fires on a narrow desktop window too, not only on
+         a phone.
+
+         Measured before removal, at a 375px viewport: an input asking for
+         `pl-10` (40px) computed to 16px. The magnifier is absolutely
+         positioned at `left-3` and is 20px wide, so it occupies 12–32px while
+         the text began at 16px — the icon drawn straight through the words.
+
+         `text-base` STAYS: 16px is what stops iOS zooming the page when a
+         field takes focus, and that is a real behaviour, not a style. */
+      @apply text-base;
       border-radius: 8px;
     }
     
