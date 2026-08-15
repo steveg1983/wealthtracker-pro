@@ -313,39 +313,14 @@ export default function SubscriptionStatus(): React.JSX.Element {
         </div>
       </div>
 
-      {/* Upgrade Options */}
-      {tier === 'free' && (
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Unlock Premium Features
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Upgrade to Pro or Business to access unlimited accounts, bank sync, advanced analytics, and more.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <CrownIcon size={20} className="text-blue-600" />
-                <span className="font-medium text-gray-900 dark:text-white">Pro</span>
-                <span className="text-sm text-gray-500">£9.99/mo</span>
-              </div>
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                Perfect for individuals managing personal finances
-              </p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <UsersIcon size={20} className="text-purple-600" />
-                <span className="font-medium text-gray-900 dark:text-white">Business</span>
-                <span className="text-sm text-gray-500">£24.99/mo</span>
-              </div>
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                Ideal for small businesses and freelancers
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* The "Unlock Premium Features" block was here, and it is gone on the
+          owner's ruling. Two reasons, and the second is the one that matters:
+          it duplicated the Upgrade buttons six inches above it, and it
+          advertised a BUSINESS tier at £24.99 "ideal for small businesses and
+          freelancers" — a plan this product does not sell and is not built to
+          be. Naming a price for something that does not exist is the same
+          offence as a dead toggle, in a place where somebody might get out a
+          card. */}
     </div>
   );
 }
