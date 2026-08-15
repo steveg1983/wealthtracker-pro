@@ -9,7 +9,7 @@ import ToggleSwitch from './ui/ToggleSwitch';
 import CardNumberGuidance from './CardNumberGuidance';
 import GroupedAccountOptions from './common/GroupedAccountOptions';
 import { accountCurrencyOptions, describeAccountCurrency } from '../constants/accountCurrencies';
-import { resolveSecuring } from '../utils/accountSecuring';
+import { resolveSecuring, normaliseSecuredIds } from '../utils/accountSecuring';
 import {
   BANK_ACCOUNT_NUMBER_LENGTH,
   CARD_NUMBER_LABEL,
@@ -66,7 +66,8 @@ interface FormData {
   lowBalanceThreshold: string;
   /** Investment account this one's money sits inside; '' = not paired. */
   parentAccountId: string;
-  securedAgainstAccountId: string;
+  /** One entry per visible dropdown; '' is the unchosen 'Nothing' row. */
+  securedAgainstAccountIds: string[];
 }
 
 const NO_PARENT_ACCOUNT = '';
@@ -162,7 +163,7 @@ export default function AccountSettingsModal({
       lowBalanceAlertEnabled: false,
       lowBalanceThreshold: '',
       parentAccountId: NO_PARENT_ACCOUNT,
-      securedAgainstAccountId: NOT_SECURED
+      securedAgainstAccountIds: [NOT_SECURED]
     },
     {
       onSubmit: async (data) => {
@@ -210,10 +211,14 @@ export default function AccountSettingsModal({
           // Sending it only on a real change means the migration is required
           // to USE the feature, not to save an account. It is also just
           // correct: an update should carry what the user altered.
-          ...(resolveSecuring(account, accounts).offered
-            && data.securedAgainstAccountId !== (account.securedAgainstAccountId ?? NOT_SECURED)
-            ? { securedAgainstAccountId: data.securedAgainstAccountId || null }
-            : {}),
+          ...(() => {
+            if (!resolveSecuring(account, accounts).offered) return {};
+            const next = normaliseSecuredIds(data.securedAgainstAccountIds, account.id);
+            const before = normaliseSecuredIds(account.securedAgainstAccountIds ?? [], account.id);
+            const unchanged =
+              next.length === before.length && next.every((id, i) => id === before[i]);
+            return unchanged ? {} : { securedAgainstAccountIds: next };
+          })(),
           // Same rule, and for a much sharper reason: only ever written when
           // the field was EDITABLE. On an account with history the value on
           // screen is the stored one, so writing it back would be a no-op —
@@ -277,7 +282,8 @@ export default function AccountSettingsModal({
         lowBalanceAlertEnabled: account.lowBalanceAlertEnabled ?? false,
         lowBalanceThreshold: account.lowBalanceThreshold != null ? account.lowBalanceThreshold.toString() : '',
         parentAccountId: account.parentAccountId ?? NO_PARENT_ACCOUNT,
-        securedAgainstAccountId: account.securedAgainstAccountId ?? NOT_SECURED
+        // Always one trailing blank row, so there is something to choose in.
+        securedAgainstAccountIds: [...(account.securedAgainstAccountIds ?? []), NOT_SECURED]
       });
     }
   }, [account, setFormData]);
@@ -535,23 +541,61 @@ export default function AccountSettingsModal({
               is added. */}
           {securing.offered && (
             <div>
-              <label htmlFor="account-secured-against" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Secured against
-              </label>
-              <select
-                id="account-secured-against"
-                value={formData.securedAgainstAccountId}
-                onChange={(e) => updateField('securedAgainstAccountId', e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
-              >
-                <option value={NOT_SECURED}>Nothing — this is an unsecured debt</option>
-                <GroupedAccountOptions accounts={securing.options} />
-              </select>
+              </span>
+              {/* ─ ONE ROW PER LINK, AND ONE SPARE ──────────────────────────
+                  A loan can be drawn against two portfolios, so this is a
+                  list. The owner's own shape for it: choose something and a
+                  fresh row appears beneath, choose in that and another
+                  appears — no "add" button to find, and no empty rows piling
+                  up, because the spare only ever exists once at the end.
+
+                  Setting a row back to "Nothing" REMOVES it rather than
+                  leaving a hole, which is what makes the trailing spare
+                  reliable: without that, clearing the middle of three links
+                  would leave a gap that reads as a broken control.
+
+                  Each row already excludes the account itself, and duplicates
+                  are stripped on save by `normaliseSecuredIds` — a portfolio
+                  chosen twice would otherwise be subtracted twice on the
+                  Investments page, which is the one place this list can do
+                  arithmetic damage. */}
+              <div className="space-y-2">
+                {formData.securedAgainstAccountIds.map((selected, index) => {
+                  const chosenElsewhere = new Set(
+                    formData.securedAgainstAccountIds.filter((_, i) => i !== index)
+                  );
+                  const available = securing.options.filter(
+                    a => a.id === selected || !chosenElsewhere.has(a.id)
+                  );
+                  return (
+                    <select
+                      key={`secured-${index}`}
+                      aria-label={index === 0 ? 'Secured against' : `Secured against (${index + 1})`}
+                      value={selected}
+                      onChange={(e) => {
+                        const next = [...formData.securedAgainstAccountIds];
+                        next[index] = e.target.value;
+                        // Drop cleared rows, then guarantee exactly one spare.
+                        const kept = next.filter(id => id !== NOT_SECURED);
+                        updateField('securedAgainstAccountIds', [...kept, NOT_SECURED]);
+                      }}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
+                    >
+                      <option value={NOT_SECURED}>
+                        {index === 0 ? 'Nothing — this is an unsecured debt' : 'Add another…'}
+                      </option>
+                      <GroupedAccountOptions accounts={available} />
+                    </select>
+                  );
+                })}
+              </div>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 For a debt held against something you own — a mortgage against
-                its property, a loan drawn against an investment. This account
-                stays exactly where it is and its balance is not added to
-                anything; the link only shows the two together, and lets the
+                its property, a loan drawn against one or more investments. This
+                account stays exactly where it is and its balance is not added
+                to anything; the link only labels the two together, and lets the
                 Investments page offer a net position if you want one.
               </p>
             </div>

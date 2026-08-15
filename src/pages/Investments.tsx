@@ -10,6 +10,7 @@ import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineCh
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { normaliseSecuredIds } from '../utils/accountSecuring';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import PageWrapper from '../components/PageWrapper';
@@ -287,8 +288,12 @@ export default function Investments() {
     let total = toDecimal(0);
     const names: string[] = [];
     for (const account of openAccounts) {
-      const target = account.securedAgainstAccountId;
-      if (!target || !withinPortfolio.has(target)) continue;
+      // ONCE PER LIABILITY, not once per link. A loan drawn against two of
+      // these portfolios names both, and subtracting it twice would take
+      // millions off a total for a debt that exists once. `some` rather than a
+      // loop over the ids is the whole guard.
+      const targets = normaliseSecuredIds(account.securedAgainstAccountIds ?? [], account.id);
+      if (!targets.some(id => withinPortfolio.has(id))) continue;
       // A debt is carried negative, and this is a magnitude to subtract.
       total = total.plus(toDecimal(Math.abs(account.balance ?? 0)));
       names.push(account.name);
