@@ -9,6 +9,7 @@ import ToggleSwitch from './ui/ToggleSwitch';
 import CardNumberGuidance from './CardNumberGuidance';
 import GroupedAccountOptions from './common/GroupedAccountOptions';
 import { accountCurrencyOptions, describeAccountCurrency } from '../constants/accountCurrencies';
+import { resolveSecuring } from '../utils/accountSecuring';
 import {
   BANK_ACCOUNT_NUMBER_LENGTH,
   CARD_NUMBER_LABEL,
@@ -70,42 +71,6 @@ interface FormData {
 
 const NO_PARENT_ACCOUNT = '';
 const NOT_SECURED = '';
-
-/** The types that are somebody's debt. Everything else can BE secured against. */
-const LIABILITY_TYPES: ReadonlySet<string> = new Set(['loan', 'credit', 'other']);
-
-/**
- * What this liability may be held against: any account that is not itself a
- * debt, and is not this one.
- *
- * Nested accounts ARE offered, unlike the pairing dropdown above, and the
- * asymmetry is deliberate. Pairing refuses them because nesting a nested
- * account would make a chain that has to be walked and could cycle. Securing
- * walks nothing — it is one hop, read for display — so a loan may perfectly
- * well be held against a cash sleeve inside a portfolio, which is exactly the
- * arrangement the owner described.
- */
-function resolveSecuring(
-  account: BaseAccount,
-  accounts: readonly BaseAccount[],
-  selectedType: BaseAccount['type']
-): PairingState {
-  const options = accounts.filter(a =>
-    !LIABILITY_TYPES.has(a.type) &&
-    a.id !== account.id &&
-    a.isActive !== false
-  );
-  const current = account.securedAgainstAccountId
-    ? accounts.find(a => a.id === account.securedAgainstAccountId)
-    : undefined;
-  // A target that has since been closed stays listed, or saving any other
-  // change on this form would silently drop the link.
-  if (current && !options.some(a => a.id === current.id)) options.push(current);
-  return {
-    offered: LIABILITY_TYPES.has(selectedType) && options.length > 0,
-    options
-  };
-}
 
 /** What the pairing field may offer this account, and whether it appears at all. */
 interface PairingState {
@@ -235,7 +200,7 @@ export default function AccountSettingsModal({
           // Same rule, same reason: changing an account's type from Loan to
           // Savings takes the control off screen, and a link written from a
           // field nobody saw is a link nobody chose.
-          ...(resolveSecuring(account, accounts, data.type).offered
+          ...(resolveSecuring(account, accounts).offered
             ? { securedAgainstAccountId: data.securedAgainstAccountId || null }
             : {}),
           // Same rule, and for a much sharper reason: only ever written when
@@ -334,7 +299,7 @@ export default function AccountSettingsModal({
   // (so editing a closed account never quietly reopens it).
   const isClosedAccount = account.isActive === false;
   const pairing = resolvePairing(account, accounts, formData.type);
-  const securing = resolveSecuring(account, accounts, formData.type);
+  const securing = resolveSecuring(account, accounts);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Account Settings" size="md">
@@ -572,11 +537,11 @@ export default function AccountSettingsModal({
                 <GroupedAccountOptions accounts={securing.options} />
               </select>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                For a mortgage held against a property, or a loan drawn against
-                an investment. This account stays where it is under Liabilities
-                and its balance is not added to anything — the link only shows
-                the two together, and lets the Investments page offer a net
-                position if you want one.
+                For a debt held against something you own — a mortgage against
+                its property, a loan drawn against an investment. This account
+                stays exactly where it is and its balance is not added to
+                anything; the link only shows the two together, and lets the
+                Investments page offer a net position if you want one.
               </p>
             </div>
           )}

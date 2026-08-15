@@ -18,6 +18,8 @@ import {
   buildTopLevelIdByAccountId
 } from '../utils/accountNesting';
 import { extractAccountParents, buildBackupBundle, remapBackupIds } from '../services/backup/format';
+import { resolveSecuring } from '../utils/accountSecuring';
+import type { Account } from '../types';
 
 /** The nesting utilities read exactly two fields; this carries a third. */
 const property = { id: 'prop-1', parentAccountId: null, securedAgainstAccountId: null };
@@ -49,6 +51,74 @@ describe('securing does not nest, and does not count', () => {
     const roots = buildTopLevelIdByAccountId(all);
     expect(roots.get('debt-1')).toBe('debt-1');
     expect(roots.get('cash-1')).toBe('inv-1'); // the pairing still does count
+  });
+});
+
+describe('which accounts may be secured, and against what', () => {
+  /*
+   * The owner's own mortgage is typed CURRENT. It is unmistakably a mortgage,
+   * it carries a negative balance, and the app's type says current account —
+   * which is what a decade of Microsoft Money imports actually looks like.
+   *
+   * The first cut gated the control on loan/credit/other and so showed nothing
+   * at all on that account. These pin the rule that replaced it.
+   */
+  // Built as real Accounts rather than cast into shape: a cast here would let
+  // the fixture drift from the type the function actually receives, which is
+  // the one thing these tests exist to be sure about.
+  const acc = (
+    id: string,
+    type: Account['type'],
+    extra: Partial<Account> = {}
+  ): Account => ({
+    id,
+    name: id,
+    type,
+    balance: 0,
+    currency: 'GBP',
+    lastUpdated: new Date('2026-08-15T00:00:00.000Z'),
+    ...extra
+  });
+
+  const ledger = [
+    acc('mortgage-as-current', 'current'),   // the owner's real shape
+    acc('property', 'assets'),               // alias: files under Assets
+    acc('portfolio', 'investment'),
+    acc('visa', 'credit'),                   // a debt — never a target
+    acc('personal-loan', 'loan'),            // a debt — never a target
+    acc('mortgage-proper', 'mortgage'),      // alias: files under Loans
+    acc('misc', 'other')                     // unclassified — still a target
+  ];
+
+  it('offers the control on a mortgage typed as a current account', () => {
+    // The bug, in one assertion.
+    expect(resolveSecuring(ledger[0], ledger).offered).toBe(true);
+  });
+
+  it('never offers a debt as the thing to be secured against', () => {
+    const targets = resolveSecuring(ledger[0], ledger).options.map(a => a.id);
+    expect(targets).not.toContain('visa');
+    expect(targets).not.toContain('personal-loan');
+    // Through the alias, which is the half a hand-rolled type set gets wrong:
+    // 'mortgage' files under Loans.
+    expect(targets).not.toContain('mortgage-proper');
+  });
+
+  it('offers assets, investments and unclassified accounts', () => {
+    const targets = resolveSecuring(ledger[0], ledger).options.map(a => a.id);
+    // 'assets' is an alias for the Assets section — the owner's property.
+    expect(targets).toEqual(expect.arrayContaining(['property', 'portfolio', 'misc']));
+  });
+
+  it('never offers the account itself', () => {
+    expect(resolveSecuring(ledger[1], ledger).options.map(a => a.id)).not.toContain('property');
+  });
+
+  it('keeps a closed target listed, so saving does not silently drop the link', () => {
+    const closed = acc('sold-house', 'assets', { isActive: false });
+    const debt = acc('debt', 'loan', { securedAgainstAccountId: 'sold-house' });
+    const targets = resolveSecuring(debt, [debt, closed]).options.map(a => a.id);
+    expect(targets).toContain('sold-house');
   });
 });
 
