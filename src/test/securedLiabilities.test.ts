@@ -18,6 +18,9 @@ import {
   buildTopLevelIdByAccountId
 } from '../utils/accountNesting';
 import { extractAccountParents, buildBackupBundle, remapBackupIds } from '../services/backup/format';
+import { resolveSecuring } from '../utils/accountSecuring';
+import { mapAccountToDb } from '../services/api/accountMapping';
+import type { Account } from '../types';
 
 /** The nesting utilities read exactly two fields; this carries a third. */
 const property = { id: 'prop-1', parentAccountId: null, securedAgainstAccountId: null };
@@ -49,6 +52,109 @@ describe('securing does not nest, and does not count', () => {
     const roots = buildTopLevelIdByAccountId(all);
     expect(roots.get('debt-1')).toBe('debt-1');
     expect(roots.get('cash-1')).toBe('inv-1'); // the pairing still does count
+  });
+});
+
+describe('which accounts may be secured, and against what', () => {
+  /*
+   * The owner's own mortgage is typed CURRENT. It is unmistakably a mortgage,
+   * it carries a negative balance, and the app's type says current account —
+   * which is what a decade of Microsoft Money imports actually looks like.
+   *
+   * The first cut gated the control on loan/credit/other and so showed nothing
+   * at all on that account. These pin the rule that replaced it.
+   */
+  // Built as real Accounts rather than cast into shape: a cast here would let
+  // the fixture drift from the type the function actually receives, which is
+  // the one thing these tests exist to be sure about.
+  const acc = (
+    id: string,
+    type: Account['type'],
+    extra: Partial<Account> = {}
+  ): Account => ({
+    id,
+    name: id,
+    type,
+    balance: 0,
+    currency: 'GBP',
+    lastUpdated: new Date('2026-08-15T00:00:00.000Z'),
+    ...extra
+  });
+
+  const ledger = [
+    acc('mortgage-as-current', 'current'),   // the owner's real shape
+    acc('property', 'assets'),               // alias: files under Assets
+    acc('portfolio', 'investment'),
+    acc('visa', 'credit'),                   // a debt — never a target
+    acc('personal-loan', 'loan'),            // a debt — never a target
+    acc('mortgage-proper', 'mortgage'),      // alias: files under Loans
+    acc('misc', 'other')                     // unclassified — still a target
+  ];
+
+  it('offers the control on a mortgage typed as a current account', () => {
+    // The bug, in one assertion.
+    expect(resolveSecuring(ledger[0], ledger).offered).toBe(true);
+  });
+
+  it('never offers a debt as the thing to be secured against', () => {
+    const targets = resolveSecuring(ledger[0], ledger).options.map(a => a.id);
+    expect(targets).not.toContain('visa');
+    expect(targets).not.toContain('personal-loan');
+    // Through the alias, which is the half a hand-rolled type set gets wrong:
+    // 'mortgage' files under Loans.
+    expect(targets).not.toContain('mortgage-proper');
+  });
+
+  it('offers assets, investments and unclassified accounts', () => {
+    const targets = resolveSecuring(ledger[0], ledger).options.map(a => a.id);
+    // 'assets' is an alias for the Assets section — the owner's property.
+    expect(targets).toEqual(expect.arrayContaining(['property', 'portfolio', 'misc']));
+  });
+
+  it('never offers the account itself', () => {
+    expect(resolveSecuring(ledger[1], ledger).options.map(a => a.id)).not.toContain('property');
+  });
+
+  it('keeps a closed target listed, so saving does not silently drop the link', () => {
+    const closed = acc('sold-house', 'assets', { isActive: false });
+    const debt = acc('debt', 'loan', { securedAgainstAccountId: 'sold-house' });
+    const targets = resolveSecuring(debt, [debt, closed]).options.map(a => a.id);
+    expect(targets).toContain('sold-house');
+  });
+});
+
+describe('the write path names a real column', () => {
+  /*
+   * `mapAccountToDb` falls back to `?? field` for anything it has no mapping
+   * for, so an unmapped camelCase name is sent to PostgREST verbatim. PostgREST
+   * rejects the WHOLE update, which means one missing line here breaks saving
+   * an account entirely — including edits to fields the user did touch.
+   *
+   * That is what shipped: the read path was mapped, the write path was not,
+   * and the owner got "Could not find the 'securedAgainstAccountId' column of
+   * 'accounts' in the schema cache" while renaming an account type.
+   */
+  it('maps securedAgainstAccountId to its snake_case column', () => {
+    expect(mapAccountToDb({ securedAgainstAccountId: 'prop-1' }))
+      .toEqual({ secured_against_account_id: 'prop-1' });
+  });
+
+  it('sends null through, because null is how a link is CLEARED', () => {
+    // `undefined` means "leave alone" and is dropped; null must survive.
+    expect(mapAccountToDb({ securedAgainstAccountId: null }))
+      .toEqual({ secured_against_account_id: null });
+  });
+
+  it('emits no camelCase key for any account field it maps', () => {
+    // The general form of the bug, so the next field added cannot repeat it.
+    const columns = mapAccountToDb({
+      securedAgainstAccountId: 'a',
+      parentAccountId: 'b',
+      openingBalanceDate: new Date('2026-01-01T00:00:00.000Z')
+    });
+    for (const key of Object.keys(columns)) {
+      expect(key, `${key} is not a snake_case column name`).not.toMatch(/[A-Z]/);
+    }
   });
 });
 
