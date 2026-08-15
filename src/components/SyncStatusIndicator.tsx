@@ -142,8 +142,17 @@ export default function SyncStatusIndicator({
           </div>
         )}
 
+        {/* NEUTRAL, and it fixes two things at once.
+            "Changes will sync when you reconnect" is a REASSURANCE — it states
+            a protection the app applies to your work. Nothing bad happens and
+            a reader who skims it cannot be harmed, which is Claude Design's
+            test for what is NOT a warning. It was in the warning pair, telling
+            somebody to tense up and then telling them they are fine.
+            It was also yellow-600 on yellow-50: 2.84:1 measured, failing AA
+            for text. So the most alarming-looking line here was the least
+            readable one. Neutral is both the right category and legible. */}
         {!isOnline && (
-          <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs text-yellow-600 dark:text-yellow-400">
+          <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs text-gray-600 dark:text-gray-300">
             You're offline. Changes will sync when you reconnect.
           </div>
         )}
