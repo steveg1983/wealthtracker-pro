@@ -85,7 +85,19 @@ export default function Welcome(): React.JSX.Element {
           <SignUpButton mode="modal">
             <button
               type="button"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-primary font-semibold shadow-sm hover:bg-white/90 transition-colors"
+              /* `text-nav-bg`, NOT `text-primary` — and the difference is the
+                 whole bug. `.dark .text-primary` is `#f9fafb !important`,
+                 added so the app's primary ink stays readable on dark
+                 SURFACES. This button's surface is not dark: it is `bg-white`
+                 in both modes, deliberately, because it is the one loud thing
+                 on a navy hero. So in dark mode the remap painted near-white
+                 text on a white button and the label vanished.
+
+                 A utility that means "the app's ink, inverted for dark" cannot
+                 serve an element whose own background does not invert. Both
+                 resolve to #1a2332 in light, which is why this looked
+                 identical until someone opened the sign-in page in dark. */
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-nav-bg font-semibold shadow-sm hover:bg-white/90 transition-colors"
             >
               Get started
               <ArrowRightIcon size={18} />
