@@ -236,10 +236,85 @@ function withCategory(notifications: Notification[], category: NotificationCateg
   return notifications.map((notification): Notification => ({ ...notification, category }));
 }
 
-/** Has this exact alert already been raised inside the dedupe window? */
+/**
+ * ─ THE RAISED-KEY LEDGER ───────────────────────────────────────────────────
+ *
+ * Suppression used to BE the notification list: `hasRecentDuplicate` asked
+ * whether a matching `dedupeKey` was currently on the board. That works right
+ * up until somebody clears the board — at which point the memory of what had
+ * been raised is thrown away with it, the next generator run finds nothing to
+ * dedupe against, and every alert the user has just dismissed comes straight
+ * back. Reported as: "I clear them all and then some old ones pop back up
+ * later on when new ones get added."
+ *
+ * Dismissing is a STRONGER signal than having seen it, not a weaker one, so
+ * the fix is not merely to remember across a clear: dismissing an alert
+ * restarts its window. If the underlying condition is still true tomorrow it
+ * may speak again — that is the design, one warning per budget per day — but
+ * it does not get to speak again this afternoon because the list was tidied.
+ *
+ * Kept apart from the notifications themselves, and persisted separately, so
+ * that clearing one cannot clear the other. Pruned on every write; a key older
+ * than the window can never suppress anything again.
+ */
+const DEDUPE_LEDGER_KEY = 'money_management_notification_dedupe';
+
+type DedupeLedger = Record<string, number>;
+
+function readDedupeLedger(): DedupeLedger {
+  try {
+    const raw = localStorage.getItem(DEDUPE_LEDGER_KEY);
+    if (raw === null) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+    const out: DedupeLedger = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === 'number' && Number.isFinite(value)) out[key] = value;
+    }
+    return out;
+  } catch {
+    // A corrupt ledger must not stop notifications working. The cost of
+    // starting empty is one repeated alert; the cost of throwing is the bell.
+    return {};
+  }
+}
+
+function writeDedupeLedger(ledger: DedupeLedger, nowMs: number): DedupeLedger {
+  const oldest = nowMs - DEDUPE_WINDOW_MS;
+  const pruned: DedupeLedger = {};
+  for (const [key, at] of Object.entries(ledger)) {
+    if (at >= oldest) pruned[key] = at;
+  }
+  try {
+    localStorage.setItem(DEDUPE_LEDGER_KEY, JSON.stringify(pruned));
+  } catch {
+    // Storage full or unavailable — in-memory suppression still holds for
+    // this session, which is the case the owner reported.
+  }
+  return pruned;
+}
+
+/** Stamp these keys as raised (or dismissed) now, restarting their windows. */
+function recordDedupeKeys(keys: readonly string[], nowMs: number): void {
+  if (keys.length === 0) return;
+  const ledger = readDedupeLedger();
+  for (const key of keys) ledger[key] = nowMs;
+  writeDedupeLedger(ledger, nowMs);
+}
+
+/**
+ * Has this exact alert already been raised inside the dedupe window?
+ *
+ * Asks the LEDGER as well as the board, and the ledger is the half that
+ * survives a clear.
+ */
 function hasRecentDuplicate(existing: Notification[], dedupeKey: string, nowMs: number): boolean {
   const oldest = nowMs - DEDUPE_WINDOW_MS;
-  return existing.some((n): boolean => n.dedupeKey === dedupeKey && timestampMs(n) >= oldest);
+  if (existing.some((n): boolean => n.dedupeKey === dedupeKey && timestampMs(n) >= oldest)) {
+    return true;
+  }
+  const raisedAt = readDedupeLedger()[dedupeKey];
+  return raisedAt !== undefined && raisedAt >= oldest;
 }
 
 /**
@@ -440,6 +515,11 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       ) {
         return prev;
       }
+      // Stamped on ACCEPT, so the suppression outlives both the notification
+      // and any clear that removes it.
+      if (newNotification.dedupeKey !== undefined) {
+        recordDedupeKeys([newNotification.dedupeKey], newNotification.timestamp.getTime());
+      }
       return [newNotification, ...prev].slice(0, MAX_NOTIFICATIONS);
     });
   }, []);
@@ -463,6 +543,12 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       }
 
       if (accepted.length === 0) return prev;
+      recordDedupeKeys(
+        accepted
+          .map((n): string | undefined => n.dedupeKey)
+          .filter((key): key is string => key !== undefined),
+        nowMs
+      );
       return [...accepted, ...prev].slice(0, MAX_NOTIFICATIONS);
     });
   }, []);
@@ -480,11 +566,29 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
   }, []);
 
   const removeNotification = useCallback((id: string): void => {
-    setNotifications((prev): Notification[] => prev.filter((n): boolean => n.id !== id));
+    setNotifications((prev): Notification[] => {
+      const going = prev.find((n): boolean => n.id === id);
+      // Dismissing is a stronger "I have dealt with this" than merely having
+      // seen it, so the window restarts from now rather than from when the
+      // alert was raised.
+      if (going?.dedupeKey !== undefined) recordDedupeKeys([going.dedupeKey], Date.now());
+      return prev.filter((n): boolean => n.id !== id);
+    });
   }, []);
 
   const clearAll = useCallback((): void => {
-    setNotifications([]);
+    setNotifications((prev): Notification[] => {
+      // THE BUG THIS FIXES. `setNotifications([])` on its own threw away the
+      // only record that these had ever been raised, so the next generator
+      // run put them straight back.
+      recordDedupeKeys(
+        prev
+          .map((n): string | undefined => n.dedupeKey)
+          .filter((key): key is string => key !== undefined),
+        Date.now()
+      );
+      return [];
+    });
   }, []);
 
   /**
