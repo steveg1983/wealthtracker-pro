@@ -132,8 +132,14 @@ describe('AccountSettingsModal', () => {
       expect(typeSelect).toContainHTML('<option value="loan">Loan Account</option>');
       expect(typeSelect).toContainHTML('<option value="credit">Credit Card</option>');
       expect(typeSelect).toContainHTML('<option value="investment">Investments</option>');
-      expect(typeSelect).toContainHTML('<option value="assets">Other Asset</option>');
-      expect(typeSelect).toContainHTML('<option value="other">Other Liability</option>');
+      // 'assets' and 'liability' — the two that name the ASSETS and
+      // LIABILITIES sections. 'other' was offered here as "Other Liability"
+      // and filed under "Other Accounts", because it is not a section type at
+      // all, so choosing it moved an account somewhere the label never
+      // mentioned.
+      expect(typeSelect).toContainHTML('<option value="assets">Asset</option>');
+      expect(typeSelect).toContainHTML('<option value="liability">Liability</option>');
+      expect(typeSelect).not.toContainHTML('<option value="other">');
     });
 
     it('shows help text for account type', () => {

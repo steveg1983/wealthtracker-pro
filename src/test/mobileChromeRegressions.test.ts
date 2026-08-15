@@ -128,3 +128,52 @@ describe('the global button rule that lets rows overflow', () => {
     expect(block, 'the global button rule moved — re-point this guard').not.toBeNull();
   });
 });
+
+describe('a light-mode contrast remap may not reach dark mode', () => {
+  /*
+   * `accessibility-colors.css` raises grey text for WCAG on WHITE. Every rule
+   * in it carries `!important`, which beats any `dark:` variant a component
+   * declares however specific — so an unscoped rule does not merely fail to
+   * help in dark mode, it actively overrides the colour that was chosen for
+   * dark mode.
+   *
+   * Measured: an element written `text-xs text-gray-500 dark:text-gray-300`
+   * rendered at #374151 on a #1f2937 card. That is 1.3:1 — not dim, absent.
+   * The owner reported it as "you can't see the 'last updated' font within
+   * the accounts", and it was never that component's bug: 462 elements across
+   * the app pair a grey with a small-text class.
+   *
+   * The rule: a light-tuned colour must say so in its selector.
+   */
+  const remapCss = read('src/styles/accessibility-colors.css');
+
+  it('scopes every grey remap to light mode', () => {
+    // Comments stripped first, or the prose explaining this rule reads as a
+    // rule. Then each selector in each rule's selector LIST is judged on its
+    // own — a list is only as scoped as its least-scoped member.
+    const withoutComments = remapCss.replace(/\/\*[\s\S]*?\*\//g, '');
+    const offenders: string[] = [];
+
+    for (const rule of withoutComments.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+      if (!/color\s*:/.test(rule[2])) continue;
+      for (const selector of rule[1].split(',')) {
+        const trimmed = selector.trim();
+        // The BARE utility — `.text-gray-500`, not Tailwind's escaped
+        // `.dark\:text-gray-500`, which is a different class entirely and is
+        // supposed to apply in dark mode.
+        if (!/(?:^|[\s>+~])\.text-gray-(?:400|500)\b/.test(trimmed)) continue;
+        if (trimmed.includes('html:not(.dark)') || /(?:^|\s)\.dark(?:\s|$)/.test(trimmed)) continue;
+        offenders.push(trimmed);
+      }
+    }
+
+    expect(offenders, 'these darken grey text in DARK mode too').toEqual([]);
+  });
+
+  it('still applies them in light mode, which is what they are for', () => {
+    // Scoping must not become deleting: Tailwind's gray-500 on white is 4.0:1
+    // and misses AA for body text, which is why these exist.
+    expect(remapCss).toMatch(/html:not\(\.dark\)\s+\.text-gray-500\s*\{[^}]*color:/);
+    expect(remapCss).toMatch(/html:not\(\.dark\)\s+\.text-xs\.text-gray-500/);
+  });
+});

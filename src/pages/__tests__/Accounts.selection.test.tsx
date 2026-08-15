@@ -535,11 +535,16 @@ describe('Accounts list — the arrow keys walk it', () => {
       fireEvent.click(row('Synthetic Everyday'));
       fireEvent.keyDown(row('Synthetic Everyday'), { key: 'ArrowDown' });
 
-      // `nearest`: this is browsing, so the least scroll that shows the row —
-      // and none at all while it is already on screen. A row arrowed onto below
-      // the fold that stayed below the fold would make the arrows useless on
-      // the long list they exist for.
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+      // `center`, and this test used to pin `nearest`. `nearest` is DEFINED
+      // as "scroll the least that makes it visible", so it does nothing while
+      // the row is on screen and then jumps when it reaches an edge — the
+      // owner's report: "the page doesn't move until the highlighted account
+      // is out of sight, then the page starts scrolling". A stall then a lurch.
+      //
+      // `center` keeps the selection mid-screen with the list moving under it,
+      // which is what the register already does (useArrivalFocus). Clamping at
+      // the ends needs no code: a container cannot scroll past its own extent.
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' });
       expect(scrollIntoView.mock.instances[0]).toBe(row('Synthetic Portfolio'));
     } finally {
       restoreScrollIntoView();
