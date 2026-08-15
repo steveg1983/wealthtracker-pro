@@ -461,4 +461,102 @@ describe('Export Data page', () => {
       expect(screen.getByText('No templates')).toBeInTheDocument();
     });
   });
+
+  /**
+   * Password-protecting the backup.
+   *
+   * Two claims worth a test. The first is cryptographic: what lands on disk
+   * must not contain the account names and balances that went in. The second
+   * is Claude Design's ruling of 15 August — the "not encrypted" warning is a
+   * WARNING rather than a caveat, which is why it keeps the amber pair, and
+   * why it must be ABSENT when it is no longer true. Amber that cannot be
+   * absent stops meaning anything.
+   */
+  describe('protecting the full backup with a password', () => {
+    const bundle = buildBackupBundle({
+      sourceUserId: 'source-login',
+      exportedAt: '2026-03-04T10:00:00.000Z',
+      data: {
+        accounts: [{ id: 'acct-1', name: 'Everyday', type: 'current', balance: '10.00' }]
+      },
+      preferences: null
+    });
+
+    const tick = (): void =>
+      fireEvent.click(screen.getByLabelText(/Protect this backup with a password/i));
+
+    const typeBoth = (value: string): void => {
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value } });
+      fireEvent.change(screen.getByLabelText('Password again'), { target: { value } });
+    };
+
+    it('warns that the file is readable, and stops warning once it is not', async () => {
+      renderPage();
+
+      expect(screen.getByText(/not encrypted/i)).toBeInTheDocument();
+
+      tick();
+
+      // The statement has become false, so it goes. What replaces it is the
+      // consequence of the choice just made, which is a different warning.
+      expect(screen.queryByText(/not encrypted/i)).not.toBeInTheDocument();
+      expect(screen.getByText(/cannot be opened/i)).toBeInTheDocument();
+    });
+
+    it('will not export until the two passwords agree', async () => {
+      renderPage();
+      tick();
+
+      const button = screen.getByRole('button', { name: /Download protected backup/i });
+      expect(button).toBeDisabled();
+
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'longenough' } });
+      fireEvent.change(screen.getByLabelText('Password again'), { target: { value: 'different!' } });
+      expect(button).toBeDisabled();
+      expect(screen.getByText(/do not match/i)).toBeInTheDocument();
+
+      typeBoth('longenough');
+      expect(button).toBeEnabled();
+    });
+
+    it('says why a short password is refused rather than just going dead', async () => {
+      renderPage();
+      tick();
+      typeBoth('short');
+
+      expect(screen.getByText(/at least 8 characters/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Download protected backup/i })).toBeDisabled();
+    });
+
+    it('writes a file with nothing readable in it', async () => {
+      seam.collectBackup.mockResolvedValue(bundle);
+      renderPage();
+      tick();
+      typeBoth('a good long password');
+
+      fireEvent.click(screen.getByRole('button', { name: /Download protected backup/i }));
+
+      await waitFor(() => expect(downloads.length).toBe(1));
+      const written = downloads[0].text;
+
+      // The whole point, checked on the actual bytes that reach the disk.
+      expect(written).not.toContain('Everyday');
+      expect(written).not.toContain('10.00');
+      expect(written).not.toContain('acct-1');
+      // And it still says what it is, so a reader is not left guessing.
+      expect(written).toContain('wealthtracker-encrypted-backup');
+      expect(written).toContain('PBKDF2');
+    });
+
+    it('leaves the plain path exactly as it was', async () => {
+      seam.collectBackup.mockResolvedValue(bundle);
+      renderPage();
+
+      fireEvent.click(screen.getByRole('button', { name: /Download full backup/i }));
+
+      await waitFor(() => expect(downloads.length).toBe(1));
+      expect(downloads[0].text).toContain('Everyday');
+    });
+  });
+
 });
