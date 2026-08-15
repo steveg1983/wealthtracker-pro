@@ -106,12 +106,12 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
 
       <UncategorisedReviewBand flows={flows} categories={categories} />
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
-          <h2 className="text-lg font-semibold text-theme-heading dark:text-white">
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white">
             Where the money went
           </h2>
-          <span className="text-lg font-bold tabular-nums text-red-600 dark:text-red-400">
+          <span className="text-card font-bold tabular-nums text-red-600 dark:text-red-400">
             {formatCurrency(flows.expenses)}
           </span>
         </div>
@@ -154,9 +154,9 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
         )}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
         <div className="p-6 pb-3">
-          <h2 className="text-lg font-semibold text-theme-heading dark:text-white">Every category</h2>
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white">Every category</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Ranked by spend. Click any category to see its transactions.
           </p>

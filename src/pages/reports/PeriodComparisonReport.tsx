@@ -208,17 +208,17 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
     goodWhen: 'up' | 'down',
     bucket: 'income' | 'expense' | null
   ): React.JSX.Element => (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
       <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">{label}</p>
       {bucket === null ? (
-        <p className={`text-2xl font-bold mt-1 ${figure.current < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
+        <p className={`text-page font-bold mt-1 ${figure.current < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
           {money(figure.current)}
         </p>
       ) : (
         <button
           type="button"
           onClick={() => drillIntoSide(bucket, 'current', figure.current)}
-          className={`text-2xl font-bold mt-1 rounded hover:underline ${
+          className={`text-page font-bold mt-1 rounded hover:underline ${
             bucket === 'income' ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
           }`}
           title={`${label} — view these transactions`}
@@ -294,7 +294,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
       </div>
 
       {ranges === null || comparison === null ? (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-10 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-10 text-center">
           <p className="text-gray-500 dark:text-gray-400">
             This report needs a period with a start date to compare against.
           </p>
@@ -324,8 +324,8 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
             {summaryCard('Left over', comparison.net, 'up', null)}
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold text-theme-heading dark:text-white mb-1">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
+            <h2 className="text-card font-semibold text-theme-heading dark:text-white mb-1">
               Biggest movers
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
@@ -390,9 +390,9 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
             )}
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
             <div className="p-6 pb-3">
-              <h2 className="text-lg font-semibold text-theme-heading dark:text-white">Category by category</h2>
+              <h2 className="text-card font-semibold text-theme-heading dark:text-white">Category by category</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Click either figure to see the transactions behind it.
               </p>

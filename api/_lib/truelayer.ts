@@ -205,6 +205,36 @@ export const refreshAccessToken = async (refreshToken: string): Promise<TokenRes
   return data;
 };
 
+/**
+ * Tell TrueLayer to forget this connection.
+ *
+ * `DELETE /data/v1/me` revokes the access token and the consent behind it, so
+ * the provider stops holding an authorisation for this user's bank.
+ *
+ * ─ WHY THIS EXISTS ─────────────────────────────────────────────────────────
+ *
+ * Until now `api/banking/disconnect.ts` deleted our own `bank_connections` row
+ * and nothing else. The app forgot the bank; the bank did not forget the app.
+ * That is a defensible thing to ship and an indefensible thing to IMPLY, and
+ * the wording around it implied the stronger one — "Delete All Data", "you
+ * would need to re-authorise".
+ *
+ * Returns whether the provider accepted it rather than throwing, because the
+ * caller has to delete the row either way: refusing to disconnect because a
+ * revocation failed would leave the connection in place, and a connection left
+ * in place is what recreates the accounts on the next sync.
+ */
+export const revokeAccessToken = async (accessToken: string): Promise<boolean> => {
+  const response = await fetch(`${getApiBaseUrl()}/data/v1/me`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+
+  // 401/403 mean the token is already dead, which is the state we were asking
+  // for. Anything else that is not ok is a real failure to revoke.
+  return response.ok || response.status === 401 || response.status === 403;
+};
+
 export interface TrueLayerCard {
   account_id: string;
   card_network?: string;

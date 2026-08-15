@@ -90,7 +90,7 @@ export default function AccountDistributionReport(): React.JSX.Element {
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
-          <h2 className="text-lg font-semibold text-theme-heading dark:text-white">
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white">
             Where the money sits
           </h2>
           <span className="text-dense text-gray-400 dark:text-gray-500">Current balances</span>
@@ -124,7 +124,7 @@ export default function AccountDistributionReport(): React.JSX.Element {
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
         <div className="p-6 pb-3">
-          <h2 className="text-lg font-semibold text-theme-heading dark:text-white">Every account</h2>
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white">Every account</h2>
           <p className="text-body text-gray-500 dark:text-gray-400 mt-1">
             Ranked by what it holds now. Click an account to see its transactions.
           </p>

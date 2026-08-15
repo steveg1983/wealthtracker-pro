@@ -157,6 +157,18 @@ export interface DisconnectRequest {
 
 export interface DisconnectResponse {
   success: boolean;
+  /**
+   * Whether the PROVIDER accepted the revocation, as distinct from whether we
+   * forgot the connection.
+   *
+   * The two used to be the same thing said once, and the thing being said was
+   * the weaker of them: `disconnect` deleted our row and never touched
+   * TrueLayer, so the app forgot the bank and the bank did not forget the app.
+   * The row delete still always happens — a connection left standing recreates
+   * its accounts on the next sync — so this is how a caller can tell a full
+   * disconnection from a local one.
+   */
+  revokedAtProvider?: boolean;
   error?: string;
 }
 

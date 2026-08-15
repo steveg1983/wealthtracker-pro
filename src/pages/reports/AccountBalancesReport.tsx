@@ -78,7 +78,7 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
         <div className="p-6 pb-3">
-          <h2 className="text-lg font-semibold text-theme-heading dark:text-white">
+          <h2 className="text-card font-semibold text-theme-heading dark:text-white">
             Balances by account
           </h2>
           <p className="text-body text-gray-500 dark:text-gray-400 mt-1">

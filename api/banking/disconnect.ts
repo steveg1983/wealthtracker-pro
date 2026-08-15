@@ -4,6 +4,8 @@ import { AuthError, requireAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { createErrorResponse } from '../_lib/http-error.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
+import { decryptSecret } from '../_lib/encryption.js';
+import { revokeAccessToken } from '../_lib/truelayer.js';
 import { withSentry } from '../_lib/sentry.js';
 
 async function handler(req: VercelRequest, res: VercelResponse) {
@@ -24,6 +26,39 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       return createErrorResponse(res, 400, 'connectionId is required', 'invalid_request');
     }
 
+    // ── REVOKE AT THE PROVIDER FIRST, THEN FORGET IT HERE ───────────────
+    //
+    // The row delete below is what stops the connection recreating its
+    // accounts on the next sync. It is NOT what stops TrueLayer holding an
+    // authorisation for this person's bank — until now nothing did, so a
+    // "disconnect" left the app having forgotten the bank and the bank still
+    // holding a live consent.
+    //
+    // Order matters: the token lives in the row, so revoking after deleting is
+    // impossible. Read, revoke, then delete.
+    //
+    // Best effort, deliberately. If TrueLayer refuses, the row STILL goes:
+    // the user asked to disconnect, and a connection left standing is what
+    // recreates the accounts. But the response says so, rather than reporting
+    // a clean disconnection that did not happen.
+    const { data: existing } = await supabase
+      .from('bank_connections')
+      .select('id, provider, access_token_encrypted')
+      .eq('id', body.connectionId)
+      .eq('user_id', auth.userId)
+      .maybeSingle();
+
+    let revokedAtProvider = false;
+    if (existing?.provider === 'truelayer' && existing.access_token_encrypted) {
+      try {
+        revokedAtProvider = await revokeAccessToken(decryptSecret(existing.access_token_encrypted));
+      } catch {
+        // A provider that is down must not trap somebody in a connection they
+        // have asked to leave.
+        revokedAtProvider = false;
+      }
+    }
+
     const { data, error } = await supabase
       .from('bank_connections')
       .delete()
@@ -39,7 +74,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       return createErrorResponse(res, 404, 'Connection not found', 'not_found');
     }
 
-    const response: DisconnectResponse = { success: true };
+    const response: DisconnectResponse = { success: true, revokedAtProvider };
     return res.status(200).json(response);
   } catch (error) {
     if (error instanceof AuthError) {
