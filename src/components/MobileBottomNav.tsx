@@ -63,6 +63,15 @@ export default function MobileBottomNav(): React.JSX.Element {
               that ran to the physical edge; the pill floats clear of it, so the
               menu has to rise from the pill's top rather than from a number
               that used to describe one. */}
+          {/* THE ITEMS NAME THEIR OWN INK. Neither link set a text colour, so
+              both inherited — and what they inherited was the document
+              default, near-black. On the light panel that is correct by
+              accident; on `dark:bg-gray-800` it is near-black on dark grey,
+              which is what the owner reported as "hard to read" the first time
+              he opened this menu on a phone in dark mode.
+
+              Inheriting is the trap: it looks deliberate, and it is right in
+              exactly one of the two modes this panel has. */}
           <div
             className="absolute bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-2 min-w-[200px]"
             style={{ right: '0.75rem', bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}
@@ -73,7 +82,7 @@ export default function MobileBottomNav(): React.JSX.Element {
                 on /accounts the shorter word already means "add an account". */}
             <Link
               to="/accounts?action=add-transaction"
-              className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              className="flex items-center gap-3 px-4 py-3 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               onClick={() => setShowQuickActions(false)}
             >
               <BarChart3Icon size={20} />
@@ -81,7 +90,7 @@ export default function MobileBottomNav(): React.JSX.Element {
             </Link>
             <Link
               to="/accounts?action=add"
-              className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              className="flex items-center gap-3 px-4 py-3 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               onClick={() => setShowQuickActions(false)}
             >
               <WalletIcon size={20} />

@@ -81,6 +81,23 @@ export function NetWorthWidget({ picker, pin }: {
   const { formatCurrency } = useCurrencyDecimal();
   const openReport = useReportDrill();
 
+  /*
+   * THE LINE HAS TO SURVIVE THE GROUND IT IS DRAWN ON.
+   *
+   * This stroke was the literal `#1a2332` — navy-900, the DARKEST step of the
+   * categorical axis. On the light card it is the right ink; on the dark card
+   * it is near-black on #1f2937 and the owner reported the line as simply not
+   * there. The donuts on this same page were converted to the ground-aware
+   * ramp and looked correct throughout, which is exactly why a single
+   * hardcoded series went unnoticed: nothing else on the card was wrong.
+   *
+   * Index 0 rather than a colour of its own — one series should wear the
+   * ramp's most prominent step, and then it moves with the ramp instead of
+   * needing its own dark-mode remembering.
+   */
+  const ramp = useCategoricalRamp();
+  const lineStroke = categoricalColor(ramp, 0);
+
   /**
    * OPEN AND CLOSED. This card draws the same series as the full report and
    * must not disagree with it: the app context holds open accounts only, so
@@ -134,7 +151,7 @@ export function NetWorthWidget({ picker, pin }: {
             <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 10 }} minTickGap={32} />
             <YAxis tick={{ fill: '#6B7280', fontSize: 10 }} tickFormatter={compactTick} width={44} />
             <Tooltip formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
-            <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke="#1a2332" strokeWidth={2} dot={singlePointDot(snapshots, '#1a2332')} isAnimationActive={false} />
+            <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke={lineStroke} strokeWidth={2} dot={singlePointDot(snapshots, lineStroke)} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
