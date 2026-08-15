@@ -197,10 +197,21 @@ export default function AccountSettingsModal({
           ...(resolvePairing(account, accounts, data.type).offered
             ? { parentAccountId: data.parentAccountId || null }
             : {}),
-          // Same rule, same reason: changing an account's type from Loan to
-          // Savings takes the control off screen, and a link written from a
-          // field nobody saw is a link nobody chose.
+          // ONLY WHEN IT ACTUALLY CHANGED, which is a stronger rule than the
+          // one above and is here for a reason the pairing field never had.
+          //
+          // This column arrives with migration 20260815200000, and a database
+          // that has not had it applied yet rejects the WHOLE update when an
+          // unknown column is named — so an unchanged link riding along on
+          // every save took renames and type changes down with it. The owner
+          // hit exactly that: he retyped an account and got "Could not find
+          // the 'securedAgainstAccountId' column of 'accounts'".
+          //
+          // Sending it only on a real change means the migration is required
+          // to USE the feature, not to save an account. It is also just
+          // correct: an update should carry what the user altered.
           ...(resolveSecuring(account, accounts).offered
+            && data.securedAgainstAccountId !== (account.securedAgainstAccountId ?? NOT_SECURED)
             ? { securedAgainstAccountId: data.securedAgainstAccountId || null }
             : {}),
           // Same rule, and for a much sharper reason: only ever written when

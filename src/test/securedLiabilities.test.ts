@@ -19,6 +19,7 @@ import {
 } from '../utils/accountNesting';
 import { extractAccountParents, buildBackupBundle, remapBackupIds } from '../services/backup/format';
 import { resolveSecuring } from '../utils/accountSecuring';
+import { mapAccountToDb } from '../services/api/accountMapping';
 import type { Account } from '../types';
 
 /** The nesting utilities read exactly two fields; this carries a third. */
@@ -119,6 +120,41 @@ describe('which accounts may be secured, and against what', () => {
     const debt = acc('debt', 'loan', { securedAgainstAccountId: 'sold-house' });
     const targets = resolveSecuring(debt, [debt, closed]).options.map(a => a.id);
     expect(targets).toContain('sold-house');
+  });
+});
+
+describe('the write path names a real column', () => {
+  /*
+   * `mapAccountToDb` falls back to `?? field` for anything it has no mapping
+   * for, so an unmapped camelCase name is sent to PostgREST verbatim. PostgREST
+   * rejects the WHOLE update, which means one missing line here breaks saving
+   * an account entirely — including edits to fields the user did touch.
+   *
+   * That is what shipped: the read path was mapped, the write path was not,
+   * and the owner got "Could not find the 'securedAgainstAccountId' column of
+   * 'accounts' in the schema cache" while renaming an account type.
+   */
+  it('maps securedAgainstAccountId to its snake_case column', () => {
+    expect(mapAccountToDb({ securedAgainstAccountId: 'prop-1' }))
+      .toEqual({ secured_against_account_id: 'prop-1' });
+  });
+
+  it('sends null through, because null is how a link is CLEARED', () => {
+    // `undefined` means "leave alone" and is dropped; null must survive.
+    expect(mapAccountToDb({ securedAgainstAccountId: null }))
+      .toEqual({ secured_against_account_id: null });
+  });
+
+  it('emits no camelCase key for any account field it maps', () => {
+    // The general form of the bug, so the next field added cannot repeat it.
+    const columns = mapAccountToDb({
+      securedAgainstAccountId: 'a',
+      parentAccountId: 'b',
+      openingBalanceDate: new Date('2026-01-01T00:00:00.000Z')
+    });
+    for (const key of Object.keys(columns)) {
+      expect(key, `${key} is not a snake_case column name`).not.toMatch(/[A-Z]/);
+    }
   });
 });
 

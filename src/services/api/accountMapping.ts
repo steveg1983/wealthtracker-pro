@@ -204,6 +204,13 @@ const ACCOUNT_FIELD_TO_COLUMN: Record<string, string> = {
   lowBalanceThreshold: 'low_balance_threshold',
   archiveThroughDate: 'archive_through_date',
   parentAccountId: 'parent_account_id',
+  // MISSING THIS BROKE EVERY SAVE ON THE ACCOUNTS THAT COULD SET IT. The
+  // fallback in mapAccountToDb is `?? field`, so an unmapped name is sent to
+  // PostgREST verbatim — "Could not find the 'securedAgainstAccountId' column
+  // of 'accounts' in the schema cache" — and PostgREST rejects the whole
+  // update, taking the user's real edit (a rename, a type change) down with an
+  // unrelated field they never touched.
+  securedAgainstAccountId: 'secured_against_account_id',
   plaidConnectionId: 'plaid_connection_id',
   plaidAccountId: 'plaid_account_id',
   createdAt: 'created_at',
