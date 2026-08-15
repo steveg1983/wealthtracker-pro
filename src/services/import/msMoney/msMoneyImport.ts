@@ -338,8 +338,13 @@ export async function fetchExistingImportState(
  * Not a preference — the database enforces it. accounts goes BEFORE categories
  * because the protect_transfer_category trigger only lets a To/From category go
  * once its account row has gone, and splits go before transactions because they
- * hang off them. Bank-account links cascade away with their accounts; bank
- * connections themselves are kept.
+ * hang off them. Bank-account links cascade away with their accounts.
+ *
+ * Bank CONNECTIONS are not in this list and never were — but they are no longer
+ * kept: `DataServiceImpl.wipeAllFinancialData` revokes them after this pass, on
+ * the API path that also withdraws consent at the bank. Keeping them here made
+ * "Delete All Data" quietly untrue, because the next sync recreated the very
+ * accounts this list had just deleted.
  */
 export const WIPE_TABLE_ORDER: readonly string[] = [
   'transaction_splits', 'transactions', 'budgets', 'goals', 'accounts', 'categories',
