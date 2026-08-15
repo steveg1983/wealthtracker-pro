@@ -65,9 +65,47 @@ interface FormData {
   lowBalanceThreshold: string;
   /** Investment account this one's money sits inside; '' = not paired. */
   parentAccountId: string;
+  securedAgainstAccountId: string;
 }
 
 const NO_PARENT_ACCOUNT = '';
+const NOT_SECURED = '';
+
+/** The types that are somebody's debt. Everything else can BE secured against. */
+const LIABILITY_TYPES: ReadonlySet<string> = new Set(['loan', 'credit', 'other']);
+
+/**
+ * What this liability may be held against: any account that is not itself a
+ * debt, and is not this one.
+ *
+ * Nested accounts ARE offered, unlike the pairing dropdown above, and the
+ * asymmetry is deliberate. Pairing refuses them because nesting a nested
+ * account would make a chain that has to be walked and could cycle. Securing
+ * walks nothing — it is one hop, read for display — so a loan may perfectly
+ * well be held against a cash sleeve inside a portfolio, which is exactly the
+ * arrangement the owner described.
+ */
+function resolveSecuring(
+  account: BaseAccount,
+  accounts: readonly BaseAccount[],
+  selectedType: BaseAccount['type']
+): PairingState {
+  const options = accounts.filter(a =>
+    !LIABILITY_TYPES.has(a.type) &&
+    a.id !== account.id &&
+    a.isActive !== false
+  );
+  const current = account.securedAgainstAccountId
+    ? accounts.find(a => a.id === account.securedAgainstAccountId)
+    : undefined;
+  // A target that has since been closed stays listed, or saving any other
+  // change on this form would silently drop the link.
+  if (current && !options.some(a => a.id === current.id)) options.push(current);
+  return {
+    offered: LIABILITY_TYPES.has(selectedType) && options.length > 0,
+    options
+  };
+}
 
 /** What the pairing field may offer this account, and whether it appears at all. */
 interface PairingState {
@@ -158,7 +196,8 @@ export default function AccountSettingsModal({
       isActive: true,
       lowBalanceAlertEnabled: false,
       lowBalanceThreshold: '',
-      parentAccountId: NO_PARENT_ACCOUNT
+      parentAccountId: NO_PARENT_ACCOUNT,
+      securedAgainstAccountId: NOT_SECURED
     },
     {
       onSubmit: async (data) => {
@@ -192,6 +231,12 @@ export default function AccountSettingsModal({
           // clears it — mapAccountToDb drops undefined fields.
           ...(resolvePairing(account, accounts, data.type).offered
             ? { parentAccountId: data.parentAccountId || null }
+            : {}),
+          // Same rule, same reason: changing an account's type from Loan to
+          // Savings takes the control off screen, and a link written from a
+          // field nobody saw is a link nobody chose.
+          ...(resolveSecuring(account, accounts, data.type).offered
+            ? { securedAgainstAccountId: data.securedAgainstAccountId || null }
             : {}),
           // Same rule, and for a much sharper reason: only ever written when
           // the field was EDITABLE. On an account with history the value on
@@ -255,7 +300,8 @@ export default function AccountSettingsModal({
         isActive: account.isActive !== false,
         lowBalanceAlertEnabled: account.lowBalanceAlertEnabled ?? false,
         lowBalanceThreshold: account.lowBalanceThreshold != null ? account.lowBalanceThreshold.toString() : '',
-        parentAccountId: account.parentAccountId ?? NO_PARENT_ACCOUNT
+        parentAccountId: account.parentAccountId ?? NO_PARENT_ACCOUNT,
+        securedAgainstAccountId: account.securedAgainstAccountId ?? NOT_SECURED
       });
     }
   }, [account, setFormData]);
@@ -288,6 +334,7 @@ export default function AccountSettingsModal({
   // (so editing a closed account never quietly reopens it).
   const isClosedAccount = account.isActive === false;
   const pairing = resolvePairing(account, accounts, formData.type);
+  const securing = resolveSecuring(account, accounts, formData.type);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Account Settings" size="md">
@@ -501,6 +548,35 @@ export default function AccountSettingsModal({
                 keeps its own register and transactions; it moves inside that
                 account on the Accounts page, and its balance counts towards
                 that investment's value.
+              </p>
+            </div>
+          )}
+
+          {/* What this debt is held against — see the Account type for why this
+              is not the pairing above. The helper text has to do real work
+              here: the two controls look identical and mean opposite things
+              about totals, so it says plainly that nothing moves and nothing
+              is added. */}
+          {securing.offered && (
+            <div>
+              <label htmlFor="account-secured-against" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Secured against
+              </label>
+              <select
+                id="account-secured-against"
+                value={formData.securedAgainstAccountId}
+                onChange={(e) => updateField('securedAgainstAccountId', e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
+              >
+                <option value={NOT_SECURED}>Nothing — this is an unsecured debt</option>
+                <GroupedAccountOptions accounts={securing.options} />
+              </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                For a mortgage held against a property, or a loan drawn against
+                an investment. This account stays where it is under Liabilities
+                and its balance is not added to anything — the link only shows
+                the two together, and lets the Investments page offer a net
+                position if you want one.
               </p>
             </div>
           )}

@@ -119,10 +119,23 @@ export type CategoryLevel = (typeof CATEGORY_LEVELS)[number];
  */
 export const RESTORE_CHUNK_SIZE = 500;
 
-/** Accounts that hang under another account, closed after every row exists. */
+/**
+ * Account→account references closed after every row exists.
+ *
+ * Two different relationships travel together because they are closed in the
+ * same second pass, not because they mean the same thing: `parent_account_id`
+ * nests and counts (the investment cash pairing), `secured_against_account_id`
+ * does neither (a mortgage against its property). See the Account type.
+ *
+ * `parent_account_id` is nullable HERE and not in the column, because a row
+ * may now carry only the secured link. Older bundles have neither field
+ * missing nor null — they simply never mention the second one, which reads as
+ * undefined and restores as an unsecured liability.
+ */
 export interface AccountParentLink {
   id: string;
-  parent_account_id: string;
+  parent_account_id: string | null;
+  secured_against_account_id?: string | null;
 }
 
 /** A transfer's pointer at its other half, closed in the same second pass. */
@@ -187,7 +200,17 @@ export function extractAccountParents(rows: readonly BackupRow[]): AccountParent
   for (const row of rows) {
     const id = readString(row, 'id');
     const parent = readString(row, 'parent_account_id');
-    if (id && parent) links.push({ id, parent_account_id: parent });
+    const secured = readString(row, 'secured_against_account_id');
+    // EITHER link is worth a row. Requiring a parent here would drop every
+    // liability that is secured against something without being nested under
+    // it — which is all of them, since securing deliberately does not nest.
+    if (id && (parent || secured)) {
+      links.push({
+        id,
+        parent_account_id: parent ?? null,
+        ...(secured ? { secured_against_account_id: secured } : {})
+      });
+    }
   }
   return links;
 }
@@ -371,10 +394,15 @@ function validateLinks(value: unknown): { ok: true; links: BackupLinks } | { ok:
     }
     const id = readString(entry, 'id');
     const parent = readString(entry, 'parent_account_id');
-    if (!id || !parent) {
-      return { ok: false, problem: 'Every entry in "links.account_parents" needs both an id and a parent_account_id.' };
+    const secured = readString(entry, 'secured_against_account_id');
+    if (!id || (!parent && !secured)) {
+      return { ok: false, problem: 'Every entry in "links.account_parents" needs an id and at least one of parent_account_id or secured_against_account_id.' };
     }
-    account_parents.push({ id, parent_account_id: parent });
+    account_parents.push({
+      id,
+      parent_account_id: parent ?? null,
+      ...(secured ? { secured_against_account_id: secured } : {})
+    });
   }
 
   const transaction_links: TransactionLink[] = [];
@@ -620,7 +648,7 @@ interface EntityReferences {
 }
 
 const ENTITY_REFERENCES: Readonly<Record<BackupEntity, EntityReferences>> = {
-  accounts: { uuid: ['parent_account_id'] },
+  accounts: { uuid: ['parent_account_id', 'secured_against_account_id'] },
   categories: { uuid: ['parent_id', 'account_id'] },
   transactions: {
     uuid: ['account_id', 'category_id', 'transfer_account_id', 'linked_transfer_id', 'linked_transfer_split_id'],
@@ -966,11 +994,22 @@ export function remapBackupIds(
   // every transfer pointing at the id it had in the old login.
   const account_parents: AccountParentLink[] = bundle.links.account_parents.map((link) => {
     const id = idMap.get(link.id) ?? link.id;
-    const parent = idMap.get(link.parent_account_id);
-    if (parent === undefined) {
-      danglingRefs.push({ entity: 'links.account_parents', rowId: id, field: 'parent_account_id', value: link.parent_account_id });
-    }
-    return { id, parent_account_id: parent ?? link.parent_account_id };
+    const remapAccount = (field: 'parent_account_id' | 'secured_against_account_id', value: string | null | undefined): string | null | undefined => {
+      if (value === null || value === undefined) return value;
+      const mapped = idMap.get(value);
+      if (mapped === undefined) {
+        danglingRefs.push({ entity: 'links.account_parents', rowId: id, field, value });
+        return value;
+      }
+      return mapped;
+    };
+    const parent = remapAccount('parent_account_id', link.parent_account_id) ?? null;
+    const secured = remapAccount('secured_against_account_id', link.secured_against_account_id);
+    return {
+      id,
+      parent_account_id: parent,
+      ...(secured === undefined ? {} : { secured_against_account_id: secured })
+    };
   });
 
   const transaction_links: TransactionLink[] = bundle.links.transaction_links.map((link) => {

@@ -346,7 +346,10 @@ export const ACCOUNT_COLUMNS: readonly Column[] = [
   { key: 'bank_balance_date', field: 'bankBalanceDate', kind: 'day' },
   { key: 'last_reconciled_date', field: 'lastReconciledDate', kind: 'day' },
   { key: 'last_reconciled_balance', field: 'lastReconciledBalance', kind: 'money' },
-  { key: 'parent_account_id', field: 'parentAccountId', kind: 'text' }
+  { key: 'parent_account_id', field: 'parentAccountId', kind: 'text' },
+  // Display + one opt-in total only — never nests, never counts. See the
+  // Account type and migration 20260815200000.
+  { key: 'secured_against_account_id', field: 'securedAgainstAccountId', kind: 'text' }
 ];
 
 /**
