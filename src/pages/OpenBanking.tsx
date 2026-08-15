@@ -253,7 +253,6 @@ export default function OpenBanking() {
                 className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
               >
                 <div className="flex items-center gap-3">
-                  <BankIcon size={24} className="text-blue-600" />
                   <div>
                     <p className="font-medium">{connection.institutionName}</p>
                     <div className="flex items-center gap-2 text-sm text-gray-500">

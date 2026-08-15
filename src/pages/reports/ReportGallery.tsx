@@ -53,21 +53,23 @@ export default function ReportGallery(): React.JSX.Element {
 
             <ul className={`grid grid-cols-1 ${gridColumnsClass(reports.length)} gap-4`}>
               {reports.map(report => {
-                const Icon = report.icon;
                 return (
                   <li key={report.id}>
                     {/* No chevron: the whole card is the link, and an arrow
                         announcing that is chrome charged against the words that
-                        say what the report is (P1). No tile behind the icon
-                        either — a 20px glyph does not need a box to be found. */}
+                        say what the report is (P1).
+                        No icon either, since 15 August. The note that used to
+                        stand here argued a 20px glyph needs no box behind it —
+                        true, and it stopped one step short. Eleven cards each
+                        carrying a glyph, three of them the same pie, meant the
+                        icons distinguished nothing and the titles did all the
+                        work. The same reduction the Accounts page made when it
+                        dropped its per-row type icons (#281): one icon per
+                        KIND, never one per row. */}
                     <Link
                       to={preserveDemoParam(`/reports/${report.id}`, location.search)}
                       className="group h-full flex items-start gap-3 bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 hover:border-primary dark:hover:border-blue-500 transition-colors duration-state"
                     >
-                      <Icon
-                        size={20}
-                        className="mt-0.5 flex-shrink-0 text-gray-500 dark:text-gray-400 group-hover:text-primary dark:group-hover:text-blue-400"
-                      />
                       <span className="min-w-0 flex-1">
                         <span className="block text-body font-semibold text-gray-900 dark:text-white group-hover:text-primary dark:group-hover:text-blue-400">
                           {report.title}

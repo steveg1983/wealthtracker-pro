@@ -13,13 +13,11 @@ import { WIDGET_SUBTITLE_SLOT } from './widgetChrome';
  */
 export default function DashboardWidgetCard({
   title,
-  icon: Icon,
   subtitle,
   onOpen,
   children,
 }: {
   title: string;
-  icon: React.ElementType;
   /**
    * The line under the title. Optional: a card with no chart (a pinned custom
    * report) has nothing to line up with, and an empty slot there would be a gap
@@ -43,7 +41,6 @@ export default function DashboardWidgetCard({
         className={`flex items-center gap-2 text-left group ${subtitle === undefined ? 'mb-2' : 'mb-1'}`}
         title="Open the full report"
       >
-        <Icon size={18} className="text-gray-500" aria-hidden="true" />
         <span className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
           {title}
         </span>

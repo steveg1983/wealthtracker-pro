@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import { useApp } from '../../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../../hooks/useCurrencyDecimal';
-import { categoricalColor, useCategoricalRamp, SEMANTIC_SERIES } from '../../charts/chartColors';
+import { categoricalColor, MAX_CATEGORICAL_SERIES, useCategoricalRamp, SEMANTIC_SERIES } from '../../charts/chartColors';
 import { singlePointDot } from '../../charts/singlePointDots';
 import { buildMonthlyTrend } from '../../../utils/monthlyTrend';
 import { buildNetWorthSnapshots, netWorthPointToken } from '../../../utils/netWorthSeries';
@@ -22,7 +22,6 @@ import { expandSplitTransactions } from '../../../utils/transactionSplits';
 import { formatDecimal } from '../../../utils/decimal-format';
 import type { UsePeriodResult } from '../../../hooks/usePeriod';
 import type { CardPeriodPin } from '../../../hooks/useCardPeriod';
-import { TrendingUpIcon, PieChartIcon, BarChart3Icon, FileTextIcon } from '../../icons';
 import DashboardWidgetCard from './DashboardWidgetCard';
 import CardPeriodControl from './CardPeriodControl';
 import { WIDGET_CHART_HEIGHT } from './widgetChrome';
@@ -102,7 +101,6 @@ export function NetWorthWidget({ picker, pin }: {
   return (
     <DashboardWidgetCard
       title={NET_WORTH_TITLE}
-      icon={TrendingUpIcon}
       subtitle={
         <>
           <span className="min-w-0 text-xl font-bold text-gray-900 dark:text-white truncate">
@@ -171,7 +169,6 @@ export function IncomeExpenseTrendWidget({ picker, pin }: {
   return (
     <DashboardWidgetCard
       title={INCOME_EXPENSE_TITLE}
-      icon={BarChart3Icon}
       subtitle={
         <>
           <span className="min-w-0 text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -232,7 +229,10 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
       if (range.to && time > range.to.getTime()) return false;
       return true;
     });
-    const top = computeExpenseCategoryNetTotals(rows, categories).slice(0, 6);
+    // FIVE, from the palette, not six. Six slices against a five-colour ramp
+    // meant the sixth was painted like the first — reported by the owner as
+    // "the pie is split into 5 sections and the legend lists 6".
+    const top = computeExpenseCategoryNetTotals(rows, categories).slice(0, MAX_CATEGORICAL_SERIES);
     /*
      * The share is of THE SLICES SHOWN, not of all spending — the ring is the
      * top six and the percentages have to add up to the ring the reader is
@@ -254,7 +254,6 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
   return (
     <DashboardWidgetCard
       title={EXPENSE_CATEGORIES_TITLE}
-      icon={PieChartIcon}
       subtitle={
         <>
           <span className="min-w-0 text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -382,7 +381,6 @@ export function CustomReportWidget({ reportId }: { reportId: string }): React.JS
   return (
     <DashboardWidgetCard
       title={report.name}
-      icon={FileTextIcon}
       onOpen={() => openReport('custom-reports')}
     >
       <p className="text-sm text-gray-500 dark:text-gray-400">

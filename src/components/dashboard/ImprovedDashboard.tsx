@@ -588,7 +588,6 @@ export function ImprovedDashboard() {
       <section aria-labelledby="pinned-reports-heading">
         <div className="flex items-center justify-between gap-3 mb-3">
           <h3 id="pinned-reports-heading" className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <BarChart3Icon size={24} className="text-gray-500" />
             Your Reports
           </h3>
           <button
@@ -626,7 +625,6 @@ export function ImprovedDashboard() {
               {pieData.length > 0 && (
                 <DashboardWidgetCard
                   title="Account Distribution"
-                  icon={PieChartIcon}
                   subtitle={
                     <>
                       <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -859,7 +857,6 @@ export function ImprovedDashboard() {
       >
         <div className="flex items-center justify-between mb-4">
           <h3 id="key-accounts-heading" className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <WalletIcon size={24} className="text-gray-500" />
             Key Account Balances
             {displayedAccounts.length > 0 && (
               <span className="text-sm font-normal text-gray-500 dark:text-gray-400 whitespace-nowrap">

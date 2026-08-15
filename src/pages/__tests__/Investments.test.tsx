@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import Investments from '../Investments';
@@ -89,14 +89,25 @@ describe('Investments page — the pair is the portfolio', () => {
     expect(screen.queryByRole('heading', { level: 3, name: 'Fund ISA (Cash)' })).not.toBeInTheDocument();
 
     // Sub-line under the row: the importer's "<Name> (Cash)" reads as 'Cash'.
-    expect(screen.getByText('Cash')).toBeInTheDocument();
-    expect(screen.getByText('£200.00')).toBeInTheDocument();
+    // Scoped to the Holdings list because "Allocation by holding" (added 15
+    // August) has a Cash slice of its own — a second, deliberate use of the
+    // word on this page, and a page-wide getByText can no longer tell them
+    // apart. Asserting on the one this test is about, not on there being one.
+    const holdingsPanel = screen.getByRole('heading', { name: 'Holdings' }).closest('div');
+    expect(holdingsPanel).not.toBeNull();
+    expect(within(holdingsPanel as HTMLElement).getByText('Cash')).toBeInTheDocument();
+    expect(within(holdingsPanel as HTMLElement).getByText('£200.00')).toBeInTheDocument();
   });
 
   it('counts the whole portfolio once, at 100% allocation', async () => {
     renderInvestments();
 
-    expect(await screen.findAllByText('100.00%')).toHaveLength(2);
+    // THREE since 15 August, not two: the fixture's single account is 100% of
+    // the account ring, 100% of its own row — and now 100% of the new
+    // "Allocation by holding" ring too, whose only slice is that account's
+    // cash. The count is the point of the test (nothing is double-counted), so
+    // it moves with the page rather than being loosened to "at least one".
+    expect(await screen.findAllByText('100.00%')).toHaveLength(3);
   });
 });
 

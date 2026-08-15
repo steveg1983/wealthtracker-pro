@@ -17,6 +17,7 @@ import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaCh
 import type { RecurringPattern } from '../services/cashFlowForecastService';
 import type { DecimalInstance } from '../types/decimal-types';
 import { toDecimal } from '../utils/decimal';
+import { useChartTooltipStyle } from './charts/chartColors';
 
 interface CashFlowForecastProps {
   accountIds?: string[];
@@ -24,6 +25,7 @@ interface CashFlowForecastProps {
 }
 
 export default function CashFlowForecast({ accountIds, className = '' }: CashFlowForecastProps) {
+  const chartTooltipStyle = useChartTooltipStyle();
   const { formatCurrency } = useCurrencyDecimal();
   const [forecastMonths, setForecastMonths] = useState(6);
   const [showPatterns, setShowPatterns] = useState(false);
@@ -220,11 +222,7 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
               />
               <Tooltip 
                 formatter={(value: number) => formatCurrency(toDecimal(value))}
-                contentStyle={{ 
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  border: '1px solid #ccc',
-                  borderRadius: '8px'
-                }}
+                contentStyle={chartTooltipStyle}
               />
               <ReferenceLine y={0} stroke="#ff0000" strokeDasharray="3 3" />
               <Area

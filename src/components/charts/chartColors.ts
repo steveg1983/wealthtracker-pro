@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useEffect, useState } from 'react';
 
 /**
@@ -87,6 +88,61 @@ const RAMP_ON_LIGHT = ['#1a2332', '#4c6080', '#242f40', '#6b86b3', '#2d3a4d'] as
 /** The same, from the light end, for a dark ground (1.59:1 worst adjacent pair). */
 const RAMP_ON_DARK = ['#94a3b8', '#cdd4e0', '#8095b6', '#b1bccc', '#6b86b3'] as const;
 
+/**
+ * HOW MANY SLICES A CHART MAY DRAW.
+ *
+ * Five, because the ramp is five, because the axis is ONE HUE walked and each
+ * ground can only use the half of it that clears 3:1 against that ground. Ask
+ * for a sixth and `categoricalColor` cycles: slice 6 is painted exactly like
+ * slice 1, and the picture stops being readable in a way no contrast figure
+ * reports — the Dashboard's expense donut drew six against five and two
+ * categories shared a colour.
+ *
+ * So the cap is not a layout preference, it is the palette's own arithmetic,
+ * and it belongs beside the palette rather than as a number in each widget.
+ * A chart with more than five things to say needs a grouped remainder, not a
+ * longer ramp.
+ */
+export const MAX_CATEGORICAL_SERIES = 5;
+
+/**
+ * The slices a chart may draw, with everything past the ceiling folded into one
+ * named remainder.
+ *
+ * Written once because it went wrong three times in the same week, identically:
+ * the Dashboard's expense donut, the Investments allocation ring and the custom
+ * report viewer's pie each drew more series than the ramp has colours, so the
+ * sixth slice was painted like the first.
+ *
+ * The remainder is NAMED WITH ITS COUNT ("8 smaller accounts") rather than
+ * called "Other", for two reasons: "Other" is a real category in some ledgers
+ * and would collide, and a reader who can see how many things were folded can
+ * tell whether the fold hid something worth looking at.
+ *
+ * Callers must draw the ring AND the legend from the returned array. Drawing
+ * the ring from the raw data and the legend from this is precisely the bug it
+ * exists to prevent.
+ */
+export function capSeriesWithRemainder<T>(
+  items: readonly T[],
+  value: (item: T) => number,
+  name: (item: T) => string,
+  remainderLabel: (count: number) => string
+): Array<{ name: string; value: number }> {
+  const all = items.map((item) => ({ name: name(item), value: value(item) }));
+  if (all.length <= MAX_CATEGORICAL_SERIES) return all;
+
+  const shown = all.slice(0, MAX_CATEGORICAL_SERIES - 1);
+  const rest = all.slice(MAX_CATEGORICAL_SERIES - 1);
+  return [
+    ...shown,
+    {
+      name: remainderLabel(rest.length),
+      value: rest.reduce((sum, entry) => sum + entry.value, 0)
+    }
+  ];
+}
+
 /** The ramp for a given ground. Cycle past the end with `categoricalColor`. */
 export function categoricalRamp(isDarkGround: boolean): readonly string[] {
   return isDarkGround ? RAMP_ON_DARK : RAMP_ON_LIGHT;
@@ -116,7 +172,7 @@ function isDarkGround(): boolean {
  * would keep its light-ground slices after the app went dark, and two of them
  * would be invisible until something unrelated forced a re-render.
  */
-export function useCategoricalRamp(): readonly string[] {
+export function useIsDarkGround(): boolean {
   const [dark, setDark] = useState(isDarkGround);
 
   useEffect(() => {
@@ -128,7 +184,40 @@ export function useCategoricalRamp(): readonly string[] {
     return () => observer.disconnect();
   }, []);
 
-  return categoricalRamp(dark);
+  return dark;
+}
+
+export function useCategoricalRamp(): readonly string[] {
+  return categoricalRamp(useIsDarkGround());
+}
+
+/**
+ * The Recharts tooltip surface, for the ground currently on screen.
+ *
+ * Four charts spelled `rgba(255, 255, 255, 0.95)` with a `#ccc` border inline.
+ * That is readable in dark mode — Recharts' own label text is dark, so it is
+ * dark-on-white — but it is a white card thrown onto a near-black page, which
+ * reads as a rendering fault rather than a design.
+ *
+ * It watches the `dark` class through the same hook as the ramp, and for the
+ * same reason: the class is toggled on `<html>` directly, so a value read once
+ * at render survives into the wrong theme.
+ */
+export function useChartTooltipStyle(): React.CSSProperties {
+  const dark = useIsDarkGround();
+  return dark
+    ? {
+        backgroundColor: 'rgba(31, 41, 55, 0.97)', // gray-800
+        border: '1px solid #4b5563', // gray-600
+        borderRadius: '8px',
+        color: '#f9fafb',
+      }
+    : {
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        border: '1px solid #ccc',
+        borderRadius: '8px',
+        color: '#111827',
+      };
 }
 
 /**

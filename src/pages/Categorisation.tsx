@@ -10,7 +10,8 @@ import { useToast } from '../contexts/ToastContext';
 import TransferSweepModal from '../components/TransferSweepModal';
 import BulkCategorizeModal from '../components/BulkCategorizeModal';
 import ReportDrillModal, { type ReportDrillTarget } from '../components/reports/ReportDrillModal';
-import { ArrowRightLeftIcon, TagIcon, ListIcon, CheckCircleIcon, Building2Icon, ChevronRightIcon } from '../components/icons';
+import { ArrowRightLeftIcon, TagIcon, ListIcon, CheckCircleIcon, ChevronRightIcon } from '../components/icons';
+import EmptyState from '../components/EmptyState';
 import type { Transaction } from '../types';
 
 /**
@@ -127,14 +128,19 @@ export default function Categorisation(): React.JSX.Element {
       </div>
 
       {count === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 p-8 text-center">
-          <CheckCircleIcon size={32} className="mx-auto text-blue-600 dark:text-blue-400" />
-          <p className="mt-3 font-semibold text-gray-900 dark:text-white">Everything is filed</p>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {suggestedCount === 0
-              ? 'Every transaction has a category, so every report is counting all of your money.'
-              : 'Every transaction has a category, so every report is counting all of your money — but some of those categories are still the app’s suggestions, below.'}
-          </p>
+        // The hand-rolled centred copy this page carried since batch 7 is what
+        // exposed the inconsistency — and it was the one that was right. Now
+        // the shared component, which the owner centred app-wide on 15 August.
+        <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700">
+          <EmptyState
+            icon={<CheckCircleIcon size={32} className="text-blue-600 dark:text-blue-400" />}
+            title="Everything is filed"
+            description={
+              suggestedCount === 0
+                ? 'Every transaction has a category, so every report is counting all of your money.'
+                : 'Every transaction has a category, so every report is counting all of your money — but some of those categories are still the app’s suggestions, below.'
+            }
+          />
         </div>
       ) : (
         <>
@@ -199,9 +205,6 @@ export default function Categorisation(): React.JSX.Element {
                   onClick={() => openDrill(`Uncategorised — ${accountName(accountId)}`, accountRows)}
                   className="w-full text-left bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary hover:shadow-md transition-all p-4 flex items-center gap-3"
                 >
-                  <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg flex-shrink-0">
-                    <Building2Icon size={20} className="text-gray-600 dark:text-gray-400" />
-                  </div>
                   <span className="font-medium text-gray-900 dark:text-white truncate min-w-0 flex-1">
                     {accountName(accountId)}
                   </span>
