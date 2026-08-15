@@ -471,13 +471,16 @@ export default function Investments() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
+            {/* No glyph. A bar chart beside "Portfolio Value" says the word
+                again in a picture; the arrows on Total Return and Return %
+                below stay, because those carry DIRECTION and a direction is
+                not decoration. Same reduction as #281 and #296. */}
             <div>
               <p className="text-body text-gray-500 dark:text-gray-400">Portfolio Value</p>
               <p className="text-page font-bold text-gray-900 dark:text-white">
                 {formatCurrency(summary.value)}
               </p>
             </div>
-            <BarChart3Icon className="text-primary" size={24} />
           </div>
         </div>
 
@@ -492,7 +495,6 @@ export default function Investments() {
                 Transferred in, less transferred out
               </p>
             </div>
-            <BarChart3Icon className="text-blue-500" size={24} />
           </div>
         </div>
 

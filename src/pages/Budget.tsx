@@ -358,12 +358,13 @@ export default function Budget() {
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
+              {/* No banknote. See the Investments summary cards — a picture of
+                  money beside a money figure is the label twice. */}
               <p className="text-gray-600 dark:text-gray-400 text-body">Total Budgeted</p>
               <p className="text-page font-bold text-gray-900 dark:text-white">
                 {isLoading ? <SkeletonText className="w-32 h-8" /> : totalBudgeted}
               </p>
             </div>
-            <BanknoteIcon className="text-gray-400" size={24} />
           </div>
         </div>
 
