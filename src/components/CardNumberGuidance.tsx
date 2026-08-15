@@ -27,20 +27,39 @@ export default function CardNumberGuidance({
 
   return (
     <>
+      {/* ONE line, and NOT amber. Claude Design, 15 August.
+       *
+       * It was two paragraphs — about fifty words under one optional field, in
+       * a modal where no other field has any — and the second was in the
+       * warning pair. Applying their own export test: a warning describes a
+       * consequence OUTSIDE the app of the action about to be taken, and a
+       * reader who skims it can be harmed. This says the opposite. Nothing the
+       * user types can escape, because the app drops it before saving.
+       *
+       * That is a REASSURANCE, and the ruling names it as a fourth category
+       * beside caveat / warning / next action:
+       *
+       *   Reassurance — states a protection the app applies to the user's
+       *   data. Neutral or positive. Never the warning pair.
+       *
+       * Amber here made the reader tense at the colour and then read text
+       * telling them they are safe. The writing was already good; only the
+       * colour was making a claim the words did not. */}
       <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-        The last 4 digits printed on the card are what matches this account to
-        your bank feed, so a linked card lands here instead of asking you every
-        time.
-      </p>
-      <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-        Only the last 4 digits are ever saved. Anything longer is dropped when
-        you save, so a full card number never reaches your backups, your JSON
-        export or your audit history.
+        The last 4 digits are what match this account to your bank feed. Anything
+        longer is dropped when you save — a full card number is never stored.
       </p>
       <div role="status">
         {hasMoreThanLastFour(value) && (
-          <div className="mt-2 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-3 py-2">
-            <p className="text-xs text-amber-800 dark:text-amber-300">
+          /* The live one goes the same way, and for the same reason. It tells
+             you what the app is about to protect you from, which is the
+             reassurance category again — the reader has done nothing wrong,
+             and amber says they have. It stays a panel so it is still noticed;
+             it stops being an alarm. (Design ruled on the static line; this is
+             their principle applied to its neighbour, which is worth their
+             confirming.) */
+          <div className="mt-2 rounded-xl border border-line dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2">
+            <p className="text-xs text-gray-600 dark:text-gray-300">
               That is {digits.length} digits. Saving will store {keepLastFour(value)} and
               discard the rest.
             </p>

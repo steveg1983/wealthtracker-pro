@@ -235,6 +235,31 @@ body {
   --tw-ring-color: var(--color-primary) !important;
 }
 
+/* …and both of them in dark mode, for the reason `.text-primary` needed one.
+ *
+ * `--color-primary` is rgb(26 35 50). As a BACKGROUND that is a brand surface
+ * and correct on both grounds, which is why the dark-mode sweep left
+ * `.bg-primary` alone. As a BORDER it is usually not a surface at all — it is
+ * the ring that says WHICH TILE IS SELECTED, and navy on a gray-800 modal is
+ * no ring.
+ *
+ * Found on the Add Account modal: Claude Design read four dark captures and
+ * reported that the default type "is selected in state but not in the tiles".
+ * The tile was ringed the whole time. `formData.type` starts 'current' and the
+ * selected branch applies — the ring simply could not be seen, and neither
+ * could `dark:bg-[#1a2332]/20` behind it.
+ *
+ * The slate is the one the focus ring already uses on dark (`.dark`'s
+ * `--focus-ring-color`), so a selected tile and a focused control belong to
+ * the same family instead of inventing a second highlight colour. */
+.dark .border-primary {
+  border-color: #94a3b8 !important;
+}
+
+.dark .ring-primary {
+  --tw-ring-color: #94a3b8 !important;
+}
+
 .hover\:bg-secondary:hover {
   background-color: var(--color-secondary) !important;
 }
@@ -256,6 +281,9 @@ body {
   background-color: var(--color-sidebar-active) !important;
 }
 
+/* dark-exempt: the sidebar is navy in BOTH modes — it is a brand surface, not
+   a themed one — so a border drawn against it needs no counterpart. The ground
+   is what decides, and this ground does not move. */
 .border-sidebar {
   border-color: var(--color-sidebar-border) !important;
 }
@@ -325,6 +353,10 @@ body {
   background-color: var(--color-light-accent) !important;
 }
 
+/* dark-exempt: unused. Nothing in src/ carries this class — kept with its
+   `bg-theme-accent` sibling rather than deleted piecemeal. If it is ever used,
+   #f1f3f7 is a near-white line and will want a dark value; the guard will not
+   catch that, because this comment is what silences it. */
 .border-theme-accent {
   border-color: var(--color-light-accent) !important;
 }

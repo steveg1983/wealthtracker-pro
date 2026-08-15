@@ -3,11 +3,15 @@ import { describe, expect, it } from 'vitest';
 import CardNumberGuidance from './CardNumberGuidance';
 
 describe('CardNumberGuidance', () => {
-  it('states the rule before anything has been typed', () => {
+  it('states the rule before anything has been typed, in one line', () => {
+    // Two paragraphs until 15 August — about fifty words under one optional
+    // field — and the second wore the warning pair while saying the user was
+    // safe. Claude Design merged them and ruled the colour off: a REASSURANCE
+    // states a protection the app applies, and never takes the warning pair.
     render(<CardNumberGuidance value="" />);
 
     expect(
-      screen.getByText(/Only the last 4 digits are ever saved/)
+      screen.getByText(/a full card number is never stored/i)
     ).toBeInTheDocument();
   });
 

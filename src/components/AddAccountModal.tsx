@@ -116,7 +116,15 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
         throw new Error('Account name is required');
       }
       
-      const balance = parseMoneyInput(formData.balance) ?? NaN;
+      // BLANK MEANS ZERO, which is what a new account opened today holds.
+      // The field stopped being `required` with this (Claude Design, 15 Aug);
+      // without this line the two disagreed and an empty box was refused by
+      // the validator instead of the browser — the same dead end one layer
+      // down. Something TYPED that will not parse is still an error: "abc" is
+      // a mistake, and empty is an answer.
+      const balance = formData.balance.trim() === ''
+        ? 0
+        : parseMoneyInput(formData.balance) ?? NaN;
       if (isNaN(balance)) {
         throw new Error('Please enter a valid balance');
       }
@@ -179,7 +187,6 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
     }
   };
 
-  const selectedType = accountTypes.find(t => t.value === formData.type);
   const selectedCurrency = currencies.find(c => c.value === formData.currency);
   const isCreditCard = isCardAccountType(formData.type);
   const isBankAccount = formData.type === 'current' || formData.type === 'savings';
@@ -239,7 +246,12 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                       aria-pressed={isSelected}
                       className={`p-3 rounded-xl border-2 transition-all duration-200 ${
                         isSelected
-                          ? 'border-primary bg-[#1a2332]/10 dark:bg-[#1a2332]/20'
+                          // The FILL, which was `dark:bg-[#1a2332]/20` — navy at
+                          // a fifth, on a gray-800 modal. Under a ring that was
+                          // itself navy (see index.css), a selected tile in dark
+                          // mode looked exactly like an unselected one, which is
+                          // what Claude Design read as "no type is chosen".
+                          ? 'border-primary bg-[#1a2332]/10 dark:bg-gray-700'
                           : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                       } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
@@ -283,7 +295,11 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                     value={formData.balance}
                     onChange={(value) => updateField('balance', value)}
                     className="w-full pl-8 pr-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-primary dark:text-white transition-all duration-200"
-                    required
+                    // NOT required (Claude Design, 15 August). An account opened
+                    // today with nothing in it has a balance of £0.00, and
+                    // marking this required made a person type a zero to satisfy
+                    // a validator. The placeholder already showed 0.00; blank
+                    // now means what it looks like it means.
                     disabled={isSubmitting}
                   />
                 </div>
@@ -392,22 +408,14 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
               </div>
             )}
 
-            {/* Account Type Info Banner */}
-            {selectedType && (
-              <div className="p-4 bg-[#1a2332]/5 dark:bg-[#1a2332]/10 rounded-xl border border-[#1a2332]/20">
-                <div className="flex gap-3">
-                  <selectedType.icon size={20} className="text-primary mt-0.5" />
-                  <div>
-                    <div className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                      {selectedType.label}
-                    </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {selectedType.description}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* The "Account Type Info Banner" was here: an icon, the type's
+                name and its description, repeated verbatim from the tile that
+                is ringed six inches above it. Claude Design, 15 August — it was
+                the THIRD statement of one fact, carried no label saying what it
+                was, and a reader had to work out it was a confirmation rather
+                than another control. Dropped rather than relabelled: the modal
+                is not tall enough for the tiles to scroll out of view, so it
+                was not keeping the choice visible either. */}
           </div>
         </ModalBody>
         <ModalFooter>
@@ -423,7 +431,15 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 justify-center px-6 py-3 bg-gradient-to-r from-primary to-secondary text-white rounded-xl hover:shadow-lg hover:scale-[1.02] font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              /* The dark treatment is not decoration. `from-primary to-secondary`
+                 is #1a2332 → #2d3a4d, and on a gray-800 modal that is navy on
+                 navy: the button reads as MUTED. Claude Design saw it in four
+                 dark captures and reported the primary action as "a dead end …
+                 a disabled primary and no route forward". It was never
+                 disabled — `disabled={isSubmitting}` is the whole of it — it
+                 just could not be seen to be enabled. Third instance of one
+                 root cause on this modal; see index.css's .dark .border-primary. */
+              className="flex-1 justify-center px-6 py-3 bg-gradient-to-r from-primary to-secondary dark:from-gray-600 dark:to-gray-500 text-white rounded-xl hover:shadow-lg hover:scale-[1.02] font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
               {isSubmitting ? 'Adding...' : 'Add Account'}
             </button>
