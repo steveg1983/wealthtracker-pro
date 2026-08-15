@@ -91,26 +91,41 @@ describe('dark-mode colours that silently do not apply', () => {
     // The `.text-theme-heading` failure. An `!important` colour beats the
     // `dark:` variant a call site writes, so the utility itself must answer
     // for both themes — the call sites are powerless to.
-    // `color:` the PROPERTY, not `background-color:` or `border-color:` — a
-    // brand surface is meant to stay navy on both grounds, and only ink has to
-    // flip. (Written as `\bcolor:` first, which matched `background-color` and
-    // reported ten false positives.)
+    // `color:` and `border-color:`, but NOT `background-color:`.
+    //
+    // The first pass took only `color:`, reasoning that a brand surface stays
+    // navy on both grounds and only ink has to flip. Half right: a BACKGROUND
+    // is a surface, and `.bg-primary` is correct in both modes. A BORDER
+    // usually is not — `.border-primary` is the ring that says which tile is
+    // selected, and navy on a gray-800 modal is no ring at all. That shipped,
+    // and was read from screenshots as "no type is selected".
+    //
+    // (Also written as `\bcolor:` at one point, which matched
+    // `background-color` and reported ten false positives.)
     const importantColourRules = [
       // `\s*` OUTSIDE the alternation. With it inside — `(?:^|[;{]\s*)color:` —
       // neither branch could reach an indented `color:`, so this matched
       // nothing and the assertion passed with the bug reintroduced. Caught by
       // deleting the fix and watching the test stay green.
-      ...CSS.matchAll(/^\.([\w-]+)\s*\{[^}]*?(?:[;{]|^)\s*color:[^;]*!important/gm),
+      ...CSS.matchAll(/^\.([\w-]+)\s*\{[^}]*?(?:[;{]|^)\s*(?:border-)?color:[^;]*!important/gm),
     ].map((match) => match[1]);
 
+    // `dark-exempt:` in a comment ON the rule is how a utility says its GROUND
+    // does not change with the theme — the sidebar's navy, for instance. It has
+    // to be written deliberately and it has to give a reason, which is the
+    // point: the exemptions worth having are the ones somebody argued for.
+    const exempt = new Set(
+      [...CSS.matchAll(/dark-exempt:[^*]*\*\/\s*\n\.([\w-]+)\s*\{/g)].map((m) => m[1])
+    );
+
     const missing = importantColourRules.filter(
-      (name) => !new RegExp(`\\.dark\\s+\\.${name}\\b`).test(CSS)
+      (name) => !exempt.has(name) && !new RegExp(`\\.dark\\s+\\.${name}\\b`).test(CSS)
     );
 
     expect(
       missing,
-      `These force a colour with !important and have no .dark rule, so they render ` +
-        `the same ink on both grounds:\n${missing.map((n) => `.${n}`).join('\n')}`
+      `These force a colour or a border with !important and have no .dark rule, ` +
+        `so they paint the same on both grounds:\n${missing.map((n) => `.${n}`).join('\n')}`
     ).toEqual([]);
   });
 

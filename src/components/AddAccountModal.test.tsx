@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import AddAccountModal from './AddAccountModal';
 import { PreferencesProvider } from '../contexts/PreferencesContext';
@@ -274,16 +274,42 @@ describe('AddAccountModal — submission', () => {
     expect(lastPayload()?.sortCode).toBe('123456');
   });
 
-  // The balance is `required`, so native constraint validation blocks the
-  // submit before the component's own "valid balance" check ever runs.
-  it('does not save when the balance is blank', () => {
+  /*
+   * This asserted the OPPOSITE until 15 August: the balance was `required`, so
+   * native constraint validation blocked the submit and a blank box was
+   * refused.
+   *
+   * Claude Design overturned it, and the reason is the kind a test cannot see:
+   * an account opened today with nothing in it HAS a balance, and it is £0.00.
+   * Marking the field required made a person type a zero to satisfy a
+   * validator. Blank is not a missing answer here; it is the commonest one.
+   */
+  it('saves a blank balance as zero, because zero is a real answer', async () => {
     renderModal();
 
     fireEvent.change(nameField(), { target: { value: 'No Balance' } });
     fireEvent.click(submitButton());
 
-    expect(balanceField()).toBeRequired();
-    expect(balanceField()).toBeInvalid();
-    expect(addAccount).not.toHaveBeenCalled();
+    await waitFor(() => expect(addAccount).toHaveBeenCalled());
+    expect(addAccount.mock.calls[0][0]).toMatchObject({ balance: 0 });
+  });
+
+  it('never lets letters into the balance in the first place', () => {
+    /*
+     * Written first as "still refuses something typed that is not a number",
+     * asserting the submit was blocked — and it failed, because the account
+     * saved. The money input FILTERS as you type, so "abc" never reaches
+     * state: the field stays empty, empty now means zero, and zero saves.
+     *
+     * That is the better behaviour and the assertion was wrong about it. The
+     * validator's `isNaN` arm is still right to exist — it guards the state,
+     * not the keyboard — but the case cannot be reached through the UI, and a
+     * test claiming otherwise would be describing a modal that does not exist.
+     */
+    renderModal();
+
+    fireEvent.change(balanceField(), { target: { value: 'abc' } });
+
+    expect((balanceField() as HTMLInputElement).value).not.toContain('a');
   });
 });
