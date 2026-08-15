@@ -1813,8 +1813,21 @@ export default function Accounts() {
           aria-controls={regionId}
           className="w-full bg-surface-secondary dark:bg-gray-700/50 border-b border-line dark:border-gray-700 px-4 sm:px-6 py-2.5 text-left transition-colors duration-state hover:bg-surface-tertiary dark:hover:bg-gray-700"
         >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex items-center gap-2 md:gap-3">
+          {/* ONE ROW AT EVERY WIDTH, so the total is on the right on a
+              phone too. It was `flex-col sm:flex-row`, which below sm stacked
+              the total UNDER the name and hard against the left edge — while
+              the institution headings one rung down are a plain
+              `flex justify-between` and stayed right. The owner, on his phone:
+              "the group totals are still showing to the left and not on the
+              right as we should have changed."
+
+              Removing the band glyph (#308) lined the two up on DESKTOP; this
+              is the half of it that only shows on a narrow screen, which is
+              why the earlier fix looked complete and was not. The name
+              truncates rather than wrapping, so a long band title cannot push
+              the figure off. */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 md:gap-3 min-w-0">
               <ChevronRightIcon
                 size={16}
                 className={`flex-shrink-0 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
@@ -1838,12 +1851,12 @@ export default function Accounts() {
 
                   Still an h2 — the outline, and the way a screen-reader user
                   walks this page, are unchanged. */}
-              <h2 className="text-card uppercase font-bold tracking-wide text-gray-900 dark:text-white">{group.title}</h2>
+              <h2 className="text-card uppercase font-bold tracking-wide text-gray-900 dark:text-white truncate">{group.title}</h2>
               <span className="text-dense text-gray-400 dark:text-gray-500">
                 ({group.accounts.length} {group.accounts.length === 1 ? 'account' : 'accounts'})
               </span>
             </div>
-            <p className="text-card font-semibold text-primary dark:text-white">
+            <p className="text-card font-semibold text-primary dark:text-white whitespace-nowrap shrink-0">
               {bandTotalNode(bandTotal)}
             </p>
           </div>

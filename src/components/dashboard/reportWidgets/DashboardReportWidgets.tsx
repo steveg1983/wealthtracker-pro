@@ -271,7 +271,14 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
           <p className="text-center text-sm text-gray-400">No categorised spending in this period</p>
         </div>
       ) : (
-        <div className={`flex items-center gap-4 ${WIDGET_CHART_HEIGHT}`}>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          {/* STACKS ON A PHONE, exactly as the Account Distribution card does.
+              This was a plain `flex` with the height pinned to the WRAPPER, so
+              below sm the ring and a five-row legend fought over ~340px and the
+              legend stayed jammed to the right of the donut. Account
+              Distribution has always been `flex-col sm:flex-row` with the
+              height on the CHART — two cards drawing the same shape of data,
+              behaving differently on the device where it matters most. */}
           {/* A SQUARE FOR THE DONUT, EVERY REMAINING PIXEL FOR THE NAMES.
               The chart box used to be `flex-1` and the legend a fixed `w-36`,
               which is backwards: a donut is circular, so a box wider than it is
@@ -283,7 +290,7 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
               card's height and the list takes the rest, which both moves the
               chart left and buys the names roughly 60px each. `min-w-0` is
               what lets `truncate` keep working in a flex child. */}
-          <div className="h-full aspect-square shrink-0">
+          <div className={`${WIDGET_CHART_HEIGHT} sm:aspect-square sm:flex-shrink-0`}>
             <ResponsiveContainer width="100%" height="100%">
               <RechartsPieChart>
                 {/* A slice opens the report with that category's row
@@ -336,7 +343,7 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
               two cards that draw the same picture of the same shape of data.
               The owner asked for the roomier of the two, both. Five rows at
               this rhythm are ~192px inside the 208px the card allows. */}
-          <ul className="flex-1 min-w-0 space-y-2">
+          <ul className="sm:flex-1 sm:min-w-0 space-y-2">
             {data.map((d, i) => (
               <li key={d.categoryId}>
                 <button

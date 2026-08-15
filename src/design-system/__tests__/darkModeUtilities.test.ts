@@ -136,3 +136,69 @@ describe('dark-mode colours that silently do not apply', () => {
     expect(CSS).toMatch(/\.dark\s+\.text-theme-heading\s*\{\s*color:\s*#f9fafb\s*!important/);
   });
 });
+
+/**
+ * THE TOUCH-ONLY MEDIA QUERY MAY SET HIT AREAS, NOT LAYOUT.
+ *
+ * `@media (hover: none) and (pointer: coarse)` never matches a desktop
+ * browser, so anything it gets wrong is invisible to everyone developing the
+ * app and visible to everyone using it on a phone. It has now caused three
+ * separate bugs:
+ *
+ *   1. `position: relative` on every button — which outranks Tailwind's
+ *      `.fixed` — put the floating + at the screen's left edge and squeezed
+ *      <main> off-centre on every touch device.
+ *   2. `min-width: 44px` turned a 24px count pill into a 31×44 oval and lifted
+ *      its label 12px.
+ *   3. `padding: 8px 12px` on text inputs beat every `pl-*` utility in the app
+ *      — `input[type="text"]` is (0,1,1), a class is (0,1,0) — so the
+ *      watchlist's search icon sat on top of its own placeholder.
+ *
+ * The pattern is the same each time: a property that belongs to a COMPONENT
+ * being set globally, from a block nobody can see. Hit area is this block's
+ * business. Position, padding and size are not.
+ */
+describe('the touch-only block sets hit areas and nothing else', () => {
+  it('declares no property that a component would reasonably own', () => {
+    const start = CSS.indexOf('@media (hover: none) and (pointer: coarse)');
+    expect(start).toBeGreaterThan(-1);
+
+    // Walk to the matching close brace so the whole block is examined.
+    let depth = 0;
+    let end = start;
+    for (let i = CSS.indexOf('{', start); i < CSS.length; i += 1) {
+      if (CSS[i] === '{') depth += 1;
+      else if (CSS[i] === '}') {
+        depth -= 1;
+        if (depth === 0) { end = i; break; }
+      }
+    }
+
+    // Rules carrying a `hit-area:` comment are declaring that the property IS
+    // the target region rather than layout — a 24px checkbox with 10px margins
+    // is the only way to give it a 44px region. Written deliberately, with a
+    // reason, exactly like the `dark-exempt:` marker one suite over.
+    const raw = CSS.slice(start, end);
+    const block = raw
+      .split(/(?=\/\* hit-area:)/)
+      .map((chunk, i) => (i > 0 && chunk.startsWith('/* hit-area:') ? '' : chunk))
+      .join('')
+      .replace(/\/\*[\s\S]*?\*\//g, ''); // its own commentary names the banned ones
+
+    // `position` is banned outright; `padding`/`margin`/`width`/`height` are
+    // banned as SHORTHANDS or absolutes. `min-width`/`min-height` are the hit
+    // area and are the point of the block. `.touch-target-small::after` is the
+    // invisible expanded hit area, which legitimately positions itself.
+    const offenders = [...block.matchAll(/^\s*(position|padding|margin|width|height)\s*:/gm)]
+      .map((m) => m[1])
+      .filter((prop) => !(prop === 'position' && block.includes('.touch-target-small')))
+      .filter((prop) => !(['width', 'height'].includes(prop) && block.includes('::after')));
+
+    expect(
+      offenders,
+      `This block may set min-width/min-height. It set: ${offenders.join(', ')}. ` +
+        `A property a component owns, set from a query that never matches a desktop, ` +
+        `is a bug nobody developing the app can see.`
+    ).toEqual([]);
+  });
+});

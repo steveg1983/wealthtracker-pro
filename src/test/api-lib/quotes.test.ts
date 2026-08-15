@@ -268,7 +268,6 @@ describe('the nightly cron’s symbol reduction', () => {
 
     expect(stub).toHaveBeenCalledTimes(1);
   });
-});
 
 describe('symbol search', () => {
   const searchStub = (body: unknown, status = 200): FetchLike =>
@@ -335,5 +334,37 @@ describe('symbol search', () => {
     await searchSymbols('shell', stub);
 
     expect(stub).toHaveBeenCalledTimes(1);
+  });
+});
+
+  /*
+   * THE STATUS HAS TO TRAVEL, or every failure reads the same.
+   *
+   * The owner typed "Apple" and got "Symbol lookup is unavailable". Measured
+   * afterwards: Yahoo returns 429 to both hosts and to its own crumb endpoint
+   * — it is rate-limiting by IP, and the two hosts share the limit. So the
+   * fallback added earlier was necessary and not sufficient.
+   *
+   * What made that impossible to see from the screen is that a rate limit, an
+   * outage and a bug all surfaced as one sentence. 429 is not "unavailable",
+   * it is "not right now", and the difference is the whole of what a reader
+   * can do about it.
+   */
+  it('carries the upstream status out, so 429 can be told from a break', async () => {
+    const stub = vi.fn(async () => new Response('{}', { status: 429 })) as unknown as FetchLike;
+
+    await expect(searchSymbols('shell', stub)).rejects.toMatchObject({ upstreamStatus: 429 });
+  });
+
+  it('reports the LAST host it tried, not the first', async () => {
+    // query1 down for one reason, query2 for another: the message a reader
+    // eventually sees should describe the attempt that actually ended it.
+    const stub = vi.fn(async (url: string) =>
+      url.includes('query1')
+        ? new Response('{}', { status: 500 })
+        : new Response('{}', { status: 429 })
+    ) as unknown as FetchLike;
+
+    await expect(searchSymbols('shell', stub)).rejects.toMatchObject({ upstreamStatus: 429 });
   });
 });
