@@ -128,6 +128,17 @@ export function NetWorthWidget({ picker, pin }: {
       }
       onOpen={() => open()}
     >
+      {/* AN AXIS WITH NOTHING ON IT IS A CLAIM (Claude Design §3). The frame
+          asserts there is something to plot, so an empty one reads as a chart
+          that failed to load rather than as a period with no data — and
+          Expense Categories, on the same page, already says so in words. Same
+          box height either way, so an empty card does not shrink out of line
+          with its neighbour. */}
+      {snapshots.length === 0 ? (
+        <div className={`${WIDGET_CHART_HEIGHT} flex items-center justify-center`}>
+          <p className="text-center text-sm text-gray-400">No balances recorded in this period</p>
+        </div>
+      ) : (
       <div className={WIDGET_CHART_HEIGHT}>
         <ResponsiveContainer width="100%" height="100%">
           {/* Clicking a point opens the report on the same window with THAT
@@ -155,6 +166,7 @@ export function NetWorthWidget({ picker, pin }: {
           </LineChart>
         </ResponsiveContainer>
       </div>
+      )}
     </DashboardWidgetCard>
   );
 }

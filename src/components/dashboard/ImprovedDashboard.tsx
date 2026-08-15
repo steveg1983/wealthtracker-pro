@@ -543,11 +543,40 @@ export function ImprovedDashboard() {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* ─ NO TINTED GROUND (Claude Design §2, and §2.5 before it) ────────
+            These were `bg-green-50` and `bg-red-50` side by side. The figures
+            are already green and red; the tint said the same thing a second
+            time, in the one place P2 reserves for meaning. The card surface
+            and a hairline between them do the separating now.
+
+            ─ THE ARROWS: A DIRECTION, NOT A TREND ───────────────────────────
+            Design's §1 asked for these to go on an empty ledger, on the
+            grounds that they render from a default rather than from a
+            computed change and so claim a trend that does not exist.
+
+            Half applied, deliberately. The owner asked for these two
+            explicitly — "keep the up arrow and down arrow in the income and
+            expenses boxes" — when the decorative glyphs came off this page,
+            and he is right that they are not decoration: up is money coming
+            IN and down is money going OUT, which is a direction, and the
+            app's own rule permits the hues on directions.
+
+            What Design is right about is the ZERO. £0.00 has no direction to
+            point in, so on a fresh ledger the arrow was the only thing on the
+            card making a claim. It is hidden at zero and shown otherwise —
+            which is the same rule this app already applies to colour on a
+            zero, now applied to the arrow beside it.
+
+            NOT made into a change-vs-previous-period indicator, which is what
+            §1 literally asks for. That is a different feature (it needs a
+            prior period, and a number for the change) and it would silently
+            re-point an arrow the owner asked to keep. Raised in the handover
+            rather than assumed. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-0 sm:divide-x sm:divide-gray-200 sm:dark:divide-gray-700">
           <button
             type="button"
             onClick={() => setBreakdownType('income')}
-            className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors cursor-pointer text-left"
+            className="flex items-center justify-between p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer text-left"
           >
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Income</p>
@@ -555,13 +584,15 @@ export function ImprovedDashboard() {
                 {formatCurrencyWithSymbol(performance.income)}
               </p>
             </div>
-            <TrendingUpIcon size={24} className="text-green-500" />
+            {performance.income !== 0 && (
+              <TrendingUpIcon size={24} className="text-green-500" aria-hidden="true" />
+            )}
           </button>
 
           <button
             type="button"
             onClick={() => setBreakdownType('expense')}
-            className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors cursor-pointer text-left"
+            className="flex items-center justify-between p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer text-left"
           >
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Expenses</p>
@@ -569,7 +600,9 @@ export function ImprovedDashboard() {
                 {formatCurrencyWithSymbol(performance.expenses)}
               </p>
             </div>
-            <TrendingDownIcon size={24} className="text-red-500" />
+            {performance.expenses !== 0 && (
+              <TrendingDownIcon size={24} className="text-red-500" aria-hidden="true" />
+            )}
           </button>
         </div>
       </section>

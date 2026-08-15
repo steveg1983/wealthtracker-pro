@@ -63,7 +63,10 @@ interface ReconciliationBalanceBarProps {
  * different screen.
  */
 const REMOVE_CONSEQUENCE =
-  'Remove the closing balance. Difference goes back to N/A until you enter another.';
+  // "not known" rather than "N/A": the figure it describes is now an em-dash,
+  // and an em-dash read aloud is either silence or the words "em dash". A
+  // spoken label has to say the thing the symbol means.
+  'Remove the closing balance. Difference goes back to not known until you enter another.';
 const REMOVE_CONSEQUENCE_WITH_FALLBACK =
   'Remove the closing balance. Difference falls back to the balance your last reconciliation ended on, which you would then have to confirm.';
 
@@ -337,7 +340,9 @@ export default function ReconciliationBalanceBar({
               {formatCurrency(difference, currency)}
             </p>
           ) : (
-            <p className="text-lg font-bold text-gray-400">N/A</p>
+            /* Em-dash, not "N/A" — the same replacement the register and the
+               Accounts row carry. Not known is not zero. */
+            <p className="text-lg font-bold text-gray-400">—</p>
           )}
         </div>
       </div>

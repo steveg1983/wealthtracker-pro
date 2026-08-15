@@ -344,13 +344,25 @@ export function AccountBalanceCell({
   smOnly = false,
 }: {
   label: string;
-  value: string;
+  /**
+   * The figure, already formatted — or `null` for NOT KNOWN, which renders an
+   * em-dash.
+   *
+   * The same contract StatPill states, and for the same reason: an account
+   * with no bank feed has no bank balance, which is not the same as a bank
+   * balance of nothing. This cell used to be handed the string 'N/A' by its
+   * caller — an abbreviation the rest of the app does not use, and one the
+   * register and the reconciliation bar had already been moved off.
+   */
+  value: string | null;
   smOnly?: boolean;
 }): React.JSX.Element {
   return (
     <div className={smOnly ? 'hidden lg:block text-right' : 'text-right'}>
       <p className={ROW_LABEL_CLASS}>{label}</p>
-      <p className={`${CELL_FIGURE_LINE_CLASS} ${CELL_FIGURE_CLASS} text-gray-900 dark:text-white`}>{value}</p>
+      <p className={`${CELL_FIGURE_LINE_CLASS} ${CELL_FIGURE_CLASS} text-gray-900 dark:text-white`}>
+        {value ?? '—'}
+      </p>
     </div>
   );
 }
