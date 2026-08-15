@@ -407,12 +407,21 @@ export default function Find(): React.JSX.Element {
         </div>
       ) : nothingAsked ? (
         // Not an empty state: nothing is missing and nothing is hidden. It is
-        // the page explaining itself before it has been asked anything — so it
-        // keeps its own voice, but reads down the left edge like everything
-        // else now, without the decorative glyph §4 rules out.
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 px-6 py-10">
+        // the page explaining itself before it has been asked anything, and
+        // that argument is why it was originally left reading down the left
+        // edge while the true empty states were centred.
+        //
+        // Overruled by the owner, on the ground that beats it: he is looking at
+        // a PAGE, not at a taxonomy. Whatever this block is called, it occupies
+        // the same slot as the two states either side of it, and a panel that
+        // jumps from centred to left-aligned depending on which branch rendered
+        // reads as a layout bug rather than as a distinction. Consistency was
+        // his ruling when the empty states were centred ("it looks cleaner,
+        // especially on mobile view") and it applies here for the same reason.
+        // Still no decorative glyph — §4 rules that out either way.
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 px-6 py-10 text-center">
           <h3 className="text-card font-semibold text-gray-900 dark:text-white">Find looks through every account at once</h3>
-          <p className="mt-1 max-w-2xl text-body text-gray-600 dark:text-gray-400">
+          <p className="mt-1 mx-auto max-w-2xl text-body text-gray-600 dark:text-gray-400">
             Type part of a description, or an amount as your statement prints it — 141.50 finds it
             whichever way the money went. Click a result to open that transaction in its own
             account&rsquo;s register, which is where you can change it.
