@@ -3,6 +3,7 @@ import { SearchIcon, PlusIcon } from '../icons';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { isMarkedAwaitingFinalize, isReconciled } from '../../utils/transactionReconciliation';
 import type { Transaction, Category } from '../../types';
+import { getDateLocale } from '../../utils/dateFormatter';
 
 /**
  * What the list is showing.
@@ -299,7 +300,7 @@ export default function ReconciliationTransactionList({
                 >
                   {/* Date */}
                   <div className="text-gray-700 dark:text-gray-300">
-                    {new Date(t.date).toLocaleDateString('en-GB')}
+                    {new Date(t.date).toLocaleDateString(getDateLocale())}
                   </div>
 
                   {/* Mark / reconciled state. A committed row shows R and does

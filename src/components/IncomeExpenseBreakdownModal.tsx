@@ -8,6 +8,7 @@ import { buildCategoryNameLookup } from '../utils/categoryNames';
 import { toDecimal } from '../utils/decimal';
 import type { Category } from '../types';
 import type { SplitExpandedTransaction } from '../utils/transactionSplits';
+import { getDateLocale } from '../utils/dateFormatter';
 
 /**
  * The income/expense breakdown pop-up, shared by the Dashboard and Reports —
@@ -259,7 +260,7 @@ export default function IncomeExpenseBreakdownModal({
         title={bucket === 'uncategorized' ? 'Click to give this transaction a category' : 'Click to view or edit this transaction'}
       >
         <td className="block sm:table-cell py-2 pr-0 sm:pr-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-          {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
+          {new Date(t.date).toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'short', year: '2-digit' })}
         </td>
         <td className="block sm:table-cell min-w-0 py-2 pr-0 sm:pr-3 text-sm text-gray-900 dark:text-white">
           {t.description}

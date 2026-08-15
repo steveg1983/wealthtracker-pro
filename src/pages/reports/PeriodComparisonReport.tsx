@@ -21,6 +21,7 @@ import { formatDecimal } from '../../utils/decimal-format';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
 import { preferences } from '../../services/preferencesService';
+import { getDateLocale } from '../../utils/dateFormatter';
 
 /**
  * "This period vs last" — Money's comparison report.
@@ -50,7 +51,7 @@ const COMPARISON_FILL = '#94A3B8';
 
 const formatWindow = (window: { from: Date; to: Date }): string => {
   const short = (date: Date): string =>
-    date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    date.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
   return `${short(window.from)} – ${short(window.to)}`;
 };
 

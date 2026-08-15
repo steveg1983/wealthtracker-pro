@@ -5,6 +5,7 @@ import ReportDrillModal, { type ReportDrillTarget } from '../../components/repor
 import { buildAccountBalanceReport, type AccountBalanceRow } from '../../utils/accountBalanceReport';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
+import { getDateLocale } from '../../utils/dateFormatter';
 
 /**
  * "Account balances" — the Microsoft Money statement: what each account was
@@ -60,7 +61,7 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
           </p>
           <p className="text-page font-bold mt-1">{money(report.netWorth)}</p>
           <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
-            As at {report.asOf.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+            As at {report.asOf.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-line dark:border-gray-700">

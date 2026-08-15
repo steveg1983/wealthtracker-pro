@@ -6,6 +6,7 @@ import { buildAccountBalanceReport, type AccountBalanceRow } from '../../utils/a
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import NetWorthSummary from '../../components/NetWorthSummary';
 import type { ReportViewProps } from './types';
+import { getDateLocale } from '../../utils/dateFormatter';
 
 /**
  * "Net worth" — the Microsoft Money statement: everything you own set
@@ -161,7 +162,7 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
       <p className="text-body text-gray-500 dark:text-gray-400">
         As at{' '}
         <span className="font-medium text-gray-900 dark:text-gray-100">
-          {report.asOf.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+          {report.asOf.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}
         </span>
         . Change over {PERIOD_LABELS[picker.period].toLowerCase()}{' '}
         <span className={report.change < 0 ? 'text-expense font-medium' : 'text-income font-medium'}>

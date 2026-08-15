@@ -13,6 +13,7 @@ import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
 import { preferences } from '../../services/preferencesService';
 import { categoricalColor, useCategoricalRamp } from '../../components/charts/chartColors';
+import { getDateLocale } from '../../utils/dateFormatter';
 
 /**
  * "Spending by payee" — who the money actually went to.
@@ -243,7 +244,7 @@ export default function SpendingByPayeeReport({ picker }: ReportViewProps): Reac
                       {row.count.toLocaleString()}
                     </td>
                     <td className="px-3 py-2 text-sm text-right tabular-nums whitespace-nowrap text-gray-500 dark:text-gray-400">
-                      {row.latest.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
+                      {row.latest.toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'short', year: '2-digit' })}
                     </td>
                     <td className="px-3 py-2 text-sm text-right tabular-nums text-gray-500 dark:text-gray-400">
                       {formatDecimal(row.share, 1)}%

@@ -18,6 +18,7 @@ import {
   RefreshCwIcon
 } from './icons';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { getDateLocale } from '../utils/dateFormatter';
 
 interface DocumentManagerProps {
   transactionId?: string;
@@ -139,7 +140,7 @@ export default function DocumentManager({
   };
 
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('en-GB', {
+    return new Date(date).toLocaleDateString(getDateLocale(), {
       day: 'numeric',
       month: 'short',
       year: 'numeric'

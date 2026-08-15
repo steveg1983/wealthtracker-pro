@@ -9,6 +9,7 @@ import {
 } from '../services/backup/encryption';
 import type { BackupRestoreOutcome } from '@data';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { getDateLocale } from '../utils/dateFormatter';
 import { AlertTriangleIcon, CheckCircleIcon, RefreshCwIcon, UploadIcon } from './icons';
 // THE FILE FORMAT, from the module that IS the file format.
 //
@@ -419,7 +420,7 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
               </p>
               <p className="text-body text-gray-600 dark:text-gray-400 mt-1">
                 {fileName} was made on{' '}
-                {new Date(locked.exportedAt).toLocaleDateString('en-GB', {
+                {new Date(locked.exportedAt).toLocaleDateString(getDateLocale(), {
                   day: 'numeric',
                   month: 'long',
                   year: 'numeric',

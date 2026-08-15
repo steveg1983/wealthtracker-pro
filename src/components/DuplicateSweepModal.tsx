@@ -33,6 +33,7 @@ import DismissedSuggestionsSection from './sweeps/DismissedSuggestionsSection';
 import GroupedAccountOptions from './common/GroupedAccountOptions';
 import { AlertTriangleIcon, ArrowUpRightIcon } from './icons';
 import type { SuggestionDismissal, Transaction } from '../types';
+import { getDateLocale } from '../utils/dateFormatter';
 
 /**
  * Find duplicates — the same sweep shape as "Match transfers", for the other
@@ -121,10 +122,10 @@ function compareCandidates(
 }
 
 const shortDate = (date: Date | string): string =>
-  new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+  new Date(date).toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'short', year: '2-digit' });
 
 const longDate = (date: Date | string): string =>
-  new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  new Date(date).toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'long', year: 'numeric' });
 
 const gapPhrase = (daysApart: number): string => {
   const days = Math.round(daysApart);

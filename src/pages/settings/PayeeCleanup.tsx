@@ -31,6 +31,7 @@ import {
   payeeMerchantDismissalKey,
 } from '../../utils/suggestionDismissals';
 import type { DismissalKind, SuggestionDismissal } from '../../types';
+import { getDateLocale } from '../../utils/dateFormatter';
 
 /**
  * Payee cleanup — one screen for the thousands of near-duplicate payees a
@@ -69,7 +70,7 @@ const LIST_HEIGHT = 560;
 
 const dateRange = (payee: PayeeSummary): string => {
   const format = (d: Date): string =>
-    d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+    d.toLocaleDateString(getDateLocale(), { month: 'short', year: 'numeric' });
   const from = format(payee.earliest);
   const to = format(payee.latest);
   return from === to ? from : `${from} – ${to}`;

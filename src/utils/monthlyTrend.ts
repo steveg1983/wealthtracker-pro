@@ -1,6 +1,7 @@
 import type { Category, Transaction } from '../types';
 import { toDecimal, type DecimalInstance } from './decimal';
 import { bucketByCategoryDirection } from './categoryNetting';
+import { getDateLocale } from '../utils/dateFormatter';
 
 export interface MonthlyTrendPoint {
   /** Raw YYYY-MM — drives click-to-drill filters. */
@@ -42,7 +43,7 @@ export function buildMonthlyTrend(rows: Transaction[], categories: Category[]): 
 
   return Object.keys(monthlyData).sort().map(month => ({
     monthKey: month,
-    month: new Date(month + '-01').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
+    month: new Date(month + '-01').toLocaleDateString(getDateLocale(), { month: 'short', year: 'numeric' }),
     income: monthlyData[month].income.toNumber(),
     expenses: monthlyData[month].expenses.toNumber(),
   }));
