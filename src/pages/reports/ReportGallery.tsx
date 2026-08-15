@@ -30,12 +30,22 @@ export default function ReportGallery(): React.JSX.Element {
   const location = useLocation();
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-14">
+      {/* space-y-14, not 8. The groups are "What I have", "Spending" and
+          "Custom reports", and at 32px the gap between two GROUPS was barely
+          bigger than the 16px gap between two cards inside one — so the page
+          read as eleven cards in a stack rather than as three answers to three
+          different questions. The heading is what separates them; it needs
+          room to be seen doing it.
+
+          (A JSX comment cannot sit between `return (` and the element. Fourth
+          time this has bitten today — it is always the same shape: one
+          expression slot, and a comment is an expression.) */}
       {REPORT_GROUPS.map(group => {
         const reports = reportsInGroup(group.id);
         return (
           <section key={group.id} aria-labelledby={`report-group-${group.id}`}>
-            <div className="mb-3">
+            <div className="mb-4">
               <h2
                 id={`report-group-${group.id}`}
                 className="text-card font-semibold text-gray-900 dark:text-white"

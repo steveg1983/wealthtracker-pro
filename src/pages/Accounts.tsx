@@ -25,7 +25,6 @@ import { preferences } from '../services/preferencesService';
 // Bank connection management lives on this page (the natural home for it);
 // the Data Management page keeps only its URL-driven deep links for ops alerts.
 import type { Account } from '../types';
-import { ALL_ACCOUNT_SECTIONS } from '../utils/accountSections';
 import {
   groupAccountsForDisplay,
   parseAccountGroupingPreference,
@@ -590,11 +589,6 @@ export default function Accounts() {
     displayCurrency,
     groupCurrencyEntries
   );
-
-  // The shared account-type sections (same groupings everywhere), catch-all
-  // last — a type without a section renders under "Other Accounts", never
-  // nowhere.
-  const accountTypes = ALL_ACCOUNT_SECTIONS;
 
   // Each switch flips on its own: both on nests, both off flattens.
   const handleGroupingChange = (next: AccountGroupingOptions) => {
@@ -1705,16 +1699,17 @@ export default function Accounts() {
     );
   };
 
-  // The band's own glyph: its section's icon and colour for a type band, the
-  // bank mark for an institution band.
-  const bandHeadingIcon = (group: AccountDisplayGroup<Account>): ReactNode => {
-    if (group.kind === 'institution') {
-      return <BankIcon className="text-[#1a2332] dark:text-gray-400" size={20} />;
-    }
-    const section = accountTypes.find(t => t.type === group.label);
-    const Icon = section?.icon ?? WalletIcon;
-    return <Icon className={section?.color ?? 'text-gray-600'} size={20} />;
-  };
+  // The band heading's glyph went on 15 August, with the rest of the app's
+  // per-row icons (#296, #302, and the Accounts row's own in #281). The
+  // argument is the one that has held every time: a wallet beside "CURRENT
+  // ACCOUNTS", above rows that are all current accounts, names the band a
+  // second time in a picture. The owner: "everywhere else we have taken them
+  // away has looked better."
+  //
+  // It also cost the alignment. With the glyph gone, a section heading and the
+  // institution heading below it now begin at the same x — chevron, name,
+  // count — and their totals land in the same column as the account figures,
+  // which is what he asked for and what the icon was quietly preventing.
 
   // ONE renderer for every banded view: a heading that folds the band away,
   // and — when open — either the account cards or, with both switches on, the
@@ -1824,7 +1819,6 @@ export default function Accounts() {
                 size={16}
                 className={`flex-shrink-0 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
               />
-              {bandHeadingIcon(group)}
               {/* THE NAME OUTRANKS THE FIGURE HERE, and it took two goes to
                   believe it. P1 said a band's name is a label for its total,
                   so the label was set one step under the money — 14px word,

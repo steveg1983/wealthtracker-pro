@@ -4,7 +4,7 @@ import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import PageWrapper from '../components/PageWrapper';
 import { bankConnectionService } from '../services/bankConnectionService';
 import type { BankConnection } from '../services/bankConnectionService';
-import { BankIcon, ShieldIcon, CheckCircleIcon, RefreshCwIcon, TrashIcon, AlertCircleIcon, LinkIcon } from '../components/icons';
+import { ShieldIcon, CheckCircleIcon, RefreshCwIcon, TrashIcon, AlertCircleIcon, LinkIcon } from '../components/icons';
 import LinkBankAccountsModal from '../components/banking/LinkBankAccountsModal';
 
 type ConnectStatus = 'idle' | 'connecting' | 'error';
@@ -165,10 +165,14 @@ export default function OpenBanking() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
+              {/* No glyph on any of the three. A bank beside "Connected
+                  Banks" and a tick beside "Synced Accounts" restate the label
+                  in a picture; the figure is the content. Removed all three
+                  rather than two, so the row does not become one card with an
+                  icon and two without. */}
               <p className="text-sm text-gray-600 dark:text-gray-400">Connected Banks</p>
               <p className="text-page font-semibold text-gray-900 dark:text-white">{connectedCount}</p>
             </div>
-            <BankIcon size={32} className="text-blue-600" />
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
@@ -177,7 +181,6 @@ export default function OpenBanking() {
               <p className="text-sm text-gray-600 dark:text-gray-400">Synced Accounts</p>
               <p className="text-page font-semibold text-gray-900 dark:text-white">{totalAccounts}</p>
             </div>
-            <CheckCircleIcon size={32} className="text-blue-600" />
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
@@ -186,7 +189,6 @@ export default function OpenBanking() {
               <p className="text-sm text-gray-600 dark:text-gray-400">Security Status</p>
               <p className="text-lg font-semibold text-blue-600">Secured</p>
             </div>
-            <ShieldIcon size={32} className="text-blue-600" />
           </div>
         </div>
       </div>
@@ -354,7 +356,13 @@ export default function OpenBanking() {
           <ShieldIcon size={24} className="text-blue-600" />
           <h3 className="text-card font-semibold text-gray-900 dark:text-white">Bank-Level Security</h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Capped and gutter-ed. The card is the full page width and these are
+            two SHORT lists, so a plain 50/50 grid put "Data Protection" hard
+            against the left edge, "Privacy First" at exactly halfway, and half
+            a screen of nothing to the right of it — which reads as a column
+            that failed to load rather than as margin. Constraining the pair
+            makes the leftover space obviously the page's, not the layout's. */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 max-w-3xl">
           <div>
             <h4 className="font-medium mb-2 text-gray-900 dark:text-white">Data Protection</h4>
             <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
