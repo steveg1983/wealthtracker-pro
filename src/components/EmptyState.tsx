@@ -31,10 +31,24 @@ interface EmptyStateProps {
 /**
  * The empty state, in the one shape the app uses everywhere (DESIGN_PASS §4).
  *
- * LEFT-ALIGNED, never centred with an icon. A centred block with a picture is
- * a greeting; what somebody looking at an empty register needs is the same
- * thing a warning gives them — P6, say the consequence, then the remedy — and
- * that reads down the left edge like the rest of the page.
+ * ─ CENTRED. OWNER OVERRIDE, 15 August 2026 ─────────────────────────────────
+ *
+ * §4 ruled this LEFT-ALIGNED: "a centred block with a picture is a greeting",
+ * and what an empty register needs is a warning's shape — P6, the consequence
+ * then the remedy — read down the left edge like the rest of the page.
+ *
+ * The owner overruled it, and the reason is the one the ruling could not see
+ * from a desktop mock: **on a phone it is not a block on a page, it is the
+ * whole screen.** A left-aligned title in a full-width card with nothing to
+ * its right reads as a layout that has collapsed, not as a sentence. Centred,
+ * it reads as a deliberate state — which is what "filtered-empty is not empty"
+ * is trying to make believable in the first place.
+ *
+ * The ruling's own argument survives it: the shape is still consequence-then-
+ * remedy, and the remedy is still a real control. Only the axis changed.
+ *
+ * Categorisation had been centring its own hand-rolled copy since batch 7,
+ * which is what made the inconsistency visible. It is the one that was right.
  *
  *   No transactions in this account yet
  *   Its balance will read £0.00 and it won't appear in reports until
@@ -53,7 +67,7 @@ export default function EmptyState({
   className = ''
 }: EmptyStateProps): React.JSX.Element {
   return (
-    <div className={`flex flex-col items-start px-6 py-10 ${className}`}>
+    <div className={`flex flex-col items-center text-center px-6 py-10 ${className}`}>
       {icon && (
         <div className="mb-4 text-gray-400 dark:text-gray-500">
           {icon}

@@ -4,7 +4,7 @@ import { useSeasonalAnalysis } from '../hooks/useCashFlowForecast';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import { LoadingState } from './loading/LoadingState';
-import { SEMANTIC_SERIES } from './charts/chartColors';
+import { SEMANTIC_SERIES, useChartTooltipStyle } from './charts/chartColors';
 import { CalendarIcon, TrendingUpIcon, TrendingDownIcon } from './icons';
 
 const monthNames = [
@@ -17,6 +17,7 @@ interface SeasonalTrendsProps {
 }
 
 export default function SeasonalTrends({ className = '' }: SeasonalTrendsProps) {
+  const chartTooltipStyle = useChartTooltipStyle();
   const { formatCurrency } = useCurrencyDecimal();
   const seasonalTrends = useSeasonalAnalysis();
 
@@ -135,11 +136,7 @@ export default function SeasonalTrends({ className = '' }: SeasonalTrendsProps) 
               />
               <Tooltip 
                 formatter={(value: number) => formatCurrency(toDecimal(value))}
-                contentStyle={{ 
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  border: '1px solid #ccc',
-                  borderRadius: '8px'
-                }}
+                contentStyle={chartTooltipStyle}
               />
               <Legend />
               <Bar

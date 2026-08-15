@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2Icon, ChevronRightIcon } from '../icons';
+import { ChevronRightIcon } from '../icons';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import EmptyState from '../EmptyState';
 import FilteredEmptyState from '../FilteredEmptyState';
@@ -245,9 +245,6 @@ export default function ReconciliationAccountList({
                   from md up now; under that the row wraps. */}
               <div className="w-full flex flex-wrap items-end md:items-center gap-3 md:gap-4">
                 <div className="flex items-center gap-3 min-w-0 basis-full md:basis-auto md:min-w-[200px]">
-                  <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg flex-shrink-0">
-                    <Building2Icon size={20} className="text-gray-600 dark:text-gray-400" />
-                  </div>
                   <div>
                     <h3 className="font-semibold text-gray-900 dark:text-white">{account.name}</h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400">

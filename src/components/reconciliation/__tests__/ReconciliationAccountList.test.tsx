@@ -501,10 +501,20 @@ describe('ReconciliationAccountList — an empty list has two meanings', () => {
     expect(screen.queryByText('Nothing needs attention right now')).not.toBeInTheDocument();
   });
 
-  it('is left-aligned in both states, never centred', () => {
-    // DESIGN_PASS §4: a centred block with a picture is a greeting; this is a
-    // consequence and a remedy, and it reads down the left edge like the rest
-    // of the page.
+  it('is centred in both states — owner override of §4, 15 August 2026', () => {
+    /*
+     * This asserted the OPPOSITE until today, citing DESIGN_PASS §4: "a centred
+     * block with a picture is a greeting; this is a consequence and a remedy,
+     * and it reads down the left edge like the rest of the page."
+     *
+     * The owner overruled it on a reason the ruling could not see from a
+     * desktop mock: on a phone this is not a block on a page, it is the whole
+     * screen, and a left-aligned title in a full-width card with nothing to its
+     * right reads as a layout that has collapsed rather than as a sentence.
+     *
+     * Kept as an assertion rather than deleted, because the alignment is still
+     * a decision somebody could undo by accident — it has simply changed sides.
+     */
     const { unmount } = render(
       <PreferencesProvider>
         <ReconciliationAccountList
@@ -514,10 +524,10 @@ describe('ReconciliationAccountList — an empty list has two meanings', () => {
         />
       </PreferencesProvider>
     );
-    expect(document.querySelector('.text-center')).toBeNull();
+    expect(document.querySelector('.text-center')).not.toBeNull();
     unmount();
 
     renderGrouping({ mode: 'flat', summaries: [] });
-    expect(document.querySelector('.text-center')).toBeNull();
+    expect(document.querySelector('.text-center')).not.toBeNull();
   });
 });

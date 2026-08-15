@@ -14,6 +14,7 @@ import { formatDecimal } from '../utils/decimal-format';
 import PageWrapper from '../components/PageWrapper';
 import GroupedAccountOptions from '../components/common/GroupedAccountOptions';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
+import { buildHoldingAllocation } from '../utils/holdingAllocation';
 // THE SEAM, not the service. This page called `InvestmentService` — and, through
 // it, a Supabase client — directly until slice 31, with a `userIdService` lookup
 // at every one of its five call sites. That is the coupling `src/desktop/routes.ts`
@@ -27,12 +28,54 @@ import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolio
 import { dataPort } from '@data';
 import type { InvestmentHolding } from '@data';
 import { fetchQuotes } from '../services/stockPriceService';
-import { categoricalColor, useCategoricalRamp } from '../components/charts/chartColors';
+import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp, useChartTooltipStyle } from '../components/charts/chartColors';
+import { resolvePeriod } from '../hooks/usePeriod';
+
+/**
+ * The windows this chart offers, in the app's own words.
+ *
+ * `3 months` rather than `3M`: the abbreviation saved eleven characters on a
+ * control that has room, at the cost of matching nothing else in the product.
+ */
+const INVESTMENT_PERIODS = ['1-month', '3-months', '6-months', '12-months', 'tax-year', 'all'] as const;
+type InvestmentPeriod = (typeof INVESTMENT_PERIODS)[number];
+
+const INVESTMENT_PERIOD_LABELS: Record<InvestmentPeriod, string> = {
+  '1-month': '1 month',
+  '3-months': '3 months',
+  '6-months': '6 months',
+  '12-months': '12 months',
+  'tax-year': 'Tax year',
+  all: 'All time',
+};
+
+/** Trailing windows only; 'tax-year' and 'all' resolve elsewhere. */
+const INVESTMENT_PERIOD_MONTHS: Record<'1-month' | '3-months' | '6-months' | '12-months', number> = {
+  '1-month': 1,
+  '3-months': 3,
+  '6-months': 6,
+  '12-months': 12,
+};
 
 export default function Investments() {
   const { accounts, transactions, transactionSplits, categories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
-  const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('1Y');
+  /**
+   * THE APP'S PERIOD VOCABULARY, spoken here too.
+   *
+   * This picker used to read `1M 3M 6M 1Y ALL` while every other surface in the
+   * app said "This month / Tax year / 12 months / All time". Two vocabularies
+   * for one idea means the reader has to translate between screens, and the one
+   * period a UK user most wants of an investment chart — the tax year — was
+   * missing from the only page where gains are realised.
+   *
+   * The WINDOWS stay trailing rather than becoming the Dashboard's calendar
+   * periods: "the last 3 months" is the right question of a performance line,
+   * and "this month" is not. What is shared is the wording and the tax-year
+   * rule itself, which comes from `resolvePeriod` so that Tax year means 6
+   * April here and on the Dashboard, forever, from one definition.
+   */
+  const [selectedPeriod, setSelectedPeriod] = useState<InvestmentPeriod>('12-months');
   const [showAddInvestmentModal, setShowAddInvestmentModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'watchlist' | 'portfolio' | 'manage'>('overview');
   const [managingAccountId, setManagingAccountId] = useState<string | null>(null);
@@ -206,8 +249,12 @@ export default function Investments() {
   // The window the chart covers. 'ALL' is unbounded at both ends, which the
   // history walk reads as "first transaction until today".
   const historyRange = useMemo(() => {
-    if (selectedPeriod === 'ALL') return { from: null, to: null };
-    const months = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12 }[selectedPeriod];
+    if (selectedPeriod === 'all') return { from: null, to: null };
+    // Borrowed whole, so the two pages cannot disagree about when the tax year
+    // starts — including in the days between 1 and 5 April, which is exactly
+    // when a second implementation would have been caught.
+    if (selectedPeriod === 'tax-year') return resolvePeriod('tax-year', '', '');
+    const months = INVESTMENT_PERIOD_MONTHS[selectedPeriod];
     const now = new Date();
     return { from: new Date(now.getFullYear(), now.getMonth() - months, now.getDate()), to: now };
   }, [selectedPeriod]);
@@ -220,12 +267,28 @@ export default function Investments() {
   );
 
   // Numbers for the donut, converted once at the chart boundary.
+  /**
+   * THE SLICES, capped at what the palette can colour.
+   *
+   * This drew one slice per account — twelve, against a five-colour ramp — so
+   * slices 1 and 6 and 11 were painted identically and the ring read as one
+   * grey doughnut. Reported by the owner as "the pie looks all the same colour
+   * to the eye vs the legend".
+   *
+   * The four largest keep their own slice and everything below them becomes a
+   * single remainder, which is the honest shape: a 0.01% wedge is not a slice
+   * anybody can see or click, and pretending otherwise is what made the legend
+   * twelve rows long. The remainder is NAMED with its count so the total is
+   * still accounted for — a share that does not add up is the one thing a
+   * finance chart may not do.
+   */
   const allocationData = useMemo(
-    () => summary.lines.map(line => ({
-      name: line.name,
-      ticker: line.institution || 'N/A',
-      value: line.value.toNumber()
-    })),
+    () => capSeriesWithRemainder(
+      summary.lines.filter(line => line.value.greaterThan(0)),
+      line => line.value.toNumber(),
+      line => line.name,
+      count => `${count} smaller accounts`
+    ),
     [summary.lines]
   );
 
@@ -233,11 +296,44 @@ export default function Investments() {
   // `holdings` is now the market-side data from public.investments, and the two
   // must never be confused for each other on this page.
   const portfolioLines = summary.lines;
+  /**
+   * WHAT the money is in, as opposed to WHERE it is kept.
+   *
+   * The ring above answers "which account holds it", which tells somebody with
+   * one broker and six wrappers nothing. This one crosses accounts: Apple held
+   * in an ISA and in a dealing account is one position, and every settlement
+   * sleeve in the portfolio is a single Cash category.
+   */
+  const holdingAllocation = useMemo(
+    () => buildHoldingAllocation(holdings, summary.lines),
+    [holdings, summary.lines]
+  );
+
+  const holdingSlices = useMemo(
+    () => capSeriesWithRemainder(
+      holdingAllocation.slices,
+      slice => slice.value.toNumber(),
+      slice => slice.label,
+      count => `${count} smaller holdings`
+    ),
+    [holdingAllocation.slices]
+  );
+
+  const holdingSlicesTotal = useMemo(
+    () => holdingSlices.reduce((sum, slice) => sum + slice.value, 0),
+    [holdingSlices]
+  );
+
+  const allocationTotal = useMemo(
+    () => allocationData.reduce((sum, slice) => sum + slice.value, 0),
+    [allocationData]
+  );
   const isGain = summary.totalReturn.greaterThanOrEqualTo(0);
   // The shared ramp. The array that stood here claimed to be "consistent
   // colors" while being the only one of the app's palettes to differ from its
   // twin — positions seven and eight had drifted to a cyan and a lime.
   const ramp = useCategoricalRamp();
+  const chartTooltipStyle = useChartTooltipStyle();
 
   // If no investment accounts, show empty state
   if (investmentAccounts.length === 0) {
@@ -449,17 +545,17 @@ export default function Investments() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-card font-semibold text-theme-heading dark:text-white">Portfolio Performance</h2>
           <div className="flex gap-2">
-            {['1M', '3M', '6M', '1Y', 'ALL'].map((period) => (
+            {INVESTMENT_PERIODS.map((period) => (
               <button
                 key={period}
-                onClick={() => setSelectedPeriod(period as '1M' | '3M' | '6M' | '1Y' | 'ALL')}
+                onClick={() => setSelectedPeriod(period)}
                 className={`px-3 py-1 text-body rounded-lg transition-colors ${
                   selectedPeriod === period
-                    ? 'bg-[#1a2332] text-white'
+                    ? 'bg-[#1a2332] text-white dark:bg-gray-600 dark:text-white'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
-                {period}
+                {INVESTMENT_PERIOD_LABELS[period]}
               </button>
             ))}
           </div>
@@ -485,11 +581,7 @@ export default function Investments() {
               />
               <Tooltip
                 formatter={(value) => formatCurrency(toDecimal(Number(value)))}
-                contentStyle={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  border: '1px solid #ccc',
-                  borderRadius: '8px'
-                }}
+                contentStyle={chartTooltipStyle}
               />
               <Line 
                 type="monotone" 
@@ -605,27 +697,43 @@ export default function Investments() {
                     </Pie>
                     <Tooltip
                       formatter={(value) => formatCurrency(toDecimal(Number(value)))}
-                      contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #ccc',
-                        borderRadius: '8px'
-                      }}
+                      contentStyle={chartTooltipStyle}
                     />
                   </RePieChart>
                 </ResponsiveContainer>
               </div>
               <div className="mt-4 space-y-2">
-                {portfolioLines.map((line, index) => (
-                  <div key={line.accountId} className="flex items-center justify-between text-body">
+                {/* Walks THE SLICES, not the accounts. The legend used to walk
+                    `portfolioLines` while the ring walked `allocationData`, so
+                    the two could differ in length and did — twelve rows beside
+                    a five-colour ring. One source now, so a row and a wedge
+                    cannot disagree about what exists. */}
+                {allocationData.map((slice, index) => (
+                  <div key={slice.name} className="flex items-center justify-between text-body">
                     <div className="flex items-center gap-2">
                       <div
                         className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: categoricalColor(ramp, index) }}
                       />
-                      <span className="text-gray-700 dark:text-gray-300">{line.institution || 'N/A'}</span>
+                      {/* The ACCOUNT, which is what the slice is. This read
+                          `line.institution || 'N/A'` — so a portfolio held at
+                          one bank showed the same word against four different
+                          slices, and every account with no institution on file
+                          was labelled "N/A". The legend is the only thing
+                          identifying a slice (the ramp is one hue walked, and
+                          it cycles), so naming it wrongly leaves the chart
+                          unreadable rather than merely untidy. */}
+                      <span className="text-gray-700 dark:text-gray-300">{slice.name}</span>
                     </div>
+                    {/* The share is of THE RING, so the rows add to 100% — the
+                        same rule the Dashboard's donut states. Taken from the
+                        slice rather than from `line.allocation`, which was a
+                        share of every account including the ones now folded
+                        into the remainder, and so would no longer sum. */}
                     <span className="text-gray-900 dark:text-white font-medium">
-                      {formatPercentage(line.allocation)}
+                      {allocationTotal > 0
+                        ? `${((slice.value / allocationTotal) * 100).toFixed(2)}%`
+                        : '0.00%'}
                     </span>
                   </div>
                 ))}
@@ -633,6 +741,90 @@ export default function Investments() {
             </>
           )}
         </div>
+        </div>
+
+        {/* ─ WHAT IT IS IN ────────────────────────────────────────────────────
+            A second ring, because the first one's card was mostly empty space
+            below a twelve-row legend and because it answers a different
+            question. Where the money is KEPT and what it is INVESTED IN are
+            not the same fact, and only the second one is a decision. */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6 mt-6">
+          <h2 className="text-card font-semibold mb-1 text-theme-heading dark:text-white">
+            Allocation by holding
+          </h2>
+          <p className="text-body text-gray-500 dark:text-gray-400 mb-4">
+            Every account together — one line per security, with all settlement cash as one.
+          </p>
+
+          {holdingSlices.length === 0 ? (
+            <p className="text-body text-gray-500 dark:text-gray-400">
+              {holdingAllocation.unpricedCount > 0
+                ? 'None of your holdings has a price yet, so there is nothing to size this by. Use “Update prices” on an account above.'
+                : 'No priced holdings and no settlement cash, so there is nothing to divide up yet.'}
+            </p>
+          ) : (
+            <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+              <div className="h-56 w-full lg:w-56 shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RePieChart>
+                    <Pie
+                      data={holdingSlices}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {holdingSlices.map((slice, index) => (
+                        <Cell key={slice.name} fill={categoricalColor(ramp, index)} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => formatCurrency(toDecimal(Number(value)))}
+                      contentStyle={chartTooltipStyle}
+                    />
+                  </RePieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="flex-1 min-w-0 space-y-2">
+                {holdingSlices.map((slice, index) => (
+                  <div key={slice.name} className="flex items-center justify-between gap-3 text-body">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className="w-3 h-3 rounded-full shrink-0"
+                        style={{ backgroundColor: categoricalColor(ramp, index) }}
+                      />
+                      <span className="text-gray-700 dark:text-gray-300 truncate">{slice.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-gray-500 dark:text-gray-400 tabular-nums">
+                        {formatCurrency(toDecimal(slice.value))}
+                      </span>
+                      <span className="text-gray-900 dark:text-white font-medium tabular-nums w-16 text-right">
+                        {holdingSlicesTotal > 0
+                          ? `${((slice.value / holdingSlicesTotal) * 100).toFixed(2)}%`
+                          : '0.00%'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+
+                {/* SAID, not swallowed. A position with no price cannot be
+                    sized, so it is not in the ring — and a chart that quietly
+                    leaves out part of what you own is the same offence as a
+                    filtered list claiming your money is gone. */}
+                {holdingAllocation.unpricedCount > 0 && (
+                  <p className="pt-2 text-body text-gray-500 dark:text-gray-400">
+                    {holdingAllocation.unpricedCount === 1
+                      ? '1 holding has no price yet, so it is not counted above.'
+                      : `${holdingAllocation.unpricedCount} holdings have no price yet, so they are not counted above.`}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Investment Tips */}

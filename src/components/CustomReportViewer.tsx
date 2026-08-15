@@ -15,7 +15,7 @@ import {
   Legend,
 } from 'recharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { categoricalColor, useCategoricalRamp } from './charts/chartColors';
+import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp } from './charts/chartColors';
 import { formatDecimal } from '../utils/decimal-format';
 import type { CustomReport, ReportComponent } from './CustomReportBuilder';
 
@@ -156,7 +156,16 @@ export default function CustomReportViewer({
       case 'pie-chart': {
         const pie = componentData as { labels: string[]; data: number[] };
         if (!pie.labels?.length) return <p className="text-sm text-gray-400">No data</p>;
-        const rows = pie.labels.map((name, i) => ({ name, value: pie.data[i] ?? 0 }));
+        // Ring and legend from ONE array, capped at what the ramp can colour.
+        // The ring drew every label while the legend showed eight, so the two
+        // disagreed about what existed and both repeated colours past the
+        // fifth. See capSeriesWithRemainder.
+        const rows = capSeriesWithRemainder(
+          pie.labels.map((name, i) => ({ name, value: pie.data[i] ?? 0 })),
+          (row) => row.value,
+          (row) => row.name,
+          (count) => `${count} smaller`
+        );
         return (
           <div className="h-64 flex items-center gap-4">
             <div className="h-full flex-1 basis-0 min-w-[140px]">
@@ -172,7 +181,7 @@ export default function CustomReportViewer({
               </ResponsiveContainer>
             </div>
             <ul className="w-44 space-y-1">
-              {rows.slice(0, 8).map((row, i) => (
+              {rows.map((row, i) => (
                 <li key={row.name} className="flex items-center gap-2 text-xs">
                   <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: categoricalColor(ramp, i) }} />
                   <span className="flex-1 min-w-0 truncate text-gray-600 dark:text-gray-300">{row.name}</span>
@@ -233,6 +242,8 @@ export default function CustomReportViewer({
         if (rows.length === 0) return <p className="text-sm text-gray-400">No data</p>;
         return (
           <ul className="space-y-1">
+            {/* not-a-charted-series: a plain list of rows, no ramp colour on
+                it, so the palette's five-slice ceiling does not apply. */}
             {rows.slice(0, 10).map((row, i) => (
               <li key={i} className="flex items-center justify-between text-sm">
                 <span className="text-gray-700 dark:text-gray-300 truncate">

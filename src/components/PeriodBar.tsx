@@ -1,5 +1,4 @@
 import React from 'react';
-import { CalendarIcon } from './icons';
 import PeriodPicker from './PeriodPicker';
 import type { UsePeriodResult } from '../hooks/usePeriod';
 
@@ -28,8 +27,12 @@ export default function PeriodBar({ picker, label }: {
   label: string;
 }): React.JSX.Element {
   return (
+    /* No calendar glyph since 15 August. It was `aria-hidden`, so it said
+       nothing to a screen reader, and the pills beneath it already read "This
+       month / Last month / Tax year" — a picture of a calendar next to the
+       word "month" is the definition of decoration charged against the page
+       (P1). On a phone it also cost 26px of the row the pills wrap inside. */
     <div data-period-bar className="flex items-center gap-2">
-      <CalendarIcon className="text-gray-500 flex-shrink-0" size={18} aria-hidden="true" />
       <PeriodPicker picker={picker} label={label} />
     </div>
   );
