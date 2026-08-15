@@ -770,7 +770,7 @@ export default function CategorySelector({
                         onClick={() => setSelectedParentId(sub.id)}
                         className={`w-full text-left px-2.5 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-2 ${
                           selectedParentId === sub.id
-                            ? 'bg-[#1a2332]/10 text-primary border border-primary/30'
+                            ? 'bg-[#1a2332]/10 text-primary border border-[#1a2332]/30'
                             : 'hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
                         }`}
                       >

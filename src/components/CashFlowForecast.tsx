@@ -303,7 +303,7 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
         )}
 
         {showPatterns && selectedPattern && (
-          <div className="mt-4 rounded-lg border border-primary/40 bg-primary/5 p-4">
+          <div className="mt-4 rounded-lg border border-[#1a2332]/40 bg-[#1a2332]/5 p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-white">

@@ -239,7 +239,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                       aria-pressed={isSelected}
                       className={`p-3 rounded-xl border-2 transition-all duration-200 ${
                         isSelected
-                          ? 'border-primary bg-[#1a2332]/10 dark:bg-primary/20'
+                          ? 'border-primary bg-[#1a2332]/10 dark:bg-[#1a2332]/20'
                           : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                       } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
@@ -394,7 +394,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
 
             {/* Account Type Info Banner */}
             {selectedType && (
-              <div className="p-4 bg-primary/5 dark:bg-[#1a2332]/10 rounded-xl border border-primary/20">
+              <div className="p-4 bg-[#1a2332]/5 dark:bg-[#1a2332]/10 rounded-xl border border-[#1a2332]/20">
                 <div className="flex gap-3">
                   <selectedType.icon size={20} className="text-primary mt-0.5" />
                   <div>

@@ -272,6 +272,55 @@ body {
   color: var(--color-secondary) !important;
 }
 
+/* …and the same rule in dark mode, which it did not have until 2026-08-15.
+ *
+ * `--color-secondary` is rgb(45 58 77) — navy, defined once, with no dark
+ * variant. Because the declaration above carries `!important`, it also beat
+ * the `dark:text-white` that 20 of the 27 call sites had written beside it in
+ * good faith. So every one of them rendered navy-on-near-black: "Personal
+ * Information", "Base Currency", "Appearance", "Portfolio Performance",
+ * "Holdings", "Asset Allocation" — section headings, invisible, app-wide.
+ *
+ * This is the identical failure the note below records for the blues, found
+ * and fixed then, and left in place here because the token is named for a role
+ * rather than a colour and so read as though it must already be theme-aware.
+ * A token that only has one value is not a token; it is a constant with an
+ * ambitious name.
+ *
+ * Fixed on the UTILITY rather than on the 27 call sites, and rather than by
+ * giving `--color-secondary` a dark value: the variable is also a BACKGROUND
+ * (`bg-secondary`), where the navy is correct in both modes. Only its use as
+ * text needs the flip. */
+.dark .text-theme-heading {
+  color: #f9fafb !important;
+}
+
+/* The same fault, in the three utilities the guard found beside it.
+ *
+ * `--color-primary` is rgb(26 35 50) and `--color-secondary` rgb(45 58 77):
+ * near-black navies, correct as INK ON WHITE and invisible as ink on a
+ * gray-900 page. `text-primary` alone is on 104 elements. `--color-tertiary`
+ * is the #d4a843 gold, which does read on dark — it is lifted only enough to
+ * hold the same rank below the other two, and nothing currently uses it.
+ *
+ * The ladder is preserved rather than flattened to white: primary is the
+ * strongest ink, secondary a step down, tertiary the accent. That relationship
+ * is the reason there are three of them.
+ *
+ * See `darkModeUtilities.test.ts`, which now fails if any !important colour
+ * utility is added without a dark counterpart. */
+.dark .text-primary {
+  color: #f9fafb !important;
+}
+
+.dark .text-secondary {
+  color: #d1d5db !important;
+}
+
+.dark .text-tertiary {
+  color: #e2c079 !important;
+}
+
 .bg-theme-accent {
   background-color: var(--color-light-accent) !important;
 }
