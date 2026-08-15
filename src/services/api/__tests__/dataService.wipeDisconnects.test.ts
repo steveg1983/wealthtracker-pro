@@ -41,7 +41,13 @@ vi.mock('../../transactionCache', () => ({
 function serviceWith(banking: BankingEngineLike) {
   return createDataService({
     userIdService: { getCurrentDatabaseUserId: () => 'user-1' } as never,
-    supabaseChecker: () => true,
+    // `isSupabaseConfigured`, which is the option's real name. Written as
+    // `supabaseChecker` (the private field's name) it was silently ignored —
+    // an unknown key on an options object is not an error — so the service
+    // fell through to the REAL checker: true on a machine with Supabase env
+    // vars, false in CI. The suite passed locally and failed on the runner,
+    // asserting nothing either way, because the cloud branch was never taken.
+    isSupabaseConfigured: () => true,
     cloudClient: {} as never,
     msMoneyEngine: { wipeCloudData } as never,
     cloudBackup: { wipeUserFinancialData } as never,
