@@ -15,10 +15,16 @@
  * a person can see, but a quiet under-delivery that leaves them believing the
  * ledger is empty when it is not.
  *
- * Revoked through `disconnect` rather than deleted in SQL, because that is the
- * path that also withdraws consent AT THE BANK. A row deleted here while the
- * consent stood would leave the provider holding an authorisation the user
- * believes they destroyed.
+ * Removed through `disconnect` rather than a SQL delete of our own, so there is
+ * one path and both callers take it.
+ *
+ * What that path does and does not do, checked rather than assumed: it deletes
+ * the `bank_connections` row, scoped to the user, and nothing else. There is no
+ * provider-side revocation anywhere in `api/banking/`. So after a wipe the app
+ * has forgotten the bank and the bank has not forgotten the app — enough to
+ * stop the resurrection these tests are about, and NOT the same thing as
+ * withdrawing consent. Worth saying here because a test file claiming the
+ * stronger property would be the reason nobody ever added it.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createDataService, type BankingEngineLike } from '../dataService';

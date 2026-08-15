@@ -1432,10 +1432,17 @@ class DataServiceImpl implements DataPort {
       // A destructive action that silently under-delivers is worse than one
       // that refuses: the user believes the ledger is empty and it is not.
       //
-      // Revoked through `disconnect` rather than deleted in SQL, because that
-      // is the path that also withdraws consent at the BANK. A row deleted
-      // here while the consent stood would leave the provider still holding an
-      // authorisation the user believes they have destroyed.
+      // Through `disconnect` rather than a SQL delete of our own, so there is
+      // ONE path that removes a connection and both callers take it.
+      //
+      // ⚠️ It deletes the `bank_connections` row and NOTHING ELSE. There is no
+      // provider-side revocation anywhere in `api/banking/` — checked — so
+      // after this the app has forgotten the bank and the bank has not
+      // forgotten the app. That is enough to stop the resurrection this fixes,
+      // and it is NOT the same as withdrawing consent. Anyone reading this
+      // while adding a "revoke at the provider" step: it belongs in
+      // `api/banking/disconnect.ts`, so the single-connection delete on the
+      // Open Banking page gets it too.
       //
       // Failures are collected and thrown at the END: one bank refusing must
       // not leave the others connected, and the wipe of the ledger above has
