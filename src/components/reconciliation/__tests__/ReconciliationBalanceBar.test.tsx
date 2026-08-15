@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import { renderWithProviders } from '../../../test/testUtils';
 import ReconciliationBalanceBar from '../ReconciliationBalanceBar';
-import { NEXT_ACTION_YELLOW, CONFIRM_BALANCE_HINT_ID } from '../nextActionYellow';
+import { NEXT_ACTION_YELLOW } from '../../../design-system/nextActionYellow';
+import { CONFIRM_BALANCE_HINT_ID } from '../nextActionYellow';
 
 /**
  * The closing balance — the statement's ending figure — is the only number on

@@ -3,7 +3,7 @@ import { CheckIcon, AlertCircleIcon, CreditCardIcon, CrownIcon, ZapIcon, UsersIc
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { formatDistanceToNow } from 'date-fns';
 import { createScopedLogger } from '../loggers/scopedLogger';
-import { NEXT_ACTION_YELLOW } from './reconciliation/nextActionYellow';
+import { NEXT_ACTION_YELLOW } from '../design-system/nextActionYellow';
 
 interface PlanFeature {
   name: string;
@@ -207,17 +207,18 @@ export default function SubscriptionStatus(): React.JSX.Element {
                   sentence telling somebody their subscription is ending was
                   the least readable thing on the page.
 
-                  `NEXT_ACTION_YELLOW` is amber-800 on amber-100 — 6.15:1
-                  measured, and 10.7:1 for the dark pair. Swapped in whole
-                  rather than appended, per the constant's own constraint:
-                  Tailwind resolves two utilities for one property by source
-                  order, so mixing them leaves the winner to the compiler.
+                  `NEXT_ACTION_YELLOW` replaced it. Swapped in whole rather
+                  than appended, per the constant's own constraint: Tailwind
+                  resolves two utilities for one property by source order, so
+                  mixing them leaves the winner to the compiler.
 
-                  Note on its home: the constant lives under
-                  `components/reconciliation/` because that is where the idea
-                  was born, and it is no longer only theirs — Accounts wears it
-                  and now so does this. Moving it up is a follow-up, not a
-                  rider on an accessibility fix. */}
+                  No ratio is quoted here on purpose. The two that used to be
+                  had both drifted from the constant's own header, and one of
+                  them was the wrong SURFACE besides — a dark figure measured
+                  against the gray-900 page, quoted for a panel that sits on a
+                  gray-800 card. Neither failed AA, which is precisely why
+                  nobody noticed. `semantic-contrast.test.ts` measures every
+                  pair on both surfaces now; read the number off that. */}
               {cancelAtPeriodEnd && (
                 <div className={`p-3 rounded-lg border ${NEXT_ACTION_YELLOW}`}>
                   <div className="flex items-start gap-2">
