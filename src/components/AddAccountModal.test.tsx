@@ -33,8 +33,11 @@ const renderModal = (props: Partial<AddAccountModalProps> = {}) =>
  * The balance is a MoneyInput, which renders `type="text"` + `inputMode="decimal"`,
  * so it is a `textbox` rather than a `spinbutton`.
  */
-const nameField = () => screen.getByRole('textbox', { name: /Account Name/ });
-const balanceField = () => screen.getByRole('textbox', { name: /Current Balance/ });
+// Case-insensitive since 15 August: the labels moved to sentence case
+// ("Account name", "Opening balance") so they read like the rest of the app
+// and like the new "Opening balance as of" beside them.
+const nameField = () => screen.getByRole('textbox', { name: /Account Name/i });
+const balanceField = () => screen.getByRole('textbox', { name: /Opening balance$/i });
 const submitButton = () => screen.getByRole('button', { name: 'Add Account' });
 
 /** Fill in the name and balance the form requires, then choose Credit Card. */
@@ -130,7 +133,7 @@ describe('AddAccountModal — every field is announced by its visible label', ()
 
     expect(nameField()).toBeInTheDocument();
     expect(balanceField()).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: /Currency/ })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /Currency/i })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /Financial Institution/ })).toBeInTheDocument();
     // These two carry an explicit aria-label, which wins over the visible
     // label, so they are named by it rather than by the label text.
@@ -141,9 +144,9 @@ describe('AddAccountModal — every field is announced by its visible label', ()
   it('derives each accessible name from a visible label, not an aria-label', () => {
     renderModal();
 
-    expectVisibleLabel(nameField(), /Account Name/);
-    expectVisibleLabel(balanceField(), /Current Balance/);
-    expectVisibleLabel(screen.getByRole('combobox', { name: /Currency/ }), /Currency/);
+    expectVisibleLabel(nameField(), /Account Name/i);
+    expectVisibleLabel(balanceField(), /Opening balance$/i);
+    expectVisibleLabel(screen.getByRole('combobox', { name: /Currency/i }), /Currency/i);
     expectVisibleLabel(screen.getByRole('textbox', { name: /Financial Institution/ }), /Financial Institution/);
   });
 
@@ -208,7 +211,7 @@ describe('AddAccountModal — the account type buttons are a labelled group', ()
   it('labels the group and reports the selected type', () => {
     renderModal();
 
-    const group = screen.getByRole('group', { name: /Account Type/ });
+    const group = screen.getByRole('group', { name: /Account Type/i });
     expect(within(group).getByRole('button', { name: /Current Account/ })).toHaveAttribute('aria-pressed', 'true');
     expect(within(group).getByRole('button', { name: /Savings Account/ })).toHaveAttribute('aria-pressed', 'false');
   });
@@ -216,7 +219,7 @@ describe('AddAccountModal — the account type buttons are a labelled group', ()
   it('moves the pressed state when another type is chosen', () => {
     renderModal();
 
-    const group = screen.getByRole('group', { name: /Account Type/ });
+    const group = screen.getByRole('group', { name: /Account Type/i });
     fireEvent.click(within(group).getByRole('button', { name: /Savings Account/ }));
 
     expect(within(group).getByRole('button', { name: /Savings Account/ })).toHaveAttribute('aria-pressed', 'true');
@@ -239,7 +242,7 @@ describe('AddAccountModal — submission', () => {
 
     fireEvent.change(nameField(), { target: { value: 'Everyday Current' } });
     fireEvent.change(balanceField(), { target: { value: '250.75' } });
-    fireEvent.change(screen.getByRole('combobox', { name: /Currency/ }), { target: { value: 'USD' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /Currency/i }), { target: { value: 'USD' } });
     fireEvent.change(screen.getByRole('textbox', { name: /Financial Institution/ }), {
       target: { value: 'HSBC' }
     });
@@ -311,5 +314,82 @@ describe('AddAccountModal — submission', () => {
     fireEvent.change(balanceField(), { target: { value: 'abc' } });
 
     expect((balanceField() as HTMLInputElement).value).not.toContain('a');
+  });
+});
+
+/**
+ * THE OPENING BALANCE, AND WHEN IT WAS TRUE.
+ *
+ * The figure was labelled "Current Balance" and stored as `openingBalance`,
+ * dated `new Date()` — written silently and never shown. The register builds
+ * its running balance FORWARD from it (AccountTransactions.tsx), so the label
+ * and the behaviour disagreed in the one case that costs money: add an
+ * account, type what the bank says today, then import a year of history, and
+ * the year lands on top of a figure that already included it.
+ *
+ * The owner's ruling, 15 August: the field is the OPENING balance and says so,
+ * and the date it was true is a field rather than an assumption.
+ */
+describe('AddAccountModal — the opening balance', () => {
+  it('asks for an opening balance, not a current one', () => {
+    renderModal();
+
+    expect(screen.getByLabelText(/Opening balance$/i)).toBeInTheDocument();
+    // The old wording, which said one thing while the code stored another.
+    expect(screen.queryByLabelText(/Current Balance/i)).not.toBeInTheDocument();
+  });
+
+  it('defaults the as-of date to today, since that is right for a fresh account', () => {
+    renderModal();
+
+    // `DatePicker` shows dd/mm/yyyy, not the ISO value it holds — the app is
+    // en-GB and the field reads the way the rest of the app's dates do. The
+    // suite runs on a frozen clock, so "today" is read rather than assumed.
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, '0');
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    expect(screen.getByLabelText('Opening balance as of'))
+      .toHaveValue(`${dd}/${mm}/${today.getFullYear()}`);
+  });
+
+  it('saves the date the user chose rather than the moment the row was written', async () => {
+    renderModal();
+
+    fireEvent.change(nameField(), { target: { value: 'Imported Account' } });
+    // Typed the way a person types it, which is what the field accepts.
+    const asOf = screen.getByLabelText('Opening balance as of');
+    fireEvent.change(asOf, { target: { value: '06/04/2018' } });
+    fireEvent.blur(asOf);
+    fireEvent.click(submitButton());
+
+    await waitFor(() => expect(addAccount).toHaveBeenCalled());
+    const saved = addAccount.mock.calls[0][0] as { openingBalanceDate?: Date };
+    expect(saved.openingBalanceDate?.getFullYear()).toBe(2018);
+    expect(saved.openingBalanceDate?.getMonth()).toBe(3); // April
+    expect(saved.openingBalanceDate?.getDate()).toBe(6);
+  });
+
+  it('carries the typed figure into openingBalance, which is what the register reads', async () => {
+    renderModal();
+
+    fireEvent.change(nameField(), { target: { value: 'Opening Figure' } });
+    fireEvent.change(balanceField(), { target: { value: '1250.00' } });
+    fireEvent.click(submitButton());
+
+    await waitFor(() => expect(addAccount).toHaveBeenCalled());
+    expect(addAccount.mock.calls[0][0]).toMatchObject({
+      balance: 1250,
+      openingBalance: 1250,
+    });
+  });
+
+  it('marks nothing with an asterisk, since the optional fields say so themselves', () => {
+    // Two conventions for one question (Claude Design, item 4): `*` on the
+    // required ones AND `(Optional)` on the rest. `(Optional)` is the plainer
+    // and needs no legend, so the stars go.
+    const { container } = renderModal();
+    expect(container.textContent).not.toContain('Name *');
+    expect(container.textContent).not.toContain('Type *');
+    expect(container.textContent).not.toContain('Currency *');
   });
 });

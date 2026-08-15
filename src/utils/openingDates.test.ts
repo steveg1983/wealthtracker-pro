@@ -130,3 +130,56 @@ describe('resolveEffectiveOpeningDates — one pass over a multi-account fixture
     expect(map.get('a')).toEqual(D(2021, 6, 6));
   });
 });
+
+/**
+ * THE OWNER'S SPECIFICATION, 15 August 2026, as one story.
+ *
+ * The rungs above are tested individually. This walks the sequence he
+ * described, because the point of it is that each step follows from the last
+ * without anyone writing a date anywhere:
+ *
+ *   "Editable date but defaults to today. If the user does not change the date
+ *    then in the register the opening balance of x gets placed with today's
+ *    date. If the user then goes to edit the account settings and changes the
+ *    opening date, I want the register to change with it, or the opening value
+ *    if the user changes that. If the user imports transactions and the
+ *    earliest transaction imported is earlier than the currently held opening
+ *    date then the opening date gets changed automatically to the same date as
+ *    that first imported transaction."
+ *
+ * All of it holds, and holds by DERIVATION rather than storage: the register
+ * asks this resolver on every render, so an edit in Account Settings is
+ * followed because nothing cached it, and an import moves the date because the
+ * clamp recomputes rather than because anything rewrote the column. A stored
+ * answer would have needed a migration AND a backfill AND would drift the
+ * first time a transaction was deleted.
+ */
+describe('the opening date through an account’s life', () => {
+  const TODAY = D(2026, 8, 15);
+
+  it('sits on today for a fresh account nobody has imported into', () => {
+    const acc = account({ id: 'a', name: 'New', openingBalanceDate: TODAY });
+    expect(effectiveOpeningDate(acc, undefined, undefined)).toEqual(TODAY);
+  });
+
+  it('follows the account settings when the date is edited', () => {
+    // Nothing cached it, so "follows" is not a feature — it is the absence of
+    // one. The register reads the account on every render.
+    const edited = account({ id: 'a', name: 'New', openingBalanceDate: D(2018, 4, 6) });
+    expect(effectiveOpeningDate(edited, undefined, undefined)).toEqual(D(2018, 4, 6));
+  });
+
+  it('moves itself back when an import lands earlier than it', () => {
+    const acc = account({ id: 'a', name: 'New', openingBalanceDate: TODAY });
+    // A year of history imported, earliest 2 January.
+    expect(effectiveOpeningDate(acc, D(2026, 1, 2), undefined)).toEqual(D(2026, 1, 2));
+  });
+
+  it('stays put when the import is all LATER than the opening date', () => {
+    // The clamp only ever pulls backwards. An opening balance dated before the
+    // history is a legitimate statement — it is where the running balance
+    // starts — and moving it forward would silently drop the gap.
+    const acc = account({ id: 'a', name: 'New', openingBalanceDate: D(2018, 4, 6) });
+    expect(effectiveOpeningDate(acc, D(2020, 1, 1), undefined)).toEqual(D(2018, 4, 6));
+  });
+});
