@@ -483,8 +483,10 @@ export function ImprovedDashboard() {
   );
   const customPinnedReports = pinnedReports.filter(id => id.startsWith('custom:'));
   // A column with nothing in it is not drawn — an empty half of a two-column
-  // grid is a hole, not a layout.
-  const showAssetsColumn = assetsReports.length > 0 || pieData.length > 0;
+  // grid is a hole, not a layout. Account Distribution is ALWAYS one of its
+  // contents now (see the card itself), so this no longer turns on whether
+  // there is data to draw.
+  const showAssetsColumn = true;
   const showFlowsColumn = flowsReports.length > 0;
 
   return (
@@ -622,13 +624,28 @@ export function ImprovedDashboard() {
                   states none of its own, and sending one would move the window
                   the NEXT report opens on from a control the destination does
                   not even show. The way back travels — see useReportDrill. */}
-              {pieData.length > 0 && (
+              {/* ALWAYS RENDERED, empty or not. It used to disappear when
+                  there were no balances to draw, which on a fresh ledger left
+                  the left column blank beside two cards on the right — the
+                  owner read that as a chart that had failed, not as one with
+                  nothing to say. His ruling: "It should still be shown, but
+                  just with zero data, like the others."
+
+                  What is shown when empty is a SENTENCE, not an empty ring.
+                  Claude Design's §3 asks for exactly that and gives the reason:
+                  an axis (or a ring) with nothing on it asserts there is
+                  something to plot and reads as a failed load. The two rulings
+                  agree once separated — the owner is asking for the CARD to be
+                  present, Design is asking for the FRAME not to be. */}
+              {(
                 <DashboardWidgetCard
                   title="Account Distribution"
                   subtitle={
                     <>
                       <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        Your top {pieData.length} account{pieData.length === 1 ? '' : 's'} by balance
+                        {pieData.length === 0
+                          ? 'Your largest accounts by balance'
+                          : `Your top ${pieData.length} account${pieData.length === 1 ? '' : 's'} by balance`}
                       </span>
                       <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto whitespace-nowrap">
                         Current balances
@@ -637,6 +654,12 @@ export function ImprovedDashboard() {
                   }
                   onOpen={() => openReport('account-distribution')}
                 >
+                  {pieData.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                      No account balances to compare yet
+                    </p>
+                  ) : (
+                  <>
                   {/* A SQUARE for the ring, ALL remaining width for the names —
                       the same rule the Expense Categories card follows, so the
                       two donuts on this page sit at the same size and start at
@@ -690,6 +713,8 @@ export function ImprovedDashboard() {
                       ))}
                     </ul>
                   </div>
+                  </>
+                  )}
                 </DashboardWidgetCard>
               )}
             </div>

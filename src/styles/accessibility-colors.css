@@ -137,18 +137,33 @@ textarea:focus-visible {
   font-weight: 500 !important; /* Make errors slightly bolder for visibility */
 }
 
-/* Gray text contrast improvements */
-.text-gray-500 {
+/* Gray text contrast improvements — LIGHT MODE ONLY.
+ *
+ * `html:not(.dark)` is the whole fix, and it is here because these three rules
+ * were darkening text in DARK mode too. They carry `!important`, so they beat
+ * every `dark:` variant a component declares no matter how specific it is: an
+ * element written `text-xs text-gray-500 dark:text-gray-300` rendered at
+ * #374151 on a #1f2937 card — 1.3:1, which is not dim, it is absent.
+ *
+ * That is what the owner reported as "you can't see the 'last updated' font
+ * within the accounts", and it was never one component's bug: 462 elements
+ * across the app pair a gray-500/400 with a small-text class.
+ *
+ * Scoping rather than deleting, because the light-mode reasoning is sound —
+ * Tailwind's gray-500 on white is 4.0:1 and misses AA for body text. In dark
+ * mode the components' own `dark:` variants are what should decide, and now
+ * they can. */
+html:not(.dark) .text-gray-500 {
   color: #4b5563 !important; /* gray-600 for better contrast */
 }
 
-.text-gray-400 {
+html:not(.dark) .text-gray-400 {
   color: #6b7280 !important; /* gray-500 for better contrast */
 }
 
 /* Widget and card text contrast */
-.text-xs.text-gray-500,
-.text-sm.text-gray-500 {
+html:not(.dark) .text-xs.text-gray-500,
+html:not(.dark) .text-sm.text-gray-500 {
   color: #374151 !important; /* gray-700 for small text */
 }
 

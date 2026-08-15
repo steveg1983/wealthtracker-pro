@@ -54,7 +54,12 @@ const accountTypes = [
   { value: 'credit', label: 'Credit Card', icon: CreditCardIcon, description: 'Credit line account' },
   { value: 'loan', label: 'Loan', icon: BanknoteIcon, description: 'Mortgages, personal loans' },
   { value: 'investment', label: 'Investment', icon: TrendingUpIcon, description: 'Stocks, bonds, funds' },
-  { value: 'assets', label: 'Other Assets', icon: PackageIcon, description: 'Property, valuables' },
+  { value: 'assets', label: 'Asset', icon: PackageIcon, description: 'Property, valuables' },
+  // There was NO way to create a liability here, so anything that was not a
+  // loan or a card had to be made as something else and retyped afterwards —
+  // and Account Settings then offered only "Other Liability", which filed it
+  // under Other Accounts rather than Liabilities.
+  { value: 'liability', label: 'Liability', icon: BanknoteIcon, description: 'Anything else you owe' },
 ];
 
 // The supported list, shared with Account Settings — which now SHOWS an

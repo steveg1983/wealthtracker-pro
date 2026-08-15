@@ -1099,10 +1099,22 @@ export default function Accounts() {
     setSelectedAccountId(nextId);
     const node = document.getElementById(rowDomId(nextId));
     // The row is already rendered — only its tabindex changes — so it can be
-    // handed the focus directly. `nearest`: browsing, so the least scroll that
-    // shows the row, and none at all while it is already visible.
+    // handed the focus directly.
+    //
+    // `center`, NOT `nearest`. `nearest` is defined as "scroll the least that
+    // makes it visible", which means it does nothing at all while the row is
+    // on screen and then jumps when it reaches an edge — the owner's report:
+    // "the page doesn't move until the highlighted account is out of sight,
+    // then the page starts scrolling". It reads as a stall followed by a lurch.
+    //
+    // `center` keeps the selection in the middle and the list moving under it,
+    // which is what the register already does (useArrivalFocus) and is the
+    // behaviour he asked this page to match. The clamping he described at the
+    // ends — "unless you are that near the bottom or the top that the page
+    // cannot move any more" — needs no code: a scroll container cannot scroll
+    // past its own extent, so the row simply walks up or down the screen there.
     node?.focus({ preventScroll: true });
-    node?.scrollIntoView?.({ block: 'nearest' });
+    node?.scrollIntoView?.({ block: 'center' });
   }, [navigableRowIds, selectedAccountId]);
 
   /**

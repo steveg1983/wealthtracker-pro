@@ -11,6 +11,11 @@ import GroupedAccountOptions from './common/GroupedAccountOptions';
 import { accountCurrencyOptions, describeAccountCurrency } from '../constants/accountCurrencies';
 import { resolveSecuring, normaliseSecuredIds } from '../utils/accountSecuring';
 import {
+  ACCOUNT_SECTION_DEFINITIONS,
+  OTHER_SECTION_DEFINITION,
+  sectionTypeForAccount
+} from '../utils/accountGrouping';
+import {
   BANK_ACCOUNT_NUMBER_LENGTH,
   CARD_NUMBER_LABEL,
   accountNumberForStorage,
@@ -128,9 +133,45 @@ const accountTypeOptions = [
   { value: 'loan', label: 'Loan Account' },
   { value: 'credit', label: 'Credit Card' },
   { value: 'investment', label: 'Investments' },
-  { value: 'assets', label: 'Other Asset' },
-  { value: 'other', label: 'Other Liability' }
+  // 'assets' and 'liability' name the ASSETS and LIABILITIES sections — the
+  // two the owner actually files into. 'other' is deliberately NOT offered:
+  // it was labelled "Other Liability" and filed under "Other Accounts",
+  // because it is not a section type at all (see sectionTypeForAccount's
+  // catch-all). Choosing it moved an account somewhere the label had not
+  // mentioned, which is how a loan ended up alone in its own band.
+  //
+  // 'other' remains a valid STORED type — imports write it, and the catch-all
+  // section exists so such a row still renders — it is simply not something a
+  // person should be able to choose by accident.
+  { value: 'assets', label: 'Asset' },
+  { value: 'liability', label: 'Liability' }
 ];
+
+/**
+ * The offered types, plus this account's OWN type when the list has no entry
+ * for it.
+ *
+ * A select whose value is absent from its own options does not show an empty
+ * box — it shows the FIRST option, and saving that silently retypes the
+ * account to whatever happens to be at the top. The same trap the pairing
+ * dropdown documents, and a live one here: 'other', 'checking', 'mortgage',
+ * 'cash' and 'asset' are all storable and none of them is offered. An imported
+ * ledger is full of exactly those.
+ *
+ * So a stored type is always representable, labelled by the SECTION it files
+ * under, which is the question the field actually answers ("where does this
+ * account appear?"). Choosing anything else still moves it; nothing forces the
+ * legacy value to be kept.
+ */
+function typeOptionsFor(current: BaseAccount['type']): { value: string; label: string }[] {
+  if (accountTypeOptions.some(o => o.value === current)) return accountTypeOptions;
+  const section = ACCOUNT_SECTION_DEFINITIONS
+    .find(s => s.type === sectionTypeForAccount(current));
+  return [
+    ...accountTypeOptions,
+    { value: current, label: `${section?.title ?? OTHER_SECTION_DEFINITION.title} (as imported)` }
+  ];
+}
 
 export default function AccountSettingsModal({
   isOpen,
@@ -361,7 +402,7 @@ export default function AccountSettingsModal({
               onChange={(e) => updateField('type', e.target.value as Account['type'])}
               className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
             >
-              {accountTypeOptions.map((option) => (
+              {typeOptionsFor(account?.type ?? 'current').map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
