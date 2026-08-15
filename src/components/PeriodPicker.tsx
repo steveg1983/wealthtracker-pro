@@ -39,7 +39,16 @@ export default function PeriodPicker({ picker, label }: {
             aria-pressed={period === key}
             className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
               period === key
-                ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                // `#2d3a4d`, NOT `blue-600` (Claude Design §7). The dark
+                // variant reached for a stock Tailwind blue that appears
+                // nowhere in the token set, so the same control had two
+                // identities: navy in light, a vivid blue in dark.
+                //
+                // #2d3a4d is navy-700 — the app's own next step up from
+                // #1a2332, and already the answer the floating nav pill gives
+                // to this exact question (`dark:bg-[#2d3a4d]`). It is the
+                // brand colour lifted off a dark ground, not a different hue.
+                ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
             }`}
           >

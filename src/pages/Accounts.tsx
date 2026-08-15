@@ -1495,11 +1495,22 @@ export default function Accounts() {
                           in components/AccountRowColumns. */}
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
                             <AccountRowColumns>
+                              {/* AN EM-DASH, NOT "N/A" (Claude Design §4). The
+                                  register and the reconciliation bar were both
+                                  moved off "N/A" and this, their sibling
+                                  surface, was missed — the third time a fix has
+                                  landed on one screen and not the one beside it.
+
+                                  The distinction it draws is load-bearing: an
+                                  account with no bank feed has no bank balance,
+                                  which is not the same as a bank balance of
+                                  nothing. "N/A" is also an abbreviation the rest
+                                  of the app does not use anywhere. */}
                               <AccountBalanceCell
                                 label="Bank Bal"
                                 value={account.bankBalance != null
                                   ? formatDisplayCurrency(account.bankBalance, account.currency)
-                                  : 'N/A'}
+                                  : null}
                               />
                               <AccountBalanceCell
                                 label="Account Bal"
@@ -2657,7 +2668,16 @@ export default function Accounts() {
           content edges — the same ones this sticky box is measured to. The
           strip goes on wearing the row card's box (see AccountRowColumns) to
           match the inset the CARD adds, which is the part that would drift. */}
-      <AccountColumnHeader />
+      {/* HIDDEN WHEN THERE IS NOTHING BELOW IT (Claude Design §6). When there
+          are no rows there are no columns: the labels have nothing to sit over,
+          and on an otherwise empty page the strip is the heaviest thing on it,
+          heading a table that is not there.
+
+          Both empty cases, not just the ledger-is-empty one — a search that
+          matches nothing leaves exactly the same strip over exactly the same
+          nothing, and the filtered empty state below already explains itself
+          without a column header helping. */}
+      {!isLoading && matchedTopLevelCount > 0 && <AccountColumnHeader />}
       </div>
 
       {/* The `-ml-1 pl-1 pr-1` that used to be here went with the scroll

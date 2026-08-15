@@ -12,6 +12,11 @@ import { CONFIRM_BALANCE_HINT_ID } from '../nextActionYellow';
  * number existed there was no way back to "no closing balance" and a Difference
  * of N/A. These tests hold the way back open.
  *
+ * The symbol itself changed on 15 August, on Claude Design's §4: an em-dash,
+ * not "N/A", which is an abbreviation the rest of the app does not use. What
+ * these tests pin is unchanged — that "not known" and "zero" stay different
+ * statements — so only the character moved.
+ *
  * Every figure here is invented: this repo is public.
  */
 describe('ReconciliationBalanceBar', () => {
@@ -46,12 +51,12 @@ describe('ReconciliationBalanceBar', () => {
   it('shows the difference against a recorded bank balance', () => {
     renderBar(220);
     expect(screen.getByText('Difference')).toBeInTheDocument();
-    expect(screen.queryByText('N/A')).not.toBeInTheDocument();
+    expect(screen.queryByText('—')).not.toBeInTheDocument();
   });
 
-  it('shows N/A and an invitation to type one when there is no bank balance', () => {
+  it('shows an em-dash and an invitation to type one when there is no bank balance', () => {
     renderBar(null);
-    expect(screen.getByText('N/A')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
     expect(screen.getByText('Enter balance')).toBeInTheDocument();
   });
 
@@ -69,19 +74,19 @@ describe('ReconciliationBalanceBar', () => {
     openEditor();
     expect(
       screen.getByRole('button', {
-        name: 'Remove the closing balance. Difference goes back to N/A until you enter another.'
+        name: 'Remove the closing balance. Difference goes back to not known until you enter another.'
       })
     ).toBeInTheDocument();
   });
 
-  it('falls straight back to N/A on removal, before the write has landed', () => {
+  it('falls straight back to an em-dash on removal, before the write has landed', () => {
     // The prop still says 220 — the parent has not saved yet. The bar must
     // already show the state the user asked for, or the click looks ignored.
     renderBar(220);
     openEditor();
     fireEvent.click(screen.getByRole('button', { name: /Remove the closing balance/ }));
 
-    expect(screen.getByText('N/A')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
     expect(screen.getByText('Enter balance')).toBeInTheDocument();
   });
 

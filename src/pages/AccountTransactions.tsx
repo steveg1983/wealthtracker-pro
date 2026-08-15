@@ -3070,19 +3070,29 @@ export default function AccountTransactions() {
               with no bank feed has no bank balance — which used to print "N/A"
               and now prints an em-dash, uncoloured. */}
           <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5">
+            {/* NEUTRAL — a balance is a MAGNITUDE (Claude Design §5). This
+                read `>= 0 ? positive : negative`, so £0.00 printed in income
+                green, and the rule this app already carries is that the hues
+                are banned on magnitudes and permitted on directions. How much
+                is in the account is not a direction; on a credit card the
+                green would have been actively wrong. Net Worth on the summary
+                card is neutral for the same reason. */}
             <StatPill
               label="Account Balance"
               value={formatRegisterMoney(computedAccountBalance)}
-              tone={computedAccountBalance >= 0 ? 'positive' : 'negative'}
+              tone="neutral"
               layout="inline"
             />
           </div>
 
           <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5">
+            {/* Same rule, and Design's own instruction to check the siblings
+                found it: what the BANK says is in the account is a magnitude
+                too, and it was carrying the same green. */}
             <StatPill
               label="Bank Balance"
               value={bankBalance != null ? formatRegisterMoney(bankBalance) : null}
-              tone={bankBalance != null && bankBalance < 0 ? 'negative' : 'positive'}
+              tone="neutral"
               layout="inline"
             />
           </div>
