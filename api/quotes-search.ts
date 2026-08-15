@@ -4,7 +4,8 @@ import { setCorsHeaders } from './_lib/cors.js';
 import { createErrorResponse } from './_lib/http-error.js';
 import { applyRateLimit } from './_lib/rate-limit.js';
 import { withSentry } from './_lib/sentry.js';
-import { searchSymbols, type SymbolMatch } from './_lib/quotes.js';
+import { type SymbolMatch } from './_lib/quotes.js';
+import { searchSymbolsVia, activeSymbolSearchProvider } from './_lib/symbolSearch.js';
 
 /**
  * GET /api/quotes-search?q=… — ticker lookup.
@@ -60,7 +61,14 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       );
     }
 
-    const matches = await searchSymbols(query);
+    // Through the seam, not the provider: which service answers is
+    // `symbolSearch.ts`'s decision and an environment variable, so switching
+    // is a deployment rather than an edit here.
+    const matches = await searchSymbolsVia(query, {
+      onProviderError: (provider, error) => {
+        console.error(`[quotes-search] ${provider} failed, falling back`, error);
+      }
+    });
 
     // The instrument universe changes by the day, not the minute.
     res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=3600, stale-while-revalidate=3600');
@@ -73,13 +81,19 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     }
     // Upstream failures are logged server-side; the caller gets a message it can
     // show, never Yahoo's body or our stack.
-    console.error('[quotes-search] Lookup failed', error);
+    // The provider is named, because "search is down" reads very differently
+    // depending on WHICH one gave up and there is no other record of it.
+    console.error(
+      `[quotes-search] Lookup failed (provider: ${activeSymbolSearchProvider()})`,
+      error
+    );
 
     // 429 is not "unavailable", it is "not right now", and the difference is
-    // the whole of what a reader can do about it. Yahoo rate-limits by IP and
-    // both hosts share the limit, so a busy minute takes the lookup out
-    // entirely — which is a fact worth saying rather than hiding behind a
-    // generic failure that also covers genuine outages.
+    // the whole of what a reader can do about it. It survives the provider
+    // change because it is not a Yahoo fact: Twelve Data's free tier has a
+    // daily ceiling and answers 429 when it is reached, so a rate limit is
+    // now something EITHER provider can report — which is the more reason to
+    // say it plainly rather than folding it into a generic failure.
     const status = (error as { upstreamStatus?: number })?.upstreamStatus;
     if (status === 429) {
       return createErrorResponse(
