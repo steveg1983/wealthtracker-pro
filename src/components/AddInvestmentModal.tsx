@@ -9,6 +9,7 @@ import DatePicker from './common/DatePicker';
 import GroupedAccountOptions from './common/GroupedAccountOptions';
 import { useModalForm } from '../hooks/useModalForm';
 import { toDecimal, parseMoneyInput } from '../utils/decimal';
+import StockSymbolSearch from './StockSymbolSearch';
 
 interface AddInvestmentModalProps {
   isOpen: boolean;
@@ -48,9 +49,31 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
     },
     {
       onSubmit: async (data) => {
-        if (!data.selectedAccountId || !data.name || !data.units || !data.pricePerUnit) {
-          alert('Please fill in all required fields');
-          return;
+        /*
+         * ─ THE FIRST MISSING FIELD, NAMED AND FOCUSED ────────────────────
+         *
+         * This was `alert('Please fill in all required fields')` — a browser
+         * dialog that names none of them, cannot be styled, and takes the
+         * focus away from the form it is complaining about. Claude Design's
+         * ruling on the same shape in Add Account (item 3) asks for the
+         * opposite: validate on press, say WHICH field, and put the cursor in
+         * it. The user always has a route forward and learns exactly what is
+         * wanted.
+         *
+         * Reported through `errors.submit`, which already renders a
+         * `role="alert"` panel beside the figures — one error surface on this
+         * form rather than two.
+         */
+        const missing =
+          !data.selectedAccountId ? { id: 'add-investment-account', label: 'an investment account' } :
+          !data.name ? { id: 'add-investment-name', label: 'a name for this investment' } :
+          !data.units ? { id: 'add-investment-units', label: 'the number of units or shares' } :
+          !data.pricePerUnit ? { id: 'investment-price-per-unit', label: 'the price per unit' } :
+          null;
+
+        if (missing) {
+          document.getElementById(missing.id)?.focus();
+          throw new Error(`Choose ${missing.label} before saving.`);
         }
 
         const unitsNum = Number(data.units) || 0;
@@ -145,9 +168,10 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
           {!accountId && (
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Investment Account*
+                Investment account
               </label>
               <select
+                id="add-investment-account"
                 value={formData.selectedAccountId}
                 onChange={(e) => updateField('selectedAccountId', e.target.value)}
                 className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
@@ -174,7 +198,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
           {/* Investment Type */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Category of Investment*
+              Category of investment
             </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
@@ -189,7 +213,11 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                   onClick={() => updateField('investmentType', type.value as FormData['investmentType'])}
                   className={`px-4 py-2 rounded-lg transition-colors ${
                     formData.investmentType === type.value
-                      ? 'bg-[#1a2332] text-white'
+                      // dark:bg-gray-600, for #302's reason: `bg-[#1a2332]` on
+                      // a gray-800 modal is navy on navy, and a selected tile
+                      // that looks unselected is how Claude Design read the
+                      // Add Account picker as having no default.
+                      ? 'bg-[#1a2332] dark:bg-gray-600 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
@@ -200,17 +228,45 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* ─ FIND IT, RATHER THAN SPELL IT ────────────────────────────
+                The code and the name were two free-text boxes: you had to know
+                the exchange's ticker AND type the company's name, and nothing
+                checked either. "APPL" for Apple is a typo that saves happily
+                and then never prices, because the real ticker is AAPL.
+
+                The same lookup the watchlist uses — Yahoo, ticker OR name,
+                UK and US — and picking a result fills BOTH fields at once, so
+                the two can no longer disagree about what you own. */}
+            {formData.investmentType !== 'cash' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Find the {formData.investmentType === 'fund' ? 'fund' : 'holding'}
+                </label>
+                <StockSymbolSearch
+                  placeholder="Search by name or ticker — Apple, AAPL, SHEL.L, Vanguard…"
+                  hint="Picking one fills in the code and the name below. You can still type them yourself."
+                  onSelect={(symbol, match) => {
+                    updateField('stockCode', symbol);
+                    updateField('name', match.name);
+                  }}
+                />
+              </div>
+            )}
+
             {/* Stock/Fund Code */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {formData.investmentType === 'fund' ? 'Fund Code' : formData.investmentType === 'share' ? 'Stock Code' : 'Reference'} 
-                {formData.investmentType !== 'cash' && <span className="text-gray-400 text-xs ml-1">(e.g. AAPL)</span>}
+              <label htmlFor="add-investment-code" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {formData.investmentType === 'fund' ? 'Fund code' : formData.investmentType === 'share' ? 'Stock code' : 'Reference'}
+                {formData.investmentType !== 'cash' && (
+                  <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">(Optional)</span>
+                )}
               </label>
               <input
+                id="add-investment-code"
                 type="text"
                 value={formData.stockCode}
                 onChange={(e) => updateField('stockCode', e.target.value.toUpperCase())}
-                placeholder={formData.investmentType === 'share' ? 'AAPL' : formData.investmentType === 'fund' ? 'ISIN/SEDOL' : 'Optional'}
+                placeholder={formData.investmentType === 'share' ? 'AAPL' : formData.investmentType === 'fund' ? 'ISIN/SEDOL' : ''}
                 className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
                 disabled={formData.investmentType === 'cash'}
               />
@@ -219,9 +275,10 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             {/* Investment Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Investment Name*
+                Investment name
               </label>
               <input
+                id="add-investment-name"
                 type="text"
                 value={formData.name}
                 onChange={(e) => updateField('name', e.target.value)}
@@ -234,11 +291,12 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             {/* Number of Units */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {formData.investmentType === 'cash' ? 'Amount' : 'Number of Units/Shares'}*
+                {formData.investmentType === 'cash' ? 'Amount' : 'Number of units or shares'}
               </label>
               <input
                 type="number"
                 step="0.0001"
+                id="add-investment-units"
                 value={formData.units}
                 onChange={(e) => updateField('units', e.target.value)}
                 placeholder={formData.investmentType === 'cash' ? '1000.00' : '100'}
@@ -250,7 +308,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             {/* Price per Unit */}
             <div>
               <label htmlFor="investment-price-per-unit" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {formData.investmentType === 'cash' ? `Price per Unit (${currencySymbol})` : `Price per Unit/Share (${currencySymbol})`}*
+                {formData.investmentType === 'cash' ? `Price per unit (${currencySymbol})` : `Price per unit or share (${currencySymbol})`}
               </label>
               <MoneyInput
                 id="investment-price-per-unit"
@@ -265,7 +323,8 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             {/* Transaction Fee */}
             <div>
               <label htmlFor="investment-fees" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Transaction Fee ({currencySymbol})
+                Transaction fee ({currencySymbol})
+                <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">(Optional)</span>
               </label>
               <MoneyInput
                 id="investment-fees"
@@ -278,7 +337,8 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             {/* Stamp Duty */}
             <div>
               <label htmlFor="investment-stamp-duty" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Stamp Duty/Levy ({currencySymbol})
+                Stamp duty or levy ({currencySymbol})
+                <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">(Optional)</span>
               </label>
               <MoneyInput
                 id="investment-stamp-duty"
@@ -291,7 +351,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             {/* Date */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Purchase Date*
+                Purchase date
               </label>
               {/* dd/mm/yyyy everywhere — a native date input renders in the
                   browser's locale, not the app's. */}
@@ -346,6 +406,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
           <div className="mt-6">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Notes
+              <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">(Optional)</span>
             </label>
             <textarea
               value={formData.notes}

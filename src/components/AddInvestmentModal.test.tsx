@@ -169,14 +169,14 @@ describe('AddInvestmentModal', () => {
     it('shows account dropdown when no accountId provided', () => {
       render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} />);
       
-      expect(screen.getByText('Investment Account*')).toBeInTheDocument();
+      expect(screen.getByText('Investment account')).toBeInTheDocument();
       expect(screen.getByText('Select an investment account')).toBeInTheDocument();
     });
 
     it('hides account dropdown when accountId provided', () => {
       render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} accountId="1" />);
       
-      expect(screen.queryByText('Investment Account*')).not.toBeInTheDocument();
+      expect(screen.queryByText('Investment account')).not.toBeInTheDocument();
     });
 
     it('only shows investment accounts in dropdown', () => {
@@ -233,24 +233,24 @@ describe('AddInvestmentModal', () => {
     it('renders all form fields', () => {
       render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} accountId="1" />);
       
-      expect(screen.getByText(/Stock Code/)).toBeInTheDocument();
-      expect(screen.getByText('Investment Name*')).toBeInTheDocument();
-      expect(screen.getByText(/Number of Units/)).toBeInTheDocument();
-      expect(screen.getByText(/Price per Unit/)).toBeInTheDocument();
-      expect(screen.getByText(/Transaction Fee/)).toBeInTheDocument();
-      expect(screen.getByText(/Stamp Duty/)).toBeInTheDocument();
-      expect(screen.getByText('Purchase Date*')).toBeInTheDocument();
+      expect(screen.getByText(/Stock code/)).toBeInTheDocument();
+      expect(screen.getByText('Investment name')).toBeInTheDocument();
+      expect(screen.getByText(/Number of units/)).toBeInTheDocument();
+      expect(screen.getByText(/Price per unit/)).toBeInTheDocument();
+      expect(screen.getByText(/Transaction fee/)).toBeInTheDocument();
+      expect(screen.getByText(/Stamp duty/)).toBeInTheDocument();
+      expect(screen.getByText('Purchase date')).toBeInTheDocument();
       expect(screen.getByText('Notes')).toBeInTheDocument();
     });
 
     it('changes field labels based on investment type', () => {
       const { rerender } = render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} accountId="1" />);
       
-      expect(screen.getByText(/Stock Code/)).toBeInTheDocument();
+      expect(screen.getByText(/Stock code/)).toBeInTheDocument();
       
       mockFormData.investmentType = 'fund';
       rerender(<AddInvestmentModal isOpen={true} onClose={vi.fn()} accountId="1" />);
-      expect(screen.getByText(/Fund Code/)).toBeInTheDocument();
+      expect(screen.getByText(/Fund code/)).toBeInTheDocument();
       
       mockFormData.investmentType = 'cash';
       rerender(<AddInvestmentModal isOpen={true} onClose={vi.fn()} accountId="1" />);
@@ -262,7 +262,13 @@ describe('AddInvestmentModal', () => {
       mockFormData.investmentType = 'cash';
       render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} accountId="1" />);
       
-      const stockCodeInput = screen.getByPlaceholderText('Optional');
+      // Queried by LABEL now. The placeholder used to be the literal word
+      // "Optional" — which was the field doing two jobs, since the label said
+      // nothing about being optional and the placeholder said nothing about
+      // what to type. `(Optional)` is on the label now, per Design's item 4,
+      // and the placeholder is empty for cash because there is nothing to
+      // reference.
+      const stockCodeInput = screen.getByLabelText(/Reference/i);
       expect(stockCodeInput).toBeDisabled();
     });
 
@@ -279,8 +285,8 @@ describe('AddInvestmentModal', () => {
       mockFormData.selectedAccountId = '4'; // USD account
       render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} />);
       
-      expect(screen.getByText(/Price per Unit.*\$/)).toBeInTheDocument();
-      expect(screen.getByText(/Transaction Fee.*\$/)).toBeInTheDocument();
+      expect(screen.getByText(/Price per unit.*\$/)).toBeInTheDocument();
+      expect(screen.getByText(/Transaction fee.*\$/)).toBeInTheDocument();
     });
   });
 
@@ -339,16 +345,25 @@ describe('AddInvestmentModal', () => {
   });
 
   describe('Form Submission', () => {
-    it('validates required fields', () => {
+    it('names the first missing field instead of alerting about all of them', async () => {
+      /*
+       * This asserted `alert('Please fill in all required fields')` — a browser
+       * dialog that names none of them, cannot be styled, and takes focus away
+       * from the form it is complaining about.
+       *
+       * Claude Design's ruling on the same shape in Add Account (item 3): a
+       * control that accepts no input and gives no reason is worse than no
+       * control. Validate on press, say WHICH field, and put the cursor in it.
+       * The message goes through `errors.submit`, which already renders a
+       * role="alert" panel — one error surface on this form, not two.
+       */
       render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} />);
-      
-      const submitButton = screen.getByRole('button', { name: /Add Investment/ });
-      fireEvent.click(submitButton);
-      
-      mockModalFormOptions.onSubmit(mockFormData);
-      
-      expect(mockAlert).toHaveBeenCalledWith('Please fill in all required fields');
+
+      await expect(mockModalFormOptions.onSubmit(mockFormData)).rejects.toThrow(
+        /investment account/i
+      );
       expect(mockAddTransaction).not.toHaveBeenCalled();
+      expect(mockAlert).not.toHaveBeenCalled();
     });
 
     it('creates transaction with correct data', () => {
