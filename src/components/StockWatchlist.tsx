@@ -107,16 +107,17 @@ export default function StockWatchlist(): React.JSX.Element {
   if (watchlist.length === 0) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        {/* NO HEADER BUTTON ON AN EMPTY LIST. It sat in the corner offering
+            "Add Stock" while the empty state below offered "Add Your First
+            Stock" — two controls, one action, and the reader has to work out
+            whether they differ. The empty state's is the better of the two: it
+            is where the eye already is, and its words say which press this is.
+
+            From one stock onwards the header button is the right control and
+            the only one, because by then the list is the content and an
+            invitation in the middle of it would be in the way. */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Stock Watchlist</h2>
-          <button
-            type="button"
-            onClick={() => setShowAddStock(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary)]/90"
-          >
-            <PlusIcon size={16} />
-            Add Stock
-          </button>
         </div>
 
         {showAddStock ? (
@@ -253,8 +254,16 @@ export default function StockWatchlist(): React.JSX.Element {
                     <h3 className="font-semibold text-gray-900 dark:text-white">{symbol}</h3>
                     <AlertCircleIcon size={16} className="text-red-500" aria-hidden="true" />
                   </div>
+                  {/* THE MESSAGE AS THE SERVER WROTE IT, not wrapped in a
+                      second copy of itself. `fetchQuote` already returns a
+                      whole sentence — "Couldn't fetch AAPL — upstream returned
+                      429" — and this printed "Couldn't fetch AAPL — " in front
+                      of it, so the card read the symbol and the apology twice.
+
+                      The card's own heading already says WHICH symbol, so the
+                      prefix was saying that a third time. */}
                   <p className="text-sm text-red-700 dark:text-red-300">
-                    Couldn&rsquo;t fetch {symbol} — {failure}. Try Refresh.
+                    {failure}. Try Refresh.
                   </p>
                 </div>
               ) : (

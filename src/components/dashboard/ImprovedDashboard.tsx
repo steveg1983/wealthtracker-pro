@@ -580,7 +580,18 @@ export function ImprovedDashboard() {
           >
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Income</p>
-              <p className="text-xl font-bold text-green-600 dark:text-green-400">
+              {/* NEUTRAL AT ZERO (Design §4), on the reasoning that settled
+                  the arrows one line down: at zero there is no direction, so
+                  the direction signal must not render. A green £0.00 beside a
+                  red £0.00 says "money came in" and "money went out" on a
+                  ledger where neither happened — in the two hues the app
+                  reserves for exactly that claim. Same condition as the arrow,
+                  deliberately. */}
+              <p className={`text-xl font-bold ${
+                performance.income === 0
+                  ? 'text-gray-900 dark:text-white'
+                  : 'text-green-600 dark:text-green-400'
+              }`}>
                 {formatCurrencyWithSymbol(performance.income)}
               </p>
             </div>
@@ -596,7 +607,11 @@ export function ImprovedDashboard() {
           >
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Expenses</p>
-              <p className="text-xl font-bold text-red-600 dark:text-red-400">
+              <p className={`text-xl font-bold ${
+                performance.expenses === 0
+                  ? 'text-gray-900 dark:text-white'
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
                 {formatCurrencyWithSymbol(performance.expenses)}
               </p>
             </div>
@@ -1049,10 +1064,20 @@ export function ImprovedDashboard() {
                   </p>
                 </div>
                 <div className="text-right">
+                  {/* NEUTRAL, not green (Claude Design's second look, §3).
+                      A balance is a MAGNITUDE — how much is there, not which
+                      way it went — so £0.00 rendered in income green said
+                      money had come in on a ledger where nothing had.
+
+                      This is §5 of yesterday applied to the panel that was not
+                      in its blast radius; their instruction to check the
+                      siblings is what found it, twice now. RED SURVIVES: an
+                      account in the red is a fact worth marking, and it is the
+                      one direction a balance genuinely has. */}
                   <p className={`text-lg font-bold ${
                     (getAccountBalance(account)) < 0
                       ? 'text-red-600 dark:text-red-400'
-                      : 'text-green-600 dark:text-green-400'
+                      : 'text-gray-900 dark:text-white'
                   }`}>
                     {formatCurrencyWithSymbol(getAccountBalance(account))}
                   </p>
