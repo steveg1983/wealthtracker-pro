@@ -102,13 +102,20 @@ export default function TransferRepointDialog({
           came from a bank into a different account would put both registers out by its amount.
         </p>
 
+        {/* `block` on each option, and it is load-bearing: `index.css` makes
+            every button `inline-flex`, which turned the two `block` spans
+            inside — the option's name and its explanation — into flex ITEMS
+            side by side. The name wrapped down a narrow column against the
+            explanation and the owner read it as "all squashed". The class
+            (0,1,0) beats the element rule (0,0,1), and the spans stack the
+            way they were written to. */}
         <div className="space-y-2">
           <button
             ref={firstButtonRef}
             type="button"
             onClick={() => onChoose('release')}
             disabled={busy}
-            className="w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="block w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="block font-medium text-gray-900 dark:text-white">
               Leave it where it is
@@ -123,7 +130,7 @@ export default function TransferRepointDialog({
             type="button"
             onClick={() => onChoose('delete')}
             disabled={busy}
-            className="w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-red-400 dark:hover:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="block w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-red-400 dark:hover:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="block font-medium text-red-700 dark:text-red-400">
               Delete it
@@ -139,7 +146,7 @@ export default function TransferRepointDialog({
             type="button"
             onClick={() => onChoose('move')}
             disabled={busy}
-            className="w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="block w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="block font-medium text-gray-900 dark:text-white">
               Move it to {targetAccountName}

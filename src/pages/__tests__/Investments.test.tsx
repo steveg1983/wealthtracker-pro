@@ -77,9 +77,22 @@ describe('Investments page — the pair is the portfolio', () => {
     renderInvestments();
 
     // £1,300 in the fund and £200 in its cash: the tile and the holding row
-    // both say £1,500, and the fund's own £1,300 is never shown on its own.
+    // both say £1,500.
     expect(await screen.findAllByText('£1,500.00')).toHaveLength(2);
-    expect(screen.queryByText('£1,300.00')).not.toBeInTheDocument();
+
+    /*
+     * The £1,300 IS shown now, and that is a ruling change, not a leak. This
+     * assertion used to be `.not.toBeInTheDocument()` — the fund's own figure
+     * was never printed, only the pair's total. The owner's 16 August spec
+     * asks for the opposite: each row itemises "Investments" and "Cash", and
+     * the two must sum to the total above them, a check the reader can do by
+     * eye. So the figure appears exactly once, labelled, beside the £200 that
+     * completes it.
+     */
+    // The itemised line, not the page title: both say "Investments", so the
+    // label is read from the same paragraph as its figure.
+    const investedFigure = screen.getByText('£1,300.00');
+    expect(investedFigure.closest('p')?.textContent).toContain('Investments');
   });
 
   it('shows the nested cash inside the holding, not as a holding of its own', async () => {

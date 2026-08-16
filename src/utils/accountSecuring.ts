@@ -12,21 +12,6 @@
  * both.
  */
 import type { Account } from '../types';
-import { sectionTypeForAccount } from './accountGrouping';
-
-/**
- * The sections whose accounts are somebody's debt, so cannot be a TARGET.
- *
- * Read through `sectionTypeForAccount` rather than off `type` directly, which
- * is what makes the aliases behave: 'mortgage' files under Loans, 'checking'
- * under Current, 'assets' under Assets. A hand-rolled type set gets all three
- * wrong, and gets them wrong silently.
- *
- * 'other' is NOT here. It is the catch-all for a type with no section of its
- * own, so it means "unclassified", not "not a debt" — excluding it would drop
- * legitimate targets on the guess that they might be liabilities.
- */
-export const LIABILITY_SECTIONS: ReadonlySet<string> = new Set(['credit', 'loan', 'liability']);
 
 /** What the field may offer this account, and whether it appears at all. */
 export interface SecuringState {
@@ -62,8 +47,19 @@ export function resolveSecuring(
   account: Account,
   accounts: readonly Account[]
 ): SecuringState {
+  /*
+   * ANY open account except itself — debts included, as of 16 August.
+   *
+   * The first cut excluded liabilities as targets, on the theory that a debt
+   * cannot be secured against a debt. The owner's ledger says otherwise: he
+   * borrows in and lends the same money out, files the loan-out under
+   * Liabilities to keep every loan in one section, and wants the two tagged —
+   * a debt read as NETTING another debt rather than as an asset inflating both
+   * totals. The link is display-only either way, so the exclusion was
+   * protecting nothing except an accounting convention his filing does not
+   * follow.
+   */
   const options = accounts.filter(a =>
-    !LIABILITY_SECTIONS.has(sectionTypeForAccount(a.type)) &&
     a.id !== account.id &&
     a.isActive !== false
   );
