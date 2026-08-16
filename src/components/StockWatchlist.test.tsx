@@ -68,7 +68,12 @@ describe('a symbol that could not be fetched', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/Couldn’t fetch NOTREAL — NOTREAL was not found\. Try Refresh\./)
+        // The server's message VERBATIM. It already writes a whole sentence —
+        // "NOTREAL was not found", or "Couldn't fetch AAPL — upstream returned
+        // 429" — and the card used to print "Couldn't fetch NOTREAL — " in
+        // front of it, which read the symbol and the apology twice on the
+        // second shape. The card's heading already names the symbol.
+        screen.getByText(/NOTREAL was not found\. Try Refresh\./)
       ).toBeInTheDocument();
     });
     // …and the card that DID arrive is unaffected by its neighbour's failure.
@@ -83,7 +88,7 @@ describe('a symbol that could not be fetched', () => {
     render(<StockWatchlist />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Couldn’t fetch NOTREAL/)).toBeInTheDocument();
+      expect(screen.getByText(/NOTREAL was not found/)).toBeInTheDocument();
     });
     expect(screen.queryByText('Loading…')).not.toBeInTheDocument();
   });

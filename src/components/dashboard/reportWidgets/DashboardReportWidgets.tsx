@@ -134,9 +134,9 @@ export function NetWorthWidget({ picker, pin }: {
           Expense Categories, on the same page, already says so in words. Same
           box height either way, so an empty card does not shrink out of line
           with its neighbour. */}
-      {snapshots.length === 0 ? (
+      {snapshots.length < 2 ? (
         <div className={`${WIDGET_CHART_HEIGHT} flex items-center justify-center`}>
-          <p className="text-center text-sm text-gray-400">No balances recorded in this period</p>
+          <p className="text-center text-sm text-gray-400">Not enough history yet to draw a line</p>
         </div>
       ) : (
       <div className={WIDGET_CHART_HEIGHT}>
@@ -208,6 +208,21 @@ export function IncomeExpenseTrendWidget({ picker, pin }: {
       }
       onOpen={() => open()}
     >
+      {/* WORDS, NOT A DASHED BOX (Design's second look, §2). With no series
+          this drew a bare rectangle — no axes, no message — under a subtitle
+          promising "month by month, what came in against what went out", so
+          the reader was told what it would show and nothing about why it did
+          not. That was a THIRD empty treatment on one screen.
+
+          The dashed rectangle was recharts drawing its own placeholder for an
+          empty series, which is worth knowing: it would appear anywhere the
+          library is handed no data, so the guard belongs at the call site
+          rather than in a style. */}
+      {data.length === 0 ? (
+        <div className={`${WIDGET_CHART_HEIGHT} flex items-center justify-center`}>
+          <p className="text-center text-sm text-gray-400">Nothing came in or went out in this period</p>
+        </div>
+      ) : (
       <div className={WIDGET_CHART_HEIGHT}>
         <ResponsiveContainer width="100%" height="100%">
           {/* A click lands on the report's row for THAT month, highlighted,
@@ -233,6 +248,7 @@ export function IncomeExpenseTrendWidget({ picker, pin }: {
           </LineChart>
         </ResponsiveContainer>
       </div>
+      )}
     </DashboardWidgetCard>
   );
 }

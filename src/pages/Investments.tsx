@@ -301,6 +301,24 @@ export default function Investments() {
     return { total, names };
   }, [openAccounts]);
 
+  /**
+   * The debts secured against ONE portfolio line — the account itself or any
+   * cash sleeve counted inside it.
+   *
+   * The sleeves matter: a loan drawn against "Rathbones – Investment Portfolio
+   * (Cash)" is drawn against the Rathbones holding, because that sleeve's money
+   * is part of what the holding is worth.
+   */
+  const securedAgainstLine = useCallback(
+    (line: { accountId: string; cash: ReadonlyArray<{ accountId: string }> }) => {
+      const within = new Set<string>([line.accountId, ...line.cash.map(c => c.accountId)]);
+      return openAccounts.filter(a =>
+        normaliseSecuredIds(a.securedAgainstAccountIds ?? [], a.id).some(id => within.has(id))
+      );
+    },
+    [openAccounts]
+  );
+
   const netPortfolioValue = useMemo(
     () => toDecimal(summary.value).minus(securedAgainstPortfolio.total),
     [summary.value, securedAgainstPortfolio.total]
@@ -399,8 +417,22 @@ export default function Investments() {
   const ramp = useCategoricalRamp();
   const chartTooltipStyle = useChartTooltipStyle();
 
-  // If no investment accounts, show empty state
-  if (investmentAccounts.length === 0) {
+  /*
+   * NO INVESTMENT ACCOUNTS — but the WATCHLIST still opens.
+   *
+   * This branch used to return an empty state for the whole page, which took
+   * the Watchlist tab with it. The owner found it on a fresh ledger and the
+   * objection is exact: a watchlist is a list of things you do NOT own. Making
+   * it conditional on already owning an investment account is backwards — it
+   * withholds the one feature a person has before they have a portfolio, and
+   * withholds it precisely while they are deciding what to buy.
+   *
+   * So the empty state now stands in for the PORTFOLIO half only, and the tabs
+   * stay. Overview, Portfolio and Manage have genuinely nothing to say without
+   * an account; Watchlist has everything it ever had, because it never needed
+   * one.
+   */
+  if (investmentAccounts.length === 0 && activeTab !== 'watchlist') {
     return (
       <div>
         {/* The conversion pass reached the populated page and not this branch, because an
@@ -408,7 +440,7 @@ export default function Investments() {
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 mb-6">
           <h1 className="text-page font-semibold text-gray-900 dark:text-white">Investments</h1>
         </div>
-        
+
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-8 text-center">
           <BarChart3Icon className="mx-auto text-gray-400 mb-4" size={64} />
           <h2 className="text-card font-semibold text-theme-heading dark:text-white mb-2">
@@ -418,7 +450,22 @@ export default function Investments() {
             Add an investment account to start tracking your portfolio performance.
           </p>
           <p className="text-body text-gray-500 dark:text-gray-500">
-            Go to Accounts → Add Account → Choose "Investment" as the account type
+            Go to Accounts → Add Account → Choose &ldquo;Investment&rdquo; as the account type
+          </p>
+          {/* The way THROUGH, not a description of one. The tab bar lives in
+              the populated branch, and duplicating it here to reach one tab
+              would be two tab bars to keep in step. One button switches the
+              tab; the page then renders in full, real tabs and all. */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('watchlist')}
+            className="mt-6 px-4 py-2 rounded-lg bg-[#1a2332] dark:bg-[#2d3a4d] text-white font-medium hover:bg-[#2d3a4d] transition-colors"
+          >
+            Open the Watchlist
+          </button>
+          <p className="mt-3 text-body text-gray-500 dark:text-gray-400">
+            It works without an investment account — it is for the things you do
+            not own yet.
           </p>
         </div>
       </div>
@@ -559,8 +606,15 @@ export default function Investments() {
                       onChange={(e) => setShowNetPosition(e.target.checked)}
                       className="mt-0.5 shrink-0"
                     />
+                    {/* The NAMES moved to the holdings they belong to. This
+                        label had become a paragraph listing every liability in
+                        the portfolio, which named them all and located none. A
+                        count and a total say the same thing in one line, and
+                        the detail is now beside the holding it concerns. */}
                     <span className="text-dense text-gray-500 dark:text-gray-400">
-                      Subtract secured liabilities ({securedAgainstPortfolio.names.join(', ')})
+                      Subtract {securedAgainstPortfolio.names.length} secured{' '}
+                      {securedAgainstPortfolio.names.length === 1 ? 'liability' : 'liabilities'}{' '}
+                      ({formatCurrency(securedAgainstPortfolio.total)})
                     </span>
                   </label>
                 </div>
@@ -772,6 +826,33 @@ export default function Investments() {
                       >
                         <span>{cash.label}</span>
                         <span className="tabular-nums">{formatCurrency(cash.value)}</span>
+                      </p>
+                    ))}
+                    {/* ─ WHAT IS SECURED AGAINST THIS HOLDING ────────────────
+                        Under the cash, because it answers the same shape of
+                        question about the same line: what else is true of this
+                        account.
+
+                        It reads differently from the cash above it and must,
+                        because the cash IS in the figure and this is not.
+                        Hence "secured against this", and a magnitude rather
+                        than a signed balance — a debt of £750,000 held against
+                        a holding is not "minus £750,000" of it.
+
+                        Listed here rather than in the toggle's label, on the
+                        owner's ruling: the label had grown into a paragraph
+                        naming every liability across the whole portfolio,
+                        which is unreadable and says nothing about WHICH
+                        holding each one belongs to. */}
+                    {securedAgainstLine(line).map(debt => (
+                      <p
+                        key={debt.id}
+                        className="ml-5 mb-2 flex justify-between text-dense text-gray-500 dark:text-gray-400"
+                      >
+                        <span className="min-w-0 truncate">{debt.name} — secured against this</span>
+                        <span className="tabular-nums shrink-0 ml-3">
+                          {formatCurrency(toDecimal(Math.abs(debt.balance ?? 0)))}
+                        </span>
                       </p>
                     ))}
                     <div className="flex items-center gap-2">

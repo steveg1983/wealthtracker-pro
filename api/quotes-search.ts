@@ -6,6 +6,7 @@ import { applyRateLimit } from './_lib/rate-limit.js';
 import { withSentry } from './_lib/sentry.js';
 import { type SymbolMatch } from './_lib/quotes.js';
 import { searchSymbolsVia, activeSymbolSearchProvider } from './_lib/symbolSearch.js';
+import type { SymbolSearchProvider } from './_lib/symbolSearch.js';
 
 /**
  * GET /api/quotes-search?q=… — ticker lookup.
@@ -23,6 +24,20 @@ import { searchSymbolsVia, activeSymbolSearchProvider } from './_lib/symbolSearc
 
 interface SearchResponse {
   matches: SymbolMatch[];
+  /**
+   * WHICH SERVICE ANSWERED — 'twelvedata' or 'yahoo'.
+   *
+   * Not decoration. Whether a key has been picked up is otherwise unknowable
+   * from outside: an env var that never took and a provider that answered with
+   * nothing look identical at the search box, and the only record of the
+   * difference was a server log line nobody reads. With this, confirming a
+   * deployment is one request.
+   *
+   * Safe to publish. It is the NAME of a service, never the key — and the name
+   * is already inferable from the shape of the results, so nothing is given
+   * away that watching the network tab would not show.
+   */
+  provider: SymbolSearchProvider;
 }
 
 /** Long enough to be a query, short enough not to be a payload. */
@@ -73,7 +88,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     // The instrument universe changes by the day, not the minute.
     res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=3600, stale-while-revalidate=3600');
 
-    const payload: SearchResponse = { matches };
+    const payload: SearchResponse = { matches, provider: activeSymbolSearchProvider() };
     return res.status(200).json(payload);
   } catch (error) {
     if (error instanceof AuthError) {
