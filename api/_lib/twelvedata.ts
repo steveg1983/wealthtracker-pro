@@ -237,12 +237,55 @@ export function isUnsuffixedSymbol(symbol: string): boolean {
   return !symbol.includes('.');
 }
 
+/**
+ * Yahoo suffix → the `exchange` parameter Twelve Data prices it under.
+ *
+ * ONE entry, deliberately. The owner upgraded to the Grow plan on 16 August
+ * and verified LSE by hand: `symbol=VOD&exchange=LSE` answered with
+ * `"currency":"GBp"` — pence, correctly labelled, so the existing
+ * MINOR_UNIT_CURRENCIES table converts it with no special case. That curl is
+ * the ONLY exchange that has been exercised, so it is the only one routed;
+ * every other suffix stays on Yahoo until someone prices a known share
+ * through both the same way. A wrong entry here is a symbol priced on the
+ * wrong exchange, which can look plausible for weeks.
+ */
+const SUFFIX_TO_EXCHANGE: Readonly<Record<string, string>> = {
+  '.L': 'LSE',
+};
+
+/**
+ * The request Twelve Data needs for a Yahoo-dialect symbol, or null when this
+ * app has not verified that translation.
+ *
+ * `VOD.L` becomes `{ symbol: 'VOD', exchange: 'LSE' }` — Twelve Data does not
+ * speak the suffix form for quotes; the owner's first curl with `VOD.L`
+ * failed where `VOD&exchange=LSE` answered.
+ */
+export function toTwelveDataQuoteRequest(
+  yahooSymbol: string
+): { symbol: string; exchange?: string } | null {
+  if (isUnsuffixedSymbol(yahooSymbol)) return { symbol: yahooSymbol };
+  const dot = yahooSymbol.lastIndexOf('.');
+  const exchange = SUFFIX_TO_EXCHANGE[yahooSymbol.slice(dot)];
+  if (exchange === undefined) return null;
+  const base = yahooSymbol.slice(0, dot);
+  if (base === '') return null;
+  return { symbol: base, exchange };
+}
+
 export async function fetchQuoteTwelveData(
   symbol: string,
   options: TwelveDataOptions
 ): Promise<TwelveDataQuote | null> {
   const doFetch = options.fetchImpl ?? fetch;
-  const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}`;
+  // The SYMBOL STAYS IN YAHOO'S DIALECT on the way out. The caller keys its
+  // maps by what it asked for (`VOD.L`), and the nightly cron stores prices
+  // against the same form — a quote answering under a different name would
+  // simply never land on its holding.
+  const request = toTwelveDataQuoteRequest(symbol);
+  if (request === null) return null;
+  const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(request.symbol)}`
+    + (request.exchange === undefined ? '' : `&exchange=${encodeURIComponent(request.exchange)}`);
 
   const response = await doFetch(url, {
     headers: { Authorization: `apikey ${options.apiKey}`, Accept: 'application/json' },
