@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, LineChartIcon, EyeIcon, PlusIcon } from '../components/icons';
 import AddInvestmentModal from '../components/AddInvestmentModal';
@@ -87,7 +88,32 @@ export default function Investments() {
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [showAddInvestmentModal, setShowAddInvestmentModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'watchlist' | 'portfolio' | 'manage'>('overview');
+  /**
+   * THE TAB LIVES IN THE URL (owner, 16 August: "when I refresh the page if I
+   * am on 'Watchlist' … it refreshes back to the investment page").
+   *
+   * A query parameter rather than component state, because a refresh rebuilds
+   * state from nothing and the URL is the one thing a refresh keeps. It also
+   * makes a tab shareable and back-button-friendly for free. `replace`, not
+   * push: switching tabs is not a navigation the back button should replay
+   * four times.
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab: 'overview' | 'watchlist' | 'portfolio' | 'manage' =
+    tabParam === 'watchlist' || tabParam === 'portfolio' || tabParam === 'manage'
+      ? tabParam
+      : 'overview';
+  const setActiveTab = useCallback((tab: 'overview' | 'watchlist' | 'portfolio' | 'manage'): void => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      // Overview is the default, so it carries no parameter — a clean URL for
+      // the common case, and 'tab=overview' never has to be kept in step.
+      if (tab === 'overview') next.delete('tab');
+      else next.set('tab', tab);
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
   const [managingAccountId, setManagingAccountId] = useState<string | null>(null);
 
   // ── Holdings: the MARKET view's data, from public.investments ─────────────
@@ -379,6 +405,43 @@ export default function Investments() {
   // `holdings` is now the market-side data from public.investments, and the two
   // must never be confused for each other on this page.
   const portfolioLines = summary.lines;
+
+  /**
+   * HOW THE HOLDINGS LIST IS ARRANGED — the Accounts page's controls, brought
+   * to the one other long list in the app (owner, 16 August). Persisted for
+   * the same reason the actions toggle is: an arrangement chosen once should
+   * survive a refresh.
+   */
+  const [holdingsSort, setHoldingsSort] = useLocalStorage<'default' | 'name' | 'value'>(
+    'wt_holdings_sort',
+    'default'
+  );
+  const [groupHoldingsByInstitution, setGroupHoldingsByInstitution] = useLocalStorage<boolean>(
+    'wt_holdings_group',
+    false
+  );
+
+  const sortedHoldingLines = useMemo(() => {
+    if (holdingsSort === 'default') return portfolioLines;
+    const lines = [...portfolioLines];
+    if (holdingsSort === 'name') lines.sort((a, b) => a.name.localeCompare(b.name));
+    else lines.sort((a, b) => b.value.comparedTo(a.value));
+    return lines;
+  }, [portfolioLines, holdingsSort]);
+
+  /** institution → its lines, in the sorted order; null when not grouping. */
+  const groupedHoldingLines = useMemo(() => {
+    if (!groupHoldingsByInstitution) return null;
+    const map = new Map<string, typeof portfolioLines>();
+    for (const line of sortedHoldingLines) {
+      const key = line.institution || 'No institution';
+      const list = map.get(key);
+      if (list) list.push(line);
+      else map.set(key, [line]);
+    }
+    return [...map.entries()];
+  }, [groupHoldingsByInstitution, sortedHoldingLines]);
+
   /**
    * WHAT the money is in, as opposed to WHERE it is kept.
    *
@@ -792,100 +855,158 @@ export default function Investments() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Holdings List */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
-          <h2 className="text-card font-semibold mb-4 text-theme-heading dark:text-white">Holdings</h2>
+          <h2 className="text-card font-semibold mb-2 text-theme-heading dark:text-white">Holdings</h2>
+          {/* The Accounts page's controls, on the app's other long list
+              (owner, 16 August). Same pills, same navy, same persistence. */}
+          {portfolioLines.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+                {([['default', 'Default'], ['name', 'Name A–Z'], ['value', 'Value ↓']] as const).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setHoldingsSort(mode)}
+                    aria-pressed={holdingsSort === mode}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
+                      holdingsSort === mode
+                        ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setGroupHoldingsByInstitution(!groupHoldingsByInstitution)}
+                aria-pressed={groupHoldingsByInstitution}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-colors border ${
+                  groupHoldingsByInstitution
+                    ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white border-transparent'
+                    : 'text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                Group by institution
+              </button>
+            </div>
+          )}
           {portfolioLines.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
               No holdings to display
             </p>
           ) : (
             <div className="space-y-4">
-              {portfolioLines.map((line, index) => {
-                const account = accountsById.get(line.accountId);
-                if (!account) return null;
+              {/* ─ ONE ROW, RESTRUCTURED (owner, 16 August) ──────────────────
+                  The institution line under each name is gone, by the rule
+                  that removed it from the Accounts list: when the list is
+                  grouped by institution the heading says it, and when it is
+                  not, it was a second line of chrome on every row.
 
-                return (
-                  <div
-                    key={account.id}
-                    className="border-b dark:border-gray-700 pb-4 last:border-0 -mx-2 px-2 py-2 rounded"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: categoricalColor(ramp, index) }}
-                        />
-                        <div>
-                          <h3 className="font-medium text-gray-900 dark:text-white">
-                            {line.name}
-                          </h3>
-                          <p className="text-body text-gray-500 dark:text-gray-400">
-                            {line.institution || 'N/A'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(line.value)}</p>
-                      </div>
-                    </div>
-                    {/* The paired cash, inside the line rather than beside it:
-                        the row's value already contains it, so this says what
-                        part of the total is not invested. */}
-                    {line.cash.map(cash => (
-                      <p
-                        key={cash.accountId}
-                        className="ml-5 mb-2 flex justify-between text-dense text-gray-500 dark:text-gray-400"
-                      >
-                        <span>{cash.label}</span>
-                        <span className="tabular-nums">{formatCurrency(cash.value)}</span>
-                      </p>
-                    ))}
-                    {/* ─ WHAT IS SECURED AGAINST THIS HOLDING ────────────────
-                        Under the cash, because it answers the same shape of
-                        question about the same line: what else is true of this
-                        account.
+                  Each row now accounts for its own total: "Investments" is
+                  the total less the paired cash, "Cash" is the paired cash,
+                  and the two sum to the figure on the right — a check the
+                  reader can do by eye, which is the owner's spec verbatim.
 
-                        It reads differently from the cash above it and must,
-                        because the cash IS in the figure and this is not.
-                        Hence "secured against this", and a magnitude rather
-                        than a signed balance — a debt of £750,000 held against
-                        a holding is not "minus £750,000" of it.
+                  The secured liabilities move BELOW the bar under their own
+                  small heading, because they are a different kind of fact:
+                  the two lines above are parts of the total, and these are
+                  not in it at all.
 
-                        Listed here rather than in the toggle's label, on the
-                        owner's ruling: the label had grown into a paragraph
-                        naming every liability across the whole portfolio,
-                        which is unreadable and says nothing about WHICH
-                        holding each one belongs to. */}
-                    {securedAgainstLine(line).map(debt => (
-                      <p
-                        key={debt.id}
-                        className="ml-5 mb-2 flex justify-between text-dense text-gray-500 dark:text-gray-400"
-                      >
-                        <span className="min-w-0 truncate">{debt.name} — secured against this</span>
-                        <span className="tabular-nums shrink-0 ml-3">
-                          {formatCurrency(toDecimal(Math.abs(debt.balance ?? 0)))}
-                        </span>
-                      </p>
-                    ))}
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        <div
-                          className="h-2 rounded-full"
-                          style={{
-                            // Clamped for layout only: a line can be worth a
-                            // negative amount, and a negative width renders
-                            // nothing anywhere.
-                            width: `${Math.min(100, Math.max(0, line.allocation.toNumber()))}%`,
-                            backgroundColor: categoricalColor(ramp, index)
-                          }}
-                        />
-                      </div>
-                      <span className="text-body text-gray-600 dark:text-gray-400 w-12 text-right">
-                        {formatPercentage(line.allocation)}
+                  Colour is keyed by the line's place in the UNSORTED list, so
+                  a dot keeps its colour when the sort changes — the dots and
+                  the allocation slices are derived from the same order, and a
+                  sort that recoloured every holding would break that thread. */}
+              {(groupedHoldingLines ?? [['', sortedHoldingLines]] as const).map(([institution, lines]) => (
+                <div key={institution || 'all'} className="space-y-4">
+                  {institution !== '' && (
+                    <div className="flex items-baseline justify-between border-b border-gray-200 dark:border-gray-700 pb-1">
+                      <h3 className="text-dense uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400">
+                        {institution}
+                      </h3>
+                      <span className="text-dense tabular-nums text-gray-500 dark:text-gray-400">
+                        {formatCurrency(lines.reduce((t, l) => t.plus(l.value), toDecimal(0)))}
                       </span>
                     </div>
-                  </div>
-                );
-              })}
+                  )}
+                  {lines.map((line) => {
+                    const account = accountsById.get(line.accountId);
+                    if (!account) return null;
+                    const colourIndex = portfolioLines.indexOf(line);
+                    const cashTotal = line.cash.reduce((t, c) => t.plus(c.value), toDecimal(0));
+                    const invested = line.value.minus(cashTotal);
+                    const secured = securedAgainstLine(line);
+
+                    return (
+                      <div
+                        key={account.id}
+                        className="border-b dark:border-gray-700 pb-4 last:border-0 -mx-2 px-2 py-2 rounded"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div
+                              className="w-3 h-3 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: categoricalColor(ramp, colourIndex) }}
+                            />
+                            <h3 className="font-medium text-gray-900 dark:text-white truncate">
+                              {line.name}
+                            </h3>
+                          </div>
+                          <p className="font-semibold text-gray-900 dark:text-white shrink-0 ml-3">{formatCurrency(line.value)}</p>
+                        </div>
+                        <p className="ml-5 mb-1 flex justify-between text-dense text-gray-500 dark:text-gray-400">
+                          <span>Investments</span>
+                          <span className="tabular-nums">{formatCurrency(invested)}</span>
+                        </p>
+                        {line.cash.length > 0 && (
+                          <p className="ml-5 mb-2 flex justify-between text-dense text-gray-500 dark:text-gray-400">
+                            <span>Cash</span>
+                            <span className="tabular-nums">{formatCurrency(cashTotal)}</span>
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div
+                              className="h-2 rounded-full"
+                              style={{
+                                // Clamped for layout only: a line can be worth a
+                                // negative amount, and a negative width renders
+                                // nothing anywhere.
+                                width: `${Math.min(100, Math.max(0, line.allocation.toNumber()))}%`,
+                                backgroundColor: categoricalColor(ramp, colourIndex)
+                              }}
+                            />
+                          </div>
+                          <span className="text-body text-gray-600 dark:text-gray-400 w-12 text-right">
+                            {formatPercentage(line.allocation)}
+                          </span>
+                        </div>
+                        {secured.length > 0 && (
+                          <div className="ml-5 mt-2">
+                            {/* A magnitude, not a signed balance, and NOT part
+                                of the figures above — which is why it sits the
+                                other side of the bar with its own heading. */}
+                            <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">
+                              Secured liabilities
+                            </p>
+                            {secured.map(debt => (
+                              <p
+                                key={debt.id}
+                                className="flex justify-between text-dense text-gray-500 dark:text-gray-400"
+                              >
+                                <span className="min-w-0 truncate">{debt.name}</span>
+                                <span className="tabular-nums shrink-0 ml-3">
+                                  {formatCurrency(toDecimal(Math.abs(debt.balance ?? 0)))}
+                                </span>
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           )}
         </div>

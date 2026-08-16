@@ -476,7 +476,12 @@ export default function DatePicker({
                   ? () => setViewYear(y => y - 1)
                   : () => setViewYear(y => y - YEAR_PAGE)
               }
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              /* The arrows set NO colour of their own, so they inherited — and
+                 in a dark modal the inherited ink was near-invisible (owner,
+                 16 August: "I can hardly read the left and right arrow").
+                 Named explicitly, both modes, like the month label between
+                 them. */
+              className="p-1 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               aria-label={view === 'days' ? 'Previous month' : view === 'months' ? 'Previous year' : 'Previous years'}
             >
               <ChevronLeftIcon size={18} />
@@ -504,7 +509,7 @@ export default function DatePicker({
                   ? () => setViewYear(y => y + 1)
                   : () => setViewYear(y => y + YEAR_PAGE)
               }
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-1 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               aria-label={view === 'days' ? 'Next month' : view === 'months' ? 'Next year' : 'Next years'}
             >
               <ChevronRightIcon size={18} />

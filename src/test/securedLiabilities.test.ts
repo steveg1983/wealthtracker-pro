@@ -96,13 +96,18 @@ describe('which accounts may be secured, and against what', () => {
     expect(resolveSecuring(ledger[0], ledger).offered).toBe(true);
   });
 
-  it('never offers a debt as the thing to be secured against', () => {
+  it('offers DEBTS as targets too (owner, 16 August)', () => {
+    /*
+     * This test used to assert the opposite. The owner borrows in and lends
+     * the same money out, files the loan-out under Liabilities to keep every
+     * loan in one section, and wants the two tagged — a debt netting another
+     * debt. The link is display-only, so nothing was being protected by the
+     * exclusion except an accounting convention his filing does not follow.
+     */
     const targets = resolveSecuring(ledger[0], ledger).options.map(a => a.id);
-    expect(targets).not.toContain('visa');
-    expect(targets).not.toContain('personal-loan');
-    // Through the alias, which is the half a hand-rolled type set gets wrong:
-    // 'mortgage' files under Loans.
-    expect(targets).not.toContain('mortgage-proper');
+    expect(targets).toContain('visa');
+    expect(targets).toContain('personal-loan');
+    expect(targets).toContain('mortgage-proper');
   });
 
   it('offers assets, investments and unclassified accounts', () => {
