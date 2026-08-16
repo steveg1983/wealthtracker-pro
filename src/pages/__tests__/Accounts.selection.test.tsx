@@ -693,8 +693,25 @@ describe('Accounts list — both rows read down the same columns', () => {
   it('gives both rows the same nine slots, in the same order', async () => {
     await openList();
 
-    const parentSlots = Array.from(columnsOf(row('Synthetic Portfolio')).children);
-    const cashSlots = Array.from(columnsOf(row('Cash')).children);
+    /*
+     * FLATTENED THROUGH THE ACTION WRAPPER. The nine slots are still nine and
+     * still in this order; the last five now sit inside a `lg:contents`
+     * wrapper, which below `lg` makes them a fixed five-column line and above
+     * it dissolves so they are direct children of the nine-column grid exactly
+     * as before.
+     *
+     * That wrapper is why the parent and the cash row must BOTH have it —
+     * measured at 375px, the actions used to flex-wrap and their positions
+     * moved with the button count. What this test guards is unchanged: the two
+     * rows read down the same columns in the same order.
+     */
+    const slotsOf = (node: HTMLElement): Element[] =>
+      Array.from(node.children).flatMap(child =>
+        child.matches('[class*="lg:contents"]') ? Array.from(child.children) : [child]
+      );
+
+    const parentSlots = slotsOf(columnsOf(row('Synthetic Portfolio')));
+    const cashSlots = slotsOf(columnsOf(row('Cash')));
 
     expect(parentSlots).toHaveLength(9);
     expect(cashSlots).toHaveLength(9);

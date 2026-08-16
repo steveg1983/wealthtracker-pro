@@ -1654,6 +1654,35 @@ export default function Accounts() {
                                 to={reviewHref(account.id)}
                                 openLabel={`Review new transactions in ${account.name}`}
                               />
+                              {/* ─ FIVE FIXED SLOTS, ON THEIR OWN LINE ─────
+                                  MEASURED at 375px: the four stat cells and
+                                  the five action slots were siblings of one
+                                  `flex flex-wrap`, so the wrap point moved with
+                                  the BUTTON COUNT — a three-button account put
+                                  settings at (302, 0) and reconcile at
+                                  (242, 48), a four-button one shifted them all.
+
+                                  Five 44px slots is 220px and the stats need
+                                  ~254px, so the two cannot share a line at this
+                                  width. `w-full` gives the actions their own,
+                                  which is what makes the slots FIXED: every
+                                  account draws the same five columns whether it
+                                  has three buttons or four, and an absent one
+                                  leaves its column empty rather than pulling
+                                  the others along.
+
+                                  It also settles the labels riding high. Flex
+                                  centres within each LINE — the stats used to
+                                  share theirs with whichever button fitted, so
+                                  39px cells sat at the top of a 92px row. On a
+                                  line of their own there is nothing to be high
+                                  against.
+
+                                  `lg:contents` leaves the desktop grid exactly
+                                  as it was: the wrapper dissolves and the five
+                                  slots become direct children of the nine-column
+                                  grid again. */}
+                              <div className="grid w-full grid-cols-5 justify-items-end gap-1 lg:contents">
                               <AccountRowActionSlot>
                                 {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
                                 <button
@@ -1742,6 +1771,7 @@ export default function Accounts() {
                                   </span>
                                 </div>
                               </AccountRowActionSlot>
+                              </div>
                             </AccountRowColumns>
                       </div>
                     </div>
@@ -1837,7 +1867,14 @@ export default function Accounts() {
                             />
                             {/* Portfolio, feed and settings: not this row's to
                                 offer. The slots stay so the Reconcile button
-                                lands under its parent's. */}
+                                lands under its parent's — and the WRAPPER stays
+                                too, for the same reason one line up: below `lg`
+                                the parent's five actions are their own
+                                five-column line, so a cash row that let them
+                                flex-wrap instead would put its chevron and its
+                                reconcile somewhere else entirely. Identical
+                                structure is the whole guarantee. */}
+                            <div className="grid w-full grid-cols-5 justify-items-end gap-1 lg:contents">
                             <AccountRowEmptyCell />
                             <AccountRowEmptyCell />
                             <AccountRowEmptyCell />
@@ -1851,6 +1888,7 @@ export default function Accounts() {
                                 <ChevronRightIcon size={16} className="text-gray-400 flex-shrink-0" />
                               </span>
                             </AccountRowActionSlot>
+                            </div>
                           </AccountRowColumns>
                         </div>
                       );
