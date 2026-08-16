@@ -4,7 +4,7 @@ import { preserveDemoParam } from '../utils/navigation';
 import { Modal, ModalBody } from '../components/common/Modal';
 import { formatDate } from '../utils/dateFormatter';
 import { useApp } from '../contexts/AppContextSupabase';
-import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, LineChartIcon, EyeIcon, PlusIcon } from '../components/icons';
+import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, LineChartIcon, EyeIcon } from '../components/icons';
 import AddInvestmentModal from '../components/AddInvestmentModal';
 import InvestmentMarketView from '../components/InvestmentMarketView';
 import PortfolioManager, { type HoldingFormValues } from '../components/PortfolioManager';
@@ -18,7 +18,6 @@ import { normaliseSecuredIds } from '../utils/accountSecuring';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import PageWrapper from '../components/PageWrapper';
-import GroupedAccountOptions from '../components/common/GroupedAccountOptions';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
 import { buildHoldingAllocation } from '../utils/holdingAllocation';
@@ -104,11 +103,20 @@ export default function Investments() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const activeTab: 'overview' | 'watchlist' | 'portfolio' | 'manage' =
+  /**
+   * THREE TABS since 16 August. "Manage" was the Portfolio tab with a dropdown
+   * instead of a scroll — pick an account, then add holdings — while Portfolio
+   * was pick an account by scrolling, then a button whose whole job was
+   * switching to Manage. Two doors to one room (the owner: "kind of take you
+   * to the same place, just a different way"). The manager now opens INLINE on
+   * the Portfolio card it concerns; `tab=manage` in an old URL lands on
+   * Portfolio rather than nowhere.
+   */
+  const activeTab: 'overview' | 'watchlist' | 'portfolio' =
     tabParam === 'watchlist' || tabParam === 'portfolio' || tabParam === 'manage'
-      ? tabParam
+      ? (tabParam === 'manage' ? 'portfolio' : tabParam)
       : 'overview';
-  const setActiveTab = useCallback((tab: 'overview' | 'watchlist' | 'portfolio' | 'manage'): void => {
+  const setActiveTab = useCallback((tab: 'overview' | 'watchlist' | 'portfolio'): void => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       // Overview is the default, so it carries no parameter — a clean URL for
@@ -632,17 +640,6 @@ export default function Investments() {
         >
           <LineChartIcon size={16} />
           Portfolio
-        </button>
-        <button
-          onClick={() => setActiveTab('manage')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
-            activeTab === 'manage'
-              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
-        >
-          <PlusIcon size={16} />
-          Manage
         </button>
       </div>
 
@@ -1333,7 +1330,14 @@ export default function Investments() {
                 </ResponsiveContainer>
               </div>
 
-              <div className="mt-4 space-y-2">
+              {/* RESERVES FIVE ROWS' HEIGHT even holding one (owner, 16
+                  August: "that allocation by holding should be the same size
+                  card with just the space for the remaining 4 legend spots").
+                  The card above caps its legend at five entries, so five rows
+                  — 8.5rem at this row height — is the tallest either legend
+                  gets, and pinning this one to it keeps the two cards level
+                  however many securities are priced. */}
+              <div className="mt-4 space-y-2 min-h-[8.5rem]">
                 {holdingSlices.map((slice, index) => (
                   <div key={slice.name} className="flex items-center justify-between gap-3 text-body">
                     <div className="flex items-center gap-2 min-w-0">
@@ -1420,13 +1424,11 @@ export default function Investments() {
                   <h3 className="text-card font-semibold text-gray-900 dark:text-white">{account.name}</h3>
                   <button
                     type="button"
-                    onClick={() => {
-                      setManagingAccountId(account.id);
-                      setActiveTab('manage');
-                    }}
+                    onClick={() => setManagingAccountId(managingAccountId === account.id ? null : account.id)}
+                    aria-expanded={managingAccountId === account.id}
                     className="text-body text-primary hover:text-secondary transition-colors"
                   >
-                    Manage holdings →
+                    {managingAccountId === account.id ? 'Done' : 'Manage holdings'}
                   </button>
                 </div>
                 <InvestmentMarketView
@@ -1442,57 +1444,23 @@ export default function Investments() {
                   updateError={quotedAccountId === account.id ? quoteError : null}
                   symbolErrors={quotedAccountId === account.id ? symbolErrors : undefined}
                 />
+                {managingAccountId === account.id && (
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <PortfolioManager
+                      holdings={accountHoldings}
+                      currency={account.currency}
+                      onAdd={(values) => handleAddHolding(account.id, account.currency, values)}
+                      onEdit={handleEditHolding}
+                      onDelete={handleDeleteHolding}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Manage Tab */}
-      {activeTab === 'manage' && (
-        <div className="space-y-6">
-          {holdingsError && (
-            <div role="alert" className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4">
-              <p className="text-body text-red-700 dark:text-red-300">{holdingsError}</p>
-            </div>
-          )}
-
-          {/* Account Selector */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4">
-            <label htmlFor="manage-account" className="block text-body font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Select investment account
-            </label>
-            <select
-              id="manage-account"
-              value={managingAccountId || ''}
-              onChange={(e) => setManagingAccountId(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
-            >
-              <option value="">Choose an account...</option>
-              {/* Grouped and alphabetised like every other account
-                  dropdown in the app. */}
-              <GroupedAccountOptions accounts={investmentAccounts} />
-            </select>
-          </div>
-
-          {managingAccountId && (() => {
-            const account = investmentAccounts.find(a => a.id === managingAccountId);
-            if (!account) return null;
-
-            return (
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
-                <PortfolioManager
-                  holdings={holdingsByAccount.get(account.id) ?? []}
-                  currency={account.currency}
-                  onAdd={(values) => handleAddHolding(account.id, account.currency, values)}
-                  onEdit={handleEditHolding}
-                  onDelete={handleDeleteHolding}
-                />
-              </div>
-            );
-          })()}
-        </div>
-      )}
 
       {/* Add Investment Modal */}
       <AddInvestmentModal
