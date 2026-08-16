@@ -15,6 +15,7 @@ import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import PageWrapper from '../components/PageWrapper';
 import GroupedAccountOptions from '../components/common/GroupedAccountOptions';
+import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
 import { buildHoldingAllocation } from '../utils/holdingAllocation';
 // THE SEAM, not the service. This page called `InvestmentService` — and, through
@@ -599,12 +600,22 @@ export default function Investments() {
                   you cannot see is a total you cannot check. */}
               {securedAgainstPortfolio.names.length > 0 && (
                 <div className="mt-3">
-                  <label className="flex items-start gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
+                  {/* ToggleSwitch, not a bare checkbox. `index.css` floors every
+                      `input` at 44x44 on a touch device, so on a phone this
+                      rendered as a large square with its label stranded at the
+                      top of it — the owner's report. ToggleSwitch is EXEMPT
+                      from that rule by name and carries its own >=44px hit area
+                      through padding while the visible track stays slim, which
+                      is the whole reason it exists.
+
+                      `items-center` too: the label is one or two lines beside a
+                      control of fixed height, so aligning to the top left it
+                      high on the phone where it wraps. */}
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <ToggleSwitch
                       checked={showNetPosition}
-                      onChange={(e) => setShowNetPosition(e.target.checked)}
-                      className="mt-0.5 shrink-0"
+                      onChange={setShowNetPosition}
+                      aria-label="Subtract secured liabilities from the portfolio value"
                     />
                     {/* The NAMES moved to the holdings they belong to. This
                         label had become a paragraph listing every liability in
