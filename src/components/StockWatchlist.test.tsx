@@ -173,3 +173,46 @@ describe('the cards themselves', () => {
     setInterval.mockRestore();
   });
 });
+
+describe('a dummy position on a watched share', () => {
+  it('tracks shares and a starting price, values them, and upgrades the stored shape', async () => {
+    /*
+     * The whole flow, against a list stored in the OLD shape (a plain string
+     * array — see beforeEach): the migration must not merely read it, it must
+     * survive a write. The owner's spec: "track a number of shares and the
+     * 'starting price' so that the user can almost use it as a dummy
+     * portfolio."
+     */
+    fetchQuotesMock.mockResolvedValue(batch([quote('SHEL.L', '30.00', '29.00')]));
+    const user = userEvent.setup();
+    render(<StockWatchlist />);
+
+    await user.click(await screen.findByRole('button', { name: 'Track a position' }));
+    await user.type(screen.getByLabelText(/Shares/), '10');
+    await user.type(screen.getByLabelText(/Starting price/), '25');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    // 10 × £30 = £300 valued; 10 × (30 − 25) = +£50, +20%.
+    expect(await screen.findByText('£300.00')).toBeInTheDocument();
+    expect(screen.getByText(/\+£50\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/\+20\.00%/)).toBeInTheDocument();
+
+    // The stored shape upgraded in place — same key, richer entries — and the
+    // symbol with no position stayed a bare item rather than gaining fields.
+    const stored = JSON.parse(window.localStorage.getItem('stock-watchlist') ?? '[]');
+    expect(stored).toEqual([
+      { symbol: 'SHEL.L', shares: '10', startPrice: '25' },
+      { symbol: 'NOTREAL' },
+    ]);
+  });
+
+  it('refuses half a position — Save stays disabled until both fields are in', async () => {
+    fetchQuotesMock.mockResolvedValue(batch([quote('SHEL.L', '30.00', '29.00')]));
+    const user = userEvent.setup();
+    render(<StockWatchlist />);
+
+    await user.click(await screen.findByRole('button', { name: 'Track a position' }));
+    await user.type(screen.getByLabelText(/Shares/), '10');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+});
