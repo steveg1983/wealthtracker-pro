@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js';
-import { fetchQuoteTwelveData, isUnsuffixedSymbol, type TwelveDataQuote } from './twelvedata.js';
+import { fetchQuoteTwelveData, toTwelveDataQuoteRequest, type TwelveDataQuote } from './twelvedata.js';
 
 /**
  * Market quotes, fetched SERVER-SIDE and normalised to major currency units.
@@ -320,8 +320,16 @@ export const fetchQuote = async (symbol: string, fetchImpl?: FetchLike): Promise
    * Yahoo remains the fallback for everything, so a failure here costs a round
    * trip rather than a price. See twelvedata.ts for the whole argument.
    */
+  /*
+   * Routed when Twelve Data can price it: bare US symbols, and — since the
+   * Grow upgrade of 16 August — the suffixes `toTwelveDataQuoteRequest` has a
+   * VERIFIED translation for (today: `.L` alone; the owner priced Vodafone by
+   * hand and the answer was `GBp`, pence correctly labelled, so the same
+   * minor-unit table converts both providers). Everything else stays on
+   * Yahoo, and Yahoo remains the fallback even for what is routed.
+   */
   const apiKey = (process.env.TWELVE_DATA_API_KEY ?? '').trim();
-  if (apiKey !== '' && isUnsuffixedSymbol(symbol)) {
+  if (apiKey !== '' && toTwelveDataQuoteRequest(symbol) !== null) {
     try {
       const quote = await fetchQuoteTwelveData(symbol, { apiKey, fetchImpl: doFetch as typeof fetch });
       // The SAME normalisation Yahoo's answers go through — the unit is read

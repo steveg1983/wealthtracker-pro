@@ -15,7 +15,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { searchSymbolsVia, activeSymbolSearchProvider } from '../../../api/_lib/symbolSearch';
-import { searchSymbolsTwelveData, toYahooSymbol, fetchQuoteTwelveData, isUnsuffixedSymbol } from '../../../api/_lib/twelvedata';
+import { searchSymbolsTwelveData, toYahooSymbol, fetchQuoteTwelveData, isUnsuffixedSymbol, toTwelveDataQuoteRequest } from '../../../api/_lib/twelvedata';
 
 const KEYED = { TWELVE_DATA_API_KEY: 'test-key' } as NodeJS.ProcessEnv;
 const UNKEYED = {} as NodeJS.ProcessEnv;
@@ -157,13 +157,42 @@ describe('prices: which provider, and in what unit', () => {
    * calling it `GBP` would make a UK holding a hundred times too valuable,
    * silently, in a ledger measured in millions.
    */
-  it('routes only UNSUFFIXED symbols away from Yahoo', () => {
-    // The guard, in one assertion. `.L`, `.DE`, `.TO` keep the path this app
-    // has already reconciled against real statements.
+  it('routes bare symbols AND the verified .L, and nothing else', () => {
+    /*
+     * The guard, widened by exactly one entry on 16 August: the owner
+     * upgraded to Grow and priced Vodafone by hand — `symbol=VOD&exchange=LSE`
+     * answered `"currency":"GBp"`, pence correctly labelled — so `.L` has a
+     * verified translation. `.DE` and `.TO` have not been exercised the same
+     * way and stay on Yahoo, because a symbol priced on the wrong exchange
+     * can look plausible for weeks.
+     */
     expect(isUnsuffixedSymbol('AAPL')).toBe(true);
-    expect(isUnsuffixedSymbol('VOD.L')).toBe(false);
-    expect(isUnsuffixedSymbol('APC.DE')).toBe(false);
-    expect(isUnsuffixedSymbol('AAPL.TO')).toBe(false);
+    expect(toTwelveDataQuoteRequest('AAPL')).toEqual({ symbol: 'AAPL' });
+    expect(toTwelveDataQuoteRequest('VOD.L')).toEqual({ symbol: 'VOD', exchange: 'LSE' });
+    expect(toTwelveDataQuoteRequest('APC.DE')).toBeNull();
+    expect(toTwelveDataQuoteRequest('AAPL.TO')).toBeNull();
+    expect(toTwelveDataQuoteRequest('.L')).toBeNull();
+  });
+
+  it('asks Twelve Data in ITS dialect and answers in Yahoo\'s', async () => {
+    /*
+     * The owner's first curl proved `VOD.L` is not a symbol Twelve Data
+     * knows; the second proved `VOD&exchange=LSE` is. And the caller keys
+     * its maps by what it asked for, so the answer must come back as VOD.L —
+     * a quote under a different name never lands on its holding.
+     */
+    const fetchImpl = stub({
+      symbol: 'VOD', name: 'Vodafone Group Public Limited Company',
+      close: '121.55', currency: 'GBp', datetime: '2026-08-14'
+    });
+    const result = await fetchQuoteTwelveData('VOD.L', { apiKey: 'k', fetchImpl });
+
+    const [url] = (fetchImpl as unknown as { mock: { calls: [string][] } }).mock.calls[0];
+    expect(url).toContain('symbol=VOD');
+    expect(url).toContain('exchange=LSE');
+    expect(url).not.toContain('VOD.L');
+
+    expect(result).toMatchObject({ symbol: 'VOD.L', price: '121.55', currency: 'GBp' });
   });
 
   it('reads the price and the currency from the response', async () => {
