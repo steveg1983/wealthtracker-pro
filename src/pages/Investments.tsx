@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { preserveDemoParam } from '../utils/navigation';
 import { useApp } from '../contexts/AppContextSupabase';
 import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, LineChartIcon, EyeIcon, PlusIcon } from '../components/icons';
 import AddInvestmentModal from '../components/AddInvestmentModal';
@@ -98,6 +99,7 @@ export default function Investments() {
    * push: switching tabs is not a navigation the back button should replay
    * four times.
    */
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const activeTab: 'overview' | 'watchlist' | 'portfolio' | 'manage' =
@@ -115,6 +117,13 @@ export default function Investments() {
     }, { replace: true });
   }, [setSearchParams]);
   const [managingAccountId, setManagingAccountId] = useState<string | null>(null);
+  /**
+   * Which summary tile is opened out into its per-account rows — the owner's
+   * drill-down, asked for twice: "even if the figures are then investment
+   * account summary level and from there, each account can be clicked on to
+   * see the transactions". Clicking the open tile again closes it.
+   */
+  const [openBreakdown, setOpenBreakdown] = useState<'contributions' | 'return' | null>(null);
 
   // ── Holdings: the MARKET view's data, from public.investments ─────────────
   // Kept deliberately apart from `summary` below. Holdings × price is a second
@@ -697,21 +706,38 @@ export default function Investments() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-body text-gray-500 dark:text-gray-400">Net Contributions</p>
-              <p className="text-page font-bold text-blue-700 dark:text-blue-400">
-                {formatCurrency(summary.netContributions)}
-              </p>
-              <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
-                Transferred in, less transferred out
-              </p>
-            </div>
-          </div>
-        </div>
+        {/* ─ TWO TILES THAT OPEN (owner, 16 August, asked twice) ────────────
+            Buttons, with `block` against the global inline-flex rule and
+            `text-left` so they keep reading as the tiles they were. The
+            breakdown they open renders full-width under the tile row —
+            per-account figures from the SAME walk as the totals (see
+            portfolioSummary: one classification, two aggregations, so the
+            rows always sum to the tile). */}
+        <button
+          type="button"
+          onClick={() => setOpenBreakdown(openBreakdown === 'contributions' ? null : 'contributions')}
+          aria-expanded={openBreakdown === 'contributions'}
+          className={`block w-full text-left bg-white dark:bg-gray-800 rounded-lg border p-6 transition-colors hover:border-gray-300 dark:hover:border-gray-500 ${
+            openBreakdown === 'contributions' ? 'border-[#6b86b3]' : 'border-line dark:border-gray-700'
+          }`}
+        >
+          <p className="text-body text-gray-500 dark:text-gray-400">Net Contributions</p>
+          <p className="text-page font-bold text-blue-700 dark:text-blue-400">
+            {formatCurrency(summary.netContributions)}
+          </p>
+          <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
+            Transferred in, less transferred out — click for each account's share
+          </p>
+        </button>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
+        <button
+          type="button"
+          onClick={() => setOpenBreakdown(openBreakdown === 'return' ? null : 'return')}
+          aria-expanded={openBreakdown === 'return'}
+          className={`block w-full text-left bg-white dark:bg-gray-800 rounded-lg border p-6 transition-colors hover:border-gray-300 dark:hover:border-gray-500 ${
+            openBreakdown === 'return' ? 'border-[#6b86b3]' : 'border-line dark:border-gray-700'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-body text-gray-500 dark:text-gray-400">Total Return</p>
@@ -721,7 +747,7 @@ export default function Investments() {
             </div>
             <TrendingUpIcon className={isGain ? 'text-green-500' : 'text-red-500'} size={24} />
           </div>
-        </div>
+        </button>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
@@ -751,6 +777,42 @@ export default function Investments() {
           </div>
         </div>
         </div>
+
+        {/* ─ THE BREAKDOWN A TILE OPENS ─────────────────────────────────────
+            One panel serving both tiles, full-width under the row. Each line
+            is a pair from the SAME walk that produced the tile's figure — one
+            classification, two aggregations — so the rows sum to the tile
+            exactly, and the total row at the bottom proves it in print. Each
+            account name links to its register, which is the second half of
+            the owner's spec: summary level here, transactions one click on. */}
+        {openBreakdown !== null && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
+            <h3 className="text-card font-semibold text-theme-heading dark:text-white mb-3">
+              {openBreakdown === 'contributions' ? 'Net Contributions by account' : 'Total Return by account'}
+            </h3>
+            <div className="space-y-1">
+              {portfolioLines.map(line => (
+                <p key={line.accountId} className="flex justify-between gap-3 py-1 border-b border-gray-100 dark:border-gray-700/60 last:border-0">
+                  <Link
+                    to={preserveDemoParam(`/accounts/${line.accountId}`, location.search)}
+                    className="min-w-0 truncate text-body text-gray-700 dark:text-gray-300 underline decoration-dotted underline-offset-2 hover:text-blue-600 dark:hover:text-blue-400"
+                  >
+                    {line.name}
+                  </Link>
+                  <span className="tabular-nums shrink-0 text-body text-gray-900 dark:text-white">
+                    {formatCurrency(openBreakdown === 'contributions' ? line.netContributions : line.totalReturn)}
+                  </span>
+                </p>
+              ))}
+              <p className="flex justify-between gap-3 pt-2 font-semibold text-body text-gray-900 dark:text-white">
+                <span>Total</span>
+                <span className="tabular-nums">
+                  {formatCurrency(openBreakdown === 'contributions' ? summary.netContributions : summary.totalReturn)}
+                </span>
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* What the contributions figure rests on. Says what could be WRONG
             with it, not how many rows there are — and renders nothing at all

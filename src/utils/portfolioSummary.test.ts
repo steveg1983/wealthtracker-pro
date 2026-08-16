@@ -144,6 +144,30 @@ describe('buildPortfolioSummary — net external contributions', () => {
     expect(summaryOf().netContributions.toNumber()).toBe(400);
   });
 
+  it('splits contributions and return per line, and the lines SUM to the totals', () => {
+    /*
+     * The drill-down's whole guarantee (owner, 16 August): the per-account
+     * rows a tile opens into must add up to the tile, exactly. The split is
+     * accumulated in the same loop as the totals — one classification, two
+     * aggregations — and this is the assertion that keeps it that way.
+     */
+    const summary = summaryOf();
+
+    const contributionsSum = summary.lines.reduce(
+      (t, line) => t.plus(line.netContributions), summary.netContributions.minus(summary.netContributions)
+    );
+    const returnSum = summary.lines.reduce(
+      (t, line) => t.plus(line.totalReturn), summary.totalReturn.minus(summary.totalReturn)
+    );
+
+    expect(contributionsSum.toNumber()).toBe(summary.netContributions.toNumber());
+    expect(returnSum.toNumber()).toBe(summary.totalReturn.toNumber());
+    // And per line, the identity the tile states for the whole portfolio:
+    for (const line of summary.lines) {
+      expect(line.totalReturn.toNumber()).toBe(line.value.minus(line.netContributions).toNumber());
+    }
+  });
+
   it('excludes an internal move filed only under the other side\'s transfer category', () => {
     const filed = transactions.map(t =>
       t.id === 't-internal-out'
