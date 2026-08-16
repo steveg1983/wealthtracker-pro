@@ -75,6 +75,8 @@ export function normaliseWatchlist(raw: unknown): WatchedItem[] {
 }
 
 export interface PositionMetrics {
+  /** shares × start price — what the dummy position notionally cost. */
+  cost: DecimalInstance;
   /** shares × current price. */
   value: DecimalInstance;
   /** shares × (current − start). Signed — a loss is negative. */
@@ -105,6 +107,7 @@ export function positionMetrics(
   const value = shares.times(price);
   const gain = shares.times(price.minus(start));
   return {
+    cost: shares.times(start),
     value,
     gain,
     gainPercent: start.isZero() ? null : price.minus(start).dividedBy(start).times(100),

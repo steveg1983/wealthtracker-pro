@@ -37,7 +37,7 @@ import {
   type AccountDisplayGroup,
 } from '../utils/accountGrouping';
 
-type AccountSortMode = 'default' | 'name' | 'balance-desc' | 'balance-asc';
+type AccountSortMode = 'default' | 'name' | 'name-desc' | 'balance-desc' | 'balance-asc';
 import { IconButton } from '../components/icons/IconButton';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import {
@@ -234,7 +234,7 @@ export default function Accounts() {
   const [grouping, setGrouping] = useState<AccountGroupingOptions>(readStoredGrouping);
   const [sortMode, setSortMode] = useState<AccountSortMode>(() => {
     const stored = preferences.getItem('accountsSortMode');
-    return stored === 'name' || stored === 'balance-desc' || stored === 'balance-asc'
+    return stored === 'name' || stored === 'name-desc' || stored === 'balance-desc' || stored === 'balance-asc'
       ? stored
       : 'default';
   });
@@ -689,8 +689,9 @@ export default function Accounts() {
       return list;
     }
     const sorted = [...list];
-    if (sortMode === 'name') {
+    if (sortMode === 'name' || sortMode === 'name-desc') {
       sorted.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+      if (sortMode === 'name-desc') sorted.reverse();
     } else {
       sorted.sort((a, b) => {
         const comparison = toDecimal(computeAccountBalance(a.id))
@@ -2601,14 +2602,16 @@ export default function Accounts() {
               Default
             </button>
             <button
-              onClick={() => handleSortChange('name')}
+              // Pressing it again flips the direction, exactly as Value does
+              // one pill along (owner, 16 August: "you cannot flip to Z–A").
+              onClick={() => handleSortChange(sortMode === 'name' ? 'name-desc' : 'name')}
               className={`px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
-                sortMode === 'name'
+                sortMode === 'name' || sortMode === 'name-desc'
                   ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
               }`}
             >
-              Name A–Z
+              Name {sortMode === 'name-desc' ? 'Z–A' : 'A–Z'}
             </button>
             <button
               onClick={() => handleSortChange(sortMode === 'balance-desc' ? 'balance-asc' : 'balance-desc')}

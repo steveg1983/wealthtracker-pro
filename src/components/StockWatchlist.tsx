@@ -36,8 +36,17 @@ export default function StockWatchlist(): React.JSX.Element {
    * day the shape changes. Every write goes back normalised.
    */
   const [storedWatchlist, setStoredWatchlist] = useLocalStorage<(string | WatchedItem)[]>('stock-watchlist', []);
+  /**
+   * Arrangement (owner, 16 August): sort by name or by position value, each
+   * direction toggleable, and a list view beside the grid. Persisted like the
+   * Accounts and Holdings arrangements are. Sorting reads the DISPLAYED list
+   * only — mutations key by symbol, so reordering cannot misdirect a save.
+   */
+  const [watchlistSort, setWatchlistSort] = useLocalStorage<'default' | 'name-asc' | 'name-desc' | 'value-desc' | 'value-asc'>('wt_watchlist_sort', 'default');
+  const [watchlistView, setWatchlistView] = useLocalStorage<'grid' | 'list'>('wt_watchlist_view', 'grid');
   const items = useMemo(() => normaliseWatchlist(storedWatchlist), [storedWatchlist]);
   const watchlist = useMemo(() => items.map(i => i.symbol), [items]);
+
   /** Which card's position form is open, if any. */
   const [editingSymbol, setEditingSymbol] = useState<string | null>(null);
   const [sharesDraft, setSharesDraft] = useState('');
@@ -47,6 +56,34 @@ export default function StockWatchlist(): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(false);
   const [showAddStock, setShowAddStock] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const displayedItems = useMemo(() => {
+    if (watchlistSort === 'default') return items;
+    const sorted = [...items];
+    if (watchlistSort === 'name-asc' || watchlistSort === 'name-desc') {
+      sorted.sort((a, b) => a.symbol.localeCompare(b.symbol));
+      if (watchlistSort === 'name-desc') sorted.reverse();
+      return sorted;
+    }
+    // Value = the dummy position's worth. A card with no position has no
+    // value to rank by, so it sorts after every card that has one — in both
+    // directions, because "no position" is not "worth nothing".
+    const valueOf = (item: WatchedItem): number | null => {
+      const quote = quotes.get(item.symbol);
+      if (!quote) return null;
+      const metrics = positionMetrics(item, quote.price.toString());
+      return metrics === null ? null : metrics.value.toNumber();
+    };
+    sorted.sort((a, b) => {
+      const va = valueOf(a);
+      const vb = valueOf(b);
+      if (va === null && vb === null) return 0;
+      if (va === null) return 1;
+      if (vb === null) return -1;
+      return watchlistSort === 'value-desc' ? vb - va : va - vb;
+    });
+    return sorted;
+  }, [items, watchlistSort, quotes]);
   const logger = useMemo(() => createScopedLogger('StockWatchlist'), []);
 
   const fetchAll = useCallback(async () => {
@@ -225,8 +262,62 @@ export default function StockWatchlist(): React.JSX.Element {
 
       {showAddStock && addPanel}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {items.map((item) => {
+      {/* The arrangement controls, from two cards up — the same pills every
+          other list in the app wears, with both directions on each axis. */}
+      {items.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+            <button
+              type="button"
+              onClick={() => setWatchlistSort('default')}
+              aria-pressed={watchlistSort === 'default'}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
+                watchlistSort === 'default'
+                  ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              Default
+            </button>
+            <button
+              type="button"
+              onClick={() => setWatchlistSort(watchlistSort === 'name-asc' ? 'name-desc' : 'name-asc')}
+              aria-pressed={watchlistSort === 'name-asc' || watchlistSort === 'name-desc'}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
+                watchlistSort === 'name-asc' || watchlistSort === 'name-desc'
+                  ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              Name {watchlistSort === 'name-desc' ? 'Z–A' : 'A–Z'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setWatchlistSort(watchlistSort === 'value-desc' ? 'value-asc' : 'value-desc')}
+              aria-pressed={watchlistSort === 'value-desc' || watchlistSort === 'value-asc'}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
+                watchlistSort === 'value-desc' || watchlistSort === 'value-asc'
+                  ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              Value {watchlistSort === 'value-asc' ? '↑' : '↓'}
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setWatchlistView(watchlistView === 'grid' ? 'list' : 'grid')}
+            className="ml-auto px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors border border-gray-200 dark:border-gray-700"
+          >
+            {watchlistView === 'grid' ? 'List view' : 'Grid view'}
+          </button>
+        </div>
+      )}
+
+      <div className={watchlistView === 'list'
+        ? 'space-y-3'
+        : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'}>
+        {displayedItems.map((item) => {
           const symbol = item.symbol;
           const quote = quotes.get(symbol);
           const failure = errors.get(symbol);
@@ -374,8 +465,18 @@ export default function StockWatchlist(): React.JSX.Element {
                             Edit
                           </button>
                         </div>
+                        {/* Cost, then current value, then the gain — the
+                            identity in reading order: cost + gain = value,
+                            checkable by eye. Cost and value are magnitudes and
+                            stay neutral; the gain carries the direction. */}
                         <p className="flex justify-between text-sm mt-1">
-                          <span className="text-gray-500 dark:text-gray-400">Value</span>
+                          <span className="text-gray-500 dark:text-gray-400">Cost</span>
+                          <span className="tabular-nums text-gray-700 dark:text-gray-300">
+                            {formatCurrency(metrics.cost, quote.currency)}
+                          </span>
+                        </p>
+                        <p className="flex justify-between text-sm">
+                          <span className="text-gray-500 dark:text-gray-400">Current value</span>
                           <span className="tabular-nums font-semibold text-gray-900 dark:text-white">
                             {formatCurrency(metrics.value, quote.currency)}
                           </span>

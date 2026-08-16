@@ -425,7 +425,7 @@ export default function Investments() {
    * the same reason the actions toggle is: an arrangement chosen once should
    * survive a refresh.
    */
-  const [holdingsSort, setHoldingsSort] = useLocalStorage<'default' | 'name' | 'value'>(
+  const [holdingsSort, setHoldingsSort] = useLocalStorage<'default' | 'name' | 'name-desc' | 'value' | 'value-asc'>(
     'wt_holdings_sort',
     'default'
   );
@@ -437,8 +437,13 @@ export default function Investments() {
   const sortedHoldingLines = useMemo(() => {
     if (holdingsSort === 'default') return portfolioLines;
     const lines = [...portfolioLines];
-    if (holdingsSort === 'name') lines.sort((a, b) => a.name.localeCompare(b.name));
-    else lines.sort((a, b) => b.value.comparedTo(a.value));
+    if (holdingsSort === 'name' || holdingsSort === 'name-desc') {
+      lines.sort((a, b) => a.name.localeCompare(b.name));
+      if (holdingsSort === 'name-desc') lines.reverse();
+    } else {
+      lines.sort((a, b) => b.value.comparedTo(a.value));
+      if (holdingsSort === 'value-asc') lines.reverse();
+    }
     return lines;
   }, [portfolioLines, holdingsSort]);
 
@@ -1019,14 +1024,20 @@ export default function Investments() {
           {portfolioLines.length > 1 && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
-                {([['default', 'Default'], ['name', 'Name A–Z'], ['value', 'Value ↓']] as const).map(([mode, label]) => (
+                {/* Both directions on both axes — a second press flips, as
+                    everywhere (owner, 16 August). */}
+                {([
+                  ['default', 'Default', 'default'],
+                  [holdingsSort === 'name' ? 'name-desc' : 'name', `Name ${holdingsSort === 'name-desc' ? 'Z–A' : 'A–Z'}`, 'name'],
+                  [holdingsSort === 'value' ? 'value-asc' : 'value', `Value ${holdingsSort === 'value-asc' ? '↑' : '↓'}`, 'value'],
+                ] as const).map(([next, label, axis]) => (
                   <button
-                    key={mode}
+                    key={axis}
                     type="button"
-                    onClick={() => setHoldingsSort(mode)}
-                    aria-pressed={holdingsSort === mode}
+                    onClick={() => setHoldingsSort(next)}
+                    aria-pressed={holdingsSort === axis || holdingsSort === `${axis}-desc` || holdingsSort === `${axis}-asc`}
                     className={`px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
-                      holdingsSort === mode
+                      holdingsSort.startsWith(axis)
                         ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                     }`}
