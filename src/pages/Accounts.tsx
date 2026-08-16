@@ -55,7 +55,7 @@ import {
   buildTopLevelIdByAccountId,
   selectTopLevelAccounts,
 } from '../utils/accountNesting';
-import { buildSecuredByTarget } from '../utils/accountSecuring';
+import { buildSecuredByTarget, normaliseSecuredIds } from '../utils/accountSecuring';
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import EmptyState from '../components/EmptyState';
 import FilteredEmptyState from '../components/FilteredEmptyState';
@@ -390,6 +390,31 @@ export default function Accounts() {
    * is a row nobody ever sees.
    */
   const securedByTarget = useMemo(() => buildSecuredByTarget(openAccounts), [openAccounts]);
+
+  /**
+   * The other end of the same link: what THIS account is secured against.
+   *
+   * `securedByTarget` answers "what is held against this asset"; this answers
+   * "what is this debt held against". One relationship, two readings, and the
+   * page needs both — a mortgage that says nothing about its house is only
+   * half a label.
+   *
+   * Resolved against the accounts in view for the reason the other direction
+   * is: the column carries no foreign key, so an id may name something closed,
+   * filtered out, or deleted. All three want the same answer — print nothing
+   * rather than a dangling reference.
+   */
+  const accountsById = useMemo(
+    () => new Map(openAccounts.map(a => [a.id, a])),
+    [openAccounts]
+  );
+  const securedTargets = useCallback(
+    (account: Account): Account[] =>
+      normaliseSecuredIds(account.securedAgainstAccountIds ?? [], account.id)
+        .map(id => accountsById.get(id))
+        .filter((a): a is Account => a !== undefined),
+    [accountsById]
+  );
 
   const topLevelAccounts = useMemo(() => selectTopLevelAccounts(openAccounts), [openAccounts]);
   const [closedAccounts, setClosedAccounts] = useState<Account[]>([]);
@@ -1079,6 +1104,40 @@ export default function Accounts() {
   }, []);
 
   /**
+   * Jump to another account ON THIS PAGE — pick it out and bring it to the
+   * middle.
+   *
+   * A BUTTON, not a Link, and that is the whole design. The secured-liability
+   * labels point at accounts that are already on this page, so routing to
+   * `/accounts` to arrive back where you started would remount the list,
+   * collapse nothing usefully, and lose the scroll position on the way. This
+   * is an in-page jump and is built as one.
+   *
+   * `center` for the same reason the arrow keys use it: the owner asked that a
+   * picked-out row sit in the middle rather than wherever the least possible
+   * scroll happened to leave it. Clamping at the ends needs no code — a
+   * container cannot scroll past its own extent.
+   *
+   * If the target is inside a folded band it is unfolded first, or the scroll
+   * would target an element that is not rendered and silently do nothing.
+   */
+  const jumpToAccount = useCallback((accountId: string): void => {
+    setCollapsedGroups(prev => {
+      if (prev.size === 0) return prev;
+      const next = new Set(prev);
+      next.clear();
+      return next;
+    });
+    // After the unfold has painted, or getElementById finds nothing.
+    requestAnimationFrame(() => {
+      const node = document.getElementById(rowDomId(accountId));
+      setSelectedAccountId(accountId);
+      node?.focus({ preventScroll: true });
+      node?.scrollIntoView?.({ block: 'center' });
+    });
+  }, []);
+
+  /**
    * Walk the selection by `delta` rows, across sections and into the cash rows
    * nested in a card.
    *
@@ -1455,6 +1514,51 @@ export default function Accounts() {
                         <p className="text-xs text-gray-500 dark:text-gray-300">
                           {lastUpdated ? `Last updated: ${lastUpdated}` : 'Not yet synced'}
                         </p>
+                        {/* ─ THE LINK, READ FROM THE DEBT'S END ──────────────
+                            The asset already prints "Linked liabilities: …".
+                            Without this the relationship was only legible from
+                            one side, so a mortgage told you nothing about the
+                            house it is held against unless you happened to
+                            scroll to the house.
+
+                            Same rule as the other end and for the same reason:
+                            NO FIGURE. A balance printed beside the name of an
+                            asset invites the subtraction, and this link is a
+                            label rather than a sum. A name cannot be added up.
+
+                            Resolved against the accounts in view, so a target
+                            that is closed, filtered out or deleted prints
+                            nothing rather than a dangling id — the column has
+                            no foreign key, and all three cases look the same
+                            from here. */}
+                        {securedTargets(account).length > 0 && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            <span className="font-medium">Secured against:</span>{' '}
+                            {securedTargets(account).map((target, i) => (
+                              <span key={target.id}>
+                                {i > 0 && ', '}
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); jumpToAccount(target.id); }}
+                                  /* `inline`, deliberately: `index.css` makes every button
+                                     inline-FLEX, and a flex box will not break a long
+                                     account name across lines — it would sit on one
+                                     line and push the row sideways, which is the
+                                     overflow this page was fixed for once already.
+                                     `inline` beats the element rule on specificity and
+                                     lets these read as what they are: words in a
+                                     sentence. `min-h-0` for the same reason the row's
+                                     name link carries it — the touch block floors every
+                                     button at 44px, which would space these out. */
+                                  className="inline text-left underline decoration-dotted underline-offset-2 hover:text-blue-600 dark:hover:text-blue-400 min-h-0"
+                                  title={`Go to ${target.name}`}
+                                >
+                                  {target.name}
+                                </button>
+                              </span>
+                            ))}
+                          </p>
+                        )}
                         {bankLink && (
                           <p className="text-xs text-gray-500 dark:text-gray-300">
                             Last bank sync:{' '}
@@ -1775,14 +1879,24 @@ export default function Accounts() {
                         {(securedByTarget.get(account.id) ?? []).map((liability, i) => (
                           <span key={liability.id}>
                             {i > 0 && ', '}
-                            <Link
-                              to={registerPath(liability.id)}
-                              state={registerLinkState(liability.id)}
-                              className={`${ACCOUNT_ROW_NAME_LINK_CLASS} underline decoration-dotted underline-offset-2`}
-                              title={`Open ${liability.name}`}
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); jumpToAccount(liability.id); }}
+                              /* `inline`, deliberately: `index.css` makes every button
+                                     inline-FLEX, and a flex box will not break a long
+                                     account name across lines — it would sit on one
+                                     line and push the row sideways, which is the
+                                     overflow this page was fixed for once already.
+                                     `inline` beats the element rule on specificity and
+                                     lets these read as what they are: words in a
+                                     sentence. `min-h-0` for the same reason the row's
+                                     name link carries it — the touch block floors every
+                                     button at 44px, which would space these out. */
+                                  className="inline text-left underline decoration-dotted underline-offset-2 hover:text-blue-600 dark:hover:text-blue-400 min-h-0"
+                              title={`Go to ${liability.name}`}
                             >
                               {liability.name}
-                            </Link>
+                            </button>
                           </span>
                         ))}
                         {' — '}shown for information; counted under Liabilities,
