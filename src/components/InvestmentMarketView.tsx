@@ -102,7 +102,7 @@ export default function InvestmentMarketView({
     return (
       <div className="text-center py-8">
         <p className="text-gray-500 dark:text-gray-400">
-          No holdings recorded for this account. Add them on the Manage tab to see market values.
+          No holdings recorded for this account. Press Manage holdings above to add them and see market values.
         </p>
       </div>
     );

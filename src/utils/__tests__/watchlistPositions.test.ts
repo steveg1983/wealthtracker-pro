@@ -48,7 +48,11 @@ describe('the arithmetic: a dummy position against a live price', () => {
   it('values the position and signs the gain', () => {
     const metrics = positionMetrics({ symbol: 'AAPL', shares: '10', startPrice: '250' }, '305.93');
     expect(metrics).not.toBeNull();
+    // Cost is what the position notionally went in at; value is what it is
+    // now; and cost + gain must equal value — the identity the card states.
+    expect(metrics?.cost.toFixed(2)).toBe('2500.00');
     expect(metrics?.value.toFixed(2)).toBe('3059.30');
+    expect(metrics?.cost.plus(metrics.gain).toFixed(2)).toBe(metrics?.value.toFixed(2));
     expect(metrics?.gain.toFixed(2)).toBe('559.30');
     expect(metrics?.gainPercent?.toFixed(2)).toBe('22.37');
   });
