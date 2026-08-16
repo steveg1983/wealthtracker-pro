@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import { fetchQuoteTwelveData, isUnsuffixedSymbol, type TwelveDataQuote } from './twelvedata.js';
 
 /**
  * Market quotes, fetched SERVER-SIDE and normalised to major currency units.
@@ -193,6 +194,31 @@ export const parseSymbolsPayload = (
  * Throws when the block cannot produce a price — the caller turns that into a
  * per-symbol failure entry rather than dropping the symbol.
  */
+/**
+ * A Twelve Data quote in this module's own shape, with the unit READ from the
+ * response rather than assumed.
+ *
+ * The same `MINOR_UNIT_CURRENCIES` table Yahoo's answers go through, so a
+ * provider that reports `GBp` is handled identically the day the unsuffixed-
+ * only guard in `fetchQuote` is lifted. Decimal, not `/ 100`, for the reason
+ * stated below: this is money.
+ */
+const normaliseQuote = (quote: TwelveDataQuote): QuoteSuccess => {
+  const minor = MINOR_UNIT_CURRENCIES[quote.currency];
+  const currency = minor ? minor.major : quote.currency.toUpperCase();
+  const toMajor = (value: string): string =>
+    minor ? new Decimal(value).dividedBy(minor.perMajor).toString() : new Decimal(value).toString();
+
+  return {
+    symbol: quote.symbol,
+    price: toMajor(quote.price),
+    currency,
+    ...(quote.previousClose === undefined ? {} : { previousClose: toMajor(quote.previousClose) }),
+    ...(quote.name === undefined ? {} : { name: quote.name }),
+    asOf: quote.asOf
+  };
+};
+
 const normalizeChartMeta = (symbol: string, meta: Record<string, unknown>): QuoteSuccess => {
   const rawPrice = readFiniteNumber(meta, 'regularMarketPrice');
   if (rawPrice === null) {
@@ -280,6 +306,32 @@ const timeoutSignal = (): AbortSignal | undefined =>
 export const fetchQuote = async (symbol: string, fetchImpl?: FetchLike): Promise<QuoteResult> => {
   const doFetch = getFetch(fetchImpl);
   let lastMessage = 'no response';
+
+  /*
+   * TWELVE DATA FIRST, for the symbols where it is safe to.
+   *
+   * Yahoo rate-limits by IP and a Vercel function shares its egress address, so
+   * the 429s this app hit were a limit it did not spend. A key attaches quota
+   * to us — but only UNSUFFIXED symbols are routed, because Yahoo reports LSE
+   * in pence (`GBp`) and whether Twelve Data both uses and LABELS pence cannot
+   * be established from the docs. A provider returning 3277.5 while calling it
+   * `GBP` would make a UK holding a hundred times too valuable, silently.
+   *
+   * Yahoo remains the fallback for everything, so a failure here costs a round
+   * trip rather than a price. See twelvedata.ts for the whole argument.
+   */
+  const apiKey = (process.env.TWELVE_DATA_API_KEY ?? '').trim();
+  if (apiKey !== '' && isUnsuffixedSymbol(symbol)) {
+    try {
+      const quote = await fetchQuoteTwelveData(symbol, { apiKey, fetchImpl: doFetch as typeof fetch });
+      // The SAME normalisation Yahoo's answers go through — the unit is read
+      // from the response, never assumed, so lifting the suffix guard later
+      // needs no change here.
+      if (quote) return normaliseQuote(quote);
+    } catch (error) {
+      lastMessage = error instanceof Error ? error.message : 'request failed';
+    }
+  }
 
   for (const host of CHART_HOSTS) {
     try {

@@ -187,3 +187,109 @@ export async function searchSymbolsTwelveData(
 
   return matches;
 }
+
+/**
+ * A PRICE from Twelve Data, for symbols that carry no exchange suffix.
+ *
+ * ─ WHY ONLY UNSUFFIXED SYMBOLS ─────────────────────────────────────────────
+ *
+ * Yahoo reports LSE equities in PENCE and labels them `GBp`, and `fetchQuote`
+ * divides by a hundred on that label. Whether Twelve Data does the same — and
+ * more importantly whether it LABELS pence as pence — cannot be established
+ * from the documentation, and a provider that returns 3277.5 while calling it
+ * `GBP` would make every UK holding a hundred times too valuable, silently, in
+ * a ledger measured in millions.
+ *
+ * So this handles the case where that question does not arise: a bare `AAPL`
+ * with no suffix, priced in USD. Everything with a suffix — `.L`, `.DE`, `.TO`
+ * — stays on Yahoo, which this app has already reconciled against real
+ * statements.
+ *
+ * That is not a permanent answer, it is the honest one until somebody prices a
+ * known UK share through both and compares. When that is done, the guard is one
+ * condition in `fetchQuoteVia`.
+ *
+ * ─ THE UNIT IS STILL READ FROM THE RESPONSE ────────────────────────────────
+ *
+ * Not assumed to be major. The caller passes what this returns through the
+ * same `MINOR_UNIT_CURRENCIES` table Yahoo's answers go through, so a provider
+ * that does say `GBp` is handled correctly the moment the suffix guard is
+ * lifted.
+ */
+export interface TwelveDataQuote {
+  symbol: string;
+  price: string;
+  currency: string;
+  previousClose?: string;
+  name?: string;
+  asOf: string;
+}
+
+const asNumericString = (value: unknown): string | null => {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const text = String(value).trim();
+  if (text === '' || !Number.isFinite(Number(text))) return null;
+  return text;
+};
+
+/** True when a symbol names no exchange, i.e. Yahoo's bare US form. */
+export function isUnsuffixedSymbol(symbol: string): boolean {
+  return !symbol.includes('.');
+}
+
+export async function fetchQuoteTwelveData(
+  symbol: string,
+  options: TwelveDataOptions
+): Promise<TwelveDataQuote | null> {
+  const doFetch = options.fetchImpl ?? fetch;
+  const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}`;
+
+  const response = await doFetch(url, {
+    headers: { Authorization: `apikey ${options.apiKey}`, Accept: 'application/json' },
+    signal: options.signal
+  });
+
+  if (!response.ok) {
+    const failure = new Error(`upstream returned ${response.status}`) as Error & {
+      upstreamStatus?: number;
+    };
+    failure.upstreamStatus = response.status;
+    throw failure;
+  }
+
+  const body: unknown = await response.json();
+  if (typeof body !== 'object' || body === null) return null;
+
+  // A 200 carrying `{ code, message }` is a failure — a bad key, or the daily
+  // ceiling. Reading it as "no price" would show a stale figure as current.
+  const row = body as {
+    code?: unknown; message?: unknown; symbol?: unknown; name?: unknown;
+    close?: unknown; previous_close?: unknown; currency?: unknown; datetime?: unknown;
+  };
+  if (typeof row.code === 'number' && row.code >= 400) {
+    const failure = new Error(
+      asString(row.message) || `upstream returned ${row.code}`
+    ) as Error & { upstreamStatus?: number };
+    failure.upstreamStatus = row.code;
+    throw failure;
+  }
+
+  const price = asNumericString(row.close);
+  const currency = asString(row.currency);
+  // No price or no currency is NOT an error to report as a price of zero.
+  if (price === null || currency === '') return null;
+
+  const previous = asNumericString(row.previous_close);
+  const day = asString(row.datetime);
+
+  return {
+    symbol,
+    price,
+    currency,
+    ...(previous === null ? {} : { previousClose: previous }),
+    ...(asString(row.name) === '' ? {} : { name: asString(row.name) }),
+    // `datetime` is the exchange's day for an EOD quote. Kept as an ISO
+    // instant, as QuoteSuccess.asOf promises.
+    asOf: day === '' ? new Date().toISOString() : new Date(`${day}T00:00:00Z`).toISOString()
+  };
+}

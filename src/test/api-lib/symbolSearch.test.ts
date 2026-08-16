@@ -15,7 +15,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { searchSymbolsVia, activeSymbolSearchProvider } from '../../../api/_lib/symbolSearch';
-import { searchSymbolsTwelveData, toYahooSymbol } from '../../../api/_lib/twelvedata';
+import { searchSymbolsTwelveData, toYahooSymbol, fetchQuoteTwelveData, isUnsuffixedSymbol } from '../../../api/_lib/twelvedata';
 
 const KEYED = { TWELVE_DATA_API_KEY: 'test-key' } as NodeJS.ProcessEnv;
 const UNKEYED = {} as NodeJS.ProcessEnv;
@@ -143,5 +143,83 @@ describe('choosing the provider', () => {
 
     const calls = (fetchImpl as unknown as { mock: { calls: [string][] } }).mock.calls;
     expect(calls.every(([url]) => !url.includes('twelvedata'))).toBe(true);
+  });
+});
+
+describe('prices: which provider, and in what unit', () => {
+  /*
+   * The 429s were never only about search — `fetchQuote` hit the same shared
+   * egress IP, so the watchlist could FIND a symbol it could not then price.
+   *
+   * What makes this dangerous rather than merely broken is the unit. Yahoo
+   * reports LSE equities in PENCE and labels them `GBp`, and the quote path
+   * divides by a hundred on that label. A provider that returns 3277.5 while
+   * calling it `GBP` would make a UK holding a hundred times too valuable,
+   * silently, in a ledger measured in millions.
+   */
+  it('routes only UNSUFFIXED symbols away from Yahoo', () => {
+    // The guard, in one assertion. `.L`, `.DE`, `.TO` keep the path this app
+    // has already reconciled against real statements.
+    expect(isUnsuffixedSymbol('AAPL')).toBe(true);
+    expect(isUnsuffixedSymbol('VOD.L')).toBe(false);
+    expect(isUnsuffixedSymbol('APC.DE')).toBe(false);
+    expect(isUnsuffixedSymbol('AAPL.TO')).toBe(false);
+  });
+
+  it('reads the price and the currency from the response', async () => {
+    const quote = await fetchQuoteTwelveData('AAPL', {
+      apiKey: 'k',
+      fetchImpl: stub({
+        symbol: 'AAPL', name: 'Apple Inc.', close: '229.35',
+        previous_close: '227.10', currency: 'USD', datetime: '2026-08-15'
+      })
+    });
+    expect(quote).toMatchObject({ symbol: 'AAPL', price: '229.35', currency: 'USD' });
+    expect(quote?.asOf).toMatch(/^2026-08-15T/);
+  });
+
+  it('does NOT convert the unit itself — that is the caller\'s table', async () => {
+    // The unit must travel as the provider stated it, so the ONE conversion
+    // table serves both providers. Converting here would mean two places to be
+    // right about pence, which is one too many.
+    const quote = await fetchQuoteTwelveData('SHEL', {
+      apiKey: 'k',
+      fetchImpl: stub({ symbol: 'SHEL', close: '3277.5', currency: 'GBp', datetime: '2026-08-15' })
+    });
+    expect(quote?.price).toBe('3277.5');
+    expect(quote?.currency).toBe('GBp');
+  });
+
+  it('treats a 200 carrying an error code as a failure, not as "no price"', async () => {
+    // Reading an exhausted plan as "no price" would leave yesterday's figure
+    // on screen as though it were today's.
+    await expect(
+      fetchQuoteTwelveData('AAPL', {
+        apiKey: 'k',
+        fetchImpl: stub({ code: 429, message: 'You have run out of API credits' })
+      })
+    ).rejects.toMatchObject({ upstreamStatus: 429 });
+  });
+
+  it('refuses a price with NO CURRENCY rather than guessing at one', async () => {
+    /*
+     * The guard that matters most after the suffix one. A number with no
+     * currency is not a price — assuming USD would value a UK share in
+     * dollars, and assuming the account's own currency would be worse still
+     * because it would look right. Null falls back to Yahoo, which states one.
+     */
+    const quote = await fetchQuoteTwelveData('AAPL', {
+      apiKey: 'k',
+      fetchImpl: stub({ symbol: 'AAPL', close: '229.35', datetime: '2026-08-15' })
+    });
+    expect(quote).toBeNull();
+  });
+
+  it('returns null rather than a price of zero when there is no close', async () => {
+    const quote = await fetchQuoteTwelveData('AAPL', {
+      apiKey: 'k',
+      fetchImpl: stub({ symbol: 'AAPL', currency: 'USD' })
+    });
+    expect(quote).toBeNull();
   });
 });
