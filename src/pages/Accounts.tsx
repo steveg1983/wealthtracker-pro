@@ -2575,14 +2575,26 @@ export default function Accounts() {
             </button>
           </div>
         </div>
-        <div className="w-full sm:w-auto flex items-center gap-2">
+        {/* `flex-wrap` and `shrink-0` on the pill group (owner, 16 August).
+            Adding "Hide account buttons" to this row squeezed the pills to
+            their 44px touch minimum — measured at 375px: three pills at
+            x107/x129/x152, overlapping, text wrapped to three lines. A flex
+            child gives way before it wraps, so the toggle has to be ALLOWED
+            to drop to its own line and the pills to refuse to shrink. */}
+        <div className="w-full sm:w-auto flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 w-20 sm:w-auto shrink-0">Sort:</span>
-          <div className="grid grid-flow-col auto-cols-fr flex-1 sm:flex-none sm:inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+          {/* `grow shrink-0`, NOT `flex-1`. flex-1 is basis 0% — the group
+              starts from nothing and takes only what is left over, and with
+              the toggle on the row that leftover crushed all three pills to
+              their 44px touch minimum, overlapping. Basis auto starts from the
+              labels' own width; shrink-0 holds it; the toggle then WRAPS to
+              its own line on a phone instead of squeezing this one. */}
+          <div className="grid grid-flow-col auto-cols-fr grow shrink-0 sm:flex-none sm:inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
             <button
               onClick={() => handleSortChange('default')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              className={`px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
                 sortMode === 'default'
-                  ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                  ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
               }`}
             >
@@ -2590,9 +2602,9 @@ export default function Accounts() {
             </button>
             <button
               onClick={() => handleSortChange('name')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              className={`px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
                 sortMode === 'name'
-                  ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                  ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
               }`}
             >
@@ -2605,9 +2617,9 @@ export default function Accounts() {
                 : sortMode === 'balance-asc'
                   ? 'Sorted lowest value first — click for highest first'
                   : 'Sort by account value'}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              className={`px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
                 sortMode === 'balance-desc' || sortMode === 'balance-asc'
-                  ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                  ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
               }`}
             >
