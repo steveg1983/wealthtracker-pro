@@ -11,6 +11,7 @@ import {
   rateToDisplayString,
 } from '../utils/fx';
 import { useFxQuote } from '../hooks/useFxQuote';
+import { getDateLocale } from '../utils/dateFormatter';
 import type { ConfirmedConversion } from '../utils/crossCurrencyTransfer';
 import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 
@@ -194,8 +195,19 @@ export default function CrossCurrencyTransferDialog({
     });
   };
 
+  /*
+   * THE APP'S LOCALE, not the browser's (Claude Design §9, the aside).
+   *
+   * `undefined` as the locale means "whatever this browser is set to", which
+   * on a US-configured machine printed `08:28 PM` beside dates the same app
+   * renders as `16/08/2026`. Two clock conventions on one dialog.
+   *
+   * `getDateLocale()` is the same resolver every date in the app goes through,
+   * so this follows the region setting rather than the browser — and en-GB
+   * gives the 24-hour clock the rest of the product uses.
+   */
   const quotedAt = quote.status === 'ready'
-    ? quote.asOf.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+    ? quote.asOf.toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' })
     : '';
 
   const controlClass =
