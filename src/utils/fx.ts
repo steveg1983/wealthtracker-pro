@@ -208,6 +208,39 @@ export function rateToStorageString(rate: DecimalInstance): string {
   return rate.toDecimalPlaces(RATE_DP, Decimal.ROUND_HALF_UP).toString();
 }
 
+/** Decimal places a rate is QUOTED in. The FX convention, and Claude Design's §9.1. */
+export const RATE_DISPLAY_DP = 4;
+
+/**
+ * A rate as it is SHOWN — four decimal places, trailing zeros gone.
+ *
+ * Distinct from {@link rateToStorageString}, and the split is the point.
+ * Storage keeps {@link RATE_DP} because a DERIVED rate is a division and
+ * division does not terminate: $100 arriving as £74.07 gives 0.7407407407…,
+ * and the stored figure has to reproduce the amounts it came from.
+ *
+ * Display has the opposite duty. Ten places presented a float artefact as
+ * precision the quote never had — in an app that measures its numbers
+ * carefully everywhere else — so the reader was shown ten digits of confidence
+ * about a number that is really "about 0.74".
+ *
+ * WHAT IS AUTHORITATIVE IS THE AMOUNTS, not the rate. Both legs record their
+ * own currency's figure to the penny, and the rate is provenance for how they
+ * relate. So rounding the DISPLAY cannot make the ledger disagree with itself:
+ * $100 x 0.7407 is £74.07, which is the figure recorded, which is Design's
+ * requirement that "the recorded figures reconcile against the displayed rate".
+ *
+ * The significant-digits fallback is for the pairs where four places is not a
+ * convention but a deletion — 1 JPY = 0.0000052 GBP rounds to 0.0000 at four,
+ * and a rate shown as zero is worse than a long one.
+ */
+export function rateToDisplayString(rate: DecimalInstance | string): string {
+  const value = typeof rate === 'string' ? new Decimal(rate) : rate;
+  const rounded = value.toDecimalPlaces(RATE_DISPLAY_DP, Decimal.ROUND_HALF_UP);
+  if (!rounded.isZero() || value.isZero()) return rounded.toString();
+  return value.toSignificantDigits(RATE_DISPLAY_DP, Decimal.ROUND_HALF_UP).toString();
+}
+
 /**
  * The `metadata.fx` object for one linked pair. Written to BOTH legs unchanged:
  * the rate is a property of the CONVERSION, not of either row, so two legs that
@@ -253,6 +286,5 @@ export function readFxRecord(metadata: unknown): FxRecord | null {
  * of exactly 2 reads "1 GBP = 2 USD" rather than "2.0000000000".
  */
 export function describeRate(rate: DecimalInstance | string, pair: FxPair): string {
-  const value = typeof rate === 'string' ? rate : rateToStorageString(rate);
-  return `1 ${pair.from} = ${value} ${pair.to}`;
+  return `1 ${pair.from} = ${rateToDisplayString(rate)} ${pair.to}`;
 }

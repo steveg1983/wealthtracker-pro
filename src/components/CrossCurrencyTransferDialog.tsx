@@ -8,7 +8,7 @@ import {
   RATE_DP,
   destinationForRate,
   rateForDestination,
-  rateToStorageString,
+  rateToDisplayString,
 } from '../utils/fx';
 import { useFxQuote } from '../hooks/useFxQuote';
 import type { ConfirmedConversion } from '../utils/crossCurrencyTransfer';
@@ -124,7 +124,7 @@ export default function CrossCurrencyTransferDialog({
   useEffect(() => {
     if (!isOpen || lastEdited !== null) return;
     if (quote.status !== 'ready') return;
-    setRateText(rateToStorageString(quote.rate));
+    setRateText(rateToDisplayString(quote.rate));
     const destination = destinationForRate(magnitude, quote.rate);
     setDestinationText(destination.ok ? asMoneyText(destination.value) : '');
   }, [isOpen, quote, magnitude, lastEdited]);
@@ -162,7 +162,7 @@ export default function CrossCurrencyTransferDialog({
     const destination = readPositive(next);
     if (!destination) return;
     const rate = rateForDestination(magnitude, destination);
-    if (rate.ok) setRateText(rateToStorageString(rate.value));
+    if (rate.ok) setRateText(rateToDisplayString(rate.value));
   };
 
   const destinationAmount = readPositive(destinationText);
@@ -291,9 +291,14 @@ export default function CrossCurrencyTransferDialog({
             and an amber here would spend the one the yellow thread owns. */}
         <p className="text-dense text-gray-500 dark:text-gray-400 mb-5 min-h-[16px]">
           {quote.status === 'loading' && 'Fetching a rate…'}
+          {/* THE SOURCE AND THE TIME, and not the rate a second time (Claude
+              Design §9.2). The field directly above this already prints the
+              rate in an input the reader can edit; repeating it here in full
+              spent a line saying something already on screen, and pushed the
+              two things this line ALONE can carry — who quoted it and when —
+              to the end where they read as an afterthought. */}
           {quote.status === 'ready' && quote.source === 'api' && (
-            <>1 {sourceCurrency} = <span className="tabular-nums">{rateToStorageString(quote.rate)}</span>{' '}
-            {destinationCurrency} — {quote.provider}, {quotedAt}</>
+            <>{quote.provider}, {quotedAt}</>
           )}
           {quote.status === 'ready' && quote.source === 'fallback' && (
             <>No live rate right now, so this one is approximate — check it against your

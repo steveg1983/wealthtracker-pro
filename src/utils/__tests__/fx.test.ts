@@ -8,6 +8,7 @@ import {
   describeRate,
   destinationForRate,
   rateForDestination,
+  rateToDisplayString,
   rateToStorageString,
   readFxRecord,
 } from '../fx';
@@ -254,5 +255,48 @@ describe('fx', () => {
     it('takes a Decimal and prints it without padding', () => {
       expect(describeRate(new Decimal('2'), { from: 'GBP', to: 'USD' })).toBe('1 GBP = 2 USD');
     });
+  });
+});
+
+describe('a rate is QUOTED shorter than it is STORED (Claude Design §9.1)', () => {
+  const toDecimal = (v: string): Decimal => new Decimal(v);
+  /*
+   * Storage keeps ten places because a DERIVED rate is a division and division
+   * does not terminate: $100 arriving as £74.07 gives 0.7407407407…, and the
+   * stored figure has to reproduce the amounts it came from.
+   *
+   * Display has the opposite duty. Ten places presented a float artefact as
+   * precision the quote never had, in an app that measures its numbers
+   * carefully everywhere else.
+   */
+  it('shows four places where it stores ten', () => {
+    const derived = deriveRate(100, 74.074074);
+    expect(derived.ok).toBe(true);
+    if (!derived.ok) return;
+    expect(rateToStorageString(derived.value)).toMatch(/^0\.7407407/);
+    expect(rateToDisplayString(derived.value)).toBe('0.7407');
+  });
+
+  it('keeps a short rate short — no padding to four', () => {
+    // "1 GBP = 2 USD", not "2.0000".
+    expect(rateToDisplayString(toDecimal('2'))).toBe('2');
+    expect(rateToDisplayString(toDecimal('1.35'))).toBe('1.35');
+  });
+
+  it('does not round an exotic pair away to zero', () => {
+    // 1 JPY = 0.0000052 GBP is 0.0000 at four places, and a rate shown as zero
+    // is worse than a long one. Significant digits take over.
+    const tiny = rateToDisplayString(toDecimal('0.0000052'));
+    expect(tiny).not.toBe('0');
+    expect(Number(tiny)).toBeGreaterThan(0);
+  });
+
+  it('reconciles against the recorded amounts, which is the point', () => {
+    // Design's requirement: what is displayed must be what the figures agree
+    // with. $100 at the DISPLAYED 0.7407 is £74.07 — the amount recorded.
+    const derived = deriveRate(100, 74.074074);
+    if (!derived.ok) throw new Error('rate should derive');
+    const displayed = toDecimal(rateToDisplayString(derived.value));
+    expect(toDecimal('100').times(displayed).toDecimalPlaces(2).toString()).toBe('74.07');
   });
 });
