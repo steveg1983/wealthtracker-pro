@@ -48,6 +48,16 @@ export interface PortfolioLine {
   cash: PortfolioCashLine[];
   /** Share of the whole portfolio, 0–100. Zero when the portfolio is worth nothing. */
   allocation: DecimalInstance;
+  /**
+   * This pair's share of `netContributions` — the same walk, attributed by the
+   * MEMBER account each transfer row sits on, so the lines always sum to the
+   * portfolio figure exactly. A transfer between two pairs counts −X on one
+   * line and +X on the other, netting to zero across the list just as it does
+   * in the total.
+   */
+  netContributions: DecimalInstance;
+  /** value − netContributions, for this pair alone. The lines sum to the portfolio's. */
+  totalReturn: DecimalInstance;
 }
 
 /**
@@ -188,6 +198,10 @@ export function buildPortfolioSummary(input: PortfolioSummaryInput): PortfolioSu
     value: line.value,
     cash: line.cash,
     allocation: value.isZero() ? ZERO : line.value.dividedBy(value).times(100),
+    // Filled in after the contributions walk below; ZERO until then so the
+    // object is complete from birth.
+    netContributions: ZERO,
+    totalReturn: ZERO,
   }));
 
   // Contributions: transfer rows sitting on a member account whose other side
@@ -206,6 +220,10 @@ export function buildPortfolioSummary(input: PortfolioSummaryInput): PortfolioSu
   let netContributions = ZERO;
   let unattributedCount = 0;
   let unattributedAmount = ZERO;
+  // Per pair, for the drill-down: the same figures, attributed to the line the
+  // row belongs to. Kept in the SAME loop so the split cannot drift from the
+  // total — one classification, two aggregations.
+  const contributionsByLine = new Map<string, DecimalInstance>();
   for (const row of memberRows) {
     if (classifyFlow(row, categoryKinds) !== 'transfer') continue;
     const other = counterpartyAccountId(row, transactionsById, categoryAccounts);
@@ -217,6 +235,8 @@ export function buildPortfolioSummary(input: PortfolioSummaryInput): PortfolioSu
     }
     const amount = toDecimal(row.amount);
     netContributions = netContributions.plus(amount);
+    const lineId = topLevelIdByAccountId.get(row.accountId) ?? row.accountId;
+    contributionsByLine.set(lineId, (contributionsByLine.get(lineId) ?? ZERO).plus(amount));
     if (other === undefined) {
       unattributedCount += 1;
       unattributedAmount = unattributedAmount.plus(amount.abs());
@@ -224,6 +244,14 @@ export function buildPortfolioSummary(input: PortfolioSummaryInput): PortfolioSu
   }
 
   const totalReturn = value.minus(netContributions);
+
+  // Attach the split. Lines were built before the walk, so this closes the
+  // shape rather than re-deriving anything.
+  for (const line of lines) {
+    const contributed = contributionsByLine.get(line.accountId) ?? ZERO;
+    line.netContributions = contributed;
+    line.totalReturn = line.value.minus(contributed);
+  }
 
   return {
     lines,
