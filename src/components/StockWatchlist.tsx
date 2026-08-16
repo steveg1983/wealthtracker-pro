@@ -6,6 +6,7 @@ import StockSymbolSearch from './StockSymbolSearch';
 import { PlusIcon, XIcon, RefreshCwIcon, AlertCircleIcon } from './icons';
 import { formatDecimal } from '../utils/decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { normaliseWatchlist, positionMetrics, type WatchedItem } from '../utils/watchlistPositions';
 
 /**
  * A watchlist that tells the truth about what it could not fetch.
@@ -26,7 +27,21 @@ import { createScopedLogger } from '../loggers/scopedLogger';
 
 export default function StockWatchlist(): React.JSX.Element {
   const { formatCurrency } = useCurrencyDecimal();
-  const [watchlist, setWatchlist] = useLocalStorage<string[]>('stock-watchlist', []);
+  /**
+   * SAME KEY, RICHER SHAPE. The list stored plain symbol strings until 16
+   * August; it now stores {symbol, shares?, startPrice?} so a watched share
+   * can carry a dummy position (the owner: "almost use it as a dummy
+   * portfolio"). `normaliseWatchlist` reads all three generations — old
+   * strings, new objects, hand-edited junk — so nobody's list empties on the
+   * day the shape changes. Every write goes back normalised.
+   */
+  const [storedWatchlist, setStoredWatchlist] = useLocalStorage<(string | WatchedItem)[]>('stock-watchlist', []);
+  const items = useMemo(() => normaliseWatchlist(storedWatchlist), [storedWatchlist]);
+  const watchlist = useMemo(() => items.map(i => i.symbol), [items]);
+  /** Which card's position form is open, if any. */
+  const [editingSymbol, setEditingSymbol] = useState<string | null>(null);
+  const [sharesDraft, setSharesDraft] = useState('');
+  const [startPriceDraft, setStartPriceDraft] = useState('');
   const [quotes, setQuotes] = useState<Map<string, StockQuote>>(new Map());
   const [errors, setErrors] = useState<Map<string, string>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
@@ -68,14 +83,37 @@ export default function StockWatchlist(): React.JSX.Element {
 
   const addToWatchlist = (symbol: string): void => {
     const upper = symbol.toUpperCase();
-    if (!watchlist.includes(upper)) {
-      setWatchlist([...watchlist, upper]);
+    if (!items.some((i) => i.symbol === upper)) {
+      setStoredWatchlist([...items, { symbol: upper }]);
     }
     setShowAddStock(false);
   };
 
+  /**
+   * Both fields or neither — a position missing one of the two answers half
+   * the question it was configured for, so Save requires both and Clear
+   * removes both. Strings straight from the inputs; `normaliseWatchlist`
+   * drops anything non-numeric on the way back in.
+   */
+  const savePosition = (symbol: string, shares: string, startPrice: string): void => {
+    setStoredWatchlist(items.map((i) => {
+      if (i.symbol !== symbol) return i;
+      const s = shares.trim();
+      const p = startPrice.trim();
+      if (s === '' && p === '') return { symbol: i.symbol };
+      return { symbol: i.symbol, shares: s, startPrice: p };
+    }));
+    setEditingSymbol(null);
+  };
+
+  const openPositionForm = (item: WatchedItem): void => {
+    setEditingSymbol(item.symbol);
+    setSharesDraft(item.shares ?? '');
+    setStartPriceDraft(item.startPrice ?? '');
+  };
+
   const removeFromWatchlist = (symbol: string): void => {
-    setWatchlist(watchlist.filter((s) => s !== symbol));
+    setStoredWatchlist(items.filter((i) => i.symbol !== symbol));
     setQuotes((current) => {
       const next = new Map(current);
       next.delete(symbol);
@@ -188,7 +226,8 @@ export default function StockWatchlist(): React.JSX.Element {
       {showAddStock && addPanel}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {watchlist.map((symbol) => {
+        {items.map((item) => {
+          const symbol = item.symbol;
           const quote = quotes.get(symbol);
           const failure = errors.get(symbol);
 
@@ -247,6 +286,114 @@ export default function StockWatchlist(): React.JSX.Element {
                       No previous close to compare
                     </p>
                   )}
+
+                  {/* ─ THE DUMMY POSITION ────────────────────────────────────
+                      Owner, 16 August: shares and a starting price, "almost a
+                      dummy portfolio". It touches nothing real — no account,
+                      no transaction, no total; the arithmetic lives in
+                      utils/watchlistPositions with its own tests, because a
+                      gain is money and a units slip here shows a fake profit.
+
+                      The gain wears the hues because it has a DIRECTION,
+                      which is what the hues are for; the value beside it is a
+                      magnitude and stays neutral. */}
+                  {editingSymbol === symbol ? (
+                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 space-y-2">
+                      <label className="block text-xs text-gray-500 dark:text-gray-400">
+                        Shares
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={sharesDraft}
+                          onChange={(e) => setSharesDraft(e.target.value)}
+                          className="mt-0.5 w-full px-2 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        />
+                      </label>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400">
+                        Starting price ({quote.currency})
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={startPriceDraft}
+                          onChange={(e) => setStartPriceDraft(e.target.value)}
+                          className="mt-0.5 w-full px-2 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        />
+                      </label>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => savePosition(symbol, sharesDraft, startPriceDraft)}
+                          disabled={(sharesDraft.trim() === '') !== (startPriceDraft.trim() === '')}
+                          className="px-3 py-1 text-sm font-medium rounded bg-[#1a2332] dark:bg-[#2d3a4d] text-white disabled:opacity-50"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingSymbol(null)}
+                          className="px-3 py-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                        >
+                          Cancel
+                        </button>
+                        {(item.shares !== undefined || item.startPrice !== undefined) && (
+                          <button
+                            type="button"
+                            onClick={() => savePosition(symbol, '', '')}
+                            className="ml-auto px-3 py-1 text-sm text-red-600 dark:text-red-400 hover:underline"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (() => {
+                    const metrics = positionMetrics(item, quote.price.toString());
+                    if (metrics === null) {
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => openPositionForm(item)}
+                          className="mt-3 text-xs text-gray-500 dark:text-gray-400 underline decoration-dotted underline-offset-2 hover:text-blue-600 dark:hover:text-blue-400"
+                        >
+                          Track a position
+                        </button>
+                      );
+                    }
+                    const gaining = metrics.gain.greaterThanOrEqualTo(0);
+                    return (
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {item.shares} shares @ {item.startPrice}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => openPositionForm(item)}
+                            className="text-xs text-gray-400 dark:text-gray-500 underline decoration-dotted underline-offset-2 hover:text-blue-600 dark:hover:text-blue-400"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                        <p className="flex justify-between text-sm mt-1">
+                          <span className="text-gray-500 dark:text-gray-400">Value</span>
+                          <span className="tabular-nums font-semibold text-gray-900 dark:text-white">
+                            {formatCurrency(metrics.value, quote.currency)}
+                          </span>
+                        </p>
+                        <p className={`flex justify-between text-sm ${
+                          gaining ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          <span>Gain</span>
+                          <span className="tabular-nums">
+                            {gaining ? '+' : ''}{formatCurrency(metrics.gain, quote.currency)}
+                            {metrics.gainPercent !== null && (
+                              <> ({gaining ? '+' : ''}{formatDecimal(metrics.gainPercent, 2)}%)</>
+                            )}
+                          </span>
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : failure ? (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
