@@ -36,6 +36,23 @@ export interface PortfolioCashLine {
   value: DecimalInstance;
 }
 
+/**
+ * One external transfer, as the drill-down shows it — the rows that MAKE UP a
+ * line's `netContributions`. Kept because the owner clicked a figure of
+ * (£40,759.08), followed the account link, and landed on an empty register:
+ * the money had moved through the pair's cash sleeve, so "which account is
+ * this" and "where did this figure come from" had different answers. These
+ * are the second answer.
+ */
+export interface ContributionRow {
+  transactionId: string;
+  /** The MEMBER account the row sits on — often the cash sleeve, not the root. */
+  accountId: string;
+  date: Date;
+  description: string;
+  amount: DecimalInstance;
+}
+
 /** One row of the Holdings list, and one slice of the allocation donut. */
 export interface PortfolioLine {
   accountId: string;
@@ -58,6 +75,8 @@ export interface PortfolioLine {
   netContributions: DecimalInstance;
   /** value − netContributions, for this pair alone. The lines sum to the portfolio's. */
   totalReturn: DecimalInstance;
+  /** The external transfers behind `netContributions`, newest first. */
+  contributionRows: ContributionRow[];
 }
 
 /**
@@ -202,6 +221,7 @@ export function buildPortfolioSummary(input: PortfolioSummaryInput): PortfolioSu
     // object is complete from birth.
     netContributions: ZERO,
     totalReturn: ZERO,
+    contributionRows: [],
   }));
 
   // Contributions: transfer rows sitting on a member account whose other side
@@ -224,6 +244,7 @@ export function buildPortfolioSummary(input: PortfolioSummaryInput): PortfolioSu
   // row belongs to. Kept in the SAME loop so the split cannot drift from the
   // total — one classification, two aggregations.
   const contributionsByLine = new Map<string, DecimalInstance>();
+  const contributionRowsByLine = new Map<string, ContributionRow[]>();
   for (const row of memberRows) {
     if (classifyFlow(row, categoryKinds) !== 'transfer') continue;
     const other = counterpartyAccountId(row, transactionsById, categoryAccounts);
@@ -237,6 +258,15 @@ export function buildPortfolioSummary(input: PortfolioSummaryInput): PortfolioSu
     netContributions = netContributions.plus(amount);
     const lineId = topLevelIdByAccountId.get(row.accountId) ?? row.accountId;
     contributionsByLine.set(lineId, (contributionsByLine.get(lineId) ?? ZERO).plus(amount));
+    const rows = contributionRowsByLine.get(lineId) ?? [];
+    rows.push({
+      transactionId: row.id,
+      accountId: row.accountId,
+      date: row.date instanceof Date ? row.date : new Date(row.date),
+      description: row.description ?? '',
+      amount,
+    });
+    contributionRowsByLine.set(lineId, rows);
     if (other === undefined) {
       unattributedCount += 1;
       unattributedAmount = unattributedAmount.plus(amount.abs());
@@ -251,6 +281,8 @@ export function buildPortfolioSummary(input: PortfolioSummaryInput): PortfolioSu
     const contributed = contributionsByLine.get(line.accountId) ?? ZERO;
     line.netContributions = contributed;
     line.totalReturn = line.value.minus(contributed);
+    line.contributionRows = (contributionRowsByLine.get(line.accountId) ?? [])
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
   }
 
   return {

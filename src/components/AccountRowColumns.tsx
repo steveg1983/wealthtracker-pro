@@ -451,9 +451,20 @@ export function AccountCountCell({
    * type or clip it. The break is at 100 because that is where the width has to
    * give, not because of anything about the number.
    */
+  /* THE PILL FLIPS IN DARK (owner, 16 August). `bg-primary` is the near-black
+     navy: the right "attend to this" mark on a white row, and a circle you can
+     barely see on a gray-800 one — the count read as white digits floating on
+     nothing. Dark inverts it: the light ground with navy digits, the same
+     relationship the other way up, and the same reason the band totals swap
+     ink rather than keep it.
+
+     `bg-[#1a2332]`, NOT `bg-primary`: index.css gives `.bg-primary` an
+     `!important`, which beats any `dark:` variant however specific — the same
+     mechanism that blanked the grey text app-wide this morning. The literal
+     hex is the same colour without the landmine. */
   const pillClass = `tabular-nums ${
     count > 0
-      ? `inline-flex items-center justify-center h-6 rounded-full bg-primary text-white text-sm font-bold ${
+      ? `inline-flex items-center justify-center h-6 rounded-full bg-[#1a2332] text-white dark:bg-gray-200 dark:text-[#1a2332] text-sm font-bold ${
           count < 100 ? 'w-6' : 'min-w-[24px] px-1.5'
         }`
       : 'text-sm font-normal text-gray-400 dark:text-gray-500'
@@ -542,7 +553,8 @@ export function AccountCountCell({
          */
         className={`tabular-nums ${
           count > 0
-            ? 'inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 rounded-full bg-primary text-white text-sm font-bold'
+            // Flipped in dark for the reason the linked pill above states.
+            ? 'inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 rounded-full bg-[#1a2332] text-white dark:bg-gray-200 dark:text-[#1a2332] text-sm font-bold'
             : 'text-sm font-normal text-gray-400 dark:text-gray-500'
         }`}
       >

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { preserveDemoParam } from '../utils/navigation';
+import { Modal, ModalBody } from '../components/common/Modal';
+import { formatDate } from '../utils/dateFormatter';
 import { useApp } from '../contexts/AppContextSupabase';
 import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, LineChartIcon, EyeIcon, PlusIcon } from '../components/icons';
 import AddInvestmentModal from '../components/AddInvestmentModal';
@@ -124,6 +126,8 @@ export default function Investments() {
    * see the transactions". Clicking the open tile again closes it.
    */
   const [openBreakdown, setOpenBreakdown] = useState<'contributions' | 'return' | null>(null);
+  /** Second level: which line's transactions are on screen. Null = the list. */
+  const [drillLineId, setDrillLineId] = useState<string | null>(null);
 
   // ── Holdings: the MARKET view's data, from public.investments ─────────────
   // Kept deliberately apart from `summary` below. Holdings × price is a second
@@ -778,41 +782,133 @@ export default function Investments() {
         </div>
         </div>
 
-        {/* ─ THE BREAKDOWN A TILE OPENS ─────────────────────────────────────
-            One panel serving both tiles, full-width under the row. Each line
-            is a pair from the SAME walk that produced the tile's figure — one
-            classification, two aggregations — so the rows sum to the tile
-            exactly, and the total row at the bottom proves it in print. Each
-            account name links to its register, which is the second half of
-            the owner's spec: summary level here, transactions one click on. */}
-        {openBreakdown !== null && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
-            <h3 className="text-card font-semibold text-theme-heading dark:text-white mb-3">
-              {openBreakdown === 'contributions' ? 'Net Contributions by account' : 'Total Return by account'}
-            </h3>
-            <div className="space-y-1">
-              {portfolioLines.map(line => (
-                <p key={line.accountId} className="flex justify-between gap-3 py-1 border-b border-gray-100 dark:border-gray-700/60 last:border-0">
-                  <Link
-                    to={preserveDemoParam(`/accounts/${line.accountId}`, location.search)}
-                    className="min-w-0 truncate text-body text-gray-700 dark:text-gray-300 underline decoration-dotted underline-offset-2 hover:text-blue-600 dark:hover:text-blue-400"
+        {/* ─ THE BREAKDOWN A TILE OPENS — a MODAL, like the app's other
+            drill-downs (owner, 16 August). It shipped as an inline panel and
+            pushed the whole page down; a pop-up leaves the tiles where the
+            eye was.
+
+            TWO LEVELS. The list is per account, from the SAME walk as the
+            tile — one classification, two aggregations — with a Total row
+            proving the sum. Clicking a line opens what the figure is MADE OF:
+            the external transfers behind it, each on the member account it
+            actually sat on. That last part is the lesson of the owner's IG
+            Index click: the root's register was empty because the money moved
+            through the cash sleeve, so "which account" and "where did this
+            figure come from" had different answers. This is the second one. */}
+        <Modal
+          isOpen={openBreakdown !== null}
+          onClose={() => { setOpenBreakdown(null); setDrillLineId(null); }}
+          title={openBreakdown === 'contributions' ? 'Net Contributions by account' : 'Total Return by account'}
+          size="lg"
+        >
+          <ModalBody>
+            {(() => {
+              const drillLine = drillLineId === null
+                ? null
+                : portfolioLines.find(l => l.accountId === drillLineId) ?? null;
+              if (openBreakdown === null) return null;
+
+              if (drillLine === null) {
+                return (
+                  <div className="space-y-1">
+                    {portfolioLines.map(line => (
+                      <button
+                        key={line.accountId}
+                        type="button"
+                        onClick={() => setDrillLineId(line.accountId)}
+                        className="block w-full text-left py-2 px-2 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700/60 last:border-0"
+                      >
+                        <span className="flex justify-between gap-3">
+                          <span className="min-w-0 truncate text-body text-gray-700 dark:text-gray-300">{line.name}</span>
+                          <span className="tabular-nums shrink-0 text-body text-gray-900 dark:text-white">
+                            {formatCurrency(openBreakdown === 'contributions' ? line.netContributions : line.totalReturn)}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                    <p className="flex justify-between gap-3 pt-3 font-semibold text-body text-gray-900 dark:text-white">
+                      <span>Total</span>
+                      <span className="tabular-nums">
+                        {formatCurrency(openBreakdown === 'contributions' ? summary.netContributions : summary.totalReturn)}
+                      </span>
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setDrillLineId(null)}
+                    className="text-body text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 mb-3"
                   >
-                    {line.name}
+                    ← All accounts
+                  </button>
+                  <h4 className="text-card font-semibold text-gray-900 dark:text-white mb-2">{drillLine.name}</h4>
+
+                  {/* The identity first, because it is what a RETURN is made
+                      of — a residual, not a list of rows. Contributions are
+                      the half that has transactions behind it, and they
+                      follow. */}
+                  <div className="mb-4 space-y-1">
+                    <p className="flex justify-between text-body text-gray-600 dark:text-gray-400">
+                      <span>Value today</span>
+                      <span className="tabular-nums">{formatCurrency(drillLine.value)}</span>
+                    </p>
+                    <p className="flex justify-between text-body text-gray-600 dark:text-gray-400">
+                      <span>Less net contributions</span>
+                      <span className="tabular-nums">{formatCurrency(drillLine.netContributions)}</span>
+                    </p>
+                    <p className="flex justify-between font-semibold text-body text-gray-900 dark:text-white border-t border-gray-200 dark:border-gray-700 pt-1">
+                      <span>Total return</span>
+                      <span className="tabular-nums">{formatCurrency(drillLine.totalReturn)}</span>
+                    </p>
+                  </div>
+
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">
+                    The transfers behind the contributions
+                  </p>
+                  {drillLine.contributionRows.length === 0 ? (
+                    <p className="text-body text-gray-500 dark:text-gray-400 py-2">
+                      No external transfers recorded — this account's whole value is return.
+                    </p>
+                  ) : (
+                    <div className="space-y-1">
+                      {drillLine.contributionRows.map(row => {
+                        const rowAccount = accountsById.get(row.accountId);
+                        return (
+                          <p key={row.transactionId} className="flex justify-between gap-3 py-1 border-b border-gray-100 dark:border-gray-700/60 last:border-0">
+                            <span className="min-w-0 truncate text-body text-gray-700 dark:text-gray-300">
+                              {formatDate(row.date)} · {row.description || '(no description)'}
+                              {rowAccount && rowAccount.id !== drillLine.accountId && (
+                                <span className="text-gray-400 dark:text-gray-500"> — {rowAccount.name}</span>
+                              )}
+                            </span>
+                            <span className="tabular-nums shrink-0 text-body text-gray-900 dark:text-white">
+                              {formatCurrency(row.amount)}
+                            </span>
+                          </p>
+                        );
+                      })}
+                      <p className="flex justify-between gap-3 pt-2 font-semibold text-body text-gray-900 dark:text-white">
+                        <span>Net contributions</span>
+                        <span className="tabular-nums">{formatCurrency(drillLine.netContributions)}</span>
+                      </p>
+                    </div>
+                  )}
+
+                  <Link
+                    to={preserveDemoParam(`/accounts/${drillLine.cash[0]?.accountId ?? drillLine.accountId}`, location.search)}
+                    className="inline-block mt-4 text-body text-gray-500 dark:text-gray-400 underline decoration-dotted underline-offset-2 hover:text-blue-600 dark:hover:text-blue-400"
+                  >
+                    Open the register these sit in
                   </Link>
-                  <span className="tabular-nums shrink-0 text-body text-gray-900 dark:text-white">
-                    {formatCurrency(openBreakdown === 'contributions' ? line.netContributions : line.totalReturn)}
-                  </span>
-                </p>
-              ))}
-              <p className="flex justify-between gap-3 pt-2 font-semibold text-body text-gray-900 dark:text-white">
-                <span>Total</span>
-                <span className="tabular-nums">
-                  {formatCurrency(openBreakdown === 'contributions' ? summary.netContributions : summary.totalReturn)}
-                </span>
-              </p>
-            </div>
-          </div>
-        )}
+                </div>
+              );
+            })()}
+          </ModalBody>
+        </Modal>
 
         {/* What the contributions figure rests on. Says what could be WRONG
             with it, not how many rows there are — and renders nothing at all
