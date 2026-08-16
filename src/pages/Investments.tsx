@@ -983,9 +983,24 @@ export default function Investments() {
                         </div>
                         {secured.length > 0 && (
                           <div className="ml-5 mt-2">
-                            {/* A magnitude, not a signed balance, and NOT part
-                                of the figures above — which is why it sits the
-                                other side of the bar with its own heading. */}
+                            {/* THE SIGNED BALANCE, exactly as the Accounts page
+                                prints it (owner, 16 August). This shipped as a
+                                magnitude — "the size of the debt is the datum
+                                under a heading that already says liabilities" —
+                                and the owner caught the cost within the hour:
+                                the same loan read (£1,400,000.00) on one page
+                                and £1,400,000.00 on this one. Two surfaces
+                                disagreeing about one account's figure is the
+                                exact failure the pairing rules exist to
+                                prevent, and "liabilities stay negative" is the
+                                app's own display law.
+
+                                The brackets also do the "not in the total" job
+                                BETTER than the magnitude did: a parenthesised
+                                figure visibly does not sum with the unbracketed
+                                Investments and Cash lines above it. (The
+                                net-position arithmetic keeps its own abs — what
+                                to SUBTRACT is a magnitude by definition.) */}
                             <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">
                               Secured liabilities
                             </p>
@@ -996,7 +1011,7 @@ export default function Investments() {
                               >
                                 <span className="min-w-0 truncate">{debt.name}</span>
                                 <span className="tabular-nums shrink-0 ml-3">
-                                  {formatCurrency(toDecimal(Math.abs(debt.balance ?? 0)))}
+                                  {formatCurrency(toDecimal(debt.balance ?? 0))}
                                 </span>
                               </p>
                             ))}
