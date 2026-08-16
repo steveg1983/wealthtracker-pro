@@ -12,7 +12,7 @@ import { formatDate } from '../utils/dateFormatter';
 import { accountHasHistory } from '../utils/accountHistory';
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
-import { ArchiveIcon, SettingsIcon, WalletIcon, CheckCircleIcon, CheckIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon, SearchIcon } from '../components/icons';
+import { ArchiveIcon, SettingsIcon, CheckCircleIcon, CheckIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon, SearchIcon } from '../components/icons';
 // Both bank-feed surfaces on this page come through `@service`, the seam for
 // what a shared page says about the account you hold WITH somebody. On a
 // device the badge draws nothing and the hook answers no connections, which
@@ -56,6 +56,7 @@ import {
   selectTopLevelAccounts,
 } from '../utils/accountNesting';
 import { buildSecuredByTarget, normaliseSecuredIds } from '../utils/accountSecuring';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import EmptyState from '../components/EmptyState';
 import FilteredEmptyState from '../components/FilteredEmptyState';
@@ -389,6 +390,24 @@ export default function Accounts() {
    * reason nesting checks it: a row keyed under a card that is not on the page
    * is a row nobody ever sees.
    */
+  /**
+   * WHETHER THE PER-ACCOUNT ACTION BUTTONS SHOW, on phones.
+   *
+   * ONE preference for the page, not one per account — the owner's ruling,
+   * after weighing the per-account version: with 130 accounts that is 130
+   * decisions, and the thing actually wanted is a shorter scroll. Default ON,
+   * also his ruling: hiding Reconcile behind a tap on every account is only
+   * worth it to somebody who chose it.
+   *
+   * Only meaningful below `lg`. The desktop grid keeps its buttons regardless,
+   * so the control that flips this renders only where it does something —
+   * a switch that visibly changes nothing teaches that switches do nothing.
+   */
+  const [showRowActions, setShowRowActions] = useLocalStorage<boolean>(
+    'wt_accounts_row_actions',
+    true
+  );
+
   const securedByTarget = useMemo(() => buildSecuredByTarget(openAccounts), [openAccounts]);
 
   /**
@@ -1682,7 +1701,7 @@ export default function Accounts() {
                                   as it was: the wrapper dissolves and the five
                                   slots become direct children of the nine-column
                                   grid again. */}
-                              <div className="grid w-full grid-cols-5 justify-items-end gap-1 lg:contents">
+                              <div className={`${showRowActions ? 'grid' : 'hidden'} w-full grid-cols-5 justify-items-end gap-1 lg:contents`}>
                               <AccountRowActionSlot>
                                 {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
                                 <button
@@ -1809,7 +1828,14 @@ export default function Accounts() {
                           )}`}
                         >
                           <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <WalletIcon className="text-teal-600 dark:text-teal-400 flex-shrink-0" size={14} />
+                            {/* The wallet glyph went 16 August, by the rule
+                                that has taken every other per-row icon on this
+                                page: the row already says "Cash" and "Cash
+                                account" in words, so a wallet beside them named
+                                the thing a third time in a picture — and in a
+                                teal that appears nowhere else on the page. The
+                                owner: "everywhere else we have taken them away
+                                has looked better." */}
                             <div className="flex-1 min-w-0">
                               {/* The same link as the card's, and the same
                                   reason for hugging: this one reads plain
@@ -1874,7 +1900,7 @@ export default function Accounts() {
                                 flex-wrap instead would put its chevron and its
                                 reconcile somewhere else entirely. Identical
                                 structure is the whole guarantee. */}
-                            <div className="grid w-full grid-cols-5 justify-items-end gap-1 lg:contents">
+                            <div className={`${showRowActions ? 'grid' : 'hidden'} w-full grid-cols-5 justify-items-end gap-1 lg:contents`}>
                             <AccountRowEmptyCell />
                             <AccountRowEmptyCell />
                             <AccountRowEmptyCell />
@@ -2588,6 +2614,26 @@ export default function Accounts() {
               Value {sortMode === 'balance-asc' ? '↑' : '↓'}
             </button>
           </div>
+          {/* ─ THE ONE SWITCH FOR THE ACTION BUTTONS (owner, 16 August) ──────
+              Hiding them takes ~44px off every row, which across a hundred
+              accounts is a screen and a half of scrolling. Reconcile and the
+              review count stay reachable while hidden — the Unreconciled and
+              To Review cells are links — so nothing is stranded; Settings
+              waits behind one tap on this switch.
+
+              `lg:hidden`, because above lg the buttons render regardless and
+              a switch that visibly changes nothing teaches that switches do
+              nothing. Placed with Sort rather than in the feeds toolbar: that
+              toolbar is itself folded away on a phone, and a control for the
+              phone cannot live inside something the phone hides. */}
+          <button
+            type="button"
+            onClick={() => setShowRowActions(!showRowActions)}
+            aria-pressed={showRowActions}
+            className="lg:hidden ml-auto px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+          >
+            {showRowActions ? 'Hide account buttons' : 'Show account buttons'}
+          </button>
         </div>
         {/* Search — the way to find one account among two hundred. On a
             phone it takes the first row, full width; the pills follow.
