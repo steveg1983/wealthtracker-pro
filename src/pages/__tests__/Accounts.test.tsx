@@ -287,7 +287,12 @@ describe('Accounts page — the toolbar reads as three labelled groups', () => {
     // Side by side, the gap BEFORE a label (between groups) has to beat the gap
     // after it (label to controls). gap-x-8 = 32px against the groups' own
     // gap-2 = 8px.
-    const toolbar = sort.closest('.flex-wrap');
+    // `closest('.gap-x-8')`, not `.flex-wrap` — the Sort group itself became
+    // flex-wrap on 16 August (so the phone-only actions toggle drops to its
+    // own line instead of crushing the pills), which made the old selector
+    // find the GROUP and fail on the toolbar's class. The property under test
+    // is the toolbar's 32px inter-group gap, so select by that.
+    const toolbar = sort.closest('[class*="gap-x-8"]');
     if (!(toolbar instanceof HTMLElement)) throw new Error('no toolbar row');
     expect(toolbar.className).toContain('gap-x-8');
     const group = sort.parentElement;
