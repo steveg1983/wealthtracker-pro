@@ -52,7 +52,12 @@ describe('a count of outstanding work', () => {
      * disc among words without reading any of them.
      */
     expect(withWork).toContain('rounded-full');
-    expect(withWork).toContain('bg-primary');
+    // `bg-[#1a2332]`, not `bg-primary`: index.css gives `.bg-primary` an
+    // `!important`, which would beat the pill's dark-mode flip (16 August —
+    // the pill now inverts to a light ground with navy digits on dark rows,
+    // where the navy circle had been invisible).
+    expect(withWork).toContain('bg-[#1a2332]');
+    expect(withWork).toContain('dark:bg-gray-200');
     expect(withWork).toContain('font-bold');
     // The zero gains nothing: no fill, no ring, no weight.
     expect(none).not.toContain('rounded-full');
@@ -120,7 +125,7 @@ describe('a count you can act on', () => {
     expect(link).toHaveAttribute('href', '/reconciliation?account=abc&from=accounts');
     // Still the same pill — becoming clickable must not restyle it, or the
     // column strip stops lining up with the figures it names.
-    expect(link.getAttribute('class')).toContain('bg-primary');
+    expect(link.getAttribute('class')).toContain('bg-[#1a2332]');
     expect(link.getAttribute('class')).toContain('rounded-full');
   });
 

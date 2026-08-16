@@ -194,7 +194,9 @@ describe('Accounts list — the To Review column', () => {
      * TO STAND OUT MORE". Both attempts were text competing with text; a filled
      * navy pill breaks the rhythm instead. See AccountCountCell.test.tsx.
      */
-    expect(waiting?.className).toContain('bg-primary');
+    // The literal navy, not bg-primary — that class carries an !important
+    // which would beat the pill's dark-mode flip (16 August).
+    expect(waiting?.className).toContain('bg-[#1a2332]');
     expect(waiting?.className).toContain('rounded-full');
     expect(waiting?.className).toContain('font-bold');
     // NOT the app's link blue, which is what a zero wore until this was

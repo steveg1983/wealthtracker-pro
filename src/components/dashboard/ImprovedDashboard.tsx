@@ -30,6 +30,7 @@ import IncomeExpenseBreakdownModal from '../IncomeExpenseBreakdownModal';
 import { Modal, ModalBody } from '../common/Modal';
 import PeriodBar from '../../components/PeriodBar';
 import NetWorthSummary from '../../components/NetWorthSummary';
+import AccountBreakdownModal, { type AccountBreakdownView } from '../../components/AccountBreakdownModal';
 import { PERIOD_LABELS, usePeriod } from '../../hooks/usePeriod';
 import { cardPeriodKey, useCardPeriod } from '../../hooks/useCardPeriod';
 import {
@@ -251,6 +252,15 @@ export function ImprovedDashboard() {
   // ~50 MILLION Decimal operations per render on a 50k-row dataset. While the
   // transaction pages are still streaming in, the server's one-round-trip
   // balances stand in (see computeAccountBalances).
+  /**
+   * Which summary figure is opened out into its accounts — the same
+   * AccountBreakdownModal the Accounts page drills with (owner, 16 August:
+   * "make the 'what you own' and 'what you owe' clickable"). Rows are fed
+   * from the SAME accountBalanceMap the tiles sum, so the modal's total and
+   * the tile cannot disagree.
+   */
+  const [breakdownView, setBreakdownView] = useState<AccountBreakdownView | null>(null);
+
   const accountBalanceMap = useMemo(
     () => computeAccountBalances(accounts, transactions, serverBalances),
     [accounts, transactions, serverBalances]
@@ -508,6 +518,7 @@ export function ImprovedDashboard() {
           netWorth={formatCurrencyWithSymbol(metrics.netWorth)}
           assets={formatCurrencyWithSymbol(metrics.totalAssets)}
           liabilities={formatCurrencyWithSymbol(metrics.totalLiabilities)}
+          onSelect={figure => setBreakdownView(figure)}
         />
       </section>
 
@@ -1231,6 +1242,27 @@ export function ImprovedDashboard() {
           tiles pushed the figures up a screenful to repeat the navigation.
           The phone keeps its floating "+" (components/MobileBottomNav) — there
           the sidebar is behind a tap, so quick-add is the only door. */}
+
+      {/* The SAME modal the Accounts page drills with, fed from the SAME
+          balance map the three tiles sum — so its total and the tile cannot
+          disagree, which is the whole precondition for offering the click. */}
+      <AccountBreakdownModal
+        view={breakdownView}
+        onClose={() => setBreakdownView(null)}
+        rows={accounts.map(a => ({
+          id: a.id,
+          name: a.name,
+          institution: a.institution,
+          accountType: a.type,
+          balance: accountBalanceMap.get(a.id) ?? 0,
+          formatted: formatCurrencyWithSymbol(accountBalanceMap.get(a.id) ?? 0),
+        }))}
+        formatTotal={(v) => formatCurrencyWithSymbol(v)}
+        onOpenAccount={(accountId) => {
+          setBreakdownView(null);
+          navigate(preserveDemoParam(`/accounts/${accountId}`, location.search));
+        }}
+      />
     </div>
   );
 }
