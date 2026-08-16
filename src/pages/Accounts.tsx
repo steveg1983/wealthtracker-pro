@@ -1491,11 +1491,18 @@ export default function Accounts() {
                             {formatDisplayCurrency(computeAccountBalance(account.id), account.currency)}
                           </span>
                         </div>
-                        {account.institution && (
-                          <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                            {account.institution}
-                          </p>
-                        )}
+                        {/* THE INSTITUTION LINE IS GONE (owner, 16 August).
+                            Under Group by: Institution the account already sits
+                            inside a band headed COUTTS or HSBC, so printing it
+                            again under every name says the same word twice
+                            within an inch — clutter on a desktop and a whole
+                            line of it on a phone.
+
+                            Removed rather than made conditional on the
+                            grouping: a row that gains and loses a line
+                            depending on a toggle elsewhere is harder to read
+                            than one that never had it, and the band heading
+                            answers the question in both groupings. */}
                         {/* This line read "Last updated: Invalid Date" for any
                             account whose date was absent — a raw
                             `new Date(x).toLocaleDateString()` printing the
@@ -1511,7 +1518,13 @@ export default function Accounts() {
                             `Account.lastUpdated` is typed as a required Date but
                             is not one at runtime on every path — see the note in
                             utils/demoData, where the field was simply missing. */}
-                        <p className="text-xs text-gray-500 dark:text-gray-300">
+                        {/* DESKTOP ONLY, from `sm` up (owner, 16 August). Two
+                            timestamp lines under every account is three lines
+                            of chrome per row on a phone, where vertical space
+                            is the scarce thing and neither answers a question
+                            somebody is asking while scanning a list. They stay
+                            where there is room for them. */}
+                        <p className="hidden sm:block text-xs text-gray-500 dark:text-gray-300">
                           {lastUpdated ? `Last updated: ${lastUpdated}` : 'Not yet synced'}
                         </p>
                         {/* ─ THE LINK, READ FROM THE DEBT'S END ──────────────
@@ -1560,7 +1573,7 @@ export default function Accounts() {
                           </p>
                         )}
                         {bankLink && (
-                          <p className="text-xs text-gray-500 dark:text-gray-300">
+                          <p className="hidden sm:block text-xs text-gray-500 dark:text-gray-300">
                             Last bank sync:{' '}
                             {bankLink.lastSync
                               ? new Date(bankLink.lastSync).toLocaleString()
@@ -2648,7 +2661,13 @@ export default function Accounts() {
               neighbour, which is where they were. */}
           <div
             id={feedPanelId}
-            className={`w-full sm:w-auto ${showMoreControls ? 'flex' : 'hidden'} sm:flex items-center gap-2`}
+            /* `items-stretch`, not `items-center` (owner, 16 August). Each
+               button sized to its own text, so the moment one of the three
+               wrapped to two lines — "Bank connections — 1 needs attention"
+               does at phone widths — it grew taller than its neighbours and
+               the row read as unfinished. Stretch makes the tallest set the
+               height and the other two follow, whatever the copy does. */
+            className={`w-full sm:w-auto ${showMoreControls ? 'flex' : 'hidden'} sm:flex items-stretch gap-2`}
           >
             {/* One hit for every feed — the per-account buttons remain for a
                 single stubborn connection. Rendered whenever any connection
