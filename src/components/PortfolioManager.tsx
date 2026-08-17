@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal, parseMoneyInput } from '../utils/decimal';
+import { toDecimal, parseMoneyInput, type DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
+import { supportedCurrencies } from '../utils/currency';
 import MoneyInput from './common/MoneyInput';
+import DatePicker from './common/DatePicker';
 import StockSymbolSearch from './StockSymbolSearch';
+import { fetchQuotes, type StockQuote } from '../services/stockPriceService';
 import { PlusIcon, EditIcon, DeleteIcon, CheckIcon } from './icons';
 import { Modal } from './common/Modal';
 import { LoadingButton } from './loading/LoadingState';
@@ -18,6 +21,8 @@ import {
   type InvestmentAssetType,
   type InvestmentHolding
 } from '../services/investments/holding';
+import { purchaseCashTotal } from '../services/investments/purchaseMath';
+import type { Account } from '../types';
 
 /**
  * Add, change and remove holdings — and actually keep them.
@@ -36,22 +41,64 @@ import {
  * would not answer anyway. It therefore rejected EVERY symbol, including AAPL,
  * with "not found". The field is now a lookup: you pick a real instrument, so
  * there is nothing left to validate.
+ *
+ * ── THE CURRENCY IS THE INSTRUMENT'S, NOT THE ACCOUNT'S (owner, 17 Aug) ─────
+ * "Average cost per unit (GBP)" was a claim, not a question: Apple trades in
+ * dollars whatever currency the account counts in, and a dollar figure filed
+ * as pounds is wrong by the exchange rate forever after. Picking a symbol now
+ * fetches its QUOTE — the one source that states the trading currency
+ * authoritatively (LSE pence already normalised to pounds at the proxy) — and
+ * the price it brings back is shown, so the owner can sanity-check the figure
+ * they are about to type. No quote (a fund with no price today, the provider
+ * rate-limiting) degrades to a sensible default and an editable dropdown,
+ * never a blocked form.
+ *
+ * ── THE PURCHASE IS ALSO CASH LEAVING SOMEWHERE (owner, 17 Aug) ─────────────
+ * Money's model, measured from real .mny files: a buy could name any funding
+ * account (2015 of 2029 buys carried a cash leg), commission folded into the
+ * total, and the cash leg moved that total. So the add form offers the same:
+ * charges (stamp duty, a levy, commission) that fold into the all-in average
+ * cost, and an optional "paid from" account that writes the transfer — out of
+ * the chosen account, into this investment account — through the same
+ * machinery every other transfer uses. The page owns those writes; this form
+ * only gathers the answers.
  */
 
 /** What a save needs, independent of whether it is an add or an edit. */
 export interface HoldingFormValues {
   symbol: string;
   name: string;
-  quantity: ReturnType<typeof toDecimal>;
-  averageCost: ReturnType<typeof toDecimal>;
+  quantity: DecimalInstance;
+  averageCost: DecimalInstance;
+  /** The currency the cost figures are IN — the instrument's, not the account's. */
+  currency: string;
   assetType: InvestmentAssetType;
+}
+
+/** The cash half of an add: charges, and where the money came from. */
+export interface PurchaseDetails {
+  /** In the holding's currency; folds into the all-in average cost. Zero when none. */
+  charges: DecimalInstance;
+  /** null: just record the holding, no transfer. */
+  fundingAccountId: string | null;
+  /** What actually left the funding account, in ITS currency. null without funding. */
+  totalPaid: DecimalInstance | null;
+  /** The trade date — the transfer's date and the holding's purchase date. */
+  date: Date;
 }
 
 interface PortfolioManagerProps {
   holdings: readonly InvestmentHolding[];
-  /** The account's currency — what the cost figures are entered in. */
+  /** The investment account's currency — the fallback when a holding has none. */
   currency: string;
-  onAdd: (values: HoldingFormValues) => Promise<void>;
+  /**
+   * Accounts a purchase may be funded from: open, not this account, and in
+   * THIS ACCOUNT'S currency — the counterpart write mints the far side from
+   * the same digits, so a cross-currency funding needs the transfer dialog's
+   * confirmed-figure flow, not a silent copy. The page filters; this renders.
+   */
+  fundingAccounts: readonly Account[];
+  onAdd: (values: HoldingFormValues, purchase: PurchaseDetails) => Promise<void>;
   onEdit: (id: string, values: HoldingFormValues) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
@@ -78,14 +125,41 @@ function assetTypeFromLookup(type: string): InvestmentAssetType {
   return 'other';
 }
 
+/**
+ * The currency to OFFER before (or without) a quote: LSE listings price in
+ * pounds once the proxy has normalised the pence, a bare symbol is Yahoo's US
+ * dialect, anything else falls back to the account. A guess, deliberately
+ * displayed in an editable dropdown — the quote corrects it when one arrives,
+ * and the owner corrects it when one does not.
+ */
+function defaultCurrencyFor(symbol: string, exchange: string, fallback: string): string {
+  if (exchange === 'LSE' || symbol.toUpperCase().endsWith('.L')) return 'GBP';
+  if (!symbol.includes('.')) return 'USD';
+  return fallback;
+}
+
+const inputClass =
+  'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white';
+
+const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
+
+const helperClass = 'mt-1 text-xs text-gray-500 dark:text-gray-400';
+
+const toDateInputValue = (date: Date): string => {
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+};
+
 export default function PortfolioManager({
   holdings,
   currency,
+  fundingAccounts,
   onAdd,
   onEdit,
   onDelete
 }: PortfolioManagerProps): React.JSX.Element {
-  const { formatCurrency } = useCurrencyDecimal();
+  const { formatCurrency, convert, convertAndSum, displayCurrency } = useCurrencyDecimal();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editing, setEditing] = useState<InvestmentHolding | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -100,6 +174,20 @@ export default function PortfolioManager({
   const [pickingSymbol, setPickingSymbol] = useState(true);
   const [quantity, setQuantity] = useState('');
   const [averageCost, setAverageCost] = useState('');
+  const [holdingCurrency, setHoldingCurrency] = useState(currency);
+  // Once the owner has picked a currency by hand, a quote arriving later must
+  // not overrule them — they may know something the feed does not.
+  const [currencyTouched, setCurrencyTouched] = useState(false);
+  const [charges, setCharges] = useState('');
+  const [fundingAccountId, setFundingAccountId] = useState('');
+  const [totalPaid, setTotalPaid] = useState('');
+  const [totalPaidTouched, setTotalPaidTouched] = useState(false);
+  const [purchaseDate, setPurchaseDate] = useState(() => toDateInputValue(new Date()));
+
+  // The picked instrument's live quote: the trading currency stated by the
+  // exchange, and a price to sanity-check the typed cost against.
+  const [quote, setQuote] = useState<StockQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
 
   const resetForm = (): void => {
     setSymbol('');
@@ -108,6 +196,15 @@ export default function PortfolioManager({
     setPickingSymbol(true);
     setQuantity('');
     setAverageCost('');
+    setHoldingCurrency(currency);
+    setCurrencyTouched(false);
+    setCharges('');
+    setFundingAccountId('');
+    setTotalPaid('');
+    setTotalPaidTouched(false);
+    setPurchaseDate(toDateInputValue(new Date()));
+    setQuote(null);
+    setQuoteLoading(false);
     setFormError('');
   };
 
@@ -130,7 +227,32 @@ export default function PortfolioManager({
     setPickingSymbol(false);
     setQuantity(holding.quantity.toString());
     setAverageCost(holding.averageCost.toString());
+    setHoldingCurrency(holding.currency || currency);
+    setCurrencyTouched(true);
+    setQuote(null);
     setEditing(holding);
+  };
+
+  /** Ask the exchange what this instrument trades in, and at. */
+  const loadQuote = (picked: string): void => {
+    setQuote(null);
+    setQuoteLoading(true);
+    void fetchQuotes([picked])
+      .then((batch) => {
+        const found = batch.quotes.get(picked.toUpperCase());
+        if (found) {
+          setQuote(found);
+          setCurrencyTouched((touched) => {
+            if (!touched) setHoldingCurrency(found.currency);
+            return touched;
+          });
+        }
+      })
+      .catch(() => {
+        // No quote is not an error the form needs to announce: the currency
+        // dropdown already holds a sensible default and stays editable.
+      })
+      .finally(() => setQuoteLoading(false));
   };
 
   const handleDelete = async (holding: InvestmentHolding): Promise<void> => {
@@ -148,6 +270,77 @@ export default function PortfolioManager({
     }
   };
 
+  const fundingAccount = fundingAccounts.find((a) => a.id === fundingAccountId) ?? null;
+  const chargesValue = charges === '' ? 0 : parseMoneyInput(charges);
+  const quantityValue = Number(quantity);
+  const costValue = parseMoneyInput(averageCost);
+
+  /**
+   * What the purchase costs in cash, in the HOLDING's currency — the default
+   * for "total paid" whenever the funding account counts in that currency.
+   * Across a currency boundary there is no default: the true figure is on the
+   * broker's note, and inventing one via an FX rate would write an unverified
+   * number into two registers.
+   */
+  const cashTotal =
+    quantityValue > 0 && costValue !== null && costValue > 0 && chargesValue !== null && chargesValue >= 0
+      ? purchaseCashTotal(toDecimal(quantityValue), toDecimal(costValue), toDecimal(chargesValue))
+      : null;
+
+  const fundingMatchesHoldingCurrency =
+    fundingAccount !== null && fundingAccount.currency === holdingCurrency;
+
+  // A Decimal is a fresh object every render, so the effects below key on its
+  // STRING — stable while the figure is, changed exactly when it changes.
+  const cashTotalKey = cashTotal !== null ? cashTotal.toDecimalPlaces(2).toString() : null;
+
+  // Keep the editable default in step with the figures above it — until the
+  // owner types their own total, which is then theirs.
+  useEffect(() => {
+    if (totalPaidTouched || !fundingMatchesHoldingCurrency || cashTotalKey === null) return;
+    setTotalPaid(cashTotalKey);
+  }, [totalPaidTouched, fundingMatchesHoldingCurrency, cashTotalKey]);
+
+  const previewCostBasis = cashTotal;
+  const previewKey = previewCostBasis !== null ? previewCostBasis.toString() : null;
+
+  // The preview in the owner's BASE currency, when the holding trades in
+  // another. Display-only, today's cached rate — same convention as every
+  // other converted figure in the app.
+  const [baseEquivalent, setBaseEquivalent] = useState<DecimalInstance | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (previewKey === null || holdingCurrency === displayCurrency) {
+      setBaseEquivalent(null);
+      return;
+    }
+    void convert(toDecimal(previewKey), holdingCurrency).then((converted) => {
+      if (!cancelled) setBaseEquivalent(converted);
+    }).catch(() => {
+      if (!cancelled) setBaseEquivalent(null);
+    });
+    return () => { cancelled = true; };
+  }, [previewKey, holdingCurrency, displayCurrency, convert]);
+
+  /**
+   * The list's total, CONVERTED. Summing costBasis raw added dollars to
+   * pounds the moment one holding traded in another currency — the exact
+   * "portfolio balance correct in the user's base currency" ask.
+   */
+  const [totalCostBasisInBase, setTotalCostBasisInBase] = useState<DecimalInstance | null>(null);
+  const mixedCurrencies = holdings.some((h) => (h.currency || currency) !== displayCurrency);
+  useEffect(() => {
+    let cancelled = false;
+    void convertAndSum(
+      holdings.map((h) => ({ amount: h.costBasis, currency: h.currency || currency }))
+    ).then((total) => {
+      if (!cancelled) setTotalCostBasisInBase(total);
+    }).catch(() => {
+      if (!cancelled) setTotalCostBasisInBase(null);
+    });
+    return () => { cancelled = true; };
+  }, [holdings, currency, convertAndSum]);
+
   const handleSave = async (): Promise<void> => {
     setFormError('');
 
@@ -156,15 +349,18 @@ export default function PortfolioManager({
       return;
     }
 
-    const quantityValue = Number(quantity);
     if (!Number.isFinite(quantityValue) || quantityValue <= 0) {
       setFormError('Units must be a positive number');
       return;
     }
 
-    const costValue = parseMoneyInput(averageCost);
     if (costValue === null || !Number.isFinite(costValue) || costValue <= 0) {
       setFormError('Average cost must be a positive amount');
+      return;
+    }
+
+    if (chargesValue === null || chargesValue < 0) {
+      setFormError('Charges must be zero or more');
       return;
     }
 
@@ -173,15 +369,40 @@ export default function PortfolioManager({
       name: name.trim() || symbol,
       quantity: toDecimal(quantityValue),
       averageCost: toDecimal(costValue),
+      currency: holdingCurrency,
       assetType
     };
+
+    let purchase: PurchaseDetails = {
+      charges: toDecimal(chargesValue),
+      fundingAccountId: null,
+      totalPaid: null,
+      date: new Date(`${purchaseDate}T00:00:00`)
+    };
+
+    if (!editing && fundingAccountId !== '') {
+      const paidValue = parseMoneyInput(totalPaid);
+      if (paidValue === null || paidValue <= 0) {
+        setFormError(
+          fundingMatchesHoldingCurrency
+            ? 'Enter the total paid, including charges'
+            : `Enter the total paid in ${fundingAccount?.currency ?? 'the funding account’s currency'} — it is on the contract note`
+        );
+        return;
+      }
+      if (Number.isNaN(purchase.date.getTime())) {
+        setFormError('Enter the date the purchase settled');
+        return;
+      }
+      purchase = { ...purchase, fundingAccountId, totalPaid: toDecimal(paidValue) };
+    }
 
     setIsSaving(true);
     try {
       if (editing) {
         await onEdit(editing.id, values);
       } else {
-        await onAdd(values);
+        await onAdd(values, purchase);
       }
       closeModal();
     } catch (error) {
@@ -194,13 +415,6 @@ export default function PortfolioManager({
       setIsSaving(false);
     }
   };
-
-  const totalCostBasis = holdings.reduce((sum, h) => sum.plus(h.costBasis), toDecimal(0));
-
-  const previewCostBasis =
-    quantity && averageCost && Number.isFinite(Number(quantity)) && parseMoneyInput(averageCost) !== null
-      ? toDecimal(Number(quantity)).times(toDecimal(parseMoneyInput(averageCost) ?? 0))
-      : null;
 
   return (
     <div className="space-y-6">
@@ -291,9 +505,18 @@ export default function PortfolioManager({
 
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex justify-between items-center">
-              <span className="font-semibold text-gray-900 dark:text-white">Total cost basis</span>
+              <span className="font-semibold text-gray-900 dark:text-white">
+                Total cost basis
+                {/* Named only when it did WORK: with a dollar holding in the
+                    list, an unlabelled total silently added currencies. */}
+                {mixedCurrencies && (
+                  <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
+                    in {displayCurrency}, at today's rate
+                  </span>
+                )}
+              </span>
               <span className="text-xl font-bold text-gray-900 dark:text-white tabular-nums">
-                {formatCurrency(totalCostBasis, currency)}
+                {totalCostBasisInBase !== null ? formatCurrency(totalCostBasisInBase, displayCurrency) : '—'}
               </span>
             </div>
           </div>
@@ -307,7 +530,7 @@ export default function PortfolioManager({
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className={labelClass}>
               Share, fund or ETF
             </label>
             {pickingSymbol ? (
@@ -317,6 +540,10 @@ export default function PortfolioManager({
                   setName(match.name);
                   setAssetType(assetTypeFromLookup(match.type));
                   setPickingSymbol(false);
+                  if (!currencyTouched) {
+                    setHoldingCurrency(defaultCurrencyFor(picked, match.exchange, currency));
+                  }
+                  loadQuote(picked);
                 }}
                 hint="Search by ticker or name — UK listings included (SHEL.L, VUSA.L)."
                 autoFocus={!editing}
@@ -336,77 +563,201 @@ export default function PortfolioManager({
                 </button>
               </div>
             )}
+            {/* What the exchange says it trades at — the sanity check for the
+                cost about to be typed, and the authority for the currency. */}
+            {quoteLoading && (
+              <p className={helperClass}>Checking the current price…</p>
+            )}
+            {quote && (
+              <p className={helperClass}>
+                Trading at {formatCurrency(toDecimal(quote.price), quote.currency)} ({quote.currency})
+              </p>
+            )}
           </div>
 
-          <div>
-            <label
-              htmlFor="holding-asset-type"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              Kind
-            </label>
-            <select
-              id="holding-asset-type"
-              value={assetType}
-              onChange={(e) => {
-                const chosen = INVESTMENT_ASSET_TYPES.find((type) => type === e.target.value);
-                if (chosen) setAssetType(chosen);
-              }}
-              disabled={isSaving}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
-            >
-              {INVESTMENT_ASSET_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {ASSET_TYPE_LABELS[type]}
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="holding-asset-type" className={labelClass}>
+                Kind
+              </label>
+              <select
+                id="holding-asset-type"
+                value={assetType}
+                onChange={(e) => {
+                  const chosen = INVESTMENT_ASSET_TYPES.find((type) => type === e.target.value);
+                  if (chosen) setAssetType(chosen);
+                }}
+                disabled={isSaving}
+                className={inputClass}
+              >
+                {INVESTMENT_ASSET_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {ASSET_TYPE_LABELS[type]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="holding-quantity" className={labelClass}>
+                Units held
+              </label>
+              <input
+                id="holding-quantity"
+                type="number"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                placeholder="0"
+                step="any"
+                min="0"
+                disabled={isSaving}
+                className={inputClass}
+              />
+              <p className={helperClass}>
+                Fractional units are fine.
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="holding-average-cost" className={labelClass}>
+                Average cost per unit
+              </label>
+              <MoneyInput
+                id="holding-average-cost"
+                value={averageCost}
+                onChange={setAverageCost}
+                className={inputClass}
+                disabled={isSaving}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="holding-currency" className={labelClass}>
+                Priced in
+              </label>
+              {/* The instrument's own currency — set from the quote when one
+                  arrives, editable always. Apple is dollars whatever currency
+                  the account counts in. */}
+              <select
+                id="holding-currency"
+                value={holdingCurrency}
+                onChange={(e) => {
+                  setHoldingCurrency(e.target.value);
+                  setCurrencyTouched(true);
+                }}
+                disabled={isSaving}
+                className={inputClass}
+              >
+                {supportedCurrencies.map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {option.code} — {option.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div>
-            <label
-              htmlFor="holding-quantity"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              Units held
-            </label>
-            <input
-              id="holding-quantity"
-              type="number"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              placeholder="0"
-              step="any"
-              min="0"
-              disabled={isSaving}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
-            />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Fractional units are fine — funds are usually held to several decimal places.
-            </p>
-          </div>
+          {!editing && (
+            <>
+              <div>
+                <label htmlFor="holding-charges" className={labelClass}>
+                  Charges — stamp duty, levies, commission ({holdingCurrency})
+                </label>
+                <MoneyInput
+                  id="holding-charges"
+                  value={charges}
+                  onChange={setCharges}
+                  className={inputClass}
+                  disabled={isSaving}
+                />
+                <p className={helperClass}>
+                  Folded into the cost basis, the way a contract note's total is.
+                  Charged in another currency? Leave this at zero and put them in
+                  the total paid below.
+                </p>
+              </div>
 
-          <div>
-            <label
-              htmlFor="holding-average-cost"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              Average cost per unit ({currency})
-            </label>
-            <MoneyInput
-              id="holding-average-cost"
-              value={averageCost}
-              onChange={setAverageCost}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:border-transparent dark:bg-gray-700 dark:text-white"
-              disabled={isSaving}
-            />
-          </div>
+              <div>
+                <label htmlFor="holding-funding" className={labelClass}>
+                  Paid from
+                </label>
+                <select
+                  id="holding-funding"
+                  value={fundingAccountId}
+                  onChange={(e) => {
+                    setFundingAccountId(e.target.value);
+                    setTotalPaidTouched(false);
+                    setTotalPaid('');
+                  }}
+                  disabled={isSaving}
+                  className={inputClass}
+                >
+                  <option value="">Just record the holding — no money moves</option>
+                  {fundingAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </select>
+                <p className={helperClass}>
+                  Writes the transfer: out of the account you pick, into this
+                  investment account. Accounts in other currencies are not
+                  offered — a converted transfer needs its confirmed figure, so
+                  make it from the register instead.
+                </p>
+              </div>
+
+              {fundingAccountId !== '' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="holding-purchase-date" className={labelClass}>
+                      Purchase date
+                    </label>
+                    <DatePicker
+                      id="holding-purchase-date"
+                      value={purchaseDate}
+                      onChange={setPurchaseDate}
+                      className={inputClass}
+                      aria-label="Purchase date"
+                      usePortal
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="holding-total-paid" className={labelClass}>
+                      Total paid ({fundingAccount?.currency ?? currency})
+                    </label>
+                    <MoneyInput
+                      id="holding-total-paid"
+                      value={totalPaid}
+                      onChange={(value) => {
+                        setTotalPaid(value);
+                        setTotalPaidTouched(true);
+                      }}
+                      className={inputClass}
+                      disabled={isSaving}
+                    />
+                    <p className={helperClass}>
+                      {fundingMatchesHoldingCurrency
+                        ? 'Units × cost + charges, prefilled — change it if the contract note says otherwise.'
+                        : `The figure on the contract note, in ${fundingAccount?.currency ?? 'the account’s currency'} — the app will not invent it from an exchange rate.`}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
           {previewCostBasis && (
-            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-1">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Cost basis: {formatCurrency(previewCostBasis, currency)}
+                Cost basis: {formatCurrency(previewCostBasis, holdingCurrency)}
+                {chargesValue !== null && chargesValue > 0 && ' including charges'}
               </p>
+              {baseEquivalent !== null && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  ≈ {formatCurrency(baseEquivalent, displayCurrency)} at today's rate
+                </p>
+              )}
             </div>
           )}
 

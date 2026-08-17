@@ -7,7 +7,9 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, LineChartIcon, EyeIcon } from '../components/icons';
 import AddInvestmentModal from '../components/AddInvestmentModal';
 import InvestmentMarketView from '../components/InvestmentMarketView';
-import PortfolioManager, { type HoldingFormValues } from '../components/PortfolioManager';
+import PortfolioManager, { type HoldingFormValues, type PurchaseDetails } from '../components/PortfolioManager';
+import { allInAverageCost } from '../services/investments/purchaseMath';
+import { transferCategoryIdFor } from '../utils/transferRepoint';
 import StockWatchlist from '../components/StockWatchlist';
 // Use optimized lazy-loaded charts to reduce bundle size
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from '../components/charts/OptimizedCharts';
@@ -72,7 +74,12 @@ const INVESTMENT_PERIOD_MONTHS: Record<'1-month' | '3-months' | '6-months' | '12
 };
 
 export default function Investments() {
-  const { accounts, transactions, transactionSplits, categories } = useApp();
+  const {
+    accounts, transactions, transactionSplits, categories,
+    // The purchase's cash half: the out leg is an ordinary transaction and the
+    // far side is minted and linked by the same machinery every transfer uses.
+    addTransaction, createTransferCounterpart,
+  } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   /**
    * THE APP'S PERIOD VOCABULARY, spoken here too.
@@ -233,19 +240,73 @@ export default function Investments() {
   }, [reloadHoldings]);
 
   const handleAddHolding = useCallback(
-    async (accountId: string, currency: string, values: HoldingFormValues): Promise<void> => {
+    async (accountId: string, values: HoldingFormValues, purchase: PurchaseDetails): Promise<void> => {
+      const fundingAccount = purchase.fundingAccountId !== null
+        ? accounts.find(a => a.id === purchase.fundingAccountId) ?? null
+        : null;
+
+      /**
+       * Charges fold into the stored average cost — Money's own definition
+       * (total paid ÷ shares, commission included), and the only place they
+       * CAN live: costBasis is derived from averageCost so the two can never
+       * disagree. The provenance note keeps the fold auditable.
+       */
+      const averageCost = allInAverageCost(values.quantity, values.averageCost, purchase.charges);
+      const provenance: string[] = [];
+      if (purchase.charges.greaterThan(0)) {
+        provenance.push(`Cost includes ${formatCurrency(purchase.charges, values.currency)} in charges.`);
+      }
+      if (fundingAccount) {
+        provenance.push(`Paid from ${fundingAccount.name}.`);
+      }
+
       await dataPort.createInvestment({
         accountId,
         symbol: values.symbol,
         name: values.name,
         quantity: values.quantity,
-        averageCost: values.averageCost,
-        currency,
-        assetType: values.assetType
+        averageCost,
+        currency: values.currency,
+        assetType: values.assetType,
+        purchaseDate: purchase.date,
+        notes: provenance.join(' ')
       });
+
+      /**
+       * THE CASH LEG (owner, 17 Aug; Money's measured model — 2015 of 2029
+       * real buys carried one, funded from a freely chosen account). Out of
+       * the chosen account, into this investment account, linked by the same
+       * counterpart machinery every transfer uses. Same-currency only — the
+       * form does not offer cross-currency funding, because the counterpart
+       * write copies this row's digits.
+       */
+      if (fundingAccount && purchase.totalPaid !== null) {
+        try {
+          const total = purchase.totalPaid.toNumber();
+          const outLeg = await addTransaction({
+            accountId: fundingAccount.id,
+            amount: -Math.abs(total),
+            type: 'transfer',
+            date: purchase.date,
+            description: `Buy ${formatDecimal(values.quantity, 4)} ${values.symbol}`,
+            category: transferCategoryIdFor(categories, accountId, -Math.abs(total)),
+            cleared: false,
+          });
+          await createTransferCounterpart(outLeg.id, accountId);
+        } catch (error) {
+          // The holding IS saved. Saying so is what stops a retry from
+          // doubling the position.
+          throw new Error(
+            `The holding was saved, but the transfer from ${fundingAccount.name} could not be written` +
+            `${error instanceof Error ? ` (${error.message})` : ''}. ` +
+            'Close this dialog and add the transfer from the register instead.'
+          );
+        }
+      }
+
       await reloadHoldings();
     },
-    [reloadHoldings]
+    [accounts, categories, addTransaction, createTransferCounterpart, formatCurrency, reloadHoldings]
   );
 
   const handleEditHolding = useCallback(
@@ -1126,16 +1187,47 @@ export default function Investments() {
                           </div>
                           <p className="font-semibold text-gray-900 dark:text-white shrink-0 ml-3">{formatCurrency(line.value)}</p>
                         </div>
+                        {/* EACH SLEEVE IS A DOOR (owner, 17 August): the word
+                            opens that sleeve's own register — Investments is
+                            the parent account, Cash its nested account(s).
+                            With several cash accounts one word cannot name a
+                            register, so each gets its own linked row under its
+                            own name, which says more than a summed "Cash"
+                            ever did. */}
                         <p className="ml-5 mb-1 flex justify-between text-dense text-gray-500 dark:text-gray-400">
-                          <span>Investments</span>
+                          <Link
+                            to={preserveDemoParam(`/accounts/${line.accountId}`, location.search)}
+                            className="hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
+                            title={`${line.name} — open this account's register`}
+                          >
+                            Investments
+                          </Link>
                           <span className="tabular-nums">{formatCurrency(invested)}</span>
                         </p>
-                        {line.cash.length > 0 && (
+                        {line.cash.length === 1 && (
                           <p className="ml-5 mb-2 flex justify-between text-dense text-gray-500 dark:text-gray-400">
-                            <span>Cash</span>
+                            <Link
+                              to={preserveDemoParam(`/accounts/${line.cash[0].accountId}`, location.search)}
+                              className="hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
+                              title={`${accountsById.get(line.cash[0].accountId)?.name ?? 'Cash'} — open this account's register`}
+                            >
+                              Cash
+                            </Link>
                             <span className="tabular-nums">{formatCurrency(cashTotal)}</span>
                           </p>
                         )}
+                        {line.cash.length > 1 && line.cash.map(cashLine => (
+                          <p key={cashLine.accountId} className="ml-5 mb-1 last:mb-2 flex justify-between text-dense text-gray-500 dark:text-gray-400">
+                            <Link
+                              to={preserveDemoParam(`/accounts/${cashLine.accountId}`, location.search)}
+                              className="min-w-0 truncate hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
+                              title={`${accountsById.get(cashLine.accountId)?.name ?? 'Cash'} — open this account's register`}
+                            >
+                              {accountsById.get(cashLine.accountId)?.name ?? 'Cash'}
+                            </Link>
+                            <span className="tabular-nums shrink-0 ml-3">{formatCurrency(cashLine.value)}</span>
+                          </p>
+                        ))}
                         <div className="flex items-center gap-2">
                           <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                             <div
@@ -1181,7 +1273,16 @@ export default function Investments() {
                                 key={debt.id}
                                 className="flex justify-between text-dense text-gray-500 dark:text-gray-400"
                               >
-                                <span className="min-w-0 truncate">{debt.name}</span>
+                                {/* To the REGISTER, not the Accounts-page jump
+                                    the tags use (owner, 17 Aug: "take you to
+                                    that respective account register"). */}
+                                <Link
+                                  to={preserveDemoParam(`/accounts/${debt.id}`, location.search)}
+                                  className="min-w-0 truncate hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
+                                  title={`${debt.name} — open this account's register`}
+                                >
+                                  {debt.name}
+                                </Link>
                                 <span className="tabular-nums shrink-0 ml-3">
                                   {formatCurrency(toDecimal(debt.balance ?? 0))}
                                 </span>
@@ -1445,7 +1546,22 @@ export default function Investments() {
                     <PortfolioManager
                       holdings={accountHoldings}
                       currency={account.currency}
-                      onAdd={(values) => handleAddHolding(account.id, account.currency, values)}
+                      // Where the purchase money may come from: any open account
+                      // in THIS account's currency (Money let a buy name any
+                      // funding account — measured, 2015 of 2029 did), with this
+                      // account's own cash sleeve(s) first because that is the
+                      // answer nine times in ten. Same-currency only: the
+                      // counterpart write copies the row's digits, and a
+                      // converted transfer needs its confirmed figure.
+                      fundingAccounts={openAccounts
+                        .filter(a =>
+                          a.id !== account.id &&
+                          a.type !== 'investment' &&
+                          a.currency === account.currency)
+                        .sort((a, b) =>
+                          Number(b.parentAccountId === account.id) - Number(a.parentAccountId === account.id) ||
+                          a.name.localeCompare(b.name))}
+                      onAdd={(values, purchase) => handleAddHolding(account.id, values, purchase)}
                       onEdit={handleEditHolding}
                       onDelete={handleDeleteHolding}
                     />
