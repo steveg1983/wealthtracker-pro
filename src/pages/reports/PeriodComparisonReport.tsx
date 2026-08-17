@@ -7,7 +7,7 @@ import ReportAccountMultiSelect from '../../components/reports/ReportAccountMult
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
 import ReportExportBar from '../../components/reports/ReportExportBar';
 import UncategorisedReviewBand from '../../components/reports/UncategorisedReviewBand';
-import { SEMANTIC_SERIES } from '../../components/charts/chartColors';
+import { SEMANTIC_SERIES, useChartTooltipStyle } from '../../components/charts/chartColors';
 import { computeIncomeExpense } from '../../utils/incomeExpense';
 import {
   buildPeriodComparison,
@@ -60,6 +60,8 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
   const { accounts, categories, accountTransactions, transactionSplits, rows, flows } =
     useReportDataset(picker, selection.scope);
   const { formatCurrency } = useCurrencyDecimal();
+  // Recharts' default tooltip is black-on-white whatever the mode.
+  const chartTooltipStyle = useChartTooltipStyle();
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const [basis, setBasis] = useState<ComparisonBasis>(() =>
@@ -351,11 +353,11 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
                       interval={0}
                     />
                     <Tooltip
+                  contentStyle={chartTooltipStyle}
                       formatter={(value: number | string) =>
                         formatCurrency(typeof value === 'number' ? value : Number(value))
                       }
-                      contentStyle={{ borderRadius: '8px' }}
-                    />
+                        />
                     {/* Recharts derives its own legend from each series' single
                         fill, which this chart does not have — so the legend is
                         drawn from what the bars actually are. */}
