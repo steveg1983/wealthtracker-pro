@@ -53,18 +53,74 @@ const withoutComments = (source: string): string =>
   source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 
 describe('the categorical ramp is the only chart palette', () => {
-  it('keeps the five ruled values in the axis', () => {
+  it('the axis IS the ruled five', () => {
+    // Until 17 August the axis held nine stops — the ruled five plus bisected
+    // midpoints — and the bisection was the bug Design's §2.2 found: the dark
+    // half of the axis is compressed, so its midpoints landed ~1.17:1 from
+    // their neighbours and three legend swatches read as one colour. Ramp
+    // members are now interpolated evenly in L* (see chartColors), so the
+    // axis exports only what was actually ruled.
+    expect(CATEGORICAL_AXIS.map(c => c.toLowerCase())).toEqual([...RULED]);
+  });
+
+  it('every ruled value still appears in at least one ramp', () => {
+    const members = new Set(
+      [...categoricalRamp(false), ...categoricalRamp(true)].map(c => c.toLowerCase())
+    );
     for (const colour of RULED) {
-      expect(CATEGORICAL_AXIS.map(c => c.toLowerCase())).toContain(colour);
+      expect(members, `${colour} fell out of both ramps`).toContain(colour);
     }
   });
 
-  it('bisects rather than inventing steps: the ruled five sit at even indices', () => {
-    // The extension rule is stated, not ad hoc — each adjacent ruled pair gets
-    // its midpoint, so a nine-step axis holds the five at 0, 2, 4, 6, 8.
-    expect(CATEGORICAL_AXIS).toHaveLength(9);
-    expect([0, 2, 4, 6, 8].map(i => CATEGORICAL_AXIS[i].toLowerCase())).toEqual([...RULED]);
-  });
+  /**
+   * THE §2.2 INSTRUMENT (Claude Design, 17 Aug). The shipped light ramp had
+   * "maximum adjacent separation" in ratio terms and was still unreadable,
+   * because three of its five steps were near-identical and only ADJACENT
+   * pairs had ever been measured. So both floors are pinned: consecutive
+   * slices must separate (≥1.5:1), and NO pair anywhere in a ramp may fall
+   * back into the indistinguishable band (<1.15:1) — measured, not
+   * remembered. The light five sit ΔL* ≈ 10.5 apart; light's worst adjacent
+   * pair measures 2.00:1 and its worst overall 1.37:1; dark's are 1.59:1 and
+   * 1.19:1.
+   */
+  it.each([['light', false], ['dark', true]] as const)(
+    'no two %s-ground steps collapse into one colour',
+    (_name, isDark) => {
+      const ramp = categoricalRamp(isDark);
+      for (let i = 0; i < ramp.length - 1; i++) {
+        const adjacent = ColorContrastChecker.getContrastRatio(ramp[i], ramp[i + 1]);
+        expect(
+          adjacent,
+          `consecutive slices ${ramp[i]} and ${ramp[i + 1]} measure ${adjacent.toFixed(2)}:1`
+        ).toBeGreaterThanOrEqual(1.5);
+      }
+      for (let i = 0; i < ramp.length; i++) {
+        for (let j = i + 1; j < ramp.length; j++) {
+          const pair = ColorContrastChecker.getContrastRatio(ramp[i], ramp[j]);
+          expect(
+            pair,
+            `${ramp[i]} and ${ramp[j]} measure ${pair.toFixed(2)}:1 — legend swatches this close read as one`
+          ).toBeGreaterThanOrEqual(1.15);
+        }
+      }
+    }
+  );
+
+  it.each([
+    ['light', false, '#f8f9fb'],
+    ['dark', true, '#1f2937'],
+  ] as const)(
+    'the last %s-ground step is the quietest — where the folded remainder sits',
+    (_name, isDark, dimmestSurface) => {
+      // capSeriesWithRemainder and buildAccountDistribution put "the rest" in
+      // the fifth slice, and Design's §2.1 ruling puts the remainder at the
+      // ramp's lightest step. Painting slices in ramp order delivers that only
+      // if the last step really is the lowest-contrast one on its own ground.
+      const ramp = categoricalRamp(isDark);
+      const contrasts = ramp.map(c => ColorContrastChecker.getContrastRatio(c, dimmestSurface));
+      expect(contrasts[contrasts.length - 1]).toBe(Math.min(...contrasts));
+    }
+  );
 
   it.each([
     ['light', false, SURFACES_LIGHT],

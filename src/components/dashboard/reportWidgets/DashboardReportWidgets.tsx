@@ -16,7 +16,7 @@ import { useCurrencyDecimal } from '../../../hooks/useCurrencyDecimal';
 import { categoricalColor, MAX_CATEGORICAL_SERIES, useCategoricalRamp, SEMANTIC_SERIES, useChartTooltipStyle } from '../../charts/chartColors';
 import { singlePointDot } from '../../charts/singlePointDots';
 import { buildMonthlyTrend } from '../../../utils/monthlyTrend';
-import { buildNetWorthSnapshots, netWorthPointToken } from '../../../utils/netWorthSeries';
+import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthPointToken } from '../../../utils/netWorthSeries';
 import { computeExpenseCategoryNetTotals } from '../../../utils/categoryNetting';
 import { expandSplitTransactions } from '../../../utils/transactionSplits';
 import { formatDecimal } from '../../../utils/decimal-format';
@@ -162,9 +162,16 @@ export function NetWorthWidget({ picker, pin }: {
               if (snapshot) open(netWorthPointToken(snapshot.date));
             }}
           >
-            <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 10 }} minTickGap={32} />
-            <YAxis tick={{ fill: '#6B7280', fontSize: 10 }} tickFormatter={compactTick} width={44} />
-            <Tooltip contentStyle={chartTooltipStyle} formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
+            {/* Years for a multi-year window, months within one — the tick
+                format follows the span (Design, 17 Aug §2.3). */}
+            <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 10 }} minTickGap={32} {...netWorthAxisTicks(snapshots)} />
+            {/* The domain follows the DATA and dips below zero only when the
+                data does (§2.4): recharts' nice-tick rounding was answering
+                one early negative point with a −6.0M floor, spending a
+                quarter of the plot on nothing and flattening the curve the
+                chart exists to show. */}
+            <YAxis tick={{ fill: '#6B7280', fontSize: 10 }} tickFormatter={compactTick} width={44} domain={[(dataMin: number) => Math.min(0, dataMin), 'auto']} />
+            <Tooltip contentStyle={chartTooltipStyle} separator=": " formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
             <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke={lineStroke} strokeWidth={2} dot={singlePointDot(snapshots, lineStroke)} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
@@ -248,7 +255,7 @@ export function IncomeExpenseTrendWidget({ picker, pin }: {
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.2)" />
             <XAxis dataKey="month" tick={{ fill: '#6B7280', fontSize: 10 }} minTickGap={32} />
             <YAxis tick={{ fill: '#6B7280', fontSize: 10 }} tickFormatter={compactTick} width={44} />
-            <Tooltip contentStyle={chartTooltipStyle} formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
+            <Tooltip contentStyle={chartTooltipStyle} separator=": " formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
             <Line type="monotone" dataKey="income" name="Income" stroke={SEMANTIC_SERIES.income} strokeWidth={2} dot={singlePointDot(data, SEMANTIC_SERIES.income)} isAnimationActive={false} />
             <Line type="monotone" dataKey="expenses" name="Expenses" stroke={SEMANTIC_SERIES.expense} strokeWidth={2} dot={singlePointDot(data, SEMANTIC_SERIES.expense)} isAnimationActive={false} />
           </LineChart>
@@ -373,7 +380,7 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
                     <Cell key={entry.name} fill={categoricalColor(ramp, index)} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={chartTooltipStyle} formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
+                <Tooltip contentStyle={chartTooltipStyle} separator=": " formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
               </RechartsPieChart>
             </ResponsiveContainer>
           </div>

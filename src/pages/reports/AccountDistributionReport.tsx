@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
@@ -6,6 +6,7 @@ import { PieChart, ResponsiveContainer } from '../../components/charts/Dashboard
 import { categoricalColor, useCategoricalRamp } from '../../components/charts/chartColors';
 import { computeAccountBalances } from '../../utils/accountBalances';
 import {
+  ACCOUNT_DISTRIBUTION_REMAINDER_ID,
   buildAccountDistribution,
   type AccountDistributionEntry,
 } from '../../utils/accountDistribution';
@@ -34,6 +35,9 @@ export default function AccountDistributionReport(): React.JSX.Element {
   const { formatCurrency, displayCurrency } = useCurrencyDecimal();
   const location = useLocation();
   const navigate = useNavigate();
+  // Where a click on the remainder slice lands: the table that lists every
+  // account the slice folded. It has no single register to open.
+  const everyAccountRef = useRef<HTMLDivElement>(null);
   // The shared ramp. This file used to carry its own copy of the recharts demo
   // palette with a comment promising it matched the Dashboard's — a promise
   // nothing checked, and exactly the drift the one-module rule removes.
@@ -96,11 +100,15 @@ export default function AccountDistributionReport(): React.JSX.Element {
           <span className="text-dense text-gray-400 dark:text-gray-500">Current balances</span>
         </div>
         {/* The count comes from the slices themselves, never the cap: with
-            three accounts in credit this must not claim five. */}
+            three accounts in credit this must not claim five. And when the
+            ring folds a remainder (Design, 17 Aug §2.1 — a closed ring is a
+            claim about the whole), the sentence says what was folded. */}
         <p className="text-body text-gray-500 dark:text-gray-400 mb-4">
           {distribution.slices.length === 1
             ? 'The one account in credit'
-            : `The ${distribution.slices.length} largest accounts in credit`}
+            : distribution.foldedCount > 0
+              ? `The ${distribution.slices.length - 1} largest accounts in credit, with the other ${distribution.foldedCount} gathered into one slice`
+              : `The ${distribution.slices.length} largest accounts in credit`}
           {' '}— the same slices the Dashboard shows. Every account is listed below.
           Click a slice for its transactions.
         </p>
@@ -113,7 +121,13 @@ export default function AccountDistributionReport(): React.JSX.Element {
                 data={distribution.slices}
                 innerRadius={true}
                 colors={ramp}
-                onClick={(entry: AccountDistributionEntry) => navigate(transactionsHref(entry.id))}
+                onClick={(entry: AccountDistributionEntry) => {
+                  if (entry.id === ACCOUNT_DISTRIBUTION_REMAINDER_ID) {
+                    everyAccountRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  } else {
+                    navigate(transactionsHref(entry.id));
+                  }
+                }}
                 formatter={(value: number) => money(value)}
                 aria-label="Pie chart showing distribution of account balances"
               />
@@ -122,7 +136,7 @@ export default function AccountDistributionReport(): React.JSX.Element {
         )}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
+      <div ref={everyAccountRef} className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
         <div className="p-6 pb-3">
           <h2 className="text-card font-semibold text-theme-heading dark:text-white">Every account</h2>
           <p className="text-body text-gray-500 dark:text-gray-400 mt-1">
@@ -151,8 +165,10 @@ export default function AccountDistributionReport(): React.JSX.Element {
                   <tr key={entry.id} className="border-t border-gray-50 dark:border-gray-700/50">
                     <th scope="row" className="px-4 py-2 text-left font-normal">
                       <span className="flex items-center gap-2">
-                        {/* Only the drawn slices carry a colour — a swatch for a
-                            row the chart does not show would point at nothing. */}
+                        {/* Only the NAMED slices carry a colour. The folded
+                            accounts are in the ring collectively, but ninety
+                            rows all wearing the remainder's colour would claim
+                            each was drawn individually — so they stay bare. */}
                         <span
                           className="w-3 h-3 rounded-sm flex-shrink-0"
                           style={{ backgroundColor: sliceColours.get(entry.id) ?? 'transparent' }}

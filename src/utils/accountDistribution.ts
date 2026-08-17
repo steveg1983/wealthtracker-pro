@@ -38,13 +38,20 @@ export interface AccountDistribution {
   /** Every account, ranked by balance, largest first — nothing dropped. */
   entries: AccountDistributionEntry[];
   /**
-   * The slices a donut can draw: the largest accounts in credit. A pie cannot
-   * show a negative, and past a handful of slices nobody can tell them apart,
-   * so the chart is a summary and the table beside it is the truth.
+   * The slices the donut draws: the largest accounts in credit, and — when
+   * there are more in credit than the ring can name — ONE slice holding
+   * everything else, so the ring always sums to the whole. A pie cannot show
+   * a negative, so overdrawn accounts appear in the table, never the ring.
    */
   slices: AccountDistributionEntry[];
   /** What every share is a share OF: the total held in credit. */
   inCreditTotal: DecimalInstance;
+  /**
+   * How many in-credit accounts the ring folded into its remainder slice —
+   * zero when every one is drawn by name. Exposed so the copy above each ring
+   * can say what was folded without parsing the slice's own label.
+   */
+  foldedCount: number;
 }
 
 /**
@@ -53,6 +60,13 @@ export interface AccountDistribution {
  * of numbers.
  */
 export const ACCOUNT_DISTRIBUTION_SLICES = 5;
+
+/**
+ * The id the folded remainder slice carries instead of an account id. A
+ * sentinel no database id can collide with, so a click handler can tell "open
+ * this account" from "open the full report" without a second data shape.
+ */
+export const ACCOUNT_DISTRIBUTION_REMAINDER_ID = '__account-distribution-remainder__';
 
 /**
  * Rank every account by what it currently holds.
@@ -88,9 +102,41 @@ export function buildAccountDistribution(
       : null,
   }));
 
-  return {
-    entries,
-    slices: entries.filter(entry => entry.value > 0).slice(0, ACCOUNT_DISTRIBUTION_SLICES),
-    inCreditTotal,
-  };
+  /**
+   * A CLOSED RING IS A CLAIM ABOUT THE WHOLE (Claude Design, 17 Aug §2.1).
+   * Drawn from the top five alone it showed ~55% of the money as if it were
+   * 100%, so a reader concluded their largest account was a sixth of their
+   * net worth when it was a thirty-fifth. Everything past the named slices is
+   * folded into ONE remainder slice — same arithmetic as
+   * capSeriesWithRemainder, done here so the card and the report cannot fold
+   * differently. The remainder is NAMED WITH ITS COUNT rather than "Other":
+   * "Other" is a real category in some ledgers, and a visible count tells the
+   * reader whether the fold hid something worth opening the full report for.
+   *
+   * The value comes from inCreditTotal minus the named slices — a Decimal
+   * subtraction, not a float sum of ninety balances — so ring and total agree
+   * to the penny by construction.
+   */
+  const inCredit = entries.filter(entry => entry.value > 0);
+  let slices: AccountDistributionEntry[];
+  let foldedCount = 0;
+  if (inCredit.length <= ACCOUNT_DISTRIBUTION_SLICES) {
+    slices = inCredit;
+  } else {
+    const named = inCredit.slice(0, ACCOUNT_DISTRIBUTION_SLICES - 1);
+    foldedCount = inCredit.length - named.length;
+    const namedTotal = named.reduce((sum, entry) => sum.plus(toDecimal(entry.value)), toDecimal(0));
+    const remainder = inCreditTotal.minus(namedTotal);
+    slices = [
+      ...named,
+      {
+        id: ACCOUNT_DISTRIBUTION_REMAINDER_ID,
+        name: `${foldedCount} smaller account${foldedCount === 1 ? '' : 's'}`,
+        value: remainder.toNumber(),
+        share: inCreditTotal.greaterThan(0) ? remainder.dividedBy(inCreditTotal).times(100) : null,
+      },
+    ];
+  }
+
+  return { entries, slices, inCreditTotal, foldedCount };
 }

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { buildAccountDistribution, ACCOUNT_DISTRIBUTION_SLICES } from './accountDistribution';
+import {
+  buildAccountDistribution,
+  ACCOUNT_DISTRIBUTION_REMAINDER_ID,
+  ACCOUNT_DISTRIBUTION_SLICES,
+} from './accountDistribution';
 
 /**
  * The Dashboard card and the full report both read this, so what it decides is
@@ -56,7 +60,11 @@ describe('buildAccountDistribution', () => {
     expect(total).toBeCloseTo(100, 10);
   });
 
-  it('draws only the largest accounts in credit, and never a negative slice', () => {
+  /* Until 17 August this expected slices A–E with F silently dropped — the
+     ring closed at six-sevenths of the money and read as the whole (Design
+     §2.1: "a closed ring is a stronger claim than a subtitle"). The sixth
+     account is now folded, so the ring always sums to what is held. */
+  it('folds everything past the named slices into one counted remainder', () => {
     const accounts = accountsOf('A', 'B', 'C', 'D', 'E', 'F', 'Overdrawn');
     const balances = new Map([
       ['acc-0', 700], ['acc-1', 600], ['acc-2', 500],
@@ -64,13 +72,47 @@ describe('buildAccountDistribution', () => {
       ['acc-6', -1000],
     ]);
 
-    const { slices, entries } = buildAccountDistribution(accounts, id => balances.get(id) ?? 0);
+    const { slices, entries, foldedCount } = buildAccountDistribution(accounts, id => balances.get(id) ?? 0);
 
     expect(slices).toHaveLength(ACCOUNT_DISTRIBUTION_SLICES);
-    expect(slices.map(s => s.name)).toEqual(['A', 'B', 'C', 'D', 'E']);
+    expect(slices.map(s => s.name)).toEqual(['A', 'B', 'C', 'D', '2 smaller accounts']);
+    expect(foldedCount).toBe(2);
+    // The remainder is E + F, and the overdraft plays no part in it.
+    const remainder = slices[slices.length - 1];
+    expect(remainder.id).toBe(ACCOUNT_DISTRIBUTION_REMAINDER_ID);
+    expect(remainder.value).toBe(500);
     expect(slices.every(s => s.value > 0)).toBe(true);
-    // The table still lists everything the chart left out.
+    // The table still lists every real account — never the pseudo-slice.
     expect(entries).toHaveLength(7);
+    expect(entries.some(e => e.id === ACCOUNT_DISTRIBUTION_REMAINDER_ID)).toBe(false);
+  });
+
+  it('the ring sums to the whole: named slices plus remainder equal the in-credit total', () => {
+    const accounts = accountsOf('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H');
+    // Thirds and the like, so a float fold would drift where Decimal cannot.
+    const balances = new Map([
+      ['acc-0', 1000.10], ['acc-1', 900.01], ['acc-2', 800.02], ['acc-3', 700.03],
+      ['acc-4', 33.33], ['acc-5', 33.33], ['acc-6', 33.34], ['acc-7', 0.01],
+    ]);
+
+    const { slices, inCreditTotal } = buildAccountDistribution(accounts, id => balances.get(id) ?? 0);
+
+    const drawn = slices.reduce((sum, s) => sum + s.value, 0);
+    expect(drawn).toBeCloseTo(inCreditTotal.toNumber(), 10);
+    const shares = slices.reduce((sum, s) => sum + (s.share?.toNumber() ?? 0), 0);
+    expect(shares).toBeCloseTo(100, 10);
+  });
+
+  it('draws all five by name when exactly five are in credit — a fold of one would hide nothing', () => {
+    const accounts = accountsOf('A', 'B', 'C', 'D', 'E');
+    const balances = new Map([
+      ['acc-0', 500], ['acc-1', 400], ['acc-2', 300], ['acc-3', 200], ['acc-4', 100],
+    ]);
+
+    const { slices, foldedCount } = buildAccountDistribution(accounts, id => balances.get(id) ?? 0);
+
+    expect(slices.map(s => s.name)).toEqual(['A', 'B', 'C', 'D', 'E']);
+    expect(foldedCount).toBe(0);
   });
 
   it('breaks a tie by name, so equal balances do not swap places between renders', () => {

@@ -126,13 +126,70 @@ export function buildNetWorthSnapshots(
     }
     out.push({
       date: point,
+      // "Apr 2010", never "Apr 10": with the 2-digit year a sixteen-year
+      // series read as sixteen days inside one April (Design, 17 Aug §2.3) —
+      // and "Apr 10" is an American date besides, in an en-GB app. The daily
+      // cadence stays day-first for the same reason.
       label: point.toLocaleDateString(getDateLocale(), monthly
-        ? { month: 'short', year: '2-digit' }
-        : { day: '2-digit', month: 'short' }),
+        ? { month: 'short', year: 'numeric' }
+        : { day: 'numeric', month: 'short' }),
       assets: assets.toNumber(),
       liabilities: liabilities.toNumber(),
       netWorth: assets.minus(liabilities).toNumber(),
     });
   }
   return out;
+}
+
+/**
+ * X-axis props for a snapshot series: THE TICK FORMAT FOLLOWS THE SPAN OF THE
+ * DOMAIN (Claude Design, 17 Aug §2.3) — years for a multi-year window, month
+ * names for a multi-month one, dates within a month. A sixteen-year series was
+ * ticking "Apr 10 · Apr 12 · … · Aug 26": nine dates apparently inside one
+ * April, with the last tick changing month so it read as a data error rather
+ * than a scale.
+ *
+ * Under two years this returns nothing and recharts thins the month labels
+ * itself. From two years up it hands back explicit ticks — the first snapshot
+ * of each year, stepped so at most ~9 fit ("2010 · 2012 · …") — plus a
+ * formatter that renders each as its bare year. Left to a formatter alone,
+ * recharts' own tick choice can land two ticks inside one year and print
+ * "2010 · 2010", which is why the positions are supplied too.
+ *
+ * The full per-point label ("Apr 2010") survives untouched for the tooltip
+ * and for click identity — labels are what `activeLabel` hands back, so they
+ * must stay unique per point; only the AXIS text compresses.
+ */
+export function netWorthAxisTicks(snapshots: NetWorthSnapshot[]): {
+  ticks?: string[];
+  tickFormatter?: (label: string) => string;
+} {
+  if (snapshots.length < 2) return {};
+  const firstYear = snapshots[0].date.getFullYear();
+  const lastYear = snapshots[snapshots.length - 1].date.getFullYear();
+  const spanYears = lastYear - firstYear;
+  if (spanYears < 2) return {};
+
+  const firstLabelOfYear = new Map<number, string>();
+  const yearOfLabel = new Map<string, number>();
+  for (const snap of snapshots) {
+    const year = snap.date.getFullYear();
+    if (!firstLabelOfYear.has(year)) firstLabelOfYear.set(year, snap.label);
+    yearOfLabel.set(snap.label, year);
+  }
+
+  const step = Math.ceil(spanYears / 8);
+  const ticks: string[] = [];
+  for (let year = firstYear; year <= lastYear; year += step) {
+    const label = firstLabelOfYear.get(year);
+    if (label !== undefined) ticks.push(label);
+  }
+
+  return {
+    ticks,
+    tickFormatter: (label: string) => {
+      const year = yearOfLabel.get(label);
+      return year === undefined ? label : String(year);
+    },
+  };
 }

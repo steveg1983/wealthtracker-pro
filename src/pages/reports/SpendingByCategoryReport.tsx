@@ -145,7 +145,7 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={chartTooltipStyle}
+                  contentStyle={chartTooltipStyle} separator=": "
                   formatter={(value: number | string) =>
                     formatCurrency(typeof value === 'number' ? value : Number(value))
                   }

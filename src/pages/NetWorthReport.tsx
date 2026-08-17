@@ -19,11 +19,11 @@ import { singlePointDot } from '../components/charts/singlePointDots';
 import { toDecimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { preserveDemoParam } from '../utils/navigation';
-import { buildNetWorthSnapshots, netWorthPointToken } from '../utils/netWorthSeries';
+import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthPointToken } from '../utils/netWorthSeries';
 import { useArrivalAction } from '../hooks/useArrivalFocus';
 import { resolveEffectiveOpeningDates } from '../utils/openingDates';
 import { TrendingUpIcon, ChevronRightIcon } from '../components/icons';
-import { DECOMPOSITION_SERIES } from '../components/charts/chartColors';
+import { DECOMPOSITION_SERIES, useChartTooltipStyle } from '../components/charts/chartColors';
 import type { ReportViewProps } from './reports/types';
 import { preferences } from '../services/preferencesService';
 import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
@@ -114,6 +114,9 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
    */
   const accounts = useHistoricalAccounts(openAccounts);
   const { formatCurrency } = useCurrencyDecimal();
+  // Watches the dark class rather than reading it once — the theme scheduler
+  // can flip the ground under a mounted chart.
+  const chartTooltipStyle = useChartTooltipStyle();
   const navigate = useNavigate();
   const location = useLocation();
   const [drillDate, setDrillDate] = useState<Date | null>(null);
@@ -343,11 +346,17 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                 style={{ cursor: 'pointer' }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.2)" />
-                <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 12 }} minTickGap={24} />
-                <YAxis tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={compactTick} width={70} />
+                {/* Years for a multi-year window (§2.3) — same helper as the
+                    Dashboard widget, so card and report tick identically. */}
+                <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 12 }} minTickGap={24} {...netWorthAxisTicks(snapshots)} />
+                {/* Below zero only when the data goes there (§2.4). */}
+                <YAxis tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={compactTick} width={70} domain={[(dataMin: number) => Math.min(0, dataMin), 'auto']} />
+                {/* The radius-only contentStyle LOOKED themed and set no
+                    colour — the same survivor pattern the 16 Aug sweep found
+                    on three other report pages. */}
                 <Tooltip
                   formatter={(value: number | string) => formatCurrency(typeof value === 'number' ? value : Number(value))}
-                  contentStyle={{ borderRadius: '8px' }}
+                  contentStyle={chartTooltipStyle} separator=": "
                 />
                 <Legend content={<DecompositionLegend />} />
                 {chartType === 'bar' ? (

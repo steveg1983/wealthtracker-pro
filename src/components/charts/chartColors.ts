@@ -45,47 +45,70 @@ import { useEffect, useState } from 'react';
  * darkest-first on light, lightest-first on dark. Same axis, same five ruled
  * values, no second palette.
  *
- * ─ HOW IT EXTENDS PAST FIVE ────────────────────────────────────────────────
- * Some charts draw more series than five (SpendingByCategory draws eight). The
- * stated rule is BISECTION, never a new hue: each adjacent pair of ruled values
- * gets its midpoint, giving a nine-step axis of which the ruled five are still
- * exactly members. Five of those nine clear 3:1 on any one ground, so each
- * theme gets a five-colour ramp and beyond that the ramp CYCLES.
+ * ─ HOW EACH GROUND GETS ITS FIVE ───────────────────────────────────────────
+ * The first derivation rule was BISECTION: midpoints of adjacent ruled pairs,
+ * giving nine fixed stops of which each ground used the half that cleared 3:1.
+ * On light that rule was the bug (Claude Design, 17 Aug §2.2): the usable half
+ * is the DARK half, where the ruled stops sit ~10 L* apart, so bisecting put
+ * three near-black navies (#1a2332/#242f40/#2d3a4d, ~1.17:1 apart) into one
+ * five-step ramp. The legend swatches for slices 1, 3 and 5 were
+ * indistinguishable and two ring wedges read as one mass — spacing that was
+ * "as far apart as the axis allows" in ratio terms had never been measured
+ * PERCEPTUALLY.
  *
- * Cycling is the honest cost of the ruling. A single-hue ramp cannot separate
- * eight categories the way eight hues could — measured, adjacent steps here sit
- * 2.12:1 apart on light and 1.59:1 on dark. Charts must therefore direct-label,
- * which these already do: every consumer draws a legend swatch beside the name
- * or names the slice in its tooltip. Colour groups the series; the label
- * identifies it.
+ * The rule now: each ground's five are spaced EVENLY IN CIE L* along the same
+ * axis line, from the darkest ruled stop to the lightest step that still
+ * clears 3:1 on that ground's dimmest chart surface. Interpolation along the
+ * axis, never a new hue. Measured (17 Aug, this repo's harness + CIE L*):
+ *
+ *   light five  #1a2332  #2d3a4d  #41526e  #556c8f  #6b86b3
+ *      L*         13.5     24.1     34.6     45.1     55.5   (ΔL* ≈ 10.5 even)
+ *      vs #f8f9fb 14.98    10.93     7.50     5.08     3.51  (all ≥ 3:1)
+ *
+ * Three of the light five are ruled stops; the two interpolations sit on the
+ * ruled navy-700→navy-400 segment. The dark five keep their 2026-08 values —
+ * the light half of the axis never bunched (ΔL* 5–18, confirmed working in
+ * the same review) — so only the failing ground changed.
+ *
+ * Beyond five the ramp CYCLES, which is the honest cost of a one-hue ruling:
+ * charts must direct-label, and every consumer already draws a legend swatch
+ * beside the name or names the slice in its tooltip. Colour groups the
+ * series; the label identifies it.
+ *
+ * ─ BOTH RAMPS END AT #6b86b3, AND THE ORDER IS NOT ARBITRARY ───────────────
+ * Ring slices are painted in ramp order, so consecutive steps are interleaved
+ * from the two ends of each five — adjacent wedges are never adjacent
+ * lightness steps (worst adjacent pair: 2.00:1 light, 1.59:1 dark). The LAST
+ * step of each ramp is deliberately its lowest-contrast one on its own
+ * ground — #6b86b3, the one axis step legible on both — because the fifth
+ * slice is where a capped series puts its folded remainder
+ * (capSeriesWithRemainder, accountDistribution), and "the rest" should recede
+ * rather than compete with the named four (Design §2.1: the remainder at the
+ * ramp's lightest step).
  */
 
 /**
- * The axis: the ruled five (index 0, 2, 4, 6, 8) with a bisected midpoint
- * between each adjacent pair. Dark end first. Exported for the test that pins
- * the ruled values and the contrast of everything derived from them.
+ * The axis: the five RULED stops, dark end first. The ramps below are spaced
+ * along the line these describe — interpolated members belong to the ramps,
+ * not the axis. Exported for the tests that pin the ruled values and measure
+ * everything derived from them.
  */
 export const CATEGORICAL_AXIS = [
-  '#1a2332', // navy-900  — ruled
-  '#242f40', //           — bisected
-  '#2d3a4d', // navy-700  — ruled
-  '#4c6080', //           — bisected
-  '#6b86b3', // navy-400  — ruled
-  '#8095b6', //           — bisected
-  '#94a3b8', // slate-400 — ruled
-  '#b1bccc', //           — bisected
-  '#cdd4e0', // line-strong — ruled
+  '#1a2332', // navy-900
+  '#2d3a4d', // navy-700
+  '#6b86b3', // navy-400
+  '#94a3b8', // slate-400
+  '#cdd4e0', // line-strong
 ] as const;
 
 /**
- * The five axis steps that clear 3:1 on a LIGHT ground, ordered so that
- * CONSECUTIVE series are as far apart as the axis allows (2.12:1 worst
- * adjacent pair). Walking the axis in order instead would put neighbouring pie
- * slices 1.17:1 apart, which is no separation at all.
+ * The light-ground five, interleaved so consecutive series sit far apart
+ * (2.00:1 worst adjacent pair, no pair anywhere below 1.37:1) and the
+ * lowest-contrast step lands LAST, where the remainder slice sits.
  */
-const RAMP_ON_LIGHT = ['#1a2332', '#4c6080', '#242f40', '#6b86b3', '#2d3a4d'] as const;
+const RAMP_ON_LIGHT = ['#2d3a4d', '#556c8f', '#1a2332', '#41526e', '#6b86b3'] as const;
 
-/** The same, from the light end, for a dark ground (1.59:1 worst adjacent pair). */
+/** The same idea from the light end, for a dark ground (1.59:1 worst adjacent pair). */
 const RAMP_ON_DARK = ['#94a3b8', '#cdd4e0', '#8095b6', '#b1bccc', '#6b86b3'] as const;
 
 /**
@@ -202,20 +225,32 @@ export function useCategoricalRamp(): readonly string[] {
  * It watches the `dark` class through the same hook as the ramp, and for the
  * same reason: the class is toggled on `<html>` directly, so a value read once
  * at render survives into the wrong theme.
+ *
+ * HOUSE FORMAT, not just house colours (Design, 17 Aug §2.6): the backgrounds
+ * are OPAQUE, because a tooltip can land on a legend and a translucent card
+ * over text leaves both unreadable — an overlay covers, it does not blend.
+ * The type matches the axis scale rather than recharts' default, and every
+ * figure in a tooltip is money, so `tabular-nums` applies here the same as
+ * everywhere else money is printed (P5).
  */
 export function useChartTooltipStyle(): React.CSSProperties {
   const dark = useIsDarkGround();
+  const shared: React.CSSProperties = {
+    borderRadius: '8px',
+    fontSize: '0.75rem',
+    fontVariantNumeric: 'tabular-nums',
+  };
   return dark
     ? {
-        backgroundColor: 'rgba(31, 41, 55, 0.97)', // gray-800
+        ...shared,
+        backgroundColor: '#1f2937', // gray-800
         border: '1px solid #4b5563', // gray-600
-        borderRadius: '8px',
         color: '#f9fafb',
       }
     : {
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        border: '1px solid #ccc',
-        borderRadius: '8px',
+        ...shared,
+        backgroundColor: '#ffffff',
+        border: '1px solid #e5e7eb', // gray-200 hairline
         color: '#111827',
       };
 }
@@ -315,8 +350,9 @@ export const SEMANTIC_SERIES = {
 export const DECOMPOSITION_SERIES = {
   /** The answer. Solid and heaviest — the other two explain it. */
   total: { color: CATEGORICAL_AXIS[0], width: 2.5, dash: undefined },
-  /** A component. Same hue, dashed. */
-  part: { color: CATEGORICAL_AXIS[2], width: 1.5, dash: '6 3' },
+  /** A component. Same hue, dashed. (#2d3a4d — index [1] since the axis
+      became the ruled five; the colour itself did not move.) */
+  part: { color: CATEGORICAL_AXIS[1], width: 1.5, dash: '6 3' },
   /** The other component. Same hue again, dotted, so the two parts differ. */
-  counterpart: { color: CATEGORICAL_AXIS[2], width: 1.5, dash: '1 3' },
+  counterpart: { color: CATEGORICAL_AXIS[1], width: 1.5, dash: '1 3' },
 } as const;

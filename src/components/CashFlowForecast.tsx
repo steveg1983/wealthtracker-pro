@@ -222,7 +222,7 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
               />
               <Tooltip 
                 formatter={(value: number) => formatCurrency(toDecimal(value))}
-                contentStyle={chartTooltipStyle}
+                contentStyle={chartTooltipStyle} separator=": "
               />
               <ReferenceLine y={0} stroke="#ff0000" strokeDasharray="3 3" />
               <Area
