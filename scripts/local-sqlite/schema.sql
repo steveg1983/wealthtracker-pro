@@ -1816,7 +1816,8 @@ CREATE TABLE suggestion_dismissals (
   id           TEXT PRIMARY KEY,
   user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
-  -- SEVEN, not the four this file admitted until slice 23.
+  -- NINE, matching 20260817220000 — this list and the cloud CHECK must widen
+  -- together, and the parity lane is what notices when they do not.
   --
   -- 20260806180000:99-100 created the constraint with four kinds;
   -- 20260808120000 added payee-merchant and payee-line, and 20260808190000
@@ -1828,8 +1829,8 @@ CREATE TABLE suggestion_dismissals (
   --
   -- It is closed HERE, by exactly the argument that closed
   -- `last_reconciled_balance_minor` above: `dismissSuggestion(kind:
-  -- DismissalKind, …)` is the seam's own signature, `DismissalKind` names all
-  -- seven, and a value the seam's own type carries that this file cannot hold
+  -- DismissalKind, …)` is the seam's own signature, `DismissalKind` names every
+  -- kind, and a value the seam's own type carries that this file cannot hold
   -- is a write the local edition would have to refuse while the cloud accepts
   -- it. Settings → Payee cleanup drives all three of the payee kinds through
   -- that one door (PayeeCleanup.tsx:433, :449, :491), so the four-kind CHECK
@@ -1847,9 +1848,19 @@ CREATE TABLE suggestion_dismissals (
   -- the wording, re-import the statement, and the same wording arrives on brand
   -- new ids, so a refusal that expired with the rows would put the payee the
   -- user struck off straight back on the screen (20260808190000:57-61).
+  --
+  -- The two RECURRING kinds (20260817220000) answer "is this detected pattern
+  -- a real commitment?" — recurring-confirmed is the first POSITIVE verdict
+  -- stored here, the gate that lets a pattern feed the calendar and forecast;
+  -- recurring-not moves it to a recoverable band. Same two habits as the
+  -- payee kinds: no subject rows (a pattern outlives its rows), and a key
+  -- whose payee text no id remapper can touch — with one role-prefixed
+  -- ACCOUNT id segment that a restore's remapping rewrites in place, so the
+  -- verdict follows the account into its new login.
   kind         TEXT NOT NULL CHECK (kind IN (
                  'transfer-pair','transfer-leg','stranded','duplicate',
-                 'payee-merchant','payee-line','payee-hidden')),
+                 'payee-merchant','payee-line','payee-hidden',
+                 'recurring-confirmed','recurring-not')),
 
   subject_key  TEXT NOT NULL CHECK (trim(subject_key) <> ''),
   dismissed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),

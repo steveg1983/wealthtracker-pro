@@ -29,6 +29,11 @@ const KIND_LABELS: Record<DismissalKind, string> = {
   'payee-merchant': 'Not one merchant',
   'payee-line': 'Not part of that merchant',
   'payee-hidden': 'Hidden from payee cleanup',
+  // The recurring verdicts likewise live on their own surface — the "What
+  // I'm committed to" report shows Confirmed in place and Not-recurring in
+  // its own restorable band — and, like the payee kinds, they name no rows.
+  'recurring-confirmed': 'Confirmed as recurring',
+  'recurring-not': 'Not recurring',
 };
 
 interface Props {

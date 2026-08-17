@@ -224,8 +224,45 @@ export function isPayeeDismissalKind(kind: DismissalKind): kind is PayeeDismissa
     case 'transfer-leg':
     case 'stranded':
     case 'duplicate':
+    case 'recurring-confirmed':
+    case 'recurring-not':
       return false;
   }
+}
+
+/* ── Recurring detections: an answer about a PATTERN, not about rows ──────── */
+
+/**
+ * The identity of a recurring detection, as an answer is stored against it.
+ *
+ * Two segments:
+ *
+ *   account:<id>|recurring:<direction>:<percent-encoded payee key>
+ *
+ * The ACCOUNT segment is a role-prefixed row id, exactly the shape
+ * remapDismissalKey (services/backup/format) is built to handle: the value
+ * after the single role prefix is the bare uuid, so a restore into a new
+ * login rewrites it in place — and the detection, re-derived from the
+ * restored rows, computes the same key and finds its answer waiting. A bare
+ * unprefixed id would ALSO remap, but would join the re-sorted positions;
+ * the prefix keeps the segments in their spoken order.
+ *
+ * The PATTERN segment follows the payee-cleanup convention for the same
+ * reason it exists there: the value after `recurring:` always contains a
+ * further ':' (the direction), so it can never look uuid-shaped and no
+ * remapper can touch the payee text — even a payee whose bank wording IS a
+ * uuid. Percent-encoding removes '|' and ':' from the text itself.
+ *
+ * Keyed by the normalised payee, not the raw description, because the raw
+ * form changes reference numbers between statements while the pattern does
+ * not — an answer must survive the next import, or the question comes back.
+ */
+export function recurringAnswerKey(
+  accountId: string,
+  direction: 'in' | 'out',
+  payeeKey: string
+): string {
+  return `account:${accountId}${SEPARATOR}recurring:${direction}:${encodeURIComponent(payeeKey)}`;
 }
 
 /**

@@ -1,10 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useApp } from '../../contexts/AppContextSupabase';
+import { useToast } from '../../contexts/ToastContext';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { toDecimal, type DecimalInstance } from '../../utils/decimal';
 import { getDateLocale } from '../../utils/dateFormatter';
 import { preserveDemoParam } from '../../utils/navigation';
+import { dismissedKeys, recurringAnswerKey } from '../../utils/suggestionDismissals';
+import type { RecurringAnswerKind } from '../../types';
 import {
   detectRecurring,
   MIN_PAYMENTS,
@@ -55,8 +58,13 @@ const dayMonth = (date: Date): string =>
   date.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short' });
 
 export default function RecurringCommitmentsReport(): React.JSX.Element {
-  const { accounts, transactions, isLoading } = useApp();
+  const {
+    accounts, transactions, isLoading,
+    suggestionDismissals, suggestionDismissalsStatus,
+    dismissSuggestion, restoreSuggestion,
+  } = useApp();
   const { formatCurrency, displayCurrency } = useCurrencyDecimal();
+  const { showError } = useToast();
   const location = useLocation();
 
   const accountName = useMemo(
@@ -74,8 +82,68 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
     [transactions]
   );
 
-  const active = detections.filter(d => !d.stopped);
-  const stopped = detections.filter(d => d.stopped);
+  /**
+   * THE VERDICTS (handover §5). Stored through the same door every other
+   * suggestion answer goes through, keyed to the PATTERN rather than to any
+   * row of it, so an answer survives the next statement import. Load-bearing
+   * beyond this page: only a confirmed detection may ever feed the calendar
+   * or the forecast — an unconfirmed one is the app's opinion.
+   */
+  const confirmedKeys = useMemo(
+    () => dismissedKeys(suggestionDismissals, 'recurring-confirmed'),
+    [suggestionDismissals]
+  );
+  const notRecurringKeys = useMemo(
+    () => dismissedKeys(suggestionDismissals, 'recurring-not'),
+    [suggestionDismissals]
+  );
+  const answerKeyOf = (d: RecurringDetection): string =>
+    recurringAnswerKey(d.accountId, d.direction, d.payeeKey);
+
+  // Which write is in flight, so a double-click cannot record twice and the
+  // pressed control is the one that shows it is busy.
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const giveVerdict = async (d: RecurringDetection, kind: RecurringAnswerKind): Promise<void> => {
+    const key = answerKeyOf(d);
+    const opposite: RecurringAnswerKind =
+      kind === 'recurring-confirmed' ? 'recurring-not' : 'recurring-confirmed';
+    setSavingKey(key);
+    try {
+      // One verdict at a time: giving one answer withdraws the other, so the
+      // stored state can never say "confirmed AND a coincidence".
+      if ((opposite === 'recurring-confirmed' ? confirmedKeys : notRecurringKeys).has(key)) {
+        await restoreSuggestion(opposite, key);
+      }
+      await dismissSuggestion(kind, key, []);
+    } catch (error) {
+      showError(error);
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const withdrawVerdict = async (d: RecurringDetection, kind: RecurringAnswerKind): Promise<void> => {
+    const key = answerKeyOf(d);
+    setSavingKey(key);
+    try {
+      await restoreSuggestion(kind, key);
+    } catch (error) {
+      showError(error);
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const answersReady = suggestionDismissalsStatus === 'ready';
+
+  // A pattern the user has called a coincidence leaves the audit — but never
+  // the page (§5: a mis-tap must be recoverable, and the app must not be
+  // seen to hide evidence). It moves to the collapsed band at the foot.
+  const dismissed = detections.filter(d => notRecurringKeys.has(answerKeyOf(d)));
+  const considered = detections.filter(d => !notRecurringKeys.has(answerKeyOf(d)));
+  const active = considered.filter(d => !d.stopped);
+  const stopped = considered.filter(d => d.stopped);
 
   // Decimal throughout — these are money sums read against each other.
   const annualTotal = active.reduce(
@@ -138,6 +206,48 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
           <p className="text-dense tabular-nums text-gray-500 dark:text-gray-400">
             {formatCurrency(detection.amount, displayCurrency)} {detection.cadenceLabel}
           </p>
+          {/* THE TWO QUIET CONTROLS (§5). Confirm is deliberately NOT amber —
+              there are twenty of these on a page, and amber's monopoly on
+              "your next action" holds. Confirming is what lets this pattern
+              feed the calendar and the forecast; unanswered, it stays an
+              opinion and feeds nothing. */}
+          {answersReady && (
+            confirmedKeys.has(answerKeyOf(detection)) ? (
+              <p className="text-dense text-gray-500 dark:text-gray-400">
+                Confirmed
+                <button
+                  type="button"
+                  onClick={() => void withdrawVerdict(detection, 'recurring-confirmed')}
+                  disabled={savingKey === answerKeyOf(detection)}
+                  className="ml-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:underline disabled:opacity-50"
+                >
+                  Undo
+                </button>
+              </p>
+            ) : (
+              <p className="text-dense">
+                <button
+                  type="button"
+                  onClick={() => void giveVerdict(detection, 'recurring-confirmed')}
+                  disabled={savingKey === answerKeyOf(detection)}
+                  className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline disabled:opacity-50"
+                  title="Yes, this is a real commitment — confirmed items can feed the calendar and the forecast"
+                >
+                  Confirm
+                </button>
+                <span className="mx-1.5 text-gray-300 dark:text-gray-600">·</span>
+                <button
+                  type="button"
+                  onClick={() => void giveVerdict(detection, 'recurring-not')}
+                  disabled={savingKey === answerKeyOf(detection)}
+                  className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline disabled:opacity-50"
+                  title="A coincidence, not a commitment — it moves to the band at the foot of the page, where it can be restored"
+                >
+                  Not recurring
+                </button>
+              </p>
+            )
+          )}
         </div>
       </li>
     );
@@ -174,7 +284,18 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
         </p>
       </div>
 
-      {transactions.length === 0 ? (
+      {detections.length > 0 && dismissed.length === detections.length ? (
+        /* Every pattern struck off — a FILTERED empty, not an empty: the
+           count and the reason are named, per the batch-7 rule. */
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
+          <p className="text-body text-gray-500 dark:text-gray-400">
+            {dismissed.length === 1
+              ? 'The one pattern the app found is marked not recurring'
+              : `All ${dismissed.length} patterns the app found are marked not recurring`}
+            {' '}— they are in the band below, where any can be restored.
+          </p>
+        </div>
+      ) : transactions.length === 0 ? (
         /* CONSEQUENCE, THEN REMEDY (§6): a fresh ledger cannot show rhythm. */
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
           <p className="text-body text-gray-500 dark:text-gray-400">
@@ -265,6 +386,44 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
             </div>
           )}
         </>
+      )}
+
+      {dismissed.length > 0 && (
+        /* NOT RECURRING — collapsed, never gone (§5): a mis-tap is one click
+           to recover, and the app is not silently hiding evidence. These
+           patterns count in no total on this page. */
+        <details className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
+          <summary className="cursor-pointer select-none p-6 text-card font-semibold text-theme-heading dark:text-white">
+            Not recurring
+            <span className="ml-2 text-dense font-normal text-gray-400 dark:text-gray-500">
+              {dismissed.length}
+            </span>
+            <span className="ml-3 text-dense font-normal text-gray-500 dark:text-gray-400">
+              Patterns you said are coincidence — restorable any time
+            </span>
+          </summary>
+          <ul className="px-6 pb-6">
+            {dismissed.map(d => (
+              <li key={d.key} className="py-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-t border-gray-50 dark:border-gray-700/50 first:border-0">
+                <div className="min-w-0">
+                  <p className="text-body text-gray-900 dark:text-white truncate">{d.description}</p>
+                  <p className="text-dense text-gray-500 dark:text-gray-400">
+                    {d.count} payments, {d.cadenceLabel}
+                    {accountName.get(d.accountId) && <> · {accountName.get(d.accountId)}</>}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void withdrawVerdict(d, 'recurring-not')}
+                  disabled={savingKey === answerKeyOf(d)}
+                  className="text-dense text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline disabled:opacity-50 shrink-0"
+                >
+                  Restore
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </div>
   );

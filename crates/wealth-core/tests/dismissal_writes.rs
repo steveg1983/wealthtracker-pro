@@ -211,7 +211,27 @@ fn a_payee_refusal_names_text_and_stores_no_subjects() {
         assert!(answer.answer.subject_ids.is_empty());
     }
 
-    assert_eq!(scalar(&connection, "SELECT COUNT(*) FROM suggestion_dismissals"), 3);
+    // The two RECURRING verdicts (20260817220000) travel the same door with
+    // the same two habits: no subject rows, and a key whose payee text no id
+    // remapper can touch. recurring-confirmed is the first POSITIVE verdict
+    // this table holds — the gate that lets a detected pattern feed derived
+    // surfaces — and a CHECK that refused it would be the whole Confirm
+    // control failing to save on a local file.
+    for kind in ["recurring-confirmed", "recurring-not"] {
+        let answer = dismiss_suggestion(
+            &mut connection,
+            refusal(
+                kind,
+                &format!("account:11111111-1111-4111-8111-111111111111|recurring:out:{kind}%20payee"),
+                &[],
+            ),
+        )
+        .expect("recurring verdict");
+        assert!(answer.recorded);
+        assert!(answer.answer.subject_ids.is_empty());
+    }
+
+    assert_eq!(scalar(&connection, "SELECT COUNT(*) FROM suggestion_dismissals"), 5);
     assert_eq!(
         scalar(&connection, "SELECT COUNT(*) FROM suggestion_dismissal_subjects"),
         0

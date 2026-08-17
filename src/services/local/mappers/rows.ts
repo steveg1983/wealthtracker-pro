@@ -441,7 +441,9 @@ const DISMISSAL_KINDS: Record<SuggestionDismissal['kind'], true> = {
   duplicate: true,
   'payee-merchant': true,
   'payee-line': true,
-  'payee-hidden': true
+  'payee-hidden': true,
+  'recurring-confirmed': true,
+  'recurring-not': true
 };
 
 /**
