@@ -197,13 +197,16 @@ const EXPANDED_DOCK_RESERVE_PX = 32;
  * The mapping is the whole of the alignment problem: the editor never places
  * anything, it only says which cell it belongs in, and the cell is drawn by the
  * table at the column's own width under the column's own header. Any column not
- * named here — Payment, Deposit, Balance, R, Tags, Notes — stays exactly as it
- * reads. Amounts are the full editor's job.
+ * named here — Payment, Deposit, Balance, R, Tags — stays exactly as it
+ * reads. Amounts are the full editor's job. Notes joined on 17 Aug (owner:
+ * annotating a statement is the same run as tidying descriptions, and it was
+ * the one on-screen text field that still forced the full editor open per row).
  */
 const QUICK_EDIT_COLUMN_FIELDS: Readonly<Record<string, QuickEditField>> = {
   date: 'date',
   description: 'description',
   category: 'category',
+  notes: 'notes',
 };
 
 // Friendly labels for the View dropdown's column checkboxes.
@@ -2857,7 +2860,7 @@ export default function AccountTransactions() {
    */
   const quickEditFields = useMemo<QuickEditField[]>(() => {
     const shown = new Set(columns.map(c => c.key));
-    return (['date', 'description', 'category'] as const).filter(field => {
+    return (['date', 'description', 'category', 'notes'] as const).filter(field => {
       if (!shown.has(field)) return false;
       return field !== 'category' || canEditCategoryInPlace;
     });
