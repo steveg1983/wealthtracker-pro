@@ -3,6 +3,7 @@ import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
 import {
   BarChart3Icon,
   CalendarIcon,
+  ClockIcon,
   FileTextIcon,
   LandmarkIcon,
   PieChartIcon,
@@ -164,6 +165,19 @@ export const REPORTS: ReportDefinition[] = [
     icon: UsersIcon,
     usesPeriod: true,
     component: lazyWithRecovery(() => import('./SpendingByPayeeReport')),
+  },
+  {
+    id: 'recurring-commitments',
+    title: 'What I’m committed to',
+    description: 'The payments that repeat — what each one costs a year, and what changed.',
+    group: 'spending',
+    icon: ClockIcon,
+    // A rhythm needs the whole history to be seen; a window that hides half
+    // the payments would weaken every evidence line on the page. Like the
+    // distribution report, the hub's period picker is hidden rather than
+    // shown governing nothing.
+    usesPeriod: false,
+    component: lazyWithRecovery(() => import('./RecurringCommitmentsReport')),
   },
   {
     id: 'period-comparison',
