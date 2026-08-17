@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { preserveDemoParam } from '../utils/navigation';
@@ -7,6 +7,10 @@ import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
 import { toDecimal } from '../utils/decimal';
+import { getDateLocale } from '../utils/dateFormatter';
+import { detectRecurring } from '../utils/recurringDetection';
+import { projectRecurringSchedule } from '../utils/recurringSchedule';
+import { dismissedKeys, recurringAnswerKey } from '../utils/suggestionDismissals';
 
 interface DayData {
   date: Date;
@@ -20,7 +24,7 @@ interface DayData {
 }
 
 export default function Calendar() {
-  const { transactions, accounts } = useApp();
+  const { transactions, accounts, suggestionDismissals } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -151,6 +155,51 @@ export default function Calendar() {
     return days;
   }, [transactions, year, month, totalOpeningBalance]);
 
+  /**
+   * THE FORWARD HALF (Design handover 17 Aug, §1 and §8 step 3): what is
+   * DUE, projected from the recurring patterns the user has CONFIRMED on
+   * "What I'm committed to" — and only those. An unconfirmed detection is
+   * the app's opinion, and an opinion must never sit on a calendar looking
+   * like a payment that is going to happen (§5). Everything here is an
+   * inference and is dressed as one: the word is "due", the styling is
+   * quiet, and nothing joins the actual-money figures around it.
+   */
+  const confirmedPatterns = useMemo(() => {
+    const confirmed = dismissedKeys(suggestionDismissals, 'recurring-confirmed');
+    return detectRecurring(transactions, new Date()).filter(
+      d => !d.stopped && confirmed.has(recurringAnswerKey(d.accountId, d.direction, d.payeeKey))
+    );
+  }, [transactions, suggestionDismissals]);
+
+  /** The panel's window: the next 30 days, from today wherever the grid is. */
+  const dueNext = useMemo(() => {
+    const from = new Date();
+    from.setHours(0, 0, 0, 0);
+    const until = new Date(from.getTime() + 30 * 86_400_000);
+    return projectRecurringSchedule(confirmedPatterns, from, until);
+  }, [confirmedPatterns]);
+
+  /** Expected items per day of the VISIBLE month, for the quiet cell marks. */
+  const dueByDay = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const monthStart = new Date(year, month, 1);
+    const from = monthStart > today ? monthStart : today;
+    const until = new Date(year, month + 1, 0, 23, 59, 59);
+    const byDay = new Map<number, number>();
+    for (const occurrence of projectRecurringSchedule(confirmedPatterns, from, until)) {
+      if (occurrence.date.getMonth() !== month || occurrence.date.getFullYear() !== year) continue;
+      const day = occurrence.date.getDate();
+      byDay.set(day, (byDay.get(day) ?? 0) + 1);
+    }
+    return byDay;
+  }, [confirmedPatterns, year, month]);
+
+  const accountNameById = useMemo(
+    () => new Map(accounts.map(a => [a.id, a.name])),
+    [accounts]
+  );
+
   // Month summary
   const monthSummary = useMemo(() => {
     const monthDays = calendarData.filter(d => d.isCurrentMonth);
@@ -218,6 +267,80 @@ export default function Calendar() {
           <p className="text-lg font-semibold text-gray-900 dark:text-white">{monthSummary.totalTransactions}</p>
         </div>
       </div>
+
+      {/* ─ DUE NEXT — the forward panel (Design handover §1, §8 step 3) ────
+          Confirmed patterns only, and it says so: an unconfirmed detection
+          is an opinion and never sits here looking like a payment that will
+          happen. Every figure is an EXPECTATION — neutral, worded "due",
+          never joining the actual-money hues around it (P8: an inference is
+          not a figure the user entered). */}
+      <section
+        aria-labelledby="due-next-heading"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-3 mb-4"
+      >
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="due-next-heading" className="text-sm font-semibold text-gray-900 dark:text-white">
+            Due in the next 30 days
+            {dueNext.length > 0 && (
+              <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">
+                {dueNext.length}
+              </span>
+            )}
+          </h2>
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            Only patterns you have confirmed on{' '}
+            <Link
+              to={preserveDemoParam('/reports/recurring-commitments', location.search)}
+              className="text-primary hover:underline"
+            >
+              What I&rsquo;m committed to
+            </Link>
+          </span>
+        </div>
+        {dueNext.length === 0 ? (
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Nothing confirmed yet — recurring payments you confirm on that
+            report appear here before they fall due.
+          </p>
+        ) : (
+          <>
+            <ul className="mt-2 divide-y divide-gray-50 dark:divide-gray-700/50">
+              {dueNext.slice(0, 8).map((occurrence) => (
+                <li
+                  key={`${occurrence.detection.key}-${occurrence.date.getTime()}`}
+                  className="py-1.5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5"
+                >
+                  <span className="min-w-0 flex items-baseline gap-2">
+                    <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400 w-14 shrink-0">
+                      {occurrence.date.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short' })}
+                    </span>
+                    <span className="text-sm text-gray-900 dark:text-white truncate">
+                      {occurrence.detection.description}
+                    </span>
+                    {accountNameById.get(occurrence.detection.accountId) && (
+                      <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                        {accountNameById.get(occurrence.detection.accountId)}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-sm tabular-nums text-gray-600 dark:text-gray-300 shrink-0">
+                    {formatCurrency(occurrence.amount.toNumber())}
+                    {occurrence.detection.direction === 'in' && (
+                      <span className="ml-1 text-xs text-gray-400 dark:text-gray-500">in</span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {dueNext.length > 8 && (
+              /* Named, never silently truncated. */
+              <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+                …and {dueNext.length - 8} more in the next 30 days.
+              </p>
+            )}
+          </>
+        )}
+      </section>
 
       {/* Calendar header with navigation */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -322,6 +445,17 @@ export default function Calendar() {
                   day.runningBalance < 0 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'
                 }`}>
                   {formatCurrency(day.runningBalance)}
+                </div>
+              )}
+
+              {/* EXPECTED, not happened: confirmed patterns falling due on
+                  this day. Neutral and worded, deliberately nothing like the
+                  actual-money figures above — an inference on a calendar must
+                  never read as a transaction (P8). The panel above the grid
+                  carries the detail. */}
+              {day.isCurrentMonth && (dueByDay.get(day.day) ?? 0) > 0 && (
+                <div className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
+                  {dueByDay.get(day.day)} due
                 </div>
               )}
             </div>

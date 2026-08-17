@@ -14,6 +14,9 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
     accounts: [
       { id: 'acc1', name: 'Test Account', type: 'current', balance: 1000, openingBalance: 1000 },
     ],
+    // The forward panel reads the recurring verdicts; none here, so it shows
+    // its "nothing confirmed yet" line.
+    suggestionDismissals: [],
   }),
 }));
 
@@ -39,6 +42,21 @@ describe('Calendar', () => {
       </MemoryRouter>
     );
     expect(screen.getByText('Calendar')).toBeInTheDocument();
+  });
+
+  it('shows the forward panel gated on CONFIRMED patterns, with the way to confirm', () => {
+    render(
+      <MemoryRouter>
+        <Calendar />
+      </MemoryRouter>
+    );
+
+    // No verdicts in the mock, so the panel states its gate rather than
+    // projecting the app's unconfirmed opinions onto future days (§5).
+    expect(screen.getByText('Due in the next 30 days')).toBeInTheDocument();
+    expect(screen.getByText(/Nothing confirmed yet/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /What I’m committed to/ }))
+      .toHaveAttribute('href', '/reports/recurring-commitments');
   });
 
   it('renders day headers', () => {
