@@ -279,7 +279,7 @@ export class NotificationService {
             field: 'amount',
             operator: 'greater_than',
             value: this.transactionAlertConfig.largeTransactionThreshold,
-            description: `Transaction amount exceeds £${this.transactionAlertConfig.largeTransactionThreshold}`
+            description: `Transaction amount exceeds ${formatCurrencyDecimal(this.transactionAlertConfig.largeTransactionThreshold)}`
           }
         ],
         actions: [
@@ -561,7 +561,10 @@ export class NotificationService {
         id: `duplicate-transaction-${transaction.id}`,
         type: 'warning',
         title: 'Possible Duplicate Transaction',
-        message: `Similar transaction detected: ${transaction.description} (£${transaction.amount})`,
+        // Through the house formatter, not `£${raw}`: the raw number printed a
+        // minus INSIDE punctuation parentheses — "(£-31.15)" — colliding with
+        // the accounting convention where parentheses ARE the sign.
+        message: `Similar transaction detected: ${transaction.description} at ${formatCurrencyDecimal(transaction.amount)}`,
         timestamp: new Date(),
         read: false,
         action: {

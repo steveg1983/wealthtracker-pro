@@ -1144,13 +1144,27 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   }
                 }}
                 placeholder="0.00"
-                className={`w-full px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent ${
-                  formData.amount && (parseMoneyInput(formData.amount) ?? 0) < 0
+                // THE COLOUR FOLLOWS WHERE THE MONEY GOES, not the field's
+                // sign. This field holds MAGNITUDES for income/expense (the
+                // seed is Math.abs — the Type toggle above carries the
+                // direction, exactly as Quick Add works), so colouring by the
+                // field's own sign painted every expense income-green: the
+                // value here is never negative unless the user types a minus,
+                // which means a REDUCING line (a refund under income, cashback
+                // under expense) and flips the flow. A transfer's sign IS its
+                // direction, so it passes straight through. (Owner, 17 Aug:
+                // "labelled as an expense but the amount is in green".)
+                className={`w-full px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent ${(() => {
+                  const entered = formData.amount ? parseMoneyInput(formData.amount) ?? 0 : 0;
+                  const flow = entered === 0 ? 0
+                    : formData.type === 'expense' ? -Math.sign(entered)
+                    : Math.sign(entered);
+                  return flow < 0
                     ? 'text-red-600 dark:text-red-400'
-                    : formData.amount && (parseMoneyInput(formData.amount) ?? 0) > 0
+                    : flow > 0
                     ? 'text-green-600 dark:text-green-400'
-                    : 'text-gray-900 dark:text-white'
-                }`}
+                    : 'text-gray-900 dark:text-white';
+                })()}`}
                 required
               />
             </div>

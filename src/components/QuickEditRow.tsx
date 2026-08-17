@@ -87,8 +87,11 @@ import type { Account, Transaction } from '../types';
  * virtualised list (see VirtualizedTable's note on component identity).
  */
 
-/** The three things in the row that can hold the cursor. */
-export type QuickEditField = 'date' | 'description' | 'category';
+/** The things in the row that can hold the cursor.
+    Notes joined on 17 Aug (owner): tidying a statement is a run down ONE
+    field, and notes was the one field on show that still forced the full
+    editor open for every row. */
+export type QuickEditField = 'date' | 'description' | 'category' | 'notes';
 
 /**
  * Where the cursor should land in an editor that is opening, and how.
@@ -176,6 +179,8 @@ interface QuickEditRowContextValue {
   setDate: (value: string) => void;
   description: string;
   setDescription: (value: string) => void;
+  notes: string;
+  setNotes: (value: string) => void;
   category: string;
   chooseCategory: (categoryId: string) => void;
   /** Is the Category cell currently the transfer-to ACCOUNT picker? */
@@ -199,6 +204,7 @@ interface QuickEditRowContextValue {
   cancelTransferPrompt: () => void;
   dateFieldRef: React.RefObject<HTMLDivElement>;
   descriptionRef: React.RefObject<HTMLInputElement>;
+  notesRef: React.RefObject<HTMLInputElement>;
   saveButtonRef: React.RefObject<HTMLButtonElement>;
   saveAndNextButtonRef: React.RefObject<HTMLButtonElement>;
   handleKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
@@ -267,7 +273,7 @@ export interface QuickEditRowProviderProps {
   children: React.ReactNode;
 }
 
-const ALL_FIELDS: readonly QuickEditField[] = ['date', 'description', 'category'];
+const ALL_FIELDS: readonly QuickEditField[] = ['date', 'description', 'category', 'notes'];
 
 export function QuickEditRowProvider({
   transaction,
@@ -297,6 +303,7 @@ export function QuickEditRowProvider({
   const [date, setDate] = useState(() => (transaction ? toDateInputValue(transaction.date) : ''));
   const [description, setDescription] = useState(transaction?.description ?? '');
   const [category, setCategory] = useState(transaction?.category ?? '');
+  const [notes, setNotes] = useState(transaction?.notes ?? '');
   /**
    * Which button's write is in flight, or null when none is.
    *
@@ -313,6 +320,7 @@ export function QuickEditRowProvider({
   // component's DOM by id.
   const dateFieldRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<HTMLInputElement>(null);
+  const notesRef = useRef<HTMLInputElement>(null);
   // Where the cursor goes when a field's Enter accepts what was typed; see the
   // comment on focusRunButton.
   const saveButtonRef = useRef<HTMLButtonElement>(null);
@@ -404,6 +412,7 @@ export function QuickEditRowProvider({
     setDate(transaction ? toDateInputValue(transaction.date) : '');
     setDescription(transaction?.description ?? '');
     setCategory(transaction?.category ?? '');
+    setNotes(transaction?.notes ?? '');
     // Transfer mode is about the ROW being edited, so it does not travel to the
     // next one: a Save & Next that landed with the account picker still up
     // would offer to move money the moment the user typed.
@@ -452,6 +461,13 @@ export function QuickEditRowProvider({
         // descriptions is nearly always a REPLACEMENT ("ASDA STORES 4021" →
         // "Asda"). Typing overwrites; one press of End or → keeps it instead.
         descriptionRef.current?.select();
+        return;
+      case 'notes':
+        // Same selection rule as the description, for the same reason: a run
+        // down the notes column is filing the same kind of remark row after
+        // row, and what is already there is usually being replaced.
+        notesRef.current?.focus();
+        notesRef.current?.select();
         return;
       case 'category':
         setCategoryOpenToken(token => token + 1);
@@ -556,6 +572,7 @@ export function QuickEditRowProvider({
         await updateTransaction(transaction.id, {
           date: parsedDate,
           description: description.trim(),
+          notes,
           // Reviewed, even though the transfer half of this save has not
           // happened yet: this write COMMITTED the user's field edits, and it
           // was a save button that made it. Cancelling the transfer prompt
@@ -606,6 +623,9 @@ export function QuickEditRowProvider({
       await updateTransaction(transaction.id, {
         date: parsedDate,
         description: description.trim(),
+        // As the full editor's update sends it: the string as typed, and an
+        // emptied field clears the note.
+        notes,
         // A SAVE IS A REVIEW. This is the whole of the Microsoft Money rule the
         // register's bold implements: the row stops being new when a save
         // button commits it, and not a moment before. Opening the editor and
@@ -655,7 +675,7 @@ export function QuickEditRowProvider({
       setSavingAction(null);
     }
   }, [
-    transaction, isSaving, description, date, category, categories, isTransfer, isSplit,
+    transaction, isSaving, description, notes, date, category, categories, isTransfer, isSplit,
     transferMode, transferAccountId, accounts,
     transactions, updateTransaction, propagateCategory, finishSave, showError,
   ]);
@@ -938,6 +958,8 @@ export function QuickEditRowProvider({
       setDate,
       description,
       setDescription,
+      notes,
+      setNotes,
       category,
       chooseCategory,
       transferMode,
@@ -956,6 +978,7 @@ export function QuickEditRowProvider({
       cancelTransferPrompt,
       dateFieldRef,
       descriptionRef,
+      notesRef,
       saveButtonRef,
       saveAndNextButtonRef,
       handleKeyDown,
@@ -965,7 +988,7 @@ export function QuickEditRowProvider({
       dismiss: onDismiss,
     };
   }, [
-    transaction, fields, date, description, category, chooseCategory,
+    transaction, fields, date, description, notes, category, chooseCategory,
     transferMode, toggleTransferMode, transferAccountId, chooseTransferAccount, transferTargets,
     dateFocusToken, categoryOpenToken, showingSuggestion, savingAction, onNext,
     transferPrompt, linkTransfer, createTransfer, cancelTransferPrompt,
@@ -1056,9 +1079,10 @@ function QuickEditCellShell({
  */
 export function QuickEditFieldCell({ field }: { field: QuickEditField }): React.JSX.Element {
   const {
-    transaction, date, setDate, description, setDescription, category, chooseCategory,
+    transaction, date, setDate, description, setDescription, notes, setNotes,
+    category, chooseCategory,
     transferMode, toggleTransferMode, transferAccountId, chooseTransferAccount, transferTargets,
-    dateFocusToken, categoryOpenToken, dateFieldRef, descriptionRef,
+    dateFocusToken, categoryOpenToken, dateFieldRef, descriptionRef, notesRef,
   } = useQuickEditRow();
 
   if (field === 'date') {
@@ -1111,6 +1135,28 @@ export function QuickEditFieldCell({ field }: { field: QuickEditField }): React.
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           aria-label="Transaction description"
+          className="w-full px-2 h-[36px] text-sm font-normal bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg dark:text-white"
+        />
+      </QuickEditCellShell>
+    );
+  }
+
+  if (field === 'notes') {
+    return (
+      // The Notes cell behaves EXACTLY as the description does — type, Enter
+      // (accepts, hands over Save & Next), Enter (saves, moves on, cursor back
+      // here) — because the owner's use of it IS the description's use: the
+      // same annotation filed down a hundred rows. A single-line input, not
+      // the full editor's markdown box: what fits in a register cell is what
+      // can be edited in one; anything longer is the full editor's job, the
+      // same division Amounts already live under.
+      <QuickEditCellShell field="notes" className="px-3 min-w-0">
+        <input
+          ref={notesRef}
+          type="text"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          aria-label="Transaction notes"
           className="w-full px-2 h-[36px] text-sm font-normal bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg dark:text-white"
         />
       </QuickEditCellShell>

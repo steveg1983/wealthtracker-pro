@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { documentService } from '../services/documentService';
 import type { Document, DocumentUploadOptions } from '../services/documentService';
+import { formatCurrency } from '../utils/currency-decimal';
 import {
   UploadIcon,
   FileTextIcon,
@@ -385,7 +386,7 @@ export default function DocumentUpload({
                   {doc.extractedData && (
                     <p className="text-xs text-gray-600 dark:text-gray-400">
                       {doc.extractedData.merchant && `Merchant: ${doc.extractedData.merchant}`}
-                      {doc.extractedData.totalAmount && ` • £${doc.extractedData.totalAmount}`}
+                      {doc.extractedData.totalAmount && ` • ${formatCurrency(doc.extractedData.totalAmount)}`}
                     </p>
                   )}
                 </div>

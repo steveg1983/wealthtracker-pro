@@ -85,6 +85,7 @@ const ROWS: Transaction[] = [
   {
     id: 'txn-2', date: new Date(Date.UTC(2026, 0, 9)), description: 'Cobblestone Cafe',
     amount: -6.8, type: 'expense', category: 'det-groceries', accountId: ACCOUNT.id, cleared: false,
+    notes: 'Loyalty stamp',
   },
   {
     id: 'txn-3', date: new Date(Date.UTC(2026, 0, 12)), description: 'Thistledown Books',
@@ -929,5 +930,112 @@ describe('Account register — Escape peels the box off first', () => {
     fireEvent.keyDown(combobox, { key: 'Delete' });
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * NOTES JOINS THE RUN (owner, 17 Aug): "Can the notes area act just like
+ * description as in if I type something in there and press enter, save & next
+ * gets highlighted and another press of enter saves it and moves to the next."
+ *
+ * The column is hidden by default, so these tests show it the way the owner
+ * did — through the View menu — and the last test pins the other half of the
+ * rule: a hidden column takes its editor with it.
+ */
+describe('Account register — the Notes cell joins the run', () => {
+  const notesField = (): HTMLInputElement => {
+    const el = screen.getByLabelText('Transaction notes');
+    if (!(el instanceof HTMLInputElement)) throw new Error('the notes cell is not an input');
+    return el;
+  };
+
+  /** Tick Notes in the View menu, then close it, exactly as a user would. */
+  const showNotesColumn = async (): Promise<void> => {
+    const viewButton = screen.getByRole('button', { name: 'View' });
+    fireEvent.click(viewButton);
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Notes' }));
+    fireEvent.click(viewButton);
+  };
+
+  it('puts the notes field in its own cell, seeded with the stored note', async () => {
+    await openRegister();
+    await showNotesColumn();
+
+    clickRow('Cobblestone Cafe');
+
+    const row = editorRow();
+    expect(row.contains(notesField())).toBe(true);
+    expect(notesField()).toHaveValue('Loyalty stamp');
+
+    // Under its own header, same contract as the other three fields.
+    const headers = within(grid())
+      .getAllByRole('columnheader')
+      .map(h => (h.textContent ?? '').replace(/[↑↓]/g, '').trim());
+    const cells = within(row).getAllByRole('gridcell');
+    const cellIndex = cells.indexOf(notesField().closest('[role="gridcell"]') as HTMLElement);
+    expect(cellIndex).toBe(headers.indexOf('Notes'));
+  });
+
+  it('types, Enter accepts, Enter saves the note and moves on — the description rhythm exactly', async () => {
+    const user = userEvent.setup();
+    await openRegister();
+    await showNotesColumn();
+    clickRow('Sandpiper Foods');
+
+    notesField().focus();
+    fireEvent.change(notesField(), { target: { value: 'Card ending 4021' } });
+    fireEvent.keyDown(notesField(), { key: 'Enter' });
+
+    // First Enter accepts and hands over Save & Next — nothing written yet.
+    expect(updateTransaction).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(saveAndNext());
+
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(updateTransaction).toHaveBeenCalledTimes(1);
+    });
+    expect(updateTransaction).toHaveBeenCalledWith('txn-1', expect.objectContaining({
+      notes: 'Card ending 4021',
+    }));
+
+    // …and the run lands in the NEXT row's notes, stored text selected, so a
+    // sweep down the column is type, Enter, Enter, type, Enter, Enter.
+    await waitFor(() => {
+      expect(notesField()).toHaveValue('Loyalty stamp');
+    });
+    const next = notesField();
+    expect(document.activeElement).toBe(next);
+    expect(next.selectionStart).toBe(0);
+    expect(next.selectionEnd).toBe('Loyalty stamp'.length);
+  });
+
+  it('saves an untouched note back unchanged when the edit was elsewhere', async () => {
+    const user = userEvent.setup();
+    await openRegister();
+    await showNotesColumn();
+    clickRow('Cobblestone Cafe');
+
+    descriptionField().focus();
+    fireEvent.change(descriptionField(), { target: { value: 'Cobblestone Cafe Ltd' } });
+    fireEvent.keyDown(descriptionField(), { key: 'Enter' });
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(updateTransaction).toHaveBeenCalledTimes(1);
+    });
+    expect(updateTransaction).toHaveBeenCalledWith('txn-2', expect.objectContaining({
+      description: 'Cobblestone Cafe Ltd',
+      notes: 'Loyalty stamp',
+    }));
+  });
+
+  it('takes its editor with it while the column is hidden', async () => {
+    await openRegister();
+
+    clickRow('Sandpiper Foods');
+
+    expect(isEditing()).toBe(true);
+    expect(screen.queryByLabelText('Transaction notes')).not.toBeInTheDocument();
   });
 });
