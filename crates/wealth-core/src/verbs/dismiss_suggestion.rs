@@ -115,7 +115,7 @@ use crate::wire::null_if_empty;
 pub struct DismissSuggestion {
     /// Owner. `NOT NULL` and a foreign key in both engines.
     pub user_id: String,
-    /// Which sort of offer is being refused — one of the seven
+    /// Which sort of suggestion is being answered — one of the nine
     /// `suggestion_dismissals_kind_known` admits. Enumerated by CHECK in both
     /// engines, so the FILE judges it and this verb does not hold a second copy
     /// of the list.

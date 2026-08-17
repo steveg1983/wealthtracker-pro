@@ -44,10 +44,17 @@ export interface RecurringPriceChange {
 }
 
 export interface RecurringDetection {
-  /** Stable identity for confirm/dismiss state later: account + normalised payee + direction. */
+  /** Stable identity for confirm/dismiss state: account + normalised payee + direction. */
   key: string;
   /** The most recent raw description — what the reader will recognise. */
   description: string;
+  /**
+   * The normalised payee identity the pattern was grouped by. Exposed so an
+   * answer can be STORED against the pattern (utils/suggestionDismissals'
+   * recurringAnswerKey) without re-deriving the normalisation at a call site
+   * that could drift from this module's.
+   */
+  payeeKey: string;
   accountId: string;
   /** 'out' is a commitment; 'in' is recurring income (a salary), kept for the calendar. */
   direction: 'in' | 'out';
@@ -169,14 +176,21 @@ export function detectRecurring(
   // Transfers move money between the user's own accounts — a standing order
   // to savings is a rhythm, but not a commitment to anyone else, and the
   // transfer pages already show it.
-  const groups = new Map<string, QualifyingRow[]>();
+  interface Group {
+    accountId: string;
+    direction: 'in' | 'out';
+    payeeKey: string;
+    rows: QualifyingRow[];
+  }
+  const groups = new Map<string, Group>();
   for (const t of transactions) {
     if (t.type !== 'income' && t.type !== 'expense') continue;
     if (t.amount === 0) continue;
     const date = t.date instanceof Date ? t.date : new Date(t.date);
     if (Number.isNaN(date.getTime())) continue;
     const direction = t.amount < 0 ? 'out' : 'in';
-    const key = `${t.accountId}::${direction}::${normalisePayeeKey(t.description)}`;
+    const payeeKey = normalisePayeeKey(t.description);
+    const key = `${t.accountId}::${direction}::${payeeKey}`;
     const amount = toDecimal(t.amount).abs();
     const row: QualifyingRow = {
       date,
@@ -184,13 +198,14 @@ export function detectRecurring(
       amountKey: amount.toFixed(2),
       description: t.description,
     };
-    const list = groups.get(key);
-    if (list) list.push(row); else groups.set(key, [row]);
+    const group = groups.get(key);
+    if (group) group.rows.push(row);
+    else groups.set(key, { accountId: t.accountId, direction, payeeKey, rows: [row] });
   }
 
   const detections: RecurringDetection[] = [];
 
-  for (const [key, rows] of groups) {
+  for (const [key, { accountId, direction, payeeKey, rows }] of groups) {
     if (rows.length < MIN_PAYMENTS) continue;
     rows.sort((a, b) => a.date.getTime() - b.date.getTime());
 
@@ -249,8 +264,9 @@ export function detectRecurring(
     detections.push({
       key,
       description: last.description,
-      accountId: key.slice(0, key.indexOf('::')),
-      direction: key.includes('::out::') ? 'out' : 'in',
+      payeeKey,
+      accountId,
+      direction,
       cadence,
       cadenceLabel: label,
       amount,

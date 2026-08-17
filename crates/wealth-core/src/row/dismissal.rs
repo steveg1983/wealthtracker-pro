@@ -55,10 +55,12 @@ use crate::error::CoreResult;
 pub struct DismissalRow {
     /// Primary key.
     pub id: String,
-    /// One of the seven `suggestion_dismissals_kind_known` admits: the four the
+    /// One of the nine `suggestion_dismissals_kind_known` admits: the four the
     /// transfer sweep makes (`transfer-pair`, `transfer-leg`, `stranded`,
-    /// `duplicate`) and the three Payee cleanup makes (`payee-merchant`,
-    /// `payee-line`, `payee-hidden`). See the module docs.
+    /// `duplicate`), the three Payee cleanup makes (`payee-merchant`,
+    /// `payee-line`, `payee-hidden`), and the two recurring verdicts
+    /// (`recurring-confirmed`, `recurring-not` — 20260817220000). See the
+    /// module docs.
     pub kind: String,
     /// What was refused, as the sweep names it. Unique per (owner, kind).
     pub subject_key: String,

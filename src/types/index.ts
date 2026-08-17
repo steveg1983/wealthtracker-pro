@@ -439,12 +439,27 @@ export type PayeeDismissalKind =
   /** One payee text the screen must stop listing and stop counting entirely. */
   | 'payee-hidden';
 
+/**
+ * The two ANSWERS a recurring detection can be given (Design handover,
+ * 17 Aug §5). Not both refusals: `recurring-confirmed` is the user vouching
+ * for a pattern — the statement that lets it feed the calendar and the
+ * forecast, which an unconfirmed detection never may. Neither holds financial
+ * data and neither changes a figure; confirming can only ALLOW a derived
+ * surface to read what the register already says.
+ */
+export type RecurringAnswerKind =
+  /** "Yes, this is a real commitment" — the gate to every derived surface. */
+  | 'recurring-confirmed'
+  /** "A coincidence" — hidden into a recoverable band, never deleted. */
+  | 'recurring-not';
+
 export type DismissalKind =
   | 'transfer-pair'
   | 'transfer-leg'
   | 'stranded'
   | 'duplicate'
-  | PayeeDismissalKind;
+  | PayeeDismissalKind
+  | RecurringAnswerKind;
 
 /**
  * A suggestion the user has told a sweep to stop offering. Holds no financial
