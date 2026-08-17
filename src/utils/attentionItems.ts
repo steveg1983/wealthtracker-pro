@@ -1,6 +1,7 @@
 import type { Account } from '../types';
 import type { AutoSyncMode } from './bankAutoSync';
 import { toDecimal } from './decimal';
+import { isCardAccountType } from './accountNumberInput';
 
 /**
  * "Needs Your Attention": WHY each account is on the list, in words, and where
@@ -17,7 +18,7 @@ import { toDecimal } from './decimal';
  * below are tested at fixed instants rather than against the wall clock.
  */
 
-export type AttentionKind = 'low-balance' | 'credit-utilisation' | 'feed-stale' | 'feed-reauth';
+export type AttentionKind = 'low-balance' | 'card-spending' | 'credit-utilisation' | 'feed-stale' | 'feed-reauth';
 
 export interface AttentionItem {
   account: Account;
@@ -141,20 +142,41 @@ function buildAccountItem(
   balance: number,
   formatMoney: AttentionInput['formatMoney']
 ): AttentionItem | null {
+  /*
+   * ON A CARD THE SAME NUMBER MEANS SPENDING (owner, 16 August). The user
+   * types the positive figure they think in — "warn me at £10,000 of spend" —
+   * and the app knows spend is a negative balance, so the line is crossed at
+   * −threshold. One stored column, one comparison, two readings.
+   *
+   * This also repairs the old semantics on cards, which were near-useless:
+   * "balance below £500" is almost always TRUE of an account that lives
+   * negative, so a card with this alert on was a card that warned forever.
+   */
+  const isCard = isCardAccountType(account.type);
   if (
     account.lowBalanceAlertEnabled &&
     account.lowBalanceThreshold != null &&
-    balance < account.lowBalanceThreshold
+    balance < (isCard ? -account.lowBalanceThreshold : account.lowBalanceThreshold)
   ) {
-    return {
-      account,
-      kind: 'low-balance',
-      reason:
-        `Down to ${formatMoney(balance, account.currency)} — ` +
-        `below the ${formatMoney(account.lowBalanceThreshold, account.currency)} you asked to be warned at.`,
-      href: `/accounts/${account.id}`,
-      actionLabel: 'Open register',
-    };
+    return isCard
+      ? {
+          account,
+          kind: 'card-spending',
+          reason:
+            `Spending at ${formatMoney(Math.abs(balance), account.currency)} — ` +
+            `above the ${formatMoney(account.lowBalanceThreshold, account.currency)} you asked to be warned at.`,
+          href: `/accounts/${account.id}`,
+          actionLabel: 'Open register',
+        }
+      : {
+          account,
+          kind: 'low-balance',
+          reason:
+            `Down to ${formatMoney(balance, account.currency)} — ` +
+            `below the ${formatMoney(account.lowBalanceThreshold, account.currency)} you asked to be warned at.`,
+          href: `/accounts/${account.id}`,
+          actionLabel: 'Open register',
+        };
   }
 
   // A card IN CREDIT is not using any of its limit. The previous rule took the

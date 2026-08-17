@@ -13,7 +13,7 @@ import { formatDecimal } from '../../utils/decimal-format';
 import { ARRIVAL_ROW_CLASS, useArrivalRowFocus } from '../../hooks/useArrivalFocus';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
-import { categoricalColor, useCategoricalRamp } from '../../components/charts/chartColors';
+import { categoricalColor, useCategoricalRamp, useChartTooltipStyle } from '../../components/charts/chartColors';
 
 /**
  * "Spending by category" — where the money went, ranked.
@@ -41,6 +41,8 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
   const categoryFocus = useArrivalRowFocus(focus);
   const { accounts, categories, rows, flows } = useReportDataset(picker, selection.scope);
   const { formatCurrency } = useCurrencyDecimal();
+  // Recharts' default tooltip is black-on-white whatever the mode.
+  const chartTooltipStyle = useChartTooltipStyle();
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -143,6 +145,7 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
                   ))}
                 </Pie>
                 <Tooltip
+                  contentStyle={chartTooltipStyle}
                   formatter={(value: number | string) =>
                     formatCurrency(typeof value === 'number' ? value : Number(value))
                   }

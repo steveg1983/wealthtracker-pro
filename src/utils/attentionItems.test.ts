@@ -104,6 +104,40 @@ describe('buildAttentionItems — low balance', () => {
   });
 });
 
+describe('buildAttentionItems — card spending (owner, 16 August)', () => {
+  /*
+   * On a card the SAME stored threshold means spending, not balance. The user
+   * types the positive figure they think in — £1,000 of spend — and the line
+   * is crossed at −1,000, because spend on a card IS a negative balance.
+   *
+   * This also repairs the old reading, which was near-useless on a card:
+   * "balance below £500" is almost always true of an account that lives
+   * negative, so an armed card warned forever.
+   */
+  const armedCard = account({
+    id: 'card-s',
+    name: 'Sample Card',
+    type: 'credit',
+    lowBalanceAlertEnabled: true,
+    lowBalanceThreshold: 1000,
+  });
+
+  it('warns once spending crosses the figure the user typed', () => {
+    const [item] = build({ accounts: [armedCard], balances: { 'card-s': -1200 } });
+    expect(item.kind).toBe('card-spending');
+    expect(item.reason).toBe('Spending at £1200.00 — above the £1000.00 you asked to be warned at.');
+  });
+
+  it('stays quiet below the line — including at zero and in credit', () => {
+    expect(build({ accounts: [armedCard], balances: { 'card-s': -1000 } })).toEqual([]);
+    expect(build({ accounts: [armedCard], balances: { 'card-s': -999.99 } })).toEqual([]);
+    expect(build({ accounts: [armedCard], balances: { 'card-s': 0 } })).toEqual([]);
+    // In credit: the old semantics ("balance below £1,000") would have fired
+    // here, on the one person who owes nothing.
+    expect(build({ accounts: [armedCard], balances: { 'card-s': 200 } })).toEqual([]);
+  });
+});
+
 describe('buildAttentionItems — credit utilisation', () => {
   const card = account({ id: 'card-1', name: 'Sample Card', type: 'credit', creditLimit: 1000 });
 
@@ -126,16 +160,25 @@ describe('buildAttentionItems — credit utilisation', () => {
     expect(build({ accounts: [card], balances: { 'card-1': -701 } })).toHaveLength(1);
   });
 
-  it('never joins a low-balance row — one account, one row', () => {
+  it('never joins a spending row — one account, one row', () => {
+    /*
+     * The invariant is unchanged: one account raises at most one row, and the
+     * threshold alert outranks utilisation. What changed (16 August) is the
+     * KIND a card's threshold alert carries — spending, not low-balance —
+     * because on a card the same stored figure means "warn me at this much
+     * spend". The fixture's old −100 threshold was itself an artefact of the
+     * balance reading; a spend threshold is the positive number the user
+     * types.
+     */
     const armedCard = account({
       ...card,
       lowBalanceAlertEnabled: true,
-      lowBalanceThreshold: -100,
+      lowBalanceThreshold: 100,
     });
     const items = build({ accounts: [armedCard], balances: { 'card-1': -900 } });
 
     expect(items).toHaveLength(1);
-    expect(items[0].kind).toBe('low-balance');
+    expect(items[0].kind).toBe('card-spending');
   });
 });
 

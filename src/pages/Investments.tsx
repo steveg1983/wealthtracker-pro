@@ -10,7 +10,12 @@ import InvestmentMarketView from '../components/InvestmentMarketView';
 import PortfolioManager, { type HoldingFormValues } from '../components/PortfolioManager';
 import StockWatchlist from '../components/StockWatchlist';
 // Use optimized lazy-loaded charts to reduce bundle size
-import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from '../components/charts/OptimizedCharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from '../components/charts/OptimizedCharts';
+// Tooltip comes from recharts ITSELF, not the lazy barrel: recharts identifies
+// a chart's Tooltip child by component type, and the lazy stand-in is a type
+// it has never met — which is how this page's ring tooltips stayed unthemed
+// (16 August). A real Tooltip inside the (equally real) chart type-matches.
+import { Tooltip } from 'recharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -20,6 +25,7 @@ import { formatDecimal } from '../utils/decimal-format';
 import PageWrapper from '../components/PageWrapper';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
+import { PieChart as DashboardPieChart } from '../components/charts/DashboardCharts';
 import { buildHoldingAllocation } from '../utils/holdingAllocation';
 // THE SEAM, not the service. This page called `InvestmentService` — and, through
 // it, a Supabase client — directly until slice 31, with a `userIdService` lookup
@@ -1212,27 +1218,29 @@ export default function Investments() {
               {/* h-44, not h-64: this ring carried a twelve-row legend when it
                   was sized, and carries five now. The height it was keeping is
                   what "Allocation by holding" moved into. */}
+              {/* ─ THE WRAPPER, NOT RAW RECHARTS CHILDREN (owner, 16 August:
+                  "the pie chart is all one colour, not the same as the
+                  legend", and the hover label was black in dark mode).
+
+                  Recharts identifies Pie, Cell and Tooltip children BY
+                  COMPONENT TYPE, and OptimizedCharts hands it lazy stand-ins
+                  it does not recognise — so every Cell's fill and the
+                  tooltip's themed style were silently ignored: default-grey
+                  slices under a correctly coloured legend, and recharts' own
+                  black-on-white tooltip. The Dashboard's donuts never had the
+                  bug because they go through DashboardCharts' PieChart, where
+                  the recharts elements are built inside one module and the
+                  types match. Same wrapper here now, both rings. */}
               <div className="h-44">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RePieChart>
-                    <Pie
-                      data={allocationData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius="60%"
-                      outerRadius="90%"
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {allocationData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={categoricalColor(ramp, index)} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value) => formatCurrency(toDecimal(Number(value)))}
-                      contentStyle={chartTooltipStyle}
-                    />
-                  </RePieChart>
+                  <DashboardPieChart
+                    data={allocationData}
+                    innerRadius={true}
+                    colors={ramp}
+                    formatter={(value: number) => formatCurrency(toDecimal(value))}
+                    contentStyle={chartTooltipStyle}
+                    aria-label="Ring chart of asset allocation by account"
+                  />
                 </ResponsiveContainer>
               </div>
               <div className="mt-4 space-y-2">
@@ -1308,25 +1316,15 @@ export default function Investments() {
                   one. Third time this has bitten in this session. */}
               <div className="h-44">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RePieChart>
-                    <Pie
-                      data={holdingSlices}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius="60%"
-                      outerRadius="90%"
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {holdingSlices.map((slice, index) => (
-                        <Cell key={slice.name} fill={categoricalColor(ramp, index)} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value) => formatCurrency(toDecimal(Number(value)))}
-                      contentStyle={chartTooltipStyle}
-                    />
-                  </RePieChart>
+                  {/* Same wrapper as the ring above, same reason. */}
+                  <DashboardPieChart
+                    data={holdingSlices}
+                    innerRadius={true}
+                    colors={ramp}
+                    formatter={(value: number) => formatCurrency(toDecimal(value))}
+                    contentStyle={chartTooltipStyle}
+                    aria-label="Ring chart of allocation by holding"
+                  />
                 </ResponsiveContainer>
               </div>
 

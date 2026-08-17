@@ -678,12 +678,19 @@ export default function AccountSettingsModal({
             </p>
           </div>
 
-          {/* Low Balance Alert */}
+          {/* ─ THE SAME ALERT, READ IN THE ACCOUNT'S OWN DIRECTION ──────────
+              On a current account the worry is the balance FALLING; on a card
+              it is spending CLIMBING (owner, 16 August). One stored threshold
+              serves both: the user types the positive figure they think in —
+              "warn me at £10,000 of spend" — and utils/attentionItems knows a
+              card's spend is a negative balance, so the line is crossed at
+              −threshold. The words here flip with the type so the number the
+              user types is always the number they mean. */}
           <div>
             <div className="flex items-center justify-between mb-2">
               {/* Not a <label>: the control is a switch button, named via aria-labelledby */}
               <span id="low-balance-alert-label" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Low Balance Alert
+                {isCardAccountType(formData.type) ? 'Spending Alert' : 'Low Balance Alert'}
               </span>
               <ToggleSwitch
                 checked={!!formData.lowBalanceAlertEnabled}
@@ -704,13 +711,15 @@ export default function AccountSettingsModal({
             {formData.isActive && formData.lowBalanceAlertEnabled && (
               <div className="mt-1">
                 <label htmlFor="low-balance-threshold" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  Alert when balance falls below
+                  {isCardAccountType(formData.type)
+                    ? 'Alert when spending goes above'
+                    : 'Alert when balance falls below'}
                 </label>
                 <MoneyInput
                   id="low-balance-threshold"
                   value={formData.lowBalanceThreshold}
                   onChange={(value) => updateField('lowBalanceThreshold', value)}
-                  placeholder="e.g. 500"
+                  placeholder={isCardAccountType(formData.type) ? 'e.g. 10,000' : 'e.g. 500'}
                   className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
                 />
               </div>
