@@ -51,7 +51,11 @@ import { toDecimal } from '../../utils/decimal';
 import { expandSplitTransactions } from '../../utils/transactionSplits';
 import { computeIncomeExpense } from '../../utils/incomeExpense';
 import { computeAccountBalances } from '../../utils/accountBalances';
-import { buildAccountDistribution, type AccountDistributionEntry } from '../../utils/accountDistribution';
+import {
+  ACCOUNT_DISTRIBUTION_REMAINDER_ID,
+  buildAccountDistribution,
+  type AccountDistributionEntry,
+} from '../../utils/accountDistribution';
 import { groupAccountsBySection } from '../../utils/accountGrouping';
 import { buildCategoryNameLookup } from '../../utils/categoryNames';
 import { buildAttentionItems } from '../../utils/attentionItems';
@@ -420,22 +424,11 @@ export function ImprovedDashboard() {
   // The shared ramp, not a fourth copy of the recharts demo palette that used
   // to live here (and, byte for byte, in two other files).
   const chartRamp = useCategoricalRamp();
-  const isDarkMode = document.documentElement.classList.contains('dark');
-  
-  const chartStyles = useMemo(() => ({
-    tooltip: {
-      backgroundColor: isDarkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-      border: isDarkMode ? '1px solid #374151' : '1px solid #E5E7EB',
-      borderRadius: '8px',
-      color: isDarkMode ? '#E5E7EB' : '#111827'
-    },
-    pieTooltip: {
-      backgroundColor: isDarkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-      border: isDarkMode ? '1px solid #374151' : '1px solid #ccc',
-      borderRadius: '8px',
-      color: isDarkMode ? '#E5E7EB' : '#111827'
-    }
-  }), [isDarkMode]);
+  // No tooltip styles declared here any more: the DashboardCharts wrappers
+  // default to the house style, which WATCHES the dark class. The block this
+  // replaces read it once at render — a chart mounted before dusk kept its
+  // light tooltip all evening (the exact read-once trap chartColors warns
+  // about, living on this page).
 
   const persistSelection = useCallback((ids: string[]) => {
     preferences.setItem('dashboardKeyAccounts', JSON.stringify(ids));
@@ -584,51 +577,52 @@ export function ImprovedDashboard() {
             re-point an arrow the owner asked to keep. Raised in the handover
             rather than assumed. */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-0 sm:divide-x sm:divide-gray-200 sm:dark:divide-gray-700">
+          {/* THE ARROW SITS WITH ITS FIGURE (Design, 17 Aug §2.5). It is a
+              modifier on the amount — `justify-between` was parking it at the
+              card's far edge, six hundred pixels from the number it modifies,
+              with half a card of nothing connecting them. After the amount,
+              same baseline. */}
           <button
             type="button"
             onClick={() => setBreakdownType('income')}
-            className="flex items-center justify-between p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer text-left"
+            className="p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer text-left"
           >
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Income</p>
-              {/* NEUTRAL AT ZERO (Design §4), on the reasoning that settled
-                  the arrows one line down: at zero there is no direction, so
-                  the direction signal must not render. A green £0.00 beside a
-                  red £0.00 says "money came in" and "money went out" on a
-                  ledger where neither happened — in the two hues the app
-                  reserves for exactly that claim. Same condition as the arrow,
-                  deliberately. */}
-              <p className={`text-xl font-bold ${
-                performance.income === 0
-                  ? 'text-gray-900 dark:text-white'
-                  : 'text-green-600 dark:text-green-400'
-              }`}>
-                {formatCurrencyWithSymbol(performance.income)}
-              </p>
-            </div>
-            {performance.income !== 0 && (
-              <TrendingUpIcon size={24} className="text-green-500" aria-hidden="true" />
-            )}
+            <p className="text-sm text-gray-600 dark:text-gray-400">Income</p>
+            {/* NEUTRAL AT ZERO (Design §4), on the reasoning that settled
+                the arrow beside it: at zero there is no direction, so the
+                direction signal must not render. A green £0.00 beside a
+                red £0.00 says "money came in" and "money went out" on a
+                ledger where neither happened — in the two hues the app
+                reserves for exactly that claim. Same condition as the arrow,
+                deliberately. */}
+            <p className={`flex items-center gap-2 text-xl font-bold ${
+              performance.income === 0
+                ? 'text-gray-900 dark:text-white'
+                : 'text-green-600 dark:text-green-400'
+            }`}>
+              {formatCurrencyWithSymbol(performance.income)}
+              {performance.income !== 0 && (
+                <TrendingUpIcon size={20} className="text-green-500 flex-shrink-0" aria-hidden="true" />
+              )}
+            </p>
           </button>
 
           <button
             type="button"
             onClick={() => setBreakdownType('expense')}
-            className="flex items-center justify-between p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer text-left"
+            className="p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer text-left"
           >
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Expenses</p>
-              <p className={`text-xl font-bold ${
-                performance.expenses === 0
-                  ? 'text-gray-900 dark:text-white'
-                  : 'text-red-600 dark:text-red-400'
-              }`}>
-                {formatCurrencyWithSymbol(performance.expenses)}
-              </p>
-            </div>
-            {performance.expenses !== 0 && (
-              <TrendingDownIcon size={24} className="text-red-500" aria-hidden="true" />
-            )}
+            <p className="text-sm text-gray-600 dark:text-gray-400">Expenses</p>
+            <p className={`flex items-center gap-2 text-xl font-bold ${
+              performance.expenses === 0
+                ? 'text-gray-900 dark:text-white'
+                : 'text-red-600 dark:text-red-400'
+            }`}>
+              {formatCurrencyWithSymbol(performance.expenses)}
+              {performance.expenses !== 0 && (
+                <TrendingDownIcon size={20} className="text-red-500 flex-shrink-0" aria-hidden="true" />
+              )}
+            </p>
           </button>
         </div>
       </section>
@@ -702,9 +696,15 @@ export function ImprovedDashboard() {
                   subtitle={
                     <>
                       <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {/* A closed ring claims the whole (Design, 17 Aug §2.1),
+                            so when accounts were folded the words say so —
+                            "top 5" over a ring quietly missing 45% of the money
+                            was a subtitle contradicted by its own shape. */}
                         {pieData.length === 0
                           ? 'Your largest accounts by balance'
-                          : `Your top ${pieData.length} account${pieData.length === 1 ? '' : 's'} by balance`}
+                          : distribution.foldedCount > 0
+                            ? `Your top ${pieData.length - 1} accounts, and the other ${distribution.foldedCount}`
+                            : `Your top ${pieData.length} account${pieData.length === 1 ? '' : 's'} by balance`}
                       </span>
                       <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto whitespace-nowrap">
                         Current balances
@@ -746,12 +746,17 @@ export function ImprovedDashboard() {
                           // Straight into that account's register. It used to
                           // go to the global list filtered to the account,
                           // which is the same answer one page further away —
-                          // and that page is retired.
+                          // and that page is retired. The remainder slice has
+                          // no single register to open, so it opens the full
+                          // report, where every folded account is a row.
                           onClick={(clickedData: AccountDistributionEntry) => {
-                            navigate(preserveDemoParam(`/accounts/${clickedData.id}`, location.search));
+                            if (clickedData.id === ACCOUNT_DISTRIBUTION_REMAINDER_ID) {
+                              openReport('account-distribution');
+                            } else {
+                              navigate(preserveDemoParam(`/accounts/${clickedData.id}`, location.search));
+                            }
                           }}
                           formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
-                          contentStyle={chartStyles.pieTooltip}
                           aria-label="Pie chart showing distribution of account balances"
                         />
                       </ResponsiveContainer>
@@ -762,7 +767,11 @@ export function ImprovedDashboard() {
                         <li key={d.id}>
                           <button
                             type="button"
-                            onClick={() => navigate(preserveDemoParam(`/accounts/${d.id}`, location.search))}
+                            // The remainder row has ninety registers behind it,
+                            // not one — it opens the report that lists them all.
+                            onClick={() => d.id === ACCOUNT_DISTRIBUTION_REMAINDER_ID
+                              ? openReport('account-distribution')
+                              : navigate(preserveDemoParam(`/accounts/${d.id}`, location.search))}
                             className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
                           >
                             <span
@@ -1220,7 +1229,6 @@ export function ImprovedDashboard() {
                 dataKey="netWorth"
                 label="Net Worth"
                 formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
-                contentStyle={chartStyles.tooltip}
                 tickFormatter={(value: number) => {
                   if (value >= 1000000) return `${formatDecimal(value / 1000000, 1)}M`;
                   if (value >= 1000) return `${formatDecimal(value / 1000, 0)}K`;

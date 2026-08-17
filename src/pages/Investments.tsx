@@ -1003,7 +1003,7 @@ export default function Investments() {
               />
               <Tooltip
                 formatter={(value) => formatCurrency(toDecimal(Number(value)))}
-                contentStyle={chartTooltipStyle}
+                contentStyle={chartTooltipStyle} separator=": "
               />
               <Line 
                 type="monotone" 
@@ -1238,7 +1238,6 @@ export default function Investments() {
                     innerRadius={true}
                     colors={ramp}
                     formatter={(value: number) => formatCurrency(toDecimal(value))}
-                    contentStyle={chartTooltipStyle}
                     aria-label="Ring chart of asset allocation by account"
                   />
                 </ResponsiveContainer>
@@ -1322,7 +1321,6 @@ export default function Investments() {
                     innerRadius={true}
                     colors={ramp}
                     formatter={(value: number) => formatCurrency(toDecimal(value))}
-                    contentStyle={chartTooltipStyle}
                     aria-label="Ring chart of allocation by holding"
                   />
                 </ResponsiveContainer>

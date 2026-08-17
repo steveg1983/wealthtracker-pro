@@ -160,7 +160,7 @@ export default function SpendingByPayeeReport({ picker }: ReportViewProps): Reac
                   interval={0}
                 />
                 <Tooltip
-                  contentStyle={chartTooltipStyle}
+                  contentStyle={chartTooltipStyle} separator=": "
                   formatter={(value: number | string) =>
                     formatCurrency(typeof value === 'number' ? value : Number(value))
                   }

@@ -82,10 +82,22 @@ export default function LargeTransactionAlertSettings() {
           </div>
         </div>
 
-        {/* Alert Preview */}
+        {/* Alert Preview.
+
+            A SPECIMEN WEARS NO SIGNAL OF ITS OWN (Claude Design ruling,
+            17 Aug §1, after appearing in four handovers): the panel is not
+            warning the reader about anything, it is SHOWING what a warning
+            will look like — the amber inside it is quoted, not spoken. So
+            the container is neutral with a hairline and an "Example" label,
+            and the likeness inside keeps the full warning dress: a
+            colourless preview of a coloured alert would be just as wrong,
+            because the point is what the alert will look like. */}
         <div className={`transition-opacity ${largeTransactionAlertsEnabled ? 'opacity-100' : 'opacity-50'}`}>
           <h3 className="font-medium text-gray-900 dark:text-white mb-3">What happens?</h3>
-          <div className="space-y-3">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
+              Example
+            </p>
             <div className="flex items-start gap-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
               <AlertCircleIcon size={20} className="text-yellow-600 dark:text-yellow-400 mt-0.5" />
               <div>

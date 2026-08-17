@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildNetWorthSnapshots } from './netWorthSeries';
+import { buildNetWorthSnapshots, netWorthAxisTicks } from './netWorthSeries';
 import type { Account, Transaction } from '../types';
 import type { PeriodRange } from '../hooks/usePeriod';
 
@@ -92,5 +92,54 @@ describe('buildNetWorthSnapshots — opening balances happen on a date', () => {
     expect(snap?.assets).toBe(300);
     expect(snap?.liabilities).toBe(80);
     expect(snap?.netWorth).toBe(220);
+  });
+});
+
+/**
+ * THE TICK FORMAT FOLLOWS THE SPAN OF THE DOMAIN (Design, 17 Aug §2.3).
+ * A sixteen-year monthly series labelled "Apr 10" read as sixteen dates in one
+ * April — 2-digit years are indistinguishable from days, and day-first is the
+ * en-GB order anyway.
+ */
+describe('netWorthAxisTicks — the tick format follows the span', () => {
+  const seeded = (range: PeriodRange) =>
+    buildNetWorthSnapshots(
+      [account({ id: 'a', name: 'A', openingBalance: 100 })],
+      [],
+      range,
+      range.to ?? new Date(2026, 7, 17)
+    );
+
+  it('monthly labels carry a full year, so a year cannot read as a day', () => {
+    const snaps = seeded({ from: D(2010, 4, 1), to: D(2026, 8, 17) });
+    expect(snaps[0].label).toMatch(/2010/);
+    expect(snaps[0].label).not.toMatch(/\b10\b/);
+  });
+
+  it('a multi-year window ticks in bare years, stepped to fit', () => {
+    const snaps = seeded({ from: D(2010, 4, 1), to: D(2026, 8, 17) });
+    const { ticks, tickFormatter } = netWorthAxisTicks(snaps);
+    expect(ticks).toBeDefined();
+    expect(tickFormatter).toBeDefined();
+    const rendered = ticks!.map(t => tickFormatter!(t));
+    // 16 years → every second year, "2010 · 2012 · …" — never "Apr 10".
+    expect(rendered[0]).toBe('2010');
+    expect(rendered).toEqual(rendered.map(r => r).filter(r => /^\d{4}$/.test(r)));
+    expect(rendered.length).toBeGreaterThanOrEqual(5);
+    expect(rendered.length).toBeLessThanOrEqual(9);
+    // Every tick names a real point, so recharts can place it.
+    const labels = new Set(snaps.map(s => s.label));
+    for (const t of ticks!) expect(labels.has(t)).toBe(true);
+  });
+
+  it('a window under two years keeps its month labels and lets recharts thin them', () => {
+    const snaps = seeded({ from: D(2025, 9, 1), to: D(2026, 8, 17) });
+    expect(netWorthAxisTicks(snaps)).toEqual({});
+  });
+
+  it('a window within one quarter stays day-first — "17 Aug", never "Aug 17"', () => {
+    const snaps = seeded({ from: D(2026, 8, 1), to: D(2026, 8, 17) });
+    expect(netWorthAxisTicks(snaps)).toEqual({});
+    expect(snaps[snaps.length - 1].label).toMatch(/^17 /);
   });
 });

@@ -136,7 +136,7 @@ export default function SeasonalTrends({ className = '' }: SeasonalTrendsProps) 
               />
               <Tooltip 
                 formatter={(value: number) => formatCurrency(toDecimal(value))}
-                contentStyle={chartTooltipStyle}
+                contentStyle={chartTooltipStyle} separator=": "
               />
               <Legend />
               <Bar

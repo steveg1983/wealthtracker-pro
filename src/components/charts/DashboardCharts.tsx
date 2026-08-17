@@ -21,7 +21,7 @@ import {
   Cell
 } from 'recharts';
 import { formatDecimal } from '../../utils/decimal-format';
-import { categoricalColor, useCategoricalRamp } from './chartColors';
+import { categoricalColor, useCategoricalRamp, useChartTooltipStyle } from './chartColors';
 
 export { ResponsiveContainer };
 
@@ -84,6 +84,7 @@ export function BarChart({
   // library-demo colour ended up as the app's Net Worth chart.
   const ramp = useCategoricalRamp();
   const barFill = fill ?? ramp[0];
+  const tooltipStyle = useChartTooltipStyle();
   const formatValue = formatter ?? defaultTickFormatter;
   const summary = buildChartSummary(
     ariaLabel,
@@ -101,7 +102,8 @@ export function BarChart({
         tickFormatter={tickFormatter ?? defaultTickFormatter}
       />
       <Tooltip
-        contentStyle={contentStyle}
+        contentStyle={contentStyle ?? tooltipStyle}
+        separator=": "
         formatter={(value: number | string | Array<number | string>) => {
           const numeric = typeof value === 'number' ? value : Number(value);
           return [formatter ? formatter(numeric) : String(value), label];
@@ -143,6 +145,12 @@ export function PieChart<T extends PieDatum>({
   // into three files.
   const ramp = useCategoricalRamp();
   const sliceColors = colors ?? ramp;
+  // The house tooltip is the DEFAULT, not something each caller remembers to
+  // pass: the Account Distribution report's ring passed nothing and rendered
+  // recharts' bare white box — over its own legend, in dark mode (Design,
+  // 17 Aug §2.6). `separator` likewise: " : " with spaces is a library
+  // default, not the house format.
+  const tooltipStyle = useChartTooltipStyle();
 
   // Recharts wants index-signature rows; keep the original datum reachable by
   // index so onClick hands back the caller's own object, not a copy.
@@ -176,7 +184,8 @@ export function PieChart<T extends PieDatum>({
         ))}
       </Pie>
       <Tooltip
-        contentStyle={contentStyle}
+        contentStyle={contentStyle ?? tooltipStyle}
+        separator=": "
         formatter={(value: number | string | Array<number | string>) => {
           const numeric = typeof value === 'number' ? value : Number(value);
           return formatter ? formatter(numeric) : formatDecimal(numeric, 2);

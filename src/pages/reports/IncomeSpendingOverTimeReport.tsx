@@ -218,7 +218,7 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
                 <XAxis dataKey="month" tick={{ fill: '#6B7280', fontSize: 12 }} minTickGap={24} />
                 <YAxis tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={compactTick} width={70} />
                 <Tooltip
-                  contentStyle={chartTooltipStyle}
+                  contentStyle={chartTooltipStyle} separator=": "
                   formatter={(value: number | string) =>
                     formatCurrency(typeof value === 'number' ? value : Number(value))
                   }
