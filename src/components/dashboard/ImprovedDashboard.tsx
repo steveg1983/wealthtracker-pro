@@ -57,7 +57,7 @@ import {
   type AccountDistributionEntry,
 } from '../../utils/accountDistribution';
 import { groupAccountsBySection } from '../../utils/accountGrouping';
-import { moveToPosition, moveBySteps } from '../../utils/reorderList';
+import { swapPositions, moveBySteps } from '../../utils/reorderList';
 import { buildCategoryNameLookup } from '../../utils/categoryNames';
 import { buildAttentionItems } from '../../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../../utils/bankAutoSync';
@@ -454,31 +454,42 @@ export function ImprovedDashboard() {
    * user chose — the id list the picker already persists simply becomes the
    * seating plan.
    */
-  const displayedAccounts = useMemo(() => {
-    const byId = new Map(accounts.map(a => [a.id, a]));
-    return selectedAccountIds
-      .map(id => byId.get(id))
-      .filter((a): a is typeof accounts[number] => a !== undefined);
-  }, [accounts, selectedAccountIds]);
-
   /**
    * ─ DRAGGING A TILE TO A NEW SEAT ──────────────────────────────────────────
    * Pointer events, one set for mouse, pen and touch. A press is not a drag
    * until it has moved 8px — the tile is also a button that opens the
    * account, and the moved flag is what keeps one gesture from being both.
-   * While dragging, the tile under the pointer becomes the target and the
-   * order re-seats LIVE (moveToPosition preserves every other relative
-   * order); the drop persists it. `touch-action: pan-y` keeps the page
-   * scrollable from a tile on a phone, which means a touch drag reorders
-   * cleanly sideways and yields to scrolling vertically — the full gesture
-   * belongs to the mouse this feature was asked for, and Alt+arrows cover
-   * the keyboard.
+   *
+   * THE SEMANTICS ARE A SWAP, PREVIEWED, COMMITTED ON RELEASE (owner,
+   * 18 Aug). The first cut re-seated the stored order live as the pointer
+   * crossed each tile, so a drag from top-right to bottom-left displaced
+   * every tile it crossed — "it is too easy to move the wrong one". Now:
+   * the tile under the pointer previews sliding into the dragged tile's
+   * ORIGINAL seat — computed fresh from the pre-drag order on every move,
+   * never cumulatively, so a tile merely crossed springs back the moment
+   * the pointer moves on — and NOTHING is stored until the button is
+   * released. Escape-by-pointercancel reverts to where things were.
+   *
+   * `touch-action: pan-y` keeps the page scrollable from a tile on a phone;
+   * Alt+arrows cover the keyboard.
    */
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const dragRef = React.useRef<{ id: string; startX: number; startY: number; moved: boolean } | null>(null);
-  const orderRef = React.useRef<string[]>(selectedAccountIds);
-  orderRef.current = selectedAccountIds;
+  const [previewOrder, setPreviewOrder] = useState<string[] | null>(null);
+  const dragRef = React.useRef<{
+    id: string; startX: number; startY: number; moved: boolean;
+    /** The seating plan as the drag began — every preview derives from THIS. */
+    baseOrder: string[];
+    /** The tile currently previewing into the dragged tile's seat. */
+    hoverId: string | null;
+  } | null>(null);
   const [reorderAnnouncement, setReorderAnnouncement] = useState('');
+
+  const displayedAccounts = useMemo(() => {
+    const byId = new Map(accounts.map(a => [a.id, a]));
+    return (previewOrder ?? selectedAccountIds)
+      .map(id => byId.get(id))
+      .filter((a): a is typeof accounts[number] => a !== undefined);
+  }, [accounts, selectedAccountIds, previewOrder]);
 
   const announceSeat = useCallback((accountId: string, order: string[]): void => {
     const name = accounts.find(a => a.id === accountId)?.name ?? 'Account';
@@ -487,7 +498,10 @@ export function ImprovedDashboard() {
 
   const handleTilePointerDown = (e: React.PointerEvent, accountId: string): void => {
     if (e.button !== 0) return;
-    dragRef.current = { id: accountId, startX: e.clientX, startY: e.clientY, moved: false };
+    dragRef.current = {
+      id: accountId, startX: e.clientX, startY: e.clientY, moved: false,
+      baseOrder: selectedAccountIds, hoverId: null,
+    };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
@@ -504,20 +518,34 @@ export function ImprovedDashboard() {
     const over = document
       .elementFromPoint(e.clientX, e.clientY)
       ?.closest<HTMLElement>('[data-account-tile-id]');
-    const targetId = over?.dataset.accountTileId;
-    if (!targetId || targetId === drag.id) return;
-    setSelectedAccountIds(prev => moveToPosition(prev, drag.id, targetId));
+    const targetId = over?.dataset.accountTileId ?? null;
+    if (targetId === drag.hoverId) return;
+    drag.hoverId = targetId;
+    // Always from the base order: leaving a tile un-hovers it completely.
+    setPreviewOrder(targetId && targetId !== drag.id
+      ? swapPositions(drag.baseOrder, drag.id, targetId)
+      : null);
   };
 
   const endTileDrag = (): void => {
     const drag = dragRef.current;
-    if (drag?.moved) {
-      persistSelection(orderRef.current);
-      announceSeat(drag.id, orderRef.current);
+    if (drag?.moved && drag.hoverId && drag.hoverId !== drag.id) {
+      // THE COMMIT — the one moment the stored order changes.
+      const final = swapPositions(drag.baseOrder, drag.id, drag.hoverId);
+      persistSelection(final);
+      announceSeat(drag.id, final);
     }
+    setPreviewOrder(null);
     setDraggingId(null);
     // The moved flag must outlive pointerup by one tick: the click event the
     // browser fires AFTER a drag's release is the one to swallow.
+    setTimeout(() => { dragRef.current = null; }, 0);
+  };
+
+  /** A cancelled drag (pointercancel — a scroll won the touch) commits nothing. */
+  const cancelTileDrag = (): void => {
+    setPreviewOrder(null);
+    setDraggingId(null);
     setTimeout(() => { dragRef.current = null; }, 0);
   };
 
@@ -1195,7 +1223,7 @@ export function ImprovedDashboard() {
                 onPointerDown={(e) => handleTilePointerDown(e, account.id)}
                 onPointerMove={handleTilePointerMove}
                 onPointerUp={endTileDrag}
-                onPointerCancel={endTileDrag}
+                onPointerCancel={cancelTileDrag}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
