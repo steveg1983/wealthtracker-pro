@@ -14,8 +14,7 @@ export function toDecimalAccount(account: Account): DecimalAccount {
   return {
     ...account,
     balance: toDecimal(account.balance),
-    openingBalance: account.openingBalance !== undefined ? toDecimal(account.openingBalance) : undefined,
-    holdings: account.holdings?.map(toDecimalHolding)
+    openingBalance: account.openingBalance !== undefined ? toDecimal(account.openingBalance) : undefined
   };
 }
 
@@ -62,8 +61,7 @@ export function fromDecimalAccount(account: DecimalAccount): Account {
   return {
     ...account,
     balance: toStorageNumber(account.balance),
-    openingBalance: account.openingBalance ? toStorageNumber(account.openingBalance) : undefined,
-    holdings: account.holdings?.map(fromDecimalHolding)
+    openingBalance: account.openingBalance ? toStorageNumber(account.openingBalance) : undefined
   };
 }
 

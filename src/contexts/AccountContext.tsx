@@ -5,20 +5,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import type { AccountType } from '../types/accountType';
 
-interface Holding {
-  ticker: string;
-  name: string;
-  shares: number;
-  value: number;
-  averageCost?: number;
-  currentPrice?: number;
-  marketValue?: number;
-  gain?: number;
-  gainPercent?: number;
-  currency?: string;
-  lastUpdated?: Date;
-}
-
 interface Account {
   id: string;
   name: string;
@@ -30,7 +16,8 @@ interface Account {
   currency: string;
   institution?: string;
   lastUpdated: Date;
-  holdings?: Holding[];
+  /* No `holdings` — this context's copy of the phantom on the shared Account
+     type, declared and never once read or written. See types/index.ts. */
   notes?: string;
   openingBalance?: number;
   openingBalanceDate?: Date;

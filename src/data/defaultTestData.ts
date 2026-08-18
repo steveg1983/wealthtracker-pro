@@ -1,5 +1,5 @@
 // Import types from main types file
-import type { Account, Transaction, Budget, Goal, Investment, Holding } from '../types';
+import type { Account, Transaction, Budget, Goal, Investment } from '../types';
 import { 
   generateMonthlyTransactions, 
   generateCreditCardPayments, 
@@ -36,22 +36,12 @@ const _PORTFOLIO_PRICES = {
   'CTY': { symbol: 'CTY', name: 'City of London Investment Trust', price: 4.25 }
 };
 
-// Helper function to convert investments to holdings
-const convertInvestmentsToHoldings = (investments: Investment[]): Holding[] => {
-  return investments.map(inv => ({
-    ticker: inv.symbol,
-    name: inv.name,
-    shares: inv.quantity,
-    value: inv.quantity * inv.purchasePrice,
-    averageCost: inv.averageCost || inv.purchasePrice,
-    currentPrice: inv.currentPrice,
-    marketValue: inv.currentValue,
-    gain: inv.currentValue - (inv.quantity * inv.purchasePrice),
-    gainPercent: ((inv.currentValue - (inv.quantity * inv.purchasePrice)) / (inv.quantity * inv.purchasePrice)) * 100,
-    currency: 'GBP',
-    lastUpdated: inv.lastUpdated
-  }));
-};
+/* `convertInvestmentsToHoldings` lived here, filling `Account.holdings` on the
+   sample investment account. That field was a phantom — stripped from every
+   write by api/accountMapping and never populated on a read — so the sample
+   data was describing a shape the app cannot hold. The sample INVESTMENTS
+   themselves (getDefaultTestInvestments) are untouched: they are what the
+   holdings table is seeded from. */
 
 export const getDefaultTestAccounts = (): Account[] => {
   return [
@@ -161,8 +151,7 @@ export const getDefaultTestAccounts = (): Account[] => {
       institution: 'Hargreaves Lansdown',
       lastUpdated: new Date(),
       openingBalance: 0,
-      openingBalanceDate: ACCOUNT_OPENING_DATE,
-      holdings: convertInvestmentsToHoldings(getDefaultTestInvestments().filter(inv => inv.accountId === '9'))
+      openingBalanceDate: ACCOUNT_OPENING_DATE
     },
     {
       id: '10',

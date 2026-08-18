@@ -35,7 +35,7 @@ export interface DecimalAccount {
   lastUpdated: Date;
   openingBalance?: DecimalInstance;
   openingBalanceDate?: Date;
-  holdings?: DecimalHolding[];
+  /* No `holdings` here either — see the note on `Account` in ./index.ts. */
   notes?: string;
   isActive?: boolean;
   plaidConnectionId?: string;

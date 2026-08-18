@@ -25,18 +25,7 @@ describe('Decimal Converters', () => {
         currency: 'GBP',
         institution: 'Test Bank',
         lastUpdated: new Date(),
-        openingBalance: 500.25,
-        holdings: [{
-          id: 'h1',
-          symbol: 'AAPL',
-          shares: 10.5,
-          value: 1500.75,
-          averageCost: 142.50,
-          currentPrice: 150.25,
-          marketValue: 1577.625,
-          gain: 77.625,
-          gainPercent: 5.17
-        }]
+        openingBalance: 500.25
       };
 
       const result = toDecimalAccount(account);
@@ -45,9 +34,6 @@ describe('Decimal Converters', () => {
       expect(result.name).toBe('Test Account');
       expect(result.balance.toString()).toBe('1000.5');
       expect(result.openingBalance?.toString()).toBe('500.25');
-      expect(result.holdings).toHaveLength(1);
-      expect(result.holdings![0].shares.toString()).toBe('10.5');
-      expect(result.holdings![0].value.toString()).toBe('1500.75');
     });
 
     it('handles account without optional properties', () => {
@@ -65,7 +51,6 @@ describe('Decimal Converters', () => {
 
       expect(result.balance.toString()).toBe('1000');
       expect(result.openingBalance).toBeUndefined();
-      expect(result.holdings).toBeUndefined();
     });
 
     it('handles zero and negative balances', () => {
@@ -226,18 +211,7 @@ describe('Decimal Converters', () => {
         currency: 'GBP',
         institution: 'Test Bank',
         lastUpdated: new Date(),
-        openingBalance: toDecimal(500.25),
-        holdings: [{
-          id: 'h1',
-          symbol: 'AAPL',
-          shares: toDecimal(10.5),
-          value: toDecimal(1500.75),
-          averageCost: toDecimal(142.50),
-          currentPrice: toDecimal(150.25),
-          marketValue: toDecimal(1577.625),
-          gain: toDecimal(77.625),
-          gainPercent: toDecimal(5.17)
-        }]
+        openingBalance: toDecimal(500.25)
       };
 
       const result = fromDecimalAccount(decimalAccount);
@@ -245,9 +219,6 @@ describe('Decimal Converters', () => {
       expect(result.id).toBe('1');
       expect(result.balance).toBe(1000.50);
       expect(result.openingBalance).toBe(500.25);
-      expect(result.holdings).toHaveLength(1);
-      expect(result.holdings![0].shares).toBe(10.5);
-      expect(result.holdings![0].value).toBe(1500.75);
     });
 
     it('handles decimal account without optional properties', () => {
@@ -265,7 +236,6 @@ describe('Decimal Converters', () => {
 
       expect(result.balance).toBe(1000);
       expect(result.openingBalance).toBeUndefined();
-      expect(result.holdings).toBeUndefined();
     });
   });
 

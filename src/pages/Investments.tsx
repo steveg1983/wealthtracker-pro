@@ -5,7 +5,6 @@ import { Modal, ModalBody } from '../components/common/Modal';
 import { formatDate } from '../utils/dateFormatter';
 import { useApp } from '../contexts/AppContextSupabase';
 import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, LineChartIcon, EyeIcon } from '../components/icons';
-import AddInvestmentModal from '../components/AddInvestmentModal';
 import InvestmentMarketView from '../components/InvestmentMarketView';
 import PortfolioManager, { type HoldingFormValues, type PurchaseDetails } from '../components/PortfolioManager';
 import { allInAverageCost } from '../services/investments/purchaseMath';
@@ -102,7 +101,23 @@ export default function Investments() {
   // only a start reads as "from then until today" rather than showing nothing.
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
-  const [showAddInvestmentModal, setShowAddInvestmentModal] = useState(false);
+  /**
+   * THE ONE ADD-A-HOLDING DOOR.
+   *
+   * This was `showAddInvestmentModal`, opening `AddInvestmentModal` — a second
+   * form that asked for units, price, fees and stamp duty and then wrote ONE
+   * EXPENSE TRANSACTION and no holding at all. A buy recorded through it left
+   * the portfolio unchanged, which is why it also offered "Cash" as a thing to
+   * buy at a price of 1.00: it was never talking to the holdings table.
+   *
+   * The header's button now leads to the manager that does create a holding
+   * (and its funding transfer). Because a holding belongs to an ACCOUNT, the
+   * account is chosen first — silently picking one is how a holding lands in
+   * the wrong sleeve. With a single investment account there is nothing to ask.
+   */
+  const [addHoldingMenuOpen, setAddHoldingMenuOpen] = useState(false);
+  /** Which account's manager has been asked to open its add form, and when. */
+  const [addSignal, setAddSignal] = useState<{ accountId: string; nonce: number } | null>(null);
   /**
    * THE TAB LIVES IN THE URL (owner, 16 August: "when I refresh the page if I
    * am on 'Watchlist' … it refreshes back to the investment page").
@@ -140,6 +155,23 @@ export default function Investments() {
     }, { replace: true });
   }, [setSearchParams]);
   const [managingAccountId, setManagingAccountId] = useState<string | null>(null);
+
+  /**
+   * Open the add-a-holding form for one account: show the Portfolio tab, expand
+   * that account's manager, and signal it. Three steps because the form lives
+   * inside the manager, which lives inside the tab — the door has to walk the
+   * whole way rather than leave the person somewhere near it.
+   */
+  const openAddHoldingFor = useCallback((accountId: string): void => {
+    setAddHoldingMenuOpen(false);
+    setActiveTab('portfolio');
+    setManagingAccountId(accountId);
+    setAddSignal(previous => ({ accountId, nonce: (previous?.nonce ?? 0) + 1 }));
+  }, [setActiveTab]);
+
+  /** The manager has opened its form; the request is spent. */
+  const clearAddSignal = useCallback((): void => setAddSignal(null), []);
+
   /**
    * Which summary tile is opened out into its per-account rows — the owner's
    * drill-down, asked for twice: "even if the figures are then investment
@@ -634,11 +666,18 @@ export default function Investments() {
       title="Investments"
       rightContent={
         investmentAccounts.length > 0 && (
+          <div className="relative">
           <button
             type="button"
-            onClick={() => setShowAddInvestmentModal(true)}
+            onClick={() => {
+              // One account is not a question. Several is, and the answer
+              // decides which sleeve the holding lands in.
+              if (investmentAccounts.length === 1) openAddHoldingFor(investmentAccounts[0].id);
+              else setAddHoldingMenuOpen(open => !open);
+            }}
+            aria-expanded={investmentAccounts.length > 1 ? addHoldingMenuOpen : undefined}
             className="cursor-pointer rounded-full"
-            aria-label="Add investment"
+            aria-label="Add a holding"
           >
             <svg
               width="48"
@@ -669,6 +708,27 @@ export default function Investments() {
               </g>
             </svg>
           </button>
+          {/* WHICH ACCOUNT? — asked, never guessed. A holding belongs to a
+              sleeve, and the wrong sleeve is a mis-filing that only shows up
+              later, in a total that does not match a broker's statement. */}
+          {addHoldingMenuOpen && investmentAccounts.length > 1 && (
+            <div className="absolute right-0 top-full mt-2 z-30 min-w-[240px] bg-white dark:bg-gray-800 border border-line dark:border-gray-700 rounded-lg shadow-lg p-1">
+              <p className="px-3 py-2 text-dense text-gray-500 dark:text-gray-400">
+                Add a holding to…
+              </p>
+              {investmentAccounts.map(account => (
+                <button
+                  key={account.id}
+                  type="button"
+                  onClick={() => openAddHoldingFor(account.id)}
+                  className="w-full text-left px-3 py-2 text-body text-gray-900 dark:text-white rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  {account.name}
+                </button>
+              ))}
+            </div>
+          )}
+          </div>
         )
       }
     >
@@ -1546,6 +1606,13 @@ export default function Investments() {
                     <PortfolioManager
                       holdings={accountHoldings}
                       currency={account.currency}
+                      // The page's "Add a holding" door, arriving at the form
+                      // that actually creates one. Only for the account it was
+                      // opened for — every other manager on the page ignores it.
+                      openAddSignal={
+                        addSignal?.accountId === account.id ? addSignal.nonce : undefined
+                      }
+                      onAddSignalHandled={clearAddSignal}
                       // Where the purchase money may come from: any open account
                       // in THIS account's currency (Money let a buy name any
                       // funding account — measured, 2015 of 2029 did), with this
@@ -1574,11 +1641,6 @@ export default function Investments() {
       )}
 
 
-      {/* Add Investment Modal */}
-      <AddInvestmentModal
-        isOpen={showAddInvestmentModal}
-        onClose={() => setShowAddInvestmentModal(false)}
-      />
     </PageWrapper>
   );
 }
