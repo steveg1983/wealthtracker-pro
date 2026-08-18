@@ -1606,22 +1606,28 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 {ownAccountJump.label}
               </button>
             )}
-            <div className="flex justify-between gap-3 w-full">
+            {/* WRAPS on a phone (owner, 17 Aug): five buttons in a
+                non-wrapping row compressed until "Delete" and "Cancel"
+                overflowed their own boxes and "Save Changes" broke mid-word.
+                whitespace-nowrap keeps each label whole so a button wraps as
+                a UNIT onto the next line; the tighter phone padding buys the
+                common case one row. */}
+            <div className="flex flex-wrap justify-between gap-2 sm:gap-3 w-full">
               {transaction && (
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                  className="px-3 sm:px-4 py-2 whitespace-nowrap bg-red-500 text-white rounded-lg hover:bg-red-600"
                 >
                   Delete
                 </button>
               )}
-              
-              <div className="flex gap-3 ml-auto">
+
+              <div className="flex flex-wrap justify-end gap-2 sm:gap-3 ml-auto">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="px-3 sm:px-4 py-2 whitespace-nowrap border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   Cancel
                 </button>
@@ -1630,7 +1636,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                     type="submit"
                     disabled={isSubmitting || splitValidationMessage !== null}
                     onClick={() => { advanceDirectionRef.current = 'previous'; }}
-                    className="px-4 py-2 bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 sm:px-4 py-2 whitespace-nowrap bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Save this transaction and move to the previous one in the list"
                   >
                     Previous
@@ -1639,7 +1645,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 <button
                   type="submit"
                   disabled={isSubmitting || splitValidationMessage !== null}
-                  className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 sm:px-4 py-2 whitespace-nowrap bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Saving…' : transaction ? 'Save Changes' : 'Add Transaction'}
                 </button>
@@ -1648,7 +1654,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                     type="submit"
                     disabled={isSubmitting || splitValidationMessage !== null}
                     onClick={() => { advanceDirectionRef.current = 'next'; }}
-                    className="px-4 py-2 bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 sm:px-4 py-2 whitespace-nowrap bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Save this transaction and move to the next one in the list"
                   >
                     Save &amp; Next

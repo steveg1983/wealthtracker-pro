@@ -86,6 +86,19 @@ export default function SyncStatusIndicator({
   };
 
   if (variant === 'compact') {
+    /**
+     * QUIET WHEN SETTLED (owner, 17 Aug: "what is this 'tick' … when it
+     * looks like it does absolutely nothing"). All-synced used to render a
+     * permanent green tick — a signal spent on a state that needs none, on
+     * a button whose press had no visible consequence, which is how a
+     * working indicator reads as a broken control. The compact indicator
+     * now appears only in the states that NEED attention — offline,
+     * syncing, pending changes, error — which are also exactly the states
+     * where pressing it (a manual sync) has real work to do.
+     */
+    if (isOnline && status === 'synced' && !isManualSyncing) {
+      return <></>;
+    }
     return (
       <button
         onClick={handleManualSync}
