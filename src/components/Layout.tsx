@@ -56,6 +56,8 @@ export default function Layout(): React.JSX.Element {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   const [accountsExpanded, setAccountsExpanded] = useState(false);
+  const [planExpanded, setPlanExpanded] = useState(false);
+  const [manageExpanded, setManageExpanded] = useState(false);
   // advancedExpanded removed — Advanced section now uses TopNavDropdown on desktop and direct links on mobile
   // investmentsExpanded removed with /enhanced-investments — Investments has no
   // sub-pages left, so it is a plain link in the drawer.
@@ -628,9 +630,17 @@ export default function Layout(): React.JSX.Element {
                       className={`text-gray-400 transition-transform duration-200 ${accountsExpanded ? 'rotate-90' : ''}`} 
                     />
                   </Link>
+                  {/* THE SAME SHAPE AS THE DESKTOP ACCOUNTS MENU (owner,
+                      17 Aug: "the drop-down headings … the same layout as the
+                      main app"). Investments moved in from a top-level link
+                      for the same reason it moved on desktop: a holding IS an
+                      account. One layout, learned once. */}
                   {accountsExpanded && (
                     <div className="mt-1 space-y-1">
                       <SidebarLink to="/find" icon={SearchIcon} label="Find Transactions" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      {showInvestments && (
+                        <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      )}
                       <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/categorisation" icon={TagIcon} label="Categorisation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/open-banking" icon={BankIcon} label="Bank Feeds" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
@@ -638,24 +648,68 @@ export default function Layout(): React.JSX.Element {
                   )}
                 </div>
 
-                {/* Investments. A plain link, not a disclosure: the one child
-                    it ever had was /enhanced-investments, and a chevron that
-                    expands to nothing is a promise the menu cannot keep. */}
-                {showInvestments && (
-                  <SidebarLink
-                    to="/investments"
-                    icon={TrendingUpIcon}
-                    label="Investments"
-                    isCollapsed={false}
-                    onNavigate={toggleMobileMenu}
-                  />
-                )}
-                
-                {/* Plan (Budget, Goals, Forecasting, Calendar) is desk work
-                    and deliberately absent here — the drawer is the phone's
-                    menu, and the desktop top-nav keeps the full Plan menu. */}
+                {/* Plan — Budget and Calendar, mirroring the desktop menu.
+                    This group used to be "deliberately absent" as desk work;
+                    the owner overruled it (17 Aug), and the Calendar now
+                    carries the due-next panel, which is exactly a thing to
+                    check from a phone. */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setPlanExpanded(!planExpanded)}
+                    aria-expanded={planExpanded}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                  >
+                    <TargetIcon size={18} />
+                    <span className="flex-1 text-sm text-left">Plan</span>
+                    <ChevronRightIcon
+                      size={14}
+                      className={`text-gray-400 transition-transform duration-200 ${planExpanded ? 'rotate-90' : ''}`}
+                    />
+                  </button>
+                  {planExpanded && (
+                    <div className="mt-1 space-y-1">
+                      <SidebarLink to="/budget" icon={BarChart3Icon} label="Budget" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/calendar" icon={CalendarIcon} label="Calendar" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                    </div>
+                  )}
+                </div>
+
                 <SidebarLink to="/reports" icon={PieChartIcon} label="Reports" isCollapsed={false} onNavigate={toggleMobileMenu} />
-                {/* Settings with Sub-navigation */}
+
+                {/* Manage — data admin, exactly the desktop menu's list and
+                    order. These lived under Settings here, which taught the
+                    phone a different map from the desk (owner, 17 Aug: "on
+                    the mobile there is no 'manage' section"). */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setManageExpanded(!manageExpanded)}
+                    aria-expanded={manageExpanded}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                  >
+                    <SettingsIcon size={18} />
+                    <span className="flex-1 text-sm text-left">Manage</span>
+                    <ChevronRightIcon
+                      size={14}
+                      className={`text-gray-400 transition-transform duration-200 ${manageExpanded ? 'rotate-90' : ''}`}
+                    />
+                  </button>
+                  {manageExpanded && (
+                    <div className="mt-1 space-y-1">
+                      <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/settings/payees" icon={UsersIcon} label="Payees" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      {/* "Import Data", as the desktop menu names it — one
+                          page, one name, whichever menu found it. */}
+                      <SidebarLink to="/enhanced-import" icon={UploadIcon} label="Import Data" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/export-manager" icon={DownloadIcon} label="Export Data" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/documents" icon={FolderIcon} label="Documents" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Settings — the app itself, exactly the desktop menu's list. */}
                 <div>
                   <Link
                     to={isDemoModeRoutingEnabled ? '/settings?demo=true' : '/settings'}
@@ -673,19 +727,8 @@ export default function Layout(): React.JSX.Element {
                     <div className="mt-1 space-y-1">
                       <SidebarLink to="/settings/app" icon={Settings2Icon} label="App Settings" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/data" icon={DatabaseIcon} label="Data Management" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      {/* Same order as the desktop Manage menu — the drawer and
-                          the top nav must not teach two different shapes. */}
-                      <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/settings/payees" icon={UsersIcon} label="Payees" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/security" icon={ShieldIcon} label="Security" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/enhanced-import" icon={UploadIcon} label="Enhanced Import" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      {/* Same destination as the top-level link above, so it
-                          carries the same name — one page cannot be two things
-                          depending on which menu you found it in. */}
-                      <SidebarLink to="/export-manager" icon={DownloadIcon} label="Export Data" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/documents" icon={FolderIcon} label="Documents" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/open-banking" icon={BankIcon} label="Open Banking" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/subscription" icon={CreditCardIcon} label="Subscription" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>
                   )}
                 </div>

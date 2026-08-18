@@ -582,10 +582,16 @@ export function ImprovedDashboard() {
               card's far edge, six hundred pixels from the number it modifies,
               with half a card of nothing connecting them. After the amount,
               same baseline. */}
+          {/* `flex-col` is LOAD-BEARING, not layout tidiness: index.css sets
+              `button { display: inline-flex }` globally, and a grid child
+              blockifies that to flex — ROW direction — so without it the
+              label and the figure sit side by side and the whole card reads
+              shrunken (the owner caught it within a day; the fifth casualty
+              of that global rule). */}
           <button
             type="button"
             onClick={() => setBreakdownType('income')}
-            className="p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer text-left"
+            className="flex flex-col items-start p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer text-left"
           >
             <p className="text-sm text-gray-600 dark:text-gray-400">Income</p>
             {/* NEUTRAL AT ZERO (Design §4), on the reasoning that settled
@@ -610,7 +616,7 @@ export function ImprovedDashboard() {
           <button
             type="button"
             onClick={() => setBreakdownType('expense')}
-            className="p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer text-left"
+            className="flex flex-col items-start p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer text-left"
           >
             <p className="text-sm text-gray-600 dark:text-gray-400">Expenses</p>
             <p className={`flex items-center gap-2 text-xl font-bold ${

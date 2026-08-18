@@ -1200,6 +1200,25 @@ export default function AccountTransactions() {
     return `Sorted by ${SORT_FIELD_LABELS[sortField]}, so the Balance column doesn't run down the page. Each row still shows what ${account?.name ?? 'the account'} was worth immediately after that transaction — sort by Date to read the column as a running balance.`;
   }, [sortField, account?.name]);
 
+  /**
+   * NEWEST FIRST on a phone (owner, 17 Aug: opening on a row from years ago
+   * read as starting at the wrong end). The desktop table keeps Money's
+   * chronology and opens AT the foot; a page-scrolled infinite list cannot
+   * start at its own foot without fighting its loading direction, and
+   * newest-at-top is what every phone banking app has taught a thumb to
+   * expect. Only the DEFAULT chronology is reversed — a sort the user chose
+   * is shown exactly as they chose it. Each row carries its own precomputed
+   * running balance, so the order is presentation, not arithmetic. Memoised:
+   * an 11,000-row copy per keystroke is the kind of quiet quadratic the
+   * dashboard perf pass existed to remove.
+   */
+  const phoneListRows = useMemo(
+    () => (sortField === 'date' && sortDirection === 'asc'
+      ? [...transactionsWithBalance].reverse()
+      : transactionsWithBalance),
+    [transactionsWithBalance, sortField, sortDirection]
+  );
+
   // ── Opening at the foot of the register ────────────────────────────────────
   // Money's register is ordered oldest-first with the NEWEST transaction on the
   // last line, and it opens showing that line. The order is untouched (see
@@ -3466,7 +3485,7 @@ export default function AccountTransactions() {
         className="lg:hidden bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden"
       >
         <InfiniteScrollTransactionList
-          transactions={transactionsWithBalance}
+          transactions={phoneListRows}
           accounts={[]}
           categories={categories}
           // A phone is still looking at the REGISTER, with the same To Review
