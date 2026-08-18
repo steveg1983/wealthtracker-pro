@@ -55,8 +55,11 @@ describe('Calendar', () => {
     // projecting the app's unconfirmed opinions onto future days (§5).
     expect(screen.getByText('Due in the next 30 days')).toBeInTheDocument();
     expect(screen.getByText(/Nothing confirmed yet/)).toBeInTheDocument();
+    // Its own page under Plan since 18 Aug, not a report in the gallery.
     expect(screen.getByRole('link', { name: /What I’m committed to/ }))
-      .toHaveAttribute('href', '/reports/recurring-commitments');
+      .toHaveAttribute('href', '/recurring-payments');
+    expect(screen.getByRole('link', { name: 'Recurring Payments' }))
+      .toHaveAttribute('href', '/recurring-payments');
   });
 
   it('renders day headers', () => {

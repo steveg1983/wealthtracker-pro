@@ -3,7 +3,6 @@ import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
 import {
   BarChart3Icon,
   CalendarIcon,
-  ClockIcon,
   FileTextIcon,
   LandmarkIcon,
   PieChartIcon,
@@ -166,19 +165,18 @@ export const REPORTS: ReportDefinition[] = [
     usesPeriod: true,
     component: lazyWithRecovery(() => import('./SpendingByPayeeReport')),
   },
-  {
-    id: 'recurring-commitments',
-    title: 'What I’m committed to',
-    description: 'The payments that repeat — what each one costs a year, and what changed.',
-    group: 'spending',
-    icon: ClockIcon,
-    // A rhythm needs the whole history to be seen; a window that hides half
-    // the payments would weaken every evidence line on the page. Like the
-    // distribution report, the hub's period picker is hidden rather than
-    // shown governing nothing.
-    usesPeriod: false,
-    component: lazyWithRecovery(() => import('./RecurringCommitmentsReport')),
-  },
+  /*
+   * "What I'm committed to" WAS here, as 'recurring-commitments'. It moved to
+   * its own page under Plan (pages/RecurringPayments, at /recurring-payments)
+   * on the owner's ruling, 18 Aug: confirming a pattern there is what feeds
+   * the calendar's forward view and the forecast, which makes it a working
+   * surface rather than a report to read. Its old address redirects, so
+   * bookmarks and dashboard pins survive the move.
+   *
+   * The component itself still lives under reports/ — it is written as a
+   * report body and the page wraps it — so nothing about its design rules
+   * changed with its address.
+   */
   {
     id: 'period-comparison',
     title: 'This period vs last',

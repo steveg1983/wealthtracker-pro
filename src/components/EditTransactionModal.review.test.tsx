@@ -43,6 +43,14 @@ const mocks = vi.hoisted(() => ({
     setTransactionSplits: vi.fn(async () => ({ isSplit: false, splitCount: 0, amount: 0 })),
     linkTransferPair: vi.fn(async () => ({ a: {}, b: {} })),
     createTransferCounterpart: vi.fn(async () => ({ source: {}, counterpart: {} })),
+    // The recurring-verdict door (the modal's "This is a recurring payment"
+    // tick). Present in every mock of this context because the component reads
+    // it on every render: an omitted field is a mock claiming a context shape
+    // the app does not have.
+    suggestionDismissals: [],
+    suggestionDismissalsStatus: 'ready',
+    dismissSuggestion: vi.fn(async () => {}),
+    restoreSuggestion: vi.fn(async () => {}),
   },
 }));
 

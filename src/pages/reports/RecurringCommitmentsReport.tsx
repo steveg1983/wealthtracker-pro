@@ -7,6 +7,7 @@ import { toDecimal, type DecimalInstance } from '../../utils/decimal';
 import { getDateLocale } from '../../utils/dateFormatter';
 import { preserveDemoParam } from '../../utils/navigation';
 import { dismissedKeys, recurringAnswerKey } from '../../utils/suggestionDismissals';
+import { SearchIcon } from '../../components/icons';
 import type { RecurringAnswerKind } from '../../types';
 import {
   detectRecurring,
@@ -24,24 +25,32 @@ import {
  * ("what is due next?") — designed for the first, with the second falling
  * out of it.
  *
+ * Lives under PLAN as its own page (owner's ruling, 18 Aug — the nav says
+ * "Recurring Payments", the heading keeps the question), not in the Reports
+ * gallery: confirming patterns here is what feeds the calendar and the
+ * forecast, which makes it a working surface rather than a read-out.
+ *
  * The design rules this page lives under, all from the handover:
  *
  * - A detection is an INFERENCE and carries its evidence in its resting
  *   state (§2): the payment count, the span, the most recent date and the
- *   next expected ARE the confidence. No percentages, ever.
+ *   next expected ARE the confidence. No percentages, ever. A stitched
+ *   pattern names its former labels; a vouched pattern says the user's
+ *   judgment is what admitted it.
  * - The number that lands is the ANNUAL equivalent (§3) — £14.99 a month is
  *   invisible; £179.88 a year is a decision.
- * - Grouped by CADENCE, not category (§4): cadence is what determines
- *   commitment. One annualisation provenance line under the headline.
+ * - Grouped by CADENCE by default (§4); the user can regroup by institution
+ *   (the Accounts page's idiom), search, and re-sort — navigation, never a
+ *   change to what is claimed.
  * - A price change is a DIRECTION and may wear the hues; the magnitudes
  *   stay neutral (§3.1).
  * - Stopped patterns are a band, never a silent deletion (§3.2).
- * - Read-only: this surface reads the register and never writes to it.
- *   Confirm / Not-recurring is the next slice (§5, §8 step 2).
+ * - Read-only over the register: verdicts live beside the detections
+ *   (suggestion dismissals), never on the rows they were read from.
  *
- * No period picker (usesPeriod: false in the registry): a rhythm needs the
- * whole history to be seen, and a window that hides half the payments would
- * weaken every evidence line on the page. Said on screen.
+ * No period picker: a rhythm needs the whole history to be seen, and a
+ * window that hides half the payments would weaken every evidence line on
+ * the page. Said on screen.
  */
 
 const CADENCE_BANDS: ReadonlyArray<{ cadence: RecurringCadence; title: string }> = [
@@ -50,6 +59,11 @@ const CADENCE_BANDS: ReadonlyArray<{ cadence: RecurringCadence; title: string }>
   { cadence: 'annual', title: 'Annual' },
   { cadence: 'irregular', title: 'Irregular' },
 ];
+
+type SortBy = 'largest' | 'az' | 'payment';
+type GroupBy = 'cadence' | 'institution';
+
+const NO_INSTITUTION = 'No institution';
 
 const monthYear = (date: Date): string =>
   date.toLocaleDateString(getDateLocale(), { month: 'short', year: 'numeric' });
@@ -71,15 +85,9 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
     () => new Map(accounts.map(a => [a.id, a.name])),
     [accounts]
   );
-
-  /**
-   * Outgoing only: this page answers "what am I committed to", and a
-   * commitment is money out. Recurring income (a salary) is detected too,
-   * but belongs to the calendar and the forecast, not the audit.
-   */
-  const detections = useMemo(
-    () => detectRecurring(transactions, new Date()).filter(d => d.direction === 'out'),
-    [transactions]
+  const accountInstitution = useMemo(
+    () => new Map(accounts.map(a => [a.id, a.institution?.trim() || null])),
+    [accounts]
   );
 
   /**
@@ -97,8 +105,42 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
     () => dismissedKeys(suggestionDismissals, 'recurring-not'),
     [suggestionDismissals]
   );
+
+  /**
+   * Outgoing only: this page answers "what am I committed to", and a
+   * commitment is money out. Recurring income (a salary) is detected too,
+   * but belongs to the calendar and the forecast, not the audit.
+   *
+   * The confirmed verdicts feed BACK into detection: a payee the user has
+   * vouched for is read leniently (every payment counts, two are enough),
+   * so confirming is also what keeps a variable commitment on the page.
+   */
+  const detections = useMemo(
+    () =>
+      detectRecurring(transactions, new Date(), {
+        isVouched: (accountId, direction, payeeKey) =>
+          confirmedKeys.has(recurringAnswerKey(accountId, direction, payeeKey)),
+      }).filter(d => d.direction === 'out'),
+    [transactions, confirmedKeys]
+  );
+
+  /** Where a NEW verdict is stored: always the current label's key. */
   const answerKeyOf = (d: RecurringDetection): string =>
     recurringAnswerKey(d.accountId, d.direction, d.payeeKey);
+
+  /**
+   * Where a STANDING verdict actually lives — possibly under a label the
+   * bank has since renamed away. A Confirm given before the rename must
+   * still be found, and its Undo must delete the row that exists rather
+   * than a row that never did.
+   */
+  const storedKeyOf = (d: RecurringDetection, keys: Set<string>): string | null => {
+    for (const payee of d.payeeKeys) {
+      const key = recurringAnswerKey(d.accountId, d.direction, payee);
+      if (keys.has(key)) return key;
+    }
+    return null;
+  };
 
   // Which write is in flight, so a double-click cannot record twice and the
   // pressed control is the one that shows it is busy.
@@ -112,8 +154,11 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
     try {
       // One verdict at a time: giving one answer withdraws the other, so the
       // stored state can never say "confirmed AND a coincidence".
-      if ((opposite === 'recurring-confirmed' ? confirmedKeys : notRecurringKeys).has(key)) {
-        await restoreSuggestion(opposite, key);
+      const standingOpposite = storedKeyOf(
+        d, opposite === 'recurring-confirmed' ? confirmedKeys : notRecurringKeys
+      );
+      if (standingOpposite) {
+        await restoreSuggestion(opposite, standingOpposite);
       }
       await dismissSuggestion(kind, key, []);
     } catch (error) {
@@ -124,10 +169,12 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
   };
 
   const withdrawVerdict = async (d: RecurringDetection, kind: RecurringAnswerKind): Promise<void> => {
-    const key = answerKeyOf(d);
-    setSavingKey(key);
+    const stored = storedKeyOf(
+      d, kind === 'recurring-confirmed' ? confirmedKeys : notRecurringKeys
+    ) ?? answerKeyOf(d);
+    setSavingKey(answerKeyOf(d));
     try {
-      await restoreSuggestion(kind, key);
+      await restoreSuggestion(kind, stored);
     } catch (error) {
       showError(error);
     } finally {
@@ -140,18 +187,78 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
   // A pattern the user has called a coincidence leaves the audit — but never
   // the page (§5: a mis-tap must be recoverable, and the app must not be
   // seen to hide evidence). It moves to the collapsed band at the foot.
-  const dismissed = detections.filter(d => notRecurringKeys.has(answerKeyOf(d)));
-  const considered = detections.filter(d => !notRecurringKeys.has(answerKeyOf(d)));
+  const dismissed = detections.filter(d => storedKeyOf(d, notRecurringKeys) !== null);
+  const considered = detections.filter(d => storedKeyOf(d, notRecurringKeys) === null);
   const active = considered.filter(d => !d.stopped);
   const stopped = considered.filter(d => d.stopped);
+
+  /**
+   * NAVIGATION (owner, 18 Aug): search, sort, and the Accounts page's
+   * institution grouping. These change how the page is walked, never what
+   * it claims — the headline total stays the whole ledger's, and anything
+   * a search hides is counted out loud rather than silently gone.
+   */
+  const [query, setQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortBy>('largest');
+  const [groupBy, setGroupBy] = useState<GroupBy>('cadence');
+
+  const trimmedQuery = query.trim().toLowerCase();
+  const matchesQuery = (d: RecurringDetection): boolean => {
+    if (!trimmedQuery) return true;
+    return (
+      d.description.toLowerCase().includes(trimmedQuery) ||
+      d.formerLabels.some(label => label.toLowerCase().includes(trimmedQuery)) ||
+      (accountName.get(d.accountId) ?? '').toLowerCase().includes(trimmedQuery) ||
+      (accountInstitution.get(d.accountId) ?? '').toLowerCase().includes(trimmedQuery)
+    );
+  };
+  const shownActive = active.filter(matchesQuery);
+  const shownStopped = stopped.filter(matchesQuery);
+  const hiddenBySearch = active.length + stopped.length - shownActive.length - shownStopped.length;
+
+  const compare = (a: RecurringDetection, b: RecurringDetection): number => {
+    switch (sortBy) {
+      case 'az':
+        return a.description.localeCompare(b.description, undefined, { sensitivity: 'base' });
+      case 'payment':
+        return b.amount.minus(a.amount).toNumber();
+      case 'largest':
+        return b.annualEquivalent.minus(a.annualEquivalent).toNumber();
+    }
+  };
+
+  /** The bands the active patterns sit in, under the chosen grouping. */
+  const bands: Array<{ id: string; title: string; rows: RecurringDetection[] }> =
+    groupBy === 'cadence'
+      ? CADENCE_BANDS
+          .map(({ cadence, title }) => ({
+            id: cadence,
+            title,
+            rows: shownActive.filter(d => d.cadence === cadence).sort(compare),
+          }))
+          .filter(band => band.rows.length > 0)
+      : (() => {
+          const byInstitution = new Map<string, RecurringDetection[]>();
+          for (const d of shownActive) {
+            const institution = accountInstitution.get(d.accountId) ?? NO_INSTITUTION;
+            const rows = byInstitution.get(institution);
+            if (rows) rows.push(d);
+            else byInstitution.set(institution, [d]);
+          }
+          return [...byInstitution.keys()]
+            .sort((a, b) =>
+              a === NO_INSTITUTION ? 1 : b === NO_INSTITUTION ? -1 : a.localeCompare(b))
+            .map(institution => ({
+              id: `institution-${institution}`,
+              title: institution,
+              rows: (byInstitution.get(institution) ?? []).sort(compare),
+            }));
+        })();
 
   // Decimal throughout — these are money sums read against each other.
   const annualTotal = active.reduce(
     (sum, d) => sum.plus(d.annualEquivalent), toDecimal(0)
   );
-
-  const bandFor = (cadence: RecurringCadence): RecurringDetection[] =>
-    active.filter(d => d.cadence === cadence);
 
   const bandTotal = (band: RecurringDetection[]): DecimalInstance =>
     band.reduce((sum, d) => sum.plus(d.annualEquivalent), toDecimal(0));
@@ -180,6 +287,15 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
             recent {dayMonth(detection.lastDate)}
             {detection.nextExpected && <> · next expected {dayMonth(detection.nextExpected)}</>}
             {account && <> · {account}</>}
+            {/* A stitched pattern says where its earlier payments lived — the
+                claim of continuity across a bank's rename is checkable, so it
+                is stated. */}
+            {detection.formerLabels.length > 0 && (
+              <> · previously labelled {detection.formerLabels.map(label => `‘${label}’`).join(', ')}</>
+            )}
+            {/* A claim resting on the user's own judgment must not dress as
+                one resting on the arithmetic. */}
+            {detection.relaxed && <> · every payment counted because you marked this recurring</>}
           </p>
           {detection.priceChange && (
             <p className="text-dense text-gray-500 dark:text-gray-400">
@@ -212,7 +328,7 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
               feed the calendar and the forecast; unanswered, it stays an
               opinion and feeds nothing. */}
           {answersReady && (
-            confirmedKeys.has(answerKeyOf(detection)) ? (
+            storedKeyOf(detection, confirmedKeys) !== null ? (
               <p className="text-dense text-gray-500 dark:text-gray-400">
                 Confirmed
                 <button
@@ -284,6 +400,49 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
         </p>
       </div>
 
+      {active.length + stopped.length > 0 && (
+        /* The controls change how the page is walked, never what it claims. */
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 flex flex-wrap items-center gap-x-4 gap-y-3">
+          <div className="relative flex-1 min-w-[220px]">
+            <SearchIcon
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search payee, account or institution"
+              aria-label="Search recurring payments"
+              className="w-full pl-9 pr-3 py-2 text-body bg-transparent border border-line dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-dense text-gray-500 dark:text-gray-400">
+            Sort
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as SortBy)}
+              className="bg-white dark:bg-gray-800 border border-line dark:border-gray-600 rounded-lg px-2 py-1.5 text-body text-gray-900 dark:text-white"
+            >
+              <option value="largest">Largest a year</option>
+              <option value="az">A to Z</option>
+              <option value="payment">Largest payment</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-dense text-gray-500 dark:text-gray-400">
+            Group
+            <select
+              value={groupBy}
+              onChange={e => setGroupBy(e.target.value as GroupBy)}
+              className="bg-white dark:bg-gray-800 border border-line dark:border-gray-600 rounded-lg px-2 py-1.5 text-body text-gray-900 dark:text-white"
+            >
+              <option value="cadence">By cadence</option>
+              <option value="institution">By institution</option>
+            </select>
+          </label>
+        </div>
+      )}
+
       {detections.length > 0 && dismissed.length === detections.length ? (
         /* Every pattern struck off — a FILTERED empty, not an empty: the
            count and the reason are named, per the batch-7 rule. */
@@ -317,35 +476,58 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
           <p className="text-body text-gray-500 dark:text-gray-400">
             Nothing here repeats. The app looked for {MIN_PAYMENTS} or more
             payments of the same amount to the same payee on a steady rhythm,
-            and found none — which may be exactly right.
+            and found none — which may be exactly right. You can also open any
+            payment in its register and mark it recurring yourself — the app
+            then reads that payee's history as a commitment.
+          </p>
+        </div>
+      ) : trimmedQuery && shownActive.length + shownStopped.length === 0 ? (
+        /* The search hid everything — a filtered empty, with the count, the
+           filter responsible and the way back (batch-7 rule). */
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
+          <p className="text-body text-gray-500 dark:text-gray-400">
+            No recurring payments match ‘{query.trim()}’ — {hiddenBySearch === 1
+              ? '1 is hidden by the search'
+              : `${hiddenBySearch} are hidden by the search`}.{' '}
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="text-primary hover:underline"
+            >
+              Clear the search
+            </button>
           </p>
         </div>
       ) : (
         <>
-          {CADENCE_BANDS.map(({ cadence, title }) => {
-            const band = bandFor(cadence);
-            if (band.length === 0) return null;
-            return (
-              <div key={cadence} className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
-                <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-                  <h2 className="text-card font-semibold text-theme-heading dark:text-white">
-                    {title}
-                    <span className="ml-2 text-dense font-normal text-gray-400 dark:text-gray-500">
-                      {band.length}
-                    </span>
-                  </h2>
-                  <span className="text-body font-semibold tabular-nums text-gray-900 dark:text-white">
-                    {formatCurrency(bandTotal(band), displayCurrency)} a year
-                  </span>
-                </div>
-                <ul>
-                  {band.map(d => <DetectionRow key={d.key} detection={d} />)}
-                </ul>
-              </div>
-            );
-          })}
+          {hiddenBySearch > 0 && (
+            <p className="text-dense text-gray-500 dark:text-gray-400">
+              Showing {shownActive.length + shownStopped.length} of{' '}
+              {active.length + stopped.length} recurring payments —{' '}
+              {hiddenBySearch} hidden by the search.
+            </p>
+          )}
 
-          {stopped.length > 0 && (
+          {bands.map(band => (
+            <div key={band.id} className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
+              <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+                <h2 className="text-card font-semibold text-theme-heading dark:text-white">
+                  {band.title}
+                  <span className="ml-2 text-dense font-normal text-gray-400 dark:text-gray-500">
+                    {band.rows.length}
+                  </span>
+                </h2>
+                <span className="text-body font-semibold tabular-nums text-gray-900 dark:text-white">
+                  {formatCurrency(bandTotal(band.rows), displayCurrency)} a year
+                </span>
+              </div>
+              <ul>
+                {band.rows.map(d => <DetectionRow key={d.key} detection={d} />)}
+              </ul>
+            </div>
+          ))}
+
+          {shownStopped.length > 0 && (
             /* Ran, and then didn't (§3.2) — either cancelled (good to know)
                or failed (good to look at). Never silently deleted. */
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
@@ -353,7 +535,7 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
                 <h2 className="text-card font-semibold text-theme-heading dark:text-white">
                   Stopped
                   <span className="ml-2 text-dense font-normal text-gray-400 dark:text-gray-500">
-                    {stopped.length}
+                    {shownStopped.length}
                   </span>
                 </h2>
                 <span className="text-dense text-gray-500 dark:text-gray-400">
@@ -361,7 +543,7 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
                 </span>
               </div>
               <ul>
-                {stopped.map(d => (
+                {shownStopped.map(d => (
                   <li key={d.key} className="py-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-t border-gray-50 dark:border-gray-700/50 first:border-0">
                     <div className="min-w-0">
                       <p className="text-body text-gray-900 dark:text-white truncate">

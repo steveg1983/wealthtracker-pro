@@ -114,6 +114,8 @@ vi.mock('../services/validationService', () => ({
 // module, so its glyphs (calendar + the calendar's own chevrons) belong here too.
 vi.mock('../components/icons', () => ({
   CalendarIcon: () => <div data-testid="calendar-icon">📅</div>,
+  // The recurring-payment tick's glyph, in the Status column.
+  ClockIcon: () => <div data-testid="clock-icon">🕐</div>,
   ChevronLeftIcon: () => <div data-testid="chevron-left-icon">‹</div>,
   ChevronRightIcon: () => <div data-testid="chevron-right-icon">›</div>,
   // The account combobox's own chevron.

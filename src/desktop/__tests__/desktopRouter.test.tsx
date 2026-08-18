@@ -174,7 +174,15 @@ describe('the desktop router', () => {
     // short version is that the premise ("a device edition has no plans") was
     // wrong rather than the reasoning, because a one-time purchase IS a plan and
     // its buyer is on it.
-    expect(mounted.length).toBe(40);
+    //
+    // FORTY-TWO now, and the two arrived together on 18 Aug because a page MOVED
+    // rather than because one was added: "What I'm committed to" left the
+    // reports gallery for its own address under Plan (`recurring-payments`),
+    // and its old gallery address stayed behind as a redirect so a pin made
+    // before the move still lands. Both are as local as the register they read
+    // — detection reads the open file's rows, the verdicts live in the file's
+    // own `suggestion_dismissals`.
+    expect(mounted.length).toBe(42);
 
     // EMPTY, and the list is kept rather than deleted — `routes.ts` says why:
     // this is one of three ANSWERS a route can have, not an exception to a rule,

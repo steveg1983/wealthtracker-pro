@@ -65,7 +65,6 @@ describe('ReportsHub gallery', () => {
       'Spending by category',
       'Income and spending over time',
       'Spending by payee',
-      'What I’m committed to',
       'This period vs last',
     ]) {
       expect(screen.getByText(title)).toBeInTheDocument();
@@ -82,7 +81,6 @@ describe('ReportsHub gallery', () => {
       '/reports/spending-by-category',
       '/reports/income-and-spending-over-time',
       '/reports/spending-by-payee',
-      '/reports/recurring-commitments',
       '/reports/period-comparison',
       '/reports/custom-reports',
     ]);
@@ -257,7 +255,10 @@ describe('ReportsHub gallery', () => {
     ['spending-by-category', 'Where the money went'],
     ['income-and-spending-over-time', 'Income against spending'],
     ['spending-by-payee', 'Biggest payees'],
-    ['recurring-commitments', 'Committed each year'],
+    // "What I'm committed to" is NOT here: it moved out of the gallery to its
+    // own page under Plan (pages/RecurringPayments) on 18 Aug, because
+    // confirming a pattern there feeds the calendar and the forecast — a
+    // working surface, not a report to read. Its own suites cover it.
     ['period-comparison', 'Biggest movers'],
   ])('renders the %s report', async (id, heading) => {
     renderHub(`/reports/${id}`);

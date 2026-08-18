@@ -21,7 +21,7 @@ import {
   RealtimeDot,
   type GlobalSearchHandle
 } from '@chrome';
-import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, TargetIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon, UsersIcon } from '../components/icons';
+import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, ChevronRightIcon, ClockIcon, DatabaseIcon, TagIcon, Settings2Icon, TargetIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon, UsersIcon } from '../components/icons';
 import { SidebarLink, TopNavItem, TopNavDropdown } from './layout/NavComponents';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
@@ -392,8 +392,14 @@ export default function Layout(): React.JSX.Element {
               items={[
                 { to: '/budget', icon: BarChart3Icon, label: 'Budget' },
                 { to: '/calendar', icon: CalendarIcon, label: 'Calendar' },
+                // Recurring Payments is Plan's third page, not a report: the
+                // verdicts given there are what let a pattern reach the
+                // calendar and the forecast (owner's ruling, 18 Aug). The MENU
+                // says what the page is; the page's own heading keeps the
+                // question it answers — "What I'm committed to".
+                { to: '/recurring-payments', icon: ClockIcon, label: 'Recurring Payments' },
               ]}
-              activePaths={['/budget', '/calendar']}
+              activePaths={['/budget', '/calendar', '/recurring-payments']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
@@ -648,11 +654,11 @@ export default function Layout(): React.JSX.Element {
                   )}
                 </div>
 
-                {/* Plan — Budget and Calendar, mirroring the desktop menu.
-                    This group used to be "deliberately absent" as desk work;
-                    the owner overruled it (17 Aug), and the Calendar now
-                    carries the due-next panel, which is exactly a thing to
-                    check from a phone. */}
+                {/* Plan — Budget, Calendar and Recurring Payments, mirroring
+                    the desktop menu. This group used to be "deliberately
+                    absent" as desk work; the owner overruled it (17 Aug), and
+                    the Calendar now carries the due-next panel, which is
+                    exactly a thing to check from a phone. */}
                 <div>
                   <button
                     type="button"
@@ -671,6 +677,7 @@ export default function Layout(): React.JSX.Element {
                     <div className="mt-1 space-y-1">
                       <SidebarLink to="/budget" icon={BarChart3Icon} label="Budget" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/calendar" icon={CalendarIcon} label="Calendar" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/recurring-payments" icon={ClockIcon} label="Recurring Payments" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>
                   )}
                 </div>
