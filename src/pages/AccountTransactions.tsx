@@ -50,6 +50,7 @@ import { effectiveOpeningDate, findSiblingAccount } from '../utils/openingDates'
 import { describeDeleteStranding, resolveTransferOtherSide } from '../utils/transferOtherSide';
 import { deleteTransferPair } from '../utils/transferSurvivorRelease';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
+import { normalisePayeeKey } from '../utils/recurringDetection';
 import { readProvenance, returnState } from '../utils/navigationProvenance';
 import { planBulkDelete, type BulkDeletePlan } from '../utils/registerBulkDelete';
 import { DATE_COLUMN_WIDTH_PX } from '../utils/registerDateColumn';
@@ -546,6 +547,16 @@ export default function AccountTransactions() {
    * the worst kind of stale state — it looks like data loss.
    */
   const [reviewOnly, setReviewOnly] = useState(false);
+  /**
+   * The register narrowed to ONE recurring pattern's payments — every label
+   * it has worn, so a stitched pattern (a bank rename) shows its whole
+   * history in one view. Arrives by URL from Plan → Recurring Payments
+   * (owner, 18 Aug: sending the user to the bare account "is pretty
+   * pointless"), consumed-and-deleted like ?review= so the filter cannot
+   * outlive the click that asked for it. Matching is by the DETECTOR's own
+   * payee normaliser, never a re-derivation that could drift from it.
+   */
+  const [recurringPayeeFilter, setRecurringPayeeFilter] = useState<string[] | null>(null);
   const viewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -587,7 +598,8 @@ export default function AccountTransactions() {
     const txn = params.get('txn');
     const hasShowArchived = params.has('showArchived');
     const hasReview = params.has('review');
-    if (!txn && !hasShowArchived && !hasReview) return;
+    const hasRecurringPayee = params.has('recurringPayee');
+    if (!txn && !hasShowArchived && !hasReview && !hasRecurringPayee) return;
     if (txn) {
       pendingTxnRef.current = txn;
       openedAtFootRef.current = accountId ?? null;
@@ -624,6 +636,19 @@ export default function AccountTransactions() {
        */
       if (params.get('review') === '1') setReviewOnly(true);
       params.delete('review');
+    }
+    if (hasRecurringPayee) {
+      // Percent-decoding is URLSearchParams' own; the '|' separator survives
+      // because a normalised payee key cannot contain one (letters, &, '
+      // and spaces only — see normalisePayeeKey).
+      const keys = (params.get('recurringPayee') ?? '')
+        .split('|').map(k => k.trim()).filter(Boolean);
+      if (keys.length > 0) {
+        setRecurringPayeeFilter(keys);
+        // A pattern's history usually predates any archive window.
+        setArchive(prev => (prev.range === 'all' ? prev : { range: 'all', from: '', to: '' }));
+      }
+      params.delete('recurringPayee');
     }
     // The state is carried across by hand. React Router gives a replaced entry
     // null state unless told otherwise, and the state here is the provenance
@@ -907,6 +932,10 @@ export default function AccountTransactions() {
         // Soft archive: hidden from the live register unless the user opts in.
         if (!showArchived && t.archived) return false;
 
+        // One recurring pattern's payments, across every label it has worn.
+        if (recurringPayeeFilter &&
+            !recurringPayeeFilter.includes(normalisePayeeKey(t.description))) return false;
+
         // Type filter
         if (typeFilter !== 'all' && t.type !== typeFilter) return false;
 
@@ -940,7 +969,7 @@ export default function AccountTransactions() {
     // categories is not a dependency: the only thing here that reads them is
     // categoryLabel, which is memoised on exactly them (and on accounts) — so a
     // renamed category rebuilds the labeller and this list follows.
-  }, [account, transactions, searchTerm, dateFrom, dateTo, typeFilter, archiveWindow, showArchived, sortField, sortDirection, categoryLabel]);
+  }, [account, transactions, searchTerm, dateFrom, dateTo, typeFilter, archiveWindow, showArchived, sortField, sortDirection, categoryLabel, recurringPayeeFilter]);
 
   /**
    * How many rows in front of the user have arrived and not been dealt with —
@@ -1010,9 +1039,13 @@ export default function AccountTransactions() {
       names.push(`Show: ${preset?.label ?? archive.range}`);
     }
     if (reviewOnly) names.push('To Review only');
+    if (recurringPayeeFilter) {
+      names.push(`Recurring payee: ${recurringPayeeFilter[0]}${
+        recurringPayeeFilter.length > 1 ? ' (including former names)' : ''}`);
+    }
     if (hasArchivedHere && !showArchived) names.push('archived rows being hidden');
     return names;
-  }, [searchTerm, typeFilter, dateFrom, dateTo, archive.range, reviewOnly, hasArchivedHere, showArchived]);
+  }, [searchTerm, typeFilter, dateFrom, dateTo, archive.range, reviewOnly, recurringPayeeFilter, hasArchivedHere, showArchived]);
 
   /** Puts every one of the above away — the remedy the filtered-empty offers. */
   const clearAllFilters = useCallback((): void => {
@@ -1022,6 +1055,7 @@ export default function AccountTransactions() {
     setDateTo('');
     setArchive(prev => ({ ...prev, range: 'all' }));
     setReviewOnly(false);
+    setRecurringPayeeFilter(null);
     // "Clear filters" has to mean it: if archived rows are among what is
     // hidden, a button that left them hidden would empty the register again
     // and read as broken.
@@ -3175,11 +3209,26 @@ export default function AccountTransactions() {
           <FilterIcon size={14} />
           <span className="sm:hidden">Filters</span>
           <span className="hidden sm:inline">Search &amp; filters</span>
-          {(searchTerm || typeFilter !== 'all' || dateFrom || dateTo) && (
+          {(searchTerm || typeFilter !== 'all' || dateFrom || dateTo || recurringPayeeFilter) && (
             <span className="w-2 h-2 rounded-full bg-blue-500" title="Filters active" />
           )}
           {showFilters ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
         </button>
+
+        {/* ARRIVED FROM A RECURRING PATTERN — the register is narrowed to
+            its payments, and must say so while showing rows, not only when
+            empty (batch-7: a filtered register must never read as the whole
+            account). The one control lets go of just this filter. */}
+        {recurringPayeeFilter && (
+          <button
+            onClick={() => setRecurringPayeeFilter(null)}
+            className={`${TOOLBAR_QUIET_BUTTON} ${TOOLBAR_QUIET_ACTIVE}`}
+            title="Showing one recurring pattern's payments — click to show the whole register"
+          >
+            Recurring payee: {recurringPayeeFilter[0]}
+            {recurringPayeeFilter.length > 1 ? ' (including former names)' : ''} ✕
+          </button>
+        )}
 
         {/* Soft-archive toggle — only when this account has archived history */}
         {hasArchivedHere && (

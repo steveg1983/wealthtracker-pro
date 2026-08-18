@@ -287,10 +287,17 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
           <p className="text-body text-gray-900 dark:text-white truncate">
             {/* Into the account's register, where the payments themselves are —
                 the same door every other report row opens. */}
+            {/* Into the register FILTERED TO THIS PATTERN — every label it
+                has worn, so a stitched pattern shows its whole history
+                (owner, 18 Aug: the bare account link "is pretty pointless").
+                The register consumes the parameter and names the filter. */}
             <Link
-              to={preserveDemoParam(`/accounts/${detection.accountId}`, location.search)}
+              to={preserveDemoParam(
+                `/accounts/${detection.accountId}?recurringPayee=${encodeURIComponent(detection.payeeKeys.join('|'))}`,
+                location.search
+              )}
               className="hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
-              title={account ? `${account} — open this account's register` : 'Open this account’s register'}
+              title={account ? `${account} — this pattern's payments in the register` : 'This pattern’s payments in the register'}
             >
               {detection.description}
             </Link>
@@ -563,7 +570,10 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
                     <div className="min-w-0">
                       <p className="text-body text-gray-900 dark:text-white truncate">
                         <Link
-                          to={preserveDemoParam(`/accounts/${d.accountId}`, location.search)}
+                          to={preserveDemoParam(
+                            `/accounts/${d.accountId}?recurringPayee=${encodeURIComponent(d.payeeKeys.join('|'))}`,
+                            location.search
+                          )}
                           className="hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
                         >
                           {d.description}
