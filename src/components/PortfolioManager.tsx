@@ -7,6 +7,7 @@ import {
   RATE_DP,
   destinationForRate,
   rateToDisplayString,
+  sourceForRate,
   type FxRateSource,
 } from '../utils/fx';
 import { formatDecimal } from '../utils/decimal-format';
@@ -269,6 +270,19 @@ export default function PortfolioManager({
    */
   const [rateText, setRateText] = useState('');
   const [rateTouched, setRateTouched] = useState(false);
+  /**
+   * Which currency the COST FIGURES are being typed in, when the instrument
+   * prices in one the account does not count in.
+   *
+   * The other half of the owner's 18 Aug ask: "enter the price and fees
+   * either in his base currency … or … in the investment local currency".
+   * The HOLDING is stored in the instrument's currency whichever is chosen —
+   * its quotes arrive in that currency, and a gain measured across two
+   * currencies is not a gain — so figures typed in the account's money are
+   * converted INTO the instrument's at the rate box, and the conversion is
+   * said out loud in the provenance.
+   */
+  const [entryCurrency, setEntryCurrency] = useState<'instrument' | 'account'>('instrument');
   const [purchaseDate, setPurchaseDate] = useState(() => toDateInputValue(new Date()));
 
   // The picked instrument's live quote: the trading currency stated by the
@@ -291,6 +305,7 @@ export default function PortfolioManager({
     setTotalPaidTouched(false);
     setRateText('');
     setRateTouched(false);
+    setEntryCurrency('instrument');
     setPurchaseDate(toDateInputValue(new Date()));
     setQuote(null);
     setQuoteLoading(false);
@@ -416,22 +431,40 @@ export default function PortfolioManager({
    */
   const needsConversion =
     fundingAccount !== null && fundingAccount.currency !== holdingCurrency;
+  /**
+   * The instrument prices in a currency the ACCOUNT does not count in. Wider
+   * than `needsConversion` (which is about the chosen funding account),
+   * because the reverse entry needs a rate to STORE the cost even when no
+   * funding account is named — and the funding list is filtered to the
+   * account's currency, so the two agree whenever both apply.
+   */
+  const crossCurrency = holdingCurrency !== currency;
+  const enteringInAccountMoney = !editing && crossCurrency && entryCurrency === 'account';
+  /** The money side of the conversion — the funding account's, or the account's own. */
+  const moneyCurrency = fundingAccount?.currency ?? currency;
+  const showRateBox = !editing && (needsConversion || enteringInAccountMoney);
   const fxQuote = useFxQuote(
-    needsConversion ? holdingCurrency : null,
-    needsConversion ? fundingAccount.currency : null
+    showRateBox ? holdingCurrency : null,
+    showRateBox ? moneyCurrency : null
   );
   const rateValue = rateText === '' ? null : readPositiveRate(rateText);
+  /** The currency the price and charges boxes are speaking, right now. */
+  const entryCcy = enteringInAccountMoney ? currency : holdingCurrency;
 
   // A Decimal is a fresh object every render, so the effects below key on its
   // STRING — stable while the figure is, changed exactly when it changes.
   const cashTotalKey = cashTotal !== null ? cashTotal.toDecimalPlaces(2).toString() : null;
 
   // Keep the editable default in step with the figures above it — until the
-  // owner types their own total, which is then theirs.
+  // owner types their own total, which is then theirs. cashTotal is already
+  // in the money's currency in two cases: the funding account counts in the
+  // instrument's currency, or the boxes themselves are speaking the account's
+  // money (the reverse entry) — no rate touches it either way.
+  const cashTotalIsMoney = fundingMatchesHoldingCurrency || enteringInAccountMoney;
   useEffect(() => {
-    if (totalPaidTouched || !fundingMatchesHoldingCurrency || cashTotalKey === null) return;
+    if (totalPaidTouched || !cashTotalIsMoney || cashTotalKey === null) return;
     setTotalPaid(cashTotalKey);
-  }, [totalPaidTouched, fundingMatchesHoldingCurrency, cashTotalKey]);
+  }, [totalPaidTouched, cashTotalIsMoney, cashTotalKey]);
 
   // Seed the rate box from the quote, and only while the box is untouched: a
   // quote that resolves late must never overwrite a rate already typed.
@@ -445,7 +478,8 @@ export default function PortfolioManager({
   // same-currency default: it fills the box, and the box stays editable —
   // the contract note wins over any arithmetic done here.
   const convertedTotalKey = (() => {
-    if (!needsConversion || cashTotal === null || rateValue === null) return null;
+    if (!needsConversion || enteringInAccountMoney) return null;
+    if (cashTotal === null || rateValue === null) return null;
     const converted = destinationForRate(cashTotal, rateValue);
     return converted.ok ? converted.value.toDecimalPlaces(AMOUNT_DP).toString() : null;
   })();
@@ -463,17 +497,17 @@ export default function PortfolioManager({
   const [baseEquivalent, setBaseEquivalent] = useState<DecimalInstance | null>(null);
   useEffect(() => {
     let cancelled = false;
-    if (previewKey === null || holdingCurrency === displayCurrency) {
+    if (previewKey === null || entryCcy === displayCurrency) {
       setBaseEquivalent(null);
       return;
     }
-    void convert(toDecimal(previewKey), holdingCurrency).then((converted) => {
+    void convert(toDecimal(previewKey), entryCcy).then((converted) => {
       if (!cancelled) setBaseEquivalent(converted);
     }).catch(() => {
       if (!cancelled) setBaseEquivalent(null);
     });
     return () => { cancelled = true; };
-  }, [previewKey, holdingCurrency, displayCurrency, convert]);
+  }, [previewKey, entryCcy, displayCurrency, convert]);
 
   /**
    * The list's total, CONVERTED. Summing costBasis raw added dollars to
@@ -517,21 +551,67 @@ export default function PortfolioManager({
       return;
     }
 
+    /**
+     * THE REVERSE ENTRY'S CONVERSION. The boxes were speaking the account's
+     * money; the holding is stored in the instrument's currency (its quotes
+     * arrive in that currency, and a gain measured across two currencies is
+     * not a gain). So the typed price and charges convert INTO the
+     * instrument's currency here, at the rate on screen — division, because
+     * the rate is quoted as 1 instrument-unit in account money. What the
+     * owner typed is what the cash side uses; the stored figures are derived,
+     * and the provenance note says at what rate.
+     */
+    let storedCost = toDecimal(costValue);
+    let storedCharges = toDecimal(chargesValue);
+    if (enteringInAccountMoney) {
+      if (rateValue === null) {
+        setFormError(
+          `Enter the rate — 1 ${holdingCurrency} in ${currency} — so figures typed ` +
+          `in ${currency} can be stored in the instrument's own currency`
+        );
+        return;
+      }
+      const costConverted = sourceForRate(storedCost, rateValue);
+      const chargesConverted = storedCharges.greaterThan(0)
+        ? sourceForRate(storedCharges, rateValue)
+        : { ok: true as const, value: toDecimal(0) };
+      if (!costConverted.ok || !chargesConverted.ok) {
+        setFormError('That rate cannot convert these figures — check both');
+        return;
+      }
+      storedCost = costConverted.value;
+      storedCharges = chargesConverted.value;
+    }
+
     const values: HoldingFormValues = {
       symbol,
       name: name.trim() || symbol,
       quantity: toDecimal(quantityValue),
-      averageCost: toDecimal(costValue),
+      averageCost: storedCost,
       currency: holdingCurrency,
       assetType
     };
 
     let purchase: PurchaseDetails = {
-      charges: toDecimal(chargesValue),
+      charges: storedCharges,
       fundingAccountId: null,
       totalPaid: null,
       date: new Date(`${purchaseDate}T00:00:00`),
-      fx: null
+      // In the reverse entry the conversion happened whether or not any money
+      // moves: the stored cost derives from typed figures through the rate,
+      // and that must be accountable even on a holding recorded with no
+      // funding transfer.
+      fx: enteringInAccountMoney && rateValue !== null
+        ? {
+            rate: rateValue,
+            from: holdingCurrency,
+            to: currency,
+            source: !rateTouched && fxQuote.status === 'ready' && fxQuote.source === 'api'
+              ? 'api'
+              : 'manual',
+            asOf: !rateTouched && fxQuote.status === 'ready' ? fxQuote.asOf : new Date()
+          }
+        : null
     };
 
     if (!editing && fundingAccountId !== '') {
@@ -804,7 +884,7 @@ export default function PortfolioManager({
 
             <div>
               <label htmlFor="holding-average-cost" className={labelClass}>
-                Average cost per unit
+                Average cost per unit{!editing && crossCurrency ? ` (${entryCcy})` : ''}
               </label>
               <MoneyInput
                 id="holding-average-cost"
@@ -839,13 +919,49 @@ export default function PortfolioManager({
                 ))}
               </select>
             </div>
+
+            {/* WHICH CURRENCY IS THE CONTRACT NOTE IN? (owner, 18 Aug: "enter
+                the price and fees either in his base currency … or … in the
+                investment local currency"). The holding is STORED in the
+                instrument's currency either way — its quotes arrive in that
+                currency, and a gain measured across two currencies is not a
+                gain — so figures typed in the account's money convert at the
+                rate box, and the note on the holding says so. */}
+            {!editing && crossCurrency && (
+              <div>
+                <label htmlFor="holding-entry-currency" className={labelClass}>
+                  Enter figures in
+                </label>
+                <select
+                  id="holding-entry-currency"
+                  value={entryCurrency}
+                  onChange={(e) => {
+                    setEntryCurrency(e.target.value === 'account' ? 'account' : 'instrument');
+                    // The default total was computed under the old meaning of
+                    // the boxes; recompute rather than carry a stale figure.
+                    setTotalPaidTouched(false);
+                    setTotalPaid('');
+                  }}
+                  disabled={isSaving}
+                  className={inputClass}
+                >
+                  <option value="instrument">{holdingCurrency} — the instrument's currency</option>
+                  <option value="account">{currency} — your money</option>
+                </select>
+                <p className={helperClass}>
+                  {enteringInAccountMoney
+                    ? `Stored in ${holdingCurrency} either way, converted at the rate below — so gains can be measured against its ${holdingCurrency} quotes.`
+                    : `The contract note's figures, as the instrument prices them.`}
+                </p>
+              </div>
+            )}
           </div>
 
           {!editing && (
             <>
               <div>
                 <label htmlFor="holding-charges" className={labelClass}>
-                  Charges — stamp duty, levies, commission ({holdingCurrency})
+                  Charges — stamp duty, levies, commission ({entryCcy})
                 </label>
                 <MoneyInput
                   id="holding-charges"
@@ -891,6 +1007,39 @@ export default function PortfolioManager({
                 </p>
               </div>
 
+              {/* THE RATE, whenever a conversion stands anywhere in this buy:
+                  between the instrument and the money that pays for it, or —
+                  the reverse entry — between the figures being typed and the
+                  currency the holding is stored in. Outside the funding block
+                  because the second case needs no funding account at all. */}
+              {showRateBox && (
+                <div>
+                  <label htmlFor="holding-fx-rate" className={labelClass}>
+                    Rate: 1 {holdingCurrency} in {moneyCurrency}
+                  </label>
+                  <input
+                    id="holding-fx-rate"
+                    type="text"
+                    inputMode="decimal"
+                    value={rateText}
+                    onChange={(event) => {
+                      setRateText(event.target.value);
+                      setRateTouched(true);
+                    }}
+                    className={inputClass}
+                    disabled={isSaving}
+                    placeholder="0.0000"
+                  />
+                  <p className={helperClass}>
+                    {fxQuote.status === 'ready' && !rateTouched
+                      ? `Today's rate, from ${fxQuote.provider}. Your broker's will differ — type theirs and the figures follow.`
+                      : fxQuote.status === 'unavailable' && !rateTouched
+                        ? 'No rate available for this pair — the one on your contract note is the one that happened.'
+                        : 'Your rate for this purchase. The figures follow it.'}
+                  </p>
+                </div>
+              )}
+
               {fundingAccountId !== '' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -906,36 +1055,6 @@ export default function PortfolioManager({
                       usePortal
                     />
                   </div>
-                  {/* THE RATE, when the instrument and the money that pays for
-                      it count in different currencies. Shown before the total
-                      it produces, because it is what produces it. */}
-                  {needsConversion && fundingAccount && (
-                    <div className="sm:col-span-2">
-                      <label htmlFor="holding-fx-rate" className={labelClass}>
-                        Rate: 1 {holdingCurrency} in {fundingAccount.currency}
-                      </label>
-                      <input
-                        id="holding-fx-rate"
-                        type="text"
-                        inputMode="decimal"
-                        value={rateText}
-                        onChange={(event) => {
-                          setRateText(event.target.value);
-                          setRateTouched(true);
-                        }}
-                        className={inputClass}
-                        disabled={isSaving}
-                        placeholder="0.0000"
-                      />
-                      <p className={helperClass}>
-                        {fxQuote.status === 'ready' && !rateTouched
-                          ? `Today's rate, from ${fxQuote.provider}. Your broker's will differ — type theirs and the total below follows.`
-                          : fxQuote.status === 'unavailable' && !rateTouched
-                            ? 'No rate available for this pair — the one on your contract note is the one that happened.'
-                            : 'Your rate for this purchase. The total below follows it.'}
-                      </p>
-                    </div>
-                  )}
                   <div>
                     <label htmlFor="holding-total-paid" className={labelClass}>
                       Total paid ({fundingAccount?.currency ?? currency})
@@ -951,7 +1070,7 @@ export default function PortfolioManager({
                       disabled={isSaving}
                     />
                     <p className={helperClass}>
-                      {needsConversion
+                      {needsConversion && !enteringInAccountMoney
                         ? `(Units × cost + charges) × the rate above — change it if the contract note says otherwise. The ${fundingAccount?.currency ?? 'account'} figure is what moves.`
                         : 'Units × cost + charges, prefilled — change it if the contract note says otherwise.'}
                     </p>
@@ -964,7 +1083,7 @@ export default function PortfolioManager({
           {previewCostBasis && (
             <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-1">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Cost basis: {formatCurrency(previewCostBasis, holdingCurrency)}
+                Cost basis: {formatCurrency(previewCostBasis, entryCcy)}
                 {chargesValue !== null && chargesValue > 0 && ' including charges'}
               </p>
               {baseEquivalent !== null && (

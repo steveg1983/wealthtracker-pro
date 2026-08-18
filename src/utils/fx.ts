@@ -196,6 +196,37 @@ export function rateForDestination(
 }
 
 /**
+ * The source amount a rate implies: |destination| ÷ rate, to the penny —
+ * {@link destinationForRate} run backwards.
+ *
+ * The buy form's reverse entry is what needs it: a figure typed in the money
+ * that PAYS (the destination side) converted back into the currency the thing
+ * is PRICED in. Same rounding discipline as the forward direction: one
+ * HALF_UP rounding at {@link AMOUNT_DP}, after the division.
+ *
+ * A rate that is zero or negative fails as 'not-a-number' rather than
+ * dividing: no real currency pair has one (the local schema's
+ * `fx_rate_e10 > 0` CHECK says the same thing in storage), so a caller
+ * holding such a rate is holding a parsing mistake, not a conversion.
+ */
+export function sourceForRate(
+  destinationAmount: DecimalInstance | number | string,
+  rate: DecimalInstance | number | string
+): FxResult<DecimalInstance> {
+  const destination = readAmount(destinationAmount);
+  const rateValue = readAmount(rate);
+  if (destination === null || rateValue === null) return fail('not-a-number');
+  if (rateValue.lessThanOrEqualTo(0)) return fail('not-a-number');
+
+  return ok(
+    destination
+      .abs()
+      .dividedBy(rateValue)
+      .toDecimalPlaces(AMOUNT_DP, Decimal.ROUND_HALF_UP)
+  );
+}
+
+/**
  * A rate as it is STORED: an exact decimal string, trailing zeros removed.
  *
  * `toFixed` would pad "0.79" to "0.7900000000", which stores ten digits of
