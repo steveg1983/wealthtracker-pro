@@ -10,9 +10,8 @@ import AccountBreakdownModal, { type AccountBreakdownView } from '../components/
 import NetWorthSummary from '../components/NetWorthSummary';
 import { formatDate } from '../utils/dateFormatter';
 import { accountHasHistory } from '../utils/accountHistory';
-import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
-import { ArchiveIcon, SettingsIcon, CheckCircleIcon, CheckIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon, SearchIcon } from '../components/icons';
+import { ArchiveIcon, SettingsIcon, CheckCircleIcon, CheckIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon, SearchIcon } from '../components/icons';
 // Both bank-feed surfaces on this page come through `@service`, the seam for
 // what a shared page says about the account you hold WITH somebody. On a
 // device the badge draws nothing and the hook answers no connections, which
@@ -224,7 +223,6 @@ export default function Accounts() {
   // null = closed; 'critical'/'jwks' preset the ops filters the incident
   // badges deep-link to (mirrors the Data Management handlers).
   const [bankConnectionsView, setBankConnectionsView] = useState<null | 'plain' | 'critical' | 'jwks'>(null);
-  const [portfolioAccountId, setPortfolioAccountId] = useState<string | null>(null);
   const [settingsAccountId, setSettingsAccountId] = useState<string | null>(null);
   const [breakdownView, setBreakdownView] = useState<AccountBreakdownView | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -320,12 +318,10 @@ export default function Accounts() {
 
   const { getUnreconciledCount, computeAccountBalance: computeLedgerBalance } = useReconciliation(accounts, transactions);
 
-  // Both of this page's own dialogs dismiss only when the press AND the release
-  // are on the backdrop — a selection that ends outside is not a dismissal.
+  // This page's dialog dismisses only when the press AND the release are on
+  // the backdrop — a selection that ends outside is not a dismissal.
   const closeBankConnections = useCallback(() => setBankConnectionsView(null), []);
-  const closePortfolio = useCallback(() => setPortfolioAccountId(null), []);
   const bankConnectionsDismiss = useBackdropDismiss(closeBankConnections);
-  const portfolioDismiss = useBackdropDismiss(closePortfolio);
 
   /**
    * How much freshly-imported work is waiting in each account.
@@ -492,17 +488,6 @@ export default function Accounts() {
     ...a,
     balance: toDecimal(a.balance),
     openingBalance: a.openingBalance ? toDecimal(a.openingBalance) : undefined,
-    holdings: a.holdings ? a.holdings.map(h => ({
-      ...h,
-      shares: toDecimal(h.shares),
-      value: toDecimal(h.value),
-      averageCost: h.averageCost ? toDecimal(h.averageCost) : undefined,
-      currentPrice: h.currentPrice ? toDecimal(h.currentPrice) : undefined,
-      marketValue: h.marketValue ? toDecimal(h.marketValue) : undefined,
-      gain: h.gain ? toDecimal(h.gain) : undefined,
-      gainPercent: h.gainPercent ? toDecimal(h.gainPercent) : undefined,
-      costBasis: h.costBasis ? toDecimal(h.costBasis) : undefined
-    })) : undefined
   })), [openAccounts]);
 
   /**
@@ -1606,25 +1591,6 @@ export default function Accounts() {
                           </p>
                         )}
 
-                        {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
-                          <div className="text-xs text-gray-500 dark:text-gray-300 mt-1 space-y-1">
-                            <p>
-                              Cash Balance: {formatDisplayCurrency(
-                                account.balance - account.holdings.reduce((sum, h) => sum + (h.marketValue || h.value || 0), 0), 
-                                account.currency
-                              )}
-                            </p>
-                            <p>
-                              Holdings Value: {formatDisplayCurrency(
-                                account.holdings.reduce((sum, h) => sum + (h.marketValue || h.value || 0), 0), 
-                                account.currency
-                              )} ({account.holdings.length} positions)
-                            </p>
-                            <p className="font-medium">
-                              Total Value: {formatDisplayCurrency(account.balance, account.currency)}
-                            </p>
-                          </div>
-                        )}
                       </div>
                       
                       {/* The columns. Their definition — and the reason the
@@ -1703,20 +1669,22 @@ export default function Accounts() {
                                   slots become direct children of the nine-column
                                   grid again. */}
                               <div className={`${showRowActions ? 'grid' : 'hidden'} w-full grid-cols-5 justify-items-end gap-1 lg:contents`}>
-                              <AccountRowActionSlot>
-                                {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
-                                <button
-                                  onClick={() => setPortfolioAccountId(account.id)}
-                                  className={`p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-purple-700 dark:text-gray-400 dark:hover:text-purple-300 hover:bg-purple-100/50 dark:hover:bg-purple-900/30 rounded-lg relative group ${ROW_ACTION_REVEAL_CLASS}`}
-                                  title="View Portfolio"
-                                >
-                                  <PieChartIcon size={16} />
-                                  <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
-                                    View Portfolio
-                                  </span>
-                                </button>
-                                )}
-                              </AccountRowActionSlot>
+                              {/* The "View Portfolio" slot, kept EMPTY rather
+                                  than removed: the five slots are what hold the
+                                  other four buttons in the same column on every
+                                  row, and dropping one would move them all.
+
+                                  What used to be here read `account.holdings`,
+                                  a field that has not existed in the database
+                                  since holdings moved to their own table —
+                                  `api/accountMapping` lists it in
+                                  NOT_ACCOUNT_COLUMNS and strips it from every
+                                  write, so nothing ever populated it and the
+                                  button never appeared. Holdings are opened from
+                                  the Investments page, which reads the table
+                                  they actually live in. */}
+                              <AccountRowActionSlot />
+
                               {/* Feed slot — rendered for every account so
                                   the three buttons to its right never move. */}
                               <AccountRowActionSlot>
@@ -3102,32 +3070,6 @@ export default function Accounts() {
         </div>
       )}
 
-      {/* Balance Adjustment Modal */}
-      {/* Portfolio View Modal */}
-      {portfolioAccountId && (() => {
-        const account = accounts.find(a => a.id === portfolioAccountId);
-        if (!account || !account.holdings) return null;
-        
-        return (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-            {...portfolioDismiss}
-          >
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <PortfolioView
-                  accountId={portfolioAccountId}
-                  accountName={account.name}
-                  holdings={account.holdings}
-                  currency={account.currency}
-                  onClose={() => setPortfolioAccountId(null)}
-                />
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-      
       {/* Account Settings Modal — serves the open cards AND the closed rows, so
           the account can come from either list. A closed account is not in
           context state (it is loaded separately), hence the second lookup. */}

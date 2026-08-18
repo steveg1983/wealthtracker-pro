@@ -64,7 +64,19 @@ export interface Account {
    * always did.
    */
   securedAgainstAccountIds?: string[];
-  holdings?: Holding[];
+  /*
+   * `holdings?: Holding[]` WAS here, and it was a phantom: it is not a column
+   * of `accounts`, `api/accountMapping` lists it in NOT_ACCOUNT_COLUMNS and
+   * strips it from every write, and nothing has ever populated it on a read.
+   * Holdings live in their own table and are reached through `@data`'s five
+   * investment verbs (see `services/api/investmentService`).
+   *
+   * A field that cannot hold a value is worse than no field: three surfaces
+   * were written against it — an account card's "N positions" line, a "View
+   * Portfolio" row button and a whole 267-line PortfolioView modal — and every
+   * one of them was unreachable, because the condition guarding it
+   * (`account.holdings && account.holdings.length > 0`) can never be true.
+   */
   notes?: string;
   isActive?: boolean;
   plaidConnectionId?: string;

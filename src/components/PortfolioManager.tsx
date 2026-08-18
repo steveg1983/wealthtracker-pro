@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, parseMoneyInput, type DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
@@ -101,6 +101,30 @@ interface PortfolioManagerProps {
   onAdd: (values: HoldingFormValues, purchase: PurchaseDetails) => Promise<void>;
   onEdit: (id: string, values: HoldingFormValues) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  /**
+   * Ask this manager to open its add form from OUTSIDE — the page's own
+   * "Add a holding" door, which now leads here rather than to a second modal
+   * that wrote a transaction and no holding.
+   *
+   * A signal rather than a controlled `isAddOpen`: the page is saying "open
+   * it", once, and everything after that (validating, saving, closing) belongs
+   * to this component. A boolean the page owned would make the page responsible
+   * for clearing it on cancel, and a page that forgot would jam the form open.
+   * Any CHANGE to this value opens the form, so a second press re-opens it.
+   *
+   * It fires on MOUNT too, which is the usual case rather than the exception:
+   * this manager is collapsed until the page expands it, so the press that
+   * opens the form is the same press that brings this component into being.
+   */
+  openAddSignal?: number;
+  /**
+   * Fired once the signal above has been acted on, so the page can drop it.
+   *
+   * Without this the signal outlives its press: expanding the same account
+   * again later would remount this component with the old value still set and
+   * spring the form open at nobody's request.
+   */
+  onAddSignalHandled?: () => void;
 }
 
 const ASSET_TYPE_LABELS: Readonly<Record<InvestmentAssetType, string>> = {
@@ -157,7 +181,9 @@ export default function PortfolioManager({
   fundingAccounts,
   onAdd,
   onEdit,
-  onDelete
+  onDelete,
+  openAddSignal,
+  onAddSignalHandled
 }: PortfolioManagerProps): React.JSX.Element {
   const { formatCurrency, convert, convertAndSum, displayCurrency } = useCurrencyDecimal();
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -218,6 +244,26 @@ export default function PortfolioManager({
     resetForm();
     setIsAddOpen(true);
   };
+
+  /**
+   * The page's door, honoured — including on the mount the press caused.
+   *
+   * Keyed on a CHANGE of the value, so pressing the page's button again after
+   * a cancel re-opens the form. The ref starts UNSET rather than seeded with
+   * the incoming value: this component is collapsed until the page expands it,
+   * so the first render usually IS the press, and seeding would swallow it.
+   * The page is told the signal has been used, and drops it, which is what
+   * stops the same value re-firing on a later mount.
+   */
+  const lastAddSignal = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (openAddSignal === undefined || openAddSignal === lastAddSignal.current) return;
+    lastAddSignal.current = openAddSignal;
+    startAdd();
+    onAddSignalHandled?.();
+    // startAdd is a stable local closure over setState calls only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openAddSignal, onAddSignalHandled]);
 
   const startEdit = (holding: InvestmentHolding): void => {
     setFormError('');
