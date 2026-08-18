@@ -57,6 +57,7 @@ import {
   type AccountDistributionEntry,
 } from '../../utils/accountDistribution';
 import { groupAccountsBySection } from '../../utils/accountGrouping';
+import { moveToPosition, moveBySteps } from '../../utils/reorderList';
 import { buildCategoryNameLookup } from '../../utils/categoryNames';
 import { buildAttentionItems } from '../../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../../utils/bankAutoSync';
@@ -446,7 +447,94 @@ export function ImprovedDashboard() {
     });
   };
 
-  const displayedAccounts = accounts.filter(a => selectedAccountIds.includes(a.id));
+  /**
+   * THE STORED ORDER IS THE DISPLAY ORDER (owner, 17 Aug: "move it within
+   * that box … like moving an app around on an iPhone screen"). This used to
+   * filter the ACCOUNTS array, so the tiles sat in load order whatever the
+   * user chose — the id list the picker already persists simply becomes the
+   * seating plan.
+   */
+  const displayedAccounts = useMemo(() => {
+    const byId = new Map(accounts.map(a => [a.id, a]));
+    return selectedAccountIds
+      .map(id => byId.get(id))
+      .filter((a): a is typeof accounts[number] => a !== undefined);
+  }, [accounts, selectedAccountIds]);
+
+  /**
+   * ─ DRAGGING A TILE TO A NEW SEAT ──────────────────────────────────────────
+   * Pointer events, one set for mouse, pen and touch. A press is not a drag
+   * until it has moved 8px — the tile is also a button that opens the
+   * account, and the moved flag is what keeps one gesture from being both.
+   * While dragging, the tile under the pointer becomes the target and the
+   * order re-seats LIVE (moveToPosition preserves every other relative
+   * order); the drop persists it. `touch-action: pan-y` keeps the page
+   * scrollable from a tile on a phone, which means a touch drag reorders
+   * cleanly sideways and yields to scrolling vertically — the full gesture
+   * belongs to the mouse this feature was asked for, and Alt+arrows cover
+   * the keyboard.
+   */
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const dragRef = React.useRef<{ id: string; startX: number; startY: number; moved: boolean } | null>(null);
+  const orderRef = React.useRef<string[]>(selectedAccountIds);
+  orderRef.current = selectedAccountIds;
+  const [reorderAnnouncement, setReorderAnnouncement] = useState('');
+
+  const announceSeat = useCallback((accountId: string, order: string[]): void => {
+    const name = accounts.find(a => a.id === accountId)?.name ?? 'Account';
+    setReorderAnnouncement(`${name} moved to position ${order.indexOf(accountId) + 1} of ${order.length}`);
+  }, [accounts]);
+
+  const handleTilePointerDown = (e: React.PointerEvent, accountId: string): void => {
+    if (e.button !== 0) return;
+    dragRef.current = { id: accountId, startX: e.clientX, startY: e.clientY, moved: false };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handleTilePointerMove = (e: React.PointerEvent): void => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    if (!drag.moved) {
+      if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 8) return;
+      drag.moved = true;
+      setDraggingId(drag.id);
+    }
+    // The captured element receives every move, so the tile under the pointer
+    // is found by position rather than by event target.
+    const over = document
+      .elementFromPoint(e.clientX, e.clientY)
+      ?.closest<HTMLElement>('[data-account-tile-id]');
+    const targetId = over?.dataset.accountTileId;
+    if (!targetId || targetId === drag.id) return;
+    setSelectedAccountIds(prev => moveToPosition(prev, drag.id, targetId));
+  };
+
+  const endTileDrag = (): void => {
+    const drag = dragRef.current;
+    if (drag?.moved) {
+      persistSelection(orderRef.current);
+      announceSeat(drag.id, orderRef.current);
+    }
+    setDraggingId(null);
+    // The moved flag must outlive pointerup by one tick: the click event the
+    // browser fires AFTER a drag's release is the one to swallow.
+    setTimeout(() => { dragRef.current = null; }, 0);
+  };
+
+  /** Alt+arrows re-seat from the keyboard; plain keys keep their meanings. */
+  const handleTileKeyDown = (e: React.KeyboardEvent, accountId: string): void => {
+    if (!e.altKey) return;
+    const steps =
+      e.key === 'ArrowLeft' ? -1 :
+      e.key === 'ArrowRight' ? 1 :
+      e.key === 'ArrowUp' ? -2 :
+      e.key === 'ArrowDown' ? 2 : 0;
+    if (steps === 0) return;
+    e.preventDefault();
+    const next = moveBySteps(selectedAccountIds, accountId, steps);
+    persistSelection(next);
+    announceSeat(accountId, next);
+  };
 
   /**
    * "None yet" and "none arrived yet" are different sentences, and the panel
@@ -1079,28 +1167,46 @@ export function ImprovedDashboard() {
               ))}
             </div>
             <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-              Tip: Select your most important accounts for quick access
+              Tip: Select your most important accounts, then drag a card to
+              put them in the order you want
             </div>
           </div>
         )}
         
+        {/* Where a moved card landed, for anyone who cannot see it land. */}
+        <div className="sr-only" aria-live="polite">{reorderAnnouncement}</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {displayedAccounts.length > 0 ? (
             displayedAccounts.map(account => (
-              <div 
+              <div
                 key={account.id}
-                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                className={`flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer select-none ${
+                  draggingId === account.id ? 'ring-2 ring-[#6b86b3] shadow-lg opacity-90' : ''
+                }`}
+                style={{ touchAction: 'pan-y' }}
                 data-testid="account-balance-card"
-                onClick={() => navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
+                data-account-tile-id={account.id}
+                // A drag's release fires a click; the moved flag swallows it so
+                // one gesture is never both a reorder and a navigation.
+                onClick={() => {
+                  if (dragRef.current?.moved) return;
+                  navigate(preserveDemoParam(`/accounts/${account.id}`, location.search));
+                }}
+                onPointerDown={(e) => handleTilePointerDown(e, account.id)}
+                onPointerMove={handleTilePointerMove}
+                onPointerUp={endTileDrag}
+                onPointerCancel={endTileDrag}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
+                  handleTileKeyDown(e, account.id);
+                  if (e.defaultPrevented) return;
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     navigate(preserveDemoParam(`/accounts/${account.id}`, location.search));
                   }
                 }}
-                aria-label={`View ${account.name} account details. Balance: ${formatCurrencyWithSymbol(getAccountBalance(account))}`}
+                aria-label={`View ${account.name} account details. Balance: ${formatCurrencyWithSymbol(getAccountBalance(account))}. Hold Alt and press an arrow key to move this card.`}
               >
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 dark:text-white">
