@@ -11,6 +11,7 @@ import {
   rateToDisplayString,
   rateToStorageString,
   readFxRecord,
+  sourceForRate,
 } from '../fx';
 
 /**
@@ -129,6 +130,45 @@ describe('fx', () => {
       expect(result.ok).toBe(false);
       if (result.ok) return;
       expect(result.reason).toBe('not-a-number');
+    });
+  });
+
+  describe('sourceForRate — destinationForRate run backwards', () => {
+    it('divides the destination by the rate, to the penny', () => {
+      // £158 that arrived at 0.79 was $200 before the conversion.
+      const result = sourceForRate('158', '0.79');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.toString()).toBe('200');
+    });
+
+    it('round-trips with destinationForRate up to one penny of rounding', () => {
+      const forward = destinationForRate('127.5', '0.7843');
+      expect(forward.ok).toBe(true);
+      if (!forward.ok) return;
+      const back = sourceForRate(forward.value, '0.7843');
+      expect(back.ok).toBe(true);
+      if (!back.ok) return;
+      expect(back.value.minus('127.5').abs().lessThanOrEqualTo('0.01')).toBe(true);
+    });
+
+    it('discards sign, like every amount here — the legs carry the signs', () => {
+      const result = sourceForRate(-158, '0.79');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.isPositive()).toBe(true);
+    });
+
+    it('refuses a zero or negative rate as not-a-number — no real pair has one', () => {
+      const zero = sourceForRate(100, '0');
+      expect(zero.ok).toBe(false);
+      if (zero.ok) return;
+      expect(zero.reason).toBe('not-a-number');
+
+      const negative = sourceForRate(100, '-0.79');
+      expect(negative.ok).toBe(false);
+      if (negative.ok) return;
+      expect(negative.reason).toBe('not-a-number');
     });
   });
 

@@ -97,7 +97,7 @@ const fillDollarBuy = async (): Promise<void> => {
     expect(screen.getByLabelText('Priced in')).toHaveValue('USD');
   });
   fireEvent.change(screen.getByLabelText('Units held'), { target: { value: '10' } });
-  fireEvent.change(screen.getByLabelText('Average cost per unit'), { target: { value: '100' } });
+  fireEvent.change(screen.getByLabelText('Average cost per unit (USD)'), { target: { value: '100' } });
   fireEvent.change(screen.getByLabelText('Paid from'), { target: { value: FUNDING.id } });
 };
 
@@ -185,14 +185,89 @@ describe('PortfolioManager — a buy across a currency boundary', () => {
     expect(purchaseOf().fx?.rate.toString()).toBe(String(QUOTED_RATE));
   });
 
+  it('entering in YOUR money converts the stored cost into the instrument’s currency', async () => {
+    // The other half of the owner's ask: type the contract note's sterling
+    // figures for a dollar-priced instrument. The holding must still be
+    // stored in dollars — its quotes arrive in dollars, and a gain measured
+    // across two currencies is not a gain.
+    renderManager();
+    await fillDollarBuy();
+
+    fireEvent.change(screen.getByLabelText('Enter figures in'), {
+      target: { value: 'account' },
+    });
+    // The boxes now speak sterling…
+    expect(screen.getByLabelText('Average cost per unit (GBP)')).toBeInTheDocument();
+    // …and the typed price is the sterling one: £80 a unit at 0.8 is $100.
+    fireEvent.change(screen.getByLabelText('Average cost per unit (GBP)'), {
+      target: { value: '80' },
+    });
+
+    // The total paid needs NO rate arithmetic — the typed figures already are
+    // the account's money: 10 × £80 = £800.
+    await waitFor(() => {
+      expect(screen.getByLabelText('Total paid (GBP)')).toHaveValue('800.00');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add holding' }));
+    await waitFor(() => expect(onAdd).toHaveBeenCalled());
+
+    const call = onAdd.mock.calls[0] as unknown as [
+      { averageCost: { toString(): string }; currency: string },
+      PurchaseDetails,
+    ];
+    // Stored in DOLLARS, derived through the rate: £80 ÷ 0.8 = $100.
+    expect(call[0].currency).toBe('USD');
+    expect(call[0].averageCost.toString()).toBe('100');
+    // And the conversion is carried, so the derived figure stays accountable.
+    expect(call[1].fx?.rate.toString()).toBe(String(QUOTED_RATE));
+    expect(call[1].totalPaid?.toString()).toBe('800');
+  });
+
+  it('the reverse entry without a funding account still requires and records the rate', async () => {
+    // Recording a holding with no money moving: the rate is still needed,
+    // because the STORED cost derives through it.
+    renderManager();
+
+    fireEvent.click(screen.getByRole('button', { name: /Add Your First Holding/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'pick a synthetic instrument' }));
+    await waitFor(() => expect(screen.getByLabelText('Priced in')).toHaveValue('USD'));
+    fireEvent.change(screen.getByLabelText('Enter figures in'), {
+      target: { value: 'account' },
+    });
+    fireEvent.change(screen.getByLabelText('Units held'), { target: { value: '10' } });
+    fireEvent.change(screen.getByLabelText('Average cost per unit (GBP)'), {
+      target: { value: '80' },
+    });
+
+    // The rate box is on screen with no funding account chosen.
+    const rateBox = await screen.findByLabelText('Rate: 1 USD in GBP');
+    // The owner's own rate, not the quote's: £80 ÷ 0.75 = $106.67 stored.
+    fireEvent.change(rateBox, { target: { value: '0.75' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add holding' }));
+    await waitFor(() => expect(onAdd).toHaveBeenCalled());
+
+    const call = onAdd.mock.calls[0] as unknown as [
+      { averageCost: { toString(): string } },
+      PurchaseDetails,
+    ];
+    expect(call[0].averageCost.toString()).toBe('106.67');
+    // No transfer — but the conversion is still on the record.
+    expect(call[1].fundingAccountId).toBeNull();
+    expect(call[1].fx?.source).toBe('manual');
+  });
+
   it('shows no rate box at all when the instrument counts in the account’s own currency', async () => {
     renderManager();
 
     fireEvent.click(screen.getByRole('button', { name: /Add Your First Holding/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'pick a synthetic instrument' }));
     await waitFor(() => expect(screen.getByLabelText('Priced in')).toHaveValue('USD'));
-    // Put the instrument back into sterling: nothing to convert.
+    // Put the instrument back into sterling: nothing to convert, so the cost
+    // label carries no currency suffix and no entry toggle appears.
     fireEvent.change(screen.getByLabelText('Priced in'), { target: { value: 'GBP' } });
+    expect(screen.queryByLabelText('Enter figures in')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Units held'), { target: { value: '10' } });
     fireEvent.change(screen.getByLabelText('Average cost per unit'), { target: { value: '100' } });
     fireEvent.change(screen.getByLabelText('Paid from'), { target: { value: FUNDING.id } });
