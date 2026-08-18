@@ -1,28 +1,34 @@
 /**
- * Move one member of a list to another member's position, preserving every
- * other relative order — the arithmetic behind dragging a Key Account Balance
- * tile onto a new seat (owner, 17 Aug: "like moving an app around on an
- * iPhone screen").
+ * Swap two members' seats, leaving everyone else exactly where they were —
+ * the arithmetic behind dragging a Key Account Balance tile (owner, 18 Aug:
+ * "whatever other account I am hovering over slips into the position I have
+ * just left — but that only gets confirmed once I let go").
+ *
+ * A SWAP, deliberately not an insertion. The first cut re-seated the list
+ * live as the pointer crossed each tile, so dragging top-right to
+ * bottom-left displaced every tile crossed on the way — "it is too easy to
+ * move the wrong one". The caller now previews `swapPositions(preDragOrder,
+ * dragged, hovered)` — always computed from the order the drag STARTED from,
+ * never cumulatively — and commits only on release.
  *
  * Pure and id-based, because the caller persists an ID LIST: the dashboard's
- * chosen accounts are stored as an array of ids, and from this change onward
- * that array's ORDER is the display order.
+ * chosen accounts are stored as an array of ids, and that array's order is
+ * the display order.
  */
-export function moveToPosition(
+export function swapPositions(
   ids: readonly string[],
-  movingId: string,
-  targetId: string
+  aId: string,
+  bId: string
 ): string[] {
-  if (movingId === targetId) return [...ids];
-  const from = ids.indexOf(movingId);
-  const to = ids.indexOf(targetId);
-  // A member the list does not hold cannot be moved, and moving ONTO one
-  // would invent a position — both answer with the list unchanged rather
-  // than a throw: a drag that raced a deletion is a no-op, not a crash.
-  if (from === -1 || to === -1) return [...ids];
   const next = [...ids];
-  next.splice(from, 1);
-  next.splice(to, 0, movingId);
+  if (aId === bId) return next;
+  const a = ids.indexOf(aId);
+  const b = ids.indexOf(bId);
+  // A member the list does not hold has no seat to swap — a drag that raced
+  // a deletion is a no-op, not a crash.
+  if (a === -1 || b === -1) return next;
+  next[a] = bId;
+  next[b] = aId;
   return next;
 }
 
