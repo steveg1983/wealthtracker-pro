@@ -23,6 +23,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { normaliseSecuredIds } from '../utils/accountSecuring';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
+import { describeRate } from '../utils/fx';
 import PageWrapper from '../components/PageWrapper';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
@@ -291,6 +292,19 @@ export default function Investments() {
       if (fundingAccount) {
         provenance.push(`Paid from ${fundingAccount.name}.`);
       }
+      /*
+       * THE RATE IS PART OF THE RECORD, not a step on the way to a figure.
+       * 250 USD at one rate and 250 USD at another are different amounts of
+       * sterling; a note that keeps only the sterling cannot say which
+       * happened, and neither can anyone reading it a year later. Stated with
+       * its provenance — the provider's figure, or the owner's own.
+       */
+      if (purchase.fx) {
+        provenance.push(
+          `Converted at ${describeRate(purchase.fx.rate, { from: purchase.fx.from, to: purchase.fx.to })}` +
+          `${purchase.fx.source === 'api' ? " (today's rate)" : ' (your rate)'}.`
+        );
+      }
 
       await dataPort.createInvestment({
         accountId,
@@ -308,9 +322,14 @@ export default function Investments() {
        * THE CASH LEG (owner, 17 Aug; Money's measured model — 2015 of 2029
        * real buys carried one, funded from a freely chosen account). Out of
        * the chosen account, into this investment account, linked by the same
-       * counterpart machinery every transfer uses. Same-currency only — the
-       * form does not offer cross-currency funding, because the counterpart
-       * write copies this row's digits.
+       * counterpart machinery every transfer uses.
+       *
+       * The two ACCOUNTS always agree on currency (the form only offers
+       * funding accounts that count in this one), so the counterpart copying
+       * this row's digits is correct. Where a currency boundary can appear is
+       * between the INSTRUMENT and that money — Apple prices in dollars inside
+       * a sterling ISA — and that conversion happens in the form, at a rate
+       * the owner sees and can overwrite, before any figure reaches here.
        */
       if (fundingAccount && purchase.totalPaid !== null) {
         try {

@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, parseMoneyInput, type DecimalInstance } from '../utils/decimal';
+import { useFxQuote } from '../hooks/useFxQuote';
+import {
+  AMOUNT_DP,
+  RATE_DP,
+  destinationForRate,
+  rateToDisplayString,
+  type FxRateSource,
+} from '../utils/fx';
 import { formatDecimal } from '../utils/decimal-format';
 import { supportedCurrencies } from '../utils/currency';
 import MoneyInput from './common/MoneyInput';
@@ -85,6 +93,26 @@ export interface PurchaseDetails {
   totalPaid: DecimalInstance | null;
   /** The trade date — the transfer's date and the holding's purchase date. */
   date: Date;
+  /**
+   * The conversion this buy was struck at, when the instrument's currency and
+   * the funding account's differ. null when they agree — there is nothing to
+   * account for.
+   *
+   * Carried so the figure can be ACCOUNTED FOR later: a total that is 250 USD
+   * at one rate and 250 USD at another are different amounts of sterling, and
+   * a register that records only the sterling cannot say which happened.
+   */
+  fx: {
+    rate: DecimalInstance;
+    /** From the instrument's currency… */
+    from: string;
+    /** …into the funding account's. */
+    to: string;
+    /** Whose figure it is: the provider's, or the owner's. */
+    source: FxRateSource;
+    /** When the rate was true. */
+    asOf: Date;
+  } | null;
 }
 
 interface PortfolioManagerProps {
@@ -169,6 +197,26 @@ const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 m
 
 const helperClass = 'mt-1 text-xs text-gray-500 dark:text-gray-400';
 
+/**
+ * A typed rate, or null while it is not yet a positive number.
+ *
+ * Deliberately NOT `parseMoneyInput`: a rate is a ratio, not money, and it
+ * carries far more places than pennies (see utils/fx — RATE_DP is ten). A
+ * half-typed box is a normal state, not an error, so this returns null rather
+ * than complaining.
+ */
+function readPositiveRate(text: string): DecimalInstance | null {
+  const trimmed = text.trim();
+  if (trimmed === '') return null;
+  try {
+    const value = toDecimal(trimmed);
+    if (!value.isFinite() || value.isNaN() || value.lessThanOrEqualTo(0)) return null;
+    return value.toDecimalPlaces(RATE_DP);
+  } catch {
+    return null;
+  }
+}
+
 const toDateInputValue = (date: Date): string => {
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
   const day = `${date.getDate()}`.padStart(2, '0');
@@ -208,6 +256,19 @@ export default function PortfolioManager({
   const [fundingAccountId, setFundingAccountId] = useState('');
   const [totalPaid, setTotalPaid] = useState('');
   const [totalPaidTouched, setTotalPaidTouched] = useState(false);
+  /**
+   * The rate this ONE purchase was struck at, when the instrument prices in a
+   * currency the funding account does not count in.
+   *
+   * Owner, 18 Aug: "a currency conversion rate box that defaults to the most
+   * up to date figure we have in the system but if the user got a different
+   * rate (which they likely did), they can input their own rate for this
+   * transaction and we just convert in to the GBP boxes." The default matters
+   * less than the override: a broker's rate includes a spread, so the
+   * mid-market quote is a starting point, never the answer.
+   */
+  const [rateText, setRateText] = useState('');
+  const [rateTouched, setRateTouched] = useState(false);
   const [purchaseDate, setPurchaseDate] = useState(() => toDateInputValue(new Date()));
 
   // The picked instrument's live quote: the trading currency stated by the
@@ -228,6 +289,8 @@ export default function PortfolioManager({
     setFundingAccountId('');
     setTotalPaid('');
     setTotalPaidTouched(false);
+    setRateText('');
+    setRateTouched(false);
     setPurchaseDate(toDateInputValue(new Date()));
     setQuote(null);
     setQuoteLoading(false);
@@ -336,6 +399,29 @@ export default function PortfolioManager({
   const fundingMatchesHoldingCurrency =
     fundingAccount !== null && fundingAccount.currency === holdingCurrency;
 
+  /**
+   * A BUY ACROSS A CURRENCY BOUNDARY.
+   *
+   * The instrument prices in its own currency (Apple in dollars) and the
+   * funding account counts in another (a sterling current account). The cash
+   * that leaves is in the ACCOUNT's currency, so one conversion stands between
+   * "units × price + charges" and the figure that moves.
+   *
+   * This used to be a refusal — "the app will not invent it from an exchange
+   * rate" — which was right about inventing and wrong about helping: it left
+   * the owner to do the arithmetic by hand on every foreign buy. What follows
+   * offers a rate instead, says where it came from, lets it be overwritten,
+   * and still leaves the total editable. Nothing is invented that is not shown
+   * and attributed.
+   */
+  const needsConversion =
+    fundingAccount !== null && fundingAccount.currency !== holdingCurrency;
+  const fxQuote = useFxQuote(
+    needsConversion ? holdingCurrency : null,
+    needsConversion ? fundingAccount.currency : null
+  );
+  const rateValue = rateText === '' ? null : readPositiveRate(rateText);
+
   // A Decimal is a fresh object every render, so the effects below key on its
   // STRING — stable while the figure is, changed exactly when it changes.
   const cashTotalKey = cashTotal !== null ? cashTotal.toDecimalPlaces(2).toString() : null;
@@ -346,6 +432,27 @@ export default function PortfolioManager({
     if (totalPaidTouched || !fundingMatchesHoldingCurrency || cashTotalKey === null) return;
     setTotalPaid(cashTotalKey);
   }, [totalPaidTouched, fundingMatchesHoldingCurrency, cashTotalKey]);
+
+  // Seed the rate box from the quote, and only while the box is untouched: a
+  // quote that resolves late must never overwrite a rate already typed.
+  const quotedRateKey = fxQuote.status === 'ready' ? fxQuote.rate.toString() : null;
+  useEffect(() => {
+    if (rateTouched || quotedRateKey === null) return;
+    setRateText(rateToDisplayString(toDecimal(quotedRateKey)));
+  }, [rateTouched, quotedRateKey]);
+
+  // The converted total, in the funding account's currency. Same rule as the
+  // same-currency default: it fills the box, and the box stays editable —
+  // the contract note wins over any arithmetic done here.
+  const convertedTotalKey = (() => {
+    if (!needsConversion || cashTotal === null || rateValue === null) return null;
+    const converted = destinationForRate(cashTotal, rateValue);
+    return converted.ok ? converted.value.toDecimalPlaces(AMOUNT_DP).toString() : null;
+  })();
+  useEffect(() => {
+    if (totalPaidTouched || convertedTotalKey === null) return;
+    setTotalPaid(convertedTotalKey);
+  }, [totalPaidTouched, convertedTotalKey]);
 
   const previewCostBasis = cashTotal;
   const previewKey = previewCostBasis !== null ? previewCostBasis.toString() : null;
@@ -423,16 +530,24 @@ export default function PortfolioManager({
       charges: toDecimal(chargesValue),
       fundingAccountId: null,
       totalPaid: null,
-      date: new Date(`${purchaseDate}T00:00:00`)
+      date: new Date(`${purchaseDate}T00:00:00`),
+      fx: null
     };
 
     if (!editing && fundingAccountId !== '') {
+      if (needsConversion && rateValue === null) {
+        setFormError(
+          `Enter the rate this purchase was converted at — 1 ${holdingCurrency} in ` +
+          `${fundingAccount?.currency ?? 'the funding account’s currency'}`
+        );
+        return;
+      }
       const paidValue = parseMoneyInput(totalPaid);
       if (paidValue === null || paidValue <= 0) {
         setFormError(
-          fundingMatchesHoldingCurrency
-            ? 'Enter the total paid, including charges'
-            : `Enter the total paid in ${fundingAccount?.currency ?? 'the funding account’s currency'} — it is on the contract note`
+          needsConversion
+            ? `Enter the total paid in ${fundingAccount?.currency ?? 'the funding account’s currency'} — the figure on the contract note`
+            : 'Enter the total paid, including charges'
         );
         return;
       }
@@ -440,7 +555,30 @@ export default function PortfolioManager({
         setFormError('Enter the date the purchase settled');
         return;
       }
-      purchase = { ...purchase, fundingAccountId, totalPaid: toDecimal(paidValue) };
+      purchase = {
+        ...purchase,
+        fundingAccountId,
+        totalPaid: toDecimal(paidValue),
+        /*
+         * 'api' ONLY for a live quote accepted with no edit at all — the same
+         * rule the cross-currency transfer dialog applies, and for the same
+         * reason: the fallback table is wrong the day after it was written, so
+         * stamping it with the provider's name would put their word on a
+         * figure they never quoted. Accepting it is fine; the record then says
+         * the owner answered for it.
+         */
+        fx: needsConversion && rateValue !== null && fundingAccount !== null
+          ? {
+              rate: rateValue,
+              from: holdingCurrency,
+              to: fundingAccount.currency,
+              source: !rateTouched && fxQuote.status === 'ready' && fxQuote.source === 'api'
+                ? 'api'
+                : 'manual',
+              asOf: !rateTouched && fxQuote.status === 'ready' ? fxQuote.asOf : new Date()
+            }
+          : null
+      };
     }
 
     setIsSaving(true);
@@ -768,6 +906,36 @@ export default function PortfolioManager({
                       usePortal
                     />
                   </div>
+                  {/* THE RATE, when the instrument and the money that pays for
+                      it count in different currencies. Shown before the total
+                      it produces, because it is what produces it. */}
+                  {needsConversion && fundingAccount && (
+                    <div className="sm:col-span-2">
+                      <label htmlFor="holding-fx-rate" className={labelClass}>
+                        Rate: 1 {holdingCurrency} in {fundingAccount.currency}
+                      </label>
+                      <input
+                        id="holding-fx-rate"
+                        type="text"
+                        inputMode="decimal"
+                        value={rateText}
+                        onChange={(event) => {
+                          setRateText(event.target.value);
+                          setRateTouched(true);
+                        }}
+                        className={inputClass}
+                        disabled={isSaving}
+                        placeholder="0.0000"
+                      />
+                      <p className={helperClass}>
+                        {fxQuote.status === 'ready' && !rateTouched
+                          ? `Today's rate, from ${fxQuote.provider}. Your broker's will differ — type theirs and the total below follows.`
+                          : fxQuote.status === 'unavailable' && !rateTouched
+                            ? 'No rate available for this pair — the one on your contract note is the one that happened.'
+                            : 'Your rate for this purchase. The total below follows it.'}
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <label htmlFor="holding-total-paid" className={labelClass}>
                       Total paid ({fundingAccount?.currency ?? currency})
@@ -783,9 +951,9 @@ export default function PortfolioManager({
                       disabled={isSaving}
                     />
                     <p className={helperClass}>
-                      {fundingMatchesHoldingCurrency
-                        ? 'Units × cost + charges, prefilled — change it if the contract note says otherwise.'
-                        : `The figure on the contract note, in ${fundingAccount?.currency ?? 'the account’s currency'} — the app will not invent it from an exchange rate.`}
+                      {needsConversion
+                        ? `(Units × cost + charges) × the rate above — change it if the contract note says otherwise. The ${fundingAccount?.currency ?? 'account'} figure is what moves.`
+                        : 'Units × cost + charges, prefilled — change it if the contract note says otherwise.'}
                     </p>
                   </div>
                 </div>
