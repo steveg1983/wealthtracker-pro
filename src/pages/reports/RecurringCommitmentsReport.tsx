@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useToast } from '../../contexts/ToastContext';
@@ -75,11 +75,26 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
   const {
     accounts, transactions, isLoading,
     suggestionDismissals, suggestionDismissalsStatus,
+    refreshSuggestionDismissals,
     dismissSuggestion, restoreSuggestion,
   } = useApp();
   const { formatCurrency, displayCurrency } = useCurrencyDecimal();
   const { showError } = useToast();
   const location = useLocation();
+
+  /**
+   * THE VERDICTS ARE LAZY-LOADED, AND THIS PAGE IS A CONSUMER. The context
+   * fetches suggestion dismissals "when a sweep opens, not at boot" — so a
+   * surface that reads them must ASK, or it reads an empty list with status
+   * 'idle' forever. That is precisely what shipped: the Confirm controls
+   * gate on status 'ready', nothing here requested the load, and the whole
+   * verdict pipeline was invisible in production (owner, 18 Aug: "Where do I
+   * 'approve' the recurring payment?"). The tests mocked the status as
+   * already 'ready', which is how it slipped.
+   */
+  useEffect(() => {
+    if (suggestionDismissalsStatus === 'idle') void refreshSuggestionDismissals();
+  }, [suggestionDismissalsStatus, refreshSuggestionDismissals]);
 
   const accountName = useMemo(
     () => new Map(accounts.map(a => [a.id, a.name])),

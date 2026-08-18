@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -24,7 +24,17 @@ interface DayData {
 }
 
 export default function Calendar() {
-  const { transactions, accounts, suggestionDismissals } = useApp();
+  const {
+    transactions, accounts,
+    suggestionDismissals, suggestionDismissalsStatus, refreshSuggestionDismissals,
+  } = useApp();
+
+  // The verdicts are lazy-loaded; a reader must ask (see the note in
+  // RecurringCommitmentsReport). Without this the due-next panel's confirmed
+  // set was empty in production whatever the user had confirmed.
+  useEffect(() => {
+    if (suggestionDismissalsStatus === 'idle') void refreshSuggestionDismissals();
+  }, [suggestionDismissalsStatus, refreshSuggestionDismissals]);
   const { formatCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const location = useLocation();

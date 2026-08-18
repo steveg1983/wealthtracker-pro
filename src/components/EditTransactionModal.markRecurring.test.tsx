@@ -41,7 +41,8 @@ const mocks = vi.hoisted(() => ({
     linkTransferPair: vi.fn(async () => ({ a: {}, b: {} })),
     createTransferCounterpart: vi.fn(async () => ({ source: {}, counterpart: {} })),
     suggestionDismissals: [] as SuggestionDismissal[],
-    suggestionDismissalsStatus: 'ready' as 'ready' | 'loading',
+    suggestionDismissalsStatus: 'ready' as 'idle' | 'ready' | 'loading',
+    refreshSuggestionDismissals: vi.fn(async () => {}),
     dismissSuggestion: vi.fn(async () => {}),
     restoreSuggestion: vi.fn(async () => {}),
   },
@@ -221,5 +222,18 @@ describe('EditTransactionModal — mark a payment as recurring', () => {
     // An unticked box while the answer is still loading would be a lie about
     // what the user has already said.
     expect(screen.queryByLabelText(/This is a recurring payment/)).not.toBeInTheDocument();
+  });
+
+  it('ASKS for the verdicts when they have never been loaded — the tick cannot appear otherwise', async () => {
+    // The regression that shipped: the tick gated on status 'ready', the
+    // verdicts are lazy-loaded, and nothing in this modal requested them —
+    // so in production the control never existed. 'idle' is the state a
+    // fresh session actually opens in.
+    mocks.app.suggestionDismissalsStatus = 'idle';
+    render(<EditTransactionModal isOpen onClose={vi.fn()} transaction={row()} />);
+
+    await waitFor(() => {
+      expect(mocks.app.refreshSuggestionDismissals).toHaveBeenCalled();
+    });
   });
 });
