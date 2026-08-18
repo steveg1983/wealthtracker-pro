@@ -166,8 +166,15 @@ export default function Calendar() {
    */
   const confirmedPatterns = useMemo(() => {
     const confirmed = dismissedKeys(suggestionDismissals, 'recurring-confirmed');
-    return detectRecurring(transactions, new Date()).filter(
-      d => !d.stopped && confirmed.has(recurringAnswerKey(d.accountId, d.direction, d.payeeKey))
+    const isVouched = (accountId: string, direction: 'in' | 'out', payeeKey: string): boolean =>
+      confirmed.has(recurringAnswerKey(accountId, direction, payeeKey));
+    // The verdicts are handed to detection as well as applied after it: a
+    // vouched payee is read leniently (its amounts need not repeat), which is
+    // the whole point of marking a variable commitment recurring. Matched
+    // across every label the pattern has worn, so a Confirm given before the
+    // bank renamed the payee still reaches this calendar.
+    return detectRecurring(transactions, new Date(), { isVouched }).filter(
+      d => !d.stopped && d.payeeKeys.some(payee => isVouched(d.accountId, d.direction, payee))
     );
   }, [transactions, suggestionDismissals]);
 
@@ -290,7 +297,7 @@ export default function Calendar() {
           <span className="text-xs text-gray-400 dark:text-gray-500">
             Only patterns you have confirmed on{' '}
             <Link
-              to={preserveDemoParam('/reports/recurring-commitments', location.search)}
+              to={preserveDemoParam('/recurring-payments', location.search)}
               className="text-primary hover:underline"
             >
               What I&rsquo;m committed to
@@ -299,8 +306,16 @@ export default function Calendar() {
         </div>
         {dueNext.length === 0 ? (
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Nothing confirmed yet — recurring payments you confirm on that
-            report appear here before they fall due.
+            Nothing confirmed yet — open{' '}
+            <Link
+              to={preserveDemoParam('/recurring-payments', location.search)}
+              className="text-primary hover:underline"
+            >
+              Recurring Payments
+            </Link>
+            {' '}under Plan and confirm a pattern: it appears here before it
+            falls due. You can also mark any payment in a register as
+            recurring.
           </p>
         ) : (
           <>

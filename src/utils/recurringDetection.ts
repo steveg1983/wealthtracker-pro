@@ -25,10 +25,44 @@ import { toDecimal, type DecimalInstance } from './decimal';
  * CHANGE, the single most useful thing this detection can surface, and is
  * reported with its date and annual impact.
  *
+ * ── A PAYEE THE USER HAS VOUCHED FOR IS READ LENIENTLY ─────────────────────
+ * The amount rule tells a subscription from a shop, but it also silences a
+ * commitment whose figure genuinely moves — a tradesman's retainer, a
+ * variable utility. When the user has CONFIRMED a pattern (the report's
+ * Confirm, or Mark as recurring on a transaction), that judgment outranks the
+ * heuristic: every payment at the payee counts, two payments are enough to
+ * show a rhythm, and the cadence is still classified honestly — a vouched
+ * pattern that wanders says "roughly every 5 weeks" like any other. What
+ * vouching never does is invent payments or a rhythm; one payment is still
+ * one payment, and shows nothing.
+ *
+ * ── A RENAMED PAYEE IS STILL ONE COMMITMENT ────────────────────────────────
+ * Banks re-label. The owner's own case (18 Aug): a maintenance payment that
+ * ran for years under one wording, then reappeared under a longer one — same
+ * account, same figure, same category, same day-of-month — and the detector
+ * reported a stopped pattern plus a young one. So groups are STITCHED when
+ * the evidence is overwhelming, all five conditions at once:
+ *
+ *   1. one label's words are contained in the other's (a rename extends or
+ *      truncates; "ACME" ⊂ "ACME PROPERTY MAINTENANCE" stitches, while two
+ *      unrelated payees that merely share a figure never do);
+ *   2. the figure at the joint matches to the penny;
+ *   3. the category at the joint matches, and both rows have one;
+ *   4. both sides are sustained — two or more payments each;
+ *   5. the combined dates still hold ONE rhythm (which also rules out a gap
+ *      at the joint: a rhythm with a hole in it is not regular).
+ *
+ * The newest label is the identity; the older ones are carried as
+ * `formerLabels` so the evidence line can say "previously labelled …", and
+ * `payeeKeys` carries every identity so a verdict stored before the rename
+ * still finds its pattern. A replacement that shares no wording (one
+ * supplier swapped for another at the same price) deliberately does NOT
+ * stitch — that is a question for the user, not an inference.
+ *
  * ── WHAT THIS NEVER DOES ───────────────────────────────────────────────────
  * Reads the register; never writes it. A detection is not a transaction and
- * must never be edited into one (handover §5). Confirm/dismiss state, when it
- * ships, lives beside the detections — not on the rows they were read from.
+ * must never be edited into one (handover §5). Confirm/dismiss state lives
+ * beside the detections — not on the rows they were read from.
  */
 
 export type RecurringCadence = 'weekly' | 'monthly' | 'annual' | 'irregular';
@@ -55,6 +89,19 @@ export interface RecurringDetection {
    * that could drift from this module's.
    */
   payeeKey: string;
+  /**
+   * EVERY identity this pattern has worn, newest first — `payeeKey` plus the
+   * normalised keys of any stitched-away labels. A verdict is MATCHED against
+   * all of them (a Confirm given before the bank renamed the payee must keep
+   * feeding the calendar) and STORED against the first.
+   */
+  payeeKeys: string[];
+  /**
+   * The most recent raw description of each stitched-away label, oldest
+   * first — what "previously labelled …" shows. Empty when nothing was
+   * stitched.
+   */
+  formerLabels: string[];
   accountId: string;
   /** 'out' is a commitment; 'in' is recurring income (a salary), kept for the calendar. */
   direction: 'in' | 'out';
@@ -75,6 +122,13 @@ export interface RecurringDetection {
   stopped: boolean;
   priceChange: RecurringPriceChange | null;
   medianIntervalDays: number;
+  /**
+   * True when the identical-amounts rule was WAIVED because the user vouched
+   * for the payee: every payment counted, and the figure shown is simply the
+   * latest. The evidence line says so — a claim resting on the user's own
+   * judgment must not dress as one resting on the arithmetic.
+   */
+  relaxed: boolean;
 }
 
 interface TransactionLike {
@@ -83,12 +137,36 @@ interface TransactionLike {
   amount: number;
   date: Date | string;
   type: string;
+  /** The category id, when filed — one of the stitch's corroborators. */
+  category?: string;
+}
+
+export interface RecurringDetectionOptions {
+  /**
+   * Has the user vouched for this payee? Wired to the stored
+   * 'recurring-confirmed' verdicts by every caller (the report, the
+   * calendar), but taken as a predicate so this module never learns the
+   * dismissal-key format.
+   */
+  isVouched?: (accountId: string, direction: 'in' | 'out', payeeKey: string) => boolean;
 }
 
 const DAY_MS = 86_400_000;
 
 /** At least this many qualifying payments before a pattern is claimed. */
 export const MIN_PAYMENTS = 3;
+
+/** Payments enough to show a rhythm once the USER has said it is one. */
+export const MIN_VOUCHED_PAYMENTS = 2;
+
+/**
+ * The direction a signed amount travels — one definition, used by the
+ * detector and by every surface that writes a verdict about a transaction,
+ * so a key built at a call site cannot disagree with the grouping here.
+ */
+export function recurringDirectionOf(amount: number): 'in' | 'out' {
+  return amount < 0 ? 'out' : 'in';
+}
 
 /**
  * The payee identity behind a raw bank description: lowercased, with digits
@@ -160,6 +238,86 @@ interface QualifyingRow {
   amountKey: string;
   amount: DecimalInstance;
   description: string;
+  /** The category id, or null when the row is unfiled. */
+  category: string | null;
+}
+
+interface Group {
+  accountId: string;
+  direction: 'in' | 'out';
+  payeeKey: string;
+  /** Sorted by date, oldest first, before the stitch pass runs. */
+  rows: QualifyingRow[];
+  /** See {@link RecurringDetection.formerLabels}. */
+  formerLabels: string[];
+  /** The normalised keys of every stitched-away label. */
+  formerPayeeKeys: string[];
+}
+
+const tokensOf = (payeeKey: string): Set<string> =>
+  new Set(payeeKey.split(' ').filter(Boolean));
+
+/** True when the smaller set's every token appears in the larger's. */
+const oneLabelContainsTheOther = (a: string, b: string): boolean => {
+  const [tokensA, tokensB] = [tokensOf(a), tokensOf(b)];
+  const [small, large] = tokensA.size <= tokensB.size ? [tokensA, tokensB] : [tokensB, tokensA];
+  for (const token of small) if (!large.has(token)) return false;
+  return true;
+};
+
+/**
+ * Do these dates, in order, hold to ONE rhythm? The same regularity test the
+ * cadence words use (no interval straying more than half the median), which
+ * is what makes it the right joint test for a stitch: a gap where a rhythm
+ * paused between two labels fails it, and so does a same-day duplicate.
+ */
+const rhythmHolds = (rows: readonly QualifyingRow[]): boolean => {
+  const intervals: number[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    intervals.push((rows[i].date.getTime() - rows[i - 1].date.getTime()) / DAY_MS);
+  }
+  if (intervals.length === 0 || intervals.some(days => days < 1)) return false;
+  const medianDays = median(intervals);
+  return intervals.every(days => Math.abs(days - medianDays) <= medianDays * 0.5);
+};
+
+/**
+ * Merge groups that are one commitment under a renamed label — the five
+ * conditions in the header, all required. The newest label absorbs the
+ * older; a fixpoint loop lets a twice-renamed payee (A → B → C) stitch in
+ * two passes, each joint proven on its own evidence.
+ */
+function stitchRenamedPayees(groups: Map<string, Group>): void {
+  let merged = true;
+  while (merged) {
+    merged = false;
+    const entries = [...groups.entries()];
+    outer:
+    for (const [, newer] of entries) {
+      for (const [olderKey, older] of entries) {
+        if (older === newer) continue;
+        if (older.accountId !== newer.accountId || older.direction !== newer.direction) continue;
+        if (older.rows.length < 2 || newer.rows.length < 2) continue;
+        const olderLast = older.rows[older.rows.length - 1];
+        const newerFirst = newer.rows[0];
+        // The older label must have finished before the newer began — a
+        // period where both labels were paying is two payees, not a rename.
+        if (olderLast.date.getTime() >= newerFirst.date.getTime()) continue;
+        if (olderLast.amountKey !== newerFirst.amountKey) continue;
+        if (!olderLast.category || olderLast.category !== newerFirst.category) continue;
+        if (!oneLabelContainsTheOther(older.payeeKey, newer.payeeKey)) continue;
+        const combined = [...older.rows, ...newer.rows];
+        if (!rhythmHolds(combined)) continue;
+
+        newer.rows = combined;
+        newer.formerLabels.push(...older.formerLabels, olderLast.description);
+        newer.formerPayeeKeys.push(...older.formerPayeeKeys, older.payeeKey);
+        groups.delete(olderKey);
+        merged = true;
+        break outer;
+      }
+    }
+  }
 }
 
 /**
@@ -171,24 +329,19 @@ interface QualifyingRow {
  */
 export function detectRecurring(
   transactions: readonly TransactionLike[],
-  now: Date
+  now: Date,
+  options?: RecurringDetectionOptions
 ): RecurringDetection[] {
   // Transfers move money between the user's own accounts — a standing order
   // to savings is a rhythm, but not a commitment to anyone else, and the
   // transfer pages already show it.
-  interface Group {
-    accountId: string;
-    direction: 'in' | 'out';
-    payeeKey: string;
-    rows: QualifyingRow[];
-  }
   const groups = new Map<string, Group>();
   for (const t of transactions) {
     if (t.type !== 'income' && t.type !== 'expense') continue;
     if (t.amount === 0) continue;
     const date = t.date instanceof Date ? t.date : new Date(t.date);
     if (Number.isNaN(date.getTime())) continue;
-    const direction = t.amount < 0 ? 'out' : 'in';
+    const direction = recurringDirectionOf(t.amount);
     const payeeKey = normalisePayeeKey(t.description);
     const key = `${t.accountId}::${direction}::${payeeKey}`;
     const amount = toDecimal(t.amount).abs();
@@ -197,17 +350,34 @@ export function detectRecurring(
       amount,
       amountKey: amount.toFixed(2),
       description: t.description,
+      category: t.category ?? null,
     };
     const group = groups.get(key);
     if (group) group.rows.push(row);
-    else groups.set(key, { accountId: t.accountId, direction, payeeKey, rows: [row] });
+    else {
+      groups.set(key, {
+        accountId: t.accountId, direction, payeeKey,
+        rows: [row], formerLabels: [], formerPayeeKeys: [],
+      });
+    }
   }
+
+  for (const group of groups.values()) {
+    group.rows.sort((a, b) => a.date.getTime() - b.date.getTime());
+  }
+  stitchRenamedPayees(groups);
 
   const detections: RecurringDetection[] = [];
 
-  for (const [key, { accountId, direction, payeeKey, rows }] of groups) {
-    if (rows.length < MIN_PAYMENTS) continue;
-    rows.sort((a, b) => a.date.getTime() - b.date.getTime());
+  for (const [key, group] of groups) {
+    const { accountId, direction, payeeKey, rows, formerLabels, formerPayeeKeys } = group;
+    const payeeKeys = [payeeKey, ...formerPayeeKeys];
+    // Vouched under ANY of its labels — a Confirm given before the bank
+    // renamed the payee still counts.
+    const vouched = payeeKeys.some(
+      k => options?.isVouched?.(accountId, direction, k) ?? false
+    );
+    if (rows.length < (vouched ? MIN_VOUCHED_PAYMENTS : MIN_PAYMENTS)) continue;
 
     // Runs of consecutive identical amounts. Only runs of two or more
     // qualify: a sustained figure is what tells a subscription from a shop.
@@ -223,8 +393,12 @@ export function detectRecurring(
     }
     runs.push(current);
     const sustained = runs.filter(run => run.length >= 2);
-    const qualifying = sustained.flat();
-    if (qualifying.length < MIN_PAYMENTS) continue;
+    let qualifying = sustained.flat();
+    // The vouched relaxation: when the amount rule finds too little but the
+    // user has said this IS a commitment, every payment counts as it stands.
+    const relaxed = qualifying.length < MIN_PAYMENTS && vouched;
+    if (relaxed) qualifying = rows;
+    if (qualifying.length < (vouched ? MIN_VOUCHED_PAYMENTS : MIN_PAYMENTS)) continue;
 
     const intervals: number[] = [];
     for (let i = 1; i < qualifying.length; i++) {
@@ -238,8 +412,12 @@ export function detectRecurring(
 
     const first = qualifying[0];
     const last = qualifying[qualifying.length - 1];
-    const currentRun = sustained[sustained.length - 1];
-    const amount = currentRun[0].amount;
+    // Relaxed patterns have no runs to lean on: the current figure is simply
+    // the latest payment's, and no price change is claimed — a delta between
+    // two figures that were never sustained is not a price change.
+    const amount = relaxed
+      ? last.amount
+      : sustained[sustained.length - 1][0].amount;
 
     // Stopped: silence longer than two rhythms. Two, not one — a direct debit
     // that slipped a few days must not be pronounced dead (handover §3.2:
@@ -250,9 +428,10 @@ export function detectRecurring(
     // Only a run at a DIFFERENT figure is a price change: two runs of the
     // same amount (a pattern briefly interrupted by a one-off) changed
     // nothing worth announcing.
-    const previousRun = sustained.length >= 2 ? sustained[sustained.length - 2] : null;
+    const previousRun = !relaxed && sustained.length >= 2 ? sustained[sustained.length - 2] : null;
+    const currentRun = relaxed ? null : sustained[sustained.length - 1];
     const priceChange: RecurringPriceChange | null =
-      previousRun && !previousRun[0].amount.equals(amount)
+      previousRun && currentRun && !previousRun[0].amount.equals(amount)
         ? {
             from: previousRun[0].amount,
             to: amount,
@@ -265,6 +444,8 @@ export function detectRecurring(
       key,
       description: last.description,
       payeeKey,
+      payeeKeys,
+      formerLabels,
       accountId,
       direction,
       cadence,
@@ -278,6 +459,7 @@ export function detectRecurring(
       stopped,
       priceChange,
       medianIntervalDays: medianDays,
+      relaxed,
     });
   }
 

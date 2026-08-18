@@ -212,11 +212,25 @@ describe('Layout — the Plan menu and split triggers', () => {
   it('groups the forward-looking pages under Plan, not as top-level items', () => {
     renderWithProviders(<Layout />);
 
-    // Plan's label navigates to Budget, its menu holds both.
+    // Plan's label navigates to Budget, its menu holds all three.
     expect(navLink('Plan')).toHaveAttribute('href', '/budget');
     fireEvent.click(menuButton('Plan'));
     expect(navLink('Budget')).toHaveAttribute('href', '/budget');
     expect(navLink('Calendar')).toHaveAttribute('href', '/calendar');
+    // Recurring Payments joined Plan on 18 Aug, out of the Reports gallery:
+    // the verdicts given there are what let a pattern reach the calendar and
+    // the forecast, which makes it forward-looking work rather than a report.
+    expect(navLink('Recurring Payments')).toHaveAttribute('href', '/recurring-payments');
+  });
+
+  it('orders Plan as Budget, Calendar, Recurring Payments', () => {
+    renderWithProviders(<Layout />);
+
+    expect(openMenuItems('Plan')).toEqual([
+      'Budget',
+      'Calendar',
+      'Recurring Payments',
+    ]);
   });
 
   it('offers Goals nowhere at all — the feature is gone', () => {

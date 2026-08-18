@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
 import { usePayeeMemory } from '../hooks/usePayeeMemory';
-import { CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, ArrowUpRightIcon, BanknoteIcon, PaperclipIcon, XIcon } from '../components/icons';
+import { CalendarIcon, ClockIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, ArrowUpRightIcon, BanknoteIcon, PaperclipIcon, XIcon } from '../components/icons';
 import type { Transaction, TransferDisplacedDisposition } from '../types';
 import {
   splitRemainder,
@@ -24,6 +24,8 @@ import { describeCounterpartOrigin } from '../utils/transferCounterpartOrigin';
 import { describeDeleteStranding, resolveTransferOtherSide } from '../utils/transferOtherSide';
 import { deleteTransferPair } from '../utils/transferSurvivorRelease';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
+import { dismissedKeys, recurringAnswerKey } from '../utils/suggestionDismissals';
+import { normalisePayeeKey, recurringDirectionOf } from '../utils/recurringDetection';
 import AccountSelector from './common/AccountSelector';
 import DatePicker from './common/DatePicker';
 import { useToast } from '../contexts/ToastContext';
@@ -83,7 +85,7 @@ interface FormData {
 }
 
 export default function EditTransactionModal({ isOpen, onClose, transaction, defaultAccountId, onSaveAndNext, onSaveAndPrevious, hideJumpToAccountId }: EditTransactionModalProps): React.JSX.Element {
-  const { accounts, categories, transactions, updateTransaction, deleteTransaction, getTransactionSplits, setTransactionSplits, linkTransferPair, createTransferCounterpart, repointTransfer } = useApp();
+  const { accounts, categories, transactions, updateTransaction, deleteTransaction, getTransactionSplits, setTransactionSplits, linkTransferPair, createTransferCounterpart, repointTransfer, suggestionDismissals, suggestionDismissalsStatus, dismissSuggestion, restoreSuggestion } = useApp();
   const { showSuccess, showError, showWarning } = useToast();
   const { addTransaction } = useTransactionNotifications();
   const { propagateCategory } = usePayeeMemory();
@@ -92,6 +94,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   const logger = useMemo(() => createScopedLogger('EditTransactionModal'), []);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  /** The recurring verdict write in flight, so a double-click cannot record twice. */
+  const [savingRecurring, setSavingRecurring] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [formattedAmount, setFormattedAmount] = useState('');
   // Money-style cross-type categorization: browse the OTHER direction's
@@ -875,6 +879,61 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   }, [transaction, accounts, hideJumpToAccountId]);
 
   /**
+   * TEACH THE APP BY EXAMPLE (owner, 18 Aug: "the user can pick a transaction
+   * and label it 'recurring' and the system then smartly detects past payments
+   * of the same amount on a similar date … from the same account").
+   *
+   * The verdict is stored against the PAYEE PATTERN this row belongs to — the
+   * same key "What I'm committed to" writes, so marking one payment and
+   * confirming the detection are the same act recorded in the same place. Two
+   * consequences follow immediately, both on the detection side: the payee is
+   * read leniently (every payment counts, amounts need not repeat), and the
+   * pattern may feed the calendar's forward view.
+   *
+   * Read from the STORED row, like the transfer and statement facts beside it:
+   * an account half-changed in the form above is not what this row is filed
+   * under yet. Transfers are excluded — a standing order between the user's own
+   * accounts is a rhythm but not a commitment to anyone, which is the same rule
+   * the detector applies.
+   */
+  const recurringMark = useMemo(() => {
+    if (!transaction) return null;
+    if (transaction.type !== 'income' && transaction.type !== 'expense') return null;
+    const direction = recurringDirectionOf(transaction.amount);
+    const key = recurringAnswerKey(
+      transaction.accountId, direction, normalisePayeeKey(transaction.description)
+    );
+    return {
+      key,
+      marked: dismissedKeys(suggestionDismissals, 'recurring-confirmed').has(key),
+      // A row the user called a coincidence: marking it recurring must withdraw
+      // that first, so the stored state can never hold both verdicts.
+      standingRefusal: dismissedKeys(suggestionDismissals, 'recurring-not').has(key) ? key : null,
+    };
+  }, [transaction, suggestionDismissals]);
+
+  const toggleRecurringMark = useCallback(async (): Promise<void> => {
+    if (!recurringMark) return;
+    setSavingRecurring(true);
+    try {
+      if (recurringMark.marked) {
+        await restoreSuggestion('recurring-confirmed', recurringMark.key);
+        showSuccess('No longer marked as recurring');
+      } else {
+        if (recurringMark.standingRefusal) {
+          await restoreSuggestion('recurring-not', recurringMark.standingRefusal);
+        }
+        await dismissSuggestion('recurring-confirmed', recurringMark.key, []);
+        showSuccess('Marked as recurring — this payee now shows under Plan → Recurring Payments');
+      }
+    } catch (error) {
+      showError(error);
+    } finally {
+      setSavingRecurring(false);
+    }
+  }, [recurringMark, dismissSuggestion, restoreSuggestion, showSuccess, showError]);
+
+  /**
    * Is the category in the picker still only the app's guess?
    *
    * Read from the STORED row, exactly as the quick-edit panel does — provenance
@@ -1582,6 +1641,37 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400">
                   <LinkIcon size={16} />
                   <span>Reconciled with transaction ID: {transaction.reconciledWith}</span>
+                </div>
+              )}
+
+              {/* THE FOURTH THING TRUE ABOUT THIS ROW: is its payee a
+                  commitment? A checkbox rather than a button because that is
+                  what it is — a fact the user asserts, sitting with the other
+                  facts. It writes no transaction: the verdict is stored beside
+                  the detections, and the row itself is untouched. */}
+              {recurringMark && suggestionDismissalsStatus === 'ready' && (
+                <div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={recurringMark.marked}
+                      disabled={savingRecurring}
+                      onChange={() => void toggleRecurringMark()}
+                      className="rounded border-gray-300 dark:border-gray-600 disabled:opacity-50"
+                    />
+                    <ClockIcon size={16} className="text-blue-600 dark:text-blue-400" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      This is a recurring payment
+                    </span>
+                  </label>
+                  {/* Say the consequence, not the mechanism — and say it in
+                      both states, because "what did that do?" is the question
+                      a tick like this raises. */}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                    {recurringMark.marked
+                      ? 'The app reads this payee’s whole history as a commitment, even when the amount varies, and it can appear in the calendar before it falls due.'
+                      : 'Tick this and the app looks back over this payee’s payments from this account, works out the rhythm, and shows what is due next.'}
+                  </p>
                 </div>
               )}
             </div>

@@ -181,6 +181,13 @@ export const DESKTOP_ROUTES = [
   { path: 'categorisation', at: 'categorisation', title: 'Categorise' },
   { path: 'budget', at: 'budget', title: 'Budget' },
   { path: 'calendar', at: 'calendar', title: 'Calendar' },
+  // Plan's third page. Detection reads the open ledger's own rows and the
+  // verdicts live in `suggestion_dismissals`, which the file holds — so this
+  // is as local as the register it reads.
+  { path: 'recurring-payments', at: 'recurring-payments', title: 'Recurring payments' },
+  // Its old gallery address, kept as a redirect in both editions so a pin or
+  // bookmark made before the move under Plan still lands somewhere.
+  { path: 'reports/recurring-commitments', at: 'reports/recurring-commitments', title: 'Recurring payments' },
   { path: 'reports', at: 'reports', title: 'Reports' },
   { path: 'reports/:reportId', at: 'reports/:reportId', title: 'Reports' },
   { path: 'custom-reports', at: 'custom-reports', title: 'Custom reports' },
