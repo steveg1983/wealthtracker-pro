@@ -407,3 +407,54 @@ describe('the foot of the dashboard', () => {
     expect(screen.queryByText('Add Transaction')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * THE STORED ORDER IS THE SEATING PLAN (owner, 17 Aug: "move it within that
+ * box … like moving an app around on an iPhone screen"). Two things jsdom can
+ * prove: the tiles render in the persisted order rather than account-list
+ * order, and Alt+arrows re-seat a card and persist the result. The pointer
+ * drag itself is geometry (elementFromPoint over a laid-out grid) and is a
+ * browser check, named as such.
+ */
+describe('Key Account Balances — the cards sit where the user put them', () => {
+  beforeEach(() => {
+    mocks.app.accounts = [
+      account({ id: 'acc-a', name: 'Feed Account A', openingBalance: 100 }),
+      account({ id: 'acc-b', name: 'Feed Account B', type: 'savings', openingBalance: 200 }),
+      account({ id: 'acc-c', name: 'Feed Account C', type: 'credit', openingBalance: -50 }),
+    ];
+  });
+
+  const cardNames = (): string[] =>
+    screen.getAllByTestId('account-balance-card')
+      .map(card => within(card).getByText(/Feed Account/).textContent ?? '');
+
+  it('renders the tiles in the STORED order, not the account list order', () => {
+    localStorage.setItem('dashboardKeyAccounts', JSON.stringify(['acc-c', 'acc-a', 'acc-b']));
+    render(<ImprovedDashboard />);
+
+    expect(cardNames()).toEqual(['Feed Account C', 'Feed Account A', 'Feed Account B']);
+  });
+
+  it('Alt+ArrowRight moves a card one seat and persists the new order', () => {
+    localStorage.setItem('dashboardKeyAccounts', JSON.stringify(['acc-a', 'acc-b', 'acc-c']));
+    render(<ImprovedDashboard />);
+
+    const [first] = screen.getAllByTestId('account-balance-card');
+    fireEvent.keyDown(first, { key: 'ArrowRight', altKey: true });
+
+    expect(cardNames()).toEqual(['Feed Account B', 'Feed Account A', 'Feed Account C']);
+    expect(JSON.parse(localStorage.getItem('dashboardKeyAccounts') ?? '[]'))
+      .toEqual(['acc-b', 'acc-a', 'acc-c']);
+  });
+
+  it('a plain arrow key still means what it always meant — only Alt re-seats', () => {
+    localStorage.setItem('dashboardKeyAccounts', JSON.stringify(['acc-a', 'acc-b', 'acc-c']));
+    render(<ImprovedDashboard />);
+
+    const [first] = screen.getAllByTestId('account-balance-card');
+    fireEvent.keyDown(first, { key: 'ArrowRight' });
+
+    expect(cardNames()).toEqual(['Feed Account A', 'Feed Account B', 'Feed Account C']);
+  });
+});
