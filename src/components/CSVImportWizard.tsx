@@ -1678,7 +1678,14 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
                   Preview Import
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Review the first few rows to ensure correct mapping
+                  Review the first few rows to ensure correct mapping.
+                  {/* True by construction, and worth saying (Design, 17 Aug
+                      §6): the wizard parses with FileReader in this browser
+                      and the service makes no network call — verified before
+                      this sentence was written. Only accepted rows are saved
+                      to the ledger. */}
+                  {' '}Your file is read on this device and never uploaded —
+                  only the rows you accept are saved to your ledger.
                 </p>
               </div>
 

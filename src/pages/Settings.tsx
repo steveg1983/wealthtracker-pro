@@ -80,7 +80,8 @@ export default function Settings() {
             itself. */}
         <p className="mt-4 text-body text-gray-500 dark:text-gray-400">
           A ledger for your own money: what you have, what you owe, and where
-          it went.
+          it went. Every figure traces to something you entered or imported —
+          nothing is estimated.
         </p>
 
         <h3 className="mt-6 text-card font-semibold text-gray-900 dark:text-white">

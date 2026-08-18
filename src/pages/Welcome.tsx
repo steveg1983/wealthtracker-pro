@@ -5,23 +5,28 @@ import { usePreferences } from '../contexts/PreferencesContext';
 import { WalletIcon, TagIcon, PieChartIcon, UploadIcon, ArrowRightIcon } from '../components/icons';
 import type { IconProps } from '../components/icons/IconBase';
 
-// Plain statements of what the app does — no claims, no counts, no adjectives
-// doing the work a screenshot should. Each maps to a real part of the product.
+// THE ETHOS, not the aggregator's pitch (Design handover, 17 Aug; owner
+// approved the copy). "All in one place" was close to verbatim what the
+// aggregators lead with — competing on their strongest ground with none of
+// their plumbing — and it undersold the one capability nobody else has:
+// every figure here traces to a line you entered and reconciled. The claim
+// no report can leave out leads, because it is the most unusual one in the
+// market.
 const FEATURES: ReadonlyArray<{ Icon: React.FC<IconProps>; title: string; body: string }> = [
   {
+    Icon: PieChartIcon,
+    title: 'Every report says what it leaves out',
+    body: 'Uncategorised rows, excluded currencies, the rate used and when — stated on the page, never buried.',
+  },
+  {
     Icon: WalletIcon,
-    title: 'All your accounts in one place',
-    body: 'Current accounts, savings, cards and investments, side by side.',
+    title: 'Everything counts, not just what a bank will tell you',
+    body: 'The house, the pension, the loan to your brother. An API can only see accounts a bank chose to expose.',
   },
   {
     Icon: TagIcon,
-    title: 'Every transaction categorised',
-    body: 'Sorted and searchable, so you can see where your money goes.',
-  },
-  {
-    Icon: PieChartIcon,
-    title: 'Reports that match reality',
-    body: 'Net worth over time, and income and expenses by month.',
+    title: 'You decide what everything is',
+    body: 'No machine quietly filing your mortgage under shopping — and no way for that to go unnoticed.',
   },
   {
     Icon: UploadIcon,
@@ -73,12 +78,15 @@ export default function Welcome(): React.JSX.Element {
           id="welcome-heading"
           className="mt-5 text-3xl sm:text-4xl md:text-5xl font-bold text-white"
         >
-          Your money, all in one place
+          Other apps show you a number.
+          <br />
+          WealthTracker lets you prove it.
         </h1>
 
         <p className="mt-4 mx-auto max-w-2xl text-base sm:text-lg leading-relaxed text-white/75">
-          Every account, every transaction and every report together — a modern take on
-          Microsoft Money.
+          Every figure traces back to a line you entered, categorised and reconciled
+          against your own statements. Nothing is guessed. Import twenty years of
+          Microsoft Money and carry on.
         </p>
 
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">

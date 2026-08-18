@@ -3012,7 +3012,7 @@ export default function AccountTransactions() {
   const registerEmptyState = fullAccountTransactions.length === 0 ? (
     <EmptyState
       title="No transactions in this account yet"
-      description={`Its balance stays at ${formatRegisterMoney(computedAccountBalance)}, and this account adds nothing to your reports until something lands here.`}
+      description={`Its balance stays at ${formatRegisterMoney(computedAccountBalance)}, and this account adds nothing to your reports until something lands here. Nothing is estimated, so nothing appears until you add it.`}
       action={{ label: 'Add transaction', onClick: () => setShowAddTransaction(true) }}
       secondaryAction={{
         label: 'Import a statement',

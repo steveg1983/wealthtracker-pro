@@ -501,6 +501,13 @@ export default function Reconciliation() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Reconciliation
           </h1>
+          {/* WHY THIS SCREEN EXISTS (Design, 17 Aug §6): the one page no
+              competitor has an equivalent of, finally saying so. This is the
+              ethos as a sentence — agreement, not estimation. */}
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Agree each account against the statement you hold. This is what makes
+            every other number in the app defensible.
+          </p>
           {totalUnreconciledCount > 0 ? (
             <>
               <p className="mt-1 text-display font-semibold text-primary dark:text-white tabular-nums">
