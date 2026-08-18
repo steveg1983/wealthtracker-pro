@@ -11,6 +11,7 @@ import { getDateLocale } from '../utils/dateFormatter';
 import { detectRecurring } from '../utils/recurringDetection';
 import { projectRecurringSchedule } from '../utils/recurringSchedule';
 import { dismissedKeys, recurringAnswerKey } from '../utils/suggestionDismissals';
+import { computeIncomeExpense } from '../utils/incomeExpense';
 
 interface DayData {
   date: Date;
@@ -25,7 +26,7 @@ interface DayData {
 
 export default function Calendar() {
   const {
-    transactions, accounts,
+    transactions, transactionSplits, categories, accounts,
     suggestionDismissals, suggestionDismissalsStatus, refreshSuggestionDismissals,
   } = useApp();
 
@@ -217,15 +218,38 @@ export default function Calendar() {
     [accounts]
   );
 
-  // Month summary
+  /** The due-next panel, opened out past its eight-row cap. */
+  const [showAllDue, setShowAllDue] = useState(false);
+
+  /**
+   * THE MONTH'S TILES SPEAK INCOME AND EXPENDITURE, NOT CASH MOVEMENT
+   * (owner, 18 Aug, reading a month whose "Money in" included a six-figure
+   * transfer between his own accounts: "These figures are not the figures
+   * for one month. It is misleading… they have to at least be correct and
+   * match up to what has actually been the user's 'income' and
+   * 'expenditure' for that month").
+   *
+   * The old tiles summed the day cells, which are a cash-movement ledger —
+   * every movement counts, transfers included. Right for a DAY's activity,
+   * wrong for a headline that reads as the month's income: a standing order
+   * to savings is not earnings. So the tiles now go through the same
+   * computeIncomeExpense the dashboard's cards use (transfers and
+   * revaluations excluded, splits expanded), over exactly the visible
+   * month. The day cells stay the honest movement ledger they were; the
+   * transaction count stays a movement count and says so.
+   */
   const monthSummary = useMemo(() => {
+    const flows = computeIncomeExpense(transactions, transactionSplits, categories, {
+      from: new Date(year, month, 1),
+      to: new Date(year, month + 1, 0, 23, 59, 59, 999),
+    });
     const monthDays = calendarData.filter(d => d.isCurrentMonth);
     return {
-      totalIncome: monthDays.reduce((s, d) => s.plus(toDecimal(d.income)), toDecimal(0)).toNumber(),
-      totalExpense: monthDays.reduce((s, d) => s.plus(toDecimal(d.expense)), toDecimal(0)).toNumber(),
+      totalIncome: flows.income.toNumber(),
+      totalExpense: flows.expenses.toNumber(),
       totalTransactions: monthDays.reduce((s, d) => s + d.transactionCount, 0),
     };
-  }, [calendarData]);
+  }, [transactions, transactionSplits, categories, year, month, calendarData]);
 
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -256,11 +280,11 @@ export default function Calendar() {
       {/* Month summary bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Money in</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">Income</span>
           <p className="text-lg font-semibold text-green-600 dark:text-green-400">{formatCurrency(monthSummary.totalIncome)}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Money out</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">Expenditure</span>
           {/* `dark:text-red-400` is not decoration — without it this figure is
               unreadable at night. `styles/accessibility-colors.css` remaps
               `.text-red-600` to the brand expense red (#c9304a) with
@@ -271,7 +295,10 @@ export default function Calendar() {
               measured 2.8:1, against the 4.5:1 text needs. The income figure
               four lines up has carried the pair all along, which is why only
               the expense went dark. */}
-          <p className="text-lg font-semibold text-red-600 dark:text-red-400">{formatCurrency(monthSummary.totalExpense)}</p>
+          {/* Through formatCurrency as a NEGATIVE, so it wears the app-wide
+              (£X) — a red figure without its brackets was the drift the
+              owner caught on this very tile. */}
+          <p className="text-lg font-semibold text-red-600 dark:text-red-400">{formatCurrency(-monthSummary.totalExpense)}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Net</span>
@@ -330,7 +357,7 @@ export default function Calendar() {
         ) : (
           <>
             <ul className="mt-2 divide-y divide-gray-50 dark:divide-gray-700/50">
-              {dueNext.slice(0, 8).map((occurrence) => (
+              {(showAllDue ? dueNext : dueNext.slice(0, 8)).map((occurrence) => (
                 <li
                   key={`${occurrence.detection.key}-${occurrence.date.getTime()}`}
                   className="py-1.5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5"
@@ -348,20 +375,33 @@ export default function Calendar() {
                       </span>
                     )}
                   </span>
-                  <span className="text-sm tabular-nums text-gray-600 dark:text-gray-300 shrink-0">
-                    {formatCurrency(occurrence.amount.toNumber())}
-                    {occurrence.detection.direction === 'in' && (
-                      <span className="ml-1 text-xs text-gray-400 dark:text-gray-500">in</span>
-                    )}
+                  {/* An expected OUTGOING wears the expense convention —
+                      red, (£X) — like every other expense figure in the app
+                      (owner, 18 Aug). Expected income is green with its +. */}
+                  <span className={`text-sm tabular-nums shrink-0 ${
+                    occurrence.detection.direction === 'out'
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-green-600 dark:text-green-400'
+                  }`}>
+                    {occurrence.detection.direction === 'out'
+                      ? formatCurrency(-occurrence.amount.toNumber())
+                      : `+${formatCurrency(occurrence.amount.toNumber())}`}
                   </span>
                 </li>
               ))}
             </ul>
             {dueNext.length > 8 && (
-              /* Named, never silently truncated. */
-              <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-                …and {dueNext.length - 8} more in the next 30 days.
-              </p>
+              /* Named, never silently truncated — and now a door, not a
+                 remark (owner, 18 Aug: "click to view all"). */
+              <button
+                type="button"
+                onClick={() => setShowAllDue(open => !open)}
+                className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline"
+              >
+                {showAllDue
+                  ? 'Show fewer'
+                  : `…and ${dueNext.length - 8} more in the next 30 days — show all`}
+              </button>
             )}
           </>
         )}
