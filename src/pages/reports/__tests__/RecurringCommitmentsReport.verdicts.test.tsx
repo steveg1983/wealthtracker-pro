@@ -52,6 +52,7 @@ const verdictRow = (kind: 'recurring-confirmed' | 'recurring-not'): SuggestionDi
 
 const dismissSuggestion = vi.fn(async () => {});
 const restoreSuggestion = vi.fn(async () => {});
+const refreshSuggestionDismissals = vi.fn(async () => {});
 
 const renderReport = (dismissals: SuggestionDismissal[] = []): void => {
   __setAppContextValue({
@@ -60,6 +61,7 @@ const renderReport = (dismissals: SuggestionDismissal[] = []): void => {
     isLoading: false,
     suggestionDismissals: dismissals,
     suggestionDismissalsStatus: 'ready',
+    refreshSuggestionDismissals,
     dismissSuggestion,
     restoreSuggestion,
   });
@@ -78,10 +80,48 @@ beforeEach(() => {
   localStorage.clear();
   dismissSuggestion.mockClear();
   restoreSuggestion.mockClear();
+  refreshSuggestionDismissals.mockClear();
 });
 
 afterEach(() => {
   __resetAppContextValue();
+});
+
+describe('Recurring commitments — the verdicts must be ASKED FOR', () => {
+  it('requests the lazy-loaded verdicts when they have never been loaded', async () => {
+    /*
+     * THE REGRESSION THAT SHIPPED. The context loads suggestion dismissals
+     * "when a sweep opens, not at boot" — status starts 'idle'. This page
+     * gated its Confirm controls on status 'ready' and never asked for the
+     * load, so in production the whole verdict pipeline was invisible
+     * (owner, 18 Aug: "Where do I 'approve' the recurring payment?"). Every
+     * test mocked 'ready', which is how it slipped. This one starts at
+     * 'idle', as production does.
+     */
+    __setAppContextValue({
+      accounts: [ACCOUNT],
+      transactions: monthlyHistory(),
+      isLoading: false,
+      suggestionDismissals: [],
+      suggestionDismissalsStatus: 'idle',
+      refreshSuggestionDismissals,
+      dismissSuggestion,
+      restoreSuggestion,
+    });
+    render(
+      <MemoryRouter>
+        <PreferencesProvider>
+          <ToastProvider>
+            <RecurringCommitmentsReport />
+          </ToastProvider>
+        </PreferencesProvider>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(refreshSuggestionDismissals).toHaveBeenCalled();
+    });
+  });
 });
 
 describe('Recurring commitments — the two verdicts', () => {

@@ -85,7 +85,7 @@ interface FormData {
 }
 
 export default function EditTransactionModal({ isOpen, onClose, transaction, defaultAccountId, onSaveAndNext, onSaveAndPrevious, hideJumpToAccountId }: EditTransactionModalProps): React.JSX.Element {
-  const { accounts, categories, transactions, updateTransaction, deleteTransaction, getTransactionSplits, setTransactionSplits, linkTransferPair, createTransferCounterpart, repointTransfer, suggestionDismissals, suggestionDismissalsStatus, dismissSuggestion, restoreSuggestion } = useApp();
+  const { accounts, categories, transactions, updateTransaction, deleteTransaction, getTransactionSplits, setTransactionSplits, linkTransferPair, createTransferCounterpart, repointTransfer, suggestionDismissals, suggestionDismissalsStatus, refreshSuggestionDismissals, dismissSuggestion, restoreSuggestion } = useApp();
   const { showSuccess, showError, showWarning } = useToast();
   const { addTransaction } = useTransactionNotifications();
   const { propagateCategory } = usePayeeMemory();
@@ -96,6 +96,13 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   /** The recurring verdict write in flight, so a double-click cannot record twice. */
   const [savingRecurring, setSavingRecurring] = useState(false);
+
+  // The verdicts are lazy-loaded; the recurring tick gates on 'ready', so an
+  // open modal must ask or the tick never appears (see the note in
+  // RecurringCommitmentsReport).
+  useEffect(() => {
+    if (isOpen && suggestionDismissalsStatus === 'idle') void refreshSuggestionDismissals();
+  }, [isOpen, suggestionDismissalsStatus, refreshSuggestionDismissals]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [formattedAmount, setFormattedAmount] = useState('');
   // Money-style cross-type categorization: browse the OTHER direction's
