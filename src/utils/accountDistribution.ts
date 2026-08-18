@@ -26,10 +26,11 @@ export interface AccountDistributionEntry {
   /** Current balance: openingBalance + Σ transactions (see computeAccountBalances). */
   value: number;
   /**
-   * Percentage of everything held in credit, or null when the account holds
-   * nothing to take a share of. A share of a positive whole is only meaningful
-   * for a positive part: an overdrawn account is not "-4% of the money", and a
-   * zero balance is not 0% of anything it is part of.
+   * This entry's contribution to NET WORTH, as a percentage — negative for a
+   * liability, because owing money is a negative contribution and pretending
+   * otherwise is how the ring stopped adding up. null when net worth is not
+   * positive: a share of nothing (or of a debt) is not a percentage anyone
+   * can read.
    */
   share: DecimalInstance | null;
 }
@@ -38,18 +39,30 @@ export interface AccountDistribution {
   /** Every account, ranked by balance, largest first — nothing dropped. */
   entries: AccountDistributionEntry[];
   /**
-   * The slices the donut draws: the largest accounts in credit, and — when
-   * there are more in credit than the ring can name — ONE slice holding
-   * everything else, so the ring always sums to the whole. A pie cannot show
-   * a negative, so overdrawn accounts appear in the table, never the ring.
+   * The LEGEND: the largest accounts in credit, and — when more than one
+   * other account exists — ONE remainder netting everything else, negatives
+   * included, so the legend's figures SUM TO NET WORTH. Exactly one account
+   * left over is shown by its own name instead: a fold of one hides nothing
+   * and loses the name. The remainder is always LAST.
    */
   slices: AccountDistributionEntry[];
-  /** What every share is a share OF: the total held in credit. */
+  /**
+   * The RING: the slices a pie can draw — the positive ones, in the same
+   * order. A pie has no negative wedge, so a below-zero remainder (or a
+   * singly-named liability) lives in the legend alone, parenthesised. One
+   * derivation here, not a filter at each call site, so the ring and the
+   * legend can never disagree about what was dropped — and because anything
+   * dropped is LAST, every drawn slice keeps the colour index its legend row
+   * has.
+   */
+  wedges: AccountDistributionEntry[];
+  /** What every share is a share OF now: everything owned less everything owed. */
+  netWorth: DecimalInstance;
+  /** Kept for surfaces that speak about money held: the sum of positive balances. */
   inCreditTotal: DecimalInstance;
   /**
-   * How many in-credit accounts the ring folded into its remainder slice —
-   * zero when every one is drawn by name. Exposed so the copy above each ring
-   * can say what was folded without parsing the slice's own label.
+   * How many accounts the remainder gathers — every account not named, of
+   * either sign. Zero when every account is drawn by name.
    */
   foldedCount: number;
 }
@@ -88,55 +101,82 @@ export function buildAccountDistribution(
     // a stable order between renders instead of swapping places.
     .sort((a, b) => (b.value - a.value) || a.name.localeCompare(b.name));
 
+  const netWorth = balances.reduce(
+    (sum, entry) => sum.plus(toDecimal(entry.value)),
+    toDecimal(0)
+  );
   const inCreditTotal = balances.reduce(
     (sum, entry) => (entry.value > 0 ? sum.plus(toDecimal(entry.value)) : sum),
     toDecimal(0)
   );
 
   // Decimal, not float: a share is derived from money, and the percentages are
-  // read against each other.
+  // read against each other. The denominator is NET WORTH — see the ruling on
+  // the slices below — and a liability's contribution is honestly negative.
+  const shareOf = (value: number): DecimalInstance | null =>
+    netWorth.greaterThan(0) && value !== 0
+      ? toDecimal(value).dividedBy(netWorth).times(100)
+      : null;
+
   const entries: AccountDistributionEntry[] = balances.map(entry => ({
     ...entry,
-    share: entry.value > 0 && inCreditTotal.greaterThan(0)
-      ? toDecimal(entry.value).dividedBy(inCreditTotal).times(100)
-      : null,
+    share: shareOf(entry.value),
   }));
 
   /**
-   * A CLOSED RING IS A CLAIM ABOUT THE WHOLE (Claude Design, 17 Aug §2.1).
-   * Drawn from the top five alone it showed ~55% of the money as if it were
-   * 100%, so a reader concluded their largest account was a sixth of their
-   * net worth when it was a thirty-fifth. Everything past the named slices is
-   * folded into ONE remainder slice — same arithmetic as
-   * capSeriesWithRemainder, done here so the card and the report cannot fold
-   * differently. The remainder is NAMED WITH ITS COUNT rather than "Other":
-   * "Other" is a real category in some ledgers, and a visible count tells the
-   * reader whether the fold hid something worth opening the full report for.
+   * THE LEGEND SUMS TO NET WORTH (owner, 17 Aug). The first fold gathered
+   * only the accounts IN CREDIT, and on a real ledger that legend totalled
+   * far MORE than net worth — gross investment values and loans-out counted,
+   * every liability ignored — which the owner read exactly right: "otherwise
+   * it looks like a useless report". So the remainder now gathers EVERY
+   * account not named, negatives included, and the whole is net worth:
    *
-   * The value comes from inCreditTotal minus the named slices — a Decimal
-   * subtraction, not a float sum of ninety balances — so ring and total agree
-   * to the penny by construction.
+   *     top accounts in credit  +  everything else, net  =  net worth
+   *
+   * The remainder is a Decimal subtraction from net worth, not a float sum
+   * of ninety balances, so the reconciliation holds to the penny by
+   * construction. It is NAMED WITH ITS COUNT ("51 other accounts") rather
+   * than "Other" — "Other" is a real category in some ledgers, and a count
+   * tells the reader how much the fold gathered.
+   *
+   * A pie cannot draw a negative wedge, so when the net remainder is below
+   * zero the LEGEND still shows it — in the accounting parentheses — and the
+   * ring draws the named slices alone. The remainder being LAST is what
+   * makes that safe: dropping the last element leaves every named slice's
+   * colour index untouched, so a filtered ring and a full legend cannot
+   * disagree about which colour is whose.
    */
-  const inCredit = entries.filter(entry => entry.value > 0);
+  const named = entries
+    .filter(entry => entry.value > 0)
+    .slice(0, ACCOUNT_DISTRIBUTION_SLICES - 1);
+  const namedIds = new Set(named.map(entry => entry.id));
+  const rest = entries.filter(entry => !namedIds.has(entry.id));
+
   let slices: AccountDistributionEntry[];
   let foldedCount = 0;
-  if (inCredit.length <= ACCOUNT_DISTRIBUTION_SLICES) {
-    slices = inCredit;
+  if (rest.length === 0) {
+    slices = named;
+  } else if (rest.length === 1) {
+    // A fold of one hides nothing and loses the name — the last account is
+    // its own row, sign and all. The reconciliation still holds: the five
+    // rows are simply every account.
+    slices = [...named, rest[0]];
   } else {
-    const named = inCredit.slice(0, ACCOUNT_DISTRIBUTION_SLICES - 1);
-    foldedCount = inCredit.length - named.length;
+    foldedCount = rest.length;
     const namedTotal = named.reduce((sum, entry) => sum.plus(toDecimal(entry.value)), toDecimal(0));
-    const remainder = inCreditTotal.minus(namedTotal);
+    const remainder = netWorth.minus(namedTotal);
     slices = [
       ...named,
       {
         id: ACCOUNT_DISTRIBUTION_REMAINDER_ID,
-        name: `${foldedCount} smaller account${foldedCount === 1 ? '' : 's'}`,
+        name: `${foldedCount} other accounts`,
         value: remainder.toNumber(),
-        share: inCreditTotal.greaterThan(0) ? remainder.dividedBy(inCreditTotal).times(100) : null,
+        share: shareOf(remainder.toNumber()),
       },
     ];
   }
 
-  return { entries, slices, inCreditTotal, foldedCount };
+  const wedges = slices.filter(entry => entry.value > 0);
+
+  return { entries, slices, wedges, netWorth, inCreditTotal, foldedCount };
 }
