@@ -57,7 +57,7 @@ import {
   type AccountDistributionEntry,
 } from '../../utils/accountDistribution';
 import { groupAccountsBySection } from '../../utils/accountGrouping';
-import { swapPositions, moveBySteps } from '../../utils/reorderList';
+import { swapPositions, moveBySteps, previewStep } from '../../utils/reorderList';
 import { buildCategoryNameLookup } from '../../utils/categoryNames';
 import { buildAttentionItems } from '../../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../../utils/bankAutoSync';
@@ -470,7 +470,27 @@ export function ImprovedDashboard() {
    * the pointer moves on — and NOTHING is stored until the button is
    * released. Escape-by-pointercancel reverts to where things were.
    *
-   * `touch-action: pan-y` keeps the page scrollable from a tile on a phone;
+   * THE PREVIEW HAS HYSTERESIS (owner, 18 Aug, on the first cut of the swap:
+   * "the highlight quickly jumps back and forth between the moved from and
+   * the moved to"). The flap was geometric: previewing a swap moves the
+   * DRAGGED tile into the seat under the pointer, so the next move finds the
+   * dragged tile there, cleared the preview, found the target again, swapped
+   * again — every frame. So a preview now only CHANGES when the pointer
+   * reaches a genuinely new tile. The dragged tile under the pointer is the
+   * swap holding steady; a grid gap keeps the last preview; and the partner
+   * tile under the pointer means the pointer is back at the ORIGIN seat —
+   * the swap moved the partner there — which is a drag home, and reverts.
+   *
+   * ON A PHONE, PRESS AND HOLD LIFTS THE TILE (owner, 18 Aug: "if we hold
+   * down for a few seconds, like on an iphone app on the iphone screen, can
+   * it then 'loosen itself' to be swapped before leaving go of the screen?").
+   * Exactly that: `touch-action: pan-y` leaves the page scrollable from a
+   * tile, so a touch drag has no way to BE a drag — the browser claims any
+   * movement as a scroll and cancels the pointer. A hold that stays within
+   * the slop for {@link TOUCH_LIFT_MS} lifts the tile instead: from that
+   * moment a non-passive touchmove listener refuses the scroll claim, the
+   * finger owns the tile, and the same swap-preview-commit flow runs. Before
+   * the lift, movement cancels the hold and the page scrolls as normal.
    * Alt+arrows cover the keyboard.
    */
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -481,7 +501,19 @@ export function ImprovedDashboard() {
     baseOrder: string[];
     /** The tile currently previewing into the dragged tile's seat. */
     hoverId: string | null;
+    /** Touch only: the press-and-hold timer, until it fires or moves away. */
+    holdTimer: ReturnType<typeof setTimeout> | null;
+    /** Touch only: the hold completed — the tile is loosened and draggable. */
+    lifted: boolean;
+    pointerType: string;
   } | null>(null);
+  /**
+   * The scroll refusal, held so it can be removed from wherever the gesture
+   * ends. Non-passive deliberately: preventDefault on touchmove is the one
+   * thing that stops a browser mid-gesture from claiming the pan, and a
+   * passive listener is not allowed to say it.
+   */
+  const touchBlockRef = React.useRef<((ev: TouchEvent) => void) | null>(null);
   const [reorderAnnouncement, setReorderAnnouncement] = useState('');
 
   const displayedAccounts = useMemo(() => {
@@ -496,18 +528,65 @@ export function ImprovedDashboard() {
     setReorderAnnouncement(`${name} moved to position ${order.indexOf(accountId) + 1} of ${order.length}`);
   }, [accounts]);
 
+  /** How long a touch must hold still before the tile loosens. */
+  const TOUCH_LIFT_MS = 450;
+
+  /** Undo the lift's scroll refusal and hold timer, from any ending. */
+  const releaseTouchHold = (): void => {
+    const drag = dragRef.current;
+    if (drag?.holdTimer !== null && drag?.holdTimer !== undefined) {
+      clearTimeout(drag.holdTimer);
+      drag.holdTimer = null;
+    }
+    if (touchBlockRef.current) {
+      window.removeEventListener('touchmove', touchBlockRef.current);
+      touchBlockRef.current = null;
+    }
+  };
+
   const handleTilePointerDown = (e: React.PointerEvent, accountId: string): void => {
     if (e.button !== 0) return;
-    dragRef.current = {
+    const drag = {
       id: accountId, startX: e.clientX, startY: e.clientY, moved: false,
       baseOrder: selectedAccountIds, hoverId: null,
+      holdTimer: null as ReturnType<typeof setTimeout> | null,
+      lifted: false,
+      pointerType: e.pointerType,
     };
+    dragRef.current = drag;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    if (e.pointerType === 'touch') {
+      // The hold. It only fires if the finger stayed within the slop — a
+      // finger that moved is scrolling, and the move handler cancels this.
+      drag.holdTimer = setTimeout(() => {
+        if (dragRef.current !== drag) return;
+        drag.holdTimer = null;
+        drag.lifted = true;
+        drag.moved = true;
+        setDraggingId(drag.id);
+        // From here the finger owns the tile: refuse the browser's claim on
+        // the pan. Possible at all because nothing has moved yet — a pan
+        // already underway could not be refused.
+        const block = (ev: TouchEvent): void => ev.preventDefault();
+        touchBlockRef.current = block;
+        window.addEventListener('touchmove', block, { passive: false });
+      }, TOUCH_LIFT_MS);
+    }
   };
 
   const handleTilePointerMove = (e: React.PointerEvent): void => {
     const drag = dragRef.current;
     if (!drag) return;
+    if (drag.pointerType === 'touch' && !drag.lifted) {
+      // Not loosened yet: a finger that moves is scrolling, not dragging.
+      // Cancel the hold and let the browser have the gesture.
+      if (drag.holdTimer !== null &&
+          Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) >= 8) {
+        clearTimeout(drag.holdTimer);
+        drag.holdTimer = null;
+      }
+      return;
+    }
     if (!drag.moved) {
       if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 8) return;
       drag.moved = true;
@@ -519,15 +598,22 @@ export function ImprovedDashboard() {
       .elementFromPoint(e.clientX, e.clientY)
       ?.closest<HTMLElement>('[data-account-tile-id]');
     const targetId = over?.dataset.accountTileId ?? null;
-    if (targetId === drag.hoverId) return;
-    drag.hoverId = targetId;
-    // Always from the base order: leaving a tile un-hovers it completely.
-    setPreviewOrder(targetId && targetId !== drag.id
-      ? swapPositions(drag.baseOrder, drag.id, targetId)
-      : null);
+    // The anti-judder rule lives in utils/reorderList (previewStep), pure and
+    // pinned there — this handler only carries out its answer.
+    const step = previewStep(targetId, drag.id, drag.hoverId);
+    if (step.kind === 'keep') return;
+    if (step.kind === 'revert') {
+      drag.hoverId = null;
+      setPreviewOrder(null);
+      return;
+    }
+    drag.hoverId = step.targetId;
+    // Always from the base order — never cumulative.
+    setPreviewOrder(swapPositions(drag.baseOrder, drag.id, step.targetId));
   };
 
   const endTileDrag = (): void => {
+    releaseTouchHold();
     const drag = dragRef.current;
     if (drag?.moved && drag.hoverId && drag.hoverId !== drag.id) {
       // THE COMMIT — the one moment the stored order changes.
@@ -544,10 +630,19 @@ export function ImprovedDashboard() {
 
   /** A cancelled drag (pointercancel — a scroll won the touch) commits nothing. */
   const cancelTileDrag = (): void => {
+    releaseTouchHold();
     setPreviewOrder(null);
     setDraggingId(null);
     setTimeout(() => { dragRef.current = null; }, 0);
   };
+
+  // A component that unmounts mid-lift must not leave the page unscrollable.
+  useEffect(() => () => {
+    if (touchBlockRef.current) {
+      window.removeEventListener('touchmove', touchBlockRef.current);
+      touchBlockRef.current = null;
+    }
+  }, []);
 
   /** Alt+arrows re-seat from the keyboard; plain keys keep their meanings. */
   const handleTileKeyDown = (e: React.KeyboardEvent, accountId: string): void => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { swapPositions, moveBySteps } from './reorderList';
+import { swapPositions, moveBySteps, previewStep } from './reorderList';
 
 const IDS = ['a', 'b', 'c', 'd', 'e', 'f'];
 
@@ -33,6 +33,31 @@ describe('swapPositions — the hovered tile takes the dragged tile\'s seat', ()
     const before = [...IDS];
     swapPositions(IDS, 'a', 'f');
     expect(IDS).toEqual(before);
+  });
+});
+
+describe('previewStep — the anti-judder rule (owner: "the highlight quickly jumps back and forth")', () => {
+  it('the dragged tile under the pointer is the swap holding steady — the flap loop is dead', () => {
+    // After swapping a↔e, the pointer sits where it always was, but the
+    // DRAGGED tile now renders there. Treating that as "no target" was the
+    // judder: clear, re-find, re-swap, every frame.
+    expect(previewStep('a', 'a', 'e')).toEqual({ kind: 'keep' });
+  });
+
+  it('a grid gap keeps whatever is showing — release commits it', () => {
+    expect(previewStep(null, 'a', 'e')).toEqual({ kind: 'keep' });
+    expect(previewStep(null, 'a', null)).toEqual({ kind: 'keep' });
+  });
+
+  it('the partner under the pointer is the drag come home, and reverts', () => {
+    // The swap moved the partner into the drag's ORIGIN seat, so pointing at
+    // the partner means pointing at where the drag began.
+    expect(previewStep('e', 'a', 'e')).toEqual({ kind: 'revert' });
+  });
+
+  it('only a genuinely new third tile changes the preview', () => {
+    expect(previewStep('c', 'a', 'e')).toEqual({ kind: 'swap', targetId: 'c' });
+    expect(previewStep('e', 'a', null)).toEqual({ kind: 'swap', targetId: 'e' });
   });
 });
 
