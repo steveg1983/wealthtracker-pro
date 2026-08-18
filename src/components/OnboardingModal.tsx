@@ -130,9 +130,12 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
             them nothing about the one they had just opened
             (DESIGN_PASS_2026-08 §3.4). Each field now also says what the app
             DOES with the answer. */}
+        {/* Purpose before manner (Design, 17 Aug §3): a reader learns what
+            the app is FOR before how it feels to use. Same length. */}
         <p className="text-gray-600 dark:text-gray-400 mb-6">
-          Two answers and you're in. This is a dense, keyboard-driven ledger:
-          your figures stay yours, and every report says what it leaves out.
+          Two answers and you're in. WealthTracker is a ledger, not an
+          estimator — every figure traces to something you entered or
+          imported, and every report says what it leaves out.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">

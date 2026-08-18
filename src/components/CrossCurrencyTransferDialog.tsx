@@ -310,7 +310,11 @@ export default function CrossCurrencyTransferDialog({
               two things this line ALONE can carry — who quoted it and when —
               to the end where they read as an afterthought. */}
           {quote.status === 'ready' && quote.source === 'api' && (
-            <>{quote.provider}, {quotedAt}</>
+            /* The ethos said once, where it is being enforced (Design, 17 Aug
+               §6): this dialog already records more about a converted figure
+               than most apps show — say that it does. */
+            <>{quote.provider}, {quotedAt}. Every converted figure records the
+            rate it used and when.</>
           )}
           {quote.status === 'ready' && quote.source === 'fallback' && (
             <>No live rate right now, so this one is approximate — check it against your
