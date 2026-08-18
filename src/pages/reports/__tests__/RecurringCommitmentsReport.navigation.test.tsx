@@ -170,6 +170,19 @@ describe('Recurring commitments — navigation', () => {
     expect(screen.getByText('£900.00')).toBeInTheDocument();
   });
 
+  it('a payee links to the register FILTERED to the pattern, not the bare account', () => {
+    // Owner, 18 Aug: the bare account link "is pretty pointless". The link
+    // carries every label the pattern has worn, so the register can show a
+    // stitched pattern's whole history in one view.
+    renderReport();
+
+    const link = screen.getByRole('link', { name: 'ZEBRA GYM' });
+    expect(link).toHaveAttribute(
+      'href',
+      `/accounts/acc-a?recurringPayee=${encodeURIComponent('zebra gym')}`
+    );
+  });
+
   it('a verdict stored under a payee’s OLD label still reads as confirmed', () => {
     // The owner's Green GJ case: the bank renamed the payee mid-stream, so the
     // stitched pattern's current label is the long one — but the Confirm he
@@ -222,6 +235,12 @@ describe('Recurring commitments — navigation', () => {
 
     // One pattern, wearing its current label, and the evidence names the old.
     expect(screen.getByText('ACME LTD PROPERTY MAINT')).toBeInTheDocument();
+    // Its register link carries BOTH labels, so the filtered view holds the
+    // whole stitched history.
+    expect(screen.getByRole('link', { name: 'ACME LTD PROPERTY MAINT' })).toHaveAttribute(
+      'href',
+      `/accounts/acc-a?recurringPayee=${encodeURIComponent('acme ltd property maint|acme ltd')}`
+    );
     expect(screen.getByText(/previously labelled ‘ACME LTD’/)).toBeInTheDocument();
     // And the standing verdict is FOUND rather than offered again.
     expect(screen.getByText('Confirmed')).toBeInTheDocument();
