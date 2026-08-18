@@ -702,14 +702,21 @@ export function ImprovedDashboard() {
                   subtitle={
                     <>
                       <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {/* A closed ring claims the whole (Design, 17 Aug §2.1),
-                            so when accounts were folded the words say so —
-                            "top 5" over a ring quietly missing 45% of the money
-                            was a subtitle contradicted by its own shape. */}
+                        {/* THE LEGEND SUMS TO NET WORTH (owner, 17 Aug). The
+                            in-credit fold's legend totalled far more than net
+                            worth — gross investments and loans-out counted,
+                            liabilities ignored — "otherwise it looks like a
+                            useless report". The remainder now nets EVERY other
+                            account, and the words say what the shape claims.
+                            When that net remainder is below zero the ring
+                            cannot draw it (a pie has no negative wedge), so
+                            the subtitle says where the rest went instead. */}
                         {pieData.length === 0
                           ? 'Your largest accounts by balance'
                           : distribution.foldedCount > 0
-                            ? `Your top ${pieData.length - 1} accounts, and the other ${distribution.foldedCount}`
+                            ? (pieData[pieData.length - 1].value >= 0
+                              ? `Your top ${pieData.length - 1} accounts and the other ${distribution.foldedCount}, net — together, your net worth`
+                              : `Your top ${pieData.length - 1} accounts — the other ${distribution.foldedCount} net below zero`)
                             : `Your top ${pieData.length} account${pieData.length === 1 ? '' : 's'} by balance`}
                       </span>
                       <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto whitespace-nowrap">
@@ -719,7 +726,7 @@ export function ImprovedDashboard() {
                   }
                   onOpen={() => openReport('account-distribution')}
                 >
-                  {pieData.length === 0 ? (
+                  {distribution.wedges.length === 0 ? (
                     /* THE SAME BOX THE CHART WOULD FILL, which is what makes
                        this card the same height as Expense Categories beside
                        it. Shipped first as a bare `py-8`, and the owner saw it
@@ -746,7 +753,11 @@ export function ImprovedDashboard() {
                     <div className={`${WIDGET_CHART_HEIGHT} sm:aspect-square sm:flex-shrink-0`}>
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart
-                          data={pieData}
+                          // The ring draws `wedges` and the legend `slices` —
+                          // one derivation apart (see accountDistribution): a
+                          // below-zero remainder stays in the legend, in its
+                          // accounting parentheses, and out of the ring.
+                          data={distribution.wedges}
                           innerRadius={true}
                           colors={chartRamp}
                           // Straight into that account's register. It used to
@@ -786,11 +797,21 @@ export function ImprovedDashboard() {
                               aria-hidden="true"
                             />
                             <span className="flex-1 min-w-0 truncate text-sm text-gray-700 dark:text-gray-300">{d.name}</span>
-                            <span className="text-sm font-medium tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
+                            {/* A negative remainder wears the accounting
+                                parentheses and the red every negative figure
+                                wears — the legend states the netting the ring
+                                cannot draw. */}
+                            <span className={`text-sm font-medium tabular-nums whitespace-nowrap ${
+                              d.value < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'
+                            }`}>
                               {formatCurrencyWithSymbol(d.value, displayCurrency)}
                             </span>
                             <span className="w-12 text-right text-xs tabular-nums text-gray-400 dark:text-gray-500">
-                              {d.share ? `${formatDecimal(d.share, 1)}%` : ''}
+                              {d.share
+                                ? d.share.lessThan(0)
+                                  ? `(${formatDecimal(d.share.abs(), 1)}%)`
+                                  : `${formatDecimal(d.share, 1)}%`
+                                : ''}
                             </span>
                           </button>
                         </li>

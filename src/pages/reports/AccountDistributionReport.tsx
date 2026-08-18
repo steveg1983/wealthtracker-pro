@@ -61,8 +61,14 @@ export default function AccountDistributionReport(): React.JSX.Element {
   const money = (value: number): string =>
     formatCurrency(value, displayCurrency);
 
+  // A negative contribution wears the accounting parentheses, exactly as the
+  // figure it derives from does — "(0.1%)", never a bare minus.
   const shareOf = (entry: AccountDistributionEntry): string =>
-    entry.share ? `${formatDecimal(entry.share, 1)}%` : '—';
+    entry.share
+      ? entry.share.lessThan(0)
+        ? `(${formatDecimal(entry.share.abs(), 1)}%)`
+        : `${formatDecimal(entry.share, 1)}%`
+      : '—';
 
   const headCell = 'px-4 py-2 text-dense font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400';
 
@@ -70,10 +76,14 @@ export default function AccountDistributionReport(): React.JSX.Element {
     <div className="max-w-[1400px] mx-auto space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-line dark:border-gray-700">
-          <p className="text-label uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">Held in credit</p>
-          <p className="text-page font-bold mt-1">{money(distribution.inCreditTotal.toNumber())}</p>
+          {/* NET WORTH, not "held in credit" (owner, 17 Aug): the ring now
+              reconciles to net worth, so the figure everything is a share OF
+              must be the one the Dashboard's headline shows — two totals for
+              one page is the disagreement this report exists to prevent. */}
+          <p className="text-label uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">Net worth</p>
+          <p className="text-page font-bold mt-1">{money(distribution.netWorth.toNumber())}</p>
           {/* What every share below is a share OF, said once. */}
-          <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">Current balances — every share below is of this total</p>
+          <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">Current balances — every share below is a contribution to this total</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-line dark:border-gray-700">
           <p className="text-dense text-gray-500 uppercase tracking-wider font-medium">Accounts</p>
@@ -84,10 +94,10 @@ export default function AccountDistributionReport(): React.JSX.Element {
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-line dark:border-gray-700">
           <p className="text-dense text-gray-500 uppercase tracking-wider font-medium">Largest holding</p>
           <p className="text-page font-bold mt-1 text-gray-900 dark:text-white truncate">
-            {distribution.slices.length > 0 ? shareOf(distribution.slices[0]) : '—'}
+            {distribution.wedges.length > 0 ? shareOf(distribution.wedges[0]) : '—'}
           </p>
           <p className="text-dense text-gray-500 dark:text-gray-400 mt-1 truncate">
-            {distribution.slices.length > 0 ? distribution.slices[0].name : 'Nothing in credit'}
+            {distribution.wedges.length > 0 ? distribution.wedges[0].name : 'Nothing in credit'}
           </p>
         </div>
       </div>
@@ -101,24 +111,27 @@ export default function AccountDistributionReport(): React.JSX.Element {
         </div>
         {/* The count comes from the slices themselves, never the cap: with
             three accounts in credit this must not claim five. And when the
-            ring folds a remainder (Design, 17 Aug §2.1 — a closed ring is a
-            claim about the whole), the sentence says what was folded. */}
+            ring folds a remainder, the sentence says what was gathered — and
+            that the whole is NET WORTH (owner, 17 Aug: the legend's figures
+            must come back to that number, "otherwise it looks like a useless
+            report"). */}
         <p className="text-body text-gray-500 dark:text-gray-400 mb-4">
-          {distribution.slices.length === 1
-            ? 'The one account in credit'
-            : distribution.foldedCount > 0
-              ? `The ${distribution.slices.length - 1} largest accounts in credit, with the other ${distribution.foldedCount} gathered into one slice`
-              : `The ${distribution.slices.length} largest accounts in credit`}
+          {distribution.foldedCount > 0
+            ? `The ${distribution.slices.length - 1} largest accounts in credit, with every other account netted into one slice — together, your net worth`
+            : 'Every account, drawn to its balance — together, your net worth'}
           {' '}— the same slices the Dashboard shows. Every account is listed below.
           Click a slice for its transactions.
         </p>
-        {distribution.slices.length === 0 ? (
+        {distribution.wedges.length === 0 ? (
           <p className="text-center py-16 text-gray-400">No account is in credit</p>
         ) : (
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart
-                data={distribution.slices}
+                // The ring draws `wedges`, the table lists everything — one
+                // derivation apart (see accountDistribution): a below-zero
+                // remainder is parenthesised in the legend, never a wedge.
+                data={distribution.wedges}
                 innerRadius={true}
                 colors={ramp}
                 onClick={(entry: AccountDistributionEntry) => {
@@ -198,11 +211,16 @@ export default function AccountDistributionReport(): React.JSX.Element {
               </tbody>
               <tfoot className="border-t-2 border-gray-200 dark:border-gray-600">
                 <tr>
+                  {/* The Balance column's own sum IS net worth — the footer
+                      states what the rows already add to, so the table and
+                      the ring above reconcile by inspection. */}
                   <th scope="row" className="px-4 py-3 text-left text-body font-semibold text-gray-900 dark:text-white">
-                    Held in credit
+                    Net worth
                   </th>
-                  <td className="px-4 py-3 text-body text-right font-bold tabular-nums text-gray-900 dark:text-white">
-                    {money(distribution.inCreditTotal.toNumber())}
+                  <td className={`px-4 py-3 text-body text-right font-bold tabular-nums ${
+                    distribution.netWorth.lessThan(0) ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'
+                  }`}>
+                    {money(distribution.netWorth.toNumber())}
                   </td>
                   <td className="px-4 py-3" />
                 </tr>
@@ -211,13 +229,14 @@ export default function AccountDistributionReport(): React.JSX.Element {
           </div>
         )}
 
-        {/* An overdrawn account has no share of a positive total, and saying so
-            is better than printing a negative percentage nobody can read. */}
-        {distribution.entries.some(entry => entry.value <= 0) && (
+        {/* The shares are CONTRIBUTIONS to net worth now, so a liability's is
+            honestly negative — in the same parentheses every negative figure
+            wears. Zero balances still show none: nothing contributes nothing. */}
+        {distribution.entries.some(entry => entry.value < 0) && (
           <p className="px-6 pb-6 pt-3 text-dense text-gray-500 dark:text-gray-400">
-            Accounts holding nothing, or overdrawn, are listed with no share: a share of the money
-            held is only meaningful for money held. The total above is what is in credit, so it is
-            not your net worth — see the Net worth report for what you own less what you owe.
+            A parenthesised share is a liability&rsquo;s contribution to your net worth —
+            what it takes away. The shares sum to 100% across every account, which is
+            what makes the total above the same net worth the Dashboard shows.
           </p>
         )}
       </div>
