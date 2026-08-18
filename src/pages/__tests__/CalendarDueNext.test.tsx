@@ -32,6 +32,9 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
     accounts: [
       { id: 'acc1', name: 'Synthetic Current', type: 'current', balance: 0, openingBalance: 0 },
     ],
+    // The Income/Expenditure tiles run computeIncomeExpense, which needs both.
+    transactionSplits: [],
+    categories: [],
     suggestionDismissals: [
       {
         id: 'dis-1',
@@ -48,7 +51,12 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
 
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (amount: number) => `£${Number(amount).toFixed(2)}`,
+    // Models the real formatCurrency's negative convention — (£X) — so an
+    // assertion about an expense figure exercises what production renders.
+    formatCurrency: (amount: number) =>
+      Number(amount) < 0
+        ? `(£${Math.abs(Number(amount)).toFixed(2)})`
+        : `£${Number(amount).toFixed(2)}`,
   }),
 }));
 
@@ -64,7 +72,9 @@ describe('Calendar — confirmed patterns feed the forward panel', () => {
     expect(panel).not.toBeNull();
     // Expected ~20 days out (last paid 10 days ago on a monthly rhythm).
     expect(within(panel as HTMLElement).getByText('FLIXWATCH.COM')).toBeInTheDocument();
-    expect(within(panel as HTMLElement).getByText('£7.99')).toBeInTheDocument();
+    // The app-wide expense convention (owner, 18 Aug): an expected outgoing
+    // wears red and its brackets like every other expense figure.
+    expect(within(panel as HTMLElement).getByText('(£7.99)')).toBeInTheDocument();
     expect(within(panel as HTMLElement).getByText('Synthetic Current')).toBeInTheDocument();
     expect(within(panel as HTMLElement).queryByText(/Nothing confirmed yet/)).not.toBeInTheDocument();
   });

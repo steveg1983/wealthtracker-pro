@@ -14,6 +14,9 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
     accounts: [
       { id: 'acc1', name: 'Test Account', type: 'current', balance: 1000, openingBalance: 1000 },
     ],
+    // The Income/Expenditure tiles run computeIncomeExpense, which needs both.
+    transactionSplits: [],
+    categories: [],
     // The forward panel reads the recurring verdicts; none here, so it shows
     // its "nothing confirmed yet" line.
     suggestionDismissals: [],
@@ -91,11 +94,13 @@ describe('Calendar', () => {
         <Calendar />
       </MemoryRouter>
     );
-    // The calendar is a cash-movement day ledger, so its summary deliberately
-    // says money in/out, never "Income"/"Expenses" (those are category
-    // semantics — see utils/incomeExpense).
-    expect(screen.getByText('Money in')).toBeInTheDocument();
-    expect(screen.getByText('Money out')).toBeInTheDocument();
+    // OVERRULED 18 Aug (owner): the day CELLS stay a cash-movement ledger,
+    // but the month's headline tiles now speak Income/Expenditure — computed
+    // through utils/incomeExpense (transfers and revaluations excluded) —
+    // because a month whose "Money in" included transfers between his own
+    // accounts read as earnings that never happened.
+    expect(screen.getByText('Income')).toBeInTheDocument();
+    expect(screen.getByText('Expenditure')).toBeInTheDocument();
     expect(screen.getByText('Net')).toBeInTheDocument();
     expect(screen.getByText('Transactions')).toBeInTheDocument();
   });
