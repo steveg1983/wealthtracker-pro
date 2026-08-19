@@ -612,6 +612,27 @@ export interface ReportComponent {
   width: 'full' | 'half' | 'third';
 }
 
+/**
+ * One stated deviation from the forecast BASE: the monthly figure the
+ * scenario uses for one category in place of the twelve-month average
+ * (docs/forecast-direction.md — the scenario tool, whose Budget writes only
+ * ever happen by the explicit stage-2 promotion).
+ *
+ * `monthlyMinor` is PENNIES, an integer — the one representation of money
+ * both engines hold exactly, crossing the seam without a scale conversion.
+ * A magnitude: the category's own income/expense type says which side it
+ * lands on. Relational (one row per category, `categoryId` a real column)
+ * rather than a document keyed by ids, because the restore remapper rewrites
+ * uuid COLUMNS and deliberately never the keys of a jsonb object.
+ */
+export interface ForecastAdjustment {
+  id: string;
+  categoryId: string;
+  monthlyMinor: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export interface CustomReport {
   id: string;
   name: string;

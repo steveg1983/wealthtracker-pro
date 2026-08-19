@@ -486,6 +486,17 @@ const SUGGESTION_DISMISSALS: &[Column] = &[
         // is not crossed. A file whose `filters` still named the exporter's
         // accounts would restore into a report that narrows to nothing — wrong,
         // and wrong in a way that is visible on the page rather than in a total.
+        // `monthly_minor` travels under ONE name in both engines — the cloud
+        // column is already an integer of pennies (bigint), so there is no
+        // `_minor` rename and no scale conversion anywhere on this row's trip.
+const FORECAST_ADJUSTMENTS: &[Column] = &[
+            text("id"),
+            text("category_id"),
+            ordinal("monthly_minor"),
+            stamp("created_at"),
+            stamp("updated_at"),
+];
+
 const CUSTOM_REPORTS: &[Column] = &[
             text("id"),
             text("name"),
@@ -554,10 +565,14 @@ pub enum Entity {
     WidgetPreferences,
     /// Carried so a cloud backup restores whole.
     SuggestionDismissals,
-    /// The saved reports. The newest entity the format carries, and the one that
-    /// makes this list fifteen — added by `20260812140000`, which is also where
+    /// The saved reports — added by `20260812140000`, which is also where
     /// the cloud's `restore_user_chunk` grew its fifteenth branch.
     CustomReports,
+    /// The forecast scenario's stated deviations — one row per adjusted
+    /// category. The sixteenth, added by `20260819150000`; relational rather
+    /// than a document precisely so THIS machinery's plainest case (a uuid
+    /// column) is the one that carries its category reference.
+    ForecastAdjustments,
 }
 
 impl Entity {
@@ -569,7 +584,7 @@ impl Entity {
     /// walks it, and so does the exhaustiveness test below. A file whose
     /// sections came out in a different order from the cloud's would be a
     /// different file for no reason a reader could see.
-    pub const ALL: [Self; 15] = [
+    pub const ALL: [Self; 16] = [
         Self::Accounts,
         Self::Categories,
         Self::Transactions,
@@ -585,6 +600,7 @@ impl Entity {
         Self::WidgetPreferences,
         Self::SuggestionDismissals,
         Self::CustomReports,
+        Self::ForecastAdjustments,
     ];
 
     /// The table this entity is stored in.
@@ -606,6 +622,7 @@ impl Entity {
             Self::WidgetPreferences => "widget_preferences",
             Self::SuggestionDismissals => "suggestion_dismissals",
             Self::CustomReports => "custom_reports",
+            Self::ForecastAdjustments => "forecast_adjustments",
         }
     }
 
@@ -636,6 +653,7 @@ impl Entity {
             "widget_preferences" => Self::WidgetPreferences,
             "suggestion_dismissals" => Self::SuggestionDismissals,
             "custom_reports" => Self::CustomReports,
+            "forecast_adjustments" => Self::ForecastAdjustments,
             other => {
                 return Err(CoreError::refuse(
                     "restore_entity_unknown",
@@ -668,6 +686,7 @@ impl Entity {
             Self::WidgetPreferences => WIDGET_PREFERENCES,
             Self::SuggestionDismissals => SUGGESTION_DISMISSALS,
             Self::CustomReports => CUSTOM_REPORTS,
+            Self::ForecastAdjustments => FORECAST_ADJUSTMENTS,
         }
     }
 
@@ -1606,8 +1625,9 @@ mod tests {
     fn every_entity_the_format_carries_is_in_the_walk() {
         // `ALL` is what the collector walks, so an entity missing from it would
         // be a table exported by nobody — the silent half of the same mistake
-        // the exhaustive `columns()` match catches on the way in.
-        assert_eq!(Entity::ALL.len(), 15);
+        // the exhaustive `columns()` match catches on the way in. SIXTEEN
+        // since forecast_adjustments (20260819150000).
+        assert_eq!(Entity::ALL.len(), 16);
         let mut seen = std::collections::BTreeSet::new();
         for entity in Entity::ALL {
             assert!(seen.insert(entity.as_str()), "{} is in ALL twice", entity.as_str());

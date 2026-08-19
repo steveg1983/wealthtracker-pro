@@ -228,12 +228,18 @@ vi.mock('../../services/port', () => {
     listCustomReports: answer('listCustomReports', seam.customReports),
     listCategories: answer('listCategories', seam.categories),
     listSuggestionDismissals: answer('listSuggestionDismissals', []),
+    // Reads the boot must NOT make, in the stub because the surface rule
+    // requires the whole seam: the scenario's adjustments are the Forecast
+    // page's own, fetched when it mounts.
+    listForecastAdjustments: answer('listForecastAdjustments', []),
     // A read the boot must NOT make: holdings are the Investments page's own,
     // fetched when that page mounts. It is in the stub because the surface rule
     // requires the whole seam — and it LOGS, so a boot that started reaching for
     // a portfolio would show up in the call list below rather than as a slower
     // launch nobody could account for.
     listInvestments: answer('listInvestments', []),
+    setForecastAdjustment: refuse('setForecastAdjustment'),
+    clearForecastAdjustment: refuse('clearForecastAdjustment'),
     /**
      * The composite, answering with all six at once — which is exactly what an
      * engine is free to do, and what the local edition will do from one

@@ -76,7 +76,7 @@ import type * as DeviceBackupService from '../localBackupService';
 // two-pass transfer linking, the chunked writer — and exactly the people who
 // press Import once ever should be the people who download it.
 import type * as MsMoneyImportService from '../import/msMoney/msMoneyImport';
-import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, CustomReport, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal, TransferDisplacedDisposition, TransferDisplacedOutcome, TransferRepointResult } from '../../types';
+import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, CustomReport, ForecastAdjustment, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal, TransferDisplacedDisposition, TransferDisplacedOutcome, TransferRepointResult } from '../../types';
 // The crossover rule a linked pair is filed by — each side's To/From category
 // names the OTHER account. Written down once so the browser-storage mirror and
 // repoint_transfer cannot drift apart on the one thing that is easy to get
@@ -131,9 +131,10 @@ type PlanningServiceLike = Pick<typeof PlanningService,
   'mergeCategories' | 'createBudget' | 'updateBudget' | 'deleteBudget'
   | 'createGoal' | 'updateGoal' | 'deleteGoal'
   | 'createCustomReport' | 'updateCustomReport' | 'deleteCustomReport'
+  | 'setForecastAdjustment' | 'clearForecastAdjustment'
   | 'createCategory' | 'createCategories' | 'updateCategory' | 'deleteCategory'
   | 'deleteUnusedCategories'> &
-  Partial<Pick<typeof PlanningService, 'getBudgets' | 'getGoals' | 'getCustomReports' | 'ensureCategories'>>;
+  Partial<Pick<typeof PlanningService, 'getBudgets' | 'getGoals' | 'getCustomReports' | 'getForecastAdjustments' | 'ensureCategories'>>;
 type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
   'list' | 'dismiss' | 'restore'>;
 /**
@@ -2842,6 +2843,45 @@ class DataServiceImpl implements DataPort {
   }
 
   /**
+   * The scenario's stated deviations. The BROWSER branch answers an empty
+   * list — divergence B-12's shape, investments' precedent: browser storage
+   * has never had an adjustments store, a writer or a reader, the absence is
+   * declared in `backup/browserCoverage.ts`, and an empty list is the honest
+   * answer where there is nowhere to keep one.
+   */
+  async listForecastAdjustments(): Promise<ForecastAdjustment[]> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker() && this.planningService.getForecastAdjustments) {
+      return this.planningService.getForecastAdjustments(userId);
+    }
+    return [];
+  }
+
+  /**
+   * State one category's scenario figure. No browser branch AT ALL — the
+   * refusal is loud where the report family's browser branch is a store,
+   * because a signed-out browser has nowhere the backup could carry an
+   * adjustment out of (see `browserCoverage.ts`), and a write that landed
+   * somewhere invisible would be the custom-reports localStorage failure
+   * born again.
+   */
+  async setForecastAdjustment(categoryId: string, monthlyMinor: number): Promise<ForecastAdjustment> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker() && this.planningService.setForecastAdjustment) {
+      return this.planningService.setForecastAdjustment(userId, categoryId, monthlyMinor);
+    }
+    throw new Error('Sign in to adjust the forecast — scenario adjustments are kept with your account.');
+  }
+
+  async clearForecastAdjustment(categoryId: string): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker() && this.planningService.clearForecastAdjustment) {
+      return this.planningService.clearForecastAdjustment(userId, categoryId);
+    }
+    throw new Error('Sign in to adjust the forecast — scenario adjustments are kept with your account.');
+  }
+
+  /**
    * Save a report somebody built.
    *
    * Branch, owner rule, delegation and unwrapped promise exactly as `createGoal`
@@ -3629,6 +3669,18 @@ export class DataService {
 
   static listCustomReports(): Promise<CustomReport[]> {
     return this.service.listCustomReports();
+  }
+
+  static listForecastAdjustments(): Promise<ForecastAdjustment[]> {
+    return this.service.listForecastAdjustments();
+  }
+
+  static setForecastAdjustment(categoryId: string, monthlyMinor: number): Promise<ForecastAdjustment> {
+    return this.service.setForecastAdjustment(categoryId, monthlyMinor);
+  }
+
+  static clearForecastAdjustment(categoryId: string): Promise<void> {
+    return this.service.clearForecastAdjustment(categoryId);
   }
 
   static createCustomReport(report: Omit<CustomReport, 'id'>): Promise<CustomReport> {

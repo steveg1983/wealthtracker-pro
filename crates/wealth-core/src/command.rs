@@ -80,7 +80,7 @@ use crate::error::CoreError;
 use crate::verbs::{
     account_balances, apply_category_to_uncategorized, apply_investment_prices,
     archive_transactions_before,
-    clear_transfer_links, close_account, collect_backup,
+    clear_forecast_adjustment, clear_transfer_links, close_account, collect_backup,
     confirm_transaction_categories, create_account, create_budget, create_categories,
     create_category, create_custom_report, create_goal, create_investment, create_transaction,
     create_transfer_counterpart, delete_budget,
@@ -91,10 +91,12 @@ use crate::verbs::{
     link_bank_account_snap, link_split_line_transfer, link_transfer_pair, list_accounts,
     list_budgets, list_categories, list_closed_accounts, list_custom_reports, list_goals,
     list_investments,
+    list_forecast_adjustments,
     list_suggestion_dismissals,
     list_transaction_splits, list_transactions, load_boot, merge_categories, read_preferences,
     repair_claimed_transfer, repoint_transfer, restore_backup, restore_suggestion,
     restore_user_chunk, seed_categories,
+    set_forecast_adjustment,
     set_transaction_splits_with_legs, set_transactions_archived, set_transactions_cleared,
     splits_for, unarchive_account, update_account, update_budget, update_category,
     update_custom_report,
@@ -102,7 +104,7 @@ use crate::verbs::{
     verify_integrity,
     wipe_user_financial_data, write_preferences,
     ApplyCategoryToUncategorized, ApplyInvestmentPrices, ArchiveTransactionsBefore,
-    ClearTransferLinks, CloseAccount,
+    ClearForecastAdjustment, ClearTransferLinks, CloseAccount,
     CollectBackup, ConfirmTransactionCategories,
     CreateAccount, CreateBudget, CreateCategories, CreateCategory, CreateCustomReport,
     CreateGoal, CreateTransaction,
@@ -115,7 +117,8 @@ use crate::verbs::{
     RepointTransfer,
     RestoreBackup, RestoreSuggestion,
     RestoreUserChunk,
-    SeedCategories, SetTransactionSplitsWithLegs, SetTransactionsArchived, SetTransactionsCleared,
+    SeedCategories, SetForecastAdjustment,
+    SetTransactionSplitsWithLegs, SetTransactionsArchived, SetTransactionsCleared,
     SplitsFor, UnarchiveAccount, UpdateAccount, UpdateBudget,
     UpdateCategory, UpdateCustomReport, UpdateGoal, UpdateInvestment, UpdateTransaction,
     UserFinancialDataIsEmpty,
@@ -305,6 +308,11 @@ pub enum Command {
     // either engine. [`crate::verbs::dismiss_suggestion`] carries it in full.
     /// [`crate::verbs::dismiss_suggestion`].
     DismissSuggestion(Box<DismissSuggestion>),
+    /// [`crate::verbs::set_forecast_adjustment`] — state one category's
+    /// scenario figure. The dismissal family's company: a judgment, unaudited.
+    SetForecastAdjustment(Box<SetForecastAdjustment>),
+    /// [`crate::verbs::clear_forecast_adjustment`] — back to the base.
+    ClearForecastAdjustment(Box<ClearForecastAdjustment>),
     /// [`crate::verbs::restore_suggestion`].
     RestoreSuggestion(Box<RestoreSuggestion>),
     // The restore family. Four verb strings, each spelled exactly as the
@@ -421,6 +429,8 @@ pub enum Command {
     ListInvestments(Box<OwnedRead>),
     /// [`crate::verbs::list_suggestion_dismissals`].
     ListSuggestionDismissals(Box<OwnedRead>),
+    /// [`crate::verbs::list_forecast_adjustments`].
+    ListForecastAdjustments(Box<OwnedRead>),
     // The heavy four. They differ from the six above in what they run over —
     // one person's whole history rather than a page of settings — which is why
     // their plans are measured at 50k rows in [`crate::verbs::reads`] rather
@@ -692,6 +702,12 @@ pub fn dispatch(
         Command::DismissSuggestion(payload) => {
             dismiss_suggestion(connection, *payload).and_then(as_json)
         }
+        Command::SetForecastAdjustment(payload) => {
+            set_forecast_adjustment(connection, *payload).and_then(as_json)
+        }
+        Command::ClearForecastAdjustment(payload) => {
+            clear_forecast_adjustment(connection, *payload).and_then(as_json)
+        }
         Command::RestoreSuggestion(payload) => {
             restore_suggestion(connection, *payload).and_then(as_json)
         }
@@ -763,6 +779,9 @@ pub fn dispatch(
         }
         Command::ListSuggestionDismissals(payload) => {
             list_suggestion_dismissals(&*connection, *payload).and_then(as_json)
+        }
+        Command::ListForecastAdjustments(payload) => {
+            list_forecast_adjustments(&*connection, *payload).and_then(as_json)
         }
         Command::ListTransactions(payload) => {
             list_transactions(&*connection, *payload).and_then(as_json)

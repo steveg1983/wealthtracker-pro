@@ -492,20 +492,21 @@ fn a_collect_with_no_owner_is_refused_rather_than_reading_the_nearest_ledger() {
 }
 
 #[test]
-fn a_new_file_collects_to_fifteen_empty_sections_rather_than_to_nothing() {
+fn a_new_file_collects_to_sixteen_empty_sections_rather_than_to_nothing() {
     // `buildBackupBundle`'s rule, kept on this side of the seam too: *"a reader
     // should not have to tell 'this user has no investments' apart from 'this
     // export forgot about investments'."*
     //
     // FIFTEEN since custom reports became rows in the file rather than a key in
-    // the WebView's `localStorage`. The count is asserted rather than derived
-    // precisely so that adding a table without deciding what a backup does with
-    // it fails here — a report the file holds and the file's own backup does not
-    // carry would be the original bug wearing a different coat.
+    // the WebView's `localStorage`; SIXTEEN since forecast_adjustments
+    // (20260819150000). The count is asserted rather than derived precisely so
+    // that adding a table without deciding what a backup does with it fails
+    // here — a report the file holds and the file's own backup does not carry
+    // would be the original bug wearing a different coat.
     let mut connection = blank();
     let file = collect(&mut connection);
     let sections = file.as_object().expect("an object");
-    assert_eq!(sections.len(), 15);
+    assert_eq!(sections.len(), 16);
     for (name, rows) in sections {
         assert_eq!(rows, &json!([]), "{name} should be an empty array");
     }

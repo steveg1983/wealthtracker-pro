@@ -3685,10 +3685,10 @@ describe('DataService.capabilities (what this engine says it can do)', () => {
       realtime: false,
       maxConcurrentWrites: 1,
       backupTarget: 'device',
-      // The BROWSER's store, which holds seven of the fourteen. Asserted by
-      // name here rather than by count: this list is what `RestoreBackupModal`
-      // warns a person with before a restore, and a table that quietly left it
-      // would be rows lost in silence.
+      // The BROWSER's store, which cannot keep EIGHT of the sixteen. Asserted
+      // by name here rather than by count: this list is what
+      // `RestoreBackupModal` warns a person with before a restore, and a
+      // table that quietly left it would be rows lost in silence.
       cannotKeep: [
         { entity: 'goal_contributions', label: 'Goal contributions', absence: expect.any(String) },
         { entity: 'investments', label: 'Investments', absence: expect.any(String) },
@@ -3696,7 +3696,8 @@ describe('DataService.capabilities (what this engine says it can do)', () => {
         { entity: 'recurring_transactions', label: 'Recurring transactions', absence: expect.any(String) },
         { entity: 'notifications', label: 'Notifications', absence: expect.any(String) },
         { entity: 'dashboard_layouts', label: 'Dashboard layouts', absence: expect.any(String) },
-        { entity: 'widget_preferences', label: 'Widget preferences', absence: expect.any(String) }
+        { entity: 'widget_preferences', label: 'Widget preferences', absence: expect.any(String) },
+        { entity: 'forecast_adjustments', label: 'Forecast adjustments', absence: expect.any(String) }
       ]
     });
   });

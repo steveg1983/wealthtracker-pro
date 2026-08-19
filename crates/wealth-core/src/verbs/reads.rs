@@ -261,6 +261,7 @@ use crate::error::CoreResult;
 use crate::row::account::{self, ListedAccount};
 use crate::row::balance::{self, AccountBalance};
 use crate::row::budget::{self, ListedBudget};
+use crate::row::forecast_adjustment::{self, ForecastAdjustmentRow};
 use crate::row::category::{self, CategoryRow};
 use crate::row::custom_report::{self, CustomReportRow};
 use crate::row::dismissal::{self, DismissalRow};
@@ -366,6 +367,13 @@ pub struct CustomReports {
 pub struct SuggestionDismissals {
     /// Every dismissal, newest first, each with its subjects in role order.
     pub suggestion_dismissals: Vec<DismissalRow>,
+}
+
+/// The scenario's stated deviations from the forecast base.
+#[derive(Debug, Serialize)]
+pub struct ForecastAdjustments {
+    /// Every adjustment this login has stated, oldest first.
+    pub forecast_adjustments: Vec<ForecastAdjustmentRow>,
 }
 
 /// The ledger itself.
@@ -498,6 +506,22 @@ pub fn list_custom_reports(
     Ok(Answered {
         answer: CustomReports {
             custom_reports: custom_report::list_all(connection, &command.user_id)?,
+        },
+    })
+}
+
+/// Every scenario adjustment this login has stated.
+///
+/// # Errors
+/// [`crate::error::CoreError::Storage`] if the read fails.
+#[allow(clippy::needless_pass_by_value)]
+pub fn list_forecast_adjustments(
+    connection: &Connection,
+    command: OwnedRead,
+) -> CoreResult<Answered<ForecastAdjustments>> {
+    Ok(Answered {
+        answer: ForecastAdjustments {
+            forecast_adjustments: forecast_adjustment::list_all(connection, &command.user_id)?,
         },
     })
 }

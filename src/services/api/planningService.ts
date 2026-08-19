@@ -54,6 +54,7 @@ import { createScopedLogger } from '../../loggers/scopedLogger';
 import { getDefaultCategories } from '../../data/defaultCategories';
 import { parseReportComponents, parseReportFilters } from '../reports/document';
 import type {
+  ForecastAdjustment,
   Budget,
   Category,
   CategoryMergeResult,
@@ -240,6 +241,16 @@ export const goalToDb = (g: Partial<Goal>, userId?: string, existingMetadata?: R
  * round trip, and the one path with no test at all is how `isActive` came to be
  * silently dropped from a goal.
  */
+export const forecastAdjustmentFromDb = (row: Row): ForecastAdjustment => ({
+  id: String(row.id),
+  categoryId: String(row.category_id),
+  // A bigint of pennies. Number() is exact here: JS integers are exact to
+  // 2^53 and a monthly figure in pennies is nowhere near it.
+  monthlyMinor: Number(row.monthly_minor),
+  createdAt: row.created_at ? new Date(String(row.created_at)) : undefined,
+  updatedAt: row.updated_at ? new Date(String(row.updated_at)) : undefined,
+});
+
 export const customReportFromDb = (row: Row): CustomReport => ({
   id: String(row.id),
   name: str(row.name) ?? '',
@@ -581,6 +592,81 @@ export class PlanningService {
       .from('custom_reports')
       .delete()
       .eq('id', id)
+      .eq('user_id', userId);
+    if (error) throw new Error(handleSupabaseError(error));
+  }
+
+  // ----- Forecast adjustments -----
+  //
+  // The scenario's stated deviations from the base (20260819150000). The
+  // dismissal family's shape rather than the report family's: a judgment
+  // about how the ledger is READ, one row per (owner, category), upserted
+  // because the scenario is a single stated figure per category rather than
+  // a history of edits.
+
+  /**
+   * Every adjustment the owner has stated, oldest first — the order every
+   * list here is read in. A FAILED CLOUD READ IS NO ADJUSTMENTS, `getBudgets`'
+   * argument: the scenario quietly follows the base rather than inventing
+   * deviations from another store.
+   */
+  static async getForecastAdjustments(userId: string | null): Promise<ForecastAdjustment[]> {
+    if (!this.cloudReady || !userId) {
+      throw new Error('getForecastAdjustments requires the cloud connection (local mode goes through DataService)');
+    }
+
+    const { data, error } = await supabase!
+      .from('forecast_adjustments')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+    if (error) {
+      logger.error('getForecastAdjustments cloud read failed — returning none', error);
+      return [];
+    }
+    return ((data ?? []) as Row[]).map(forecastAdjustmentFromDb);
+  }
+
+  /**
+   * State, or restate, one category's scenario figure. An UPSERT on the
+   * (owner, category) unique pair: the row keeps its identity and its
+   * created_at, and only the figure and updated_at move.
+   */
+  static async setForecastAdjustment(
+    userId: string | null,
+    categoryId: string,
+    monthlyMinor: number
+  ): Promise<ForecastAdjustment> {
+    if (!this.cloudReady || !userId) {
+      throw new Error('setForecastAdjustment requires the cloud connection (local mode goes through DataService)');
+    }
+
+    const { data, error } = await supabase!
+      .from('forecast_adjustments')
+      .upsert(
+        { user_id: userId, category_id: categoryId, monthly_minor: monthlyMinor } as never,
+        { onConflict: 'user_id,category_id' }
+      )
+      .select()
+      .single();
+    if (error) throw new Error(handleSupabaseError(error));
+    return forecastAdjustmentFromDb(data as Row);
+  }
+
+  /**
+   * The category goes back to following the base. No `.single()`: clearing a
+   * category that holds no adjustment is a successful nothing — the caller
+   * asked for a state, and the state is already so.
+   */
+  static async clearForecastAdjustment(userId: string | null, categoryId: string): Promise<void> {
+    if (!this.cloudReady || !userId) {
+      throw new Error('clearForecastAdjustment requires the cloud connection (local mode goes through DataService)');
+    }
+
+    const { error } = await supabase!
+      .from('forecast_adjustments')
+      .delete()
+      .eq('category_id', categoryId)
       .eq('user_id', userId);
     if (error) throw new Error(handleSupabaseError(error));
   }
