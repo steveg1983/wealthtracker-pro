@@ -8,28 +8,26 @@ import { __setAppContextValue, __resetAppContextValue } from '../../test/mocks/A
 import Forecast from '../Forecast';
 import type { Account, Category, ForecastAdjustment, SuggestionDismissal, Transaction } from '../../types';
 
-// The SEAM, not a service: the page reads and writes its scenario through
-// `dataPort`, so the tests stub exactly the three verbs it uses.
+// The SEAM, not a service: the page reads its stored scenario through
+// `dataPort` — for now only to COUNT it on the Forecast tab.
 const seam = vi.hoisted(() => ({
   listForecastAdjustments: vi.fn(async (): Promise<ForecastAdjustment[]> => []),
-  setForecastAdjustment: vi.fn(async (categoryId: string, monthlyMinor: number): Promise<ForecastAdjustment> => ({
-    id: 'adj-1', categoryId, monthlyMinor,
-  })),
-  clearForecastAdjustment: vi.fn(async () => {}),
 }));
 vi.mock('@data', () => ({ dataPort: seam }));
 
 /**
- * THE FORECAST'S BASE (docs/forecast-direction.md step 4): twelve COMPLETE
- * months of category actuals, one-offs excludable with the exclusions
- * STATED. The rules pinned here:
+ * THE P&L (owner, 19 Aug): income above, expenditure below, a net figure
+ * at the bottom; sections collapsible; the months hidden behind a toggle;
+ * a choice of windows. The rules pinned here:
  *
- *  - the current month is not in the base — a half-month understates;
- *  - a category's figures are the sum of the rows shown under it;
- *  - an exclusion is a verdict about ONE ROW ('forecast-excluded', key and
- *    subject id both the row's own id), and excluded rows are listed in a
- *    restorable band, never silently subtracted;
- *  - the unfiled remainder is a named line, excludable like any other;
+ *  - the current part month is not in the last-12 window;
+ *  - income sits ABOVE expenditure in the document, net below both;
+ *  - a section collapses to its total, and the months toggle turns the
+ *    list into a twelve-column table;
+ *  - the Current tab is ACTUALS, whole — a forecast-exclusion verdict no
+ *    longer thins it (the verdicts are kept for the Forecast redesign,
+ *    and the Forecast tab names what is kept);
+ *  - the average divides by the WINDOW's month count, not always 12;
  *  - the verdicts are lazy-loaded and this page ASKS (the #353 lesson);
  *  - the page says, in words, that it never writes to Budget.
  *
@@ -75,31 +73,28 @@ const LEDGER: Transaction[] = [
     id: 'txn-transfer', accountId: ACCOUNT.id, description: 'To savings',
     amount: -500, date: monthAgo(2), type: 'transfer', category: '',
   },
-  // THIS month — outside the base by definition.
+  // THIS month — outside the last-12 window by definition.
   {
     id: 'txn-current', accountId: ACCOUNT.id, description: 'Current month spend',
     amount: -999, date: new Date(now.getFullYear(), now.getMonth(), 2), type: 'expense', category: 'cat-food',
   },
 ];
 
-const dismissSuggestion = vi.fn(async () => {});
-const restoreSuggestion = vi.fn(async () => {});
 const refreshSuggestionDismissals = vi.fn(async () => {});
 
 const renderForecast = (
   dismissals: SuggestionDismissal[] = [],
-  status: 'idle' | 'ready' = 'ready'
+  status: 'idle' | 'ready' = 'ready',
+  transactions: Transaction[] = LEDGER
 ): void => {
   __setAppContextValue({
     accounts: [ACCOUNT],
     categories: CATEGORIES,
-    transactions: LEDGER,
+    transactions,
     isLoading: false,
     suggestionDismissals: dismissals,
     suggestionDismissalsStatus: status,
     refreshSuggestionDismissals,
-    dismissSuggestion,
-    restoreSuggestion,
   });
   render(
     <MemoryRouter>
@@ -122,144 +117,149 @@ const excludedVerdict: SuggestionDismissal = {
 
 beforeEach(() => {
   localStorage.clear();
-  dismissSuggestion.mockClear();
-  restoreSuggestion.mockClear();
   refreshSuggestionDismissals.mockClear();
   seam.listForecastAdjustments.mockClear();
   seam.listForecastAdjustments.mockResolvedValue([]);
-  seam.setForecastAdjustment.mockClear();
-  seam.clearForecastAdjustment.mockClear();
 });
 
 afterEach(() => {
   __resetAppContextValue();
 });
 
-describe('Forecast — the base', () => {
-  it('shows twelve complete months by category, with honest averages — the current month left out', () => {
+describe('Forecast — the Current P&L', () => {
+  it('reads income above expenditure with net below, over the last twelve complete months', () => {
     renderForecast();
 
     // Food: 12 × £100 — and NOT 13: the current month's £999 is outside the
-    // base, or the average would claim a typical month that never was.
+    // window, or the figures would claim a typical month that never was.
     expect(screen.getByText('Food')).toBeInTheDocument();
     expect(screen.getByText('(£1,200.00)')).toBeInTheDocument();
-    // Salary: 12 × £2,000 — the figure appears TWICE by construction, as the
-    // income side's total and as its only category's, and the two agreeing
-    // is itself the property (a category's figures are the sum of its rows).
-    expect(screen.getByText('Salary')).toBeInTheDocument();
+    // Salary: the figure appears TWICE by construction, as the income side's
+    // total and as its only category's — the two agreeing is the property.
     expect(screen.getAllByText('+£24,000.00')).toHaveLength(2);
     expect(screen.getAllByText('£2,000.00 a month')).toHaveLength(2);
-
-    // The unfiled one-off sits under its NAMED line on the expenditure side…
+    // The unfiled one-off under its NAMED line, the transfer out BY NAME.
     expect(screen.getByText('Uncategorised — not yet filed')).toBeInTheDocument();
-    // …and the transfer is left out BY NAME, with its count.
-    expect(screen.getByText(/Transfers between your accounts are not income or spending/)).toBeInTheDocument();
     expect(screen.getByText(/\(1 in this stretch\)/)).toBeInTheDocument();
+
+    // The P&L's shape: Income ABOVE Expenditure, net at the foot.
+    const income = screen.getByRole('button', { name: 'Income' });
+    const expenditure = screen.getByRole('button', { name: 'Expenditure' });
+    expect(income.compareDocumentPosition(expenditure) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Net = £24,000 − £6,200: named for its direction, worn the app's way.
+    expect(screen.getByText('Net income')).toBeInTheDocument();
+    expect(screen.getByText('+£17,800.00')).toBeInTheDocument();
+    expect(screen.getByText('£1,483.33 a month')).toBeInTheDocument();
 
     // The ruling, in words, on the page.
     expect(screen.getByText(/Nothing here writes to your Budget/)).toBeInTheDocument();
   });
 
-  it('a category expands to the rows its figure is the sum of, and Exclude records the verdict', async () => {
+  it('a section heading collapses to its total; a category expands to its rows', () => {
     renderForecast();
 
+    // Collapse Income: Salary's row goes, the side total stays.
+    fireEvent.click(screen.getByRole('button', { name: 'Income' }));
+    expect(screen.queryByText('Salary')).not.toBeInTheDocument();
+    expect(screen.getAllByText('+£24,000.00')).toHaveLength(1);
+
+    // A category drills to the rows its figure is the sum of.
     fireEvent.click(screen.getByRole('button', { name: /Uncategorised — not yet filed/ }));
     expect(screen.getByText('Roof repair')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Exclude' }));
-    await waitFor(() => {
-      // The verdict is about ONE ROW: key and subject id are both the row's
-      // own id, so a restore remaps it and a deleted row cascades it away.
-      expect(dismissSuggestion).toHaveBeenCalledWith('forecast-excluded', ONE_OFF_ID, [ONE_OFF_ID]);
-    });
   });
 
-  it('an excluded one-off leaves the figures and sits in a restorable band, stated in the headline', async () => {
+  it('the months are hidden by default, and the toggle spreads them across like a full P&L', () => {
+    renderForecast();
+
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show the months' }));
+
+    // Twelve month columns plus Total and the monthly average.
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Total' })).toBeInTheDocument();
+    // Food's £100 in each of ITS OWN twelve cells — the section's cells
+    // carry their own sums (£5,100 where the roof month lands).
+    const foodRow = screen.getByRole('button', { name: /Food/ }).closest('tr') as HTMLElement;
+    expect(within(foodRow).getAllByText('(£100.00)')).toHaveLength(12);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide the months' }));
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('a forecast-exclusion verdict no longer thins the Current tab — actuals are whole', () => {
     renderForecast([excludedVerdict]);
 
-    // The expenditure side is Food alone now — the roof is out of the sums,
-    // so the side total and Food's total agree at (£1,200.00).
-    expect(screen.getAllByText('(£1,200.00)')).toHaveLength(2);
-    expect(screen.queryByRole('button', { name: /Uncategorised — not yet filed/ })).not.toBeInTheDocument();
-
-    // …and STATED, twice: in the headline note and in the band.
-    expect(screen.getByText(/1 one-off is excluded/)).toBeInTheDocument();
-    const band = screen.getByText('Excluded from the base').closest('details') as HTMLElement;
-    expect(within(band).getByText('Roof repair')).toBeInTheDocument();
-
-    fireEvent.click(within(band).getByRole('button', { name: 'Restore' }));
-    await waitFor(() => {
-      expect(restoreSuggestion).toHaveBeenCalledWith('forecast-excluded', ONE_OFF_ID);
-    });
+    // The roof stays in the expenditure figures: £1,200 + £5,000.
+    expect(screen.getByText('(£6,200.00)')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Uncategorised — not yet filed/ })).toBeInTheDocument();
   });
 
-  it('a category can be adjusted for the scenario — the deviation stated against its base', async () => {
+  it('a custom window averages over ITS month count, not twelve', () => {
+    // Three months, one £300 row in the middle one — £100 a month.
+    const year = now.getFullYear() - 2;
+    renderForecast([], 'ready', [{
+      id: 'txn-past', accountId: ACCOUNT.id, description: 'Old grocer',
+      amount: -300, date: new Date(year, 1, 10), type: 'expense', category: 'cat-food',
+    }]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Custom' }));
+    fireEvent.change(screen.getByLabelText('From'), { target: { value: `${year}-01` } });
+    fireEvent.change(screen.getByLabelText('To'), { target: { value: `${year}-03` } });
+
+    // THREE agreeing figures by construction — the category, its side, and
+    // (with no income) the net — and £300 over three months is £100 a month.
+    // The net's average wears the brackets its direction earns.
+    expect(screen.getAllByText('(£300.00)')).toHaveLength(3);
+    expect(screen.getByText('Net expenditure')).toBeInTheDocument();
+    expect(screen.getAllByText('£100.00 a month')).toHaveLength(2);
+    expect(screen.getByText('(£100.00) a month')).toBeInTheDocument();
+  });
+
+  it('the tax year window says its convention out loud', () => {
     renderForecast();
-    await waitFor(() => expect(seam.listForecastAdjustments).toHaveBeenCalled());
-
-    // Food's base average is £100 a month. State £90 for the scenario.
-    fireEvent.click(screen.getByRole('button', { name: 'Adjust Food for the scenario' }));
-    fireEvent.change(screen.getByLabelText('Scenario monthly figure for Food'), {
-      target: { value: '90' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'State it' }));
-
-    await waitFor(() => {
-      // Pennies across the seam — £90 crosses as 9000.
-      expect(seam.setForecastAdjustment).toHaveBeenCalledWith('cat-food', 9000);
-    });
-    // The deviation is STATED against the base it deviates from…
-    expect(screen.getByText(/scenario £90\.00 a month/)).toBeInTheDocument();
-    expect(screen.getByText(/base £100\.00/)).toBeInTheDocument();
-    // …and the base's own figures are untouched.
-    expect(screen.getByText('(£1,200.00)')).toBeInTheDocument();
-
-    // One click returns it.
-    fireEvent.click(screen.getByRole('button', { name: 'Back to base' }));
-    await waitFor(() => {
-      expect(seam.clearForecastAdjustment).toHaveBeenCalledWith('cat-food');
-    });
-  });
-
-  it('a stored adjustment on a quiet category is still shown, and still returnable', async () => {
-    seam.listForecastAdjustments.mockResolvedValue([
-      { id: 'adj-q', categoryId: 'cat-quiet', monthlyMinor: 40000 },
-    ]);
-    __setAppContextValue({
-      accounts: [ACCOUNT],
-      categories: [...CATEGORIES, { id: 'cat-quiet', name: 'Club membership', type: 'expense', level: 'detail' }],
-      transactions: LEDGER,
-      isLoading: false,
-      suggestionDismissals: [],
-      suggestionDismissalsStatus: 'ready',
-      refreshSuggestionDismissals,
-      dismissSuggestion,
-      restoreSuggestion,
-    });
-    render(
-      <MemoryRouter>
-        <PreferencesProvider>
-          <ToastProvider>
-            <Forecast />
-          </ToastProvider>
-        </PreferencesProvider>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('Adjustments on quiet categories')).toBeInTheDocument();
-    });
-    expect(screen.getByText('Club membership')).toBeInTheDocument();
-    expect(screen.getByText('£400.00 a month')).toBeInTheDocument();
-    // Counted in the scenario's stated totals, not silently off-screen.
-    expect(screen.getByText(/The scenario adjusts 1 category/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Tax year' }));
+    expect(screen.getByText(/6 April \d{4} to 5 April \d{4}/)).toBeInTheDocument();
+    expect(screen.getByText(/months run 6th to 5th, as tax months do/)).toBeInTheDocument();
   });
 
   it('ASKS for the lazy-loaded verdicts when they have never been loaded', async () => {
     renderForecast([], 'idle');
-
     await waitFor(() => {
       expect(refreshSuggestionDismissals).toHaveBeenCalled();
+    });
+  });
+});
+
+describe('Forecast — the Forecast tab', () => {
+  it('is deliberately empty while the tool is designed, and names what is kept', async () => {
+    seam.listForecastAdjustments.mockResolvedValue([
+      { id: 'adj-1', categoryId: 'cat-food', monthlyMinor: 9000 },
+    ]);
+    renderForecast([excludedVerdict]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Forecast' }));
+    expect(screen.getByText(/it is being designed/)).toBeInTheDocument();
+    // Stated judgments are not lost, and the tab says so by count.
+    await waitFor(() => {
+      expect(screen.getByText(/Kept for it: 1 adjusted category and 1 excluded one-off/)).toBeInTheDocument();
+    });
+    // The P&L itself is off-screen on this tab.
+    expect(screen.queryByText('Net income')).not.toBeInTheDocument();
+  });
+
+  it('with nothing stated, it claims nothing — zero counts render nothing', () => {
+    renderForecast();
+    fireEvent.click(screen.getByRole('button', { name: 'Forecast' }));
+    expect(screen.getByText(/it is being designed/)).toBeInTheDocument();
+    expect(screen.queryByText(/Kept for it/)).not.toBeInTheDocument();
+  });
+
+  it('a failed adjustments read is said, never guessed at', async () => {
+    seam.listForecastAdjustments.mockRejectedValue(new Error('offline'));
+    renderForecast();
+    fireEvent.click(screen.getByRole('button', { name: 'Forecast' }));
+    await waitFor(() => {
+      expect(screen.getByText(/could not be read just now/)).toBeInTheDocument();
     });
   });
 });
