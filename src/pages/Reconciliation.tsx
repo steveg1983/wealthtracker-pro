@@ -75,6 +75,13 @@ export default function Reconciliation() {
   // Arriving via an Accounts-page reconcile button means "done" and "Back"
   // both return THERE, not to this page's own account list.
   const [cameFromAccounts] = useState<boolean>(() => searchParams.get('from') === 'accounts');
+  /**
+   * Sent by the FOCUSED accounts list ("Reconcile N instead"): this visit is
+   * one stop on a reconcile round, so leaving — finished or not — returns to
+   * that list, still focused, to pick the next account (owner, 19 Aug; the
+   * same round the review flow walks).
+   */
+  const [cameFromFocusedRound] = useState<boolean>(() => searchParams.get('back') === 'accounts-reconcile');
   // Group + sort for the account list — the same controls, the same module
   // behind them and the same persistence shape as the Accounts page, so the two
   // pages always feel the same. Two INDEPENDENT switches, never an either/or:
@@ -267,6 +274,16 @@ export default function Reconciliation() {
   }, [setSearchParams]);
 
   const handleBack = useCallback(() => {
+    if (cameFromFocusedRound) {
+      // Mid-round: back to the FOCUSED list to pick the next account. The
+      // accounts page consumes ?focus and drops it by itself once nothing is
+      // left to reconcile anywhere, so a finished round ends on the ordinary
+      // page without this side knowing the round's state.
+      const params = new URLSearchParams(preserveRuntimeControlParams(searchParams));
+      params.set('focus', 'reconcile');
+      navigate({ pathname: '/accounts', search: params.toString() }, { state: backState });
+      return;
+    }
     if (cameFromAccounts) {
       // Return whence the user came: the Accounts page sent them here for ONE
       // account, so leaving that account means leaving this page too.
@@ -277,7 +294,7 @@ export default function Reconciliation() {
     setSelectedAccountId(null);
     setSearchParams(prev => preserveRuntimeControlParams(prev));
     window.scrollTo(0, 0);
-  }, [cameFromAccounts, searchParams, navigate, setSearchParams, backState]);
+  }, [cameFromFocusedRound, cameFromAccounts, searchParams, navigate, setSearchParams, backState]);
 
   /**
    * The remedy on the genuinely-empty state: there is nowhere on THIS page to
@@ -374,10 +391,21 @@ export default function Reconciliation() {
    * ending balance being written down, and a reconciliation settled against a
    * figure nobody read is the thing this whole change exists to prevent.
    */
+  /**
+   * True while the finalize write is in flight — held in state so the modal's
+   * button can say "Completing…" and refuse seconds. A first-ever finalize
+   * converts an account's whole marked history (the owner's ran to 7,199
+   * rows) and takes real seconds server-side; without this, every extra
+   * press fired ANOTHER finalize RPC, each queueing behind the first one's
+   * account lock, and the screen read as frozen the whole time.
+   */
+  const [finalizing, setFinalizing] = useState(false);
+
   const handleFinalize = useCallback(async () => {
-    if (!selectedAccountId || !balanceConfirmed || confirmedBalance == null) {
+    if (!selectedAccountId || !balanceConfirmed || confirmedBalance == null || finalizing) {
       return;
     }
+    setFinalizing(true);
     try {
       // Await the write — success feedback must not fire on a failed save.
       const reconciled = await finalizeReconciliation(
@@ -396,9 +424,11 @@ export default function Reconciliation() {
       handleBack();
     } catch (error) {
       showError(error);
+    } finally {
+      setFinalizing(false);
     }
   }, [
-    selectedAccountId, balanceConfirmed, confirmedBalance, finalizeReconciliation,
+    selectedAccountId, balanceConfirmed, confirmedBalance, finalizing, finalizeReconciliation,
     handleBack, showSuccess, showError
   ]);
 
@@ -814,6 +844,7 @@ export default function Reconciliation() {
           awaitingFinalizeCount={clearedSummary?.awaitingFinalizeCount ?? 0}
           onClose={() => setShowFinalizationModal(false)}
           onFinalize={handleFinalize}
+          finalizing={finalizing}
           onCreateAdjustment={handleCreateAdjustment}
         />
       )}

@@ -28,6 +28,15 @@ interface ReconciliationFinalizationModalProps {
   onClose: () => void;
   onFinalize: () => void;
   /**
+   * True while the finalize write is in flight. A first-ever finalize can
+   * convert thousands of rows and take real seconds server-side; a button
+   * that sits silent through that reads as frozen and gets pressed again —
+   * the owner pressed it "10-20 times" over 7,000 rows, stacking RPCs
+   * behind the first one's locks. The button says what it is doing and
+   * refuses seconds.
+   */
+  finalizing?: boolean;
+  /**
    * Create a cleared adjustment transaction. Amount is SIGNED per the app-wide
    * convention (income positive, expense negative). The modal stays open —
    * the parent recomputes clearedBalance and the modal re-renders with the
@@ -56,6 +65,7 @@ export default function ReconciliationFinalizationModal({
   awaitingFinalizeCount,
   onClose,
   onFinalize,
+  finalizing = false,
   onCreateAdjustment,
 }: ReconciliationFinalizationModalProps): React.JSX.Element | null {
   // Press AND release must both be on the backdrop — see useBackdropDismiss.
@@ -157,9 +167,11 @@ export default function ReconciliationFinalizationModal({
             </p>
             <button
               onClick={onFinalize}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              disabled={finalizing}
+              aria-busy={finalizing}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-60 disabled:cursor-wait"
             >
-              Complete Reconciliation
+              {finalizing ? 'Completing…' : 'Complete Reconciliation'}
             </button>
           </div>
         ) : (
