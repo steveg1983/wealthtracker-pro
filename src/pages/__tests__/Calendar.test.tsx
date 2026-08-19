@@ -29,6 +29,14 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
   }),
 }));
 
+// The real editor is exercised in its own suites; here only the WIRING is
+// under test — that a clicked row opens it over that row.
+vi.mock('../../components/EditTransactionModal', () => ({
+  default: ({ transaction }: { transaction: { id: string } }) => (
+    <div data-testid="edit-modal">{transaction.id}</div>
+  ),
+}));
+
 // Mock currency hook
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
@@ -227,6 +235,61 @@ describe('Calendar — the three views', () => {
 
     expect(screen.getByRole('button', { name: 'Year' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByLabelText('Year by month')).toBeInTheDocument();
+  });
+});
+
+describe('Calendar — the day view and the drill', () => {
+  const renderCalendar = (initialPath = '/calendar') =>
+    render(
+      <MemoryRouter initialEntries={[initialPath]}>
+        <Calendar />
+      </MemoryRouter>
+    );
+
+  it('day view lists each transaction, split, and a row opens the real editor', () => {
+    renderCalendar('/calendar?view=day');
+
+    const day = within(screen.getByLabelText('Day by transaction'));
+    expect(day.getByText('Test income')).toBeInTheDocument();
+    expect(day.getByText('Test expense')).toBeInTheDocument();
+    // The unfiled row sits under its own NAMED heading, not dropped.
+    expect(day.getByText('Uncategorised — not yet filed')).toBeInTheDocument();
+    expect(day.getByText('Unfiled expense')).toBeInTheDocument();
+
+    fireEvent.click(day.getByText('Test expense'));
+    expect(screen.getByTestId('edit-modal')).toHaveTextContent('1');
+  });
+
+  it('a month cell’s money-out figure opens the drill: categories, then that category’s rows', () => {
+    renderCalendar();
+
+    const today = new Date().getDate();
+    fireEvent.click(screen.getByLabelText(`Money out, day ${today} — what made it up`));
+
+    // Level one — the categories that composed the figure, unfiled named.
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByText('Food')).toBeInTheDocument();
+    expect(dialog.getByText('Uncategorised — not yet filed')).toBeInTheDocument();
+    expect(dialog.getByText('(£50.00)')).toBeInTheDocument();
+
+    // Level two — the category's own rows, each openable in the editor.
+    fireEvent.click(dialog.getByText('Food'));
+    expect(dialog.getByText('Test expense')).toBeInTheDocument();
+    fireEvent.click(dialog.getByText('Test expense'));
+    expect(screen.getByTestId('edit-modal')).toHaveTextContent('1');
+  });
+
+  it('the daily net-worth line is OFF by default and a toggle above the grid shows it', () => {
+    // The preference persists in localStorage; start from nobody's choice.
+    localStorage.clear();
+    renderCalendar();
+
+    // Off: no running-balance figure in the cells. Today's would read
+    // £1137.50 — the £1,000 opening plus the day's +£200 − £50 − £12.50.
+    expect(screen.queryByText('£1137.50')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Daily net worth'));
+    expect(screen.getByText('£1137.50')).toBeInTheDocument();
   });
 });
 
