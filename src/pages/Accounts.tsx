@@ -836,6 +836,22 @@ export default function Accounts() {
   }, [accountBands]);
 
 
+  /**
+   * ARRIVING BACK MID-ROUND: a register whose review queue just emptied sends
+   * the user here with ?focus=review, consumed and deleted like the register's
+   * own deep-link params. Focus resumes only while there is still work — with
+   * nothing left to review anywhere, the round is over and this is the
+   * ordinary Accounts page (owner, 19 Aug: "until there is no more accounts
+   * to review after which you get taken back to the Accounts Page overall").
+   */
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('focus') !== 'review') return;
+    params.delete('focus');
+    if (reviewTotal > 0) enterFocus('review');
+    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+  }, [location.pathname, location.search, reviewTotal, enterFocus, navigate]);
+
   const matchedTopLevelCount = isSearching
     ? topLevelAccounts.filter(accountOrChildMatches).length
     : topLevelAccounts.length;
@@ -1362,8 +1378,17 @@ export default function Accounts() {
   const reconcileHref = (accountId: string): string =>
     preserveDemoParam(`/reconciliation?account=${accountId}&from=accounts`, location.search);
 
+  /*
+   * From the FOCUSED list the link carries a way back: reviewing an account's
+   * arrivals is one stop on a round, so finishing returns to this page still
+   * focused, to pick the next account — not to the register just cleared
+   * (owner, 19 Aug). From the ordinary list the register keeps you, as ever.
+   */
   const reviewHref = (accountId: string): string =>
-    preserveDemoParam(`/accounts/${accountId}?review=1`, location.search);
+    preserveDemoParam(
+      `/accounts/${accountId}?review=1${focusMode === 'review' ? '&back=accounts-review' : ''}`,
+      location.search
+    );
 
   const renderReconcileButton = (account: Account): ReactNode => (
     <button

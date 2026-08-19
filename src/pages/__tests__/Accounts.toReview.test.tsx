@@ -208,3 +208,50 @@ describe('Accounts list — the To Review column', () => {
     expect(clear?.className).toContain('font-normal');
   });
 });
+
+describe('Accounts list — arriving back mid-round (?focus=review)', () => {
+  const renderWithSearch = (search: string) =>
+    render(
+      <MemoryRouter initialEntries={[`/accounts${search}`]}>
+        <PreferencesProvider>
+          <ToastProvider>
+            <Accounts />
+          </ToastProvider>
+        </PreferencesProvider>
+      </MemoryRouter>
+    );
+
+  it('resumes the review focus while accounts still carry work', async () => {
+    __setAppContextValue({
+      accounts: [NATWEST, MONZO],
+      transactions: [
+        row('t1', NATWEST.id, { needsReview: true }),
+        row('t2', MONZO.id, { needsReview: false }),
+      ],
+      isLoading: false,
+    });
+
+    renderWithSearch('?focus=review');
+    // The focused list: only the account with arrivals, and the way out named.
+    await screen.findByRole('button', { name: /Showing to review — show all/ });
+    expect(screen.getByRole('heading', { level: 3, name: 'Synthetic Natwest' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 3, name: 'Synthetic Monzo' })).not.toBeInTheDocument();
+  });
+
+  it('with nothing left to review anywhere, the round is over — the ordinary page', async () => {
+    __setAppContextValue({
+      accounts: [NATWEST, MONZO],
+      transactions: [
+        row('t1', NATWEST.id, { needsReview: false }),
+        row('t2', MONZO.id, { needsReview: false }),
+      ],
+      isLoading: false,
+    });
+
+    renderWithSearch('?focus=review');
+    await screen.findByRole('heading', { level: 3, name: 'Synthetic Natwest' });
+    // Both accounts show; no focus chrome claims a filter is on.
+    expect(screen.getByRole('heading', { level: 3, name: 'Synthetic Monzo' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Showing to review — show all/ })).not.toBeInTheDocument();
+  });
+});

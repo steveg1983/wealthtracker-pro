@@ -119,6 +119,54 @@ describe('Calendar', () => {
     expect(screen.getByText('Transactions')).toBeInTheDocument();
   });
 
+  it('a summary tile drills into the transactions that make up its figure', () => {
+    render(
+      <MemoryRouter>
+        <Calendar />
+      </MemoryRouter>
+    );
+
+    // The Income tile is CLICKABLE (owner, 19 Aug) and opens the same drill
+    // the day cells open: categories first, then one category's rows, then
+    // the real editor.
+    fireEvent.click(screen.getByRole('button', { name: 'Income £200.00' }));
+    expect(screen.getByText(/^Income — /)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Salary/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Test income/ }));
+    expect(screen.getByTestId('edit-modal')).toHaveTextContent('2');
+  });
+
+  it('the Expenditure drill sums to the tile — the unfiled row is not in the figure, so not in the list', () => {
+    render(
+      <MemoryRouter>
+        <Calendar />
+      </MemoryRouter>
+    );
+
+    // The tile reads £50.00 (computeIncomeExpense counts only classified
+    // expense rows); its decomposition must sum to exactly that, so the
+    // £12.50 unfiled row — absent from the figure — is absent from the list.
+    fireEvent.click(screen.getByRole('button', { name: 'Expenditure (£50.00)' }));
+    expect(screen.getByText(/^Expenditure — /)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Food/ })).toBeInTheDocument();
+    expect(screen.queryByText('Unfiled expense')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Uncategorised/)).not.toBeInTheDocument();
+  });
+
+  it('the Net drill shows both directions, signed', () => {
+    render(
+      <MemoryRouter>
+        <Calendar />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Net £150.00' }));
+    expect(screen.getByText(/^Net — /)).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('+£200.00')).toBeInTheDocument();
+    expect(within(dialog).getByText('(£50.00)')).toBeInTheDocument();
+  });
+
   it('navigates to previous month', () => {
     render(
       <MemoryRouter>

@@ -214,13 +214,22 @@ describe('Forecast — the Current P&L', () => {
       return Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     };
 
-    // Largest first is the default…
+    // Value, largest first is the default…
     expect(ordered('Utilities', 'Living')).toBe(true);
     // …A to Z reorders by name…
     fireEvent.click(screen.getByRole('button', { name: 'A to Z' }));
     expect(ordered('Living', 'Utilities')).toBe(true);
-    // …smallest first by value, ascending.
-    fireEvent.click(screen.getByRole('button', { name: 'Smallest first' }));
+    // …and clicking it AGAIN turns the alphabet around (owner, 19 Aug:
+    // "A-Z should be clickable to change to Z-A") — the label follows.
+    fireEvent.click(screen.getByRole('button', { name: 'A to Z' }));
+    expect(screen.getByRole('button', { name: 'Z to A' })).toBeInTheDocument();
+    expect(ordered('Utilities', 'Living')).toBe(true);
+    // ONE Value button, wearing an arrow: first click returns to value…
+    fireEvent.click(screen.getByRole('button', { name: 'Value, largest first' }));
+    expect(ordered('Utilities', 'Living')).toBe(true);
+    // …second click turns the order around.
+    fireEvent.click(screen.getByRole('button', { name: 'Value, largest first' }));
+    expect(screen.getByRole('button', { name: 'Value, smallest first' })).toBeInTheDocument();
     expect(ordered('Living', 'Utilities')).toBe(true);
     // The unfiled £5,000 outweighs and out-alphabets both, and is still last.
     expect(ordered('Utilities', /Uncategorised — not yet filed/)).toBe(true);
