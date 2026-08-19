@@ -397,8 +397,11 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
                 {parseResult.transactions.slice(0, 5).map((trx, index) => (
                   <div key={index} className="flex justify-between text-gray-600 dark:text-gray-400">
                     <span>{trx.date} - {trx.payee || trx.memo || 'No description'}</span>
-                    <span className={trx.amount < 0 ? 'text-red-600' : 'text-green-600'}>
-                      {formatCurrency(Math.abs(trx.amount))}
+                    {/* Signed through the formatter, so a negative wears its
+                        (£X) — a red figure without its brackets was the drift
+                        the owner caught on the calendar's own tile. */}
+                    <span className={trx.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
+                      {formatCurrency(trx.amount)}
                     </span>
                   </div>
                 ))}

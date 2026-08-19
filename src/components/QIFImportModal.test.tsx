@@ -393,7 +393,7 @@ describe('QIFImportModal', () => {
         expect(screen.getByText('Preview (First 5 transactions)')).toBeInTheDocument();
         expect(screen.getByText('2024-01-15 - Grocery Store')).toBeInTheDocument();
         expect(screen.getByText('2024-01-16 - Salary Payment')).toBeInTheDocument();
-        expect(screen.getByText('£50.00')).toBeInTheDocument();
+        expect(screen.getByText('(£50.00)')).toBeInTheDocument();
         expect(screen.getByText('£100.00')).toBeInTheDocument();
       });
     });

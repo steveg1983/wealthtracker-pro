@@ -283,9 +283,9 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
                                 </p>
                                 {activity.amount !== undefined && (
                                   <p className={`text-sm font-medium mt-1 ${
-                                    activity.amount > 0 ? 'text-green-600' : 'text-red-600'
+                                    activity.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                                   }`}>
-                                    {formatCurrency(Math.abs(activity.amount))}
+                                    {formatCurrency(activity.amount)}
                                   </p>
                                 )}
                                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
