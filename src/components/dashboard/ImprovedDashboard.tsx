@@ -812,7 +812,9 @@ export function ImprovedDashboard() {
                 ledger where neither happened — in the two hues the app
                 reserves for exactly that claim. Same condition as the arrow,
                 deliberately. */}
-            <p className={`flex items-center gap-2 text-xl font-bold ${
+            {/* text-2xl: the owner asked twice for these two figures to read
+                bigger (19 Aug: "I still think they are a little small"). */}
+            <p className={`flex items-center gap-2 text-2xl font-bold ${
               performance.income === 0
                 ? 'text-gray-900 dark:text-white'
                 : 'text-green-600 dark:text-green-400'
@@ -830,7 +832,7 @@ export function ImprovedDashboard() {
             className="flex flex-col items-start p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer text-left"
           >
             <p className="text-sm text-gray-600 dark:text-gray-400">Expenses</p>
-            <p className={`flex items-center gap-2 text-xl font-bold ${
+            <p className={`flex items-center gap-2 text-2xl font-bold ${
               performance.expenses === 0
                 ? 'text-gray-900 dark:text-white'
                 : 'text-red-600 dark:text-red-400'

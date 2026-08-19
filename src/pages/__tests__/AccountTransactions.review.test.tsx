@@ -29,7 +29,7 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { ToastProvider } from '../../contexts/ToastContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
@@ -358,5 +358,67 @@ describe('Account register — what ends a review, and what does not', () => {
     expect(updateTransaction).not.toHaveBeenCalled();
     expect(isBold('Marsh Lane Grocer')).toBe(true);
     expect(toReviewButton()).toHaveTextContent('1');
+  });
+});
+
+describe('Account register — a review round sent from the focused accounts list', () => {
+  /**
+   * The owner's flow (19 Aug): press "Review x transactions" on Accounts,
+   * pick an account's To Review count, deal with its arrivals — and land
+   * BACK on the focused list to pick the next account, not in the register
+   * just cleared. The link carries `back=accounts-review`; the register
+   * consumes it like every other deep-link param and, when the queue
+   * empties WHILE the filter is on, goes home to `/accounts?focus=review`.
+   */
+  const AccountsProbe = (): React.JSX.Element => {
+    const location = useLocation();
+    return <div data-testid="accounts-probe">{location.search}</div>;
+  };
+
+  const roundTree = (search: string): React.JSX.Element => (
+    <MemoryRouter initialEntries={[`/accounts/${ACCOUNT.id}${search}`]}>
+      <PreferencesProvider>
+        <ToastProvider>
+          <NotificationProvider>
+            <Routes>
+              <Route path="/accounts/:accountId" element={<AccountTransactions />} />
+              <Route path="/accounts" element={<AccountsProbe />} />
+            </Routes>
+          </NotificationProvider>
+        </ToastProvider>
+      </PreferencesProvider>
+    </MemoryRouter>
+  );
+
+  it('returns to the focused list when the queue empties — not to the register just cleared', async () => {
+    const view = render(roundTree('?review=1&back=accounts-review'));
+    await screen.findByRole('heading', { level: 1, name: 'Synthetic Register' });
+    // Arrived filtered to the one arrival.
+    await waitFor(() => {
+      expect(within(grid()).queryByText('Portway Hardware')).not.toBeInTheDocument();
+    });
+    expect(within(grid()).getByText('Marsh Lane Grocer')).toBeInTheDocument();
+
+    // The ledger now holds that arrival dealt with — the queue is empty.
+    seed(ROWS.map(r => (r.id === 'txn-new' ? { ...r, needsReview: false } : r)));
+    view.rerender(roundTree('?review=1&back=accounts-review'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('accounts-probe')).toHaveTextContent('focus=review');
+    });
+  });
+
+  it('without the marker, an emptied queue keeps you in the register, filter quietly off', async () => {
+    const view = render(roundTree('?review=1'));
+    await screen.findByRole('heading', { level: 1, name: 'Synthetic Register' });
+
+    seed(ROWS.map(r => (r.id === 'txn-new' ? { ...r, needsReview: false } : r)));
+    view.rerender(roundTree('?review=1'));
+
+    // The register stays; every row shows again; nobody is teleported.
+    await waitFor(() => {
+      expect(within(grid()).getByText('Portway Hardware')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('accounts-probe')).not.toBeInTheDocument();
   });
 });

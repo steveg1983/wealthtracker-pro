@@ -8,7 +8,7 @@ import { buildCategoryKindLookup, classifyFlow } from '../utils/incomeExpense';
 import { dismissedKeys } from '../utils/suggestionDismissals';
 import { buildPlWindow, bucketIndexOf, dayOf } from '../utils/plWindow';
 import type { PlWindowKind } from '../utils/plWindow';
-import { ChevronDownIcon, ChevronRightIcon } from '../components/icons';
+import { ArrowDownIcon, ArrowUpIcon, ChevronDownIcon, ChevronRightIcon } from '../components/icons';
 import { dataPort } from '@data';
 import type { ForecastAdjustment, Transaction } from '../types';
 
@@ -112,8 +112,22 @@ export default function Forecast(): React.JSX.Element {
   );
 
   const [sectionOpen, setSectionOpen] = useState<{ in: boolean; out: boolean }>({ in: true, out: true });
-  /** The user's ordering: by name, or by value in either direction. */
-  const [sortOrder, setSortOrder] = useState<'name' | 'high' | 'low'>('high');
+  /**
+   * The user's ordering: by name or by value, each button carrying its own
+   * direction (owner, 19 Aug: "A-Z should be clickable to change to Z-A…
+   * just have one button called 'Value' and then an arrow up or an arrow
+   * down"). Clicking the inactive button activates it; clicking the active
+   * one turns its direction around.
+   */
+  const [sort, setSort] = useState<{ mode: 'name' | 'value'; nameAsc: boolean; valueDesc: boolean }>({
+    mode: 'value', nameAsc: true, valueDesc: true,
+  });
+  const chooseSort = (mode: 'name' | 'value'): void =>
+    setSort(previous => previous.mode === mode
+      ? mode === 'name'
+        ? { ...previous, nameAsc: !previous.nameAsc }
+        : { ...previous, valueDesc: !previous.valueDesc }
+      : { ...previous, mode });
   /** Group headings the user has folded shut — everything is open until asked. */
   const [closedGroups, setClosedGroups] = useState<Set<string>>(new Set());
   const [showMonths, setShowMonths] = useState(false);
@@ -224,9 +238,9 @@ export default function Forecast(): React.JSX.Element {
     // The user's ordering, applied at every level. The unfiled line is
     // always last, whatever its size — a remainder, not a category.
     const compare = (aLabel: string, aTotal: number, bLabel: string, bTotal: number): number =>
-      sortOrder === 'name' ? aLabel.localeCompare(bLabel, undefined, { sensitivity: 'base' })
-        : sortOrder === 'low' ? aTotal - bTotal
-          : bTotal - aTotal;
+      sort.mode === 'name'
+        ? (sort.nameAsc ? 1 : -1) * aLabel.localeCompare(bLabel, undefined, { sensitivity: 'base' })
+        : sort.valueDesc ? bTotal - aTotal : aTotal - bTotal;
 
     const finishSide = (entries: Map<string, BuildEntry>): SideEntry[] =>
       [...entries.values()]
@@ -288,7 +302,7 @@ export default function Forecast(): React.JSX.Element {
       transfers,
       revaluations,
     };
-  }, [transactions, plWindow, categoryKinds, categoryById, sortOrder]);
+  }, [transactions, plWindow, categoryKinds, categoryById, sort]);
 
   const average = (total: number): number =>
     toDecimal(total).dividedBy(plWindow.buckets.length).toNumber();
@@ -741,25 +755,36 @@ export default function Forecast(): React.JSX.Element {
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                 <div className="flex items-center rounded-lg bg-gray-100 dark:bg-gray-700 p-0.5" role="group" aria-label="Sort order">
-                  {([
-                    ['name', 'A to Z'],
-                    ['high', 'Largest first'],
-                    ['low', 'Smallest first'],
-                  ] as const).map(([order, name]) => (
-                    <button
-                      key={order}
-                      type="button"
-                      onClick={() => setSortOrder(order)}
-                      aria-pressed={sortOrder === order}
-                      className={`px-2.5 py-0.5 text-xs font-medium rounded-md transition-colors ${
-                        sortOrder === order
-                          ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
-                          : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
-                      }`}
-                    >
-                      {name}
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    onClick={() => chooseSort('name')}
+                    aria-pressed={sort.mode === 'name'}
+                    title={sort.mode === 'name' ? 'Turn the alphabet around' : 'Sort by name'}
+                    className={`px-2.5 py-0.5 text-xs font-medium rounded-md transition-colors ${
+                      sort.mode === 'name'
+                        ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                    }`}
+                  >
+                    {sort.nameAsc ? 'A to Z' : 'Z to A'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => chooseSort('value')}
+                    aria-pressed={sort.mode === 'value'}
+                    aria-label={sort.valueDesc ? 'Value, largest first' : 'Value, smallest first'}
+                    title={sort.mode === 'value' ? 'Turn the order around' : 'Sort by value'}
+                    className={`flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium rounded-md transition-colors ${
+                      sort.mode === 'value'
+                        ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                    }`}
+                  >
+                    Value
+                    {sort.valueDesc
+                      ? <ArrowDownIcon size={12} className="shrink-0" />
+                      : <ArrowUpIcon size={12} className="shrink-0" />}
+                  </button>
                 </div>
                 <button
                   type="button"

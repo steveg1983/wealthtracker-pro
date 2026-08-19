@@ -547,6 +547,8 @@ export default function AccountTransactions() {
    * the worst kind of stale state — it looks like data loss.
    */
   const [reviewOnly, setReviewOnly] = useState(false);
+  /** Set when the FOCUSED accounts list sent this visit (see the `back` param). */
+  const [backToAccountsReview, setBackToAccountsReview] = useState(false);
   /**
    * The register narrowed to ONE recurring pattern's payments — every label
    * it has worn, so a stitched pattern (a bank rename) shows its whole
@@ -598,8 +600,9 @@ export default function AccountTransactions() {
     const txn = params.get('txn');
     const hasShowArchived = params.has('showArchived');
     const hasReview = params.has('review');
+    const hasBack = params.has('back');
     const hasRecurringPayee = params.has('recurringPayee');
-    if (!txn && !hasShowArchived && !hasReview && !hasRecurringPayee) return;
+    if (!txn && !hasShowArchived && !hasReview && !hasBack && !hasRecurringPayee) return;
     if (txn) {
       pendingTxnRef.current = txn;
       openedAtFootRef.current = accountId ?? null;
@@ -636,6 +639,14 @@ export default function AccountTransactions() {
        */
       if (params.get('review') === '1') setReviewOnly(true);
       params.delete('review');
+    }
+    if (hasBack) {
+      // The FOCUSED accounts list sent this visit as one stop on a review
+      // round — finishing here should return there, still focused, to pick
+      // the next account (owner, 19 Aug). Consumed like the rest: the way
+      // back is because the user came from there one click ago, not stored.
+      if (params.get('back') === 'accounts-review') setBackToAccountsReview(true);
+      params.delete('back');
     }
     if (hasRecurringPayee) {
       // Percent-decoding is URLSearchParams' own; the '|' separator survives
@@ -1000,11 +1011,23 @@ export default function AccountTransactions() {
    * box hides itself at zero — the house rule that a zero count renders
    * nothing). Reviewing the last row is a success, and it should read like one.
    *
+   * When the visit was one stop on a REVIEW ROUND (sent by the focused
+   * accounts list, `back=accounts-review`), finishing goes back to that list —
+   * still focused — to pick the next account, rather than leaving the user in
+   * the register they have just cleared (owner, 19 Aug). Only while the
+   * filter is still on: someone who turned it off and stayed to browse has
+   * left the round, and must not be teleported mid-scroll.
+   *
    * Cannot loop: toReviewCount is computed from the unfiltered list above.
    */
   useEffect(() => {
-    if (toReviewCount === 0) setReviewOnly(false);
-  }, [toReviewCount]);
+    if (toReviewCount !== 0) return;
+    if (backToAccountsReview && reviewOnly) {
+      navigate(preserveDemoParam('/accounts?focus=review', location.search));
+      return;
+    }
+    setReviewOnly(false);
+  }, [toReviewCount, backToAccountsReview, reviewOnly, navigate, location.search]);
 
   /**
    * The rows the table actually lists. One more filter on the end of the chain,

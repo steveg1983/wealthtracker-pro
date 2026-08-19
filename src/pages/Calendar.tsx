@@ -15,6 +15,7 @@ import { computeIncomeExpense, buildCategoryKindLookup, classifyFlow } from '../
 import { Modal, ModalBody } from '../components/common/Modal';
 import EditTransactionModal from '../components/EditTransactionModal';
 import type { Transaction } from '../types';
+import type { SplitExpandedTransaction } from '../utils/transactionSplits';
 import { createCategoryLabeller } from '../utils/categoryLabel';
 
 interface DayData {
@@ -398,7 +399,19 @@ export default function Calendar() {
    * lines, so the list sums to the figure that was clicked rather than to
    * some quietly different one.
    */
-  const [drill, setDrill] = useState<{ from: Date; to: Date; label: string; bucket: 'in' | 'out' } | null>(null);
+  const [drill, setDrill] = useState<{
+    from: Date; to: Date; label: string;
+    bucket: 'in' | 'out' | 'net';
+    /**
+     * 'movement' decomposes a day cell's cash-movement figure (transfers and
+     * the unfiled as named lines). 'flows' decomposes an Income/Expenditure/
+     * Net TILE — the computeIncomeExpense figure, where transfers,
+     * revaluations and the unfiled are not part of the number, so they are
+     * not part of the list either; totals are SIGNED so a refund-heavy
+     * category reads honestly and the list still sums to the tile.
+     */
+    scope: 'movement' | 'flows';
+  } | null>(null);
   const [drillCategory, setDrillCategory] = useState<string | null>(null);
   const closeDrill = (): void => { setDrill(null); setDrillCategory(null); };
 
@@ -407,12 +420,37 @@ export default function Calendar() {
 
   const drillData = useMemo(() => {
     if (!drill) return null;
+
+    if (drill.scope === 'flows') {
+      // The tiles' own arithmetic, re-run over the drill's window — the one
+      // way the list can sum to the figure that was clicked (splits expanded,
+      // refunds netting, exactly as the tile counted them).
+      const flows = computeIncomeExpense(transactions, transactionSplits, categories, {
+        from: drill.from, to: drill.to,
+      });
+      const rows =
+        drill.bucket === 'in' ? flows.incomeRows
+        : drill.bucket === 'out' ? flows.expenseRows
+        : [...flows.incomeRows, ...flows.expenseRows];
+      const groups = new Map<string, { total: number; rows: SplitExpandedTransaction[] }>();
+      for (const row of rows) {
+        const key = labeller(row) || UNFILED_LABEL;
+        const group = groups.get(key) ?? { total: 0, rows: [] };
+        group.total = toDecimal(group.total).plus(toDecimal(row.amount)).toNumber();
+        group.rows.push(row);
+        groups.set(key, group);
+      }
+      return [...groups.entries()]
+        .map(([label, group]) => ({ label, ...group }))
+        .sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
+    }
+
     const rows = transactions.filter(t => {
       const time = new Date(t.date).getTime();
       if (time < drill.from.getTime() || time > drill.to.getTime()) return false;
       return drill.bucket === 'in' ? t.amount > 0 : t.amount < 0;
     });
-    const groups = new Map<string, { total: number; rows: Transaction[] }>();
+    const groups = new Map<string, { total: number; rows: SplitExpandedTransaction[] }>();
     for (const row of rows) {
       const kind = classifyFlow(row, categoryKinds);
       const key =
@@ -435,7 +473,7 @@ export default function Calendar() {
         if (ra !== -1 || rb !== -1) return (ra === -1 ? -1 : ra + 1) - (rb === -1 ? -1 : rb + 1);
         return b.total - a.total;
       });
-  }, [drill, transactions, categoryKinds, labeller]);
+  }, [drill, transactions, transactionSplits, categories, categoryKinds, labeller]);
 
   /** The real editor, over whichever row was clicked in a day or a drill. */
   const [editing, setEditing] = useState<Transaction | null>(null);
@@ -500,15 +538,36 @@ export default function Calendar() {
     }
   };
 
+  /** The visible window's name — the header's title, and the drills' label. */
+  const windowTitle =
+    view === 'year' ? String(year)
+      : view === 'week' ? weekTitle()
+      : view === 'day' ? currentDate.toLocaleDateString(getDateLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+      : `${monthNames[month]} ${year}`;
+
+  /** A summary tile opens the drill on its own figure (owner, 19 Aug). */
+  const openFlowDrill = (bucket: 'in' | 'out' | 'net'): void =>
+    setDrill({ from: visibleWindow.from, to: visibleWindow.to, label: windowTitle, bucket, scope: 'flows' });
+
   return (
     <PageWrapper title="Calendar">
-      {/* Month summary bar */}
+      {/* Month summary bar — each figure tile is a DRILL into what made it
+          up, the same popup the day cells open (owner, 19 Aug: "the
+          'Income' / 'Expenditure' / 'Net' should be clickable"). */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
+        <button
+          type="button"
+          onClick={() => openFlowDrill('in')}
+          className="block w-full bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2 text-left hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+        >
           <span className="text-sm text-gray-500 dark:text-gray-400">Income</span>
           <p className="text-lg font-semibold text-green-600 dark:text-green-400">{formatCurrency(windowSummary.totalIncome)}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
+        </button>
+        <button
+          type="button"
+          onClick={() => openFlowDrill('out')}
+          className="block w-full bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2 text-left hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+        >
           <span className="text-sm text-gray-500 dark:text-gray-400">Expenditure</span>
           {/* `dark:text-red-400` is not decoration — without it this figure is
               unreadable at night. `styles/accessibility-colors.css` remaps
@@ -524,13 +583,17 @@ export default function Calendar() {
               (£X) — a red figure without its brackets was the drift the
               owner caught on this very tile. */}
           <p className="text-lg font-semibold text-red-600 dark:text-red-400">{formatCurrency(-windowSummary.totalExpense)}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
+        </button>
+        <button
+          type="button"
+          onClick={() => openFlowDrill('net')}
+          className="block w-full bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2 text-left hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+        >
           <span className="text-sm text-gray-500 dark:text-gray-400">Net</span>
           <p className={`text-lg font-semibold ${toDecimal(windowSummary.totalIncome).minus(toDecimal(windowSummary.totalExpense)).greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
             {formatCurrency(toDecimal(windowSummary.totalIncome).minus(toDecimal(windowSummary.totalExpense)).toNumber())}
           </p>
-        </div>
+        </button>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Transactions</span>
           <p className="text-lg font-semibold text-gray-900 dark:text-white">{windowSummary.totalTransactions}</p>
@@ -636,10 +699,7 @@ export default function Calendar() {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {view === 'year' ? year
-              : view === 'week' ? weekTitle()
-              : view === 'day' ? currentDate.toLocaleDateString(getDateLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-              : `${monthNames[month]} ${year}`}
+            {windowTitle}
           </h2>
           <div className="flex items-center gap-2">
             {/* The view, chosen the way Apple Calendar chooses it — a
@@ -767,6 +827,7 @@ export default function Calendar() {
                       to: new Date(day.date.getFullYear(), day.date.getMonth(), day.day, 23, 59, 59, 999),
                       label: day.date.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'long' }),
                       bucket: 'in',
+                      scope: 'movement',
                     });
                   }}
                   aria-label={`Money in, day ${day.day} — what made it up`}
@@ -785,6 +846,7 @@ export default function Calendar() {
                       to: new Date(day.date.getFullYear(), day.date.getMonth(), day.day, 23, 59, 59, 999),
                       label: day.date.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'long' }),
                       bucket: 'out',
+                      scope: 'movement',
                     });
                   }}
                   aria-label={`Money out, day ${day.day} — what made it up`}
@@ -834,7 +896,7 @@ export default function Calendar() {
                       <button
                         type="button"
                         onClick={() => {
-                          setDrill({ ...visibleWindow, label: weekTitle(), bucket: 'in' });
+                          setDrill({ ...visibleWindow, label: weekTitle(), bucket: 'in', scope: 'movement' });
                           setDrillCategory(row.label);
                         }}
                         className="w-full py-1.5 flex items-baseline justify-between gap-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded"
@@ -868,7 +930,7 @@ export default function Calendar() {
                       <button
                         type="button"
                         onClick={() => {
-                          setDrill({ ...visibleWindow, label: weekTitle(), bucket: 'out' });
+                          setDrill({ ...visibleWindow, label: weekTitle(), bucket: 'out', scope: 'movement' });
                           setDrillCategory(row.label);
                         }}
                         className="w-full py-1.5 flex items-baseline justify-between gap-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded"
@@ -954,19 +1016,30 @@ export default function Calendar() {
         {/* THE YEAR AS TWELVE MONTHS, each a door into its month view. */}
         {view === 'year' && yearMonths && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-px bg-gray-100 dark:bg-gray-700" aria-label="Year by month">
+            {/* Each cell's `flex flex-col items-start` is LOAD-BEARING:
+                index.css sets `button { display: inline-flex }` globally —
+                ROW direction — so without it the month name and both figures
+                sat crammed on one line (the owner caught it on this very
+                grid; the sixth casualty of that global rule). NEUTRAL AT
+                ZERO like the dashboard cards: an empty month claims no
+                direction, so it wears neither hue nor sign. */}
             {yearMonths.map(({ month: m, income, expense }) => (
               <button
                 key={m}
                 type="button"
                 onClick={() => { setCurrentDate(new Date(year, m, 1)); setView('month'); }}
-                className="bg-white dark:bg-gray-800 p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/60 transition-colors"
+                className="flex flex-col items-start bg-white dark:bg-gray-800 p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/60 transition-colors"
                 aria-label={`Open ${monthNames[m]} ${year}`}
               >
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">{monthNames[m]}</p>
-                <p className="text-sm tabular-nums text-green-600 dark:text-green-400 mt-1">
-                  +{formatCurrency(income)}
+                <p className={`text-sm tabular-nums mt-1 ${
+                  income === 0 ? 'text-gray-500 dark:text-gray-400' : 'text-green-600 dark:text-green-400'
+                }`}>
+                  {income === 0 ? formatCurrency(0) : `+${formatCurrency(income)}`}
                 </p>
-                <p className="text-sm tabular-nums text-red-600 dark:text-red-400">
+                <p className={`text-sm tabular-nums ${
+                  expense === 0 ? 'text-gray-500 dark:text-gray-400' : 'text-red-600 dark:text-red-400'
+                }`}>
                   {formatCurrency(-expense)}
                 </p>
               </button>
@@ -983,7 +1056,11 @@ export default function Calendar() {
         isOpen={drill !== null}
         onClose={closeDrill}
         title={drill
-          ? `${drill.bucket === 'in' ? 'Money in' : 'Money out'} — ${drill.label}${drillCategory ? ` — ${drillCategory}` : ''}`
+          ? `${
+            drill.scope === 'flows'
+              ? drill.bucket === 'in' ? 'Income' : drill.bucket === 'out' ? 'Expenditure' : 'Net'
+              : drill.bucket === 'in' ? 'Money in' : 'Money out'
+          } — ${drill.label}${drillCategory ? ` — ${drillCategory}` : ''}`
           : ''}
         size="md"
       >
@@ -1004,11 +1081,22 @@ export default function Calendar() {
                         {group.label}
                         <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{group.rows.length}</span>
                       </span>
-                      <span className={`text-sm tabular-nums shrink-0 ${
-                        drill.bucket === 'in' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                      }`}>
-                        {drill.bucket === 'in' ? `+${formatCurrency(group.total)}` : formatCurrency(-group.total)}
-                      </span>
+                      {/* Movement totals are magnitudes worn by the bucket;
+                          a flows drill's are SIGNED, so a refund-heavy
+                          category shows its real direction. */}
+                      {drill.scope === 'flows' ? (
+                        <span className={`text-sm tabular-nums shrink-0 ${
+                          group.total >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {group.total >= 0 ? `+${formatCurrency(group.total)}` : formatCurrency(group.total)}
+                        </span>
+                      ) : (
+                        <span className={`text-sm tabular-nums shrink-0 ${
+                          drill.bucket === 'in' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {drill.bucket === 'in' ? `+${formatCurrency(group.total)}` : formatCurrency(-group.total)}
+                        </span>
+                      )}
                     </button>
                   </li>
                 ))}
@@ -1036,7 +1124,16 @@ export default function Calendar() {
                       <li key={row.id} className="border-t border-gray-50 dark:border-gray-700/50 first:border-0">
                         <button
                           type="button"
-                          onClick={() => setEditing(row)}
+                          onClick={() => {
+                            // A flows drill can list a VIRTUAL split line;
+                            // the editor opens the real transaction it
+                            // belongs to, never the projection.
+                            setEditing(
+                              row.splitParentId
+                                ? transactions.find(t => t.id === row.splitParentId) ?? row
+                                : row
+                            );
+                          }}
                           className="w-full py-2 flex items-baseline justify-between gap-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded"
                         >
                           <span className="min-w-0">
