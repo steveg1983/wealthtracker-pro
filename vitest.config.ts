@@ -40,6 +40,10 @@ export default createVitestReactConfig({
     '**/*.backup.*/**',
     '**/CLAUDE.md.backup.*',
     'WealthTracker-Backups/**',
+    // Nested session worktrees under .claude/worktrees are full checkouts, and
+    // a vitest file argument is a filter — from the repo root it matches every
+    // worktree's copy too. See packages/config/vitest.react.js for the measure.
+    '**/.claude/**',
     'apps/**',
     'api/**', // Backend API endpoints tested separately
     // The local edition's contract run. It needs a built Rust binary and

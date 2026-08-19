@@ -11,7 +11,14 @@ const defaultExclude = [
   'src.backup.*/**',
   '**/src.backup.*/**',
   '**/*.backup.*/**',
-  '**/CLAUDE.md.backup.*'
+  '**/CLAUDE.md.backup.*',
+  // Session worktrees are FULL CHECKOUTS nested under .claude/worktrees, and a
+  // vitest file argument is a FILTER, not a path: measured from the repo root,
+  // `vitest list --filesOnly src/test/supabase/supabase-smoke.test.ts` matched
+  // 7 files — the named one plus six worktree copies, some stale enough to
+  // fail on rules the current tree no longer has. A worktree running its own
+  // suite is unaffected: its files are `src/...` relative to its own root.
+  '**/.claude/**'
 ];
 
 const defaultInclude = [
