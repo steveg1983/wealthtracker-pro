@@ -22,6 +22,22 @@
 // behind. This asks whether two implementations of one DECISION agree — and
 // there are no rows to compare, because nothing is written.
 //
+// THE CLOCK'S ZONE IS PINNED, AND WHY IT HAS TO BE
+// -------------------------------------------------
+// Set before any import can construct a Date, because V8 reads TZ once. The
+// dedupe fixtures carry dates in two spellings on purpose — the standard
+// date-only form, which ECMA-262 parses at UTC midnight, and V8's fallback
+// forms, which parse at LOCAL midnight — so the day a fallback date lands on
+// depends on where the machine running this harness happens to be. Measured,
+// 19 Aug 2026, on a laptop set to CEST: '2027-2-7' parsed to 06 Feb 23:00Z,
+// one UTC day before its well-formed twin, and the day-gap spec went red on a
+// machine while CI stayed green. That variation is REAL production behaviour
+// (a browser in Sydney genuinely computes a different gap than one in London
+// — TS-I7's spec now says so), but this harness compares two ENGINES, and a
+// comparison must not change verdict with the operator's holiday plans. UTC
+// is CI's zone, so a spec that passes here passes there.
+process.env.TZ = 'UTC';
+
 // The oracle is different too, and it is the reason this lane exists at all.
 // Every verb in verbs.mjs is a port of a live Postgres function, so Postgres
 // can be asked. PHASE1-PLAN §5 counts 48 invariants with no SQL side anywhere

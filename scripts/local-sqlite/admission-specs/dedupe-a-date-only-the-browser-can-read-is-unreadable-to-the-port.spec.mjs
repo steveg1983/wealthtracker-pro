@@ -6,6 +6,15 @@
 // whose meaning depends on the reader's nationality. Porting that would mean
 // porting V8.
 //
+// It depends on the reader's TIMEZONE too, not just their nationality, and
+// that is one layer deeper than this file first recorded: the fallback forms
+// parse at LOCAL midnight while the standard form parses at UTC midnight
+// (ECMA-262's date-only rule), so the day_gap below is 0 in London and 1 in
+// Central Europe for the very same file. The harness pins TZ=UTC (see
+// admission.mjs) so this comparison of two ENGINES cannot change verdict with
+// the operator's location; the production TS really does vary this way, which
+// is one more cost of the fallback parser this spec exists to record.
+//
 // The direction of the consequence is why the port is allowed to be stricter: a
 // date it cannot read drops the row out of MATCHING, so the row imports and is
 // visible in the register. It fails towards "an extra row the user can see",
