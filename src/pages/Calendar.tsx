@@ -11,7 +11,10 @@ import { getDateLocale } from '../utils/dateFormatter';
 import { detectRecurring } from '../utils/recurringDetection';
 import { projectRecurringSchedule } from '../utils/recurringSchedule';
 import { dismissedKeys, recurringAnswerKey } from '../utils/suggestionDismissals';
-import { computeIncomeExpense } from '../utils/incomeExpense';
+import { computeIncomeExpense, buildCategoryKindLookup, classifyFlow } from '../utils/incomeExpense';
+import { Modal, ModalBody } from '../components/common/Modal';
+import EditTransactionModal from '../components/EditTransactionModal';
+import type { Transaction } from '../types';
 import { createCategoryLabeller } from '../utils/categoryLabel';
 
 interface DayData {
@@ -238,9 +241,9 @@ export default function Calendar() {
    */
   const [searchParams, setSearchParams] = useSearchParams();
   const viewParam = searchParams.get('view');
-  const view: 'week' | 'month' | 'year' =
-    viewParam === 'week' || viewParam === 'year' ? viewParam : 'month';
-  const setView = useCallback((next: 'week' | 'month' | 'year'): void => {
+  const view: 'day' | 'week' | 'month' | 'year' =
+    viewParam === 'day' || viewParam === 'week' || viewParam === 'year' ? viewParam : 'month';
+  const setView = useCallback((next: 'day' | 'week' | 'month' | 'year'): void => {
     setSearchParams(prev => {
       const params = new URLSearchParams(prev);
       if (next === 'month') params.delete('view');
@@ -255,6 +258,13 @@ export default function Calendar() {
    * The week runs Sunday to Saturday, matching the grid's own columns.
    */
   const visibleWindow = useMemo(() => {
+    if (view === 'day') {
+      const dayStart = new Date(year, month, currentDate.getDate());
+      return {
+        from: dayStart,
+        to: new Date(year, month, currentDate.getDate(), 23, 59, 59, 999),
+      };
+    }
     if (view === 'week') {
       const start = new Date(year, month, currentDate.getDate() - currentDate.getDay());
       return {
@@ -303,10 +313,14 @@ export default function Calendar() {
    * uncategorised remainder is NAMED, never folded silently into a figure
    * that would then claim to be complete.
    */
+  /** One labeller and one kind-lookup, shared by every breakdown below. */
+  const labeller = useMemo(() => createCategoryLabeller(categories, accounts), [categories, accounts]);
+  const categoryKinds = useMemo(() => buildCategoryKindLookup(categories), [categories]);
+
   const weekBreakdown = useMemo(() => {
     if (view !== 'week') return null;
     const flows = computeIncomeExpense(transactions, transactionSplits, categories, visibleWindow);
-    const label = createCategoryLabeller(categories, accounts);
+    const label = labeller;
     const grouped = (rows: typeof flows.incomeRows): Array<{ label: string; total: number }> => {
       const totals = new Map<string, ReturnType<typeof toDecimal>>();
       for (const row of rows) {
@@ -323,7 +337,7 @@ export default function Calendar() {
       uncategorizedIn: flows.uncategorizedIn.toNumber(),
       uncategorizedOut: flows.uncategorizedOut.toNumber(),
     };
-  }, [view, transactions, transactionSplits, categories, accounts, visibleWindow]);
+  }, [view, transactions, transactionSplits, categories, labeller, visibleWindow]);
 
   /**
    * THE YEAR AS TWELVE MONTHS, each with its own income and expenditure,
@@ -342,6 +356,107 @@ export default function Calendar() {
     });
   }, [view, transactions, transactionSplits, categories, year]);
 
+  /**
+   * THE DAY, TRANSACTION BY TRANSACTION (owner, 18 Aug: "in daily view…
+   * each transaction for that day, again, separated by income and
+   * expenditure"). Real rows, not split expansions — a click opens the real
+   * editor, and only a real transaction can be edited. The rows that are
+   * NEITHER income nor expenditure are shown under their own named headings
+   * rather than dropped: a day the cell counted at 38 movements must show
+   * 38, or say which are transfers and which are unfiled.
+   */
+  const dayRows = useMemo(() => {
+    if (view !== 'day') return null;
+    const rows = transactions
+      .filter(t => {
+        const time = new Date(t.date).getTime();
+        return time >= visibleWindow.from.getTime() && time <= visibleWindow.to.getTime();
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const groups = { income: [] as Transaction[], expense: [] as Transaction[], transfer: [] as Transaction[], uncategorized: [] as Transaction[] };
+    for (const row of rows) {
+      const kind = classifyFlow(row, categoryKinds);
+      if (kind === 'income') groups.income.push(row);
+      else if (kind === 'expense') groups.expense.push(row);
+      else if (kind === 'transfer') groups.transfer.push(row);
+      // Revaluations are ledger arithmetic, not spending; they sit with the
+      // unfiled so the day still accounts for every movement it counted.
+      else groups.uncategorized.push(row);
+    }
+    return groups;
+  }, [view, transactions, visibleWindow, categoryKinds]);
+
+  /**
+   * THE DRILL (owner, 18 Aug: "Month view, income and expenditure, click
+   * either and get a pop up with a list of the categories and their
+   * respective totals that make up the totals… and then click in to a
+   * category and get the individual transactions").
+   *
+   * The scope is a WINDOW plus a DIRECTION — a day's money in, a week's
+   * money out — and the first level decomposes the cell's own movement
+   * figure exactly: categories, then transfers and the unfiled as NAMED
+   * lines, so the list sums to the figure that was clicked rather than to
+   * some quietly different one.
+   */
+  const [drill, setDrill] = useState<{ from: Date; to: Date; label: string; bucket: 'in' | 'out' } | null>(null);
+  const [drillCategory, setDrillCategory] = useState<string | null>(null);
+  const closeDrill = (): void => { setDrill(null); setDrillCategory(null); };
+
+  const TRANSFERS_LABEL = 'Transfers between your accounts';
+  const UNFILED_LABEL = 'Uncategorised — not yet filed';
+
+  const drillData = useMemo(() => {
+    if (!drill) return null;
+    const rows = transactions.filter(t => {
+      const time = new Date(t.date).getTime();
+      if (time < drill.from.getTime() || time > drill.to.getTime()) return false;
+      return drill.bucket === 'in' ? t.amount > 0 : t.amount < 0;
+    });
+    const groups = new Map<string, { total: number; rows: Transaction[] }>();
+    for (const row of rows) {
+      const kind = classifyFlow(row, categoryKinds);
+      const key =
+        kind === 'transfer' ? TRANSFERS_LABEL
+        : kind === 'uncategorized' ? UNFILED_LABEL
+        : kind === 'revaluation' ? 'Revaluation'
+        : (labeller(row) || UNFILED_LABEL);
+      const group = groups.get(key) ?? { total: 0, rows: [] };
+      group.total = toDecimal(group.total).plus(toDecimal(row.amount).abs()).toNumber();
+      group.rows.push(row);
+      groups.set(key, group);
+    }
+    // Categories by size; the named remainders always last, in a fixed order.
+    const remainders = [TRANSFERS_LABEL, UNFILED_LABEL, 'Revaluation'];
+    return [...groups.entries()]
+      .map(([label, group]) => ({ label, ...group }))
+      .sort((a, b) => {
+        const ra = remainders.indexOf(a.label);
+        const rb = remainders.indexOf(b.label);
+        if (ra !== -1 || rb !== -1) return (ra === -1 ? -1 : ra + 1) - (rb === -1 ? -1 : rb + 1);
+        return b.total - a.total;
+      });
+  }, [drill, transactions, categoryKinds, labeller]);
+
+  /** The real editor, over whichever row was clicked in a day or a drill. */
+  const [editing, setEditing] = useState<Transaction | null>(null);
+
+  /**
+   * The daily net-worth line, OFF by default (owner, 18 Aug: "I dont think
+   * we need to see daily net worth as a default but happy for it to be a
+   * toggle"). A display preference, so it lives where the period picker's
+   * does — localStorage — and survives the session without touching the
+   * ledger.
+   */
+  const [showNetWorth, setShowNetWorth] = useState<boolean>(
+    () => localStorage.getItem('calendar-show-net-worth') === 'true'
+  );
+  const toggleNetWorth = (): void => {
+    setShowNetWorth(previous => {
+      localStorage.setItem('calendar-show-net-worth', String(!previous));
+      return !previous;
+    });
+  };
+
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -349,7 +464,8 @@ export default function Calendar() {
   const goToToday = () => setCurrentDate(new Date());
   /** One step of whatever the view counts in: a week, a month, a year. */
   const step = (direction: 1 | -1): void => {
-    if (view === 'week') setCurrentDate(new Date(year, month, currentDate.getDate() + 7 * direction));
+    if (view === 'day') setCurrentDate(new Date(year, month, currentDate.getDate() + direction));
+    else if (view === 'week') setCurrentDate(new Date(year, month, currentDate.getDate() + 7 * direction));
     else if (view === 'year') setCurrentDate(new Date(year + direction, month, 1));
     else setCurrentDate(new Date(year, month + direction, 1));
   };
@@ -520,14 +636,17 @@ export default function Calendar() {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {view === 'year' ? year : view === 'week' ? weekTitle() : `${monthNames[month]} ${year}`}
+            {view === 'year' ? year
+              : view === 'week' ? weekTitle()
+              : view === 'day' ? currentDate.toLocaleDateString(getDateLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+              : `${monthNames[month]} ${year}`}
           </h2>
           <div className="flex items-center gap-2">
             {/* The view, chosen the way Apple Calendar chooses it — a
                 segmented control beside Today (owner, 19 Aug). The chosen
                 segment presses in; the URL carries it (see setView). */}
             <div className="flex items-center rounded-lg bg-gray-100 dark:bg-gray-700 p-0.5" role="group" aria-label="Calendar view">
-              {(['week', 'month', 'year'] as const).map(option => (
+              {(['day', 'week', 'month', 'year'] as const).map(option => (
                 <button
                   key={option}
                   type="button"
@@ -539,7 +658,7 @@ export default function Calendar() {
                       : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
                   }`}
                 >
-                  {option === 'week' ? 'Week' : option === 'month' ? 'Month' : 'Year'}
+                  {option === 'day' ? 'Day' : option === 'week' ? 'Week' : option === 'month' ? 'Month' : 'Year'}
                 </button>
               ))}
             </div>
@@ -567,6 +686,18 @@ export default function Calendar() {
         </div>
 
         {view === 'month' && (<>
+        {/* The daily net-worth line is opt-in (owner: not a default). */}
+        <div className="flex justify-end px-4 py-1.5 border-b border-gray-100 dark:border-gray-700">
+          <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showNetWorth}
+              onChange={toggleNetWorth}
+              className="rounded border-gray-300 dark:border-gray-600"
+            />
+            Daily net worth
+          </label>
+        </div>
         {/* Day headers */}
         <div className="grid grid-cols-7 border-b border-gray-100 dark:border-gray-700">
           {dayNames.map(day => (
@@ -622,20 +753,49 @@ export default function Calendar() {
                 )}
               </div>
 
-              {/* Transaction amounts */}
+              {/* Movement figures — each a door into what composed it
+                  (owner: "click either and get a pop up with a list of the
+                  categories"). stopPropagation keeps the figure's click from
+                  also being the cell's open-in-Find click. */}
               {day.isCurrentMonth && day.income > 0 && (
-                <div className="text-xs text-green-600 dark:text-green-400 font-medium truncate">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDrill({
+                      from: new Date(day.date.getFullYear(), day.date.getMonth(), day.day),
+                      to: new Date(day.date.getFullYear(), day.date.getMonth(), day.day, 23, 59, 59, 999),
+                      label: day.date.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'long' }),
+                      bucket: 'in',
+                    });
+                  }}
+                  aria-label={`Money in, day ${day.day} — what made it up`}
+                  className="block w-full text-left text-xs text-green-600 dark:text-green-400 font-medium truncate hover:underline"
+                >
                   +{formatCurrency(day.income)}
-                </div>
+                </button>
               )}
               {day.isCurrentMonth && day.expense > 0 && (
-                <div className="text-xs text-red-500 dark:text-red-400 font-medium truncate">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDrill({
+                      from: new Date(day.date.getFullYear(), day.date.getMonth(), day.day),
+                      to: new Date(day.date.getFullYear(), day.date.getMonth(), day.day, 23, 59, 59, 999),
+                      label: day.date.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'long' }),
+                      bucket: 'out',
+                    });
+                  }}
+                  aria-label={`Money out, day ${day.day} — what made it up`}
+                  className="block w-full text-left text-xs text-red-500 dark:text-red-400 font-medium truncate hover:underline"
+                >
                   ({formatCurrency(day.expense)})
-                </div>
+                </button>
               )}
 
-              {/* Running balance at bottom */}
-              {day.isCurrentMonth && day.transactionCount > 0 && (
+              {/* Running balance at bottom — only when asked for. */}
+              {showNetWorth && day.isCurrentMonth && day.transactionCount > 0 && (
                 <div className={`text-xs mt-auto pt-1 font-medium truncate ${
                   day.runningBalance < 0 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'
                 }`}>
@@ -670,11 +830,20 @@ export default function Calendar() {
               ) : (
                 <ul>
                   {weekBreakdown.income.map(row => (
-                    <li key={row.label} className="py-1.5 flex items-baseline justify-between gap-4 border-t border-gray-50 dark:border-gray-700/50 first:border-0">
-                      <span className="text-sm text-gray-900 dark:text-white truncate">{row.label}</span>
-                      <span className="text-sm tabular-nums text-green-600 dark:text-green-400 shrink-0">
-                        +{formatCurrency(row.total)}
-                      </span>
+                    <li key={row.label} className="border-t border-gray-50 dark:border-gray-700/50 first:border-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDrill({ ...visibleWindow, label: weekTitle(), bucket: 'in' });
+                          setDrillCategory(row.label);
+                        }}
+                        className="w-full py-1.5 flex items-baseline justify-between gap-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded"
+                      >
+                        <span className="text-sm text-gray-900 dark:text-white truncate">{row.label}</span>
+                        <span className="text-sm tabular-nums text-green-600 dark:text-green-400 shrink-0">
+                          +{formatCurrency(row.total)}
+                        </span>
+                      </button>
                     </li>
                   ))}
                   {weekBreakdown.uncategorizedIn > 0 && (
@@ -695,11 +864,20 @@ export default function Calendar() {
               ) : (
                 <ul>
                   {weekBreakdown.expense.map(row => (
-                    <li key={row.label} className="py-1.5 flex items-baseline justify-between gap-4 border-t border-gray-50 dark:border-gray-700/50 first:border-0">
-                      <span className="text-sm text-gray-900 dark:text-white truncate">{row.label}</span>
-                      <span className="text-sm tabular-nums text-red-600 dark:text-red-400 shrink-0">
-                        {formatCurrency(-row.total)}
-                      </span>
+                    <li key={row.label} className="border-t border-gray-50 dark:border-gray-700/50 first:border-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDrill({ ...visibleWindow, label: weekTitle(), bucket: 'out' });
+                          setDrillCategory(row.label);
+                        }}
+                        className="w-full py-1.5 flex items-baseline justify-between gap-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded"
+                      >
+                        <span className="text-sm text-gray-900 dark:text-white truncate">{row.label}</span>
+                        <span className="text-sm tabular-nums text-red-600 dark:text-red-400 shrink-0">
+                          {formatCurrency(-row.total)}
+                        </span>
+                      </button>
                     </li>
                   ))}
                   {weekBreakdown.uncategorizedOut > 0 && (
@@ -713,6 +891,63 @@ export default function Calendar() {
                 </ul>
               )}
             </div>
+          </div>
+        )}
+
+        {/* THE DAY, TRANSACTION BY TRANSACTION — each row opens the real
+            editor. What is neither income nor spending sits under its own
+            named heading rather than vanishing. */}
+        {view === 'day' && dayRows && (
+          <div className="p-4 sm:p-6 space-y-6" aria-label="Day by transaction">
+            {([
+              { key: 'income', title: 'Income', rows: dayRows.income },
+              { key: 'expense', title: 'Expenditure', rows: dayRows.expense },
+              { key: 'transfer', title: TRANSFERS_LABEL, rows: dayRows.transfer },
+              { key: 'uncategorized', title: UNFILED_LABEL, rows: dayRows.uncategorized },
+            ] as const).map(section => (
+              (section.key === 'income' || section.key === 'expense' || section.rows.length > 0) && (
+                <div key={section.key}>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                    {section.title}
+                    {section.rows.length > 0 && (
+                      <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">{section.rows.length}</span>
+                    )}
+                  </h3>
+                  {section.rows.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {section.key === 'income' ? 'No income recorded this day.' : 'No expenditure recorded this day.'}
+                    </p>
+                  ) : (
+                    <ul>
+                      {section.rows.map(row => (
+                        <li key={row.id} className="border-t border-gray-50 dark:border-gray-700/50 first:border-0">
+                          <button
+                            type="button"
+                            onClick={() => setEditing(row)}
+                            className="w-full py-2 flex items-baseline justify-between gap-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded"
+                          >
+                            <span className="min-w-0">
+                              <span className="block text-sm text-gray-900 dark:text-white truncate">{row.description}</span>
+                              <span className="block text-xs text-gray-500 dark:text-gray-400 truncate">
+                                {labeller(row) || 'Uncategorised'}
+                                {accountNameById.get(row.accountId) && <> · {accountNameById.get(row.accountId)}</>}
+                              </span>
+                            </span>
+                            <span className={`text-sm tabular-nums shrink-0 ${
+                              section.key === 'transfer' || section.key === 'uncategorized'
+                                ? 'text-gray-600 dark:text-gray-300'
+                                : row.amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                            }`}>
+                              {row.amount >= 0 ? `+${formatCurrency(row.amount)}` : formatCurrency(row.amount)}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )
+            ))}
           </div>
         )}
 
@@ -739,6 +974,103 @@ export default function Calendar() {
           </div>
         )}
       </div>
+
+      {/* THE DRILL — level one is the categories that composed the clicked
+          figure (transfers and the unfiled as named lines, so the list sums
+          to the figure that was clicked); level two is one category's own
+          rows, each openable in the real editor. */}
+      <Modal
+        isOpen={drill !== null}
+        onClose={closeDrill}
+        title={drill
+          ? `${drill.bucket === 'in' ? 'Money in' : 'Money out'} — ${drill.label}${drillCategory ? ` — ${drillCategory}` : ''}`
+          : ''}
+        size="md"
+      >
+        <ModalBody>
+          {drill && drillData && drillCategory === null && (
+            drillData.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">Nothing recorded in this stretch.</p>
+            ) : (
+              <ul>
+                {drillData.map(group => (
+                  <li key={group.label} className="border-t border-gray-50 dark:border-gray-700/50 first:border-0">
+                    <button
+                      type="button"
+                      onClick={() => setDrillCategory(group.label)}
+                      className="w-full py-2 flex items-baseline justify-between gap-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded"
+                    >
+                      <span className="text-sm text-gray-900 dark:text-white truncate">
+                        {group.label}
+                        <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{group.rows.length}</span>
+                      </span>
+                      <span className={`text-sm tabular-nums shrink-0 ${
+                        drill.bucket === 'in' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {drill.bucket === 'in' ? `+${formatCurrency(group.total)}` : formatCurrency(-group.total)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          )}
+          {drill && drillData && drillCategory !== null && (() => {
+            const group = drillData.find(candidate => candidate.label === drillCategory);
+            return (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setDrillCategory(null)}
+                  className="mb-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline"
+                >
+                  ← All categories
+                </button>
+                {!group || group.rows.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Nothing under this category in this stretch.
+                  </p>
+                ) : (
+                  <ul>
+                    {group.rows.map(row => (
+                      <li key={row.id} className="border-t border-gray-50 dark:border-gray-700/50 first:border-0">
+                        <button
+                          type="button"
+                          onClick={() => setEditing(row)}
+                          className="w-full py-2 flex items-baseline justify-between gap-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded"
+                        >
+                          <span className="min-w-0">
+                            <span className="block text-sm text-gray-900 dark:text-white truncate">{row.description}</span>
+                            <span className="block text-xs text-gray-500 dark:text-gray-400">
+                              {new Date(row.date).toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short' })}
+                              {accountNameById.get(row.accountId) && <> · {accountNameById.get(row.accountId)}</>}
+                            </span>
+                          </span>
+                          <span className={`text-sm tabular-nums shrink-0 ${
+                            row.amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                          }`}>
+                            {row.amount >= 0 ? `+${formatCurrency(row.amount)}` : formatCurrency(row.amount)}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            );
+          })()}
+        </ModalBody>
+      </Modal>
+
+      {/* The REAL editor, over whichever row was clicked — the same one the
+          register opens, so a calendar edit is a register edit. */}
+      {editing && (
+        <EditTransactionModal
+          isOpen
+          onClose={() => setEditing(null)}
+          transaction={editing}
+        />
+      )}
 
       <PageTip
         id="calendar-intro"
