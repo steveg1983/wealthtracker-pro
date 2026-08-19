@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import Calendar from '../Calendar';
 
@@ -10,13 +10,19 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
     transactions: [
       { id: '1', date: new Date(), amount: -50, type: 'expense', description: 'Test expense', accountId: 'acc1', category: 'Food' },
       { id: '2', date: new Date(), amount: 200, type: 'income', description: 'Test income', accountId: 'acc1', category: 'Salary' },
+      // No category at all: the week view must NAME this remainder rather
+      // than fold it into a figure that would then claim to be complete.
+      { id: '3', date: new Date(), amount: -12.5, type: 'expense', description: 'Unfiled expense', accountId: 'acc1', category: '' },
     ],
     accounts: [
       { id: 'acc1', name: 'Test Account', type: 'current', balance: 1000, openingBalance: 1000 },
     ],
     // The Income/Expenditure tiles run computeIncomeExpense, which needs both.
     transactionSplits: [],
-    categories: [],
+    categories: [
+      { id: 'Food', name: 'Food', type: 'expense', level: 'detail' },
+      { id: 'Salary', name: 'Salary', type: 'income', level: 'detail' },
+    ],
     // The forward panel reads the recurring verdicts; none here, so it shows
     // its "nothing confirmed yet" line.
     suggestionDismissals: [],
@@ -143,6 +149,88 @@ describe('Calendar', () => {
 });
 
 /**
+ * WEEK / MONTH / YEAR (owner, 19 Aug: Apple-style buttons beside Today; the
+ * figures above follow whichever stretch is on screen, and the arrows step
+ * by the view's own unit).
+ */
+describe('Calendar — the three views', () => {
+  const renderCalendar = (initialPath = '/calendar') =>
+    render(
+      <MemoryRouter initialEntries={[initialPath]}>
+        <Calendar />
+      </MemoryRouter>
+    );
+
+  it('offers Week, Month and Year beside Today, with Month pressed by default', () => {
+    renderCalendar();
+
+    const group = screen.getByRole('group', { name: 'Calendar view' });
+    expect(group).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Month' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Week' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Year' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('week view shows the week BY CATEGORY, split income from expenditure, naming the unfiled', () => {
+    renderCalendar();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Week' }));
+
+    // The month grid is gone; the category split is here.
+    expect(screen.queryByLabelText('Financial calendar')).not.toBeInTheDocument();
+    const split = within(screen.getByLabelText('Week by category'));
+    // Resolved categories read as the register reads them…
+    expect(split.getByText('Salary')).toBeInTheDocument();
+    expect(split.getByText('Food')).toBeInTheDocument();
+    expect(split.getByText('+£200.00')).toBeInTheDocument();
+    expect(split.getByText('(£50.00)')).toBeInTheDocument();
+    // …and the unfiled remainder is NAMED, never silently folded in.
+    expect(split.getByText('Uncategorised — not yet filed')).toBeInTheDocument();
+    expect(split.getByText('(£12.50)')).toBeInTheDocument();
+
+    // The arrows now step by the week.
+    expect(screen.getByLabelText('Previous week')).toBeInTheDocument();
+    expect(screen.getByLabelText('Next week')).toBeInTheDocument();
+  });
+
+  it('the tiles follow the visible window — stepping back a week changes the figures', () => {
+    renderCalendar('/calendar?view=week');
+
+    // This week holds the mock's rows…
+    expect(within(screen.getByLabelText('Week by category')).getByText('+£200.00')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Previous week'));
+
+    // …last week holds nothing, and the split says so honestly.
+    expect(screen.getByText('No income recorded this week.')).toBeInTheDocument();
+    expect(screen.getByText('No expenditure recorded this week.')).toBeInTheDocument();
+  });
+
+  it('year view shows twelve months, and a month is a door into its month view', () => {
+    renderCalendar();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Year' }));
+    expect(screen.getByLabelText('Year by month')).toBeInTheDocument();
+    expect(screen.getByLabelText('Previous year')).toBeInTheDocument();
+
+    const currentYear = new Date().getFullYear();
+    fireEvent.click(screen.getByRole('button', { name: `Open March ${currentYear}` }));
+
+    // Landed in March's month view.
+    expect(screen.getByRole('button', { name: 'Month' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(`March ${currentYear}`)).toBeInTheDocument();
+    expect(screen.getByLabelText('Financial calendar')).toBeInTheDocument();
+  });
+
+  it('the view survives a refresh — it lives in the URL', () => {
+    renderCalendar('/calendar?view=year');
+
+    expect(screen.getByRole('button', { name: 'Year' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText('Year by month')).toBeInTheDocument();
+  });
+});
+
+/**
  * CLICKING A DAY.
  *
  * This link had never worked. It pointed at `/transactions?dateFrom=…&dateTo=…`
@@ -168,7 +256,7 @@ describe('Calendar — a day with movement in it', () => {
 
     // The suite pins the clock to 20 January 2025, and both seeded rows are
     // dated "now" — so today is the day with movement in it.
-    fireEvent.click(screen.getByRole('button', { name: 'Day 20, 2 transactions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Day 20, 3 transactions' }));
 
     expect(screen.getByTestId('landed'))
       .toHaveTextContent('/find?dateFrom=2025-01-20&dateTo=2025-01-20');

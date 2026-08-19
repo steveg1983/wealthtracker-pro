@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useCallback, useEffect, useState, useMemo } from 'react';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { preserveDemoParam } from '../utils/navigation';
@@ -12,6 +12,7 @@ import { detectRecurring } from '../utils/recurringDetection';
 import { projectRecurringSchedule } from '../utils/recurringSchedule';
 import { dismissedKeys, recurringAnswerKey } from '../utils/suggestionDismissals';
 import { computeIncomeExpense } from '../utils/incomeExpense';
+import { createCategoryLabeller } from '../utils/categoryLabel';
 
 interface DayData {
   date: Date;
@@ -222,42 +223,150 @@ export default function Calendar() {
   const [showAllDue, setShowAllDue] = useState(false);
 
   /**
-   * THE MONTH'S TILES SPEAK INCOME AND EXPENDITURE, NOT CASH MOVEMENT
-   * (owner, 18 Aug, reading a month whose "Money in" included a six-figure
-   * transfer between his own accounts: "These figures are not the figures
-   * for one month. It is misleading… they have to at least be correct and
-   * match up to what has actually been the user's 'income' and
-   * 'expenditure' for that month").
+   * WEEK / MONTH / YEAR (owner, 19 Aug: "apple style buttons for week /
+   * Month / Year on the left hand side of the 'Today' button… If the user
+   * clicks on 'week' then the calendar goes to week view and the income and
+   * expenses figures above change… If the user presses the back arrow to go
+   * to the previous week, then that is what is viewed").
    *
-   * The old tiles summed the day cells, which are a cash-movement ledger —
-   * every movement counts, transfers included. Right for a DAY's activity,
-   * wrong for a headline that reads as the month's income: a standing order
-   * to savings is not earnings. So the tiles now go through the same
-   * computeIncomeExpense the dashboard's cards use (transfers and
-   * revaluations excluded, splits expanded), over exactly the visible
-   * month. The day cells stay the honest movement ledger they were; the
-   * transaction count stays a movement count and says so.
+   * The view lives in the URL, the Investments tabs' idiom: a refresh
+   * rebuilds state from nothing and the URL is the one thing a refresh
+   * keeps — which matters doubly here, where the home-screen app resumes
+   * rather than reloads. Month is the default and carries no parameter.
+   * `replace`, not push: switching views is not a navigation the back
+   * button should replay.
    */
-  const monthSummary = useMemo(() => {
-    const flows = computeIncomeExpense(transactions, transactionSplits, categories, {
-      from: new Date(year, month, 1),
-      to: new Date(year, month + 1, 0, 23, 59, 59, 999),
-    });
-    const monthDays = calendarData.filter(d => d.isCurrentMonth);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const viewParam = searchParams.get('view');
+  const view: 'week' | 'month' | 'year' =
+    viewParam === 'week' || viewParam === 'year' ? viewParam : 'month';
+  const setView = useCallback((next: 'week' | 'month' | 'year'): void => {
+    setSearchParams(prev => {
+      const params = new URLSearchParams(prev);
+      if (next === 'month') params.delete('view');
+      else params.set('view', next);
+      return params;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  /**
+   * The stretch of time the page is LOOKING AT — one definition, so the
+   * tiles, the title and each view's content can never disagree about it.
+   * The week runs Sunday to Saturday, matching the grid's own columns.
+   */
+  const visibleWindow = useMemo(() => {
+    if (view === 'week') {
+      const start = new Date(year, month, currentDate.getDate() - currentDate.getDay());
+      return {
+        from: start,
+        to: new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59, 999),
+      };
+    }
+    if (view === 'year') {
+      return { from: new Date(year, 0, 1), to: new Date(year, 11, 31, 23, 59, 59, 999) };
+    }
+    return { from: new Date(year, month, 1), to: new Date(year, month + 1, 0, 23, 59, 59, 999) };
+  }, [view, year, month, currentDate]);
+
+  /**
+   * THE TILES SPEAK INCOME AND EXPENDITURE, NOT CASH MOVEMENT (owner,
+   * 18 Aug, reading a month whose "Money in" included a six-figure transfer
+   * between his own accounts: "These figures are not the figures for one
+   * month. It is misleading… they have to at least be correct and match up
+   * to what has actually been the user's 'income' and 'expenditure'").
+   *
+   * They go through the same computeIncomeExpense the dashboard's cards use
+   * (transfers and revaluations excluded, splits expanded) — and since the
+   * views arrived they cover the VISIBLE WINDOW, whichever it is: step back
+   * a week and the figures are that week's (owner, 19 Aug). The day cells
+   * stay the honest movement ledger they were; the transaction count stays
+   * a movement count over the same window.
+   */
+  const windowSummary = useMemo(() => {
+    const flows = computeIncomeExpense(transactions, transactionSplits, categories, visibleWindow);
+    const count = transactions.filter(t => {
+      const time = new Date(t.date).getTime();
+      return time >= visibleWindow.from.getTime() && time <= visibleWindow.to.getTime();
+    }).length;
     return {
       totalIncome: flows.income.toNumber(),
       totalExpense: flows.expenses.toNumber(),
-      totalTransactions: monthDays.reduce((s, d) => s + d.transactionCount, 0),
+      totalTransactions: count,
     };
-  }, [transactions, transactionSplits, categories, year, month, calendarData]);
+  }, [transactions, transactionSplits, categories, visibleWindow]);
+
+  /**
+   * THE WEEK, BY CATEGORY, split income from expenditure (owner, 18 Aug:
+   * "in weekly, it should show by category, separated by income and
+   * expenditure"). Labels come from the register's own labeller, so a
+   * category reads here exactly as its column reads there — and the
+   * uncategorised remainder is NAMED, never folded silently into a figure
+   * that would then claim to be complete.
+   */
+  const weekBreakdown = useMemo(() => {
+    if (view !== 'week') return null;
+    const flows = computeIncomeExpense(transactions, transactionSplits, categories, visibleWindow);
+    const label = createCategoryLabeller(categories, accounts);
+    const grouped = (rows: typeof flows.incomeRows): Array<{ label: string; total: number }> => {
+      const totals = new Map<string, ReturnType<typeof toDecimal>>();
+      for (const row of rows) {
+        const key = label(row) || 'Uncategorised';
+        totals.set(key, (totals.get(key) ?? toDecimal(0)).plus(toDecimal(row.amount).abs()));
+      }
+      return [...totals.entries()]
+        .map(([name, total]) => ({ label: name, total: total.toNumber() }))
+        .sort((a, b) => b.total - a.total);
+    };
+    return {
+      income: grouped(flows.incomeRows),
+      expense: grouped(flows.expenseRows),
+      uncategorizedIn: flows.uncategorizedIn.toNumber(),
+      uncategorizedOut: flows.uncategorizedOut.toNumber(),
+    };
+  }, [view, transactions, transactionSplits, categories, accounts, visibleWindow]);
+
+  /**
+   * THE YEAR AS TWELVE MONTHS, each with its own income and expenditure,
+   * each a door into that month's view. Computed only while the year is on
+   * screen — twelve passes over the ledger is a cost the other views never
+   * pay.
+   */
+  const yearMonths = useMemo(() => {
+    if (view !== 'year') return null;
+    return Array.from({ length: 12 }, (_, m) => {
+      const flows = computeIncomeExpense(transactions, transactionSplits, categories, {
+        from: new Date(year, m, 1),
+        to: new Date(year, m + 1, 0, 23, 59, 59, 999),
+      });
+      return { month: m, income: flows.income.toNumber(), expense: flows.expenses.toNumber() };
+    });
+  }, [view, transactions, transactionSplits, categories, year]);
 
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   const goToToday = () => setCurrentDate(new Date());
-  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+  /** One step of whatever the view counts in: a week, a month, a year. */
+  const step = (direction: 1 | -1): void => {
+    if (view === 'week') setCurrentDate(new Date(year, month, currentDate.getDate() + 7 * direction));
+    else if (view === 'year') setCurrentDate(new Date(year + direction, month, 1));
+    else setCurrentDate(new Date(year, month + direction, 1));
+  };
+
+  /** "10–16 August 2026", crossing a month or a year honestly when it does. */
+  const weekTitle = (): string => {
+    const { from, to } = visibleWindow;
+    const locale = getDateLocale();
+    if (from.getMonth() === to.getMonth()) {
+      return `${from.getDate()}–${to.getDate()} ${from.toLocaleDateString(locale, { month: 'long', year: 'numeric' })}`;
+    }
+    const fromText = from.toLocaleDateString(locale, {
+      day: 'numeric', month: 'short',
+      ...(from.getFullYear() !== to.getFullYear() ? { year: 'numeric' } : {}),
+    });
+    return `${fromText} – ${to.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  };
 
   /**
    * "What was that day made of?" — answered in Find, dated to the day.
@@ -281,7 +390,7 @@ export default function Calendar() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Income</span>
-          <p className="text-lg font-semibold text-green-600 dark:text-green-400">{formatCurrency(monthSummary.totalIncome)}</p>
+          <p className="text-lg font-semibold text-green-600 dark:text-green-400">{formatCurrency(windowSummary.totalIncome)}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Expenditure</span>
@@ -298,17 +407,17 @@ export default function Calendar() {
           {/* Through formatCurrency as a NEGATIVE, so it wears the app-wide
               (£X) — a red figure without its brackets was the drift the
               owner caught on this very tile. */}
-          <p className="text-lg font-semibold text-red-600 dark:text-red-400">{formatCurrency(-monthSummary.totalExpense)}</p>
+          <p className="text-lg font-semibold text-red-600 dark:text-red-400">{formatCurrency(-windowSummary.totalExpense)}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Net</span>
-          <p className={`text-lg font-semibold ${toDecimal(monthSummary.totalIncome).minus(toDecimal(monthSummary.totalExpense)).greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-            {formatCurrency(toDecimal(monthSummary.totalIncome).minus(toDecimal(monthSummary.totalExpense)).toNumber())}
+          <p className={`text-lg font-semibold ${toDecimal(windowSummary.totalIncome).minus(toDecimal(windowSummary.totalExpense)).greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {formatCurrency(toDecimal(windowSummary.totalIncome).minus(toDecimal(windowSummary.totalExpense)).toNumber())}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Transactions</span>
-          <p className="text-lg font-semibold text-gray-900 dark:text-white">{monthSummary.totalTransactions}</p>
+          <p className="text-lg font-semibold text-gray-900 dark:text-white">{windowSummary.totalTransactions}</p>
         </div>
       </div>
 
@@ -411,9 +520,29 @@ export default function Calendar() {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {monthNames[month]} {year}
+            {view === 'year' ? year : view === 'week' ? weekTitle() : `${monthNames[month]} ${year}`}
           </h2>
           <div className="flex items-center gap-2">
+            {/* The view, chosen the way Apple Calendar chooses it — a
+                segmented control beside Today (owner, 19 Aug). The chosen
+                segment presses in; the URL carries it (see setView). */}
+            <div className="flex items-center rounded-lg bg-gray-100 dark:bg-gray-700 p-0.5" role="group" aria-label="Calendar view">
+              {(['week', 'month', 'year'] as const).map(option => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setView(option)}
+                  aria-pressed={view === option}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    view === option
+                      ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                  }`}
+                >
+                  {option === 'week' ? 'Week' : option === 'month' ? 'Month' : 'Year'}
+                </button>
+              ))}
+            </div>
             <button
               onClick={goToToday}
               className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
@@ -421,22 +550,23 @@ export default function Calendar() {
               Today
             </button>
             <button
-              onClick={prevMonth}
+              onClick={() => step(-1)}
               className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              aria-label="Previous month"
+              aria-label={`Previous ${view}`}
             >
               <ChevronLeftIcon size={20} className="text-gray-600 dark:text-gray-400" />
             </button>
             <button
-              onClick={nextMonth}
+              onClick={() => step(1)}
               className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              aria-label="Next month"
+              aria-label={`Next ${view}`}
             >
               <ChevronRightIcon size={20} className="text-gray-600 dark:text-gray-400" />
             </button>
           </div>
         </div>
 
+        {view === 'month' && (<>
         {/* Day headers */}
         <div className="grid grid-cols-7 border-b border-gray-100 dark:border-gray-700">
           {dayNames.map(day => (
@@ -526,6 +656,88 @@ export default function Calendar() {
             </div>
           ))}
         </div>
+        </>)}
+
+        {/* THE WEEK, BY CATEGORY — income one side, expenditure the other
+            (owner, 18 Aug). Every category figure is a sum of that week's
+            rows; the uncategorised remainder is named rather than folded in. */}
+        {view === 'week' && weekBreakdown && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-gray-100 dark:bg-gray-700" aria-label="Week by category">
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Income</h3>
+              {weekBreakdown.income.length === 0 && weekBreakdown.uncategorizedIn === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No income recorded this week.</p>
+              ) : (
+                <ul>
+                  {weekBreakdown.income.map(row => (
+                    <li key={row.label} className="py-1.5 flex items-baseline justify-between gap-4 border-t border-gray-50 dark:border-gray-700/50 first:border-0">
+                      <span className="text-sm text-gray-900 dark:text-white truncate">{row.label}</span>
+                      <span className="text-sm tabular-nums text-green-600 dark:text-green-400 shrink-0">
+                        +{formatCurrency(row.total)}
+                      </span>
+                    </li>
+                  ))}
+                  {weekBreakdown.uncategorizedIn > 0 && (
+                    <li className="py-1.5 flex items-baseline justify-between gap-4 border-t border-gray-50 dark:border-gray-700/50">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">Uncategorised — not yet filed</span>
+                      <span className="text-sm tabular-nums text-gray-500 dark:text-gray-400 shrink-0">
+                        +{formatCurrency(weekBreakdown.uncategorizedIn)}
+                      </span>
+                    </li>
+                  )}
+                </ul>
+              )}
+            </div>
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Expenditure</h3>
+              {weekBreakdown.expense.length === 0 && weekBreakdown.uncategorizedOut === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No expenditure recorded this week.</p>
+              ) : (
+                <ul>
+                  {weekBreakdown.expense.map(row => (
+                    <li key={row.label} className="py-1.5 flex items-baseline justify-between gap-4 border-t border-gray-50 dark:border-gray-700/50 first:border-0">
+                      <span className="text-sm text-gray-900 dark:text-white truncate">{row.label}</span>
+                      <span className="text-sm tabular-nums text-red-600 dark:text-red-400 shrink-0">
+                        {formatCurrency(-row.total)}
+                      </span>
+                    </li>
+                  ))}
+                  {weekBreakdown.uncategorizedOut > 0 && (
+                    <li className="py-1.5 flex items-baseline justify-between gap-4 border-t border-gray-50 dark:border-gray-700/50">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">Uncategorised — not yet filed</span>
+                      <span className="text-sm tabular-nums text-gray-500 dark:text-gray-400 shrink-0">
+                        {formatCurrency(-weekBreakdown.uncategorizedOut)}
+                      </span>
+                    </li>
+                  )}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* THE YEAR AS TWELVE MONTHS, each a door into its month view. */}
+        {view === 'year' && yearMonths && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-px bg-gray-100 dark:bg-gray-700" aria-label="Year by month">
+            {yearMonths.map(({ month: m, income, expense }) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => { setCurrentDate(new Date(year, m, 1)); setView('month'); }}
+                className="bg-white dark:bg-gray-800 p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/60 transition-colors"
+                aria-label={`Open ${monthNames[m]} ${year}`}
+              >
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">{monthNames[m]}</p>
+                <p className="text-sm tabular-nums text-green-600 dark:text-green-400 mt-1">
+                  +{formatCurrency(income)}
+                </p>
+                <p className="text-sm tabular-nums text-red-600 dark:text-red-400">
+                  {formatCurrency(-expense)}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <PageTip
