@@ -1857,10 +1857,13 @@ CREATE TABLE suggestion_dismissals (
   -- whose payee text no id remapper can touch — with one role-prefixed
   -- ACCOUNT id segment that a restore's remapping rewrites in place, so the
   -- verdict follows the account into its new login.
+  -- forecast-excluded (20260819130000): "not part of my typical month" —
+  -- one row struck from the forecast BASE, key = the row's bare uuid,
+  -- subject id carried so a deleted row takes its exclusion with it.
   kind         TEXT NOT NULL CHECK (kind IN (
                  'transfer-pair','transfer-leg','stranded','duplicate',
                  'payee-merchant','payee-line','payee-hidden',
-                 'recurring-confirmed','recurring-not')),
+                 'recurring-confirmed','recurring-not','forecast-excluded')),
 
   subject_key  TEXT NOT NULL CHECK (trim(subject_key) <> ''),
   dismissed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),

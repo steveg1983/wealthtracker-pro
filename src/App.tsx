@@ -53,6 +53,7 @@ const Investments = lazyWithPreload(() => import(/* webpackChunkName: "investmen
 const Budget = lazyWithPreload(() => import(/* webpackChunkName: "budget", webpackPreload: true */ './pages/Budget'));
 const Calendar = lazyWithPreload(() => import(/* webpackChunkName: "calendar" */ './pages/Calendar'));
 const RecurringPayments = lazyWithPreload(() => import(/* webpackChunkName: "recurring-payments" */ './pages/RecurringPayments'));
+const Forecast = lazyWithPreload(() => import(/* webpackChunkName: "forecast" */ './pages/Forecast'));
 const ReportsHub = lazyWithPreload(() => import(/* webpackChunkName: "reports-hub" */ './pages/ReportsHub'));
 const CustomReports = lazyWithPreload(() => import(/* webpackChunkName: "custom-reports" */ './pages/CustomReports'));
 const SettingsPage = lazyWithPreload(() => import(/* webpackChunkName: "settings" */ './pages/Settings'));
@@ -262,6 +263,11 @@ function App(): React.JSX.Element {
                           {/* Its old gallery address — bookmarks and pinned
                               links keep working after the move under Plan. */}
                           <Route path="reports/recurring-commitments" element={<RedirectWithSearch to="/recurring-payments" />} />
+                          <Route path="forecast" element={
+                            <ProtectedSuspense>
+                              <Forecast />
+                            </ProtectedSuspense>
+                          } />
                           <Route path="reports" element={
                             <ProtectedSuspense>
                               <ReportsHub />

@@ -188,6 +188,10 @@ export const DESKTOP_ROUTES = [
   // Its old gallery address, kept as a redirect in both editions so a pin or
   // bookmark made before the move under Plan still lands somewhere.
   { path: 'reports/recurring-commitments', at: 'reports/recurring-commitments', title: 'Recurring payments' },
+  // The forecast's BASE (docs/forecast-direction.md step 4): reads the open
+  // ledger's rows; its exclusions are verdicts in the file's own
+  // suggestion_dismissals — as local as the register it reviews.
+  { path: 'forecast', at: 'forecast', title: 'Forecast' },
   { path: 'reports', at: 'reports', title: 'Reports' },
   { path: 'reports/:reportId', at: 'reports/:reportId', title: 'Reports' },
   { path: 'custom-reports', at: 'custom-reports', title: 'Custom reports' },

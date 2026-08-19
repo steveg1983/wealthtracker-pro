@@ -398,8 +398,12 @@ export default function Layout(): React.JSX.Element {
                 // says what the page is; the page's own heading keeps the
                 // question it answers — "What I'm committed to".
                 { to: '/recurring-payments', icon: ClockIcon, label: 'Recurring Payments' },
+                // The scenario tool's base — review twelve months of actuals,
+                // strike the one-offs, and only ever promote to Budget by an
+                // explicit, per-category act (docs/forecast-direction.md).
+                { to: '/forecast', icon: TrendingUpIcon, label: 'Forecast' },
               ]}
-              activePaths={['/budget', '/calendar', '/recurring-payments']}
+              activePaths={['/budget', '/calendar', '/recurring-payments', '/forecast']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
@@ -678,6 +682,7 @@ export default function Layout(): React.JSX.Element {
                       <SidebarLink to="/budget" icon={BarChart3Icon} label="Budget" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/calendar" icon={CalendarIcon} label="Calendar" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/recurring-payments" icon={ClockIcon} label="Recurring Payments" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/forecast" icon={TrendingUpIcon} label="Forecast" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>
                   )}
                 </div>

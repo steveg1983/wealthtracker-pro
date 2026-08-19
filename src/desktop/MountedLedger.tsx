@@ -75,6 +75,7 @@ const Categorisation = lazyWithPreload(() => import(/* webpackChunkName: "catego
 const Budget = lazyWithPreload(() => import(/* webpackChunkName: "budget" */ '../pages/Budget'));
 const Calendar = lazyWithPreload(() => import(/* webpackChunkName: "calendar" */ '../pages/Calendar'));
 const RecurringPayments = lazyWithPreload(() => import(/* webpackChunkName: "recurring-payments" */ '../pages/RecurringPayments'));
+const Forecast = lazyWithPreload(() => import(/* webpackChunkName: "forecast" */ '../pages/Forecast'));
 const ReportsHub = lazyWithPreload(() => import(/* webpackChunkName: "reports-hub" */ '../pages/ReportsHub'));
 // Mounted rather than excluded as of the gating decision `routes.ts` records:
 // the local edition is a one-time purchase and its buyer is on the only tier
@@ -238,6 +239,7 @@ export default function MountedLedger(): ReactElement {
     calendar: page(<Calendar />),
     'recurring-payments': page(<RecurringPayments />),
     'reports/recurring-commitments': <RedirectWithSearch to="/recurring-payments" />,
+    forecast: page(<Forecast />),
     reports: page(<ReportsHub />),
     'reports/:reportId': page(<ReportsHub />),
     'custom-reports': page(<CustomReports />),
