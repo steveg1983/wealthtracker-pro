@@ -16,7 +16,7 @@ import { useCurrencyDecimal } from '../../../hooks/useCurrencyDecimal';
 import { categoricalColor, MAX_CATEGORICAL_SERIES, useCategoricalRamp, SEMANTIC_SERIES, useChartTooltipStyle } from '../../charts/chartColors';
 import { singlePointDot } from '../../charts/singlePointDots';
 import { buildMonthlyTrend } from '../../../utils/monthlyTrend';
-import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthPointToken } from '../../../utils/netWorthSeries';
+import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthPointToken, netWorthValueAxis } from '../../../utils/netWorthSeries';
 import { computeExpenseCategoryNetTotals } from '../../../utils/categoryNetting';
 import { expandSplitTransactions } from '../../../utils/transactionSplits';
 import { formatDecimal } from '../../../utils/decimal-format';
@@ -166,11 +166,16 @@ export function NetWorthWidget({ picker, pin }: {
                 format follows the span (Design, 17 Aug §2.3). */}
             <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 10 }} minTickGap={32} {...netWorthAxisTicks(snapshots)} />
             {/* The domain follows the DATA and dips below zero only when the
-                data does (§2.4): recharts' nice-tick rounding was answering
-                one early negative point with a −6.0M floor, spending a
-                quarter of the plot on nothing and flattening the curve the
-                chart exists to show. */}
-            <YAxis tick={{ fill: '#6B7280', fontSize: 10 }} tickFormatter={compactTick} width={44} domain={[(dataMin: number) => Math.min(0, dataMin), 'auto']} />
+                data does (§2.4). The ticks are OURS (netWorthValueAxis): the
+                function-form domain alone did not stop recharts' nice-tick
+                rounding from answering one shallow early dip with a floor a
+                full tick step below zero — a quarter of the plot spent on
+                nothing, flattening the curve the chart exists to show
+                (owner, 19 Aug, on his real ledger). */}
+            <YAxis
+              tick={{ fill: '#6B7280', fontSize: 10 }} tickFormatter={compactTick} width={44}
+              {...netWorthValueAxis(snapshots.map(s => s.netWorth))}
+            />
             <Tooltip contentStyle={chartTooltipStyle} separator=": " formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
             <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke={lineStroke} strokeWidth={2} dot={singlePointDot(snapshots, lineStroke)} isAnimationActive={false} />
           </LineChart>

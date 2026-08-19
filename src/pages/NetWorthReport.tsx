@@ -19,7 +19,7 @@ import { singlePointDot } from '../components/charts/singlePointDots';
 import { toDecimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { preserveDemoParam } from '../utils/navigation';
-import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthPointToken } from '../utils/netWorthSeries';
+import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthPointToken, netWorthValueAxis } from '../utils/netWorthSeries';
 import { useArrivalAction } from '../hooks/useArrivalFocus';
 import { resolveEffectiveOpeningDates } from '../utils/openingDates';
 import { TrendingUpIcon, ChevronRightIcon } from '../components/icons';
@@ -349,8 +349,22 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                 {/* Years for a multi-year window (§2.3) — same helper as the
                     Dashboard widget, so card and report tick identically. */}
                 <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 12 }} minTickGap={24} {...netWorthAxisTicks(snapshots)} />
-                {/* Below zero only when the data goes there (§2.4). */}
-                <YAxis tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={compactTick} width={70} domain={[(dataMin: number) => Math.min(0, dataMin), 'auto']} />
+                {/* Below zero only when the data goes there (§2.4) — with
+                    OUR ticks (netWorthValueAxis), because recharts' own
+                    rounding answered a shallow early dip with a floor a
+                    full tick step down. All three plotted series feed the
+                    scale. */}
+                <YAxis
+                  tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={compactTick} width={70}
+                  {...netWorthValueAxis(
+                    // The scale covers what is DRAWN: the context series join
+                    // it only when their lines are on, or the net line would
+                    // float in the bottom half of an axis sized for assets.
+                    showDetail
+                      ? snapshots.flatMap(s => [s.netWorth, s.assets, s.liabilities])
+                      : snapshots.map(s => s.netWorth)
+                  )}
+                />
                 {/* The radius-only contentStyle LOOKED themed and set no
                     colour — the same survivor pattern the 16 Aug sweep found
                     on three other report pages. */}

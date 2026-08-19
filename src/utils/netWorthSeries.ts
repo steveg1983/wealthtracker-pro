@@ -160,6 +160,61 @@ export function buildNetWorthSnapshots(
  * and for click identity — labels are what `activeLabel` hands back, so they
  * must stay unique per point; only the AXIS text compresses.
  */
+/**
+ * The classic 1-2-5 "nice" step. Deliberately NOT recharts' ladder, which
+ * includes 2.5: a 2.5K step renders "0 · 3K · 5K · 8K · 10K" through the
+ * compact tick formatter's whole-unit rounding — an axis that looks
+ * mis-spaced. Every 1-2-5 multiple survives the formatter intact.
+ */
+const niceStep = (raw: number): number => {
+  const power = Math.pow(10, Math.floor(Math.log10(raw)));
+  const fraction = raw / power;
+  return power * (fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10);
+};
+
+/**
+ * Y-axis domain and ticks for a value series that MAY dip below zero.
+ *
+ * Exists because recharts' own nice-tick rounding answers any dip below
+ * zero, however shallow, by extending the axis floor to the next full tick
+ * step DOWN. Measured on the owner's real ledger (19 Aug): an early dip a
+ * small fraction of one tick step deep bought the Net Worth chart a floor
+ * a FULL step below zero — a quarter of the plot spent on nothing,
+ * flattening the curve the chart exists to show. The
+ * `domain={[dataMin => Math.min(0, dataMin), 'auto']}` form does NOT
+ * prevent this: it sets the data floor, and the tick generator still
+ * rounds below it.
+ *
+ * So the ticks are supplied, not delegated: nice multiples of one step,
+ * covering the top of the data, with 0 always among them — and the floor is
+ * the DATA's own low point plus 2% breathing room, never a tick-step
+ * flourish. A shallow dip shows as a line grazing below the 0 gridline; a
+ * genuinely deep negative earns real negative ticks because they then fall
+ * inside the domain. All-positive data keeps the 0 floor it always had.
+ *
+ * Chart geometry, not money arithmetic — floats are fine here.
+ */
+export function netWorthValueAxis(values: number[]): { domain: [number, number]; ticks: number[] } {
+  const max = Math.max(0, ...values);
+  const min = Math.min(0, ...values);
+  const magnitude = Math.max(max, -min);
+  if (magnitude === 0) return { domain: [0, 1], ticks: [0, 1] };
+
+  const step = niceStep(magnitude / 5);
+  const top = max > 0 ? Math.ceil(max / step - 1e-9) * step : 0;
+  const bottom = min < 0 ? min - (top - min) * 0.02 : 0;
+
+  const ticks: number[] = [];
+  const first = Math.ceil(bottom / step - 1e-9);
+  const last = Math.round(top / step);
+  for (let i = first; i <= last; i++) {
+    // Integer multiples, so a long axis never drifts off its step — and
+    // −0 (which prints as "-0" through some formatters) normalised away.
+    ticks.push(i === 0 ? 0 : i * step);
+  }
+  return { domain: [bottom, top], ticks };
+}
+
 export function netWorthAxisTicks(snapshots: NetWorthSnapshot[]): {
   ticks?: string[];
   tickFormatter?: (label: string) => string;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildNetWorthSnapshots, netWorthAxisTicks } from './netWorthSeries';
+import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthValueAxis } from './netWorthSeries';
 import type { Account, Transaction } from '../types';
 import type { PeriodRange } from '../hooks/usePeriod';
 
@@ -141,5 +141,49 @@ describe('netWorthAxisTicks — the tick format follows the span', () => {
     const snaps = seeded({ from: D(2026, 8, 1), to: D(2026, 8, 17) });
     expect(netWorthAxisTicks(snaps)).toEqual({});
     expect(snaps[snaps.length - 1].label).toMatch(/^17 /);
+  });
+});
+
+describe('netWorthValueAxis — the floor belongs to the data, not the tick step', () => {
+  it('a shallow dip below zero never buys a full tick-step band (the measured floor)', () => {
+    // The owner's real SHAPE in invented figures: an early dip a small
+    // fraction of one tick step deep, a large positive peak at the end.
+    // recharts' own rounding answered this with a floor one full step
+    // below zero; ours grazes just under the dip.
+    const axis = netWorthValueAxis([-90_000, 2_000_000, 21_000_000]);
+    expect(Math.min(...axis.ticks)).toBe(0);
+    expect(axis.domain[0]).toBeLessThan(-90_000);
+    expect(axis.domain[0]).toBeGreaterThan(-600_000);
+    expect(axis.domain[1]).toBe(Math.max(...axis.ticks));
+    expect(axis.domain[1]).toBeGreaterThanOrEqual(21_000_000);
+    expect(axis.ticks).toContain(0);
+  });
+
+  it('a genuinely deep negative earns real negative ticks', () => {
+    const axis = netWorthValueAxis([-8_000_000, 17_000_000]);
+    expect(Math.min(...axis.ticks)).toBeLessThan(0);
+    expect(axis.domain[0]).toBeLessThan(-8_000_000);
+  });
+
+  it('all-positive data keeps the zero floor it always had', () => {
+    const axis = netWorthValueAxis([50_000, 900_000]);
+    expect(axis.domain[0]).toBe(0);
+    expect(axis.ticks[0]).toBe(0);
+    expect(axis.domain[1]).toBeGreaterThanOrEqual(900_000);
+  });
+
+  it('ticks are nice multiples of one step, zero among them, top covering the data', () => {
+    const axis = netWorthValueAxis([-90_000, 21_000_000]);
+    const step = axis.ticks[1] - axis.ticks[0];
+    axis.ticks.forEach((tick, i) => {
+      expect(tick).toBeCloseTo(axis.ticks[0] + i * step, 6);
+    });
+    expect(axis.ticks).toContain(0);
+    expect(Object.is(axis.ticks.find(t => t === 0), -0)).toBe(false);
+  });
+
+  it('an empty or all-zero series stays sane', () => {
+    expect(netWorthValueAxis([])).toEqual({ domain: [0, 1], ticks: [0, 1] });
+    expect(netWorthValueAxis([0, 0])).toEqual({ domain: [0, 1], ticks: [0, 1] });
   });
 });
