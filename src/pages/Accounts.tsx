@@ -837,20 +837,23 @@ export default function Accounts() {
 
 
   /**
-   * ARRIVING BACK MID-ROUND: a register whose review queue just emptied sends
-   * the user here with ?focus=review, consumed and deleted like the register's
-   * own deep-link params. Focus resumes only while there is still work — with
-   * nothing left to review anywhere, the round is over and this is the
-   * ordinary Accounts page (owner, 19 Aug: "until there is no more accounts
-   * to review after which you get taken back to the Accounts Page overall").
+   * ARRIVING BACK MID-ROUND: a register whose review queue just emptied — or
+   * a reconciliation just finished — sends the user here with ?focus=<mode>,
+   * consumed and deleted like the register's own deep-link params. Focus
+   * resumes only while that mode still has work — with nothing left anywhere,
+   * the round is over and this is the ordinary Accounts page (owner, 19 Aug:
+   * "until there is no more accounts to review after which you get taken
+   * back to the Accounts Page overall", and the same round for reconciling).
    */
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (params.get('focus') !== 'review') return;
+    const focus = params.get('focus');
+    if (focus !== 'review' && focus !== 'reconcile') return;
     params.delete('focus');
-    if (reviewTotal > 0) enterFocus('review');
+    const hasWork = focus === 'review' ? reviewTotal > 0 : reconcileAccountCount > 0;
+    if (hasWork) enterFocus(focus);
     navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
-  }, [location.pathname, location.search, reviewTotal, enterFocus, navigate]);
+  }, [location.pathname, location.search, reviewTotal, reconcileAccountCount, enterFocus, navigate]);
 
   const matchedTopLevelCount = isSearching
     ? topLevelAccounts.filter(accountOrChildMatches).length
@@ -1376,7 +1379,11 @@ export default function Accounts() {
    * The feature is the shortcut, not a new screen.
    */
   const reconcileHref = (accountId: string): string =>
-    preserveDemoParam(`/reconciliation?account=${accountId}&from=accounts`, location.search);
+    preserveDemoParam(
+      `/reconciliation?account=${accountId}&from=accounts${
+        focusMode === 'reconcile' ? '&back=accounts-reconcile' : ''}`,
+      location.search
+    );
 
   /*
    * From the FOCUSED list the link carries a way back: reviewing an account's
@@ -1394,7 +1401,7 @@ export default function Accounts() {
     <button
       type="button"
       onClick={() => navigate(
-        preserveDemoParam(`/reconciliation?account=${account.id}&from=accounts`, location.search),
+        reconcileHref(account.id),
         // The SAME crumbs the register is sent, so the trip back lands on this
         // row rather than at the top of the list — see `registerLinkState`.
         { state: registerLinkState(account.id) }
