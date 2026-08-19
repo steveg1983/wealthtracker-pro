@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { logActivity } from './useActivityTracking';
-import { formatDecimal } from '../utils/decimal-format';
+import { formatCurrency } from '../utils/currency-decimal';
 import { toDecimal } from '../utils/decimal';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
 
@@ -79,7 +79,7 @@ export function useActivityLogger() {
           logActivity({
             type: 'account',
             title: `${account.name} Balance Updated`,
-            description: `Balance changed by £${formatDecimal(Math.abs(diff), 2)}`,
+            description: `Balance changed by ${formatCurrency(Math.abs(diff))}`,
             amount: diff,
             // THIS account's register, not the list of all of them. The alert
             // names one account and states a movement; the next question is

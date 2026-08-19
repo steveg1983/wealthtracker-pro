@@ -95,7 +95,7 @@ export default function TransferRepointDialog({
           This transfer is moving to {targetAccountName}. Its other half is a transaction{' '}
           {where}
           {counterpart
-            ? ` for ${counterpart.amount >= 0 ? '+' : '-'}${formatCurrency(Math.abs(counterpart.amount))} on ${new Date(counterpart.date).toLocaleDateString()}`
+            ? ` for ${counterpart.amount >= 0 ? '+' : ''}${formatCurrency(counterpart.amount)} on ${new Date(counterpart.date).toLocaleDateString()}`
             : ''}
           , and it might be a real one rather than one this app created —{' '}
           {reasons[0] ?? 'nothing about it says where it came from'}. Moving a transaction that
