@@ -5,7 +5,6 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import { getDateLocale } from '../utils/dateFormatter';
 import { buildCategoryKindLookup, classifyFlow } from '../utils/incomeExpense';
-import { createCategoryLabeller } from '../utils/categoryLabel';
 import { dismissedKeys } from '../utils/suggestionDismissals';
 import { buildPlWindow, bucketIndexOf, dayOf } from '../utils/plWindow';
 import type { PlWindowKind } from '../utils/plWindow';
@@ -26,12 +25,28 @@ import type { ForecastAdjustment, Transaction } from '../types';
  * current 'P&L' right first… Forecast can be blank for the minute until
  * I decide how I would like it built."
  *
+ * ── THE SIDES READ AS A HIERARCHY, NOT A HEAP ──────────────────────────────
+ *
+ * Same owner, same day: "We need to have Expenses > category groupings >
+ * categories… Just having them listed in a random list is not how you
+ * would set out your 'P&L'. Each group heading can hide or show the
+ * categories below." So each side is CATEGORY GROUPS carrying subtotals,
+ * each collapsible, with the categories beneath showing their leaf names.
+ * The grouping is the category's parentId, resolved ONE hop — exactly the
+ * rule the register's Category column uses (utils/categoryLabel), so the
+ * P&L groups the way the register labels. A category with no parent
+ * stands at group level by itself. Ordering is the user's choice — by
+ * name, or by value in either direction (same owner: "give the user the
+ * option to have it sorted by 'group' or by 'value' high/low or
+ * low/high") — applied at every level, with the unfiled remainder always
+ * last: a remainder, not a category.
+ *
  * ── THE CURRENT TAB IS ACTUALS, WHOLE ──────────────────────────────────────
  *
  * - Every figure is grouped from the same real rows a category expands to,
  *   so a total is exactly the sum of the rows shown under it. Transfers
  *   and revaluations are not income or spending and are left out BY NAME,
- *   with their counts. The unfiled remainder is a NAMED line per side.
+ *   with their counts.
  * - Every window holds only COMPLETE periods — the current part month
  *   would understate every category it touches. The windows themselves
  *   (last twelve months, calendar year, tax year in 6th-to-5th tax months,
@@ -52,13 +67,23 @@ import type { ForecastAdjustment, Transaction } from '../types';
 
 const UNFILED_LABEL = 'Uncategorised — not yet filed';
 
-interface StatementGroup {
+interface StatementCategory {
+  /** null for the unfiled remainder. */
   categoryId: string | null;
+  /** The LEAF name — its group heading carries the rest of the path. */
   label: string;
   total: number;
   perBucket: number[];
   rows: Transaction[];
 }
+
+/** One line at group level: a heading with categories, or a category standing alone. */
+type SideEntry =
+  | { kind: 'group'; key: string; label: string; total: number; perBucket: number[]; categories: StatementCategory[] }
+  | { kind: 'single'; key: string; category: StatementCategory };
+
+const entryTotal = (entry: SideEntry): number =>
+  entry.kind === 'group' ? entry.total : entry.category.total;
 
 export default function Forecast(): React.JSX.Element {
   const {
@@ -87,9 +112,13 @@ export default function Forecast(): React.JSX.Element {
   );
 
   const [sectionOpen, setSectionOpen] = useState<{ in: boolean; out: boolean }>({ in: true, out: true });
+  /** The user's ordering: by name, or by value in either direction. */
+  const [sortOrder, setSortOrder] = useState<'name' | 'high' | 'low'>('high');
+  /** Group headings the user has folded shut — everything is open until asked. */
+  const [closedGroups, setClosedGroups] = useState<Set<string>>(new Set());
   const [showMonths, setShowMonths] = useState(false);
-  /** Which category's rows are open, as `${side}:${label}`. */
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  /** Which category's rows are open, as `${side}:${entryKey}:${categoryId}`. */
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
 
   // The exclusion verdicts are lazy-loaded and this page ASKS (the #353
   // lesson) — the Forecast tab names how many are kept for the redesign.
@@ -125,33 +154,49 @@ export default function Forecast(): React.JSX.Element {
     return () => { live = false; };
   }, []);
 
-  const labeller = useMemo(() => createCategoryLabeller(categories, accounts), [categories, accounts]);
   const categoryKinds = useMemo(() => buildCategoryKindLookup(categories), [categories]);
+  const categoryById = useMemo(
+    () => new Map(categories.map(category => [category.id, category])),
+    [categories]
+  );
 
   const statement = useMemo(() => {
     const bucketCount = plWindow.buckets.length;
-    const income = new Map<string, StatementGroup>();
-    const expense = new Map<string, StatementGroup>();
+
+    interface BuildEntry {
+      key: string;
+      label: string;
+      grouped: boolean;
+      categories: Map<string, StatementCategory>;
+    }
+    const sides: Record<'in' | 'out', Map<string, BuildEntry>> = { in: new Map(), out: new Map() };
     let transfers = 0;
     let revaluations = 0;
 
-    // Keyed by CATEGORY ID, not label — two categories that happened to
-    // share a wording must not share a figure.
-    const add = (
-      side: Map<string, StatementGroup>,
+    // Keyed by IDS, never wordings — two groups or categories that happened
+    // to share a name must not share a figure.
+    const put = (
+      side: 'in' | 'out',
+      entryKey: string,
+      entryLabel: string,
+      grouped: boolean,
       categoryId: string | null,
-      label: string,
+      leafLabel: string,
       row: Transaction,
       bucket: number
     ): void => {
-      const key = categoryId ?? UNFILED_LABEL;
-      const group = side.get(key)
-        ?? { categoryId, label, total: 0, perBucket: Array.from({ length: bucketCount }, () => 0), rows: [] };
+      const entries = sides[side];
+      const entry = entries.get(entryKey)
+        ?? { key: entryKey, label: entryLabel, grouped, categories: new Map<string, StatementCategory>() };
+      const categoryKey = categoryId ?? UNFILED_LABEL;
+      const category = entry.categories.get(categoryKey)
+        ?? { categoryId, label: leafLabel, total: 0, perBucket: Array.from({ length: bucketCount }, () => 0), rows: [] };
       const magnitude = toDecimal(row.amount).abs();
-      group.total = toDecimal(group.total).plus(magnitude).toNumber();
-      group.perBucket[bucket] = toDecimal(group.perBucket[bucket]).plus(magnitude).toNumber();
-      group.rows.push(row);
-      side.set(key, group);
+      category.total = toDecimal(category.total).plus(magnitude).toNumber();
+      category.perBucket[bucket] = toDecimal(category.perBucket[bucket]).plus(magnitude).toNumber();
+      category.rows.push(row);
+      entry.categories.set(categoryKey, category);
+      entries.set(entryKey, entry);
     };
 
     for (const row of transactions) {
@@ -160,54 +205,90 @@ export default function Forecast(): React.JSX.Element {
       const kind = classifyFlow(row, categoryKinds);
       if (kind === 'transfer') { transfers++; continue; }
       if (kind === 'revaluation') { revaluations++; continue; }
-      if (kind === 'uncategorized') {
-        add(row.amount >= 0 ? income : expense, null, UNFILED_LABEL, row, bucket);
+      const side: 'in' | 'out' =
+        kind === 'income' ? 'in' : kind === 'expense' ? 'out' : row.amount >= 0 ? 'in' : 'out';
+      const category = kind === 'uncategorized' ? undefined : categoryById.get(row.category);
+      if (!category) {
+        put(side, UNFILED_LABEL, UNFILED_LABEL, false, null, UNFILED_LABEL, row, bucket);
         continue;
       }
-      add(kind === 'income' ? income : expense, row.category, labeller(row) || UNFILED_LABEL, row, bucket);
+      // The group is the parent, ONE hop — the register's own labelling rule.
+      const parent = category.parentId ? categoryById.get(category.parentId) : undefined;
+      if (parent) {
+        put(side, `grp:${parent.id}`, parent.name, true, category.id, category.name, row, bucket);
+      } else {
+        put(side, `cat:${category.id}`, category.name, false, category.id, category.name, row, bucket);
+      }
     }
 
-    const finish = (side: Map<string, StatementGroup>): StatementGroup[] =>
-      [...side.values()]
-        .map(group => ({
-          ...group,
-          rows: [...group.rows].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)),
-        }))
+    // The user's ordering, applied at every level. The unfiled line is
+    // always last, whatever its size — a remainder, not a category.
+    const compare = (aLabel: string, aTotal: number, bLabel: string, bTotal: number): number =>
+      sortOrder === 'name' ? aLabel.localeCompare(bLabel, undefined, { sensitivity: 'base' })
+        : sortOrder === 'low' ? aTotal - bTotal
+          : bTotal - aTotal;
+
+    const finishSide = (entries: Map<string, BuildEntry>): SideEntry[] =>
+      [...entries.values()]
+        .map((entry): SideEntry => {
+          const finished = [...entry.categories.values()]
+            .map(category => ({
+              ...category,
+              rows: [...category.rows].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)),
+            }))
+            .sort((a, b) => compare(a.label, a.total, b.label, b.total));
+          if (!entry.grouped) {
+            return { kind: 'single', key: entry.key, category: finished[0] };
+          }
+          const total = finished.reduce(
+            (sum, category) => toDecimal(sum).plus(toDecimal(category.total)).toNumber(), 0
+          );
+          const perBucket = Array.from({ length: bucketCount }, (_, i) =>
+            finished.reduce((sum, category) => toDecimal(sum).plus(toDecimal(category.perBucket[i])).toNumber(), 0)
+          );
+          return { kind: 'group', key: entry.key, label: entry.label, total, perBucket, categories: finished };
+        })
         .sort((a, b) => {
-          // The unfiled line last, whatever its size — it is a remainder,
-          // not a category.
-          if (a.label === UNFILED_LABEL) return 1;
-          if (b.label === UNFILED_LABEL) return -1;
-          return b.total - a.total;
+          const aUnfiled = a.kind === 'single' && a.category.categoryId === null;
+          const bUnfiled = b.kind === 'single' && b.category.categoryId === null;
+          if (aUnfiled !== bUnfiled) return aUnfiled ? 1 : -1;
+          const aLabel = a.kind === 'group' ? a.label : a.category.label;
+          const bLabel = b.kind === 'group' ? b.label : b.category.label;
+          return compare(aLabel, entryTotal(a), bLabel, entryTotal(b));
         });
 
-    const sumBuckets = (groups: StatementGroup[]): number[] =>
+    const sumTotals = (entries: SideEntry[]): number =>
+      entries.reduce((sum, entry) => toDecimal(sum).plus(toDecimal(entryTotal(entry))).toNumber(), 0);
+    const sumBuckets = (entries: SideEntry[]): number[] =>
       Array.from({ length: bucketCount }, (_, i) =>
-        groups.reduce((total, group) => toDecimal(total).plus(toDecimal(group.perBucket[i])).toNumber(), 0)
+        entries.reduce((sum, entry) => {
+          const value = entry.kind === 'group' ? entry.perBucket[i] : entry.category.perBucket[i];
+          return toDecimal(sum).plus(toDecimal(value)).toNumber();
+        }, 0)
       );
 
-    const incomeGroups = finish(income);
-    const expenseGroups = finish(expense);
-    const incomePerBucket = sumBuckets(incomeGroups);
-    const expensePerBucket = sumBuckets(expenseGroups);
-    const incomeTotal = incomePerBucket.reduce((a, b) => toDecimal(a).plus(toDecimal(b)).toNumber(), 0);
-    const expenseTotal = expensePerBucket.reduce((a, b) => toDecimal(a).plus(toDecimal(b)).toNumber(), 0);
+    const income = finishSide(sides.in);
+    const expense = finishSide(sides.out);
+    const incomeTotal = sumTotals(income);
+    const expenseTotal = sumTotals(expense);
+    const incomePerBucket = sumBuckets(income);
+    const expensePerBucket = sumBuckets(expense);
 
     return {
-      income: incomeGroups,
-      expense: expenseGroups,
+      income,
+      expense,
       incomeTotal,
       expenseTotal,
       incomePerBucket,
       expensePerBucket,
       net: toDecimal(incomeTotal).minus(toDecimal(expenseTotal)).toNumber(),
-      netPerBucket: incomePerBucket.map((v, i) =>
-        toDecimal(v).minus(toDecimal(expensePerBucket[i])).toNumber()
+      netPerBucket: incomePerBucket.map((value, i) =>
+        toDecimal(value).minus(toDecimal(expensePerBucket[i])).toNumber()
       ),
       transfers,
       revaluations,
     };
-  }, [transactions, plWindow, categoryKinds, labeller]);
+  }, [transactions, plWindow, categoryKinds, categoryById, sortOrder]);
 
   const average = (total: number): number =>
     toDecimal(total).dividedBy(plWindow.buckets.length).toNumber();
@@ -251,6 +332,14 @@ export default function Forecast(): React.JSX.Element {
   const toggleSection = (side: 'in' | 'out'): void =>
     setSectionOpen(previous => ({ ...previous, [side]: !previous[side] }));
 
+  const toggleGroup = (key: string): void =>
+    setClosedGroups(previous => {
+      const next = new Set(previous);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
   /** The rows a category's figure is the sum of — shared by both layouts. */
   const TransactionRows = ({ rows }: { rows: Transaction[] }): React.JSX.Element => (
     <ul className="pb-2 pl-2">
@@ -277,9 +366,44 @@ export default function Forecast(): React.JSX.Element {
     </ul>
   );
 
-  /** One P&L section in the list layout — heading collapsible, rows drillable. */
-  const SectionList = ({ side, title, groups, total }: {
-    side: 'in' | 'out'; title: string; groups: StatementGroup[]; total: number;
+  /** One category line in the list layout — drillable to its rows. */
+  const CategoryLine = ({ side, category, drillKey }: {
+    side: 'in' | 'out'; category: StatementCategory; drillKey: string;
+  }): React.JSX.Element => {
+    const rowsOpen = openCategory === drillKey;
+    return (
+      <li className="border-t border-gray-50 dark:border-gray-700/50 first:border-0">
+        <button
+          type="button"
+          onClick={() => setOpenCategory(rowsOpen ? null : drillKey)}
+          aria-expanded={rowsOpen}
+          className="w-full py-2 flex items-baseline justify-between gap-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded"
+        >
+          <span className={`text-sm truncate ${
+            category.categoryId === null
+              ? 'text-gray-500 dark:text-gray-400'
+              : 'text-gray-900 dark:text-white'
+          }`}>
+            {category.label}
+            <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{category.rows.length}</span>
+          </span>
+          <span className="text-right shrink-0">
+            <span className="block text-sm tabular-nums text-gray-900 dark:text-white">
+              {flowText(side, category.total)}
+            </span>
+            <span className="block text-xs tabular-nums text-gray-500 dark:text-gray-400">
+              {formatCurrency(average(category.total))} a month
+            </span>
+          </span>
+        </button>
+        {rowsOpen && <TransactionRows rows={category.rows} />}
+      </li>
+    );
+  };
+
+  /** One P&L section in the list layout — heading, group headings, categories. */
+  const SectionList = ({ side, title, entries, total }: {
+    side: 'in' | 'out'; title: string; entries: SideEntry[]; total: number;
   }): React.JSX.Element => {
     const open = sectionOpen[side];
     return (
@@ -306,41 +430,60 @@ export default function Forecast(): React.JSX.Element {
           </span>
         </div>
         {open && (
-          groups.length === 0 ? (
+          entries.length === 0 ? (
             <p className="pb-2 pl-6 text-body text-gray-500 dark:text-gray-400">
               Nothing on this side of the ledger in this window.
             </p>
           ) : (
             <ul className="pb-1 pl-4">
-              {groups.map(group => {
-                const key = `${side}:${group.label}`;
-                const rowsOpen = openGroup === key;
+              {entries.map(entry => {
+                if (entry.kind === 'single') {
+                  return (
+                    <CategoryLine
+                      key={entry.key}
+                      side={side}
+                      category={entry.category}
+                      drillKey={`${side}:${entry.key}`}
+                    />
+                  );
+                }
+                const groupKey = `${side}:${entry.key}`;
+                const groupOpen = !closedGroups.has(groupKey);
                 return (
-                  <li key={group.label} className="border-t border-gray-50 dark:border-gray-700/50 first:border-0">
-                    <button
-                      type="button"
-                      onClick={() => setOpenGroup(rowsOpen ? null : key)}
-                      aria-expanded={rowsOpen}
-                      className="w-full py-2 flex items-baseline justify-between gap-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded"
-                    >
-                      <span className={`text-sm truncate ${
-                        group.label === UNFILED_LABEL
-                          ? 'text-gray-500 dark:text-gray-400'
-                          : 'text-gray-900 dark:text-white'
-                      }`}>
-                        {group.label}
-                        <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{group.rows.length}</span>
-                      </span>
+                  <li key={entry.key} className="border-t border-gray-50 dark:border-gray-700/50 first:border-0">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(groupKey)}
+                        aria-expanded={groupOpen}
+                        className="flex items-center gap-1.5 py-2 text-sm font-medium text-gray-900 dark:text-white"
+                      >
+                        {groupOpen
+                          ? <ChevronDownIcon size={14} className="text-gray-400 shrink-0" />
+                          : <ChevronRightIcon size={14} className="text-gray-400 shrink-0" />}
+                        {entry.label}
+                      </button>
                       <span className="text-right shrink-0">
-                        <span className="block text-sm tabular-nums text-gray-900 dark:text-white">
-                          {flowText(side, group.total)}
+                        <span className="block text-sm tabular-nums font-medium text-gray-900 dark:text-white">
+                          {flowText(side, entry.total)}
                         </span>
                         <span className="block text-xs tabular-nums text-gray-500 dark:text-gray-400">
-                          {formatCurrency(average(group.total))} a month
+                          {formatCurrency(average(entry.total))} a month
                         </span>
                       </span>
-                    </button>
-                    {rowsOpen && <TransactionRows rows={group.rows} />}
+                    </div>
+                    {groupOpen && (
+                      <ul className="pl-5">
+                        {entry.categories.map(category => (
+                          <CategoryLine
+                            key={category.categoryId ?? category.label}
+                            side={side}
+                            category={category}
+                            drillKey={`${side}:${entry.key}:${category.categoryId ?? category.label}`}
+                          />
+                        ))}
+                      </ul>
+                    )}
                   </li>
                 );
               })}
@@ -353,11 +496,60 @@ export default function Forecast(): React.JSX.Element {
 
   const columnCount = plWindow.buckets.length + 3;
 
+  /** A category's cells in the table layout. */
+  const categoryTableRow = (
+    side: 'in' | 'out',
+    category: StatementCategory,
+    drillKey: string,
+    indent: string
+  ): React.JSX.Element => {
+    const rowsOpen = openCategory === drillKey;
+    return (
+      <React.Fragment key={drillKey}>
+        <tr className="border-t border-gray-50 dark:border-gray-700/50">
+          <td className={`sticky left-0 bg-white dark:bg-gray-800 py-1.5 pr-4 ${indent}`}>
+            <button
+              type="button"
+              onClick={() => setOpenCategory(rowsOpen ? null : drillKey)}
+              aria-expanded={rowsOpen}
+              className={`text-left text-sm truncate max-w-[16rem] ${
+                category.categoryId === null
+                  ? 'text-gray-500 dark:text-gray-400'
+                  : 'text-gray-900 dark:text-white'
+              }`}
+            >
+              {category.label}
+              <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{category.rows.length}</span>
+            </button>
+          </td>
+          {category.perBucket.map((value, i) => (
+            <td key={plWindow.buckets[i].key} className="py-1.5 px-2 text-right text-sm tabular-nums text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              {cellText(side, value)}
+            </td>
+          ))}
+          <td className="py-1.5 pl-3 text-right text-sm tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
+            {flowText(side, category.total)}
+          </td>
+          <td className="py-1.5 pl-3 text-right text-sm tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">
+            {formatCurrency(average(category.total))}
+          </td>
+        </tr>
+        {rowsOpen && (
+          <tr>
+            <td colSpan={columnCount} className="pl-4">
+              <TransactionRows rows={category.rows} />
+            </td>
+          </tr>
+        )}
+      </React.Fragment>
+    );
+  };
+
   /** One P&L section in the months-across table layout. */
   const sectionTableRows = (
     side: 'in' | 'out',
     title: string,
-    groups: StatementGroup[],
+    entries: SideEntry[],
     total: number,
     perBucket: number[]
   ): React.JSX.Element => {
@@ -390,45 +582,47 @@ export default function Forecast(): React.JSX.Element {
             {formatCurrency(average(total))}
           </td>
         </tr>
-        {open && groups.map(group => {
-          const key = `${side}:${group.label}`;
-          const rowsOpen = openGroup === key;
+        {open && entries.map(entry => {
+          if (entry.kind === 'single') {
+            return categoryTableRow(side, entry.category, `${side}:${entry.key}`, 'pl-4');
+          }
+          const groupKey = `${side}:${entry.key}`;
+          const groupOpen = !closedGroups.has(groupKey);
           return (
-            <React.Fragment key={group.label}>
+            <React.Fragment key={entry.key}>
               <tr className="border-t border-gray-50 dark:border-gray-700/50">
                 <td className="sticky left-0 bg-white dark:bg-gray-800 py-1.5 pl-4 pr-4">
                   <button
                     type="button"
-                    onClick={() => setOpenGroup(rowsOpen ? null : key)}
-                    aria-expanded={rowsOpen}
-                    className={`text-left text-sm truncate max-w-[16rem] ${
-                      group.label === UNFILED_LABEL
-                        ? 'text-gray-500 dark:text-gray-400'
-                        : 'text-gray-900 dark:text-white'
-                    }`}
+                    onClick={() => toggleGroup(groupKey)}
+                    aria-expanded={groupOpen}
+                    className="flex items-center gap-1.5 text-left text-sm font-medium text-gray-900 dark:text-white truncate max-w-[16rem]"
                   >
-                    {group.label}
-                    <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{group.rows.length}</span>
+                    {groupOpen
+                      ? <ChevronDownIcon size={14} className="text-gray-400 shrink-0" />
+                      : <ChevronRightIcon size={14} className="text-gray-400 shrink-0" />}
+                    {entry.label}
                   </button>
                 </td>
-                {group.perBucket.map((value, i) => (
-                  <td key={plWindow.buckets[i].key} className="py-1.5 px-2 text-right text-sm tabular-nums text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                {entry.perBucket.map((value, i) => (
+                  <td key={plWindow.buckets[i].key} className="py-1.5 px-2 text-right text-sm tabular-nums font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                     {cellText(side, value)}
                   </td>
                 ))}
-                <td className="py-1.5 pl-3 text-right text-sm tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
-                  {flowText(side, group.total)}
+                <td className="py-1.5 pl-3 text-right text-sm tabular-nums font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                  {flowText(side, entry.total)}
                 </td>
                 <td className="py-1.5 pl-3 text-right text-sm tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                  {formatCurrency(average(group.total))}
+                  {formatCurrency(average(entry.total))}
                 </td>
               </tr>
-              {rowsOpen && (
-                <tr>
-                  <td colSpan={columnCount} className="pl-4">
-                    <TransactionRows rows={group.rows} />
-                  </td>
-                </tr>
+              {groupOpen && entry.categories.map(category =>
+                categoryTableRow(
+                  side,
+                  category,
+                  `${side}:${entry.key}:${category.categoryId ?? category.label}`,
+                  'pl-8'
+                )
               )}
             </React.Fragment>
           );
@@ -545,7 +739,28 @@ export default function Forecast(): React.JSX.Element {
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 sm:p-6">
-              <div className="flex justify-end mb-1">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                <div className="flex items-center rounded-lg bg-gray-100 dark:bg-gray-700 p-0.5" role="group" aria-label="Sort order">
+                  {([
+                    ['name', 'A to Z'],
+                    ['high', 'Largest first'],
+                    ['low', 'Smallest first'],
+                  ] as const).map(([order, name]) => (
+                    <button
+                      key={order}
+                      type="button"
+                      onClick={() => setSortOrder(order)}
+                      aria-pressed={sortOrder === order}
+                      className={`px-2.5 py-0.5 text-xs font-medium rounded-md transition-colors ${
+                        sortOrder === order
+                          ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                          : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowMonths(previous => !previous)}
@@ -598,8 +813,8 @@ export default function Forecast(): React.JSX.Element {
                 </div>
               ) : (
                 <div>
-                  <SectionList side="in" title="Income" groups={statement.income} total={statement.incomeTotal} />
-                  <SectionList side="out" title="Expenditure" groups={statement.expense} total={statement.expenseTotal} />
+                  <SectionList side="in" title="Income" entries={statement.income} total={statement.incomeTotal} />
+                  <SectionList side="out" title="Expenditure" entries={statement.expense} total={statement.expenseTotal} />
                   <div className="mt-1 pt-3 border-t-2 border-gray-200 dark:border-gray-600 flex items-baseline justify-between gap-4">
                     <span className="text-card font-semibold text-theme-heading dark:text-white">{netLabel}</span>
                     <span className="text-right shrink-0">
