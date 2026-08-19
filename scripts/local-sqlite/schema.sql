@@ -1651,6 +1651,33 @@ CREATE INDEX idx_custom_reports_user ON custom_reports(user_id);
 --     dozen rows is write cost bought against a sort of a dozen rows. The
 --     argument, with the measurement behind it, is at `crate::verbs::reads`.
 
+-- One row per category the user has ADJUSTED in the forecast scenario
+-- (20260819150000): the monthly figure the scenario uses in place of the
+-- twelve-month base average. Holds no ledger data and changes no figure —
+-- the scenario reads the base and lays these on top; Budget is only ever
+-- written by the explicit stage-2 promotion, which does not exist yet.
+--
+-- RELATIONAL rather than a json document keyed by category ids, and the
+-- reason is the backup format's: the restore remapper rewrites uuid COLUMNS,
+-- never the keys of a json object, so a document would restore verbatim into
+-- a login with fresh ids and silently adjust nothing. As a column the
+-- reference remaps, dangles loudly, and CASCADEs away with its category.
+--
+-- `monthly_minor` is an INTEGER of pennies — this file's money discipline;
+-- a magnitude, with the category's own income/expense type saying which side
+-- it lands on.
+CREATE TABLE forecast_adjustments (
+  id            TEXT PRIMARY KEY,
+  user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  category_id   TEXT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+  monthly_minor INTEGER NOT NULL CHECK (monthly_minor >= 0),
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  -- One adjustment per category per user — the scenario is a single stated
+  -- figure, not a history of edits. Doubles as the by-owner lookup.
+  CONSTRAINT forecast_adjustments_one_per_category UNIQUE (user_id, category_id)
+) STRICT;
+
 
 -- ============================================================================
 -- 9. INVESTMENTS

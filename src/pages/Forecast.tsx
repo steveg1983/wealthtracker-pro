@@ -8,7 +8,10 @@ import { getDateLocale } from '../utils/dateFormatter';
 import { buildCategoryKindLookup, classifyFlow } from '../utils/incomeExpense';
 import { createCategoryLabeller } from '../utils/categoryLabel';
 import { dismissedKeys } from '../utils/suggestionDismissals';
-import type { Transaction } from '../types';
+import { dataPort } from '@data';
+import MoneyInput from '../components/common/MoneyInput';
+import { parseMoneyInput } from '../utils/decimal';
+import type { ForecastAdjustment, Transaction } from '../types';
 
 /**
  * THE FORECAST'S BASE — the last twelve months, category by category.
@@ -41,11 +44,30 @@ import type { Transaction } from '../types';
  * - The unfiled remainder is a NAMED line per side, excludable like any
  *   category's rows — a one-off that was never categorised is still a
  *   one-off.
+ *
+ * ── THE SCENARIO IS STATED ADJUSTMENTS OVER THE VISIBLE BASE ───────────────
+ *
+ * Design's interrogability rule, and the owner's ruling, made literal: each
+ * category row shows its base average AND its scenario figure side by side.
+ * A category follows the base until the user states otherwise; a stated
+ * figure shows its deviation against the base it deviates from, and one
+ * click returns it. The adjustments persist through the seam
+ * ('forecast_adjustments', both engines — a signed-out browser refuses the
+ * write out loud rather than keeping it somewhere no backup carries). An
+ * adjustment whose category has no recent activity is still SHOWN, in its
+ * own band: a stored deviation that influenced no visible row would be a
+ * scenario nobody can interrogate.
  */
 
 const UNFILED_LABEL = 'Uncategorised — not yet filed';
 
+/** Which side of the P&L a category's flow kind lands on. */
+const categoryKindOfSide = (kind: string | null): 'in' | 'out' | null =>
+  kind === 'income' ? 'in' : kind === 'expense' ? 'out' : null;
+
 interface BaseGroup {
+  /** null for the unfiled remainder — the one line with nothing to adjust. */
+  categoryId: string | null;
   label: string;
   total: number;
   rows: Transaction[];
@@ -92,11 +114,19 @@ export default function Forecast(): React.JSX.Element {
     let revaluations = 0;
     const excluded: Transaction[] = [];
 
-    const add = (side: Map<string, BaseGroup>, label: string, row: Transaction): void => {
-      const group = side.get(label) ?? { label, total: 0, rows: [] };
+    // Keyed by CATEGORY ID, not label — the scenario attaches to the id, and
+    // two categories that happened to share a wording must not share a figure.
+    const add = (
+      side: Map<string, BaseGroup>,
+      categoryId: string | null,
+      label: string,
+      row: Transaction
+    ): void => {
+      const key = categoryId ?? UNFILED_LABEL;
+      const group = side.get(key) ?? { categoryId, label, total: 0, rows: [] };
       group.total = toDecimal(group.total).plus(toDecimal(row.amount).abs()).toNumber();
       group.rows.push(row);
-      side.set(label, group);
+      side.set(key, group);
     };
 
     for (const row of transactions) {
@@ -107,10 +137,10 @@ export default function Forecast(): React.JSX.Element {
       if (kind === 'transfer') { transfers++; continue; }
       if (kind === 'revaluation') { revaluations++; continue; }
       if (kind === 'uncategorized') {
-        add(row.amount >= 0 ? income : expense, UNFILED_LABEL, row);
+        add(row.amount >= 0 ? income : expense, null, UNFILED_LABEL, row);
         continue;
       }
-      add(kind === 'income' ? income : expense, labeller(row) || UNFILED_LABEL, row);
+      add(kind === 'income' ? income : expense, row.category, labeller(row) || UNFILED_LABEL, row);
     }
 
     const finish = (side: Map<string, BaseGroup>): BaseGroup[] =>
@@ -147,6 +177,76 @@ export default function Forecast(): React.JSX.Element {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
 
+  /**
+   * THE SCENARIO's stored deviations, keyed by category. Loaded through the
+   * seam rather than the app context: the context does not carry them, and
+   * the one page that reads them is this one — the asymmetry the port's own
+   * docs argue against putting them in the boot.
+   */
+  const [adjustments, setAdjustments] = useState<Map<string, ForecastAdjustment>>(new Map());
+  const [adjustmentsStatus, setAdjustmentsStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const rows = await dataPort.listForecastAdjustments();
+        if (!live) return;
+        setAdjustments(new Map(rows.map(row => [row.categoryId, row])));
+        setAdjustmentsStatus('ready');
+      } catch {
+        if (!live) return;
+        // A failed read is a scenario that FOLLOWS THE BASE, said on screen —
+        // never invented deviations from another store.
+        setAdjustmentsStatus('error');
+      }
+    })();
+    return () => { live = false; };
+  }, []);
+
+  /** The category currently being adjusted, and the draft in its box. */
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [draftMonthly, setDraftMonthly] = useState('');
+  const [savingAdjustment, setSavingAdjustment] = useState(false);
+
+  const stateAdjustment = async (categoryId: string): Promise<void> => {
+    const pounds = parseMoneyInput(draftMonthly);
+    if (pounds === null || pounds < 0) {
+      showError(new Error('Enter the monthly figure for the scenario — zero or more'));
+      return;
+    }
+    setSavingAdjustment(true);
+    try {
+      const stated = await dataPort.setForecastAdjustment(
+        categoryId,
+        toDecimal(pounds).times(100).toNumber()
+      );
+      setAdjustments(previous => new Map(previous).set(categoryId, stated));
+      setEditingCategory(null);
+      setDraftMonthly('');
+    } catch (error) {
+      showError(error);
+    } finally {
+      setSavingAdjustment(false);
+    }
+  };
+
+  const followBase = async (categoryId: string): Promise<void> => {
+    setSavingAdjustment(true);
+    try {
+      await dataPort.clearForecastAdjustment(categoryId);
+      setAdjustments(previous => {
+        const next = new Map(previous);
+        next.delete(categoryId);
+        return next;
+      });
+      setEditingCategory(null);
+    } catch (error) {
+      showError(error);
+    } finally {
+      setSavingAdjustment(false);
+    }
+  };
+
   const exclude = async (row: Transaction): Promise<void> => {
     setSavingId(row.id);
     try {
@@ -167,6 +267,58 @@ export default function Forecast(): React.JSX.Element {
     } finally {
       setSavingId(null);
     }
+  };
+
+  /** A group's SCENARIO monthly figure, in pounds: stated, or the base's. */
+  const scenarioMonthly = (group: BaseGroup): number => {
+    if (group.categoryId !== null) {
+      const stated = adjustments.get(group.categoryId);
+      if (stated) return toDecimal(stated.monthlyMinor).dividedBy(100).toNumber();
+    }
+    return average(group.total);
+  };
+
+  /**
+   * Adjustments on categories the base does not show — no activity in the
+   * window, or category gone from the ledger's list. STILL SHOWN, in their
+   * own band, and still counted in the scenario's totals: a stored deviation
+   * that influenced no visible figure would be a scenario nobody can
+   * interrogate.
+   */
+  const orphanAdjustments = useMemo(() => {
+    const inBase = new Set(
+      [...base.income, ...base.expense]
+        .map(group => group.categoryId)
+        .filter((id): id is string => id !== null)
+    );
+    const named = new Map(categories.map(category => [category.id, category]));
+    return [...adjustments.values()]
+      .filter(adjustment => !inBase.has(adjustment.categoryId))
+      .map(adjustment => {
+        const category = named.get(adjustment.categoryId);
+        return {
+          adjustment,
+          label: category
+            ? (labeller({ category: adjustment.categoryId }) || category.name)
+            : 'A category no longer in your list',
+          side: (category && categoryKindOfSide(categoryKinds.get(adjustment.categoryId) ?? null)) ?? 'out',
+        };
+      });
+  }, [adjustments, base.income, base.expense, categories, labeller, categoryKinds]);
+
+  /** One side's scenario monthly total: its groups' effective figures plus its orphans. */
+  const scenarioSideTotal = (groups: BaseGroup[], side: 'in' | 'out'): number => {
+    const fromGroups = groups.reduce(
+      (total, group) => toDecimal(total).plus(toDecimal(scenarioMonthly(group))).toNumber(),
+      0
+    );
+    return orphanAdjustments
+      .filter(orphan => orphan.side === side)
+      .reduce(
+        (total, orphan) =>
+          toDecimal(total).plus(toDecimal(orphan.adjustment.monthlyMinor).dividedBy(100)).toNumber(),
+        fromGroups
+      );
   };
 
   const monthRange = `${window.from.toLocaleDateString(getDateLocale(), { month: 'long', year: 'numeric' })} to ${window.to.toLocaleDateString(getDateLocale(), { month: 'long', year: 'numeric' })}`;
@@ -194,6 +346,14 @@ export default function Forecast(): React.JSX.Element {
           <span className="block text-dense tabular-nums text-gray-500 dark:text-gray-400">
             {formatCurrency(average(total))} a month
           </span>
+          {/* The side's SCENARIO month, only when it differs — a scenario
+              that follows the base has nothing to announce. */}
+          {adjustmentsStatus === 'ready' &&
+            toDecimal(scenarioSideTotal(groups, side)).minus(toDecimal(average(total))).abs().greaterThan(0.004) && (
+            <span className="block text-dense tabular-nums text-gray-700 dark:text-gray-300">
+              scenario: {formatCurrency(scenarioSideTotal(groups, side))} a month
+            </span>
+          )}
         </span>
       </div>
       {groups.length === 0 ? (
@@ -230,6 +390,83 @@ export default function Forecast(): React.JSX.Element {
                     </span>
                   </span>
                 </button>
+                {/* THE SCENARIO'S FIGURE for this category — stated, or the
+                    base's. Outside the expansion button: adjusting is not
+                    the same act as inspecting the rows. The unfiled line has
+                    nothing to attach an adjustment to; the honest advice is
+                    to FILE the rows, and the base note already carries it. */}
+                {group.categoryId !== null && adjustmentsStatus === 'ready' && (
+                  <div className="pb-2 pl-2 flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
+                    {editingCategory === group.categoryId ? (
+                      <>
+                        <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                          Scenario, a month
+                          <MoneyInput
+                            value={draftMonthly}
+                            onChange={setDraftMonthly}
+                            className="w-28 px-2 py-1 text-sm text-right tabular-nums border border-line dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            aria-label={`Scenario monthly figure for ${group.label}`}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => void stateAdjustment(group.categoryId as string)}
+                          disabled={savingAdjustment}
+                          className="text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:underline disabled:opacity-50"
+                        >
+                          State it
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setEditingCategory(null); setDraftMonthly(''); }}
+                          className="text-xs text-gray-500 dark:text-gray-400 hover:underline"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : adjustments.has(group.categoryId) ? (
+                      <>
+                        {/* A DEVIATION, stated against the base it deviates
+                            from — the whole of the interrogability rule. */}
+                        <span className="text-xs tabular-nums text-gray-700 dark:text-gray-300">
+                          scenario {formatCurrency(scenarioMonthly(group))} a month
+                          <span className="text-gray-400 dark:text-gray-500"> · base {formatCurrency(average(group.total))}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCategory(group.categoryId);
+                            setDraftMonthly(toDecimal(scenarioMonthly(group)).toFixed(2));
+                          }}
+                          className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline"
+                        >
+                          Change
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void followBase(group.categoryId as string)}
+                          disabled={savingAdjustment}
+                          className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline disabled:opacity-50"
+                        >
+                          Back to base
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingCategory(group.categoryId);
+                          setDraftMonthly(toDecimal(average(group.total)).toFixed(2));
+                        }}
+                        className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:underline"
+                        title="State a different monthly figure for the scenario — the base stays exactly as it is"
+                        aria-label={`Adjust ${group.label} for the scenario`}
+                      >
+                        Adjust for the scenario
+                      </button>
+                    )}
+                  </div>
+                )}
                 {open && (
                   <ul className="pb-2 pl-2">
                     {group.rows.map(row => (
@@ -304,12 +541,69 @@ export default function Forecast(): React.JSX.Element {
               from the base — listed at the foot of the page, restorable any time.</>
             )}
           </p>
+          {adjustmentsStatus === 'ready' && adjustments.size > 0 && (
+            <p className="text-dense text-gray-700 dark:text-gray-300 mt-2">
+              The scenario adjusts {adjustments.size === 1 ? '1 category' : `${adjustments.size} categories`} —
+              every deviation is shown on its row, against the base it deviates
+              from, and one click returns it. Scenario month:{' '}
+              <span className="tabular-nums">+{formatCurrency(scenarioSideTotal(base.income, 'in'))}</span> in,{' '}
+              <span className="tabular-nums">{formatCurrency(-scenarioSideTotal(base.expense, 'out'))}</span> out.
+            </p>
+          )}
+          {adjustmentsStatus === 'error' && (
+            /* A failed read is a scenario that FOLLOWS THE BASE — said, not
+               guessed at. Deviations invented from a stale copy would be the
+               one dishonesty this page exists to prevent. */
+            <p className="text-dense text-gray-500 dark:text-gray-400 mt-2">
+              Your scenario adjustments could not be loaded just now, so the
+              figures below show the base alone. Reload to try again.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <SideCard side="in" title="Income" groups={base.income} total={base.incomeTotal} />
           <SideCard side="out" title="Expenditure" groups={base.expense} total={base.expenseTotal} />
         </div>
+
+        {orphanAdjustments.length > 0 && (
+          /* Stored deviations whose categories show no recent activity — still
+             visible, still counted in the scenario totals, still returnable:
+             a deviation influencing figures from off-screen would make the
+             scenario uninterrogatable. */
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 sm:p-6">
+            <h2 className="text-card font-semibold text-theme-heading dark:text-white mb-1">
+              Adjustments on quiet categories
+              <span className="ml-2 text-dense font-normal text-gray-400 dark:text-gray-500">
+                {orphanAdjustments.length}
+              </span>
+            </h2>
+            <p className="text-dense text-gray-500 dark:text-gray-400 mb-2">
+              Stated for categories with nothing in these twelve months — still
+              counted in the scenario's totals above.
+            </p>
+            <ul>
+              {orphanAdjustments.map(({ adjustment, label }) => (
+                <li key={adjustment.categoryId} className="py-1.5 flex items-baseline justify-between gap-4 border-t border-gray-50 dark:border-gray-700/50 first:border-0">
+                  <span className="text-sm text-gray-900 dark:text-white truncate">{label}</span>
+                  <span className="flex items-baseline gap-3 shrink-0">
+                    <span className="text-sm tabular-nums text-gray-700 dark:text-gray-300">
+                      {formatCurrency(toDecimal(adjustment.monthlyMinor).dividedBy(100).toNumber())} a month
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void followBase(adjustment.categoryId)}
+                      disabled={savingAdjustment}
+                      className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline disabled:opacity-50"
+                    >
+                      Back to base
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {base.excluded.length > 0 && (
           /* STATED, never silent (§7.1) — and restorable, because a judgment

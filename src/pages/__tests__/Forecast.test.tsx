@@ -6,7 +6,18 @@ import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { ToastProvider } from '../../contexts/ToastContext';
 import { __setAppContextValue, __resetAppContextValue } from '../../test/mocks/AppContextSupabase';
 import Forecast from '../Forecast';
-import type { Account, Category, SuggestionDismissal, Transaction } from '../../types';
+import type { Account, Category, ForecastAdjustment, SuggestionDismissal, Transaction } from '../../types';
+
+// The SEAM, not a service: the page reads and writes its scenario through
+// `dataPort`, so the tests stub exactly the three verbs it uses.
+const seam = vi.hoisted(() => ({
+  listForecastAdjustments: vi.fn(async (): Promise<ForecastAdjustment[]> => []),
+  setForecastAdjustment: vi.fn(async (categoryId: string, monthlyMinor: number): Promise<ForecastAdjustment> => ({
+    id: 'adj-1', categoryId, monthlyMinor,
+  })),
+  clearForecastAdjustment: vi.fn(async () => {}),
+}));
+vi.mock('@data', () => ({ dataPort: seam }));
 
 /**
  * THE FORECAST'S BASE (docs/forecast-direction.md step 4): twelve COMPLETE
@@ -114,6 +125,10 @@ beforeEach(() => {
   dismissSuggestion.mockClear();
   restoreSuggestion.mockClear();
   refreshSuggestionDismissals.mockClear();
+  seam.listForecastAdjustments.mockClear();
+  seam.listForecastAdjustments.mockResolvedValue([]);
+  seam.setForecastAdjustment.mockClear();
+  seam.clearForecastAdjustment.mockClear();
 });
 
 afterEach(() => {
@@ -176,6 +191,68 @@ describe('Forecast — the base', () => {
     await waitFor(() => {
       expect(restoreSuggestion).toHaveBeenCalledWith('forecast-excluded', ONE_OFF_ID);
     });
+  });
+
+  it('a category can be adjusted for the scenario — the deviation stated against its base', async () => {
+    renderForecast();
+    await waitFor(() => expect(seam.listForecastAdjustments).toHaveBeenCalled());
+
+    // Food's base average is £100 a month. State £90 for the scenario.
+    fireEvent.click(screen.getByRole('button', { name: 'Adjust Food for the scenario' }));
+    fireEvent.change(screen.getByLabelText('Scenario monthly figure for Food'), {
+      target: { value: '90' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'State it' }));
+
+    await waitFor(() => {
+      // Pennies across the seam — £90 crosses as 9000.
+      expect(seam.setForecastAdjustment).toHaveBeenCalledWith('cat-food', 9000);
+    });
+    // The deviation is STATED against the base it deviates from…
+    expect(screen.getByText(/scenario £90\.00 a month/)).toBeInTheDocument();
+    expect(screen.getByText(/base £100\.00/)).toBeInTheDocument();
+    // …and the base's own figures are untouched.
+    expect(screen.getByText('(£1,200.00)')).toBeInTheDocument();
+
+    // One click returns it.
+    fireEvent.click(screen.getByRole('button', { name: 'Back to base' }));
+    await waitFor(() => {
+      expect(seam.clearForecastAdjustment).toHaveBeenCalledWith('cat-food');
+    });
+  });
+
+  it('a stored adjustment on a quiet category is still shown, and still returnable', async () => {
+    seam.listForecastAdjustments.mockResolvedValue([
+      { id: 'adj-q', categoryId: 'cat-quiet', monthlyMinor: 40000 },
+    ]);
+    __setAppContextValue({
+      accounts: [ACCOUNT],
+      categories: [...CATEGORIES, { id: 'cat-quiet', name: 'Club membership', type: 'expense', level: 'detail' }],
+      transactions: LEDGER,
+      isLoading: false,
+      suggestionDismissals: [],
+      suggestionDismissalsStatus: 'ready',
+      refreshSuggestionDismissals,
+      dismissSuggestion,
+      restoreSuggestion,
+    });
+    render(
+      <MemoryRouter>
+        <PreferencesProvider>
+          <ToastProvider>
+            <Forecast />
+          </ToastProvider>
+        </PreferencesProvider>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Adjustments on quiet categories')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Club membership')).toBeInTheDocument();
+    expect(screen.getByText('£400.00 a month')).toBeInTheDocument();
+    // Counted in the scenario's stated totals, not silently off-screen.
+    expect(screen.getByText(/The scenario adjusts 1 category/)).toBeInTheDocument();
   });
 
   it('ASKS for the lazy-loaded verdicts when they have never been loaded', async () => {

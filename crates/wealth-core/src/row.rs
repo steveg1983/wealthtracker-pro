@@ -104,6 +104,7 @@ pub mod budget;
 pub mod category;
 pub mod custom_report;
 pub mod dismissal;
+pub mod forecast_adjustment;
 pub mod goal;
 pub mod investment;
 pub mod recurring;

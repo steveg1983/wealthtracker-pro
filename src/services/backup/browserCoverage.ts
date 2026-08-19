@@ -103,6 +103,11 @@ export const BROWSER_CANNOT_KEEP: readonly UnstorableEntity[] = [
     entity: 'widget_preferences',
     label: 'Widget preferences',
     absence: 'widget settings are only saved when you are signed in'
+  },
+  {
+    entity: 'forecast_adjustments',
+    label: 'Forecast adjustments',
+    absence: 'forecast scenario adjustments are only kept when you are signed in'
   }
 ];
 

@@ -84,6 +84,7 @@ import type {
   Budget,
   Category,
   CustomReport,
+  ForecastAdjustment,
   Goal,
   SuggestionDismissal,
   Transaction,
@@ -403,6 +404,22 @@ export const toGoal = (row: Record<string, unknown>): Goal => {
  * the epoch rather than to `new Date()` the way every other mapper in this file
  * does — a row whose clock could not be read is not a row created now.
  */
+/**
+ * A forecast adjustment, from either engine's answer row.
+ *
+ * Read directly rather than through a `Column` spec: three fields, none of
+ * them money-scaled or tri-state — `monthly_minor` is an integer of pennies
+ * in BOTH engines, the row's whole point, so there is no conversion for a
+ * spec to declare.
+ */
+export const toForecastAdjustment = (row: Record<string, unknown>): ForecastAdjustment => ({
+  id: textOr(row.id, ''),
+  categoryId: textOr(row.category_id, ''),
+  monthlyMinor: Number(row.monthly_minor ?? 0),
+  createdAt: instant(row.created_at) ?? new Date(0),
+  updatedAt: instant(row.updated_at) ?? new Date(0)
+});
+
 export const toCustomReport = (row: Record<string, unknown>): CustomReport => {
   const value = fieldsOf(CUSTOM_REPORT_COLUMNS, row);
   return {

@@ -322,7 +322,7 @@ pub fn wipe_user_financial_data(
     // Counted by nothing, exactly as the RPC counts them by nothing: these are
     // UI state, and a number telling a user how many dismissed suggestions they
     // just lost is not a number anybody wants.
-    for table in ["suggestion_dismissals", "dashboard_layouts", "widget_preferences", "notifications"] {
+    for table in ["suggestion_dismissals", "forecast_adjustments", "dashboard_layouts", "widget_preferences", "notifications"] {
         delete(table)?;
     }
 

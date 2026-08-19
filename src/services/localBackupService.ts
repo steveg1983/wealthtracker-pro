@@ -745,6 +745,7 @@ export const LOCAL_BACKUP_BINDINGS: Readonly<Record<BackupEntity, LocalEntityBin
   notifications: absent('notifications'),
   dashboard_layouts: absent('dashboard_layouts'),
   widget_preferences: absent('widget_preferences'),
+  forecast_adjustments: absent('forecast_adjustments'),
 };
 
 // A binding missing at runtime would mean an entity silently vanished from

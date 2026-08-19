@@ -68,8 +68,11 @@ export const BACKUP_FORMAT = 'wealthtracker-backup-v2';
  * only — nothing gates on it, and a file stamped with either older value
  * restores exactly as it always did (its `custom_reports` array is simply
  * absent, which `validateBackupBundle` already reads as "this file has none").
+ *
+ * Bumped again to 20260819150000 when `forecast_adjustments` became the
+ * sixteenth table, by the same argument end to end.
  */
-export const BACKUP_SCHEMA_VERSION = '20260812140000';
+export const BACKUP_SCHEMA_VERSION = '20260819150000';
 
 /** Rows travel exactly as the database returned them. No mapping, no reshaping. */
 export type BackupRow = Record<string, unknown>;
@@ -104,6 +107,12 @@ export const BACKUP_ENTITIES = [
   // Appending rather than inserting also keeps every older file's `counts`
   // consistent with the list this build walks.
   'custom_reports',
+  // Appended for custom_reports' reason. One row per category the user has
+  // ADJUSTED in the forecast's scenario — the stated deviation from the base
+  // average. References its category through an ordinary uuid column, so the
+  // remapper's plainest mechanism covers it; restored after categories exist
+  // (see RESTORE_STEPS).
+  'forecast_adjustments',
 ] as const;
 
 export type BackupEntity = (typeof BACKUP_ENTITIES)[number];
@@ -683,6 +692,16 @@ const ENTITY_REFERENCES: Readonly<Record<BackupEntity, EntityReferences>> = {
    * spec's own documentation refuses.
    */
   custom_reports: { jsonbIdArrays: { filters: ['accounts', 'categories'] } },
+  /**
+   * The whole point of this table being RELATIONAL rather than a jsonb of
+   * {categoryId: amount}: the id sits in a plain uuid column, so the restore
+   * rewrites it with the same mechanism as every scalar reference above, and
+   * an adjustment whose category did not survive the file is REPORTED as a
+   * dangling reference rather than silently orphaned inside a blob no
+   * constraint watches. Keys of a jsonb object are a shape the remapper
+   * deliberately has no mechanism for.
+   */
+  forecast_adjustments: { uuid: ['category_id'] },
 };
 
 /**
@@ -1071,6 +1090,7 @@ export const RESTORE_STEPS: readonly RestoreStep[] = [
   { entity: 'widget_preferences', label: 'Widget preferences' },
   { entity: 'suggestion_dismissals', label: 'Dismissed suggestions' },
   { entity: 'custom_reports', label: 'Custom reports' },
+  { entity: 'forecast_adjustments', label: 'Forecast adjustments' },
 ];
 
 /** The rows one step sends, in the order the file holds them. */

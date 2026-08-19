@@ -324,6 +324,9 @@ describe('restore ordering', () => {
       // column with no foreign key behind it, so the database would take it
       // first. See RESTORE_STEPS for why "last" is nonetheless the right answer.
       'custom_reports',
+      // Adjustments reference categories through a REAL foreign key, so this
+      // one's position IS a constraint: after the categories exist.
+      'forecast_adjustments',
     ]);
   });
 

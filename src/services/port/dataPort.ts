@@ -82,6 +82,7 @@ import type {
   Category,
   CategoryMergeResult,
   CustomReport,
+  ForecastAdjustment,
   DismissalKind,
   Goal,
   SplitWriteResult,
@@ -397,6 +398,16 @@ export interface DataPortReads {
    * report without saying so.
    */
   listCustomReports(): Promise<CustomReport[]>;
+  /**
+   * The forecast scenario's stated deviations — one per adjusted category.
+   *
+   * NOT in the boot payload, unlike custom reports, and the asymmetry is
+   * argued rather than inherited: reports went into boot because two of
+   * their readers are SYNCHRONOUS; the one reader of adjustments is the
+   * Forecast page, which is async from birth, and a boot that carried them
+   * would tax every session for one page's convenience.
+   */
+  listForecastAdjustments(): Promise<ForecastAdjustment[]>;
   listCategories(): Promise<Category[]>;
   listSuggestionDismissals(): Promise<SuggestionDismissal[]>;
   /**
@@ -1123,6 +1134,25 @@ export interface DataPortReportWrites {
    * that got there first, must not turn a decision into an error message.
    */
   deleteCustomReport(id: string): Promise<void>;
+
+  /**
+   * State, or restate, one category's scenario monthly figure — PENNIES, an
+   * integer, the figure both engines store verbatim. An upsert on the
+   * (owner, category) unique pair: the scenario is a single stated figure
+   * per category, and `updated_at` is its edit history's one remnant.
+   *
+   * A category the engine does not hold is REFUSED by the file's own foreign
+   * key, not by a check either implementation writes — the dismissal
+   * family's discipline.
+   */
+  setForecastAdjustment(categoryId: string, monthlyMinor: number): Promise<ForecastAdjustment>;
+
+  /**
+   * The category goes back to following the base. A real delete: an absent
+   * row IS "no adjustment". Clearing a category that holds none is a
+   * successful nothing.
+   */
+  clearForecastAdjustment(categoryId: string): Promise<void>;
 }
 
 /**

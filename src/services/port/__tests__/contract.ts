@@ -195,6 +195,7 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   'listBudgets',
   'listGoals',
   'listCustomReports',
+  'listForecastAdjustments',
   'listCategories',
   'listSuggestionDismissals',
   'listInvestments',
@@ -251,6 +252,9 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   // Dismissal writes
   'dismissSuggestion',
   'restoreSuggestion',
+  // Forecast scenario writes — the dismissal family's company
+  'setForecastAdjustment',
+  'clearForecastAdjustment',
   // Backup lifecycle
   'financialDataIsEmpty',
   'collectBackup',
@@ -576,7 +580,8 @@ const BACKUP_COVERAGE: Record<
       { entity: 'recurring_transactions', label: 'Recurring transactions' },
       { entity: 'notifications', label: 'Notifications' },
       { entity: 'dashboard_layouts', label: 'Dashboard layouts' },
-      { entity: 'widget_preferences', label: 'Widget preferences' }
+      { entity: 'widget_preferences', label: 'Widget preferences' },
+      { entity: 'forecast_adjustments', label: 'Forecast adjustments' }
     ]
   },
   // Every table in the format is a table in the database — the format was read
@@ -625,6 +630,21 @@ const INVESTMENT_STORAGE: Record<DataPortEngine, 'keeps' | 'has nowhere to keep 
   // `investments` in `schema.sql`, with quantity and both unit prices at 1e8
   // rather than the cloud's old `numeric(10,2)` — the bug migration
   // 20260809120000 fixed in the cloud was fixed in this schema before it shipped.
+  'local-core': 'keeps'
+};
+
+/**
+ * Where the forecast scenario's adjustments live — investments' shape, one
+ * tier over: the browser has no store for them (declared in
+ * `backup/browserCoverage.ts`, so `cannotKeep` says it), and a signed-out
+ * write REFUSES rather than landing somewhere invisible — the custom-reports
+ * localStorage failure is the scar this rule keeps closed.
+ */
+const ADJUSTMENT_STORAGE: Record<DataPortEngine, 'keeps' | 'has nowhere to keep them'> = {
+  'browser-storage': 'has nowhere to keep them',
+  // `public.forecast_adjustments`, 20260819150000.
+  supabase: 'keeps',
+  // `forecast_adjustments` in `schema.sql`, the same integer of pennies.
   'local-core': 'keeps'
 };
 
@@ -2293,6 +2313,66 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
 
         expect((await read()).goals).toEqual([]);
       });
+    });
+
+    describe('the forecast scenario\u2019s adjustments', () => {
+      rule(
+        ['setForecastAdjustment', 'clearForecastAdjustment', 'listForecastAdjustments'],
+        `B-12: this engine ${ADJUSTMENT_STORAGE[engine]}`,
+        async () => {
+          const { port } = await harness.create({ accounts: threeAccounts() });
+
+          if (ADJUSTMENT_STORAGE[engine] === 'has nowhere to keep them') {
+            await expect(port.setForecastAdjustment('any-category', 90000)).rejects.toThrow();
+            // …and the read is not a rejection: the Forecast page draws a
+            // scenario that simply follows the base.
+            await expect(port.listForecastAdjustments()).resolves.toEqual([]);
+            expect(
+              port.capabilities().cannotKeep.map(entry => entry.entity)
+            ).toContain('forecast_adjustments');
+            return;
+          }
+
+          // A category of the ledger's own, minted through the seam — the
+          // harness seeds none beyond each account's To/From.
+          const category = await port.createCategory(aNewCategory('Groceries'));
+
+          // State a figure: £900 a month, as the 90000 pennies it crosses as.
+          const stated = await port.setForecastAdjustment(category.id, 90000);
+          expect(stated.categoryId).toBe(category.id);
+          expect(stated.monthlyMinor).toBe(90000);
+          expect(stated.id).toBeTruthy();
+
+          // RESTATE it: the row keeps its identity — the scenario is a single
+          // stated figure per category, not a history of edits.
+          const restated = await port.setForecastAdjustment(category.id, 75000);
+          expect(restated.id).toBe(stated.id);
+          expect(restated.monthlyMinor).toBe(75000);
+          expect((await port.listForecastAdjustments()).map(row => [row.categoryId, row.monthlyMinor]))
+            .toEqual([[category.id, 75000]]);
+
+          // Clear it: back to the base, and clearing again is a successful
+          // nothing rather than an error.
+          await port.clearForecastAdjustment(category.id);
+          await port.clearForecastAdjustment(category.id);
+          expect(await port.listForecastAdjustments()).toEqual([]);
+        }
+      );
+
+      rule(
+        ['setForecastAdjustment'],
+        'refuses an adjustment on a category the ledger does not hold — the FILE judges it',
+        async () => {
+          if (ADJUSTMENT_STORAGE[engine] === 'has nowhere to keep them') return;
+          const { port } = await harness.create({ accounts: threeAccounts() });
+
+          // The foreign key's refusal, not a check either implementation
+          // writes — the dismissal family's discipline, one table over.
+          await expect(
+            port.setForecastAdjustment('99999999-9999-4999-8999-999999999999', 90000)
+          ).rejects.toThrow();
+        }
+      );
     });
 
     describe('writing a custom report', () => {

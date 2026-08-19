@@ -151,6 +151,7 @@ import type {
   Category,
   CategoryMergeResult,
   CustomReport,
+  ForecastAdjustment,
   DismissalKind,
   Goal,
   SplitWriteResult,
@@ -242,6 +243,7 @@ import {
   toBudget,
   toCategory,
   toCustomReport,
+  toForecastAdjustment,
   toDismissal,
   toDisplaced,
   toGoal,
@@ -708,6 +710,12 @@ export class LocalDataPort implements DataPort {
   async listCustomReports(): Promise<CustomReport[]> {
     const answer = await this.#ask('list_custom_reports');
     return rowsOf(answer, 'list_custom_reports', 'custom_reports').map(toCustomReport);
+  }
+
+  async listForecastAdjustments(): Promise<ForecastAdjustment[]> {
+    const answer = await this.#ask('list_forecast_adjustments');
+    return rowsOf(answer, 'list_forecast_adjustments', 'forecast_adjustments')
+      .map(toForecastAdjustment);
   }
 
   async listCategories(): Promise<Category[]> {
@@ -1531,6 +1539,24 @@ export class LocalDataPort implements DataPort {
    */
   async deleteCustomReport(id: string): Promise<void> {
     await this.#ask('delete_custom_report', { id });
+  }
+
+  /**
+   * The scenario pair. The figure crosses as the integer of pennies it is in
+   * both stores — the one money field in this file with no scale conversion
+   * anywhere on its trip. A category the file does not hold is refused by
+   * its own foreign key, surfaced as the crate's constraint refusal.
+   */
+  async setForecastAdjustment(categoryId: string, monthlyMinor: number): Promise<ForecastAdjustment> {
+    const answer = await this.#ask('set_forecast_adjustment', {
+      category_id: categoryId,
+      monthly_minor: monthlyMinor
+    });
+    return toForecastAdjustment(rowOf(answer, 'set_forecast_adjustment', 'answer'));
+  }
+
+  async clearForecastAdjustment(categoryId: string): Promise<void> {
+    await this.#ask('clear_forecast_adjustment', { category_id: categoryId });
   }
 
   // ── Holdings ──────────────────────────────────────────────────────────────

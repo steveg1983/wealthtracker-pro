@@ -628,6 +628,7 @@ mod confirm_transaction_categories;
 mod create_account;
 mod create_budget;
 mod create_category;
+mod clear_forecast_adjustment;
 mod create_custom_report;
 mod create_transaction;
 mod create_transfer_counterpart;
@@ -641,6 +642,7 @@ mod delete_investment;
 mod delete_transaction;
 mod delete_unused_categories;
 mod dismiss_suggestion;
+mod set_forecast_adjustment;
 mod finalize_reconciliation;
 mod finalize_user_restore;
 mod import_bank_transactions;
@@ -728,6 +730,15 @@ pub use update_goal::{update_goal, GoalPatch, UpdateGoal, UpdateGoalResult};
 // [`create_custom_report`] carries that argument, and
 // [`update_custom_report`] carries the one a reader coming from
 // [`update_goal`] needs: these blobs REPLACE rather than merge.
+pub use clear_forecast_adjustment::{
+    clear_forecast_adjustment, ClearForecastAdjustment, ClearForecastAdjustmentResult,
+};
+// The adjustment pair keeps the DISMISSAL family's company rather than the
+// report family's: a judgment about how the ledger is read, unaudited and
+// uncounted by the wipe — set_forecast_adjustment's docs carry the argument.
+pub use set_forecast_adjustment::{
+    set_forecast_adjustment, SetForecastAdjustment, SetForecastAdjustmentResult,
+};
 pub use create_custom_report::{
     create_custom_report, CreateCustomReport, CreateCustomReportResult, CustomReportDraft,
 };
@@ -816,10 +827,12 @@ pub use merge_categories::{merge_categories, MergeCategories, MergeCategoriesRes
 // its documentation is where the ordering and the query plans live.
 pub use reads::{
     account_balances, list_accounts, list_budgets, list_categories, list_closed_accounts,
-    list_custom_reports, list_goals, list_investments, list_suggestion_dismissals,
+    list_custom_reports, list_forecast_adjustments, list_goals, list_investments,
+    list_suggestion_dismissals,
     list_transaction_splits,
     list_transactions, splits_for,
-    AccountBalances, Accounts, Answered, Budgets, Categories, ClosedAccounts, CustomReports, Goals,
+    AccountBalances, Accounts, Answered, Budgets, Categories, ClosedAccounts, CustomReports,
+    ForecastAdjustments, Goals,
     Investments,
     OwnedRead, Splits, SplitsFor, SuggestionDismissals, TransactionSplits, Transactions,
 };
