@@ -40,7 +40,10 @@ const ACCOUNT: Account = {
 };
 
 const CATEGORIES: Category[] = [
-  { id: 'cat-food', name: 'Food', type: 'expense', level: 'detail' },
+  // Food lives under a GROUP — the P&L reads side > group > category.
+  { id: 'grp-living', name: 'Living', type: 'expense', level: 'sub' },
+  { id: 'cat-food', name: 'Food', type: 'expense', level: 'detail', parentId: 'grp-living' },
+  // Salary has no parent: it stands at group level by itself.
   { id: 'cat-salary', name: 'Salary', type: 'income', level: 'detail' },
 ];
 
@@ -85,11 +88,12 @@ const refreshSuggestionDismissals = vi.fn(async () => {});
 const renderForecast = (
   dismissals: SuggestionDismissal[] = [],
   status: 'idle' | 'ready' = 'ready',
-  transactions: Transaction[] = LEDGER
+  transactions: Transaction[] = LEDGER,
+  categories: Category[] = CATEGORIES
 ): void => {
   __setAppContextValue({
     accounts: [ACCOUNT],
-    categories: CATEGORIES,
+    categories,
     transactions,
     isLoading: false,
     suggestionDismissals: dismissals,
@@ -131,9 +135,12 @@ describe('Forecast — the Current P&L', () => {
     renderForecast();
 
     // Food: 12 × £100 — and NOT 13: the current month's £999 is outside the
-    // window, or the figures would claim a typical month that never was.
+    // window, or the figures would claim a typical month that never was. Its
+    // GROUP heading carries the same figure as a subtotal: side > group >
+    // category, the way a P&L is set out.
+    expect(screen.getByRole('button', { name: 'Living' })).toBeInTheDocument();
     expect(screen.getByText('Food')).toBeInTheDocument();
-    expect(screen.getByText('(£1,200.00)')).toBeInTheDocument();
+    expect(screen.getAllByText('(£1,200.00)')).toHaveLength(2);
     // Salary: the figure appears TWICE by construction, as the income side's
     // total and as its only category's — the two agreeing is the property.
     expect(screen.getAllByText('+£24,000.00')).toHaveLength(2);
@@ -166,6 +173,57 @@ describe('Forecast — the Current P&L', () => {
     // A category drills to the rows its figure is the sum of.
     fireEvent.click(screen.getByRole('button', { name: /Uncategorised — not yet filed/ }));
     expect(screen.getByText('Roof repair')).toBeInTheDocument();
+  });
+
+  it('a group heading hides and shows the categories below, keeping its subtotal', () => {
+    renderForecast();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Living' }));
+    expect(screen.queryByText('Food')).not.toBeInTheDocument();
+    // The group's subtotal stands while its categories are folded away.
+    expect(screen.getAllByText('(£1,200.00)')).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Living' }));
+    expect(screen.getByText('Food')).toBeInTheDocument();
+  });
+
+  it('sorts by value in either direction or by name — the unfiled remainder always last', () => {
+    // Two groups a month back: Utilities (£900) outweighs Living (£100).
+    renderForecast([], 'ready', [
+      {
+        id: 'txn-a', accountId: ACCOUNT.id, description: 'Grocer',
+        amount: -100, date: monthAgo(1), type: 'expense', category: 'cat-food',
+      },
+      {
+        id: 'txn-b', accountId: ACCOUNT.id, description: 'Water board',
+        amount: -900, date: monthAgo(1), type: 'expense', category: 'cat-water',
+      },
+      {
+        id: 'txn-c', accountId: ACCOUNT.id, description: 'Roof repair',
+        amount: -5000, date: monthAgo(1), type: 'expense', category: '',
+      },
+    ], [
+      ...CATEGORIES,
+      { id: 'grp-util', name: 'Utilities', type: 'expense', level: 'sub' },
+      { id: 'cat-water', name: 'Water', type: 'expense', level: 'detail', parentId: 'grp-util' },
+    ]);
+
+    const ordered = (first: string | RegExp, second: string | RegExp): boolean => {
+      const a = screen.getByRole('button', { name: first });
+      const b = screen.getByRole('button', { name: second });
+      return Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    };
+
+    // Largest first is the default…
+    expect(ordered('Utilities', 'Living')).toBe(true);
+    // …A to Z reorders by name…
+    fireEvent.click(screen.getByRole('button', { name: 'A to Z' }));
+    expect(ordered('Living', 'Utilities')).toBe(true);
+    // …smallest first by value, ascending.
+    fireEvent.click(screen.getByRole('button', { name: 'Smallest first' }));
+    expect(ordered('Living', 'Utilities')).toBe(true);
+    // The unfiled £5,000 outweighs and out-alphabets both, and is still last.
+    expect(ordered('Utilities', /Uncategorised — not yet filed/)).toBe(true);
   });
 
   it('the months are hidden by default, and the toggle spreads them across like a full P&L', () => {
@@ -206,12 +264,12 @@ describe('Forecast — the Current P&L', () => {
     fireEvent.change(screen.getByLabelText('From'), { target: { value: `${year}-01` } });
     fireEvent.change(screen.getByLabelText('To'), { target: { value: `${year}-03` } });
 
-    // THREE agreeing figures by construction — the category, its side, and
-    // (with no income) the net — and £300 over three months is £100 a month.
-    // The net's average wears the brackets its direction earns.
-    expect(screen.getAllByText('(£300.00)')).toHaveLength(3);
+    // FOUR agreeing figures by construction — the category, its group, its
+    // side, and (with no income) the net — and £300 over three months is
+    // £100 a month. The net's average wears the brackets its direction earns.
+    expect(screen.getAllByText('(£300.00)')).toHaveLength(4);
     expect(screen.getByText('Net expenditure')).toBeInTheDocument();
-    expect(screen.getAllByText('£100.00 a month')).toHaveLength(2);
+    expect(screen.getAllByText('£100.00 a month')).toHaveLength(3);
     expect(screen.getByText('(£100.00) a month')).toBeInTheDocument();
   });
 
