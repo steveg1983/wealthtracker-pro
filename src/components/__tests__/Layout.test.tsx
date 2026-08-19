@@ -223,13 +223,14 @@ describe('Layout — the Plan menu and split triggers', () => {
     expect(navLink('Recurring Payments')).toHaveAttribute('href', '/recurring-payments');
   });
 
-  it('orders Plan as Budget, Calendar, Recurring Payments', () => {
+  it('orders Plan as Budget, Calendar, Recurring Payments, Forecast', () => {
     renderWithProviders(<Layout />);
 
     expect(openMenuItems('Plan')).toEqual([
       'Budget',
       'Calendar',
       'Recurring Payments',
+      'Forecast',
     ]);
   });
 

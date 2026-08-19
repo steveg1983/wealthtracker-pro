@@ -231,10 +231,26 @@ fn a_payee_refusal_names_text_and_stores_no_subjects() {
         assert!(answer.answer.subject_ids.is_empty());
     }
 
-    assert_eq!(scalar(&connection, "SELECT COUNT(*) FROM suggestion_dismissals"), 5);
+    // forecast-excluded (20260819130000): a judgment about ONE ROW, so —
+    // unlike the recurring kinds — its subject id is CARRIED: deleting the
+    // transaction cascades the exclusion away, which is correct, because an
+    // exclusion of a row that no longer exists excludes nothing.
+    let excluded = dismiss_suggestion(
+        &mut connection,
+        refusal(
+            "forecast-excluded",
+            SECOND_ROW,
+            &[SECOND_ROW],
+        ),
+    )
+    .expect("forecast exclusion");
+    assert!(excluded.recorded);
+    assert_eq!(excluded.answer.subject_ids.len(), 1);
+
+    assert_eq!(scalar(&connection, "SELECT COUNT(*) FROM suggestion_dismissals"), 6);
     assert_eq!(
         scalar(&connection, "SELECT COUNT(*) FROM suggestion_dismissal_subjects"),
-        0
+        1
     );
 }
 

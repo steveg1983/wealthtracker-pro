@@ -59,8 +59,9 @@ pub struct DismissalRow {
     /// transfer sweep makes (`transfer-pair`, `transfer-leg`, `stranded`,
     /// `duplicate`), the three Payee cleanup makes (`payee-merchant`,
     /// `payee-line`, `payee-hidden`), and the two recurring verdicts
-    /// (`recurring-confirmed`, `recurring-not` — 20260817220000). See the
-    /// module docs.
+    /// (`recurring-confirmed`, `recurring-not` — 20260817220000), and the
+    /// forecast base's one-row exclusion (`forecast-excluded` —
+    /// 20260819130000). See the module docs.
     pub kind: String,
     /// What was refused, as the sweep names it. Unique per (owner, kind).
     pub subject_key: String,

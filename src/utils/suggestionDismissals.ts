@@ -226,6 +226,7 @@ export function isPayeeDismissalKind(kind: DismissalKind): kind is PayeeDismissa
     case 'duplicate':
     case 'recurring-confirmed':
     case 'recurring-not':
+    case 'forecast-excluded':
       return false;
   }
 }

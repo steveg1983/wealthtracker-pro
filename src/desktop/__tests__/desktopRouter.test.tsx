@@ -182,7 +182,10 @@ describe('the desktop router', () => {
     // before the move still lands. Both are as local as the register they read
     // — detection reads the open file's rows, the verdicts live in the file's
     // own `suggestion_dismissals`.
-    expect(mounted.length).toBe(42);
+    // FORTY-THREE: `forecast` joined on 19 Aug — the scenario tool's base
+    // table (docs/forecast-direction.md step 4), as local as the register it
+    // reviews.
+    expect(mounted.length).toBe(43);
 
     // EMPTY, and the list is kept rather than deleted — `routes.ts` says why:
     // this is one of three ANSWERS a route can have, not an exception to a rule,

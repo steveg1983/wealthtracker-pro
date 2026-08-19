@@ -34,6 +34,7 @@ const KIND_LABELS: Record<DismissalKind, string> = {
   // its own restorable band — and, like the payee kinds, they name no rows.
   'recurring-confirmed': 'Confirmed as recurring',
   'recurring-not': 'Not recurring',
+  'forecast-excluded': 'Excluded from the forecast base',
 };
 
 interface Props {

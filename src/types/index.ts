@@ -471,7 +471,16 @@ export type DismissalKind =
   | 'stranded'
   | 'duplicate'
   | PayeeDismissalKind
-  | RecurringAnswerKind;
+  | RecurringAnswerKind
+  /**
+   * "Not part of my typical month" — one transaction struck from the
+   * forecast BASE (20260819130000). A judgment about a single row, so its
+   * key is the row's bare uuid (remapped on restore like any id) and its
+   * subject_ids carry the same id, so deleting the row cascades the
+   * exclusion away. The row itself is untouched; only the forecast base
+   * stops counting it — and states that it has.
+   */
+  | 'forecast-excluded';
 
 /**
  * A suggestion the user has told a sweep to stop offering. Holds no financial
