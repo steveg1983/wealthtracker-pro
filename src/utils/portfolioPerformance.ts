@@ -94,6 +94,34 @@ const DAYS_PER_YEAR = toDecimal('365.25');
 /** Local day string → a comparable time (UTC midnight of that day). */
 const dayTime = (day: string): number => Date.parse(`${day}T00:00:00Z`);
 
+/**
+ * The scope's value at the end of `date` — the same openings-plus-rows walk
+ * the performance figures stand on, exposed for the chart's per-date drill
+ * (owner, 20 Aug: "click on any month … a pop up window comes up with the
+ * accounts and figures that make up that total").
+ */
+export function scopeValueAt(
+  memberAccounts: readonly Account[],
+  transactions: readonly Transaction[],
+  date: Date
+): DecimalInstance {
+  const memberIds = new Set(memberAccounts.map(a => a.id));
+  const memberTransactions = transactions.filter(t => memberIds.has(t.accountId));
+  const cutoff = dayOf(date);
+  const openingDates = resolveEffectiveOpeningDates([...memberAccounts], [...memberTransactions]);
+  let value = ZERO;
+  for (const account of memberAccounts) {
+    const opening = toDecimal(account.openingBalance ?? 0);
+    if (opening.isZero()) continue;
+    const effective = openingDates.get(account.id);
+    if (effective === undefined || dayOf(effective) <= cutoff) value = value.plus(opening);
+  }
+  for (const row of memberTransactions) {
+    if (dayOf(row.date) <= cutoff) value = value.plus(toDecimal(row.amount));
+  }
+  return value;
+}
+
 export function computePortfolioPerformance(input: PortfolioPerformanceInput): PortfolioPerformance {
   const { memberAccounts, transactions, transactionSplits, categories, range } = input;
   const now = input.now ?? new Date();
@@ -264,7 +292,14 @@ export function computePortfolioPerformance(input: PortfolioPerformanceInput): P
     let low = toDecimal('-0.9999');
     let high = toDecimal(10);
     const fLow = terminal(low).minus(endValue);
-    const fHigh = terminal(high).minus(endValue);
+    // Grow the ceiling until it brackets the answer — a short window with
+    // strong growth annualises past any fixed cap (a tripling in five months
+    // is over +1,000%/yr, and the maths must say so rather than shrug).
+    let fHigh = terminal(high).minus(endValue);
+    for (let i = 0; i < 6 && fHigh.isNegative() === fLow.isNegative(); i++) {
+      high = high.times(10);
+      fHigh = terminal(high).minus(endValue);
+    }
     // Same sign at both ends = no rate explains the outcome (all capital
     // gone, or growth beyond the bracket): unmeasurable, said as null.
     if (fLow.isNegative() !== fHigh.isNegative()) {

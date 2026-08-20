@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computePortfolioPerformance } from './portfolioPerformance';
+import { computePortfolioPerformance, scopeValueAt } from './portfolioPerformance';
 import type { Account, Category, Transaction } from '../types';
 
 /**
@@ -206,5 +206,21 @@ describe('computePortfolioPerformance — windows and edges', () => {
     const annual = pct(perf.twrAnnualised);
     expect(annual).toBeGreaterThan(0.208);
     expect(annual).toBeLessThan(0.213);
+  });
+});
+
+describe('scopeValueAt — the drill\'s per-date valuation', () => {
+  it('is the openings-plus-rows walk at the end of that day, the same one the figures stand on', () => {
+    const INV = portfolio('acc-inv-at', {
+      openingBalance: 1_000, openingBalanceDate: new Date('2025-02-01T00:00:00Z'),
+    });
+    const rows = [
+      transferIn(INV.id, '2025-03-01', 9_000, EXTERNAL.id),
+      revaluation(INV.id, '2025-06-01', 500),
+    ];
+    expect(scopeValueAt([INV], rows, new Date('2025-01-15T00:00:00Z')).toNumber()).toBe(0);
+    expect(scopeValueAt([INV], rows, new Date('2025-02-01T00:00:00Z')).toNumber()).toBe(1_000);
+    expect(scopeValueAt([INV], rows, new Date('2025-03-01T00:00:00Z')).toNumber()).toBe(10_000);
+    expect(scopeValueAt([INV], rows, new Date('2025-12-31T00:00:00Z')).toNumber()).toBe(10_500);
   });
 });

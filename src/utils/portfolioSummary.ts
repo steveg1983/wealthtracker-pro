@@ -172,6 +172,24 @@ export function counterpartyAccountId(
   return categoryAccounts.get(row.category);
 }
 
+/**
+ * The member accounts of every investment pair in `accounts` — the roots and
+ * everything nested inside them, by the same walk the summary uses. Exported
+ * for the PERFORMANCE scope, which must run over OPEN AND CLOSED accounts
+ * alike: measured on the owner's ledger (20 Aug), the open-only scope read
+ * his all-time contributions at less than half their true figure, because a
+ * closed sleeve's transfers vanished and transfers TO it were misread as
+ * money leaving the portfolio. Anything walking history needs the closed
+ * accounts — the net-worth report's own lesson.
+ */
+export function investmentMemberAccounts(accounts: readonly Account[]): Account[] {
+  const topLevelIdByAccountId = buildTopLevelIdByAccountId(accounts);
+  const membersByTopLevelId = groupByTopLevelId(accounts, topLevelIdByAccountId);
+  return accounts
+    .filter(a => a.type === 'investment' && topLevelIdByAccountId.get(a.id) === a.id)
+    .flatMap(root => membersByTopLevelId.get(root.id) ?? [root]);
+}
+
 export function buildPortfolioSummary(input: PortfolioSummaryInput): PortfolioSummary {
   const { accounts, transactions, transactionSplits, categories } = input;
 
@@ -307,6 +325,8 @@ export interface PortfolioHistoryPoint {
   /** Axis label: a day for short windows, a month for long ones. */
   label: string;
   value: number;
+  /** The point's own date — what the chart's per-date drill opens on. */
+  date: Date;
 }
 
 /**
@@ -331,5 +351,5 @@ export function buildPortfolioHistory(
     transactions.filter(t => memberIds.has(t.accountId)),
     range,
     now
-  ).map(point => ({ label: point.label, value: point.netWorth }));
+  ).map(point => ({ label: point.label, value: point.netWorth, date: point.date }));
 }

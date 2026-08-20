@@ -133,7 +133,23 @@ describe('Investments page — contributions and return', () => {
     expect(await screen.findByText('Net Contributions')).toBeInTheDocument();
     expect(screen.getByText('£500.00')).toBeInTheDocument();
     expect(screen.getByText('+£1,000.00')).toBeInTheDocument();
-    expect(screen.getByText('+200.00%')).toBeInTheDocument();
+    // OVERRULED 20 Aug: the tile no longer prints gain-over-net-contributions
+    // (+200.00% here) — that ratio turns absurd the moment withdrawals bring
+    // the net near zero. The pinned test clock (browserShims) sits BEFORE
+    // this fixture's rows, so here the tile honestly reports nothing
+    // measurable yet; the words-pin for the new measure runs on the
+    // backdated ledger in its own spec below.
+    expect(screen.queryByText('+200.00%')).not.toBeInTheDocument();
+  });
+
+  it('shows the all-time money-weighted rate, annualised — never gain-over-net-contributions', async () => {
+    // The same ledger, dated before the pinned clock, so the window is real.
+    renderInvestments({
+      transactions: transactions.map(t => ({ ...t, date: new Date(2024, 5, 10) })),
+    });
+
+    expect(await screen.findByText('Money-weighted, annualised, since the start')).toBeInTheDocument();
+    expect(screen.queryByText('+200.00%')).not.toBeInTheDocument();
   });
 
   it('says nothing about unmatched transfers when every transfer is matched', async () => {
@@ -159,6 +175,6 @@ describe('Investments page — contributions and return', () => {
     renderInvestments({ transactions: [] });
 
     expect(await screen.findByText('—')).toBeInTheDocument();
-    expect(screen.getByText('No contributions to measure a return against')).toBeInTheDocument();
+    expect(screen.getByText('Nothing has been invested yet, so there is no return to measure')).toBeInTheDocument();
   });
 });
