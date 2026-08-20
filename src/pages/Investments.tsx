@@ -28,6 +28,8 @@ import PageWrapper from '../components/PageWrapper';
 import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
+import { computePortfolioPerformance } from '../utils/portfolioPerformance';
+import { preferences } from '../services/preferencesService';
 import { PieChart as DashboardPieChart } from '../components/charts/DashboardCharts';
 import { buildHoldingAllocation } from '../utils/holdingAllocation';
 // THE SEAM, not the service. This page called `InvestmentService` — and, through
@@ -525,6 +527,41 @@ function InvestmentsView() {
     () => buildPortfolioHistory(summary.memberAccounts, transactions, historyRange),
     [summary.memberAccounts, transactions, historyRange]
   );
+
+  /**
+   * THE RETURN, BOTH WAYS (owner, 20 Aug, after researching how the big
+   * firms measure it): time-weighted for how the investments performed,
+   * money-weighted for the owner's own experience — over the SAME window
+   * the chart shows, from the same ledger walk. The maths and the owner's
+   * boundary rules live in utils/portfolioPerformance, pinned by test.
+   */
+  const performance = useMemo(
+    () => computePortfolioPerformance({
+      memberAccounts: summary.memberAccounts,
+      transactions,
+      transactionSplits,
+      categories,
+      range: historyRange,
+    }),
+    [summary.memberAccounts, transactions, transactionSplits, categories, historyRange]
+  );
+
+  /** Which measure leads — the user's choice, remembered (GIPS shows both). */
+  const [performanceMeasure, setPerformanceMeasure] = useState<'mwr' | 'twr'>(
+    (): 'mwr' | 'twr' => (preferences.getItem('money_management_perf_measure') === 'twr' ? 'twr' : 'mwr')
+  );
+  const choosePerformanceMeasure = (measure: 'mwr' | 'twr'): void => {
+    setPerformanceMeasure(measure);
+    preferences.setItem('money_management_perf_measure', measure);
+  };
+
+  /** +2.35% / (2.35%) — the app's sign conventions, worn by a percentage. */
+  const formatReturn = (value: DecimalInstance | null): string => {
+    if (value === null) return '—';
+    const percent = value.abs().times(100).toFixed(2);
+    if (value.isZero()) return '0.00%';
+    return value.greaterThan(0) ? `+${percent}%` : `(${percent}%)`;
+  };
 
   // Numbers for the donut, converted once at the chart boundary.
   /**
@@ -1136,6 +1173,88 @@ function InvestmentsView() {
             </div>
           </div>
         )}
+        {/* THE RETURN BAND — the window's performance, both measures, the
+            user choosing which leads (owner, 20 Aug). The £ figures are the
+            flow-adjusted identity every method agrees on: gain = end − start
+            − net flows, so a withdrawal is never mistaken for a loss. */}
+        {(() => {
+          const chosen = performanceMeasure === 'mwr'
+            ? { period: performance.mwrPeriod, annualised: performance.mwrAnnualised }
+            : { period: performance.twrPeriod, annualised: performance.twrAnnualised };
+          const nearOneYear = performance.days >= 330 && performance.days <= 400;
+          return (
+            <div className="mb-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-baseline gap-3">
+                    <span className={`text-2xl font-bold tabular-nums ${
+                      chosen.period === null || chosen.period.isZero()
+                        ? 'text-gray-900 dark:text-white'
+                        : chosen.period.greaterThan(0)
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {formatReturn(chosen.period)}
+                    </span>
+                    {chosen.annualised !== null && !nearOneYear && (
+                      <span className="text-dense tabular-nums text-gray-500 dark:text-gray-400">
+                        {formatReturn(chosen.annualised)} annualised
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-dense text-gray-500 dark:text-gray-400 mt-0.5">
+                    {chosen.period === null
+                      ? 'Nothing was invested in this window, so there is no return to measure.'
+                      : performanceMeasure === 'mwr'
+                        ? 'Money-weighted — your own return, the timing of your payments included.'
+                        : 'Time-weighted — how the investments performed, your payment timing stripped out.'}
+                  </p>
+                </div>
+                <div className="flex items-center rounded-lg bg-gray-100 dark:bg-gray-700 p-0.5" role="group" aria-label="Return measure">
+                  {([['mwr', 'MWR'], ['twr', 'TWR']] as const).map(([measure, name]) => (
+                    <button
+                      key={measure}
+                      type="button"
+                      onClick={() => choosePerformanceMeasure(measure)}
+                      aria-pressed={performanceMeasure === measure}
+                      title={measure === 'mwr'
+                        ? 'Money-weighted return — your personal return'
+                        : 'Time-weighted return — the investments’ performance'}
+                      className={`px-2.5 py-0.5 text-xs font-medium rounded-md transition-colors ${
+                        performanceMeasure === measure
+                          ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                          : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-3">
+                {([
+                  ['Started at', formatCurrency(performance.startValue), ''],
+                  ['Put in', formatCurrency(performance.moneyIn), ''],
+                  ['Taken out', formatCurrency(performance.moneyOut), ''],
+                  ['Gain', performance.gain.greaterThan(0)
+                    ? `+${formatCurrency(performance.gain)}`
+                    : formatCurrency(performance.gain),
+                  performance.gain.isZero() ? ''
+                    : performance.gain.greaterThan(0)
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'],
+                  ['Ended at', formatCurrency(performance.endValue), ''],
+                ] as const).map(([label, figure, colour]) => (
+                  <div key={label}>
+                    <p className="text-label uppercase tracking-wider text-gray-500 dark:text-gray-400">{label}</p>
+                    <p className={`text-sm font-medium tabular-nums ${colour || 'text-gray-900 dark:text-white'}`}>{figure}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={performanceData}>
