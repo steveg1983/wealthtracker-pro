@@ -29,7 +29,8 @@ import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsCont
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
 import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
-import { computePortfolioPerformance, scopeValueAt } from '../utils/portfolioPerformance';
+import { computePortfolioPerformance, scopeValueAt, scopeOpeningFlows } from '../utils/portfolioPerformance';
+import { dayOf } from '../utils/plWindow';
 import { buildTopLevelIdByAccountId, groupByTopLevelId } from '../utils/accountNesting';
 import { getDateLocale } from '../utils/dateFormatter';
 import { preferences } from '../services/preferencesService';
@@ -512,10 +513,7 @@ function InvestmentsView() {
     [openAccounts]
   );
 
-  const netPortfolioValue = useMemo(
-    () => toDecimal(summary.value).minus(securedAgainstPortfolio.total),
-    [summary.value, securedAgainstPortfolio.total]
-  );
+
 
   // The window the chart covers. 'ALL' is unbounded at both ends, which the
   // history walk reads as "first transaction until today".
@@ -534,11 +532,32 @@ function InvestmentsView() {
     return { from: new Date(now.getFullYear(), now.getMonth() - months, now.getDate()), to: now };
   }, [selectedPeriod, customStart, customEnd]);
 
-  // Real history: what the pair was worth on each date, never a projection of
-  // today's figure backwards.
+  /**
+   * THE SCOPE — the whole portfolio, or one pair (owner, 20 Aug: "we need
+   * to have a similar page viewable for individual investment accounts, so
+   * I can see how a singular portfolio is performing"). One selector; the
+   * tiles, the return band, the chart and every drill follow it.
+   */
+  const [performanceScope, setPerformanceScope] = useState<string>('all');
+  const pairGroups = useMemo(() => {
+    const topLevelIdByAccountId = buildTopLevelIdByAccountId(historicalAccounts);
+    return {
+      topLevelIdByAccountId,
+      membersByTopLevelId: groupByTopLevelId(historicalAccounts, topLevelIdByAccountId),
+    };
+  }, [historicalAccounts]);
+  const scopeMembers = useMemo(
+    () => performanceScope === 'all'
+      ? summary.memberAccounts
+      : (pairGroups.membersByTopLevelId.get(performanceScope) ?? summary.memberAccounts),
+    [performanceScope, summary.memberAccounts, pairGroups]
+  );
+
+  // Real history: what the SCOPE was worth on each date, never a projection
+  // of today's figure backwards.
   const performanceData = useMemo(
-    () => buildPortfolioHistory(summary.memberAccounts, transactions, historyRange),
-    [summary.memberAccounts, transactions, historyRange]
+    () => buildPortfolioHistory(scopeMembers, transactions, historyRange),
+    [scopeMembers, transactions, historyRange]
   );
 
   /**
@@ -550,25 +569,13 @@ function InvestmentsView() {
    */
   const performance = useMemo(
     () => computePortfolioPerformance({
-      memberAccounts: summary.memberAccounts,
+      memberAccounts: scopeMembers,
       transactions,
       transactionSplits,
       categories,
       range: historyRange,
     }),
-    [summary.memberAccounts, transactions, transactionSplits, categories, historyRange]
-  );
-
-  /** All time, for the Return % tile — the whole ledger, both measures. */
-  const allTimePerformance = useMemo(
-    () => computePortfolioPerformance({
-      memberAccounts: summary.memberAccounts,
-      transactions,
-      transactionSplits,
-      categories,
-      range: { from: null, to: null },
-    }),
-    [summary.memberAccounts, transactions, transactionSplits, categories]
+    [scopeMembers, transactions, transactionSplits, categories, historyRange]
   );
 
   /**
@@ -579,14 +586,13 @@ function InvestmentsView() {
   const [drillDate, setDrillDate] = useState<Date | null>(null);
   const drillRows = useMemo(() => {
     if (!drillDate) return null;
-    const topLevelIdByAccountId = buildTopLevelIdByAccountId(historicalAccounts);
-    const membersByTopLevelId = groupByTopLevelId(historicalAccounts, topLevelIdByAccountId);
     const rows = historicalAccounts
-      .filter(a => a.type === 'investment' && topLevelIdByAccountId.get(a.id) === a.id)
+      .filter(a => a.type === 'investment' && pairGroups.topLevelIdByAccountId.get(a.id) === a.id)
+      .filter(a => performanceScope === 'all' || a.id === performanceScope)
       .map(root => ({
         accountId: root.id,
         name: root.name,
-        value: scopeValueAt(membersByTopLevelId.get(root.id) ?? [root], transactions, drillDate),
+        value: scopeValueAt(pairGroups.membersByTopLevelId.get(root.id) ?? [root], transactions, drillDate),
       }))
       .filter(row => !row.value.isZero())
       .sort((a, b) => b.value.minus(a.value).toNumber());
@@ -594,7 +600,42 @@ function InvestmentsView() {
       rows,
       total: rows.reduce((sum, row) => sum.plus(row.value), toDecimal(0)),
     };
-  }, [drillDate, historicalAccounts, transactions]);
+  }, [drillDate, historicalAccounts, pairGroups, performanceScope, transactions]);
+
+  /**
+   * Per-pair windowed performance, for the tile drills: the same maths as
+   * the headline, one pair at a time, so the breakdown's lines SUM to the
+   * tile (pair-to-pair transfers appear on both sides and net away).
+   */
+  const perPairPerformance = useMemo(() => {
+    const byRoot = new Map<string, ReturnType<typeof computePortfolioPerformance>>();
+    for (const line of summary.lines) {
+      if (performanceScope !== 'all' && line.accountId !== performanceScope) continue;
+      byRoot.set(line.accountId, computePortfolioPerformance({
+        memberAccounts: pairGroups.membersByTopLevelId.get(line.accountId) ?? [],
+        transactions,
+        transactionSplits,
+        categories,
+        range: historyRange,
+      }));
+    }
+    return byRoot;
+  }, [summary.lines, performanceScope, pairGroups, transactions, transactionSplits, categories, historyRange]);
+
+  const netPortfolioValue = useMemo(
+    () => toDecimal(performance.endValue).minus(securedAgainstPortfolio.total),
+    [performance.endValue, securedAgainstPortfolio.total]
+  );
+
+  /** A window-filter for drill rows, from the same range the figures use. */
+  const inWindow = useMemo(() => {
+    const from = historyRange.from ? dayOf(historyRange.from) : null;
+    const to = dayOf(historyRange.to ?? new Date());
+    return (date: Date | string): boolean => {
+      const day = dayOf(date);
+      return (from === null || day >= from) && day <= to;
+    };
+  }, [historyRange]);
 
   /** Which measure leads — the user's choice, remembered (GIPS shows both). */
   const [performanceMeasure, setPerformanceMeasure] = useState<'mwr' | 'twr'>(
@@ -717,7 +758,7 @@ function InvestmentsView() {
     () => allocationData.reduce((sum, slice) => sum + slice.value, 0),
     [allocationData]
   );
-  const isGain = summary.totalReturn.greaterThanOrEqualTo(0);
+  const isGain = performance.gain.greaterThanOrEqualTo(0);
   // The shared ramp. The array that stood here claimed to be "consistent
   // colors" while being the only one of the app's palettes to differ from its
   // twin — positions seven and eight had drifted to a cyan and a lime.
@@ -893,6 +934,27 @@ function InvestmentsView() {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="grid gap-6">
+        {/* THE FOUR TILES READ OVER THE CHART'S WINDOW AND SCOPE (owner,
+            20 Aug: "the 4 boxes with figures in them should represent
+            whatever period you pick for the chart below"), through the same
+            maths as the return band — one definition, so the tiles and the
+            band can never disagree again (they did: the old tiles counted
+            transfers only, all time, and openings as return). */}
+        {summary.lines.length > 1 && (
+          <div className="flex justify-end -mb-2">
+            <select
+              value={performanceScope}
+              onChange={(e) => { setPerformanceScope(e.target.value); setDrillLineId(null); }}
+              aria-label="Which portfolio the figures cover"
+              className="text-sm border border-line dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1.5"
+            >
+              <option value="all">All portfolios</option>
+              {summary.lines.map(line => (
+                <option key={line.accountId} value={line.accountId}>{line.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
@@ -911,9 +973,17 @@ function InvestmentsView() {
                 {formatCurrency(
                   showNetPosition && securedAgainstPortfolio.names.length > 0
                     ? netPortfolioValue
-                    : summary.value
+                    : performance.endValue
                 )}
               </p>
+              {/* A value from a window that ends in the past says WHEN it is
+                  from — a figure wearing today's label for last tax year's
+                  money would be the quiet lie this page exists to avoid. */}
+              {historyRange.to && dayOf(historyRange.to) !== dayOf(new Date()) && (
+                <p className="text-dense text-gray-500 dark:text-gray-400 mt-0.5">
+                  on {historyRange.to.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </p>
+              )}
               {/* The control appears ONLY when something is actually secured
                   against this portfolio. A gross/net switch with nothing to
                   net off is a question about a distinction that does not exist
@@ -976,10 +1046,10 @@ function InvestmentsView() {
         >
           <p className="text-body text-gray-500 dark:text-gray-400">Net Contributions</p>
           <p className="text-page font-bold text-blue-700 dark:text-blue-400">
-            {formatCurrency(summary.netContributions)}
+            {formatCurrency(performance.netFlows)}
           </p>
           <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
-            Transferred in, less transferred out — click for each account's share
+            Put in less taken out over this period — click for each account's share
           </p>
         </button>
 
@@ -995,7 +1065,7 @@ function InvestmentsView() {
             <div>
               <p className="text-body text-gray-500 dark:text-gray-400">Total Return</p>
               <p className={`text-page font-bold ${isGain ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {isGain ? '+' : ''}{formatCurrency(summary.totalReturn)}
+                {isGain ? '+' : ''}{formatCurrency(performance.gain)}
               </p>
             </div>
             <TrendingUpIcon className={isGain ? 'text-green-500' : 'text-red-500'} size={24} />
@@ -1011,35 +1081,35 @@ function InvestmentsView() {
                   (measured on the owner's ledger: a small net under a large
                   gain). The money-weighted rate is the figure
                   a statement would print here. */}
-              {allTimePerformance.mwrAnnualised === null ? (
+              {performance.mwrAnnualised === null ? (
                 <>
                   <p className="text-page font-bold text-gray-500 dark:text-gray-400">—</p>
                   <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
-                    Nothing has been invested yet, so there is no return to measure
+                    Nothing was invested in this window, so there is no return to measure
                   </p>
                 </>
               ) : (
                 <>
                   <p className={`text-page font-bold tabular-nums ${
-                    allTimePerformance.mwrAnnualised.isZero()
+                    performance.mwrAnnualised.isZero()
                       ? 'text-gray-900 dark:text-white'
-                      : allTimePerformance.mwrAnnualised.greaterThan(0)
+                      : performance.mwrAnnualised.greaterThan(0)
                         ? 'text-green-600 dark:text-green-400'
                         : 'text-red-600 dark:text-red-400'
                   }`}>
-                    {formatReturn(allTimePerformance.mwrAnnualised)}
+                    {formatReturn(performance.mwrAnnualised)}
                   </p>
                   <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
-                    Money-weighted, annualised, since the start
+                    Money-weighted, annualised
                   </p>
                 </>
               )}
             </div>
             <TrendingDownIcon
               className={
-                allTimePerformance.mwrAnnualised === null
+                performance.mwrAnnualised === null
                   ? 'text-gray-400'
-                  : allTimePerformance.mwrAnnualised.greaterThanOrEqualTo(0) ? 'text-green-500' : 'text-red-500'
+                  : performance.mwrAnnualised.greaterThanOrEqualTo(0) ? 'text-green-500' : 'text-red-500'
               }
               size={24}
             />
@@ -1112,32 +1182,62 @@ function InvestmentsView() {
               if (openBreakdown === null) return null;
 
               if (drillLine === null) {
+                // WINDOWED, like the tiles they explain: each line is the
+                // pair's own performance over the chart's period, so the
+                // lines sum to the tile (pair-to-pair transfers appear on
+                // both sides and net away).
+                const scopedLines = portfolioLines.filter(
+                  line => performanceScope === 'all' || line.accountId === performanceScope
+                );
                 return (
                   <div className="space-y-1">
-                    {portfolioLines.map(line => (
-                      <button
-                        key={line.accountId}
-                        type="button"
-                        onClick={() => setDrillLineId(line.accountId)}
-                        className="block w-full text-left py-2 px-2 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700/60 last:border-0"
-                      >
-                        <span className="flex justify-between gap-3">
-                          <span className="min-w-0 truncate text-body text-gray-700 dark:text-gray-300">{line.name}</span>
-                          <span className="tabular-nums shrink-0 text-body text-gray-900 dark:text-white">
-                            {formatCurrency(openBreakdown === 'contributions' ? line.netContributions : line.totalReturn)}
+                    {scopedLines.map(line => {
+                      const pairPerf = perPairPerformance.get(line.accountId);
+                      return (
+                        <button
+                          key={line.accountId}
+                          type="button"
+                          onClick={() => setDrillLineId(line.accountId)}
+                          className="block w-full text-left py-2 px-2 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700/60 last:border-0"
+                        >
+                          <span className="flex justify-between gap-3">
+                            <span className="min-w-0 truncate text-body text-gray-700 dark:text-gray-300">{line.name}</span>
+                            <span className="tabular-nums shrink-0 text-body text-gray-900 dark:text-white">
+                              {pairPerf
+                                ? formatCurrency(openBreakdown === 'contributions' ? pairPerf.netFlows : pairPerf.gain)
+                                : '—'}
+                            </span>
                           </span>
-                        </span>
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                     <p className="flex justify-between gap-3 pt-3 font-semibold text-body text-gray-900 dark:text-white">
                       <span>Total</span>
                       <span className="tabular-nums">
-                        {formatCurrency(openBreakdown === 'contributions' ? summary.netContributions : summary.totalReturn)}
+                        {formatCurrency(openBreakdown === 'contributions' ? performance.netFlows : performance.gain)}
                       </span>
                     </p>
                   </div>
                 );
               }
+
+              // The rows behind this pair's contributions, WINDOWED — the
+              // transfer legs inside the period plus any opening lump whose
+              // effective date falls in it, so the list sums to Put in less
+              // Taken out above.
+              const drillMembers = pairGroups.membersByTopLevelId.get(drillLine.accountId) ?? [];
+              const windowRows = [
+                ...drillLine.contributionRows.filter(row => inWindow(row.date)),
+                ...scopeOpeningFlows(drillMembers, transactions)
+                  .filter(o => inWindow(new Date(`${o.day}T00:00:00Z`)))
+                  .map(o => ({
+                    transactionId: `opening:${o.accountId}`,
+                    accountId: o.accountId,
+                    date: new Date(`${o.day}T00:00:00Z`),
+                    description: 'Opening balance',
+                    amount: o.amount,
+                  })),
+              ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
               return (
                 <div>
@@ -1150,35 +1250,48 @@ function InvestmentsView() {
                   </button>
                   <h4 className="text-card font-semibold text-gray-900 dark:text-white mb-2">{drillLine.name}</h4>
 
-                  {/* The identity first, because it is what a RETURN is made
-                      of — a residual, not a list of rows. Contributions are
-                      the half that has transactions behind it, and they
-                      follow. */}
-                  <div className="mb-4 space-y-1">
-                    <p className="flex justify-between text-body text-gray-600 dark:text-gray-400">
-                      <span>Value today</span>
-                      <span className="tabular-nums">{formatCurrency(drillLine.value)}</span>
-                    </p>
-                    <p className="flex justify-between text-body text-gray-600 dark:text-gray-400">
-                      <span>Less net contributions</span>
-                      <span className="tabular-nums">{formatCurrency(drillLine.netContributions)}</span>
-                    </p>
-                    <p className="flex justify-between font-semibold text-body text-gray-900 dark:text-white border-t border-gray-200 dark:border-gray-700 pt-1">
-                      <span>Total return</span>
-                      <span className="tabular-nums">{formatCurrency(drillLine.totalReturn)}</span>
-                    </p>
-                  </div>
+                  {/* The identity first, WINDOWED like everything above it:
+                      the same five figures the return band explains, for this
+                      one pair over the chart's period. */}
+                  {(() => {
+                    const pairPerf = perPairPerformance.get(drillLine.accountId);
+                    if (!pairPerf) return null;
+                    return (
+                      <div className="mb-4 space-y-1">
+                        <p className="flex justify-between text-body text-gray-600 dark:text-gray-400">
+                          <span>Started at</span>
+                          <span className="tabular-nums">{formatCurrency(pairPerf.startValue)}</span>
+                        </p>
+                        <p className="flex justify-between text-body text-gray-600 dark:text-gray-400">
+                          <span>Put in</span>
+                          <span className="tabular-nums">{formatCurrency(pairPerf.moneyIn)}</span>
+                        </p>
+                        <p className="flex justify-between text-body text-gray-600 dark:text-gray-400">
+                          <span>Taken out</span>
+                          <span className="tabular-nums">{formatCurrency(pairPerf.moneyOut)}</span>
+                        </p>
+                        <p className="flex justify-between text-body text-gray-600 dark:text-gray-400">
+                          <span>Gain</span>
+                          <span className="tabular-nums">{formatCurrency(pairPerf.gain)}</span>
+                        </p>
+                        <p className="flex justify-between font-semibold text-body text-gray-900 dark:text-white border-t border-gray-200 dark:border-gray-700 pt-1">
+                          <span>Ended at</span>
+                          <span className="tabular-nums">{formatCurrency(pairPerf.endValue)}</span>
+                        </p>
+                      </div>
+                    );
+                  })()}
 
                   <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">
-                    The transfers behind the contributions
+                    The movements behind the contributions, this period
                   </p>
-                  {drillLine.contributionRows.length === 0 ? (
+                  {windowRows.length === 0 ? (
                     <p className="text-body text-gray-500 dark:text-gray-400 py-2">
                       No external transfers recorded — this account's whole value is return.
                     </p>
                   ) : (
                     <div className="space-y-1">
-                      {drillLine.contributionRows.map(row => {
+                      {windowRows.map(row => {
                         const rowAccount = accountsById.get(row.accountId);
                         return (
                           <p key={row.transactionId} className="flex justify-between gap-3 py-1 border-b border-gray-100 dark:border-gray-700/60 last:border-0">

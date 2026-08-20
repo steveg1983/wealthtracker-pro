@@ -4,6 +4,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { dataPort } from '@data';
 import { preserveDemoParam } from '../utils/navigation';
+import { DEPTH_LEVEL_1, DEPTH_LEVEL_2 } from '../styles/depthShading';
 import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
 import AddAccountModal from '../components/AddAccountModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
@@ -2109,7 +2110,7 @@ function AccountsList() {
           onClick={() => toggleGroupCollapsed(collapseKeyFor(group.kind, group.label))}
           aria-expanded={isExpanded}
           aria-controls={regionId}
-          className="w-full bg-surface-secondary dark:bg-gray-700/50 border-b border-line dark:border-gray-700 px-4 sm:px-6 py-2.5 text-left transition-colors duration-state hover:bg-surface-tertiary dark:hover:bg-gray-700"
+          className={`w-full ${DEPTH_LEVEL_1} border-b border-line dark:border-gray-700 px-4 sm:px-6 py-2.5 text-left transition-colors duration-state hover:bg-gray-200 dark:hover:bg-gray-600`}
         >
           {/* ONE ROW AT EVERY WIDTH, so the total is on the right on a
               phone too. It was `flex-col sm:flex-row`, which below sm stacked
@@ -2268,7 +2269,7 @@ function AccountsList() {
                         onClick={() => toggleGroupCollapsed(subBandCollapseKeyFor(group.label, sub.label))}
                         aria-expanded={sub.isExpanded}
                         aria-controls={subRegionId}
-                        className="w-full text-left flex items-center justify-between gap-2 mt-4 first:mt-0 border-t-2 first:border-t-0 border-b border-line dark:border-gray-700 bg-surface-secondary dark:bg-gray-700/50 hover:bg-surface-tertiary dark:hover:bg-gray-700 transition-colors duration-state px-4 sm:px-6 py-2"
+                        className={`w-full text-left flex items-center justify-between gap-2 mt-4 first:mt-0 border-t-2 first:border-t-0 border-b border-line dark:border-gray-700 ${DEPTH_LEVEL_2} hover:bg-surface-tertiary dark:hover:bg-gray-700 transition-colors duration-state px-4 sm:px-6 py-2`}
                       >
                         <p className="flex items-center gap-2 min-w-0 text-body uppercase font-bold tracking-wide text-gray-900 dark:text-white truncate">
                           <ChevronRightIcon
@@ -2314,7 +2315,10 @@ function AccountsList() {
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
             {account.name}
           </p>
-          {account.institution && (
+          {/* Only when the list is NOT banded by institution — under an
+              institution sub-band the heading already says it, and the open
+              list dropped the same duplicate (owner, 20 Aug). */}
+          {account.institution && !grouping.byInstitution && (
             <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
               {account.institution}
             </p>
@@ -3054,13 +3058,13 @@ function AccountsList() {
               ) : (
                 closedAccountBands.groups.map(group => (
                   <div key={`${group.kind}:${group.label}`}>
-                    <p className="px-4 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                    <p className={`px-4 py-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 ${DEPTH_LEVEL_1}`}>
                       {group.title}
                     </p>
                     {group.subGroups ? (
                       group.subGroups.map(sub => (
                         <div key={sub.label}>
-                          <p className="pl-8 pr-4 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400/90 dark:text-gray-500/90">
+                          <p className={`pl-8 pr-4 py-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 ${DEPTH_LEVEL_2}`}>
                             {sub.title}
                           </p>
                           <div className="divide-y divide-gray-100 dark:divide-gray-700">
