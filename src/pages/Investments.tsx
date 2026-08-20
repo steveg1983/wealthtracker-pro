@@ -25,6 +25,7 @@ import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { describeRate } from '../utils/fx';
 import PageWrapper from '../components/PageWrapper';
+import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
 import { PieChart as DashboardPieChart } from '../components/charts/DashboardCharts';
@@ -74,6 +75,17 @@ const INVESTMENT_PERIOD_MONTHS: Record<'1-month' | '3-months' | '6-months' | '12
 };
 
 export default function Investments() {
+  // The whole-pounds scope must sit above every useCurrencyDecimal call,
+  // including this page's own — hence the thin shell (owner, 19 Aug:
+  // page-specific decimal display).
+  return (
+    <WholePoundsScope page="investments">
+      <InvestmentsView />
+    </WholePoundsScope>
+  );
+}
+
+function InvestmentsView() {
   const {
     accounts, transactions, transactionSplits, categories,
     // The purchase's cash half: the out leg is an ordinary transaction and the
@@ -751,7 +763,9 @@ export default function Investments() {
         )
       }
     >
-
+      <div className="flex justify-end mb-2">
+        <WholePoundsToggle />
+      </div>
       {/* Navigation Tabs */}
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-6">
         <button

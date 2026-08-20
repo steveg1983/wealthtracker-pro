@@ -29,6 +29,7 @@ import EditTransactionModal from '../EditTransactionModal';
 import IncomeExpenseBreakdownModal from '../IncomeExpenseBreakdownModal';
 import { Modal, ModalBody } from '../common/Modal';
 import PeriodBar from '../../components/PeriodBar';
+import { WholePoundsToggle } from '../../contexts/WholePoundsContext';
 import NetWorthSummary from '../../components/NetWorthSummary';
 import AccountBreakdownModal, { type AccountBreakdownView } from '../../components/AccountBreakdownModal';
 import { PERIOD_LABELS, usePeriod } from '../../hooks/usePeriod';
@@ -707,7 +708,10 @@ export function ImprovedDashboard() {
     <div className="space-y-4 max-w-[1400px] mx-auto">
       {/* The one control that says what window this page is being read over.
           Directly under the page heading, so its position states its scope. */}
-      <PeriodBar picker={period} label="Period for this dashboard" />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <PeriodBar picker={period} label="Period for this dashboard" />
+        <WholePoundsToggle />
+      </div>
 
       {/* Net worth and the two figures it is made of — one card, three
           columns. The navy slab this replaces put a second heavy horizontal
