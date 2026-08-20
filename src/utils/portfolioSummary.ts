@@ -132,7 +132,7 @@ export interface PortfolioSummaryInput {
 const ZERO = toDecimal(0);
 
 /** Category id → the account its "To/From <account>" filing names. */
-function transferCategoryAccounts(categories: readonly Category[]): Map<string, string> {
+export function transferCategoryAccounts(categories: readonly Category[]): Map<string, string> {
   const map = new Map<string, string>();
   for (const category of categories) {
     if (category.isTransferCategory === true && category.accountId) {
@@ -154,8 +154,12 @@ function transferCategoryAccounts(categories: readonly Category[]): Map<string, 
  *
  * A SPLIT LINE gets the category alone: the virtual row inherits its parent's
  * link fields, which belong to the parent's own leg, not to this line's.
+ *
+ * EXPORTED for utils/portfolioPerformance, which must classify a transfer as
+ * internal or external by exactly this rule — a second resolver would be two
+ * definitions of one boundary waiting to drift apart.
  */
-function counterpartyAccountId(
+export function counterpartyAccountId(
   row: SplitExpandedTransaction,
   transactionsById: ReadonlyMap<string, Transaction>,
   categoryAccounts: ReadonlyMap<string, string>
