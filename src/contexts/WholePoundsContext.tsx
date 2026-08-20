@@ -53,6 +53,8 @@ export function WholePoundsScope({ page, children }: { page: string; children: R
 /**
  * The checkbox. Context-connected so a page can drop it into whichever
  * toolbar suits without threading props through a 3,000-line component.
+ * Reads "Hide decimals" (owner, 20 Aug, over the first wording): unticked
+ * shows the pennies, ticked hides them.
  */
 export function WholePoundsToggle({ className = '' }: { className?: string }): React.JSX.Element {
   const { wholePounds, setWholePounds } = useContext(WholePoundsContext);
@@ -64,7 +66,7 @@ export function WholePoundsToggle({ className = '' }: { className?: string }): R
         onChange={event => setWholePounds(event.target.checked)}
         className="rounded border-gray-300 dark:border-gray-600"
       />
-      Whole pounds
+      Hide decimals
     </label>
   );
 }

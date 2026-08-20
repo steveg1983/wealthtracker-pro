@@ -441,7 +441,7 @@ function ForecastStatement(): React.JSX.Element {
             type="button"
             onClick={() => toggleSection(side)}
             aria-expanded={open}
-            className="flex items-center gap-1.5 text-card font-semibold text-theme-heading dark:text-white"
+            className="flex items-center gap-1.5 text-card font-bold text-theme-heading dark:text-white"
           >
             {open
               ? <ChevronDownIcon size={16} className="text-gray-400 shrink-0" />
@@ -484,7 +484,7 @@ function ForecastStatement(): React.JSX.Element {
                         type="button"
                         onClick={() => toggleGroup(groupKey)}
                         aria-expanded={groupOpen}
-                        className="flex items-center gap-1.5 py-2 text-sm font-medium text-gray-900 dark:text-white"
+                        className="flex items-center gap-1.5 py-2 text-sm font-bold text-gray-900 dark:text-white"
                       >
                         {groupOpen
                           ? <ChevronDownIcon size={14} className="text-gray-400 shrink-0" />
@@ -593,7 +593,7 @@ function ForecastStatement(): React.JSX.Element {
               type="button"
               onClick={() => toggleSection(side)}
               aria-expanded={open}
-              className="flex items-center gap-1.5 text-card font-semibold text-theme-heading dark:text-white"
+              className="flex items-center gap-1.5 text-card font-bold text-theme-heading dark:text-white"
             >
               {open
                 ? <ChevronDownIcon size={16} className="text-gray-400 shrink-0" />
@@ -627,7 +627,7 @@ function ForecastStatement(): React.JSX.Element {
                     type="button"
                     onClick={() => toggleGroup(groupKey)}
                     aria-expanded={groupOpen}
-                    className="flex items-center gap-1.5 text-left text-sm font-medium text-gray-900 dark:text-white truncate max-w-[16rem]"
+                    className="flex items-center gap-1.5 text-left text-sm font-bold text-gray-900 dark:text-white truncate max-w-[16rem]"
                   >
                     {groupOpen
                       ? <ChevronDownIcon size={14} className="text-gray-400 shrink-0" />

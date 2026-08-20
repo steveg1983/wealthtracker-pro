@@ -2437,6 +2437,13 @@ function AccountsList() {
         );
       })()}
 
+      {/* On the RIGHT, between the summary boxes and the controls — the same
+          side every page keeps this choice on (owner, 20 Aug: "the location
+          on each page should be similar, as in on the right hand side"). */}
+      <div className="-mt-4 mb-2 flex justify-end">
+        <WholePoundsToggle />
+      </div>
+
       {/* Group + sort controls, with bank connections on the right.
           ─ WHICH LABEL GOES WITH WHICH CONTROL ────────────────────────────
           The gap BEFORE a label has to beat the gap AFTER it, or the eye files
@@ -2661,7 +2668,6 @@ function AccountsList() {
           >
             {showRowActions ? 'Hide account buttons' : 'Show account buttons'}
           </button>
-          <WholePoundsToggle className="shrink-0" />
         </div>
         {/* Search — the way to find one account among two hundred. On a
             phone it takes the first row, full width; the pills follow.
