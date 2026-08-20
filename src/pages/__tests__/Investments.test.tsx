@@ -28,7 +28,10 @@ const account = (overrides: Partial<Account> & Pick<Account, 'id' | 'name' | 'ty
 });
 
 const txn = (overrides: Partial<Transaction> & Pick<Transaction, 'id' | 'accountId' | 'amount'>): Transaction => ({
-  date: new Date(2026, 2, 10),
+  // BEFORE the harness's pinned clock (browserShims sets 2025-01-20) and
+  // inside the default 12-month window — the tiles are WINDOWED now, and a
+  // fixture dated after the clock honestly reads as an empty window.
+  date: new Date(2024, 5, 10),
   description: 'Movement',
   category: '',
   type: 'transfer',
@@ -36,7 +39,9 @@ const txn = (overrides: Partial<Transaction> & Pick<Transaction, 'id' | 'account
 });
 
 const accounts: Account[] = [
-  account({ id: ISA, name: 'Fund ISA', type: 'investment', institution: 'Sample Brokers', openingBalance: 1000 }),
+  // The opening is DATED, before the default window: it reaches the tiles as
+  // starting value, never as a window flow — the owner's opening-balance rule.
+  account({ id: ISA, name: 'Fund ISA', type: 'investment', institution: 'Sample Brokers', openingBalance: 1000, openingBalanceDate: new Date(2023, 11, 1) }),
   account({ id: ISA_CASH, name: 'Fund ISA (Cash)', type: 'current', parentAccountId: ISA }),
   account({ id: EVERYDAY, name: 'Everyday Account', type: 'current', openingBalance: 5000 }),
 ];
@@ -52,9 +57,9 @@ const categories: Category[] = [
   { id: 'tofrom-everyday', name: 'To/From Everyday Account', type: 'both', level: 'detail', isTransferCategory: true, accountId: EVERYDAY },
 ];
 
-const renderInvestments = (overrides: { transactions?: Transaction[] } = {}) => {
+const renderInvestments = (overrides: { transactions?: Transaction[]; accounts?: Account[] } = {}) => {
   __setAppContextValue({
-    accounts,
+    accounts: overrides.accounts ?? accounts,
     transactions: overrides.transactions ?? transactions,
     transactionSplits: [],
     categories,
@@ -77,8 +82,9 @@ describe('Investments page — the pair is the portfolio', () => {
     renderInvestments();
 
     // £1,300 in the fund and £200 in its cash: the tile and the holding row
-    // both say £1,500.
-    expect(await screen.findAllByText('£1,500.00')).toHaveLength(2);
+    // both say £1,500 — and since the tiles went windowed, the return
+    // band's Ended at is the third voice of the same walk.
+    expect(await screen.findAllByText('£1,500.00')).toHaveLength(3);
 
     /*
      * The £1,300 IS shown now, and that is a ruling change, not a leak. This
@@ -131,24 +137,23 @@ describe('Investments page — contributions and return', () => {
     // £500 in from the current account. The £200 shuffled into the pair's own
     // cash side is not a contribution in either direction.
     expect(await screen.findByText('Net Contributions')).toBeInTheDocument();
-    expect(screen.getByText('£500.00')).toBeInTheDocument();
-    expect(screen.getByText('+£1,000.00')).toBeInTheDocument();
+    // The tile and the return band's Put in — same figure, same maths.
+    expect(screen.getAllByText('£500.00')).toHaveLength(2);
+    // OVERRULED with the windowed tiles: the old maths called £1,000 the
+    // "return" — but that was the OPENING BALANCE, capital mistaken for
+    // growth. Nothing in this fixture grew; the honest gain is zero.
+    expect(screen.queryByText('+£1,000.00')).not.toBeInTheDocument();
+    expect(screen.getAllByText('+£0.00').length).toBeGreaterThanOrEqual(1);
     // OVERRULED 20 Aug: the tile no longer prints gain-over-net-contributions
     // (+200.00% here) — that ratio turns absurd the moment withdrawals bring
-    // the net near zero. The pinned test clock (browserShims) sits BEFORE
-    // this fixture's rows, so here the tile honestly reports nothing
-    // measurable yet; the words-pin for the new measure runs on the
-    // backdated ledger in its own spec below.
+    // the net near zero. The words-pin for the new measure has its own spec.
     expect(screen.queryByText('+200.00%')).not.toBeInTheDocument();
   });
 
-  it('shows the all-time money-weighted rate, annualised — never gain-over-net-contributions', async () => {
-    // The same ledger, dated before the pinned clock, so the window is real.
-    renderInvestments({
-      transactions: transactions.map(t => ({ ...t, date: new Date(2024, 5, 10) })),
-    });
+  it('shows the money-weighted rate for the window, annualised — never gain-over-net-contributions', async () => {
+    renderInvestments();
 
-    expect(await screen.findByText('Money-weighted, annualised, since the start')).toBeInTheDocument();
+    expect(await screen.findByText('Money-weighted, annualised')).toBeInTheDocument();
     expect(screen.queryByText('+200.00%')).not.toBeInTheDocument();
   });
 
@@ -171,10 +176,15 @@ describe('Investments page — contributions and return', () => {
     expect(await screen.findByText(/no matching row in another account/)).toBeInTheDocument();
   });
 
-  it('refuses to state a return percentage when nothing was contributed', async () => {
-    renderInvestments({ transactions: [] });
+  it('refuses to state a return percentage when nothing was ever in the window', async () => {
+    // No rows AND no dated opening: an opening predating the window would be
+    // capital at work, and 0.00% — not a refusal — would be the honest tile.
+    renderInvestments({
+      transactions: [],
+      accounts: accounts.map(a => ({ ...a, openingBalance: 0, openingBalanceDate: undefined })),
+    });
 
-    expect(await screen.findByText('—')).toBeInTheDocument();
-    expect(screen.getByText('Nothing has been invested yet, so there is no return to measure')).toBeInTheDocument();
+    expect((await screen.findAllByText('—')).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Nothing was invested in this window, so there is no return to measure')).toBeInTheDocument();
   });
 });

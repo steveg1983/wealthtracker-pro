@@ -10,6 +10,7 @@ import { buildPlWindow, bucketIndexOf, dayOf } from '../utils/plWindow';
 import type { PlWindowKind } from '../utils/plWindow';
 import { ArrowDownIcon, ArrowUpIcon, ChevronDownIcon, ChevronRightIcon } from '../components/icons';
 import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
+import { DEPTH_LEVEL_1, DEPTH_LEVEL_2, DEPTH_LEVEL_2_STICKY } from '../styles/depthShading';
 import { dataPort } from '@data';
 import type { ForecastAdjustment, Transaction } from '../types';
 
@@ -436,7 +437,7 @@ function ForecastStatement(): React.JSX.Element {
         {/* A row that FOLDS wears a quiet band (owner, 19 Aug: "anything…
             that has a drop down arrow should have its row highlighted
             slightly") — the same band its table-mode twin wears. */}
-        <div className="flex items-baseline justify-between gap-4 py-2 px-2 -mx-2 rounded bg-gray-50 dark:bg-gray-700">
+        <div className={`flex items-baseline justify-between gap-4 py-2 px-2 -mx-2 rounded ${DEPTH_LEVEL_1}`}>
           <button
             type="button"
             onClick={() => toggleSection(side)}
@@ -479,7 +480,7 @@ function ForecastStatement(): React.JSX.Element {
                 const groupOpen = !closedGroups.has(groupKey);
                 return (
                   <li key={entry.key} className="border-t border-gray-50 dark:border-gray-700/50 first:border-0">
-                    <div className="flex items-baseline justify-between gap-4 px-2 -mx-2 rounded bg-gray-50 dark:bg-gray-700">
+                    <div className={`flex items-baseline justify-between gap-4 px-2 -mx-2 rounded ${DEPTH_LEVEL_2}`}>
                       <button
                         type="button"
                         onClick={() => toggleGroup(groupKey)}
@@ -587,8 +588,8 @@ function ForecastStatement(): React.JSX.Element {
         {/* A folding row wears the band; its sticky cell paints the SAME
             colour, opaque, or the first column would break the band while
             the months scroll beneath it. */}
-        <tr className="border-t border-gray-100 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-700">
-          <td className="sticky left-0 bg-gray-50 dark:bg-gray-700 py-2 pr-4">
+        <tr className={`border-t border-gray-100 dark:border-gray-700/60 ${DEPTH_LEVEL_1}`}>
+          <td className={`sticky left-0 ${DEPTH_LEVEL_1} py-2 pr-4`}>
             <button
               type="button"
               onClick={() => toggleSection(side)}
@@ -621,8 +622,8 @@ function ForecastStatement(): React.JSX.Element {
           const groupOpen = !closedGroups.has(groupKey);
           return (
             <React.Fragment key={entry.key}>
-              <tr className="border-t border-gray-50 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-700">
-                <td className="sticky left-0 bg-gray-50 dark:bg-gray-700 py-1.5 pl-4 pr-4">
+              <tr className={`border-t border-gray-50 dark:border-gray-700/50 ${DEPTH_LEVEL_2}`}>
+                <td className={`sticky left-0 ${DEPTH_LEVEL_2_STICKY} py-1.5 pl-4 pr-4`}>
                   <button
                     type="button"
                     onClick={() => toggleGroup(groupKey)}

@@ -95,6 +95,30 @@ const DAYS_PER_YEAR = toDecimal('365.25');
 const dayTime = (day: string): number => Date.parse(`${day}T00:00:00Z`);
 
 /**
+ * The scope's opening-balance flows — each account's dated opening lump, the
+ * same resolution the performance walk counts as money in. Exposed so the
+ * contributions drill can LIST them beside the transfer rows: a breakdown
+ * that omitted the openings would not sum to the tile it explains.
+ */
+export function scopeOpeningFlows(
+  memberAccounts: readonly Account[],
+  transactions: readonly Transaction[]
+): Array<{ accountId: string; day: string; amount: DecimalInstance }> {
+  const memberIds = new Set(memberAccounts.map(a => a.id));
+  const memberTransactions = transactions.filter(t => memberIds.has(t.accountId));
+  const openingDates = resolveEffectiveOpeningDates([...memberAccounts], [...memberTransactions]);
+  const flows: Array<{ accountId: string; day: string; amount: DecimalInstance }> = [];
+  for (const account of memberAccounts) {
+    const opening = toDecimal(account.openingBalance ?? 0);
+    if (opening.isZero()) continue;
+    const effective = openingDates.get(account.id);
+    if (effective === undefined) continue; // time-zero seed — never a window flow
+    flows.push({ accountId: account.id, day: dayOf(effective), amount: opening });
+  }
+  return flows;
+}
+
+/**
  * The scope's value at the end of `date` — the same openings-plus-rows walk
  * the performance figures stand on, exposed for the chart's per-date drill
  * (owner, 20 Aug: "click on any month … a pop up window comes up with the
