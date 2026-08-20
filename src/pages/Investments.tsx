@@ -28,7 +28,10 @@ import PageWrapper from '../components/PageWrapper';
 import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
-import { computePortfolioPerformance } from '../utils/portfolioPerformance';
+import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
+import { computePortfolioPerformance, scopeValueAt } from '../utils/portfolioPerformance';
+import { buildTopLevelIdByAccountId, groupByTopLevelId } from '../utils/accountNesting';
+import { getDateLocale } from '../utils/dateFormatter';
 import { preferences } from '../services/preferencesService';
 import { PieChart as DashboardPieChart } from '../components/charts/DashboardCharts';
 import { buildHoldingAllocation } from '../utils/holdingAllocation';
@@ -430,9 +433,19 @@ function InvestmentsView() {
   // account's settlement cash is part of what the portfolio is worth, and
   // moving money between the two sides is not a contribution. See
   // utils/portfolioSummary; the nesting rules are the Accounts page's own.
+  /**
+   * OPEN AND CLOSED, because every figure here walks history. Measured on
+   * the owner's ledger (20 Aug): over open accounts alone, all-time money
+   * in read at less than half its true figure — a closed sleeve's transfers
+   * vanished, and transfers TO it were misread as money leaving the
+   * portfolio. The same trap the net-worth report fixed; see
+   * useHistoricalAccounts. A fully closed pair keeps its line (usually at
+   * £0), which is what makes the contributions attribution sum true.
+   */
+  const historicalAccounts = useHistoricalAccounts(openAccounts);
   const summary = useMemo(
-    () => buildPortfolioSummary({ accounts: openAccounts, transactions, transactionSplits, categories }),
-    [openAccounts, transactions, transactionSplits, categories]
+    () => buildPortfolioSummary({ accounts: historicalAccounts, transactions, transactionSplits, categories }),
+    [historicalAccounts, transactions, transactionSplits, categories]
   );
 
   /**
@@ -545,6 +558,43 @@ function InvestmentsView() {
     }),
     [summary.memberAccounts, transactions, transactionSplits, categories, historyRange]
   );
+
+  /** All time, for the Return % tile — the whole ledger, both measures. */
+  const allTimePerformance = useMemo(
+    () => computePortfolioPerformance({
+      memberAccounts: summary.memberAccounts,
+      transactions,
+      transactionSplits,
+      categories,
+      range: { from: null, to: null },
+    }),
+    [summary.memberAccounts, transactions, transactionSplits, categories]
+  );
+
+  /**
+   * THE CHART'S PER-DATE DRILL (owner, 20 Aug): click a point and see the
+   * pairs and figures that make up that total — the net-worth report's own
+   * answer to a point, over this page's scope.
+   */
+  const [drillDate, setDrillDate] = useState<Date | null>(null);
+  const drillRows = useMemo(() => {
+    if (!drillDate) return null;
+    const topLevelIdByAccountId = buildTopLevelIdByAccountId(historicalAccounts);
+    const membersByTopLevelId = groupByTopLevelId(historicalAccounts, topLevelIdByAccountId);
+    const rows = historicalAccounts
+      .filter(a => a.type === 'investment' && topLevelIdByAccountId.get(a.id) === a.id)
+      .map(root => ({
+        accountId: root.id,
+        name: root.name,
+        value: scopeValueAt(membersByTopLevelId.get(root.id) ?? [root], transactions, drillDate),
+      }))
+      .filter(row => !row.value.isZero())
+      .sort((a, b) => b.value.minus(a.value).toNumber());
+    return {
+      rows,
+      total: rows.reduce((sum, row) => sum.plus(row.value), toDecimal(0)),
+    };
+  }, [drillDate, historicalAccounts, transactions]);
 
   /** Which measure leads — the user's choice, remembered (GIPS shows both). */
   const [performanceMeasure, setPerformanceMeasure] = useState<'mwr' | 'twr'>(
@@ -956,30 +1006,84 @@ function InvestmentsView() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-body text-gray-500 dark:text-gray-400">Return %</p>
-              {summary.returnPercent === null ? (
+              {/* MWR, annualised, whole ledger — gain-over-net-contributions
+                  turns absurd the moment withdrawals bring the net near zero
+                  (measured on the owner's ledger: a small net under a large
+                  gain). The money-weighted rate is the figure
+                  a statement would print here. */}
+              {allTimePerformance.mwrAnnualised === null ? (
                 <>
                   <p className="text-page font-bold text-gray-500 dark:text-gray-400">—</p>
                   <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
-                    No contributions to measure a return against
+                    Nothing has been invested yet, so there is no return to measure
                   </p>
                 </>
               ) : (
-                <p className={`text-page font-bold ${isGain ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {isGain ? '+' : ''}{formatPercentage(summary.returnPercent)}
-                </p>
+                <>
+                  <p className={`text-page font-bold tabular-nums ${
+                    allTimePerformance.mwrAnnualised.isZero()
+                      ? 'text-gray-900 dark:text-white'
+                      : allTimePerformance.mwrAnnualised.greaterThan(0)
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {formatReturn(allTimePerformance.mwrAnnualised)}
+                  </p>
+                  <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
+                    Money-weighted, annualised, since the start
+                  </p>
+                </>
               )}
             </div>
             <TrendingDownIcon
               className={
-                summary.returnPercent === null
+                allTimePerformance.mwrAnnualised === null
                   ? 'text-gray-400'
-                  : isGain ? 'text-green-500' : 'text-red-500'
+                  : allTimePerformance.mwrAnnualised.greaterThanOrEqualTo(0) ? 'text-green-500' : 'text-red-500'
               }
               size={24}
             />
           </div>
         </div>
         </div>
+
+        {/* The point's answer: each pair's value on that date, summing to
+            the point that was clicked. */}
+        <Modal
+          isOpen={drillDate !== null}
+          onClose={() => setDrillDate(null)}
+          title={drillDate
+            ? `Portfolio on ${drillDate.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}`
+            : ''}
+          size="md"
+        >
+          <ModalBody>
+            {drillRows && (
+              drillRows.rows.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Nothing in the portfolio on this date.
+                </p>
+              ) : (
+                <ul>
+                  {drillRows.rows.map(row => (
+                    <li key={row.accountId} className="py-2 flex items-baseline justify-between gap-4 border-t border-gray-50 dark:border-gray-700/50 first:border-0">
+                      <span className="text-sm text-gray-900 dark:text-white truncate">{row.name}</span>
+                      <span className="text-sm tabular-nums text-gray-900 dark:text-white shrink-0">
+                        {formatCurrency(row.value)}
+                      </span>
+                    </li>
+                  ))}
+                  <li className="py-2 flex items-baseline justify-between gap-4 border-t-2 border-gray-200 dark:border-gray-600">
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">Total</span>
+                    <span className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white shrink-0">
+                      {formatCurrency(drillRows.total)}
+                    </span>
+                  </li>
+                </ul>
+              )
+            )}
+          </ModalBody>
+        </Modal>
 
         {/* ─ THE BREAKDOWN A TILE OPENS — a MODAL, like the app's other
             drill-downs (owner, 16 August). It shipped as an inline panel and
@@ -1257,7 +1361,14 @@ function InvestmentsView() {
 
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={performanceData}>
+            <LineChart
+              data={performanceData}
+              style={{ cursor: 'pointer' }}
+              onClick={(state) => {
+                const point = performanceData.find(p => p.label === state?.activeLabel);
+                if (point) setDrillDate(point.date);
+              }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis dataKey="label" stroke="#9CA3AF" />
               <YAxis 
