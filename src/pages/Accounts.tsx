@@ -4,6 +4,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { dataPort } from '@data';
 import { preserveDemoParam } from '../utils/navigation';
+import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
 import AddAccountModal from '../components/AddAccountModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import AccountBreakdownModal, { type AccountBreakdownView } from '../components/AccountBreakdownModal';
@@ -214,6 +215,17 @@ type DisplayedList =
   | { mode: 'grouped'; bands: DisplayedBand[] };
 
 export default function Accounts() {
+  // The whole-pounds scope must sit above every useCurrencyDecimal call,
+  // including this page's own — hence the thin shell (owner, 19 Aug:
+  // page-specific decimal display).
+  return (
+    <WholePoundsScope page="accounts">
+      <AccountsList />
+    </WholePoundsScope>
+  );
+}
+
+function AccountsList() {
   const { accounts, transactions, serverBalances, updateAccount, closeAccount, refreshAccountsAndTransactions, refreshCategories } = useApp();
   const { showError } = useToast();
   const { formatCurrency: formatDisplayCurrency, displayCurrency } = useCurrencyDecimal();
@@ -2649,6 +2661,7 @@ export default function Accounts() {
           >
             {showRowActions ? 'Hide account buttons' : 'Show account buttons'}
           </button>
+          <WholePoundsToggle className="shrink-0" />
         </div>
         {/* Search — the way to find one account among two hundred. On a
             phone it takes the first row, full width; the pills follow.

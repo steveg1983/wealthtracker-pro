@@ -15,6 +15,7 @@ import ZeroBasedBudgeting from '../components/ZeroBasedBudgeting';
 import type { Budget } from '../types';
 import { getEffectiveBudgetAmount } from '../utils/budgetAmounts';
 import PageWrapper from '../components/PageWrapper';
+import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
 import PageTip from '../components/PageTip';
 import { calculateBudgetPercentage } from '../utils/calculations-decimal';
 import {
@@ -30,6 +31,17 @@ import { formatDecimal } from '../utils/decimal-format';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
 
 export default function Budget() {
+  // The whole-pounds scope must sit above every useCurrencyDecimal call,
+  // including this page's own — hence the thin shell (owner, 19 Aug:
+  // page-specific decimal display).
+  return (
+    <WholePoundsScope page="budget">
+      <BudgetView />
+    </WholePoundsScope>
+  );
+}
+
+function BudgetView() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [activeTab, setActiveTab] = useState<'traditional' | 'envelope' | 'templates' | 'rollover' | 'alerts' | 'zero-based'>('traditional');
@@ -278,6 +290,9 @@ export default function Budget() {
       }
     >
 
+      <div className="flex justify-end mb-2">
+        <WholePoundsToggle />
+      </div>
       {/* Navigation Tabs */}
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-6">
         <button

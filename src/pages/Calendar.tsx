@@ -17,6 +17,7 @@ import EditTransactionModal from '../components/EditTransactionModal';
 import type { Transaction } from '../types';
 import type { SplitExpandedTransaction } from '../utils/transactionSplits';
 import { createCategoryLabeller } from '../utils/categoryLabel';
+import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
 
 interface DayData {
   date: Date;
@@ -30,6 +31,17 @@ interface DayData {
 }
 
 export default function Calendar() {
+  // The whole-pounds scope must sit above every useCurrencyDecimal call,
+  // including this page's own — hence the thin shell (owner, 19 Aug:
+  // page-specific decimal display).
+  return (
+    <WholePoundsScope page="calendar">
+      <CalendarView />
+    </WholePoundsScope>
+  );
+}
+
+function CalendarView() {
   const {
     transactions, transactionSplits, categories, accounts,
     suggestionDismissals, suggestionDismissalsStatus, refreshSuggestionDismissals,
@@ -745,19 +757,23 @@ export default function Calendar() {
           </div>
         </div>
 
-        {view === 'month' && (<>
-        {/* The daily net-worth line is opt-in (owner: not a default). */}
-        <div className="flex justify-end px-4 py-1.5 border-b border-gray-100 dark:border-gray-700">
-          <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showNetWorth}
-              onChange={toggleNetWorth}
-              className="rounded border-gray-300 dark:border-gray-600"
-            />
-            Daily net worth
-          </label>
+        {/* Display choices, every view: whole pounds always; the daily
+            net-worth line is month-view's own (owner: not a default). */}
+        <div className="flex justify-end items-center gap-4 px-4 py-1.5 border-b border-gray-100 dark:border-gray-700">
+          <WholePoundsToggle />
+          {view === 'month' && (
+            <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showNetWorth}
+                onChange={toggleNetWorth}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              Daily net worth
+            </label>
+          )}
         </div>
+        {view === 'month' && (<>
         {/* Day headers */}
         <div className="grid grid-cols-7 border-b border-gray-100 dark:border-gray-700">
           {dayNames.map(day => (

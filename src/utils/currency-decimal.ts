@@ -134,11 +134,26 @@ const showsMinus = (decimal: DecimalInstance): boolean =>
  * through here, and should: it is a rendered document a person reads, which is
  * where the convention comes from.
  */
-export function formatCurrency(amount: DecimalInstance | number, currency: string = 'GBP'): string {
-  const decimal = toDecimal(amount).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+/**
+ * `wholePounds` is a DISPLAY choice, per page (see WholePoundsContext): the
+ * figure rounds half-up to the pound and drops its pennies. The sign rule
+ * rides on the ROUNDED value, so a −£0.40 that rounds to zero wears no
+ * brackets — the same guard formatCurrencyWhole below has always kept.
+ */
+export interface FormatCurrencyOptions {
+  wholePounds?: boolean;
+}
+
+export function formatCurrency(
+  amount: DecimalInstance | number,
+  currency: string = 'GBP',
+  options: FormatCurrencyOptions = {}
+): string {
+  const places = options.wholePounds ? 0 : 2;
+  const decimal = toDecimal(amount).toDecimalPlaces(places, Decimal.ROUND_HALF_UP);
   const symbol = getCurrencySymbol(currency);
   const isNegative = showsMinus(decimal);
-  const formatted = formatDecimal(decimal.abs(), 2, { group: true });
+  const formatted = formatDecimal(decimal.abs(), places, { group: true });
   const body = currency === 'CHF' ? `${formatted} ${symbol}` : `${symbol}${formatted}`;
 
   return isNegative ? `(${body})` : body;

@@ -9,6 +9,7 @@ import { dismissedKeys } from '../utils/suggestionDismissals';
 import { buildPlWindow, bucketIndexOf, dayOf } from '../utils/plWindow';
 import type { PlWindowKind } from '../utils/plWindow';
 import { ArrowDownIcon, ArrowUpIcon, ChevronDownIcon, ChevronRightIcon } from '../components/icons';
+import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
 import { dataPort } from '@data';
 import type { ForecastAdjustment, Transaction } from '../types';
 
@@ -86,6 +87,16 @@ const entryTotal = (entry: SideEntry): number =>
   entry.kind === 'group' ? entry.total : entry.category.total;
 
 export default function Forecast(): React.JSX.Element {
+  // The scope must sit ABOVE every useCurrencyDecimal call, including this
+  // page's own — hence the thin shell around the statement.
+  return (
+    <WholePoundsScope page="forecast">
+      <ForecastStatement />
+    </WholePoundsScope>
+  );
+}
+
+function ForecastStatement(): React.JSX.Element {
   const {
     accounts, categories, transactions,
     suggestionDismissals, suggestionDismissalsStatus, refreshSuggestionDismissals,
@@ -422,7 +433,10 @@ export default function Forecast(): React.JSX.Element {
     const open = sectionOpen[side];
     return (
       <div className="border-t border-gray-100 dark:border-gray-700/60 first:border-0">
-        <div className="flex items-baseline justify-between gap-4 py-2">
+        {/* A row that FOLDS wears a quiet band (owner, 19 Aug: "anything…
+            that has a drop down arrow should have its row highlighted
+            slightly") — the same band its table-mode twin wears. */}
+        <div className="flex items-baseline justify-between gap-4 py-2 px-2 -mx-2 rounded bg-gray-50 dark:bg-gray-700">
           <button
             type="button"
             onClick={() => toggleSection(side)}
@@ -465,7 +479,7 @@ export default function Forecast(): React.JSX.Element {
                 const groupOpen = !closedGroups.has(groupKey);
                 return (
                   <li key={entry.key} className="border-t border-gray-50 dark:border-gray-700/50 first:border-0">
-                    <div className="flex items-baseline justify-between gap-4">
+                    <div className="flex items-baseline justify-between gap-4 px-2 -mx-2 rounded bg-gray-50 dark:bg-gray-700">
                       <button
                         type="button"
                         onClick={() => toggleGroup(groupKey)}
@@ -570,8 +584,11 @@ export default function Forecast(): React.JSX.Element {
     const open = sectionOpen[side];
     return (
       <>
-        <tr className="border-t border-gray-100 dark:border-gray-700/60">
-          <td className="sticky left-0 bg-white dark:bg-gray-800 py-2 pr-4">
+        {/* A folding row wears the band; its sticky cell paints the SAME
+            colour, opaque, or the first column would break the band while
+            the months scroll beneath it. */}
+        <tr className="border-t border-gray-100 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-700">
+          <td className="sticky left-0 bg-gray-50 dark:bg-gray-700 py-2 pr-4">
             <button
               type="button"
               onClick={() => toggleSection(side)}
@@ -604,8 +621,8 @@ export default function Forecast(): React.JSX.Element {
           const groupOpen = !closedGroups.has(groupKey);
           return (
             <React.Fragment key={entry.key}>
-              <tr className="border-t border-gray-50 dark:border-gray-700/50">
-                <td className="sticky left-0 bg-white dark:bg-gray-800 py-1.5 pl-4 pr-4">
+              <tr className="border-t border-gray-50 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-700">
+                <td className="sticky left-0 bg-gray-50 dark:bg-gray-700 py-1.5 pl-4 pr-4">
                   <button
                     type="button"
                     onClick={() => toggleGroup(groupKey)}
@@ -786,17 +803,20 @@ export default function Forecast(): React.JSX.Element {
                       : <ArrowUpIcon size={12} className="shrink-0" />}
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowMonths(previous => !previous)}
-                  aria-pressed={showMonths}
-                  className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline"
-                >
-                  {showMonths
-                    ? <ChevronDownIcon size={14} className="shrink-0" />
-                    : <ChevronRightIcon size={14} className="shrink-0" />}
-                  {showMonths ? 'Hide the months' : 'Show the months'}
-                </button>
+                <div className="flex items-center gap-4">
+                  <WholePoundsToggle />
+                  <button
+                    type="button"
+                    onClick={() => setShowMonths(previous => !previous)}
+                    aria-pressed={showMonths}
+                    className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline"
+                  >
+                    {showMonths
+                      ? <ChevronDownIcon size={14} className="shrink-0" />
+                      : <ChevronRightIcon size={14} className="shrink-0" />}
+                    {showMonths ? 'Hide the months' : 'Show the months'}
+                  </button>
+                </div>
               </div>
 
               {showMonths ? (

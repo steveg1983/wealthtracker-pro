@@ -2,6 +2,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { usePreferences } from '../contexts/PreferencesContext';
 import PageWrapper from '../components/PageWrapper';
+import { WholePoundsScope } from '../contexts/WholePoundsContext';
 import { SkeletonCard } from '../components/loading/Skeleton';
 import LazyErrorBoundary from '../components/LazyErrorBoundary';
 import PageTip from '../components/PageTip';
@@ -55,12 +56,16 @@ export default function Dashboard() {
 
   return (
     <PageWrapper title="Dashboard">
-      {/* Render the consolidated dashboard */}
-      <LazyErrorBoundary componentName="Dashboard">
-        <Suspense fallback={<SkeletonCard className="h-96" />}>
-          <ImprovedDashboard />
-        </Suspense>
-      </LazyErrorBoundary>
+      {/* Render the consolidated dashboard — inside its whole-pounds scope,
+          so every widget's useCurrencyDecimal follows the page's checkbox
+          (owner, 19 Aug: page-specific decimal display). */}
+      <WholePoundsScope page="dashboard">
+        <LazyErrorBoundary componentName="Dashboard">
+          <Suspense fallback={<SkeletonCard className="h-96" />}>
+            <ImprovedDashboard />
+          </Suspense>
+        </LazyErrorBoundary>
+      </WholePoundsScope>
 
       {/* id bumped from `dashboard-welcome`: the old copy promised a recent
           activity list that no longer exists, so anyone who dismissed it needs

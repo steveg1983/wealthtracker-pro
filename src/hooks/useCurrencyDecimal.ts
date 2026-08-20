@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { usePreferences } from '../contexts/PreferencesContext';
+import { useWholePoundsDisplay } from '../contexts/WholePoundsContext';
 import { 
   convertCurrency, 
   convertMultipleCurrencies, 
@@ -19,13 +20,16 @@ export function useCurrencyDecimal(): {
   getCurrencySymbol: (currency: string) => string;
 } {
   const { currency: displayCurrency } = usePreferences();
+  // Whether this render sits inside a page's whole-pounds scope with the box
+  // ticked (WholePoundsContext) — a per-page display choice, owner 19 Aug.
+  const wholePounds = useWholePoundsDisplay();
   const logger = useMemoizedLogger('useCurrencyDecimal');
 
   // Format amount in display currency (accepts Decimal or number)
   const formatCurrency = useCallback((amount: DecimalInstance | number, originalCurrency?: string) => {
     const currencyToUse = originalCurrency || displayCurrency;
-    return formatCurrencyDecimal(amount, currencyToUse);
-  }, [displayCurrency]);
+    return formatCurrencyDecimal(amount, currencyToUse, { wholePounds });
+  }, [displayCurrency, wholePounds]);
 
   // Convert and format amount from one currency to display currency
   const convertAndFormat = useCallback(async (amount: DecimalInstance | number, fromCurrency: string) => {

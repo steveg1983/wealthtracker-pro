@@ -552,3 +552,20 @@ describe('currency-decimal', () => {
     });
   });
 });
+
+describe('formatCurrency — whole pounds (per-page display choice, owner 19 Aug)', () => {
+  it('rounds half-up to the pound and drops the pennies, keeping grouping and brackets', () => {
+    expect(formatCurrency(24354.39, 'GBP', { wholePounds: true })).toBe('£24,354');
+    expect(formatCurrency(24354.5, 'GBP', { wholePounds: true })).toBe('£24,355');
+    expect(formatCurrency(-42150.21, 'GBP', { wholePounds: true })).toBe('(£42,150)');
+  });
+
+  it('a figure that rounds to zero wears no brackets — the sign rides the ROUNDED value', () => {
+    expect(formatCurrency(-0.4, 'GBP', { wholePounds: true })).toBe('£0');
+  });
+
+  it('without the option, nothing changes', () => {
+    expect(formatCurrency(24354.39)).toBe('£24,354.39');
+    expect(formatCurrency(-42150.21)).toBe('(£42,150.21)');
+  });
+});

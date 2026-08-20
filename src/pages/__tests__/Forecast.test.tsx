@@ -330,3 +330,22 @@ describe('Forecast — the Forecast tab', () => {
     });
   });
 });
+
+describe('Forecast — whole pounds, this page\'s own checkbox', () => {
+  it('ticking it drops the pennies from every figure on the statement', () => {
+    renderForecast();
+
+    // Pennies by default…
+    expect(screen.getAllByText('+£24,000.00')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Whole pounds' }));
+    // …whole pounds once asked: totals, averages, the net line, all of it.
+    expect(screen.queryByText('+£24,000.00')).not.toBeInTheDocument();
+    expect(screen.getAllByText('+£24,000')).toHaveLength(2);
+    expect(screen.getByText('+£17,800')).toBeInTheDocument();
+    expect(screen.getByText('£1,483 a month')).toBeInTheDocument();
+
+    // And back, because it is a display choice, not a conversion.
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Whole pounds' }));
+    expect(screen.getAllByText('+£24,000.00')).toHaveLength(2);
+  });
+});
