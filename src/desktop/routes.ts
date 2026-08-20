@@ -179,6 +179,7 @@ export const DESKTOP_ROUTES = [
   { path: 'transactions-comparison', at: 'transactions-comparison', title: 'Find' },
   { path: 'reconciliation', at: 'reconciliation', title: 'Reconcile' },
   { path: 'categorisation', at: 'categorisation', title: 'Categorise' },
+  { path: 'transfer-links', at: 'transfer-links', title: 'Transfer Links' },
   { path: 'budget', at: 'budget', title: 'Budget' },
   { path: 'calendar', at: 'calendar', title: 'Calendar' },
   // Plan's third page. Detection reads the open ledger's own rows and the

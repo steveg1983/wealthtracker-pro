@@ -72,6 +72,7 @@ const AccountTransactions = lazyWithPreload(() => import(/* webpackChunkName: "a
 const Find = lazyWithPreload(() => import(/* webpackChunkName: "find" */ '../pages/Find'));
 const Reconciliation = lazyWithPreload(() => import(/* webpackChunkName: "reconciliation" */ '../pages/Reconciliation'));
 const Categorisation = lazyWithPreload(() => import(/* webpackChunkName: "categorisation" */ '../pages/Categorisation'));
+const TransferLinks = lazyWithPreload(() => import(/* webpackChunkName: "transfer-links" */ '../pages/TransferLinks'));
 const Budget = lazyWithPreload(() => import(/* webpackChunkName: "budget" */ '../pages/Budget'));
 const Calendar = lazyWithPreload(() => import(/* webpackChunkName: "calendar" */ '../pages/Calendar'));
 const RecurringPayments = lazyWithPreload(() => import(/* webpackChunkName: "recurring-payments" */ '../pages/RecurringPayments'));
@@ -235,6 +236,7 @@ export default function MountedLedger(): ReactElement {
     'transactions-comparison': <LegacyTransactionsRedirect />,
     reconciliation: page(<Reconciliation />),
     categorisation: page(<Categorisation />),
+    'transfer-links': page(<TransferLinks />),
     budget: page(<Budget />),
     calendar: page(<Calendar />),
     'recurring-payments': page(<RecurringPayments />),

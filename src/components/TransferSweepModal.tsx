@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useApp } from '../contexts/AppContextSupabase';
+import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useReferenceRates } from '../hooks/useReferenceRates';
@@ -277,12 +278,21 @@ function compareFindings(
 
 export default function TransferSweepModal({ isOpen, onClose }: Props): React.JSX.Element {
   const {
-    transactions, categories, accounts, transactionSplits, linkTransferPair,
+    transactions, categories, accounts: openAccounts, transactionSplits, linkTransferPair,
     linkSplitLineTransfer, repairClaimedTransfer, setTransactionArchived, updateTransaction,
     updateAccount, refreshAccountsAndTransactions, refreshCategories,
     suggestionDismissals, suggestionDismissalsStatus, refreshSuggestionDismissals,
     dismissSuggestion, restoreSuggestion,
   } = useApp();
+
+  /**
+   * Open AND closed accounts (owner, 20 Aug: "Would we be able to read the
+   * transactions of closed accounts for this?" — yes): the ledger already
+   * holds every closed account's rows, and this sweep has always matched
+   * across them; what it could not do was NAME a closed account, so a real
+   * pair's row read "Unknown account". The matching itself is unchanged.
+   */
+  const accounts = useHistoricalAccounts(openAccounts);
   const { formatCurrency } = useCurrencyDecimal();
   // Asked for only while the sweep is open, and used for nothing but ORDER —
   // see useReferenceRates. If it never arrives the same rows are offered, sorted

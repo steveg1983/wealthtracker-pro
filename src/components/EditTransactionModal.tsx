@@ -30,6 +30,7 @@ import AccountSelector from './common/AccountSelector';
 import DatePicker from './common/DatePicker';
 import { useToast } from '../contexts/ToastContext';
 import CategorySelector from './CategorySelector';
+import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
 import TagSelector from './TagSelector';
 import { getCurrencySymbol } from '../utils/currency';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
@@ -516,12 +517,37 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   // sits in. The option carries 'transfer:<id>' because the target rides in
   // the category field until save resolves it. `institution` comes along so
   // the picker can band and find them by bank, as the Accounts page does.
-  const transferTargetOptions = useMemo(
-    () => accounts
+  /**
+   * Open AND closed accounts, for NAMING only: a transfer whose other side
+   * sits in a closed account must still say which account that is — the
+   * owner's 2016 row read "Transfer" with an empty picker, which looked
+   * one-sided when it was merely pointed at a closed account (20 Aug).
+   */
+  const historicalAccounts = useHistoricalAccounts(accounts);
+
+  const transferTargetOptions = useMemo(() => {
+    const open = accounts
       .filter(a => a.isActive !== false && a.id !== formData.accountId)
-      .map(a => ({ id: `transfer:${a.id}`, name: a.name, type: a.type, institution: a.institution })),
-    [accounts, formData.accountId]
-  );
+      .map(a => ({ id: `transfer:${a.id}`, name: a.name, type: a.type, institution: a.institution }));
+    // The row's CURRENT counterpart joins the list even when closed — the
+    // picker must show the truth about this transfer, though closed accounts
+    // are not offered as new targets.
+    const currentId = formData.category.startsWith('transfer:')
+      ? formData.category.slice('transfer:'.length)
+      : transaction?.transferAccountId;
+    if (currentId && !open.some(o => o.id === `transfer:${currentId}`) && currentId !== formData.accountId) {
+      const closed = historicalAccounts.find(a => a.id === currentId);
+      if (closed) {
+        open.unshift({
+          id: `transfer:${closed.id}`,
+          name: `${closed.name} (closed)`,
+          type: closed.type,
+          institution: closed.institution,
+        });
+      }
+    }
+    return open;
+  }, [accounts, historicalAccounts, formData.accountId, formData.category, transaction]);
 
   // Helper function to format number with commas
   const formatWithCommas = (value: string | number): string => {
@@ -830,8 +856,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   // Money's "go to the other half of this transfer". Both legs are linked, so
   // the button appears on each and points back at the other.
   const otherSide = useMemo(
-    () => resolveTransferOtherSide(transaction, transactions, accounts),
-    [transaction, transactions, accounts]
+    () => resolveTransferOtherSide(transaction, transactions, historicalAccounts),
+    [transaction, transactions, historicalAccounts]
   );
 
   /**
