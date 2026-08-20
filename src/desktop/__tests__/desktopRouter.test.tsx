@@ -185,7 +185,10 @@ describe('the desktop router', () => {
     // FORTY-THREE: `forecast` joined on 19 Aug — the scenario tool's base
     // table (docs/forecast-direction.md step 4), as local as the register it
     // reviews.
-    expect(mounted.length).toBe(43);
+    // FORTY-FOUR: `transfer-links` joined on 20 Aug — the audit-trail chore
+    // as its own Manage page (the sweep it opens reads the open file's rows,
+    // closed accounts included).
+    expect(mounted.length).toBe(44);
 
     // EMPTY, and the list is kept rather than deleted — `routes.ts` says why:
     // this is one of three ANSWERS a route can have, not an exception to a rule,

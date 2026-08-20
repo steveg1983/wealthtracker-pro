@@ -315,11 +315,14 @@ describe('Layout — the Plan menu and split triggers', () => {
     renderWithProviders(<Layout />);
 
     // Manage is data admin. Investments is not admin, and Tags was standing in
-    // front of Payees, which is the one people open most.
+    // front of Payees, which is the one people open most. Transfer Links
+    // joined 20 Aug (owner: "a page under 'Manage' just like Payees") —
+    // beside its fellow tidy-up chores, before the data doors.
     expect(openMenuItems('Manage')).toEqual([
       'Categories',
       'Payees',
       'Tags',
+      'Transfer Links',
       'Import Data',
       'Export Data',
       'Documents',

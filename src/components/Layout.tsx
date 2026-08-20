@@ -422,11 +422,12 @@ export default function Layout(): React.JSX.Element {
                 { to: '/settings/categories', icon: TagIcon, label: 'Categories' },
                 { to: '/settings/payees', icon: UsersIcon, label: 'Payees' },
                 { to: '/settings/tags', icon: HashIcon, label: 'Tags' },
+                { to: '/transfer-links', icon: ArrowRightLeftIcon, label: 'Transfer Links' },
                 { to: '/enhanced-import', icon: UploadIcon, label: 'Import Data' },
                 { to: '/export-manager', icon: DownloadIcon, label: 'Export Data' },
                 { to: '/documents', icon: FolderIcon, label: 'Documents' },
               ]}
-              activePaths={['/settings/categories', '/settings/tags', '/settings/payees', '/enhanced-import', '/export-manager', '/documents']}
+              activePaths={['/settings/categories', '/settings/tags', '/settings/payees', '/enhanced-import', '/export-manager', '/documents', '/transfer-links']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
@@ -712,6 +713,7 @@ export default function Layout(): React.JSX.Element {
                       <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/payees" icon={UsersIcon} label="Payees" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/transfer-links" icon={ArrowRightLeftIcon} label="Transfer Links" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       {/* "Import Data", as the desktop menu names it — one
                           page, one name, whichever menu found it. */}
                       <SidebarLink to="/enhanced-import" icon={UploadIcon} label="Import Data" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
