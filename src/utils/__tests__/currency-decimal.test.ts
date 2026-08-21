@@ -3,6 +3,7 @@ import { Decimal } from 'decimal.js';
 import {
   getCurrencySymbol,
   formatCurrency,
+  formatCurrencyCompact,
   getExchangeRates,
   supportedCurrencies,
   currencySymbols
@@ -567,5 +568,22 @@ describe('formatCurrency — whole pounds (per-page display choice, owner 19 Aug
   it('without the option, nothing changes', () => {
     expect(formatCurrency(24354.39)).toBe('£24,354.39');
     expect(formatCurrency(-42150.21)).toBe('(£42,150.21)');
+  });
+});
+
+describe('formatCurrencyCompact — axis notation (owner, 21 Aug: £8m, never £2000k)', () => {
+  it('millions in m, 1dp only when not whole', () => {
+    expect(formatCurrencyCompact(8_000_000)).toBe('£8m');
+    expect(formatCurrencyCompact(2_400_000)).toBe('£2.4m');
+  });
+
+  it('thousands in k, grouped, 1dp when whole-thousand rounding would collide', () => {
+    expect(formatCurrencyCompact(750_000)).toBe('£750k');
+    expect(formatCurrencyCompact(2_550)).toBe('£2.6k');
+  });
+
+  it('whole units below a thousand; negatives keep the minus (colourless axis notation)', () => {
+    expect(formatCurrencyCompact(850)).toBe('£850');
+    expect(formatCurrencyCompact(-2_400_000)).toBe('-£2.4m');
   });
 });

@@ -2312,7 +2312,7 @@ function AccountsList() {
     return (
       <div key={account.id} className="flex items-center justify-between px-4 py-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
             {account.name}
           </p>
           {/* Only when the list is NOT banded by institution — under an
@@ -2325,7 +2325,7 @@ function AccountsList() {
           )}
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
-          <p className="text-sm tabular-nums text-gray-500 dark:text-gray-400">
+          <p className="text-sm tabular-nums text-gray-900 dark:text-white">
             {formatDisplayCurrency(account.balance, account.currency)}
           </p>
           <IconButton
@@ -3058,13 +3058,16 @@ function AccountsList() {
               ) : (
                 closedAccountBands.groups.map(group => (
                   <div key={`${group.kind}:${group.label}`}>
-                    <p className={`px-4 py-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 ${DEPTH_LEVEL_1}`}>
+                    {/* The SAME voice as the open bands (owner, 21 Aug: "the
+                        closed accounts should look the same to read as the
+                        open accounts, in all aspects"). */}
+                    <p className={`px-4 sm:px-6 py-2.5 text-card uppercase font-bold tracking-wide text-gray-900 dark:text-white ${DEPTH_LEVEL_1}`}>
                       {group.title}
                     </p>
                     {group.subGroups ? (
                       group.subGroups.map(sub => (
                         <div key={sub.label}>
-                          <p className={`pl-8 pr-4 py-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 ${DEPTH_LEVEL_2}`}>
+                          <p className={`px-4 sm:px-6 py-2 text-body uppercase font-bold tracking-wide text-gray-900 dark:text-white ${DEPTH_LEVEL_2}`}>
                             {sub.title}
                           </p>
                           <div className="divide-y divide-gray-100 dark:divide-gray-700">

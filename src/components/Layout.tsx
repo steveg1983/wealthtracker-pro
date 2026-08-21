@@ -626,20 +626,36 @@ export default function Layout(): React.JSX.Element {
                 
                 {/* Accounts with Sub-navigation (but no "All Accounts" redundancy) */}
                 <div>
+                  {/* THE ARROW EXPANDS, THE NAME NAVIGATES (owner, 21 Aug:
+                      tapping Accounts' arrow went to the page, closed the
+                      menu and flipped the flag — so the sub-pages only
+                      appeared on the SECOND trip). The chevron is its own
+                      button now: preventDefault stops the surrounding Link's
+                      navigation, and the menu stays open showing the
+                      sub-pages, exactly as the other headings behave. */}
                   <Link
                     to={isDemoModeRoutingEnabled ? '/accounts?demo=true' : '/accounts'}
-                    onClick={() => {
-                      setAccountsExpanded(!accountsExpanded);
-                      toggleMobileMenu();
-                    }}
+                    onClick={toggleMobileMenu}
                     className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
                   >
                     <WalletIcon size={18} />
                     <span className="flex-1 text-sm text-left">Accounts</span>
-                    <ChevronRightIcon 
-                      size={14} 
-                      className={`text-gray-400 transition-transform duration-200 ${accountsExpanded ? 'rotate-90' : ''}`} 
-                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setAccountsExpanded(!accountsExpanded);
+                      }}
+                      aria-expanded={accountsExpanded}
+                      aria-label={accountsExpanded ? 'Hide the Accounts pages' : 'Show the Accounts pages'}
+                      className="p-2 -m-2 rounded-lg"
+                    >
+                      <ChevronRightIcon
+                        size={14}
+                        className={`text-gray-400 transition-transform duration-200 ${accountsExpanded ? 'rotate-90' : ''}`}
+                      />
+                    </button>
                   </Link>
                   {/* THE SAME SHAPE AS THE DESKTOP ACCOUNTS MENU (owner,
                       17 Aug: "the drop-down headings … the same layout as the
