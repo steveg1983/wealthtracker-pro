@@ -656,6 +656,38 @@ describe('TransactionService (deterministic fallback)', () => {
       expect(logger.error).toHaveBeenCalled();
     });
 
+    it('says `load failed` out loud when the full download itself fails', async () => {
+      // The full fetch used to route through getTransactions, whose catch
+      // swallows a failure into the localStorage fallback — on a big ledger,
+      // usually EMPTY. The boot then finished with 0 transactions and a reason
+      // ('no cache') that read as success, so every register asserted "No
+      // transactions in this account yet" over accounts that are full. The
+      // boot path now reports the failure in its stats; the app refuses to
+      // present the unreadable ledger as an empty one.
+      const alwaysFailing = {
+        from: vi.fn(() => {
+          const builder: Record<string, unknown> = {};
+          builder.select = vi.fn(() => builder);
+          builder.eq = vi.fn(() => builder);
+          builder.gte = vi.fn(() => builder);
+          builder.order = vi.fn(() => builder);
+          builder.range = vi.fn(() => builder);
+          builder.then = (resolve: (value: unknown) => unknown) =>
+            resolve({ data: null, count: null, error: { message: 'network down' } });
+          return builder;
+        })
+      };
+      const { cache, writes } = createCache(null);
+
+      const result = await build(alwaysFailing, cache).loadTransactionsForBoot('user-1');
+
+      expect(result.transactions).toEqual([]);
+      expect(result.stats).toEqual({ cached: 0, fetched: 0, total: 0, fullFetchReason: 'load failed' });
+      // No snapshot of a failure: the next boot must try the server again.
+      expect(writes).toHaveLength(0);
+      expect(logger.error).toHaveBeenCalled();
+    });
+
     it('asks for a window that reaches back before the high-water mark', async () => {
       // updated_at is stamped with the writing transaction's START time, so a
       // strict "newer than the mark" filter would miss a write that began

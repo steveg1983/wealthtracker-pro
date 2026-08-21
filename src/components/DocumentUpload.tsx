@@ -167,7 +167,14 @@ export default function DocumentUpload({
           onChange={handleFileSelection}
           className="hidden"
         />
+        {/* type="button", and on THIS one it is a fix with a story: rendered
+            inside the transaction editor's <form>, the untyped default is
+            type="submit", so tapping Attach saved the form and closed the
+            editor around it. See MarkdownEditor's toolbar for the same rule —
+            every control in a component that guests inside forms must say what
+            it is. */}
         <button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
         >
@@ -208,6 +215,7 @@ export default function DocumentUpload({
             className="hidden"
           />
           <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
           >
@@ -215,6 +223,7 @@ export default function DocumentUpload({
             Select Files
           </button>
           <button
+            type="button"
             onClick={() => {
               // TODO: Implement camera capture for mobile
               alert('Camera capture coming soon!');
@@ -260,6 +269,7 @@ export default function DocumentUpload({
                   <TagIcon size={12} />
                   {tag}
                   <button
+                    type="button"
                     onClick={() => removeTag(tag)}
                     className="hover:text-red-600"
                   >
@@ -278,6 +288,7 @@ export default function DocumentUpload({
                 className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
               />
               <button
+                type="button"
                 onClick={addTag}
                 className="px-3 py-2 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500"
               >
@@ -353,6 +364,7 @@ export default function DocumentUpload({
                 )}
                 {!uploading && (
                   <button
+                    type="button"
                     onClick={() => removeFile(index)}
                     className="text-gray-400 hover:text-red-600"
                   >
@@ -400,6 +412,7 @@ export default function DocumentUpload({
       {/* Actions */}
       <div className="flex justify-between">
         <button
+          type="button"
           onClick={() => {
             setSelectedFiles([]);
             setUploadedDocs([]);
@@ -413,6 +426,7 @@ export default function DocumentUpload({
         <div className="flex gap-3">
           {onClose && (
             <button
+              type="button"
               onClick={onClose}
               className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
             >
@@ -420,6 +434,7 @@ export default function DocumentUpload({
             </button>
           )}
           <button
+            type="button"
             onClick={uploadFiles}
             disabled={selectedFiles.length === 0 || uploading}
             className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"

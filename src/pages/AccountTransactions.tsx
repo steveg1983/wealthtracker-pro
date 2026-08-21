@@ -372,7 +372,7 @@ export default function AccountTransactions() {
    */
   const backTo = readProvenance(location.state);
   const {
-    accounts, transactions, categories, isLoading,
+    accounts, transactions, categories, isLoading, transactionsLoadFailed,
     deleteTransaction, addTransaction, updateAccount, updateTransaction,
     // The dock's Txfr path writes BOTH legs: the row, then the one operation
     // that turns it into a linked pair. See commitQuickAdd.
@@ -3067,6 +3067,20 @@ export default function AccountTransactions() {
    * them back by name, and the one control that lets go.
    */
   const registerEmptyState = fullAccountTransactions.length === 0 ? (
+    transactionsLoadFailed ? (
+      // A THIRD case, and it outranks the other two: the boot's transaction
+      // read failed, so an empty list here is the FALLBACK, not the ledger.
+      // Asserting "no transactions yet" over a full account is the same lie
+      // the filtered empty state exists to prevent — "your money is gone" —
+      // told by a network failure instead of a filter. Consequence first,
+      // then the remedy; the remedy is a reload because the retry that can
+      // fix a failed boot is the boot.
+      <EmptyState
+        title="This account's transactions couldn't be loaded"
+        description="The last load didn't finish, so this register can't say what's in the account — nothing is missing from your ledger, it just couldn't be read this time. Trying again reloads the app."
+        action={{ label: 'Try again', onClick: () => window.location.reload() }}
+      />
+    ) : (
     <EmptyState
       title="No transactions in this account yet"
       description={`Its balance stays at ${formatRegisterMoney(computedAccountBalance)}, and this account adds nothing to your reports until something lands here. Nothing is estimated, so nothing appears until you add it.`}
@@ -3076,6 +3090,7 @@ export default function AccountTransactions() {
         onClick: () => navigate(preserveDemoParam('/enhanced-import', location.search))
       }}
     />
+    )
   ) : (
     <FilteredEmptyState
       hiddenCount={fullAccountTransactions.length}
