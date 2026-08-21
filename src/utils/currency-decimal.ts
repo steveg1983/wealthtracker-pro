@@ -181,6 +181,33 @@ export function formatCurrencyForSpeech(
   return showsMinus(decimal) ? `minus ${body}` : body;
 }
 
+/**
+ * Compact axis/summary notation: £8m, £2.4m, £750k, £2,000k — millions in m
+ * (1dp only when not whole), thousands in k with grouping, whole units below
+ * (owner, 21 Aug: '£2000k … doesn't look right'). The k tier keeps 1dp when
+ * whole-thousand rounding would print two neighbouring ticks identically.
+ * Negatives keep the minus: axis ticks are colourless compact notation, the
+ * one place the brackets rule deliberately does not reach.
+ */
+export function formatCurrencyCompact(
+  amount: DecimalInstance | number,
+  currency: string = 'GBP'
+): string {
+  const decimal = toDecimal(amount);
+  const abs = decimal.abs();
+  const sign = decimal.isNegative() ? '-' : '';
+  const symbol = getCurrencySymbol(currency);
+  if (abs.greaterThanOrEqualTo(1_000_000)) {
+    const millions = abs.dividedBy(1_000_000);
+    return `${sign}${symbol}${formatDecimal(millions, millions.isInteger() ? 0 : 1)}m`;
+  }
+  if (abs.greaterThanOrEqualTo(1_000)) {
+    const thousands = abs.dividedBy(1_000);
+    return `${sign}${symbol}${formatDecimal(thousands, thousands.isInteger() ? 0 : 1, { group: true })}k`;
+  }
+  return `${sign}${symbol}${formatDecimal(abs, 0, { group: true })}`;
+}
+
 // Format currency without fractional digits (floored values) for dashboard summaries
 export function formatCurrencyWhole(
   amount: DecimalInstance | number | string,

@@ -29,6 +29,7 @@ import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsCont
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
 import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
+import { formatCurrencyCompact } from '../utils/currency-decimal';
 import { computePortfolioPerformance, scopeValueAt, scopeOpeningFlows } from '../utils/portfolioPerformance';
 import { dayOf } from '../utils/plWindow';
 import { buildTopLevelIdByAccountId, groupByTopLevelId } from '../utils/accountNesting';
@@ -98,7 +99,7 @@ function InvestmentsView() {
     // far side is minted and linked by the same machinery every transfer uses.
     addTransaction, createTransferCounterpart,
   } = useApp();
-  const { formatCurrency } = useCurrencyDecimal();
+  const { formatCurrency, displayCurrency } = useCurrencyDecimal();
   /**
    * THE APP'S PERIOD VOCABULARY, spoken here too.
    *
@@ -1484,19 +1485,11 @@ function InvestmentsView() {
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis dataKey="label" stroke="#9CA3AF" />
-              <YAxis 
-                stroke="#9CA3AF" 
-                tickFormatter={(value: number) => {
-                  const formatted = formatCurrency(value);
-                  if (value >= 1000) {
-                    const thousands = formatDecimal(
-                      toDecimal(value).dividedBy(1000),
-                      0
-                    );
-                    return `${formatted.charAt(0)}${thousands}k`;
-                  }
-                  return formatted;
-                }}
+              {/* £8m, not £2000k (owner, 21 Aug) — the house compact
+                  formatter, so the notation and the symbol are decided once. */}
+              <YAxis
+                stroke="#9CA3AF"
+                tickFormatter={(value: number) => formatCurrencyCompact(value, displayCurrency)}
               />
               <Tooltip
                 formatter={(value) => formatCurrency(toDecimal(Number(value)))}
