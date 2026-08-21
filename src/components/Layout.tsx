@@ -589,9 +589,17 @@ export default function Layout(): React.JSX.Element {
           aria-modal="true"
           aria-labelledby="mobile-menu-title"
         >
-          <nav 
+          <nav
             id="mobile-menu"
             className="focus-ring-on-dark w-full max-w-sm h-full bg-[#1a2332] dark:bg-gray-800 shadow-2xl overflow-y-auto rounded-r-2xl"
+            // The drawer is `inset-0` so it starts at the WINDOW's top — which
+            // on an installed home-screen app is under the status bar (and an
+            // arriving notification banner), not below it. Both fixed headers
+            // already stand off by this constant; the drawer was the one piece
+            // of top chrome that didn't, so its "WealthTracker" title sat
+            // behind the clock. Padding, not `top`, because the panel's
+            // background should still reach the physical top of the screen.
+            style={{ paddingTop: TOP_CHROME_OFFSET }}
             onClick={e => e.stopPropagation()}
             role="navigation"
             aria-label="Mobile navigation menu"
@@ -632,11 +640,29 @@ export default function Layout(): React.JSX.Element {
                       appeared on the SECOND trip). The chevron is its own
                       button now: preventDefault stops the surrounding Link's
                       navigation, and the menu stays open showing the
-                      sub-pages, exactly as the other headings behave. */}
+                      sub-pages, exactly as the other headings behave.
+
+                      h-12 on ALL FOUR grouped headings, and the number is this
+                      row's, measured: the nested chevron button is held to the
+                      44px touch minimum (index.css), which after its -m-2
+                      stands a 28px flex item in the row — 48px with the
+                      py-2.5. The other headings had no inner button, so they
+                      sat at 40 (Settings) and 44 (Plan/Manage) beside this
+                      one's 48 (owner, 21 Aug: "make the 3 others the same as
+                      the accounts").
+
+                      An explicit HEIGHT, not min-h-[48px] — that was tried and
+                      measured at 44 on the two <button> rows, because the
+                      touch block's `button:not(.toggle-switch)` scores (0,1,1)
+                      against a utility's (0,1,0) and pins their min-height at
+                      44. The same trap as the `position` line in that block's
+                      own header comment. Used height = max(height, min-height)
+                      = max(48, 44), so h-12 lands 48 on <a> and <button> rows
+                      alike; md:h-auto hands the desktop back its own size. */}
                   <Link
                     to={isDemoModeRoutingEnabled ? '/accounts?demo=true' : '/accounts'}
                     onClick={toggleMobileMenu}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors h-12 md:h-auto bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
                   >
                     <WalletIcon size={18} />
                     <span className="flex-1 text-sm text-left">Accounts</span>
@@ -685,7 +711,7 @@ export default function Layout(): React.JSX.Element {
                     type="button"
                     onClick={() => setPlanExpanded(!planExpanded)}
                     aria-expanded={planExpanded}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors h-12 md:h-auto bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
                   >
                     <TargetIcon size={18} />
                     <span className="flex-1 text-sm text-left">Plan</span>
@@ -715,7 +741,7 @@ export default function Layout(): React.JSX.Element {
                     type="button"
                     onClick={() => setManageExpanded(!manageExpanded)}
                     aria-expanded={manageExpanded}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors h-12 md:h-auto bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
                   >
                     <SettingsIcon size={18} />
                     <span className="flex-1 text-sm text-left">Manage</span>
@@ -744,7 +770,7 @@ export default function Layout(): React.JSX.Element {
                   <Link
                     to={isDemoModeRoutingEnabled ? '/settings?demo=true' : '/settings'}
                     onClick={() => setSettingsExpanded(!settingsExpanded)}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors h-12 md:h-auto bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
                   >
                     <SettingsIcon size={18} />
                     <span className="flex-1 text-sm text-left">Settings</span>

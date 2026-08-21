@@ -229,6 +229,29 @@ describe('a register with nothing in it', () => {
   });
 });
 
+describe('a register the boot could not read is not an empty register', () => {
+  // The seam's floor for a failed transaction read is an empty list beside a
+  // working account list (loadBoot never rejects). Without this state the
+  // register asserted "No transactions in this account yet" over a FULL
+  // account every time one page of the boot download timed out — the same
+  // "your money is gone" lie the filtered empty state exists to prevent,
+  // told by the network instead of a filter.
+  it('says the load failed and offers a retry, not a beginning', async () => {
+    __setAppContextValue({ transactionsLoadFailed: true });
+    renderRegister([]);
+    await screen.findByRole('heading', { level: 1, name: 'Synthetic Chrome' });
+
+    const scope = within(grid());
+    expect(scope.getByRole('heading', { level: 3, name: "This account's transactions couldn't be loaded" })).toBeInTheDocument();
+    // The consequence, then the reassurance: the rows exist, they were not read.
+    expect(scope.getByText(/nothing is missing from your ledger/)).toBeInTheDocument();
+    expect(scope.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    // The two claims this state must NOT make: a beginning, or its remedies.
+    expect(scope.queryByRole('heading', { name: 'No transactions in this account yet' })).not.toBeInTheDocument();
+    expect(scope.queryByRole('button', { name: 'Add transaction' })).not.toBeInTheDocument();
+  });
+});
+
 describe('a register emptied by a filter is not an empty register', () => {
   const searchFor = (term: string): void => {
     fireEvent.click(screen.getByRole('button', { name: /Search & filters/ }));

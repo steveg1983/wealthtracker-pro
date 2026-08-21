@@ -208,6 +208,7 @@ export default function DocumentManager({
           <div className="grid grid-cols-2 gap-2">
             {documents.slice(0, 4).map(doc => (
               <button
+                type="button"
                 key={doc.id}
                 onClick={() => {
                   setSelectedDocument(doc);
@@ -223,6 +224,7 @@ export default function DocumentManager({
             ))}
             {documents.length > 4 && (
               <button
+                type="button"
                 onClick={() => onDocumentSelect?.(documents[0])}
                 className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 text-center text-sm text-gray-600 dark:text-gray-400"
               >
@@ -250,6 +252,7 @@ export default function DocumentManager({
           )}
         </div>
         <button
+          type="button"
           onClick={() => setShowUpload(true)}
           className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
         >
@@ -328,6 +331,7 @@ export default function DocumentManager({
                 <TagIcon size={12} />
                 {tag}
                 <button
+                  type="button"
                   onClick={() => setFilterTags(filterTags.filter(t => t !== tag))}
                   className="hover:text-red-600"
                 >
@@ -336,6 +340,7 @@ export default function DocumentManager({
               </span>
             ))}
             <button
+              type="button"
               onClick={() => setFilterTags([])}
               className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
@@ -365,6 +370,7 @@ export default function DocumentManager({
           </p>
           {documents.length === 0 && (
             <button
+              type="button"
               onClick={() => setShowUpload(true)}
               className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
             >
@@ -455,6 +461,7 @@ export default function DocumentManager({
                 {/* Actions */}
                 <div className="flex items-center justify-between">
                   <button
+                    type="button"
                     onClick={() => {
                       setSelectedDocument(doc);
                       setShowViewer(true);
@@ -465,6 +472,7 @@ export default function DocumentManager({
                   </button>
                   <div className="flex items-center gap-2">
                     <button
+                      type="button"
                       onClick={() => downloadDocument(doc)}
                       className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       title="Download"
@@ -472,6 +480,7 @@ export default function DocumentManager({
                       <DownloadIcon size={16} />
                     </button>
                     <button
+                      type="button"
                       onClick={() => setEditingDocument(doc)}
                       className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       title="Edit"
@@ -479,6 +488,7 @@ export default function DocumentManager({
                       <EditIcon size={16} />
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleDeleteDocument(doc.id)}
                       className="p-1 text-gray-400 hover:text-red-600"
                       title="Delete"
@@ -656,6 +666,7 @@ export default function DocumentManager({
           <ModalFooter>
             <div className="flex justify-between w-full">
               <button
+                type="button"
                 onClick={() => downloadDocument(selectedDocument)}
                 className="flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
               >
@@ -663,6 +674,7 @@ export default function DocumentManager({
                 Download
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setShowViewer(false);
                   setSelectedDocument(null);
@@ -725,12 +737,14 @@ export default function DocumentManager({
           
           <ModalFooter>
             <button
+              type="button"
               onClick={() => setEditingDocument(null)}
               className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
             >
               Cancel
             </button>
             <button
+              type="button"
               onClick={() => handleUpdateDocument(editingDocument, {
                 type: editingDocument.type,
                 notes: editingDocument.notes

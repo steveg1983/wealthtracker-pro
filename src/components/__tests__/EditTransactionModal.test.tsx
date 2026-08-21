@@ -101,3 +101,60 @@ describe('EditTransactionModal — the amount wears the flow, not the field sign
     expect(amountInput().className).toContain('text-green-600');
   });
 });
+
+/**
+ * EVERY GUEST CONTROL DECLARES WHAT IT IS (owner, 21 Aug).
+ *
+ * An untyped <button> inside a <form> is type="submit". The Notes editor's
+ * toolbar and the attachments block are shared components that guest inside
+ * this form, and their untyped buttons made NINE extra submitters — so tapping
+ * Bold, or Attach, SAVED THE TRANSACTION AND CLOSED THE EDITOR. On a phone it
+ * presented as "the page freezes and then kicks me back to the register":
+ * the freeze was the save's await, the kick was the modal closing.
+ *
+ * The guard reads the rendered DOM rather than the source, so a NEW guest
+ * component with the same flaw fails it too. Submitting is reserved for the
+ * buttons that say Save.
+ */
+describe('EditTransactionModal — only the Save buttons may submit', () => {
+  const ACCOUNT: Account = {
+    id: 'acc-guard', name: 'Synthetic Current', type: 'current', balance: 0,
+    currency: 'GBP', lastUpdated: new Date('2026-01-01'), openingBalance: 0, isActive: true,
+  };
+  const ROW: Transaction = {
+    id: 'txn-guard-0', date: new Date(Date.UTC(2026, 0, 5)),
+    description: 'Synthetic row', amount: -12, type: 'expense',
+    category: '', accountId: ACCOUNT.id, cleared: false,
+  };
+
+  it('every submit-typed button in the form is a Save action', () => {
+    renderWithProviders(
+      <EditTransactionModal isOpen onClose={vi.fn()} transaction={ROW} />,
+      { initialState: { accounts: [ACCOUNT], transactions: [ROW] } }
+    );
+
+    const form = screen.getByRole('dialog').querySelector('form');
+    if (!form) throw new Error('the editor did not render its form');
+
+    const strays = Array.from(form.querySelectorAll('button'))
+      .filter((b): b is HTMLButtonElement => b instanceof HTMLButtonElement)
+      .filter(b => b.type === 'submit')
+      .filter(b => !/save/i.test(`${b.textContent ?? ''} ${b.title}`));
+
+    expect(
+      strays.map(b => b.title || b.getAttribute('aria-label') || b.textContent?.trim() || '(unnamed)')
+    ).toEqual([]);
+  });
+
+  it('tapping a Notes toolbar control edits the note — it does not close the editor', () => {
+    const onClose = vi.fn();
+    renderWithProviders(
+      <EditTransactionModal isOpen onClose={onClose} transaction={ROW} />,
+      { initialState: { accounts: [ACCOUNT], transactions: [ROW] } }
+    );
+
+    fireEvent.click(screen.getByTitle('Bold'));
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});

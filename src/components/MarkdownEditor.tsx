@@ -132,9 +132,17 @@ export default function MarkdownEditor({
       {/* Toolbar */}
       <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 px-3 py-2 border-b border-gray-300 dark:border-gray-600">
         <div className="flex items-center gap-1">
+          {/* type="button" on every control in here, and it is load-bearing:
+              this editor lives INSIDE other components' <form>s (the
+              transaction editor's Notes field), where an untyped <button>
+              defaults to type="submit". Tapping Bold then SAVED AND CLOSED the
+              whole form around it — on a phone it read as "the page froze and
+              kicked me back" (owner, 21 Aug), because the save's await is the
+              freeze and the modal closing is the kick. */}
           {formatButtons.map((button, index) => (
             <button
               key={index}
+              type="button"
               onClick={button.action}
               title={button.title}
               className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
@@ -147,6 +155,7 @@ export default function MarkdownEditor({
         {showPreview && (
           <div className="flex items-center gap-1">
             <button
+              type="button"
               onClick={() => setIsPreviewMode(false)}
               className={`p-1.5 rounded text-sm ${
                 !isPreviewMode 
@@ -157,6 +166,7 @@ export default function MarkdownEditor({
               <EditIcon size={14} />
             </button>
             <button
+              type="button"
               onClick={() => setIsPreviewMode(true)}
               className={`p-1.5 rounded text-sm ${
                 isPreviewMode 

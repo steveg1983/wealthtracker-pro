@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { ToastProvider } from '../../contexts/ToastContext';
@@ -206,6 +206,56 @@ describe('Accounts list — the To Review column', () => {
     expect(clear?.className).not.toContain('text-blue-600');
     expect(clear?.className).toContain('text-gray-400');
     expect(clear?.className).toContain('font-normal');
+  });
+});
+
+describe('the phone’s More drawer opens itself over a live warning', () => {
+  // The drawer folds away Refresh feeds, the Bank connections button and the
+  // Review/Reconcile control. Folded is the right default only while none of
+  // them has anything to say — "unless the user does it manually, they could
+  // easily miss that there are things that need their attention" (owner,
+  // 21 Aug). aria-expanded is the state's own voice, so it is what is pinned.
+  const moreButton = (): HTMLElement =>
+    screen.getByRole('button', { name: /More controls/ });
+
+  it('defaults open while transactions are waiting for review', async () => {
+    __setAppContextValue({
+      accounts: [NATWEST],
+      transactions: [row('t1', NATWEST.id, { needsReview: true })],
+      isLoading: false,
+    });
+
+    renderAccounts();
+    await screen.findByRole('heading', { level: 3, name: 'Synthetic Natwest' });
+
+    expect(moreButton()).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('defaults folded when nothing needs attention', async () => {
+    __setAppContextValue({
+      accounts: [NATWEST],
+      transactions: [row('t1', NATWEST.id, { needsReview: false })],
+      isLoading: false,
+    });
+
+    renderAccounts();
+    await screen.findByRole('heading', { level: 3, name: 'Synthetic Natwest' });
+
+    expect(moreButton()).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('an explicit fold wins over the warning — the person has seen it', async () => {
+    __setAppContextValue({
+      accounts: [NATWEST],
+      transactions: [row('t1', NATWEST.id, { needsReview: true })],
+      isLoading: false,
+    });
+
+    renderAccounts();
+    await screen.findByRole('heading', { level: 3, name: 'Synthetic Natwest' });
+
+    fireEvent.click(moreButton());
+    expect(moreButton()).toHaveAttribute('aria-expanded', 'false');
   });
 });
 

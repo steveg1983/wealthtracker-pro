@@ -313,7 +313,19 @@ function AccountsList() {
    * and a light that is always on is not a signal. The banded list behind it
    * already says the list is banded.
    */
-  const [showMoreControls, setShowMoreControls] = useState(false);
+  /**
+   * NULL UNTIL THE USER TOUCHES THE SWITCH — the default is decided by the
+   * page, not stored here. Folded away is the right default only while there
+   * is nothing behind the fold that demands attention; the moment there is (a
+   * broken feed, rows to review, accounts to reconcile), a drawer that opens
+   * shut is a drawer hiding an alarm, and the owner's report says what that
+   * costs: "unless the user does it manually, they could easily miss that
+   * there are things that need their attention" (21 Aug). So the resolved
+   * value lives below the three signals it reads, and this state records only
+   * an explicit choice — which then wins in both directions, because a person
+   * who folded the drawer over a live warning has seen the warning.
+   */
+  const [moreControlsChoice, setMoreControlsChoice] = useState<boolean | null>(null);
   const controlsId = useId();
   const groupPanelId = `${controlsId}-group`;
   const feedPanelId = `${controlsId}-feeds`;
@@ -781,6 +793,13 @@ function AccountsList() {
     ).length,
     [topLevelAccounts, nestedByParent, getUnreconciledCount]
   );
+
+  // The phone's "More" drawer opens ITSELF while anything behind it needs
+  // attention — the same three signals the buttons inside it wear amber for.
+  // Derived, not effect-set: the signals arrive as data loads, and a default
+  // written into state once at mount would be computed from an empty ledger.
+  const showMoreControls = moreControlsChoice
+    ?? (feedsNeedingAttention > 0 || reviewTotal > 0 || reconcileAccountCount > 0);
 
   /** Which job the page is focused on, or null for the ordinary list. */
   const [focusMode, setFocusMode] = useState<'review' | 'reconcile' | null>(null);
@@ -2727,7 +2746,7 @@ function AccountsList() {
               filter's own hidden label). */}
           <button
             type="button"
-            onClick={() => setShowMoreControls(prev => !prev)}
+            onClick={() => setMoreControlsChoice(!showMoreControls)}
             aria-expanded={showMoreControls}
             aria-controls={`${groupPanelId} ${feedPanelId}`}
             className="sm:hidden shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"

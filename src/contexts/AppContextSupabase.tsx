@@ -223,6 +223,14 @@ export interface AppContextType extends AppState {
   lastSyncTime: Date | null;
   syncError: string | null;
   /**
+   * The boot's transaction read failed and the list in state is its fallback
+   * (usually empty), NOT the ledger. Anything about to assert "there are no
+   * transactions" — an empty register, a zeroed report — must check this
+   * first and say "couldn't load" instead: presenting an unreadable ledger as
+   * an empty one tells a user their money is gone.
+   */
+  transactionsLoadFailed: boolean;
+  /**
    * What the store behind this app can do — the seam's own descriptor, surfaced
    * here so a component can read it without importing the seam.
    *
@@ -484,6 +492,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   /**
+   * Did the boot's TRANSACTION read fail? — distinct from `syncError`, which
+   * only speaks when the accounts failed too and the whole app falls back.
+   *
+   * The seam's floor for a failed transaction read is "an empty register
+   * beside a working account list" (loadBoot never rejects), and that floor
+   * needs a flag or it is indistinguishable from a genuinely empty ledger:
+   * without one, a single timed-out page out of fifty booted the app into
+   * every register claiming "No transactions in this account yet" over
+   * accounts that are full. Consumers that would ASSERT emptiness (the
+   * register's empty state) must consult this and say "couldn't load" with a
+   * retry instead. Set once per boot from the stats the seam already reports.
+   */
+  const [transactionsLoadFailed, setTransactionsLoadFailed] = useState(false);
+  /**
    * What the store can do, asked ONCE PER BOOT and held in state.
    *
    * State rather than a call in the render body, because the answer changing is
@@ -668,6 +690,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setAccounts(boot.accounts);
         setCategories(boot.categories);
         setTransactions(boot.transactions);
+        setTransactionsLoadFailed(boot.transactionStats.fullFetchReason === 'load failed');
         setTransactionSplitsState(boot.splits);
         setBudgets(boot.budgets);
         setGoals(boot.goals);
@@ -2339,6 +2362,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     lastSyncTime,
     syncError,
+    transactionsLoadFailed,
     capabilities,
     refreshAccountsAndTransactions,
     refreshCategories,

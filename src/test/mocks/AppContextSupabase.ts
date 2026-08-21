@@ -77,6 +77,9 @@ const baseValue = {
   customReports: [],
   tags: [],
   isLoading: false,
+  // False here means "the boot delivered the ledger" — the healthy state every
+  // suite assumes. The register's couldn't-load state flips it on explicitly.
+  transactionsLoadFailed: false,
   capabilities: deviceCapabilities,
   resetLoadedData: asyncNoop,
   exportData: () => JSON.stringify({ accounts, transactions, budgets, goals, categories }),

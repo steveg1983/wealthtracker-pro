@@ -669,39 +669,54 @@ class TransactionServiceImpl {
     }
 
     try {
-      // A full Money-era history of 50k+ rows is 50+ pages. Pages are fetched
-      // IN PARALLEL (count first, bounded concurrency); sequential paging made
-      // every app load a ~50-round-trip wait.
-      const count = await this.countTransactions(userId);
-
-      const pages = Math.ceil(count / PAGE_SIZE);
-      const results: Record<string, unknown>[][] = new Array<Record<string, unknown>[]>(pages);
-      let nextPage = 0;
-      const worker = async (): Promise<void> => {
-        for (;;) {
-          const i = nextPage++;
-          if (i >= pages) return;
-          results[i] = await this.fetchTransactionPage(userId, i * PAGE_SIZE);
-        }
-      };
-      await Promise.all(Array.from({ length: Math.min(PAGE_CONCURRENCY, pages) }, worker));
-
-      const rows = results.flat();
-      // Rows inserted between the count and the page fetches land past the
-      // last page — keep the old sequential tail walk for that (rare) case.
-      if (pages > 0 && (results[pages - 1]?.length ?? 0) === PAGE_SIZE) {
-        for (let from = pages * PAGE_SIZE; ; from += PAGE_SIZE) {
-          const tail = await this.fetchTransactionPage(userId, from);
-          rows.push(...tail);
-          if (tail.length < PAGE_SIZE) break;
-        }
-      }
-
-      return this.toTransactions(rows);
+      return await this.fetchAllTransactions(userId);
     } catch (error) {
       this.logger.error('TransactionService.getTransactions error:', error as Error);
       return this.readStoredTransactions();
     }
+  }
+
+  /**
+   * The full download, and it THROWS when it cannot deliver it.
+   *
+   * `getTransactions` swallows this into the stored fallback, which is the
+   * right floor for a mid-session refresh — but on a 50k-row ledger the
+   * localStorage fallback is usually EMPTY, so at boot that swallow turned
+   * "one page of fifty timed out" into "you have no transactions", with
+   * nothing anywhere saying a load had failed. The boot path calls this raw
+   * form instead and reports the failure in its stats, so the app can refuse
+   * to present an unreadable ledger as an empty one.
+   */
+  private async fetchAllTransactions(userId: string): Promise<Transaction[]> {
+    // A full Money-era history of 50k+ rows is 50+ pages. Pages are fetched
+    // IN PARALLEL (count first, bounded concurrency); sequential paging made
+    // every app load a ~50-round-trip wait.
+    const count = await this.countTransactions(userId);
+
+    const pages = Math.ceil(count / PAGE_SIZE);
+    const results: Record<string, unknown>[][] = new Array<Record<string, unknown>[]>(pages);
+    let nextPage = 0;
+    const worker = async (): Promise<void> => {
+      for (;;) {
+        const i = nextPage++;
+        if (i >= pages) return;
+        results[i] = await this.fetchTransactionPage(userId, i * PAGE_SIZE);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(PAGE_CONCURRENCY, pages) }, worker));
+
+    const rows = results.flat();
+    // Rows inserted between the count and the page fetches land past the
+    // last page — keep the old sequential tail walk for that (rare) case.
+    if (pages > 0 && (results[pages - 1]?.length ?? 0) === PAGE_SIZE) {
+      for (let from = pages * PAGE_SIZE; ; from += PAGE_SIZE) {
+        const tail = await this.fetchTransactionPage(userId, from);
+        rows.push(...tail);
+        if (tail.length < PAGE_SIZE) break;
+      }
+    }
+
+    return this.toTransactions(rows);
   }
 
   /**
@@ -787,7 +802,23 @@ class TransactionServiceImpl {
       }
     }
 
-    const rows = await this.getTransactions(userId);
+    let rows: Transaction[];
+    try {
+      rows = await this.fetchAllTransactions(userId);
+    } catch (error) {
+      // The floor `getTransactions` keeps, with the failure SAID rather than
+      // swallowed: stored rows if there are any, and `load failed` in the
+      // stats either way. On a big ledger the stored fallback is usually
+      // empty, and an empty ledger the app cannot vouch for must not boot
+      // looking like a ledger with nothing in it — every register would offer
+      // "No transactions in this account yet" for accounts that are full.
+      this.logger.error('TransactionService boot full fetch failed:', error as Error);
+      const stored = await this.readStoredTransactions();
+      return {
+        transactions: stored,
+        stats: { cached: 0, fetched: 0, total: stored.length, fullFetchReason: 'load failed' }
+      };
+    }
     // Deliberately not awaited: the snapshot write is a structured clone of the
     // whole history and the app has everything it needs without it. A failure
     // is swallowed inside the cache — an unwritable cache costs speed, nothing
