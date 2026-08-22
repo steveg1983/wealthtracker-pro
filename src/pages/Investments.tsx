@@ -4,7 +4,8 @@ import { preserveDemoParam } from '../utils/navigation';
 import { Modal, ModalBody } from '../components/common/Modal';
 import { formatDate } from '../utils/dateFormatter';
 import { useApp } from '../contexts/AppContextSupabase';
-import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, LineChartIcon, EyeIcon } from '../components/icons';
+import { BarChart3Icon, AlertCircleIcon, LineChartIcon, EyeIcon } from '../components/icons';
+import TrendArrow from '../components/TrendArrow';
 import InvestmentMarketView from '../components/InvestmentMarketView';
 import PortfolioManager, { type HoldingFormValues, type PurchaseDetails } from '../components/PortfolioManager';
 import { allInAverageCost } from '../services/investments/purchaseMath';
@@ -1046,7 +1047,13 @@ function InvestmentsView() {
           }`}
         >
           <p className="text-body text-gray-500 dark:text-gray-400">Net Contributions</p>
-          <p className="text-page font-bold text-blue-700 dark:text-blue-400">
+          {/* NEUTRAL, not link blue (Claude Design, 22 Aug §6): the tile IS
+              clickable, but the affordance is the button's own hover border —
+              permanently recolouring the number claimed link-ness in the one
+              place colour already means something else. Amounts wear semantic
+              colours or none; a negative net contribution keeps its
+              parentheses from the house formatter. */}
+          <p className="text-page font-bold text-gray-900 dark:text-white">
             {formatCurrency(performance.netFlows)}
           </p>
           <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
@@ -1065,11 +1072,22 @@ function InvestmentsView() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-body text-gray-500 dark:text-gray-400">Total Return</p>
-              <p className={`text-page font-bold ${isGain ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {isGain ? '+' : ''}{formatCurrency(performance.gain)}
+              {/* NEUTRAL AT ZERO, like every figure in this app: a £0.00 gain
+                  is not good news or bad, and green would claim one. */}
+              <p className={`text-page font-bold ${
+                performance.gain.isZero()
+                  ? 'text-gray-900 dark:text-white'
+                  : isGain ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+              }`}>
+                {isGain && !performance.gain.isZero() ? '+' : ''}{formatCurrency(performance.gain)}
               </p>
             </div>
-            <TrendingUpIcon className={isGain ? 'text-green-500' : 'text-red-500'} size={24} />
+            {/* The arrow follows the SIGN of the figure it sits with, through
+                the one component that owns that rule — this was a hard-coded
+                up glyph, so a losing window would have shown a red arrow
+                pointing UP (Claude Design, 22 Aug §1, the mirror of the
+                Return % card beside it). */}
+            <TrendArrow value={performance.gain} size={24} />
           </div>
         </button>
 
@@ -1106,14 +1124,14 @@ function InvestmentsView() {
                 </>
               )}
             </div>
-            <TrendingDownIcon
-              className={
-                performance.mwrAnnualised === null
-                  ? 'text-gray-400'
-                  : performance.mwrAnnualised.greaterThanOrEqualTo(0) ? 'text-green-500' : 'text-red-500'
-              }
-              size={24}
-            />
+            {/* This was a hard-coded DOWN glyph recoloured by sign — so a
+                +18.25% return wore a falling arrow, and the card disagreed
+                with Total Return beside it about the same twelve months
+                (Claude Design, 22 Aug §1: "a reader checks the arrow before
+                the sign, because that's what an arrow is for"). The shared
+                rule now decides: sign picks the direction, zero and
+                unmeasurable render no arrow at all. */}
+            <TrendArrow value={performance.mwrAnnualised} size={24} />
           </div>
         </div>
         </div>
@@ -1831,6 +1849,25 @@ function InvestmentsView() {
                 ? 'None of your holdings has a price yet, so there is nothing to size this by. Use “Update prices” on an account above.'
                 : 'No priced holdings and no settlement cash, so there is nothing to divide up yet.'}
             </p>
+          ) : holdingAllocation.securityCount === 0 ? (
+            /* ONE CATEGORY IS A SENTENCE, NOT A RING (Claude Design, 22 Aug
+               §4): a donut divides a whole into parts, and a closed one-colour
+               ring reading "Cash · 100.00%" does no work these words don't do
+               better. Checked against the ledger before styling anything, as
+               the handover asked: the owner's portfolio has investment
+               accounts and ZERO holdings rows, so "all cash" is the data's
+               honest answer, not a misread. The sentence also owns what the
+               ring never said: with no securities recorded, only the
+               settlement sleeves can appear here — the rest of the
+               portfolio's value lives on the ledger, undividable by security
+               until holdings are added. */
+            <p className="text-body text-gray-500 dark:text-gray-400">
+              No securities are recorded in these accounts — the{' '}
+              {formatCurrency(holdingAllocation.total)} shown by this card is all
+              settlement cash. The rest of the portfolio&rsquo;s value lives on the
+              ledger without per-security holdings, so there is nothing to divide
+              up by security until holdings are added from an account&rsquo;s panel.
+            </p>
           ) : (
             <div>
               {/* Ring ABOVE the legend, matching "Asset Allocation" directly
@@ -1904,13 +1941,21 @@ function InvestmentsView() {
         </div>
         </div>
 
-        {/* Investment Tips */}
+        {/* NEUTRAL BODY TEXT, not blue (Claude Design, 22 Aug §5): heading,
+            icon and all four bullets rendered in the link colour and none of
+            them was a link — the same offence as the 29 blue "All reconciled"
+            pills. Blue means link on this page; a reader will try to click a
+            paragraph wearing it, and the one clickable-looking phrase in here
+            ("Account Settings") genuinely isn't a destination — the pairing
+            lives in EACH account's own settings dialog, so the path stays
+            words. The content stays exactly as it was: it is the ethos in its
+            most literal form. */}
         <div className="bg-white dark:bg-gray-800 border border-line dark:border-gray-700 rounded-lg p-6">
           <div className="flex items-start gap-3">
-            <AlertCircleIcon className="text-blue-700 dark:text-blue-400 mt-1" size={20} />
+            <AlertCircleIcon className="text-gray-400 dark:text-gray-500 mt-1" size={20} />
             <div>
-              <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">How these figures are worked out</h3>
-              <ul className="text-body text-blue-800 dark:text-blue-200 space-y-1">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">How these figures are worked out</h3>
+              <ul className="text-body text-gray-600 dark:text-gray-400 space-y-1">
                 <li>• A line is worth the investment account plus any cash account paired with it — set the pairing in Account Settings → Part of investment account</li>
                 <li>• Money transferred in from elsewhere counts as a contribution; moving money between an investment account and its own cash does not</li>
                 <li>• Total Return is what the portfolio is worth today less what was put into it</li>

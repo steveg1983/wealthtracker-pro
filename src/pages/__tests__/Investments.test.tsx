@@ -121,12 +121,17 @@ describe('Investments page — the pair is the portfolio', () => {
   it('counts the whole portfolio once, at 100% allocation', async () => {
     renderInvestments();
 
-    // THREE since 15 August, not two: the fixture's single account is 100% of
-    // the account ring, 100% of its own row — and now 100% of the new
-    // "Allocation by holding" ring too, whose only slice is that account's
-    // cash. The count is the point of the test (nothing is double-counted), so
-    // it moves with the page rather than being loosened to "at least one".
-    expect(await screen.findAllByText('100.00%')).toHaveLength(3);
+    // TWO since 22 August, not three: the fixture holds no securities, and a
+    // cash-only "Allocation by holding" is now a SENTENCE rather than a
+    // one-slice ring (Claude Design §4 — "a donut divides a whole into parts;
+    // with one part there is nothing to divide"). The account ring and the
+    // account's own row keep their 100%; the sentence is asserted below in
+    // its own words. The count is still the point (nothing double-counted),
+    // so it moves with the page rather than being loosened.
+    expect(await screen.findAllByText('100.00%')).toHaveLength(2);
+    expect(
+      screen.getByText(/No securities are recorded in these accounts/)
+    ).toBeInTheDocument();
   });
 });
 
@@ -143,7 +148,13 @@ describe('Investments page — contributions and return', () => {
     // "return" — but that was the OPENING BALANCE, capital mistaken for
     // growth. Nothing in this fixture grew; the honest gain is zero.
     expect(screen.queryByText('+£1,000.00')).not.toBeInTheDocument();
-    expect(screen.getAllByText('+£0.00').length).toBeGreaterThanOrEqual(1);
+    // RE-PINNED 22 Aug (Claude Design §1/§2's zero rule reaching this tile):
+    // a zero gain is NEUTRAL — no plus sign, no green, no arrow. £0.00 is a
+    // fact, not good news.
+    expect(screen.queryByText('+£0.00')).not.toBeInTheDocument();
+    const returnTile = screen.getByText('Total Return').closest('button');
+    expect(returnTile).not.toBeNull();
+    expect(within(returnTile as HTMLElement).getByText('£0.00')).toBeInTheDocument();
     // OVERRULED 20 Aug: the tile no longer prints gain-over-net-contributions
     // (+200.00% here) — that ratio turns absurd the moment withdrawals bring
     // the net near zero. The words-pin for the new measure has its own spec.
