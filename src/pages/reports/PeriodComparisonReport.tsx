@@ -57,7 +57,7 @@ const formatWindow = (window: { from: Date; to: Date }): string => {
 
 export default function PeriodComparisonReport({ picker }: ReportViewProps): React.JSX.Element {
   const selection = useReportAccountSelection();
-  const { accounts, categories, accountTransactions, transactionSplits, rows, flows } =
+  const { accounts, categories, accountTransactions, transactionSplits, rows, flows, convert } =
     useReportDataset(picker, selection.scope);
   const { formatCurrency } = useCurrencyDecimal();
   // Recharts' default tooltip is black-on-white whatever the mode.
@@ -94,17 +94,17 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
   // BOTH windows are measured from the resolved bounds, so the two figures
   // are always like for like.
   const currentFlows = useMemo(
-    () => (ranges ? computeIncomeExpense(accountTransactions, transactionSplits, categories, ranges.current) : null),
-    [ranges, accountTransactions, transactionSplits, categories]
+    () => (ranges ? computeIncomeExpense(accountTransactions, transactionSplits, categories, { ...ranges.current, convert }) : null),
+    [ranges, accountTransactions, transactionSplits, categories, convert]
   );
   const previousFlows = useMemo(
-    () => (ranges ? computeIncomeExpense(accountTransactions, transactionSplits, categories, ranges.previous) : null),
-    [ranges, accountTransactions, transactionSplits, categories]
+    () => (ranges ? computeIncomeExpense(accountTransactions, transactionSplits, categories, { ...ranges.previous, convert }) : null),
+    [ranges, accountTransactions, transactionSplits, categories, convert]
   );
 
   const comparison = useMemo(
-    () => (currentFlows && previousFlows ? buildPeriodComparison(currentFlows, previousFlows, categories) : null),
-    [currentFlows, previousFlows, categories]
+    () => (currentFlows && previousFlows ? buildPeriodComparison(currentFlows, previousFlows, categories, convert) : null),
+    [currentFlows, previousFlows, categories, convert]
   );
 
   /**
@@ -204,6 +204,9 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
     return good ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400';
   };
 
+  // ≈ when a conversion is inside either window's figures (ruling §6.3).
+  const approx = (currentFlows?.holdsForeign || previousFlows?.holdsForeign) ? '\u2248 ' : '';
+
   const summaryCard = (
     label: string,
     figure: ComparisonFigure,
@@ -214,7 +217,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
       <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">{label}</p>
       {bucket === null ? (
         <p className={`text-page font-bold mt-1 ${figure.current < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
-          {money(figure.current)}
+          {approx}{money(figure.current)}
         </p>
       ) : (
         <button
@@ -225,7 +228,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
           }`}
           title={`${label} — view these transactions`}
         >
-          {money(figure.current)}
+          {approx}{money(figure.current)}
         </button>
       )}
       <p className="text-sm mt-2">

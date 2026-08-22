@@ -42,7 +42,9 @@ type Status = 'converts' | 'excludes-and-states' | 'native-known';
 /** file (repo-relative, posix) → the statuses of the primitives it calls. */
 const LEDGER: Record<string, Partial<Record<(typeof PRIMITIVES)[number], Status>>> = {
   // ── the defining modules — a definition is not a call site ──
-  'src/utils/incomeExpense.ts': { computeIncomeExpense: 'native-known' },
+  // The flows seam lives in the primitive itself; callers pass per-date
+  // factors (useFlowConvert / useReportDataset) or honestly disclose.
+  'src/utils/incomeExpense.ts': { computeIncomeExpense: 'converts' },
   'src/utils/calculations-decimal.ts': {
     calculateTotalBalance: 'native-known',
     calculateNetWorth: 'native-known',
@@ -65,11 +67,11 @@ const LEDGER: Record<string, Partial<Record<(typeof PRIMITIVES)[number], Status>
   'src/pages/Accounts.tsx': { calculateTotalBalance: 'converts' },
 
   // ── the audit's known native sums, phase-ordered in the ruling ──
-  'src/hooks/useReportDataset.ts': { computeIncomeExpense: 'native-known' },
-  'src/components/dashboard/ImprovedDashboard.tsx': { computeIncomeExpense: 'native-known' },
+  'src/hooks/useReportDataset.ts': { computeIncomeExpense: 'converts' },
+  'src/components/dashboard/ImprovedDashboard.tsx': { computeIncomeExpense: 'converts' },
   'src/pages/Calendar.tsx': { computeIncomeExpense: 'native-known' },
   'src/pages/Categorisation.tsx': { computeIncomeExpense: 'native-known' },
-  'src/pages/reports/PeriodComparisonReport.tsx': { computeIncomeExpense: 'native-known' },
+  'src/pages/reports/PeriodComparisonReport.tsx': { computeIncomeExpense: 'converts' },
   'src/utils/categoryHealth.ts': { computeIncomeExpense: 'native-known' },
 };
 

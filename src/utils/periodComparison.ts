@@ -1,6 +1,6 @@
 import type { Category } from '../types';
 import type { PeriodRange } from '../hooks/usePeriod';
-import type { IncomeExpenseBreakdown } from './incomeExpense';
+import type { IncomeExpenseBreakdown, FlowFactorResolver } from './incomeExpense';
 import type { SplitExpandedTransaction } from './transactionSplits';
 import { toDecimal } from './decimal';
 import { buildCategoryNameLookup } from './categoryNames';
@@ -149,11 +149,14 @@ function accumulate(
   rows: SplitExpandedTransaction[],
   bucket: Bucket,
   into: Map<string, ReturnType<typeof toDecimal>>,
-  identities: Map<string, RowIdentity>
+  identities: Map<string, RowIdentity>,
+  convert?: FlowFactorResolver
 ): void {
   for (const row of rows) {
     if (!row.category) continue;
-    const value = bucket === 'income' ? toDecimal(row.amount) : toDecimal(row.amount).negated();
+    const factor = convert?.(row) ?? null;
+    const rowAmount = factor !== null ? toDecimal(row.amount).times(factor) : toDecimal(row.amount);
+    const value = bucket === 'income' ? rowAmount : rowAmount.negated();
     const rowId = rowIdOf(bucket, row.category);
     identities.set(rowId, { bucket, categoryId: row.category });
     into.set(rowId, (into.get(rowId) ?? toDecimal(0)).plus(value));
@@ -163,7 +166,9 @@ function accumulate(
 export function buildPeriodComparison(
   current: IncomeExpenseBreakdown,
   previous: IncomeExpenseBreakdown,
-  categories: Category[]
+  categories: Category[],
+  /** The flows seam: per-row factor into the display currency (see incomeExpense). */
+  convert?: FlowFactorResolver
 ): PeriodComparison {
   const categoryName = buildCategoryNameLookup(categories);
   // Every row either window produced, keyed by side and category — so a row's
@@ -178,7 +183,7 @@ export function buildPeriodComparison(
     [previous.incomeRows, 'income', previousTotals],
     [previous.expenseRows, 'expense', previousTotals],
   ] as const) {
-    accumulate(rows, bucket, into, identities);
+    accumulate(rows, bucket, into, identities, convert);
   }
 
   const zero = toDecimal(0);

@@ -89,13 +89,21 @@ export interface ReportDefinition {
    */
   ownsPeriodBar?: boolean;
   /**
-   * True once this report CONVERTS foreign currencies into the display one
-   * (with ≈ and its own basis line). Until then the hub mounts the Phase 0
-   * mixed-currency disclosure above it (the disclosure ruling, 22 Aug §2) —
-   * a still-native total says so rather than presenting mixed units as one
-   * figure. Flipping this flag is part of the commit that converts a report.
+   * How this report handles a ledger that spans currencies (the disclosure
+   * ruling, 22 Aug §2, and the flows seam, §7 phase 1):
+   *
+   * - 'self'  — the report converts AND renders its own basis/provenance
+   *             notes (the net-worth series). The hub mounts nothing.
+   * - 'flows' — the report's totals convert through the shared flows seam
+   *             (per-transaction-date ECB factors from useReportDataset).
+   *             The hub mounts ReportCurrencyNote, which states the basis
+   *             when the history is in force and falls back to the Phase 0
+   *             mixed-currency disclosure while degraded.
+   * - absent  — still native. The hub mounts the Phase 0 disclosure.
+   *
+   * Moving a report up this ladder is part of the commit that converts it.
    */
-  converts?: boolean;
+  currency?: 'self' | 'flows';
   component: LazyExoticComponent<ComponentType<ReportViewProps>>;
 }
 
@@ -118,7 +126,7 @@ export const REPORTS: ReportDefinition[] = [
     usesPeriod: true,
     ownsPeriodBar: true,
     // Converts at each day's ECB reference rate, with its own basis line.
-    converts: true,
+    currency: 'self',
     // The whole history is the point of this one — a month of net worth is a
     // dot, and even a year says little about the direction of travel.
     defaultPeriod: 'all',
@@ -152,6 +160,8 @@ export const REPORTS: ReportDefinition[] = [
     group: 'spending',
     icon: CalendarIcon,
     usesPeriod: true,
+    // Totals convert through the shared flows seam (per-date ECB factors).
+    currency: 'flows',
     component: lazyWithRecovery(() => import('../Reports')),
   },
   {
@@ -161,6 +171,8 @@ export const REPORTS: ReportDefinition[] = [
     group: 'spending',
     icon: PieChartIcon,
     usesPeriod: true,
+    // Totals convert through the shared flows seam (per-date ECB factors).
+    currency: 'flows',
     component: lazyWithRecovery(() => import('./SpendingByCategoryReport')),
   },
   {
@@ -173,6 +185,8 @@ export const REPORTS: ReportDefinition[] = [
     // Month-by-month bars need enough months to compare, and a year covers the
     // seasonal swings (Christmas, holidays, annual bills) exactly once.
     defaultPeriod: 'last-12-months',
+    // Totals convert through the shared flows seam (per-date ECB factors).
+    currency: 'flows',
     component: lazyWithRecovery(() => import('./IncomeSpendingOverTimeReport')),
   },
   {
@@ -182,6 +196,8 @@ export const REPORTS: ReportDefinition[] = [
     group: 'spending',
     icon: UsersIcon,
     usesPeriod: true,
+    // Totals convert through the shared flows seam (per-date ECB factors).
+    currency: 'flows',
     component: lazyWithRecovery(() => import('./SpendingByPayeeReport')),
   },
   /*
@@ -203,6 +219,8 @@ export const REPORTS: ReportDefinition[] = [
     group: 'spending',
     icon: RepeatIcon,
     usesPeriod: true,
+    // Totals convert through the shared flows seam (per-date ECB factors).
+    currency: 'flows',
     component: lazyWithRecovery(() => import('./PeriodComparisonReport')),
   },
   {

@@ -118,7 +118,27 @@ export interface IncomeExpenseBreakdown {
    */
   revaluation: DecimalInstance;
   revaluationRows: SplitExpandedTransaction[];
+  /**
+   * True when a conversion factor was actually applied to any row — the
+   * gate for the ≈ on totals built from this breakdown. Always false when
+   * no resolver was passed (the totals are then native, and the surface's
+   * disclosure line is what says so).
+   */
+  holdsForeign: boolean;
 }
+
+/**
+ * A row's conversion factor into the display currency — the flows seam
+ * (the disclosure ruling, 22 Aug §7 phase 1). Null means "count native":
+ * the row is already in the display currency, or no rate could be had and
+ * the CALLER is responsible for saying so. The resolver owns the rate
+ * policy (the report dataset resolves at each transaction's own date from
+ * the ECB history); this module only applies what it is handed, exactly as
+ * the net-worth walk does.
+ */
+export type FlowFactorResolver = (
+  row: Pick<Transaction, 'accountId' | 'date'>
+) => DecimalInstance | null;
 
 /**
  * Aggregate income and expenses over a set of transactions using category
@@ -128,7 +148,7 @@ export function computeIncomeExpense(
   transactions: Transaction[],
   transactionSplits: TransactionSplit[],
   categories: Category[],
-  opts: { from?: Date; to?: Date } = {}
+  opts: { from?: Date; to?: Date; convert?: FlowFactorResolver } = {}
 ): IncomeExpenseBreakdown {
   const kinds = buildCategoryKindLookup(categories);
 
@@ -151,26 +171,32 @@ export function computeIncomeExpense(
   const uncategorizedRows: SplitExpandedTransaction[] = [];
   const revaluationRows: SplitExpandedTransaction[] = [];
 
+  let holdsForeign = false;
   for (const row of rows) {
     const kind = classifyFlow(row, kinds);
+    // Into the display currency where the resolver hands back a factor;
+    // native where it does not — the rows themselves stay untouched, so a
+    // row-level display keeps speaking its account's own currency.
+    const factor = opts.convert?.(row) ?? null;
+    if (factor !== null) holdsForeign = true;
+    const rowAmount = factor !== null ? toDecimal(row.amount).times(factor) : toDecimal(row.amount);
     if (kind === 'income') {
-      income = income.plus(toDecimal(row.amount));
+      income = income.plus(rowAmount);
       incomeRows.push(row);
     } else if (kind === 'expense') {
       // Expenses are stored negative, so negating yields positive spending —
       // and a positive-amount credit (refund) correctly SUBTRACTS.
-      expenses = expenses.plus(toDecimal(row.amount).negated());
+      expenses = expenses.plus(rowAmount.negated());
       expenseRows.push(row);
     } else if (kind === 'revaluation') {
       // Signed as stored: an upward revaluation (+) and a downward one (−) net
       // against each other. Deliberately touches NEITHER income nor expenses —
       // a value change is not money earned or spent.
-      revaluation = revaluation.plus(toDecimal(row.amount));
+      revaluation = revaluation.plus(rowAmount);
       revaluationRows.push(row);
     } else if (kind === 'uncategorized') {
-      const amount = toDecimal(row.amount);
-      if (amount.greaterThanOrEqualTo(0)) uncategorizedIn = uncategorizedIn.plus(amount);
-      else uncategorizedOut = uncategorizedOut.plus(amount.abs());
+      if (rowAmount.greaterThanOrEqualTo(0)) uncategorizedIn = uncategorizedIn.plus(rowAmount);
+      else uncategorizedOut = uncategorizedOut.plus(rowAmount.abs());
       uncategorizedRows.push(row);
     }
   }
@@ -178,7 +204,7 @@ export function computeIncomeExpense(
   return {
     income, expenses, incomeRows, expenseRows,
     uncategorizedRows, uncategorizedIn, uncategorizedOut,
-    revaluation, revaluationRows,
+    revaluation, revaluationRows, holdsForeign,
   };
 }
 
