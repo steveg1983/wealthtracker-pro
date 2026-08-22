@@ -254,3 +254,34 @@ describe('Budget page — a write the server refuses', () => {
     expect(deleteBudget).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * The empty page says what is absent and offers real ways in — and shows NO
+ * furniture for data that isn't there (Claude Design, 22 Aug §2/§3). Before
+ * this, three £0.00 summary cards stood over "no budgets set up yet", the
+ * £0.00 Remaining wore green, £0.00 Spent wore a red falling arrow, and
+ * "Create your first budget" was plain text where every other empty state
+ * offers a control.
+ */
+describe('Budget page — an empty page is an empty state, not zeroed furniture', () => {
+  it('hides the summary trio, drops the zero arrows, and offers both ways in', async () => {
+    __setAppContextValue({
+      accounts: ACCOUNTS,
+      categories: CATEGORIES,
+      budgets: [],
+      transactions: [],
+      transactionSplits: [],
+    });
+    renderBudget();
+
+    expect(await screen.findByRole('heading', { level: 3, name: 'No budgets yet' })).toBeInTheDocument();
+    // The consequence, then the remedies as real controls.
+    expect(screen.getByText(/nothing on this page has anything to measure against/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create a budget' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'See last year’s spending' })).toBeInTheDocument();
+    // No furniture: the three summary cards do not render over an empty page.
+    expect(screen.queryByText('Total Budgeted')).not.toBeInTheDocument();
+    expect(screen.queryByText('Total Spent')).not.toBeInTheDocument();
+    expect(screen.queryByText('Total Remaining')).not.toBeInTheDocument();
+  });
+});

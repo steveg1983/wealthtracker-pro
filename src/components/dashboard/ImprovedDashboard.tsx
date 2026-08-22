@@ -7,8 +7,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 // state layer's preamble away.
 import { useIdentityKey } from '@identity';
 import {
-  TrendingUpIcon,
-  TrendingDownIcon,
   AlertCircleIcon,
   ChevronRightIcon,
   WalletIcon,
@@ -23,6 +21,7 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { preserveDemoParam } from '../../utils/navigation';
 import EmptyState from '../EmptyState';
 import FilteredEmptyState from '../FilteredEmptyState';
+import TrendArrow from '../TrendArrow';
 import { TableSkeleton, type TableSkeletonColumn } from '../loading/TableSkeleton';
 import { useDelayedFlag } from '../../hooks/useDelayedFlag';
 import EditTransactionModal from '../EditTransactionModal';
@@ -824,9 +823,11 @@ export function ImprovedDashboard() {
                 : 'text-green-600 dark:text-green-400'
             }`}>
               {formatCurrencyWithSymbol(performance.income)}
-              {performance.income !== 0 && (
-                <TrendingUpIcon size={20} className="text-green-500 flex-shrink-0" aria-hidden="true" />
-              )}
+              {/* Through the SHARED zero rule now. This pair got "no direction
+                  at zero" right first (16 Aug) — and then Budget's cards were
+                  found re-deriving it wrong, the fourth copy in one pass. The
+                  rule lives in TrendArrow; this is the reference call site. */}
+              <TrendArrow value={performance.income} direction="up" size={20} />
             </p>
           </button>
 
@@ -842,9 +843,7 @@ export function ImprovedDashboard() {
                 : 'text-red-600 dark:text-red-400'
             }`}>
               {formatCurrencyWithSymbol(performance.expenses)}
-              {performance.expenses !== 0 && (
-                <TrendingDownIcon size={20} className="text-red-500 flex-shrink-0" aria-hidden="true" />
-              )}
+              <TrendArrow value={performance.expenses} direction="down" size={20} />
             </p>
           </button>
         </div>

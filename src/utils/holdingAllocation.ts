@@ -47,6 +47,14 @@ export interface HoldingAllocation {
   total: DecimalInstance;
   /** Positions with no price. Their value is unknown, so it is not in `total`. */
   unpricedCount: number;
+  /**
+   * How many of the slices are securities — i.e. everything except the one
+   * Cash entry. Zero means the "allocation" is all settlement cash, and a
+   * ring dividing one category into one part is a sentence's job (Claude
+   * Design, 22 Aug §4). The caller needs the fact, not the inference from
+   * slice labels.
+   */
+  securityCount: number;
 }
 
 /** The label for the one cash slice. Exported so the UI cannot misspell it. */
@@ -103,6 +111,7 @@ export function buildHoldingAllocation(
   return {
     slices,
     total: slices.reduce((sum, slice) => sum.plus(slice.value), toDecimal(0)),
-    unpricedCount
+    unpricedCount,
+    securityCount: bySymbol.size
   };
 }

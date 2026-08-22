@@ -1,9 +1,12 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { preserveDemoParam } from '../utils/navigation';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useNotifications } from '../contexts/NotificationContext';
 import { useToast } from '../contexts/ToastContext';
-import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon, RepeatIcon, PiggyBankIcon, ArrowRightIcon, BellIcon, CalculatorIcon } from '../components/icons';
+import { BanknoteIcon, RepeatIcon, PiggyBankIcon, ArrowRightIcon, BellIcon, CalculatorIcon } from '../components/icons';
+import TrendArrow from '../components/TrendArrow';
 import { EditIcon, DeleteIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
 import BudgetModal from '../components/BudgetModal';
@@ -17,6 +20,7 @@ import { getEffectiveBudgetAmount } from '../utils/budgetAmounts';
 import PageWrapper from '../components/PageWrapper';
 import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
 import PageTip from '../components/PageTip';
+import EmptyState from '../components/EmptyState';
 import { calculateBudgetPercentage } from '../utils/calculations-decimal';
 import {
   buildCategoryChildIndex,
@@ -42,6 +46,8 @@ export default function Budget() {
 }
 
 function BudgetView() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [activeTab, setActiveTab] = useState<'traditional' | 'envelope' | 'templates' | 'rollover' | 'alerts' | 'zero-based'>('traditional');
@@ -244,7 +250,7 @@ function BudgetView() {
   };
 
   // Calculate totals with memoization
-  const { totalBudgeted, totalSpent, totalRemaining, totalRemainingValue } = useMemo(() => {
+  const { totalBudgeted, totalSpent, totalSpentValue, totalRemaining, totalRemainingValue } = useMemo(() => {
     const active = budgetsWithSpent.filter(b => b && b.isActive !== false);
     // Summed from exactly what the cards show — the effective amount (plan plus
     // carry) and the same spend — so the header can never contradict them.
@@ -255,6 +261,7 @@ function BudgetView() {
     return {
       totalBudgeted: formatCurrency(budgeted),
       totalSpent: formatCurrency(spent),
+      totalSpentValue: spent.toNumber(),
       totalRemaining: formatCurrency(remaining),
       totalRemainingValue: remaining.toNumber()
     };
@@ -368,7 +375,13 @@ function BudgetView() {
       {/* Tab Content */}
       {activeTab === 'traditional' && (
         <div className="grid gap-6">
-        {/* Summary Cards */}
+        {/* Summary Cards — HIDDEN WHILE THERE ARE NO BUDGETS (Claude Design,
+            22 Aug §3). Three £0.00 cards above "no budgets yet" are furniture
+            for data that isn't there — the same finding as the column strip
+            over an empty table, and the empty state below should be the first
+            thing the page says. Skeletons still show while loading, because a
+            loading page doesn't yet know it is empty. */}
+        {(isLoading || budgets.length > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
@@ -391,7 +404,12 @@ function BudgetView() {
                 {isLoading ? <SkeletonText className="w-32 h-8" /> : totalSpent}
               </p>
             </div>
-            <TrendingDownIcon className="text-red-500" size={24} />
+            {/* Through the shared rule, not a copy of it: this was an
+                unconditional red falling arrow, so £0.00 spent wore a claim
+                of money going out — the dashboard's 16 Aug zero-arrow fix
+                landing on one surface and not its sibling (Claude Design,
+                22 Aug §2). Flow direction: spending points down. */}
+            <TrendArrow value={totalSpentValue} direction="down" size={24} />
           </div>
         </div>
 
@@ -399,16 +417,22 @@ function BudgetView() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 dark:text-gray-400 text-body">Total Remaining</p>
+              {/* Neutral at zero: £0.00 remaining in green "reads as good news
+                  on a page where nothing has been set up" (§2). */}
               <p className={`text-page font-bold ${
-                totalRemainingValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                totalRemainingValue === 0
+                  ? 'text-gray-900 dark:text-white'
+                  : totalRemainingValue > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
               }`}>
                 {isLoading ? <SkeletonText className="w-32 h-8" /> : totalRemaining}
               </p>
             </div>
-            <TrendingUpIcon className={totalRemainingValue >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
+            {/* Sign-driven: headroom points up, overspend points down. */}
+            <TrendArrow value={totalRemainingValue} size={24} />
           </div>
         </div>
         </div>
+        )}
 
         {/* Budgets List */}
         <div className="pt-4">
@@ -530,17 +554,26 @@ function BudgetView() {
         ))}
           </div>
 
-          {budgets.length === 0 && (
-          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
-            <p className="text-gray-500 dark:text-gray-400 mb-4">No budgets set up yet</p>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="text-primary hover:underline"
-            >
-              Create your first budget
-            </button>
-          </div>
-        )}
+          {/* The house empty-state pattern (Claude Design, 22 Aug §3): what is
+              absent, what follows from it, and remedies as REAL CONTROLS —
+              this was centred text with "Create your first budget" rendered as
+              a plain link, predating batch 7. The second way in goes to the
+              Forecast's twelve-month category P&L, which is precisely the
+              reading a first budget wants (turning it INTO budgets stays an
+              explicit act on that page, per the promotion rule). */}
+          {budgets.length === 0 && !isLoading && (
+            <div className="md:col-span-2">
+              <EmptyState
+                title="No budgets yet"
+                description="Budgets are what turn your categories into a plan — until there's one here, nothing on this page has anything to measure against."
+                action={{ label: 'Create a budget', onClick: () => setIsModalOpen(true) }}
+                secondaryAction={{
+                  label: 'See last year’s spending',
+                  onClick: () => navigate(preserveDemoParam('/forecast', location.search)),
+                }}
+              />
+            </div>
+          )}
         </div>
         </div>
       )}
