@@ -90,6 +90,22 @@ export function usePullToRefresh(reload: () => void = () => window.location.relo
         startY.current = null;
         return;
       }
+      // A SCROLL-LOCKED BODY IS NOT A PAGE AT ITS TOP. The shared Modal pins
+      // the body (`position: fixed`, top -scrollY) while a dialog is open, and
+      // scrollY reads 0 for the whole of that — not because the user is at the
+      // top of the page but because there is no scrollable page. Without this
+      // guard every touch inside an open dialog was a pull candidate: scrolling
+      // UP at the bottom of Edit Transaction first had its scroll eaten by the
+      // preventDefault below (reported as "the page freezes") and the release
+      // then reloaded the app out from under the editor ("refreshes the page
+      // and kicks me back to the register" — owner, 21 Aug, reproduced in the
+      // installed app on a simulator; the WebContent process never died, this
+      // listener was the whole of the 'crash'). While an overlay owns the
+      // screen there is nothing here to refresh.
+      if (document.body.style.position === 'fixed') {
+        startY.current = null;
+        return;
+      }
       startY.current = event.touches[0].clientY;
       engaged.current = false;
     };

@@ -675,7 +675,17 @@ export default function Layout(): React.JSX.Element {
                       }}
                       aria-expanded={accountsExpanded}
                       aria-label={accountsExpanded ? 'Hide the Accounts pages' : 'Show the Accounts pages'}
-                      className="p-2 -m-2 rounded-lg"
+                      // The icon must LAND where the other headings' bare
+                      // chevrons land: at the row's px-3 content edge. The
+                      // touch rule holds this button at 44px wide and the old
+                      // `p-2 -m-2` centred the icon in that box, which put it
+                      // 7px left of its three siblings (owner, 21 Aug). So the
+                      // icon is right-aligned inside the button instead:
+                      // -mr-3 walks the border box out to the ROW's edge and
+                      // pr-3 walks the icon back in by the same 12px — the
+                      // row's own padding, restated, not a tuned offset. The
+                      // vertical pair still cancels so the row stays 48px.
+                      className="inline-flex items-center justify-end py-2 -my-2 pl-2 pr-3 -mr-3 rounded-lg"
                     >
                       <ChevronRightIcon
                         size={14}
