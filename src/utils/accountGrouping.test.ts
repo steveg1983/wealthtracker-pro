@@ -164,7 +164,7 @@ describe('groupAccountsForDisplay', () => {
 
     it('bands by institution alphabetically, unfiled accounts last', () => {
       const groups = groupsOf(groupAccountsForDisplay(book, options));
-      expect(groups.map(g => g.title)).toEqual(['ARGENT', 'Barclays', 'Calderbank', 'Other Accounts']);
+      expect(groups.map(g => g.title)).toEqual(['ARGENT', 'Barclays', 'Calderbank', 'No institution recorded']);
       expect(groups.every(g => g.kind === 'institution')).toBe(true);
     });
 
@@ -181,7 +181,7 @@ describe('groupAccountsForDisplay', () => {
 
     it('files absent AND blank institutions under the one catch-all', () => {
       const groups = groupsOf(groupAccountsForDisplay(book, options));
-      const other = groups.find(g => g.title === 'Other Accounts');
+      const other = groups.find(g => g.title === 'No institution recorded');
       // '   ' is not an institution called three spaces: it is nothing said.
       expect(namesIn(other?.accounts ?? [])).toEqual(['Loose Change', 'Blank Jar']);
     });
@@ -210,7 +210,7 @@ describe('groupAccountsForDisplay', () => {
           subs: [
             { title: 'Barclays', accounts: ['Barclays Current'] },
             { title: 'Calderbank', accounts: ['Calderbank Current'] },
-            { title: 'Other Accounts', accounts: ['Loose Change'] },
+            { title: 'No institution recorded', accounts: ['Loose Change'] },
           ],
         },
         {
@@ -221,7 +221,7 @@ describe('groupAccountsForDisplay', () => {
           title: 'Savings Accounts',
           subs: [
             { title: 'Calderbank', accounts: ['Calderbank Savings'] },
-            { title: 'Other Accounts', accounts: ['Blank Jar'] },
+            { title: 'No institution recorded', accounts: ['Blank Jar'] },
           ],
         },
         {
@@ -241,7 +241,7 @@ describe('groupAccountsForDisplay', () => {
       const groups = groupsOf(groupAccountsForDisplay(book, options));
       groups.forEach(group => {
         const subs = group.subGroups ?? [];
-        const catchAll = subs.findIndex(s => s.title === 'Other Accounts');
+        const catchAll = subs.findIndex(s => s.title === 'No institution recorded');
         if (catchAll !== -1) expect(catchAll).toBe(subs.length - 1);
       });
     });

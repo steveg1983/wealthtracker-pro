@@ -534,9 +534,9 @@ describe('Accounts page — closed accounts ordering', () => {
     for (let i = 1; i < seq.length; i += 1) {
       expect(precedes(seq[i - 1], seq[i])).toBe(true);
     }
-    // The catch-all subheading for the account with no institution renders too
-    // (unique: no closed row carries "Other Accounts" as its institution).
-    expect(within(closedSection).getByText('Other Accounts')).toBeInTheDocument();
+    // The catch-all subheading says the FACT rather than posing as a bank
+    // called Other (Claude Design, 22 Aug §7).
+    expect(within(closedSection).getByText('No institution recorded')).toBeInTheDocument();
   });
 
   it('nests institution sub-bands in the archive when both toggles are on', async () => {
@@ -557,7 +557,7 @@ describe('Accounts page — closed accounts ordering', () => {
       within(closedSection).getAllByText('Aldermore')[0],
       within(closedSection).getByText('Beacon Savings'),
       within(closedSection).getByText('Credit Cards'),
-      within(closedSection).getByText('Other Accounts'),
+      within(closedSection).getByText('No institution recorded'),
       within(closedSection).getByText('Nimbus Card'),
     ];
     for (let i = 1; i < seq.length; i += 1) {

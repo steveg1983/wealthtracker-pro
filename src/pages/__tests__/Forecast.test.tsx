@@ -158,8 +158,21 @@ describe('Forecast — the Current P&L', () => {
     expect(screen.getByText('+£17,800.00')).toBeInTheDocument();
     expect(screen.getByText('£1,483.33 a month')).toBeInTheDocument();
 
-    // The ruling, in words, on the page.
-    expect(screen.getByText(/Nothing here writes to your Budget/)).toBeInTheDocument();
+    // MOVED 22 Aug (Claude Design §10): the Budget-relationship promise left
+    // the Actuals preamble — a disclaimer at the top of a page of history —
+    // for the Forecast tab, beside the place a scenario would actually be
+    // promoted. The Actuals side must NOT carry it; the tab's own spec below
+    // asserts where it lives now.
+    expect(screen.queryByText(/writes to your Budget/)).not.toBeInTheDocument();
+  });
+
+  it('carries the Budget promise on the Forecast tab, at the point of action', () => {
+    renderForecast();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Forecast' }));
+
+    expect(screen.getByText(/Nothing here will write to your Budget/)).toBeInTheDocument();
+    expect(screen.getByText(/explicit, per-category say-so/)).toBeInTheDocument();
   });
 
   it('a section heading collapses to its total; a category expands to its rows', () => {

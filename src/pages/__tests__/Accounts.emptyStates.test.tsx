@@ -65,6 +65,17 @@ describe('an accounts list with nothing in it', () => {
     expect(emptyState).not.toBeNull();
     expect(within(emptyState as HTMLElement).getByRole('button', { name: 'Add Account' })).toBeInTheDocument();
   });
+
+  it('does not float the coach-mark over the empty state', async () => {
+    // Two pieces of guidance competing to be the page's first sentence
+    // (Claude Design, 22 Aug §8): the empty state IS the guidance on an empty
+    // page, so the page tip waits for a page with accounts on it.
+    __setAppContextValue({ accounts: [], transactions: [], categories: [], isLoading: false });
+    renderAccounts();
+
+    await screen.findByRole('heading', { level: 3, name: 'No accounts yet' });
+    expect(screen.queryByText('Manage your accounts')).not.toBeInTheDocument();
+  });
 });
 
 describe('an accounts list emptied by the search is not an empty accounts list', () => {

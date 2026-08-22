@@ -4,7 +4,7 @@ import AccountSelector from './AccountSelector';
 
 /**
  * The account picker, pinned: the Accounts page's nested bands (type section →
- * institution sub-band → rows, "Other Accounts" last in both dimensions), the
+ * institution sub-band → rows, each dimension's catch-all last), the
  * type-to-filter the owner asked for, and the keyboard combobox contract it
  * shares with CategorySelector.
  */
@@ -86,7 +86,7 @@ describe('AccountSelector', () => {
         'Current Accounts',
         'American Express',
         'Natwest',
-        'Other Accounts',      // the unfiled sub-band inside Current Accounts
+        'No institution recorded', // the unfiled sub-band inside Current Accounts
         'Savings Accounts',
         'Natwest',
         'Credit Cards',
