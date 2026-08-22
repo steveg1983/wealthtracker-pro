@@ -306,3 +306,72 @@ describe('a register emptied by a filter is not an empty register', () => {
     expect(screen.queryByRole('heading', { name: 'No transactions match these filters' })).not.toBeInTheDocument();
   });
 });
+
+/**
+ * THE CLOSED PAGE KEEPS THE WAY BACK, AND OFFERS SETTINGS WITHOUT REOPENING
+ * (owner, 22 Aug): reached from the net-worth report's drill, "Back to
+ * Accounts" dumped him on the Accounts page mid-analysis — the same
+ * provenance the open register's back button honours is honoured here. And
+ * regrouping a closed account must not cost a reopen–edit–close round trip,
+ * the rule the Accounts page's closed rows already follow.
+ */
+describe('a closed account reached from a report', () => {
+  const CLOSED: Account = {
+    id: 'acc-shut', name: 'Synthetic Shuttered', type: 'savings', balance: 0,
+    currency: 'GBP', lastUpdated: new Date('2026-01-01'), openingBalance: 0, isActive: false,
+  };
+
+  it('offers Account Settings, and the way back is where the reader came from', async () => {
+    __setAppContextValue({ accounts: [], transactions: [], categories: [], isLoading: false });
+    vi.spyOn(DataService, 'listClosedAccounts').mockResolvedValue([CLOSED]);
+
+    render(
+      <MemoryRouter initialEntries={[{
+        pathname: `/accounts/${CLOSED.id}`,
+        state: { from: { path: '/reports/net-worth-over-time?focus=2014-07-31', label: 'Back to report' } },
+      }]}>
+        <PreferencesProvider>
+          <ToastProvider>
+            <NotificationProvider>
+              <Routes>
+                <Route path="/reports/net-worth-over-time" element={<div>Report page</div>} />
+                <Route path="/accounts/:accountId" element={<AccountTransactions />} />
+              </Routes>
+            </NotificationProvider>
+          </ToastProvider>
+        </PreferencesProvider>
+      </MemoryRouter>
+    );
+
+    await screen.findByRole('heading', { level: 1, name: 'Synthetic Shuttered' });
+    expect(screen.getByRole('button', { name: 'Account Settings' })).toBeInTheDocument();
+    // The provenance label, not the hardcoded fallback…
+    const back = screen.getByRole('button', { name: 'Back to report' });
+    expect(screen.queryByRole('button', { name: 'Back to Accounts' })).not.toBeInTheDocument();
+    // …and it genuinely goes there.
+    fireEvent.click(back);
+    expect(await screen.findByText('Report page')).toBeInTheDocument();
+  });
+
+  it('falls back to Back to Accounts on a direct arrival', async () => {
+    __setAppContextValue({ accounts: [], transactions: [], categories: [], isLoading: false });
+    vi.spyOn(DataService, 'listClosedAccounts').mockResolvedValue([CLOSED]);
+
+    render(
+      <MemoryRouter initialEntries={[`/accounts/${CLOSED.id}`]}>
+        <PreferencesProvider>
+          <ToastProvider>
+            <NotificationProvider>
+              <Routes>
+                <Route path="/accounts/:accountId" element={<AccountTransactions />} />
+              </Routes>
+            </NotificationProvider>
+          </ToastProvider>
+        </PreferencesProvider>
+      </MemoryRouter>
+    );
+
+    await screen.findByRole('heading', { level: 1, name: 'Synthetic Shuttered' });
+    expect(screen.getByRole('button', { name: 'Back to Accounts' })).toBeInTheDocument();
+  });
+});

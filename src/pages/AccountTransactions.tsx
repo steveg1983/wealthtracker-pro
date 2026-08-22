@@ -727,6 +727,10 @@ export default function AccountTransactions() {
    */
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
+  // The CLOSED page's settings dialog (owner, 22 Aug): regrouping or renaming
+  // a closed account must not cost a reopen–edit–close round trip. Its own
+  // flag, because the closed branch returns before the register's modal.
+  const [showClosedSettings, setShowClosedSettings] = useState(false);
   const [deleteConfirmTransaction, setDeleteConfirmTransaction] = useState<Transaction | null>(null);
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   /**
@@ -2991,13 +2995,14 @@ export default function AccountTransactions() {
     // hasn't got is an open register (the same rule as the Accounts page,
     // where a closed account offers Reopen rather than a way in).
     if (closedLookup.account) {
+      const closedAccount = closedLookup.account;
       return (
         <div className="flex flex-col h-full">
-          {/* No back-arrow chrome above the card: the two actions below ARE the
-              page, and a second "Back to Accounts" would only duplicate one. */}
+          {/* No back-arrow chrome above the card: the actions below ARE the
+              page, and a second back button would only duplicate one. */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 max-w-2xl">
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              {closedLookup.account.name}
+              {closedAccount.name}
             </h1>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               This account is closed, and closed accounts don&rsquo;t have an open register.
@@ -3014,17 +3019,64 @@ export default function AccountTransactions() {
               >
                 {reopening ? 'Re-opening…' : 'Re-open and view'}
               </button>
+              {/* Settings WITHOUT reopening (owner, 22 Aug: "if I want to
+                  change in what group that account sits without re-opening I
+                  can go in to its settings") — the same no-round-trip rule
+                  the Accounts page's closed rows already follow. */}
               <button
                 type="button"
-                onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
+                onClick={() => setShowClosedSettings(true)}
+                disabled={reopening}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                <SettingsIcon size={16} />
+                Account Settings
+              </button>
+              {/* THE WAY BACK IS WHERE THE READER CAME FROM (owner, 22 Aug):
+                  reached from the net-worth report's drill, "Back to
+                  Accounts" dumped him on the Accounts page mid-analysis. The
+                  same provenance the open register's back button honours is
+                  honoured here — the report's own path reopens the drill on
+                  the date he was reading. */}
+              <button
+                type="button"
+                onClick={() => (backTo
+                  ? navigate(backTo.path, { state: returnState(backTo) })
+                  : navigate(preserveDemoParam('/accounts', location.search)))}
                 disabled={reopening}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
                 <ArrowLeftIcon size={16} />
-                Back to Accounts
+                {backTo ? backTo.label : 'Back to Accounts'}
               </button>
             </div>
           </div>
+          <AccountSettingsModal
+            isOpen={showClosedSettings}
+            onClose={() => setShowClosedSettings(false)}
+            account={closedAccount}
+            // The open accounts, which is what the pairing field pairs with —
+            // the Accounts page's own rule for its closed rows.
+            accounts={accounts}
+            hasTransactions={accountHasHistory(transactions, closedAccount.id)}
+            onSave={async (accountId, updates) => {
+              await updateAccount(accountId, updates);
+              if (updates.isActive === true) {
+                // Reopened from settings: the re-pull flips accountIsOpen and
+                // this page becomes the register on its own.
+                await refreshAccountsAndTransactions();
+              } else {
+                // Still closed: the lookup's copy is what this page renders,
+                // so refetch it and show the saved facts rather than the old
+                // ones — the same read the lookup itself makes.
+                const list = await dataPort.listClosedAccounts();
+                setClosedLookup({ status: 'done', account: list.find(a => a.id === accountId) ?? null });
+              }
+              if (updates.isActive !== undefined || updates.name !== undefined) {
+                await refreshCategories();
+              }
+            }}
+          />
         </div>
       );
     }
