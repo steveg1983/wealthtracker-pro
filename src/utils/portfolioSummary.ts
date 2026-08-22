@@ -5,7 +5,7 @@ import { calculateTotalBalance } from './calculations-decimal';
 import { buildTopLevelIdByAccountId, groupByTopLevelId } from './accountNesting';
 import { buildCategoryKindLookup, classifyFlow } from './incomeExpense';
 import { expandSplitTransactions, type SplitExpandedTransaction } from './transactionSplits';
-import { buildNetWorthSnapshots } from './netWorthSeries';
+import { buildNetWorthSnapshots, type NetWorthConversion } from './netWorthSeries';
 import type { PeriodRange } from '../hooks/usePeriod';
 
 /**
@@ -343,13 +343,21 @@ export function buildPortfolioHistory(
   memberAccounts: readonly Account[],
   transactions: readonly Transaction[],
   range: PeriodRange,
-  now: Date = new Date()
+  now: Date = new Date(),
+  /**
+   * The same conversion the net-worth surfaces pass (currency audit, 22 Aug):
+   * this was the one caller of buildNetWorthSnapshots that kept summing a
+   * foreign member's native units as display units after the walk learned to
+   * convert. Omitted, the single-currency portfolio behaves exactly as before.
+   */
+  conversion?: NetWorthConversion
 ): PortfolioHistoryPoint[] {
   const memberIds = new Set(memberAccounts.map(a => a.id));
   return buildNetWorthSnapshots(
     [...memberAccounts],
     transactions.filter(t => memberIds.has(t.accountId)),
     range,
-    now
+    now,
+    conversion
   ).map(point => ({ label: point.label, value: point.netWorth, date: point.date }));
 }

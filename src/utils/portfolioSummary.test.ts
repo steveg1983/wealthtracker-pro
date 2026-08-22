@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildPortfolioSummary, buildPortfolioHistory } from './portfolioSummary';
+import { buildNetWorthConversion } from './netWorthSeries';
 import type { Account, Category, Transaction, TransactionSplit } from '../types';
 
 /**
@@ -363,5 +364,38 @@ describe('buildPortfolioHistory', () => {
 
   it('has nothing to draw when no account is paired into a portfolio', () => {
     expect(buildPortfolioHistory([], historyTransactions, { from: null, to: null })).toEqual([]);
+  });
+
+  it('converts a foreign member at the summing, exactly as the net-worth walk does', () => {
+    // Currency audit, 22 Aug: this was the ONE caller of buildNetWorthSnapshots
+    // that kept summing a dollar sleeve's native units as pounds after the walk
+    // learned to convert. Every figure here is invented; the repo is public.
+    const dollarSleeve = account({
+      id: ISA_CASH,
+      name: 'Fund ISA ($ Cash)',
+      type: 'current',
+      parentAccountId: ISA,
+      currency: 'USD',
+      openingBalance: 200,
+      openingBalanceDate: new Date(2026, 0, 5),
+    });
+    const members = [historyAccounts[0], dollarSleeve];
+    const conversion = buildNetWorthConversion(members, { GBP: 1, USD: 2 }, 'GBP');
+
+    // The last point, because a short window walks daily and its first point
+    // can predate the 5 January openings.
+    const converted = buildPortfolioHistory(
+      members, [], { from: new Date(2026, 0, 1), to: new Date(2026, 0, 31) },
+      new Date(2026, 5, 30), conversion
+    );
+    // $200 at two-to-one joins as £100 beside the sterling side's 1000.
+    expect(converted[converted.length - 1].value).toBe(1100);
+
+    // Omitted, the walk behaves exactly as it always has — native units.
+    const native = buildPortfolioHistory(
+      members, [], { from: new Date(2026, 0, 1), to: new Date(2026, 0, 31) },
+      new Date(2026, 5, 30)
+    );
+    expect(native[native.length - 1].value).toBe(1200);
   });
 });
