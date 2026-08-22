@@ -751,6 +751,30 @@ function InvestmentsView() {
     [holdingAllocation.slices]
   );
 
+  /**
+   * The two-section split the cash-only card shows: the investment accounts'
+   * own value against the settlement sleeves, sharing out the portfolio
+   * (owner, 22 Aug). line.value is the pair and line.cash the nested part,
+   * so investments = Σvalue − Σcash and the two rows sum to summary.value by
+   * construction. Shares are of that same total, so they read 100% together.
+   */
+  const cashOnlySplit = useMemo(() => {
+    const total = summary.value;
+    const cash = summary.lines.reduce(
+      (sum, line) => line.cash.reduce((inner, entry) => inner.plus(entry.value), sum),
+      toDecimal(0)
+    );
+    const investments = total.minus(cash);
+    const shareOf = (part: DecimalInstance): string =>
+      total.greaterThan(0)
+        ? `${((part.toNumber() / total.toNumber()) * 100).toFixed(2)}%`
+        : '0.00%';
+    return [
+      { label: 'Investments', value: investments, share: shareOf(investments) },
+      { label: 'Cash', value: cash, share: shareOf(cash) },
+    ];
+  }, [summary]);
+
   const holdingSlicesTotal = useMemo(
     () => holdingSlices.reduce((sum, slice) => sum + slice.value, 0),
     [holdingSlices]
@@ -1861,13 +1885,42 @@ function InvestmentsView() {
                settlement sleeves can appear here — the rest of the
                portfolio's value lives on the ledger, undividable by security
                until holdings are added. */
-            <p className="text-body text-gray-500 dark:text-gray-400">
-              No securities are recorded in these accounts — the{' '}
-              {formatCurrency(holdingAllocation.total)} shown by this card is all
-              settlement cash. The rest of the portfolio&rsquo;s value lives on the
-              ledger without per-security holdings, so there is nothing to divide
-              up by security until holdings are added from an account&rsquo;s panel.
-            </p>
+            <div>
+              {/* THE TWO SECTION TOTALS, reconciling to the portfolio (owner,
+                  22 Aug: the cash-only sentence named a figure — the sleeves
+                  alone — that the reader could not square with the Portfolio
+                  Value above it. With no holdings recorded, the honest split
+                  is investment accounts against settlement cash: two totals
+                  and two shares that sum to the portfolio, said to be section
+                  totals rather than an allocation by holding). Same maths as
+                  the page: line.value is the pair, line.cash the nested part,
+                  so the two rows always add to the summary's own total. */}
+              <p className="text-body text-gray-500 dark:text-gray-400">
+                No individual securities are recorded in these accounts, so
+                these are the totals of the two sections rather than an
+                allocation by holding:
+              </p>
+              <div className="mt-3 space-y-2">
+                {cashOnlySplit.map(row => (
+                  <div key={row.label} className="flex items-center justify-between gap-3 text-body">
+                    <span className="text-gray-700 dark:text-gray-300">{row.label}</span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-gray-500 dark:text-gray-400 tabular-nums">
+                        {formatCurrency(row.value)}
+                      </span>
+                      <span className="text-gray-900 dark:text-white font-medium tabular-nums w-16 text-right">
+                        {row.share}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-dense text-gray-500 dark:text-gray-400">
+                Together they are the portfolio&rsquo;s{' '}
+                {formatCurrency(summary.value)}. Holdings can be added from
+                an account&rsquo;s panel to divide the investment side by security.
+              </p>
+            </div>
           ) : (
             <div>
               {/* Ring ABOVE the legend, matching "Asset Allocation" directly

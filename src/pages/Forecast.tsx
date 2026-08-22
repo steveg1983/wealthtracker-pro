@@ -674,13 +674,19 @@ function ForecastStatement(): React.JSX.Element {
   ].filter((part): part is string => part !== null);
 
   return (
-    <PageWrapper title="Forecast">
+    /* PLAN, not Forecast (Claude Design 22 Aug §9, owner-approved): the page
+       is two things — a twelve-month actuals P&L and a projection from it —
+       and "Forecast" was both where you were and one of two tabs, with the
+       selected tab the one that ISN'T the page name. "Plan" covers both and
+       matches the nav group; the tabs say what each side holds. "Current"
+       also went — what that side shows is history, so it says Actuals. */
+    <PageWrapper title="Plan">
       <div className="max-w-[1400px] mx-auto space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* The tab, chosen the way the calendar chooses its view — a
-              segmented control (owner, 19 Aug: "Lets have two tabs for now.
-              Current and forecast"). */}
-          <div className="flex items-center rounded-lg bg-gray-100 dark:bg-gray-700 p-0.5" role="group" aria-label="Forecast view">
+              segmented control (owner, 19 Aug: "Lets have two tabs for now",
+              renamed 22 Aug with the page). */}
+          <div className="flex items-center rounded-lg bg-gray-100 dark:bg-gray-700 p-0.5" role="group" aria-label="Plan view">
             {(['current', 'forecast'] as const).map(option => (
               <button
                 key={option}
@@ -693,7 +699,7 @@ function ForecastStatement(): React.JSX.Element {
                     : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
               >
-                {option === 'current' ? 'Current' : 'Forecast'}
+                {option === 'current' ? 'Actuals' : 'Forecast'}
               </button>
             ))}
           </div>

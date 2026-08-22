@@ -192,7 +192,10 @@ export const DESKTOP_ROUTES = [
   // The forecast's BASE (docs/forecast-direction.md step 4): reads the open
   // ledger's rows; its exclusions are verdicts in the file's own
   // suggestion_dismissals — as local as the register it reviews.
-  { path: 'forecast', at: 'forecast', title: 'Forecast' },
+  // Titled Plan since §9 (22 Aug): the page is the actuals P&L and the
+  // scenario tool together, and the name matches the nav group. The PATH
+  // stays /forecast — a route is an address, and addresses don't move.
+  { path: 'forecast', at: 'forecast', title: 'Plan' },
   { path: 'reports', at: 'reports', title: 'Reports' },
   { path: 'reports/:reportId', at: 'reports/:reportId', title: 'Reports' },
   { path: 'custom-reports', at: 'custom-reports', title: 'Custom reports' },
