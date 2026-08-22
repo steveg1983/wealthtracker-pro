@@ -2383,7 +2383,17 @@ function AccountsList() {
       rightContent={
         <button
           onClick={() => setIsAddModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white text-sm font-medium rounded-lg hover:bg-[#2d3a4d] transition-colors shadow-sm"
+          /* THE DARK-PRIMARY PILOT (Claude Design's canon ruling, 22 Aug 2026).
+             The raw navy had no dark: variant at all — a light-mode value that
+             all but vanished against the dark page. The token pair paints it
+             navy-on-white in light and INVERTED — near-white fill, navy label —
+             on dark: the ramp rule, walking from whichever end contrasts with
+             the ground. This page goes first because it holds a primary, a
+             secondary and a destructive together; the owner reads the captures
+             before the other nineteen files move. Chrome deliberately
+             unchanged — same radius, same type scale — so the only variable
+             in the capture is the colour. */
+          className="inline-flex items-center gap-2 px-4 py-2 bg-primary-action text-on-primary-action text-sm font-medium rounded-lg hover:bg-primary-action-hover transition-colors shadow-sm"
           title="Add Account"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -2598,7 +2608,7 @@ function AccountsList() {
               title="Band the list into account-type sections"
               className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
                 grouping.byType
-                  ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
+                  ? 'bg-[#1a2332] dark:bg-[#2d3a4d] border-[#1a2332] dark:border-[#2d3a4d] text-white'
                   : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >
@@ -2616,7 +2626,7 @@ function AccountsList() {
               title="Band the list by institution"
               className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
                 grouping.byInstitution
-                  ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
+                  ? 'bg-[#1a2332] dark:bg-[#2d3a4d] border-[#1a2332] dark:border-[#2d3a4d] text-white'
                   : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >

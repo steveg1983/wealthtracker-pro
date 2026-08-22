@@ -309,3 +309,59 @@ describe('NEXT_ACTION_YELLOW (the one "your next action is here" colour)', () =>
     }
   });
 });
+
+/**
+ * The primary-action pair, on BOTH grounds (Claude Design's canon ruling,
+ * 22 Aug 2026). The token was born because it had no dark counterpart and
+ * twenty files invented one — so the instrument reads both blocks of
+ * index.css and measures the pair each ground actually declares. Light is
+ * navy-on-white; dark INVERTS to near-white-with-navy-text, the ramp rule
+ * walking from whichever end contrasts with the ground.
+ */
+describe('primary action fill (dark-primary canon, 22 Aug 2026)', () => {
+  const tripleToHex = (triple: string): string =>
+    '#' + triple.trim().split(/\s+/)
+      .map(n => Number(n).toString(16).padStart(2, '0'))
+      .join('');
+
+  // :root declares the light pair; .dark redeclares the same names. The
+  // regexes anchor on order: the first declaration of each name is light,
+  // the second is dark — extract() throws if either moves.
+  const declarations = (name: string): [string, string] => {
+    const all = [...indexCss.matchAll(new RegExp(`${name}: ([0-9 ]+);`, 'g'))].map(m => m[1]);
+    if (all.length !== 2) {
+      throw new Error(`Expected ${name} declared once per ground, found ${all.length} — has a block moved?`);
+    }
+    return [tripleToHex(all[0]), tripleToHex(all[1])];
+  };
+
+  const [lightFill, darkFill] = declarations('--color-primary-action-rgb');
+  const [lightLabel, darkLabel] = declarations('--color-on-primary-action-rgb');
+  const [lightHover, darkHover] = declarations('--color-primary-action-hover-rgb');
+
+  it('keeps the label readable on the fill, resting and hovered, both grounds', () => {
+    expect(ratio(lightLabel, lightFill)).toBeGreaterThanOrEqual(AA_TEXT);
+    expect(ratio(lightLabel, lightHover)).toBeGreaterThanOrEqual(AA_TEXT);
+    expect(ratio(darkLabel, darkFill)).toBeGreaterThanOrEqual(AA_TEXT);
+    expect(ratio(darkLabel, darkHover)).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  it('keeps the fill discernible as a shape against the ground it sits on', () => {
+    for (const surface of SURFACES_LIGHT) {
+      expect(ratio(lightFill, surface)).toBeGreaterThanOrEqual(AA_GRAPHICS);
+    }
+    for (const surface of SURFACES_DARK) {
+      expect(ratio(darkFill, surface)).toBeGreaterThanOrEqual(AA_GRAPHICS);
+    }
+  });
+
+  it('inverts across the grounds rather than darkening in place', () => {
+    // The whole point of the ruling: the dark fill walks to the LIGHT end.
+    // A regression that "fixes" dark by picking another dark fill passes the
+    // contrast checks above only by luck; this pins the direction.
+    const luminance = (hex: string): number =>
+      ColorContrastChecker.getRelativeLuminance(ColorContrastChecker.hexToRgb(hex));
+    expect(luminance(lightFill)).toBeLessThan(0.2);
+    expect(luminance(darkFill)).toBeGreaterThan(0.7);
+  });
+});
