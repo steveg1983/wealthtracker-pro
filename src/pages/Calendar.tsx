@@ -5,6 +5,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { preserveDemoParam } from '../utils/navigation';
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
+import MixedCurrencyDisclosure from '../components/MixedCurrencyDisclosure';
 import PageTip from '../components/PageTip';
 import { toDecimal } from '../utils/decimal';
 import { getDateLocale } from '../utils/dateFormatter';
@@ -563,6 +564,10 @@ function CalendarView() {
 
   return (
     <PageWrapper title="Calendar">
+      {/* Phase 0 (the disclosure ruling, 22 Aug §2): the month figures and
+          the running balance still sum native units — said until their
+          conversion phase. Nothing for a single-currency ledger. */}
+      <MixedCurrencyDisclosure className="mb-3" />
       {/* Month summary bar — each figure tile is a DRILL into what made it
           up, the same popup the day cells open (owner, 19 Aug: "the
           'Income' / 'Expenditure' / 'Net' should be clickable"). */}

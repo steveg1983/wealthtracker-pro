@@ -1,6 +1,7 @@
 import React from 'react';
 import PageWrapper from '../components/PageWrapper';
 import RecurringCommitmentsReport from './reports/RecurringCommitmentsReport';
+import MixedCurrencyDisclosure from '../components/MixedCurrencyDisclosure';
 
 /**
  * Plan → Recurring Payments (owner's ruling, 18 Aug: the MENU says what the
@@ -16,6 +17,10 @@ import RecurringCommitmentsReport from './reports/RecurringCommitmentsReport';
 export default function RecurringPayments(): React.JSX.Element {
   return (
     <PageWrapper title="What I'm committed to">
+      {/* Phase 0 (the disclosure ruling, 22 Aug §2): the annual totals below
+          still sum each commitment in its account's own units — said here
+          until their conversion phase. Nothing for a single-currency ledger. */}
+      <MixedCurrencyDisclosure className="mb-4" />
       <RecurringCommitmentsReport />
     </PageWrapper>
   );

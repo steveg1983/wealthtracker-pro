@@ -88,6 +88,14 @@ export interface ReportDefinition {
    * just stands down from drawing a second copy above it.
    */
   ownsPeriodBar?: boolean;
+  /**
+   * True once this report CONVERTS foreign currencies into the display one
+   * (with ≈ and its own basis line). Until then the hub mounts the Phase 0
+   * mixed-currency disclosure above it (the disclosure ruling, 22 Aug §2) —
+   * a still-native total says so rather than presenting mixed units as one
+   * figure. Flipping this flag is part of the commit that converts a report.
+   */
+  converts?: boolean;
   component: LazyExoticComponent<ComponentType<ReportViewProps>>;
 }
 
@@ -109,6 +117,8 @@ export const REPORTS: ReportDefinition[] = [
     icon: TrendingUpIcon,
     usesPeriod: true,
     ownsPeriodBar: true,
+    // Converts at each day's ECB reference rate, with its own basis line.
+    converts: true,
     // The whole history is the point of this one — a month of net worth is a
     // dot, and even a year says little about the direction of travel.
     defaultPeriod: 'all',

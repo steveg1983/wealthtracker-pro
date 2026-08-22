@@ -472,7 +472,20 @@ export async function generateDataExportPDF(data: DataExportPdfData): Promise<vo
     pdf.setFontSize(10);
     pdf.setTextColor(BLACK[0], BLACK[1], BLACK[2]);
     pdf.text(`Total of ${data.accounts.length} accounts: ${writer.money(total.toNumber())}`, margin, writer.y);
-    writer.y += 12;
+    writer.y += 6;
+    // Phase 0 (the disclosure ruling, 22 Aug §2): the Currency column above
+    // proves the rows can differ, and this total sums them unit-for-unit. A
+    // printed artefact outlives the app's caveats, so the artefact itself
+    // says so — until the exports' conversion phase.
+    if (data.accounts.some(a => (a.currency || data.currency) !== data.currency)) {
+      pdf.setFontSize(8);
+      pdf.text(
+        `This total mixes currencies: amounts in another currency are counted unit-for-unit, not converted into ${data.currency}.`,
+        margin,
+        writer.y
+      );
+    }
+    writer.y += 8;
   }
 
   if (data.transactions) {

@@ -31,6 +31,7 @@ import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
 import { useNetWorthConversion } from '../hooks/useNetWorthConversion';
 import HistoricRatesRestatementNotice from '../components/HistoricRatesRestatementNotice';
+import MixedCurrencyDisclosure from '../components/MixedCurrencyDisclosure';
 import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
 import { formatCurrencyCompact } from '../utils/currency-decimal';
 import { computePortfolioPerformance, scopeValueAt, scopeOpeningFlows } from '../utils/portfolioPerformance';
@@ -930,6 +931,12 @@ function InvestmentsView() {
       <div className="flex justify-end mb-2">
         <WholePoundsToggle />
       </div>
+      {/* Phase 0 (the disclosure ruling, 22 Aug §2): the portfolio value,
+          allocation and return figures still sum native units — said until
+          the Investments chain's conversion phase. The performance CHART
+          already converts (per-day reference rates); these totals do not
+          yet. Nothing for a single-currency ledger. */}
+      <MixedCurrencyDisclosure className="mb-3" />
       {/* Navigation Tabs */}
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-6">
         <button

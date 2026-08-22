@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import PageWrapper from '../components/PageWrapper';
+import MixedCurrencyDisclosure from '../components/MixedCurrencyDisclosure';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
@@ -682,6 +683,10 @@ function ForecastStatement(): React.JSX.Element {
        also went — what that side shows is history, so it says Actuals. */
     <PageWrapper title="Plan">
       <div className="max-w-[1400px] mx-auto space-y-6">
+        {/* Phase 0 (the disclosure ruling, 22 Aug §2): the P&L's category and
+            bucket totals still sum native units — said until their conversion
+            phase. Nothing for a single-currency ledger. */}
+        <MixedCurrencyDisclosure />
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* The tab, chosen the way the calendar chooses its view — a
               segmented control (owner, 19 Aug: "Lets have two tabs for now",

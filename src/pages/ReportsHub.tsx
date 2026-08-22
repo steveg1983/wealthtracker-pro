@@ -10,6 +10,7 @@ import { preserveDemoParam } from '../utils/navigation';
 import { readProvenance, returnState } from '../utils/navigationProvenance';
 import { hasReportArrival, readReportArrival, stripReportArrival } from '../utils/reportDrillLink';
 import ReportGallery from './reports/ReportGallery';
+import MixedCurrencyDisclosure from '../components/MixedCurrencyDisclosure';
 import { findReport } from './reports/reportRegistry';
 
 /** The window a report gets when it states no preference of its own. */
@@ -152,6 +153,11 @@ export default function ReportsHub(): React.JSX.Element {
 
         {ReportView ? (
           <Suspense fallback={<SkeletonCard className="h-96" />}>
+            {/* Phase 0 (the disclosure ruling, 22 Aug §2): a report whose
+                totals still sum native units says so, ONCE, above the
+                figures — until its conversion phase flips `converts` in the
+                registry. Renders nothing for a single-currency ledger. */}
+            {!report?.converts && <MixedCurrencyDisclosure />}
             <ReportView picker={picker} focus={focus} />
           </Suspense>
         ) : (
