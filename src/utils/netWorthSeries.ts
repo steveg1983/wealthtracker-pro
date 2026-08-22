@@ -91,12 +91,29 @@ export function netWorthPointToken(date: Date): string {
  * Point cadence: daily for windows under ~3 months, month-end beyond (the
  * Money cadence), always ending on the window's final day.
  */
+/**
+ * Per-DATE conversion: each snapshot converts at its own day's rates (the
+ * owner's backdated-rates ask, 22 Aug — a 2017 balance at 2017's rate). The
+ * static NetWorthConversion remains for callers valuing everything at one
+ * day's rates; the walk takes either.
+ */
+export interface NetWorthConversionByDate {
+  /** The factors in force on `date` — that day's reference rates. */
+  at(date: Date): NetWorthConversion | null;
+  /** Currencies with no history at all — counted native and reported. */
+  unconverted: readonly string[];
+}
+
+const isDatedConversion = (
+  c: NetWorthConversion | NetWorthConversionByDate
+): c is NetWorthConversionByDate => typeof (c as NetWorthConversionByDate).at === 'function';
+
 export function buildNetWorthSnapshots(
   accounts: Account[],
   transactions: Transaction[],
   range: PeriodRange,
   now: Date = new Date(),
-  conversion?: NetWorthConversion
+  conversion?: NetWorthConversion | NetWorthConversionByDate
 ): NetWorthSnapshot[] {
   if (accounts.length === 0) return [];
 
@@ -167,12 +184,16 @@ export function buildNetWorthSnapshots(
     }
     let assets = toDecimal(0);
     let liabilities = toDecimal(0);
+    // Into the display currency where a factor exists; native (and reported
+    // by the caller as unconverted) where it does not. Balances stay native
+    // through the walk — the transactions are native — and convert only at
+    // the summing, so one rate refresh never has to replay the history. A
+    // dated conversion resolves THIS point's factors: the day's own rates.
+    const active = conversion === undefined
+      ? undefined
+      : isDatedConversion(conversion) ? conversion.at(point) ?? undefined : conversion;
     for (const [accountId, native] of balances.entries()) {
-      // Into the display currency where a factor exists; native (and reported
-      // by the caller as unconverted) where it does not. Balances stay native
-      // through the walk — the transactions are native — and convert only at
-      // the summing, so one rate refresh never has to replay the history.
-      const factor = conversion?.factors.get(accountId);
+      const factor = active?.factors.get(accountId);
       const b = factor ? native.times(factor) : native;
       if (b.greaterThan(0)) assets = assets.plus(b);
       else liabilities = liabilities.plus(b.abs());

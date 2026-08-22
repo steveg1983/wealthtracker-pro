@@ -23,6 +23,7 @@ import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthPointToken, netWorth
 import { buildReportDrillPath } from '../utils/reportDrillLink';
 import { withProvenance } from '../utils/navigationProvenance';
 import ConvertedTotalNote from '../components/ConvertedTotalNote';
+import HistoricRatesRestatementNotice from '../components/HistoricRatesRestatementNotice';
 import { useNetWorthConversion } from '../hooks/useNetWorthConversion';
 import { useArrivalAction } from '../hooks/useArrivalFocus';
 import { resolveEffectiveOpeningDates } from '../utils/openingDates';
@@ -164,11 +165,17 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
    * net-worth card also calls, so the two surfaces cannot disagree about the
    * same money (ruling C). See useNetWorthConversion for the whole account.
    */
-  const { conversion, provenance: ratesProvenance } = useNetWorthConversion(accounts);
+  const {
+    conversion,
+    seriesConversion,
+    conversionAt,
+    historical,
+    provenance: ratesProvenance,
+  } = useNetWorthConversion(accounts, { range: picker.range });
 
   const snapshots = useMemo(
-    () => buildNetWorthSnapshots(accounts, sortedTransactions, picker.range, new Date(), conversion ?? undefined),
-    [accounts, sortedTransactions, picker.range, conversion]
+    () => buildNetWorthSnapshots(accounts, sortedTransactions, picker.range, new Date(), seriesConversion ?? undefined),
+    [accounts, sortedTransactions, picker.range, seriesConversion]
   );
 
   /**
@@ -304,6 +311,16 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
   const [drillView, setDrillView] = useState<'groups' | 'grouped' | 'all'>('groups');
   const [drillSort, setDrillSort] = useState<'value-desc' | 'value-asc' | 'name' | 'name-desc'>('value-desc');
 
+  /**
+   * The factors in force for the drilled DAY: that day's own reference rates
+   * when the history is loaded (the owner's backdated-rates ask, 22 Aug),
+   * today's rates while degraded — never a mixture.
+   */
+  const drillConversion = useMemo(
+    () => (drillDate && conversionAt ? conversionAt(drillDate) : conversion),
+    [drillDate, conversionAt, conversion]
+  );
+
   const drillGroups = useMemo(() => {
     const sorted = [...drillBalances].sort((a, b) => {
       switch (drillSort) {
@@ -333,13 +350,13 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
           // number nobody quoted. Wears ≈ and the sheet's provenance line
           // when any conversion (or unconverted residue) is in it.
           subtotal: entries.reduce((sum, e) => {
-            const factor = conversion?.factors.get(e.account.id);
+            const factor = drillConversion?.factors.get(e.account.id);
             return sum.plus(factor ? e.balance.times(factor) : e.balance);
           }, toDecimal(0)),
           holdsForeign: entries.some(e => (e.account.currency || displayCurrency) !== displayCurrency),
         };
       });
-  }, [drillBalances, drillSort, conversion, displayCurrency]);
+  }, [drillBalances, drillSort, drillConversion, displayCurrency]);
 
   const drillAll = useMemo(
     () => drillGroups.flatMap(group => group.entries),
@@ -396,6 +413,9 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
         colours — which is also what stops green and red here from being
         decoration.
       */}
+      {/* Said once, dismissibly, when per-day rates first restate what a
+          reader had already seen (the ruling, 22 Aug §6.4). */}
+      <HistoricRatesRestatementNotice visible={historical && conversion !== null} />
       <div className="mb-6 space-y-2">
         <NetWorthSummary
           netWorth={latest ? formatCurrency(latest.netWorth) : '—'}
@@ -412,11 +432,33 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
             As at <span className="font-medium text-gray-900 dark:text-gray-100">{latest.label}</span>.
           </p>
         )}
-        {/* The SAME provenance note the summary card carries everywhere else
-            (ruling C reaching this surface, Claude Design 22 Aug §1) — only
-            when a conversion is actually in the figures. Rendered nothing for
-            the single-currency majority, per the data-health rule. */}
-        {conversion && (
+        {/* THE PAGE'S ONE RATE-BASIS LINE (the ruling, 22 Aug §6.2): with the
+            ECB history in force, one sentence carries every qualification —
+            the daily basis, the weekend carry-forward, and (only when the
+            window actually reaches back that far) the pre-1999 substitution.
+            Degraded, the SAME ConvertedTotalNote as every other summary card:
+            today's-rates basis, honestly stated. Rendered nothing for the
+            single-currency majority, per the data-health rule. */}
+        {historical && conversion && (
+          <p className="text-dense text-gray-500 dark:text-gray-400" data-testid="historic-rates-basis">
+            ≈ Converted at each day&rsquo;s ECB reference rate. Weekends and holidays
+            carry the previous business day&rsquo;s rate.
+            {earliest && earliest.date < new Date(1999, 0, 4)
+              ? <> Balances before 4 Jan 1999 use the earliest rate available.</>
+              : null}
+          </p>
+        )}
+        {historical && seriesConversion && seriesConversion.unconverted.length > 0 && (
+          // A currency with NO series at all is still counted native — the
+          // wrong-total warning outranks any basis line, exactly as it does
+          // on the live path below.
+          <ConvertedTotalNote
+            provenance={null}
+            unconverted={seriesConversion.unconverted}
+            displayCurrency={displayCurrency}
+          />
+        )}
+        {!historical && conversion && (
           <ConvertedTotalNote
             provenance={conversion.factors.size > 0 ? ratesProvenance : null}
             unconverted={conversion.unconverted}
@@ -800,25 +842,33 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                   {drillHoldsForeign ? '≈ ' : ''}
                   {formatCurrency(
                     drillBalances.reduce((sum, e) => {
-                      const factor = conversion?.factors.get(e.account.id);
+                      const factor = drillConversion?.factors.get(e.account.id);
                       return sum.plus(factor ? e.balance.times(factor) : e.balance);
                     }, toDecimal(0)).toNumber()
                   )}
                 </span>
               </div>
-              {/* THE RATE BASIS, SAID (Claude Design, 22 Aug §1): a historic
-                  drill converts at SOME date's rate, and which one is a real
-                  decision the reader cannot infer. The app holds no
-                  historical rate table, so the answer is today's — defensible
-                  only if stated. Rendered nothing when nothing converted. */}
+              {/* THE RATE BASIS, SAID (Claude Design, 22 Aug §1 and the
+                  ruling §6.2/§6.3): a historic drill converts at SOME date's
+                  rate, and which one is a real decision the reader cannot
+                  infer. With the ECB history loaded the answer is the day's
+                  own reference rate; degraded, it is today's — defensible
+                  only if stated, so each basis states itself. The ≈ stays
+                  either way: a converted figure is a valuation, not a
+                  recorded amount. Rendered nothing when nothing converted. */}
               {drillHoldsForeign && (
                 <p className="pt-2 text-dense text-gray-500 dark:text-gray-400">
-                  ≈ marks totals holding another currency, converted at{' '}
-                  {ratesProvenance
-                    ? <>today&rsquo;s rates (as of {ratesProvenance.asOf.toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' })})</>
-                    : 'no available rate — those amounts are counted unconverted'}
-                  {' '}applied to that day&rsquo;s balances. Each account&rsquo;s own
-                  figure is shown in its own currency.
+                  {historical
+                    ? <>≈ marks totals holding another currency, converted at this
+                      day&rsquo;s ECB reference rate. Weekends and holidays carry the
+                      previous business day&rsquo;s rate. Each account&rsquo;s own
+                      figure is shown in its own currency.</>
+                    : <>≈ marks totals holding another currency, converted at{' '}
+                      {ratesProvenance
+                        ? <>today&rsquo;s rates (as of {ratesProvenance.asOf.toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' })})</>
+                        : 'no available rate — those amounts are counted unconverted'}
+                      {' '}applied to that day&rsquo;s balances. Each account&rsquo;s own
+                      figure is shown in its own currency.</>}
                 </p>
               )}
             </div>
