@@ -225,4 +225,20 @@ describe('buildNetWorthSnapshots — currency conversion at the summing', () => 
     // Native fallback: the figure carries the residue the caller must say.
     expect(on(snaps, 14)?.netWorth).toBe(1200);
   });
+
+  it('a DATED conversion values each snapshot at its own day\'s rates', () => {
+    // The owner's backdated-rates ask (22 Aug): a 2017 balance at 2017's
+    // rate, not today's. Here the pound strengthens mid-month — the dollar
+    // account is worth £100 on the 10th and £80 on the 20th, with the
+    // sterling side untouched. One walk, two different rates, each point
+    // converting at its own.
+    const dated = {
+      at: (date: Date) =>
+        buildNetWorthConversion(book, { GBP: 1, USD: date.getDate() < 15 ? 2 : 2.5 }, 'GBP'),
+      unconverted: [] as const,
+    };
+    const snaps = buildNetWorthSnapshots(book, [], RANGE, new Date(2026, 2, 28), dated);
+    expect(on(snaps, 10)?.netWorth).toBe(1100);
+    expect(on(snaps, 20)?.netWorth).toBe(1080);
+  });
 });

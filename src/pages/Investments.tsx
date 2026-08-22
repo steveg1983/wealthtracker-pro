@@ -30,6 +30,7 @@ import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsCont
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
 import { useNetWorthConversion } from '../hooks/useNetWorthConversion';
+import HistoricRatesRestatementNotice from '../components/HistoricRatesRestatementNotice';
 import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
 import { formatCurrencyCompact } from '../utils/currency-decimal';
 import { computePortfolioPerformance, scopeValueAt, scopeOpeningFlows } from '../utils/portfolioPerformance';
@@ -559,9 +560,13 @@ function InvestmentsView() {
   // Real history: what the SCOPE was worth on each date, never a projection
   // of today's figure backwards. The scope's members convert exactly as the
   // net-worth surfaces do (currency audit, 22 Aug) — a dollar sleeve in a
-  // sterling pair used to join this chart as that many pounds. Null for the
-  // all-sterling scope, which keeps its arithmetic untouched.
-  const { conversion: scopeConversion } = useNetWorthConversion(scopeMembers);
+  // sterling pair used to join this chart as that many pounds — and at each
+  // day's own reference rate where the history is loaded (the owner's
+  // backdated-rates ask), so a currency's movement stops masquerading as
+  // portfolio value. Null for the all-sterling scope, which keeps its
+  // arithmetic untouched.
+  const { seriesConversion: scopeConversion, historical: scopeHistorical } =
+    useNetWorthConversion(scopeMembers, { range: historyRange });
   const performanceData = useMemo(
     () => buildPortfolioHistory(scopeMembers, transactions, historyRange, new Date(), scopeConversion ?? undefined),
     [scopeMembers, transactions, historyRange, scopeConversion]
@@ -1388,6 +1393,10 @@ function InvestmentsView() {
           </div>
         )}
 
+        {/* Said once, dismissibly, when per-day rates first restate what a
+            reader had already seen here (the ruling, 22 Aug §6.4) — this
+            chart is one of the affected surfaces. */}
+        <HistoricRatesRestatementNotice visible={scopeHistorical} />
         {/* Performance Chart */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
         {/* Wraps: seven pills at ~90px each need ~630px, and a phone offers

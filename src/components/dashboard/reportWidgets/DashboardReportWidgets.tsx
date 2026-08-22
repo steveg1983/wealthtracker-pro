@@ -113,19 +113,20 @@ export function NetWorthWidget({ picker, pin }: {
   /**
    * The SAME conversion the full report applies (ruling C: this card and the
    * report may not disagree about the same money) — foreign-currency accounts
-   * convert at today's rates instead of counting native units as display
-   * units. The full provenance sentence lives on the report this card opens;
-   * the ≈ on the headline is this card's own honest mark.
+   * convert at each day's ECB reference rate where the history is loaded,
+   * today's rates while degraded, EXACTLY as the report does with the same
+   * window. The full provenance sentence lives on the report this card
+   * opens; the ≈ on the headline is this card's own honest mark.
    */
-  const { conversion, displayCurrency } = useNetWorthConversion(accounts);
+  const { seriesConversion, displayCurrency } = useNetWorthConversion(accounts, { range: picker.range });
   const holdsForeign = useMemo(
     () => accounts.some(a => (a.currency || displayCurrency) !== displayCurrency),
     [accounts, displayCurrency]
   );
 
   const snapshots = useMemo(
-    () => buildNetWorthSnapshots(accounts, transactions, picker.range, new Date(), conversion ?? undefined),
-    [accounts, transactions, picker.range, conversion]
+    () => buildNetWorthSnapshots(accounts, transactions, picker.range, new Date(), seriesConversion ?? undefined),
+    [accounts, transactions, picker.range, seriesConversion]
   );
   const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
 
