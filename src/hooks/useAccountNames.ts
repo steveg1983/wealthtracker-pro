@@ -33,3 +33,33 @@ export function useAccountNames(): (id: string) => string {
     return (id: string): string => byId.get(id) ?? 'Unknown account';
   }, [accounts, closed]);
 }
+
+/**
+ * Account-id → the account's own currency, including CLOSED accounts —
+ * closed for the same measured reason names need them: history lives there.
+ *
+ * For the row-level fix the disclosure ruling promoted (22 Aug §3): a $100
+ * row printed as £100 is a correct number wearing the wrong symbol, the most
+ * directly checkable falsehood in the app. Undefined for an unknown id, so
+ * the caller's formatter falls back to the display currency rather than
+ * inventing one.
+ */
+export function useAccountCurrencies(): (id: string) => string | undefined {
+  const { accounts } = useApp();
+  const [closed, setClosed] = useState<Account[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    dataPort.listClosedAccounts()
+      .then(list => { if (!cancelled) setClosed(list); })
+      .catch(() => { /* currencies fall back to the display one; nothing breaks */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  return useMemo(() => {
+    const byId = new Map<string, string>();
+    closed.forEach(a => byId.set(a.id, a.currency));
+    accounts.forEach(a => byId.set(a.id, a.currency));
+    return (id: string): string | undefined => byId.get(id);
+  }, [accounts, closed]);
+}

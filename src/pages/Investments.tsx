@@ -1769,7 +1769,7 @@ function InvestmentsView() {
                                   {debt.name}
                                 </Link>
                                 <span className="tabular-nums shrink-0 ml-3">
-                                  {formatCurrency(toDecimal(debt.balance ?? 0))}
+                                  {formatCurrency(toDecimal(debt.balance ?? 0), debt.currency)}
                                 </span>
                               </p>
                             ))}
