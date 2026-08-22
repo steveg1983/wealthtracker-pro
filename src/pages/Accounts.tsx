@@ -2288,7 +2288,16 @@ function AccountsList() {
                         onClick={() => toggleGroupCollapsed(subBandCollapseKeyFor(group.label, sub.label))}
                         aria-expanded={sub.isExpanded}
                         aria-controls={subRegionId}
-                        className={`w-full text-left flex items-center justify-between gap-2 mt-4 first:mt-0 border-t-2 first:border-t-0 border-b border-line dark:border-gray-700 ${DEPTH_LEVEL_2} hover:bg-surface-tertiary dark:hover:bg-gray-700 transition-colors duration-state px-4 sm:px-6 py-2`}
+                        /* INDENTED ONE STEP under its type band (Claude
+                           Design, 22 Aug §7): shade and size alone left the
+                           two headings reading as siblings with identical
+                           totals, not a type CONTAINING an institution. The
+                           indent is on the HEADING only — the rows beneath
+                           stay at the page's content edges, because they are
+                           measured against the shared column strip and an
+                           indented row would drift every figure off its
+                           column. */
+                        className={`w-full text-left flex items-center justify-between gap-2 mt-4 first:mt-0 border-t-2 first:border-t-0 border-b border-line dark:border-gray-700 ${DEPTH_LEVEL_2} hover:bg-surface-tertiary dark:hover:bg-gray-700 transition-colors duration-state pl-8 sm:pl-12 pr-4 sm:pr-6 py-2`}
                       >
                         <p className="flex items-center gap-2 min-w-0 text-body uppercase font-bold tracking-wide text-gray-900 dark:text-white truncate">
                           <ChevronRightIcon
@@ -3207,11 +3216,21 @@ function AccountsList() {
         }}
       />
 
-      <PageTip
-        id="accounts-intro"
-        title="Manage your accounts"
-        description="Add bank accounts, credit cards, savings, and investments. Click an account's name to open its transactions, or click the row to pick it out and walk the list with the arrow keys. Use the settings icon on each account to configure alerts and reconciliation."
-      />
+      {/* NOT over an empty page (Claude Design, 22 Aug §8): with no accounts
+          the empty state above is already the page's first sentence, and a
+          five-line dark panel floating over it was the heaviest thing on a
+          page with nothing on it — two pieces of guidance competing to be
+          read first. The copy is also cut to the two things the page cannot
+          say for itself; "add accounts" is what the header button and the
+          empty state both already teach. Same id: a shortening is a cosmetic
+          edit, and re-showing a tip nobody needs re-read is noise. */}
+      {!isLoading && openAccounts.length > 0 && (
+        <PageTip
+          id="accounts-intro"
+          title="Manage your accounts"
+          description="Click an account's name to open its transactions; the settings icon on each row configures alerts and reconciliation."
+        />
+      )}
     </PageWrapper>
   );}
   

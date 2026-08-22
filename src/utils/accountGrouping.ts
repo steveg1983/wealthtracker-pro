@@ -180,11 +180,14 @@ export const DEFAULT_ACCOUNT_GROUPING: AccountGroupingOptions = { byType: true, 
 export type AccountGroupKind = 'type' | 'institution';
 
 /**
- * Where an account with no institution files. Deliberately the same words as
- * the type catch-all: in both dimensions it means "nothing said where this
- * belongs", and it sorts last for the same reason.
+ * Where an account with no institution files. It USED to share the type
+ * catch-all's words, on the argument that both mean "nothing said where this
+ * belongs" — but as an institution heading, "Other Accounts" reads as the
+ * name of a bank, and a reader met a band apparently held at an institution
+ * called Other (Claude Design, 22 Aug §7: "if it's the no-institution bucket,
+ * say that"). So it says the fact. Still sorts last.
  */
-export const NO_INSTITUTION_TITLE = OTHER_SECTION_DEFINITION.title;
+export const NO_INSTITUTION_TITLE = 'No institution recorded';
 
 /** An institution band — a top-level band, or a sub-band inside a type section. */
 export interface AccountInstitutionGroup<T extends GroupableAccount> {

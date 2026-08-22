@@ -754,14 +754,17 @@ function ForecastStatement(): React.JSX.Element {
               <h2 className="text-label uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
                 Your profit and loss
               </h2>
+              {/* TWO SHORT LINES, not four dense ones (Claude Design, 22 Aug
+                  §10): every sentence was worth keeping, which was the
+                  problem — good writing at a density that makes it skippable.
+                  The period statement and the exclusions stay here, where the
+                  numbers are; the Budget-relationship sentence moved to the
+                  Forecast tab, beside the place a scenario would actually be
+                  promoted — a reassurance at the point of action, not a
+                  disclaimer at the top of a page of history. */}
               <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
                 {plWindow.label} — {windowSentence[windowKind]}. Category by
-                category, exactly as the register holds them.{' '}
-                <span className="text-gray-700 dark:text-gray-300">
-                  Nothing here writes to your Budget
-                </span>
-                {' '}— a scenario only ever becomes budgets by your explicit,
-                per-category say-so.
+                category, exactly as the register holds them.
               </p>
               <p className="text-dense text-gray-500 dark:text-gray-400 mt-2">
                 Transfers between your accounts are not income or spending and are
@@ -881,6 +884,14 @@ function ForecastStatement(): React.JSX.Element {
             <h2 className="text-card font-semibold text-theme-heading dark:text-white">The forecast</h2>
             <p className="text-body text-gray-500 dark:text-gray-400 mt-1">
               The scenario tool will live here — it is being designed.
+            </p>
+            {/* Moved here from the Actuals preamble (§10): this is where a
+                scenario would be written to Budget, so this is where the
+                promise belongs. When the promote control lands, the sentence
+                stands beside it. */}
+            <p className="text-dense text-gray-500 dark:text-gray-400 mt-2">
+              <span className="text-gray-700 dark:text-gray-300">Nothing here will write to your Budget</span>
+              {' '}— a scenario only ever becomes budgets by your explicit, per-category say-so.
             </p>
             {keptParts.length > 0 && (
               <p className="text-dense text-gray-700 dark:text-gray-300 mt-2">

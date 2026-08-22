@@ -122,7 +122,7 @@ describe('Reconciliation — grouping is two independent switches', () => {
       'Invented Bank, 1 account',
       'Rival Invented Bank, 1 account',
       'Invented Bank, 1 account',
-      'Other Accounts, 1 account',
+      'No institution recorded, 1 account',
     ]);
 
     // The rows really are inside their sub-bands, not siblings of them.
@@ -151,7 +151,7 @@ describe('Reconciliation — grouping is two independent switches', () => {
     expect(sections()).toEqual([
       'Invented Bank(2 accounts)',
       'Rival Invented Bank(1 account)',
-      'Other Accounts(1 account)',
+      'No institution recorded(1 account)',
     ]);
     expect(subBands()).toEqual([]);
   });
@@ -298,7 +298,7 @@ describe('Reconciliation — the switches are remembered, and are this page\'s o
     expect(sections()).toEqual([
       'Invented Bank(2 accounts)',
       'Rival Invented Bank(1 account)',
-      'Other Accounts(1 account)',
+      'No institution recorded(1 account)',
     ]);
   });
 });
