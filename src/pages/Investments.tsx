@@ -29,6 +29,7 @@ import PageWrapper from '../components/PageWrapper';
 import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
+import { useNetWorthConversion } from '../hooks/useNetWorthConversion';
 import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
 import { formatCurrencyCompact } from '../utils/currency-decimal';
 import { computePortfolioPerformance, scopeValueAt, scopeOpeningFlows } from '../utils/portfolioPerformance';
@@ -556,10 +557,14 @@ function InvestmentsView() {
   );
 
   // Real history: what the SCOPE was worth on each date, never a projection
-  // of today's figure backwards.
+  // of today's figure backwards. The scope's members convert exactly as the
+  // net-worth surfaces do (currency audit, 22 Aug) — a dollar sleeve in a
+  // sterling pair used to join this chart as that many pounds. Null for the
+  // all-sterling scope, which keeps its arithmetic untouched.
+  const { conversion: scopeConversion } = useNetWorthConversion(scopeMembers);
   const performanceData = useMemo(
-    () => buildPortfolioHistory(scopeMembers, transactions, historyRange),
-    [scopeMembers, transactions, historyRange]
+    () => buildPortfolioHistory(scopeMembers, transactions, historyRange, new Date(), scopeConversion ?? undefined),
+    [scopeMembers, transactions, historyRange, scopeConversion]
   );
 
   /**

@@ -45,6 +45,7 @@ import {
   useConvertedNetWorth,
   type AccountBalanceEntry,
 } from '../hooks/useConvertedNetWorth';
+import { useNetWorthConversion } from '../hooks/useNetWorthConversion';
 import { useReconciliation } from '../hooks/useReconciliation';
 import { countAwaitingReviewByAccount } from '../utils/transactionReview';
 import { useAccountBankSync } from '@service';
@@ -663,6 +664,15 @@ function AccountsList() {
     displayCurrency,
     groupCurrencyEntries
   );
+
+  /**
+   * Per-ACCOUNT factors for the breakdown modal's rows (currency audit,
+   * 22 Aug): the card above converts its three figures, and the drill behind
+   * it summed native — the two disagreed the moment a second currency was
+   * held. Same module-level rates cache as the card's own conversion, so the
+   * factors cannot quote a different rate. Null on a single-currency ledger.
+   */
+  const { conversion: breakdownConversion } = useNetWorthConversion(openAccounts);
 
   // Each switch flips on its own: both on nests, both off flattens.
   const handleGroupingChange = (next: AccountGroupingOptions) => {
@@ -3172,14 +3182,19 @@ function AccountsList() {
             <AccountBreakdownModal
         view={breakdownView}
         onClose={() => setBreakdownView(null)}
-        rows={decimalAccounts.map(a => ({
-          id: a.id,
-          name: a.name,
-          institution: a.institution,
-          accountType: a.type,
-          balance: computeAccountBalance(a.id),
-          formatted: formatDisplayCurrency(computeAccountBalance(a.id), a.currency),
-        }))}
+        rows={decimalAccounts.map(a => {
+          const balance = computeAccountBalance(a.id);
+          const factor = breakdownConversion?.factors.get(a.id);
+          return {
+            id: a.id,
+            name: a.name,
+            institution: a.institution,
+            accountType: a.type,
+            balance,
+            converted: factor ? toDecimal(balance).times(factor).toNumber() : undefined,
+            formatted: formatDisplayCurrency(balance, a.currency),
+          };
+        })}
         formatTotal={(v) => formatDisplayCurrency(v)}
         // Through the same door as a click on an account's name, provenance and
         // all: coming back from a register opened here lands on that account's

@@ -18,6 +18,8 @@ import {
 } from '../icons';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { useConvertedNetWorth, type AccountBalanceEntry } from '../../hooks/useConvertedNetWorth';
+import { useNetWorthConversion } from '../../hooks/useNetWorthConversion';
 import { preserveDemoParam } from '../../utils/navigation';
 import EmptyState from '../EmptyState';
 import FilteredEmptyState from '../FilteredEmptyState';
@@ -270,6 +272,31 @@ export function ImprovedDashboard() {
     () => computeAccountBalances(accounts, transactions, serverBalances),
     [accounts, transactions, serverBalances]
   );
+
+  /**
+   * The SAME conversion the Accounts page's card runs (currency audit,
+   * 22 Aug): this trio renders the same NetWorthSummary component as that
+   * card, and until now was its un-fixed twin — native units summed as
+   * display units, so a dollar account counted as that many pounds. The
+   * single-currency majority keeps the exact arithmetic below; only a ledger
+   * that actually spans currencies converts, and says so.
+   */
+  const netWorthEntries = useMemo<AccountBalanceEntry[]>(
+    () => accounts.map(a => ({
+      balance: accountBalanceMap.get(a.id) ?? 0,
+      currency: a.currency || displayCurrency,
+    })),
+    [accounts, accountBalanceMap, displayCurrency]
+  );
+  const spansCurrencies = useMemo(
+    () => netWorthEntries.some(entry => entry.currency !== displayCurrency),
+    [netWorthEntries, displayCurrency]
+  );
+  const convertedNetWorth = useConvertedNetWorth(netWorthEntries, displayCurrency);
+  // Per-account factors for the breakdown modal's rows — same rates cache as
+  // the trio's conversion, so the drill cannot quote a different rate than
+  // the card it opens from. Null on a single-currency ledger.
+  const { conversion: rowConversion } = useNetWorthConversion(accounts);
 
   // Calculate key metrics — all money sums use Decimal arithmetic (float math
   // is banned on currency values; IEEE-754 drifts on long sums).
@@ -722,10 +749,13 @@ export function ImprovedDashboard() {
         aria-label="Net worth, assets and liabilities"
       >
         <NetWorthSummary
-          netWorth={formatCurrencyWithSymbol(metrics.netWorth)}
-          assets={formatCurrencyWithSymbol(metrics.totalAssets)}
-          liabilities={formatCurrencyWithSymbol(metrics.totalLiabilities)}
+          netWorth={formatCurrencyWithSymbol(spansCurrencies ? convertedNetWorth.netWorth : metrics.netWorth)}
+          assets={formatCurrencyWithSymbol(spansCurrencies ? convertedNetWorth.assets : metrics.totalAssets)}
+          liabilities={formatCurrencyWithSymbol(spansCurrencies ? convertedNetWorth.liabilities : metrics.totalLiabilities)}
           onSelect={figure => setBreakdownView(figure)}
+          provenance={spansCurrencies ? convertedNetWorth.provenance : null}
+          unconverted={spansCurrencies ? convertedNetWorth.unconverted : []}
+          displayCurrency={displayCurrency}
         />
       </section>
 
@@ -1514,18 +1544,26 @@ export function ImprovedDashboard() {
 
       {/* The SAME modal the Accounts page drills with, fed from the SAME
           balance map the three tiles sum — so its total and the tile cannot
-          disagree, which is the whole precondition for offering the click. */}
+          disagree, which is the whole precondition for offering the click.
+          Each row's figure is in the account's OWN currency (a $100 row used
+          to print as £100 here), and a foreign row carries its converted
+          value so the modal's totals agree with the converted trio above. */}
       <AccountBreakdownModal
         view={breakdownView}
         onClose={() => setBreakdownView(null)}
-        rows={accounts.map(a => ({
-          id: a.id,
-          name: a.name,
-          institution: a.institution,
-          accountType: a.type,
-          balance: accountBalanceMap.get(a.id) ?? 0,
-          formatted: formatCurrencyWithSymbol(accountBalanceMap.get(a.id) ?? 0),
-        }))}
+        rows={accounts.map(a => {
+          const balance = accountBalanceMap.get(a.id) ?? 0;
+          const factor = rowConversion?.factors.get(a.id);
+          return {
+            id: a.id,
+            name: a.name,
+            institution: a.institution,
+            accountType: a.type,
+            balance,
+            converted: factor ? toDecimal(balance).times(factor).toNumber() : undefined,
+            formatted: formatCurrencyWithSymbol(balance, a.currency),
+          };
+        })}
         formatTotal={(v) => formatCurrencyWithSymbol(v)}
         onOpenAccount={(accountId) => {
           setBreakdownView(null);

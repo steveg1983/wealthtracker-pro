@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, ModalBody } from './common/Modal';
 import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSections';
+import { toDecimal } from '../utils/decimal';
 
 /**
  * The drill-in behind the Accounts page's Net Worth / Assets / Liabilities
@@ -10,6 +11,14 @@ import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSec
  * function the cards use, so the modal's totals cannot disagree with the
  * card that opened it. Assets are the accounts standing positive,
  * liabilities the ones standing negative — same split as the cards.
+ *
+ * Totals convert the way the card's do (currency audit, 22 Aug): a foreign
+ * row carries `converted` — its value in the display currency, computed by
+ * the PAGE from the same rates its card used — and every total sums that,
+ * wearing ≈ when one is in the figure. Before this, the drill summed native
+ * units behind a card that converted, so the two disagreed the moment a
+ * second currency was held — the header's own promise broken. The per-row
+ * figure stays the account's own currency, as everywhere.
  */
 
 export type AccountBreakdownView = 'net' | 'assets' | 'liabilities';
@@ -22,6 +31,14 @@ export interface AccountBreakdownRow {
   accountType: string;
   /** Signed balance, from the page's own computeAccountBalance. */
   balance: number;
+  /**
+   * The balance in the DISPLAY currency, when the account is held in another
+   * one — computed by the page from the same rates its summary card used.
+   * Absent for an account already in the display currency, and absent when
+   * no rate could be had (the total then counts the native figure, exactly
+   * as the card's own fallback does).
+   */
+  converted?: number;
   /** Formatted in the account's own currency by the page's formatter. */
   formatted: string;
 }
@@ -101,9 +118,15 @@ export default function AccountBreakdownModal({
     ];
   }, [view, grouped, rows, assets, liabilities, sortRows]);
 
-  const total = useMemo(() => {
+  // Decimal, not float `+` — and the display-currency value where one exists.
+  const sumOf = (list: readonly AccountBreakdownRow[]): number =>
+    list.reduce((sum, r) => sum.plus(toDecimal(r.converted ?? r.balance)), toDecimal(0)).toNumber();
+  const holdsForeignIn = (list: readonly AccountBreakdownRow[]): boolean =>
+    list.some(r => r.converted !== undefined);
+
+  const { total, totalHoldsForeign } = useMemo(() => {
     const included = view === 'assets' ? assets : view === 'liabilities' ? liabilities : rows;
-    return included.reduce((sum, r) => sum + r.balance, 0);
+    return { total: sumOf(included), totalHoldsForeign: holdsForeignIn(included) };
   }, [view, assets, liabilities, rows]);
 
   const arrow = (key: SortKey): string => (sortKey === key ? (sortDir === 1 ? ' ↑' : ' ↓') : '');
@@ -168,11 +191,11 @@ export default function AccountBreakdownModal({
                       </span>
                     </td>
                     <td className={`py-1.5 text-xs font-semibold text-right tabular-nums ${
-                      section.rows.reduce((s, r) => s + r.balance, 0) < 0
+                      sumOf(section.rows) < 0
                         ? 'text-red-600 dark:text-red-400'
                         : 'text-green-600 dark:text-green-400'
                     }`}>
-                      {formatTotal(section.rows.reduce((s, r) => s + r.balance, 0))}
+                      {holdsForeignIn(section.rows) ? '≈ ' : ''}{formatTotal(sumOf(section.rows))}
                     </td>
                   </tr>
                 )}
@@ -214,7 +237,7 @@ export default function AccountBreakdownModal({
               <td className={`pt-3 text-sm font-bold text-right tabular-nums ${
                 total < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'
               }`}>
-                {formatTotal(total)}
+                {totalHoldsForeign ? '≈ ' : ''}{formatTotal(total)}
               </td>
             </tr>
           </tfoot>
