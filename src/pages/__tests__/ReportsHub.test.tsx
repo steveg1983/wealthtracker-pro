@@ -227,15 +227,22 @@ describe('ReportsHub gallery', () => {
     renderHub();
 
     fireEvent.click(screen.getByRole('button', { name: 'Custom' }));
+    // dd/mm/yyyy — the ONLY format the date field commits (parseTypedDate);
+    // the ISO string this spec used to type never parsed, so it sat as an
+    // uncommitted draft and the assertion passed only because the SAME input
+    // instance was still echoing it. Since the net-worth report renders the
+    // period bar itself (22 Aug), the input across the navigation is a fresh
+    // instance and only a genuinely committed value survives — which is what
+    // this spec was always claiming to prove.
     fireEvent.change(screen.getByLabelText('Custom period start date'), {
-      target: { value: '2026-01-10' },
+      target: { value: '10/01/2026' },
     });
 
     fireEvent.click(screen.getByRole('link', { name: /Net worth over time/ }));
     await screen.findByRole('heading', { name: 'Net Worth Over Time' }, LOADS_LAZY_REPORT);
 
     expect(screen.getByRole('button', { name: 'Custom' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByLabelText('Custom period start date')).toHaveValue('2026-01-10');
+    expect(screen.getByLabelText('Custom period start date')).toHaveValue('10/01/2026');
   });
 
   it('sends an unknown report id back to the gallery instead of an empty frame', () => {

@@ -80,6 +80,14 @@ export interface ReportDefinition {
    * the hub's own default (this month).
    */
   defaultPeriod?: PeriodKey;
+  /**
+   * True when the report renders the hub's PeriodBar ITSELF, inside the card
+   * the window governs (owner, 22 Aug: the net-worth chart carries its
+   * timescale the way the Investments performance card does). Still the same
+   * shared picker — the choice follows the reader between reports — the hub
+   * just stands down from drawing a second copy above it.
+   */
+  ownsPeriodBar?: boolean;
   component: LazyExoticComponent<ComponentType<ReportViewProps>>;
 }
 
@@ -100,6 +108,7 @@ export const REPORTS: ReportDefinition[] = [
     group: 'what-i-have',
     icon: TrendingUpIcon,
     usesPeriod: true,
+    ownsPeriodBar: true,
     // The whole history is the point of this one — a month of net worth is a
     // dot, and even a year says little about the direction of travel.
     defaultPeriod: 'all',

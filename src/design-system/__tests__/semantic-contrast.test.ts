@@ -33,7 +33,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ColorContrastChecker } from '../../utils/color-contrast-checker';
-import { CATEGORICAL_AXIS, SEMANTIC_SERIES } from '../../components/charts/chartColors';
+import { CATEGORICAL_AXIS, SEMANTIC_SERIES, decompositionSeries } from '../../components/charts/chartColors';
 
 const read = (repoPath: string): string =>
   readFileSync(resolve(process.cwd(), repoPath), 'utf8');
@@ -168,6 +168,38 @@ describe('semantic amount colours (DESIGN_PASS_2026-08 §2.1)', () => {
       for (const step of CATEGORICAL_AXIS) {
         expect(step.toLowerCase()).not.toBe(token.incomeFill);
         expect(step.toLowerCase()).not.toBe(token.expenseFill);
+      }
+    });
+  });
+
+  /**
+   * The decomposition series (net worth / assets / liabilities) is GROUND-
+   * AWARE since 22 Aug, and this measures why it must be: the light navies
+   * are 1.08:1 and 1.27:1 on a dark card — the owner's screenshot showed the
+   * whole net-worth chart as a ghost. Each ground's colours are measured on
+   * that ground's own surfaces, at the 3:1 graphics bar.
+   */
+  describe('the decomposition series clears 3:1 on its own ground', () => {
+    it('light colours on light surfaces, dark colours on dark', () => {
+      const light = decompositionSeries(false);
+      const dark = decompositionSeries(true);
+      for (const surface of SURFACES_LIGHT) {
+        expect(ratio(light.total.color, surface), `light total on ${surface}`).toBeGreaterThanOrEqual(AA_GRAPHICS);
+        expect(ratio(light.part.color, surface), `light part on ${surface}`).toBeGreaterThanOrEqual(AA_GRAPHICS);
+      }
+      for (const surface of SURFACES_DARK) {
+        expect(ratio(dark.total.color, surface), `dark total on ${surface}`).toBeGreaterThanOrEqual(AA_GRAPHICS);
+        expect(ratio(dark.part.color, surface), `dark part on ${surface}`).toBeGreaterThanOrEqual(AA_GRAPHICS);
+      }
+    });
+
+    it('the answer outweighs its parts on both grounds, in contrast as in stroke', () => {
+      for (const isDark of [false, true]) {
+        const series = decompositionSeries(isDark);
+        const surface = isDark ? '#1f2937' : '#f8f9fb';
+        expect(ratio(series.total.color, surface)).toBeGreaterThan(ratio(series.part.color, surface));
+        // Shape separates the two parts; they deliberately share a colour.
+        expect(series.part.color).toBe(series.counterpart.color);
       }
     });
   });
