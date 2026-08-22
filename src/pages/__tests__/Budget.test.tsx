@@ -275,13 +275,35 @@ describe('Budget page — an empty page is an empty state, not zeroed furniture'
     renderBudget();
 
     expect(await screen.findByRole('heading', { level: 3, name: 'No budgets yet' })).toBeInTheDocument();
-    // The consequence, then the remedies as real controls.
+    // The consequence, then the remedies as real controls. TWO controls carry
+    // the same words on purpose — the header button took the empty state's
+    // label (Claude Design 22 Aug §7: "+ Add Budget" and "+ Create a budget"
+    // were two primaries in two cases for one action).
     expect(screen.getByText(/nothing on this page has anything to measure against/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create a budget' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Create a budget' })).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'See last year’s spending' })).toBeInTheDocument();
     // No furniture: the three summary cards do not render over an empty page.
     expect(screen.queryByText('Total Budgeted')).not.toBeInTheDocument();
     expect(screen.queryByText('Total Spent')).not.toBeInTheDocument();
     expect(screen.queryByText('Total Remaining')).not.toBeInTheDocument();
+    // Nor the six methodology tabs — a choice of budgeting philosophies is
+    // furniture until there is a budget to slice (Claude Design 22 Aug §7).
+    expect(screen.queryByRole('button', { name: 'Envelope' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Zero-Based' })).not.toBeInTheDocument();
+  });
+
+  it('brings the tabs back the moment a budget exists', async () => {
+    // Every figure here is invented; the repo is public.
+    __setAppContextValue({
+      accounts: ACCOUNTS,
+      categories: CATEGORIES,
+      budgets: [budget({ id: 'bud-groceries', categoryId: 'det-groceries', amount: 200 })],
+      transactions: [],
+      transactionSplits: [],
+    });
+    renderBudget();
+
+    expect(await screen.findByRole('button', { name: 'Envelope' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zero-Based' })).toBeInTheDocument();
   });
 });

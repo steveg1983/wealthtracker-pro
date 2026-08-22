@@ -280,19 +280,30 @@ function BudgetView() {
     }
   }, [budgets, transactions, categories, transactionSplits, foreignAccountIds, checkEnhancedBudgetAlerts]);
 
+  // The six methodology tabs are furniture for content that doesn't exist
+  // until a budget does (Claude Design 22 Aug §7) — the summary trio already
+  // stands down over the empty page, and the tab strip answers to the same
+  // rule. While the tabs are away the page shows the traditional view, which
+  // is where the empty state and its remedies live.
+  const tabsEarned = isLoading || budgets.length > 0;
+  const view = tabsEarned ? activeTab : 'traditional';
+
   return (
-    <PageWrapper 
+    <PageWrapper
       title="Budget"
       rightContent={
         <button
           onClick={() => setIsModalOpen(true)}
           className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white text-body font-medium rounded-lg hover:bg-[#2d3a4d] transition-colors shadow-sm"
-          title="Add Budget"
+          title="Create a budget"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M12 5v14M5 12h14" />
           </svg>
-          Add Budget
+          {/* The empty state's words (Claude Design 22 Aug §7): two labels for
+              one action — "+ Add Budget" here, "+ Create a budget" there —
+              were two primaries in two cases on one page. */}
+          Create a budget
         </button>
       }
     >
@@ -300,7 +311,9 @@ function BudgetView() {
       <div className="flex justify-end mb-2">
         <WholePoundsToggle />
       </div>
-      {/* Navigation Tabs */}
+      {/* Navigation Tabs — only once there is a budget for them to slice
+          (Claude Design 22 Aug §7). */}
+      {tabsEarned && (
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-6">
         <button
           onClick={() => setActiveTab('traditional')}
@@ -371,9 +384,10 @@ function BudgetView() {
           Zero-Based
         </button>
       </div>
+      )}
 
       {/* Tab Content */}
-      {activeTab === 'traditional' && (
+      {view === 'traditional' && (
         <div className="grid gap-6">
         {/* Summary Cards — HIDDEN WHILE THERE ARE NO BUDGETS (Claude Design,
             22 Aug §3). Three £0.00 cards above "no budgets yet" are furniture
@@ -579,27 +593,27 @@ function BudgetView() {
       )}
 
       {/* Envelope Budgeting Tab */}
-      {activeTab === 'envelope' && (
+      {view === 'envelope' && (
         <EnvelopeBudgeting />
       )}
 
       {/* Templates Tab */}
-      {activeTab === 'templates' && (
+      {view === 'templates' && (
         <RecurringBudgetTemplates />
       )}
 
       {/* Rollover Tab */}
-      {activeTab === 'rollover' && (
+      {view === 'rollover' && (
         <BudgetRollover />
       )}
 
       {/* Alerts Tab */}
-      {activeTab === 'alerts' && (
+      {view === 'alerts' && (
         <SpendingAlerts />
       )}
 
       {/* Zero-Based Budgeting Tab */}
-      {activeTab === 'zero-based' && (
+      {view === 'zero-based' && (
         <ZeroBasedBudgeting />
       )}
 

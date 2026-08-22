@@ -151,6 +151,27 @@ describe('CrossCurrencyTransferDialog', () => {
     expect(conversion.rate.toString()).toBe('1.1');
   });
 
+  it('says the rate is approximate BEFORE the rate field, not after it', async () => {
+    // Claude Design, 22 Aug §4: the degraded sentence used to sit below the
+    // fields — a reader filled the rate and read the arriving amount, and only
+    // then met the line telling them the rate was approximate, after the
+    // decision it should inform. One slot above the fields now carries every
+    // state: source-and-timestamp when live, this sentence when not.
+    quoteFails();
+    render(
+      <CrossCurrencyTransferDialog
+        {...props}
+        destinationCurrency="XYZ"
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    const notice = await screen.findByText(/No rate available offline/);
+    const position = notice.compareDocumentPosition(rateBox('XYZ'));
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('cannot be confirmed on a half-typed box', async () => {
     quoteResponds({ GBP: 1, USD: 1.25 });
     render(<CrossCurrencyTransferDialog {...props} onConfirm={vi.fn()} onCancel={vi.fn()} />);

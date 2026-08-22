@@ -56,8 +56,8 @@ describe('Budget Workflow Integration', () => {
         expect(screen.getByRole('heading', { level: 1, name: /budget/i })).toBeInTheDocument();
       });
 
-      // Click the Add Budget icon
-      const addBudgetIcon = screen.getByTitle('Add Budget');
+      // Click the Create a budget icon
+      const addBudgetIcon = screen.getByTitle('Create a budget');
       await user.click(addBudgetIcon);
 
       // Wait for modal to appear
@@ -212,8 +212,8 @@ describe('Budget Workflow Integration', () => {
         expect(screen.getByRole('heading', { level: 1, name: /budget/i })).toBeInTheDocument();
       });
 
-      // Click Add Budget icon
-      const addBudgetIcon = screen.getByTitle('Add Budget');
+      // Click Create a budget icon
+      const addBudgetIcon = screen.getByTitle('Create a budget');
       await user.click(addBudgetIcon);
 
       await waitFor(() => {
