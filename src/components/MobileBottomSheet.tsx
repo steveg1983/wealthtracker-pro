@@ -170,7 +170,15 @@ export function MobileBottomSheet({
             <h2 id="bottom-sheet-title" className="text-lg font-semibold text-gray-900 dark:text-white">
               {title}
             </h2>
+            {/* type="button" as a stated fact, not a live fix: today the
+                hosted <form> sits in the children BELOW this header, so the
+                untyped default was inert — but it still REPORTED type=submit,
+                and one restructure (a caller wrapping the sheet in its form)
+                away from being the transaction editor's stray-submitter bug
+                (#375) on this surface too. Chrome in a component that hosts
+                forms declares what it is; a spec pins it. */}
             <button
+              type="button"
               onClick={onClose}
               className="relative z-10 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
               aria-label="Close bottom sheet"

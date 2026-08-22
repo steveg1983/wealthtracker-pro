@@ -222,6 +222,7 @@ export function BottomSheet({
             </h2>
             {showCloseButton && (
               <button
+                type="button"
                 onClick={onClose}
                 className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                 aria-label="Close"
@@ -266,6 +267,7 @@ export function BottomSheetItem({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
       className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left ${
@@ -341,6 +343,7 @@ export function ActionSheet({
       
       <div className="border-t border-gray-200 dark:border-gray-700 p-2">
         <button
+          type="button"
           onClick={onClose}
           className="w-full justify-center py-3 font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
         >
