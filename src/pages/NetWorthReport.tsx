@@ -402,13 +402,16 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
           assets={latest ? formatCurrency(latest.assets) : '—'}
           liabilities={latest ? formatCurrency(latest.liabilities) : '—'}
         />
-        <p className="text-body text-gray-600 dark:text-gray-400">
-          {latest ? <>As at <span className="font-medium text-gray-900 dark:text-gray-100">{latest.label}</span>. </> : null}
-          Change over the period{' '}
-          <span className={change.greaterThanOrEqualTo(0) ? 'font-medium text-green-600 dark:text-green-400' : 'font-medium text-red-600 dark:text-red-400'}>
-            {change.greaterThanOrEqualTo(0) ? '+' : ''}{formatCurrency(change.toNumber())}
-          </span>.
-        </p>
+        {/* The date alone. The change figure lived here too, and again as the
+            band's CHANGE tile two hundred pixels down — the same money said
+            twice (Claude Design 22 Aug §5). The band keeps it: it stands with
+            Started/Ended and the period %, which is where a change figure can
+            actually be read against something. */}
+        {latest && (
+          <p className="text-body text-gray-600 dark:text-gray-400">
+            As at <span className="font-medium text-gray-900 dark:text-gray-100">{latest.label}</span>.
+          </p>
+        )}
         {/* The SAME provenance note the summary card carries everywhere else
             (ruling C reaching this surface, Claude Design 22 Aug §1) — only
             when a conversion is actually in the figures. Rendered nothing for
@@ -466,7 +469,12 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
               title={showDetail ? 'Hide the assets and liabilities series' : 'Also show assets and liabilities'}
               className={`px-3 py-1 text-sm font-medium rounded-lg border transition-colors ${
                 showDetail
-                  ? 'border-[#1a2332] dark:border-blue-500 bg-[#1a2332] dark:bg-blue-600 text-white'
+                  /* The selected fill is the slate the period picker's ruling
+                     blessed (`dark:bg-[#2d3a4d]`), because this button stands
+                     in the SAME row as that picker — a stock dark:bg-blue-600
+                     here was a second selected-state identity six pixels from
+                     the first, on one ground only (Claude Design 22 Aug §3). */
+                  ? 'border-[#1a2332] dark:border-[#2d3a4d] bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
                   : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >
@@ -480,7 +488,7 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                   onClick={() => handleChartType(type)}
                   className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
                     chartType === type
-                      ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                      ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                   }`}
                 >
@@ -490,9 +498,19 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
             </div>
           </div>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          Computed from your full transaction history. Click any point to see every account's balance on that date.
-        </p>
+        {/* The card's subtitle used to restate the page header's ("computed
+            from your full history… click any point") two hundred pixels apart
+            (Claude Design 22 Aug §5). It now says the one thing the header
+            can't: what "growth" means on this card — the honesty line that
+            was below the band, in the slot a reader actually passes on the
+            way to the figures it qualifies. */}
+        {latest && earliest && snapshots.length > 1 && (
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Growth of everything you own less what you owe — money you saved counts
+            as growth here, unlike the portfolio&rsquo;s return figures, which strip
+            your payments in and out.
+          </p>
+        )}
         {/* ─ THE GROWTH BAND ─────────────────────────────────────────────────
             The Investments strip's shape, for the whole balance sheet, so the
             two rates can stand side by side — which is the owner's stated
@@ -551,11 +569,6 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                 )}
               </div>
             </div>
-            <p className="mt-2 text-dense text-gray-500 dark:text-gray-400">
-              Growth of everything you own less what you owe — money you saved counts
-              as growth here, unlike the portfolio&rsquo;s return figures, which strip
-              your payments in and out.
-            </p>
           </div>
         )}
         {snapshots.length === 0 ? (
@@ -599,7 +612,11 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                   formatter={(value: number | string) => formatCurrency(typeof value === 'number' ? value : Number(value))}
                   contentStyle={chartTooltipStyle} separator=": "
                 />
-                <Legend content={<DecompositionLegend />} />
+                {/* A legend distinguishes series; with one line there is
+                    nothing to distinguish and the card title already names it
+                    (Claude Design 22 Aug §6). Three series is when it earns
+                    its row. */}
+                {showDetail && <Legend content={<DecompositionLegend />} />}
                 {chartType === 'bar' ? (
                   // Money-style bar view: net worth as bars, assets/liabilities
                   // as context lines. Same data, same click-to-drill.
@@ -677,7 +694,7 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                       aria-pressed={drillView === mode}
                       className={`px-2.5 py-1 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
                         drillView === mode
-                          ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                          ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
                           : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                       }`}
                     >

@@ -245,7 +245,40 @@ export default function CrossCurrencyTransferDialog({
           recorded exactly as you enter them.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-2">
+        {/* Provenance, in the sentence the design pass asks for: who quoted it
+            and when. Neutral grey — a rate that is merely old is not a warning,
+            and an amber here would spend the one the yellow thread owns.
+            ABOVE the fields, at body size (Claude Design 22 Aug §4): a reader
+            meets what qualifies the rate BEFORE filling the rate field, not
+            after the decision it should inform. One slot for all three states —
+            source and timestamp when live, the degraded sentence when not — so
+            the absence of provenance occupies the space provenance would have. */}
+        <p className="text-body text-gray-500 dark:text-gray-400 mb-4 min-h-[20px]">
+          {quote.status === 'loading' && 'Fetching a rate…'}
+          {/* THE SOURCE AND THE TIME, and not the rate a second time (Claude
+              Design §9.2). The field directly below this already prints the
+              rate in an input the reader can edit; repeating it here in full
+              spent a line saying something already on screen, and pushed the
+              two things this line ALONE can carry — who quoted it and when —
+              to the end where they read as an afterthought. */}
+          {quote.status === 'ready' && quote.source === 'api' && (
+            /* The ethos said once, where it is being enforced (Design, 17 Aug
+               §6): this dialog already records more about a converted figure
+               than most apps show — say that it does. */
+            <>{quote.provider}, {quotedAt}. Every converted figure records the
+            rate it used and when.</>
+          )}
+          {quote.status === 'ready' && quote.source === 'fallback' && (
+            <>No live rate right now, so this one is approximate — check it against your
+            statement before confirming.</>
+          )}
+          {quote.status === 'unavailable' && (
+            <>No rate available offline. Enter the rate or the amount that arrived — either
+            one fills in the other.</>
+          )}
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
           <div>
             <label
               htmlFor="cross-currency-rate"
@@ -297,34 +330,6 @@ export default function CrossCurrencyTransferDialog({
             </div>
           </div>
         </div>
-
-        {/* Provenance, in the sentence the design pass asks for: who quoted it
-            and when. Neutral grey — a rate that is merely old is not a warning,
-            and an amber here would spend the one the yellow thread owns. */}
-        <p className="text-dense text-gray-500 dark:text-gray-400 mb-5 min-h-[16px]">
-          {quote.status === 'loading' && 'Fetching a rate…'}
-          {/* THE SOURCE AND THE TIME, and not the rate a second time (Claude
-              Design §9.2). The field directly above this already prints the
-              rate in an input the reader can edit; repeating it here in full
-              spent a line saying something already on screen, and pushed the
-              two things this line ALONE can carry — who quoted it and when —
-              to the end where they read as an afterthought. */}
-          {quote.status === 'ready' && quote.source === 'api' && (
-            /* The ethos said once, where it is being enforced (Design, 17 Aug
-               §6): this dialog already records more about a converted figure
-               than most apps show — say that it does. */
-            <>{quote.provider}, {quotedAt}. Every converted figure records the
-            rate it used and when.</>
-          )}
-          {quote.status === 'ready' && quote.source === 'fallback' && (
-            <>No live rate right now, so this one is approximate — check it against your
-            statement before confirming.</>
-          )}
-          {quote.status === 'unavailable' && (
-            <>No rate available offline. Enter the rate or the amount that arrived — either
-            one fills in the other.</>
-          )}
-        </p>
 
         <div className="flex flex-wrap gap-3 justify-end items-center">
           <button
