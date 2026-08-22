@@ -121,7 +121,7 @@ export default function AccountBreakdownModal({
           aria-pressed={grouped}
           className={`px-4 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
             grouped
-              ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
+              ? 'bg-[#1a2332] dark:bg-[#2d3a4d] border-[#1a2332] dark:border-[#2d3a4d] text-white'
               : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
           }`}
           title="Group accounts by type, the way the Accounts screen does"

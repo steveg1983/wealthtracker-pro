@@ -162,6 +162,31 @@ input[type="range"] {
      reason — `hover:bg-secondary/90` was one of the dead classes. */
   --color-secondary-rgb: 45 58 77;
   --color-secondary: rgb(var(--color-secondary-rgb));
+  /*
+   * THE PRIMARY ACTION FILL, WITH AN ANSWER ON BOTH GROUNDS (Claude Design's
+   * canon ruling, 22 Aug 2026). In light mode navy-900 does two jobs — brand
+   * and highest-contrast-thing-on-white — so one value served both the primary
+   * action and the selected state. On a dark ground it can do neither, and
+   * because no dark counterpart was stated, twenty files invented one and the
+   * nearest thing to hand was a stock blue (49 occurrences at the count).
+   *
+   * The rule is the chart ramp's: walk from whichever end contrasts with the
+   * ground. On white that end is dark (the navy); on a dark ground it is the
+   * light one — so the dark primary is a near-white fill with navy text, both
+   * already in this palette (#f1f3f7 is --color-light-accent, #e2e6ed is
+   * --color-light-border). No new hue: blue means link in this app.
+   *
+   * Selected states are NOT this token — a segment that marks a choice among
+   * siblings wears the slate (#2d3a4d, see PeriodPicker). This pair is for the
+   * button that invites the press.
+   *
+   * "A token with no counterpart on one ground is not a token, it is a
+   * light-mode value." — the ruling, worth keeping where the next token is
+   * written.
+   */
+  --color-primary-action-rgb: 26 35 50;
+  --color-on-primary-action-rgb: 255 255 255;
+  --color-primary-action-hover-rgb: 45 58 77;
   --color-tertiary: #d4a843;
   --color-light-bg: #f8f9fb;
   --color-light-card: #ffffff;
@@ -199,6 +224,12 @@ input[type="range"] {
   /* Light enough to read against gray-900 panels; still the navy family. */
   --focus-ring-color: #94a3b8;
   --color-border-focus: #94a3b8;
+  /* The primary action inverts on dark: near-white fill, navy label — the
+     ramp rule walking from the light end. Hover steps one token down the
+     same family (#e2e6ed, --color-light-border's value). */
+  --color-primary-action-rgb: 241 243 247;
+  --color-on-primary-action-rgb: 26 35 50;
+  --color-primary-action-hover-rgb: 226 230 237;
 }
 
 /* Numbers line up or they lie (DESIGN_PASS_2026-08, P5). Fixed-width digits

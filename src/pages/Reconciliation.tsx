@@ -593,7 +593,7 @@ export default function Reconciliation() {
                 title="Band the list into account-type sections"
                 className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
                   grouping.byType
-                    ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
+                    ? 'bg-[#1a2332] dark:bg-[#2d3a4d] border-[#1a2332] dark:border-[#2d3a4d] text-white'
                     : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
               >
@@ -611,7 +611,7 @@ export default function Reconciliation() {
                 title="Band the list by institution"
                 className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
                   grouping.byInstitution
-                    ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
+                    ? 'bg-[#1a2332] dark:bg-[#2d3a4d] border-[#1a2332] dark:border-[#2d3a4d] text-white'
                     : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
               >
@@ -631,13 +631,13 @@ export default function Reconciliation() {
             <div className="grid grid-flow-col auto-cols-fr flex-1 sm:flex-none sm:inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
               <button onClick={() => handleSortChange('default')}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  sortMode === 'default' ? 'bg-[#1a2332] dark:bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                  sortMode === 'default' ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
                 }`}>
                 Default
               </button>
               <button onClick={() => handleSortChange('name')}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  sortMode === 'name' ? 'bg-[#1a2332] dark:bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                  sortMode === 'name' ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
                 }`}>
                 Name A–Z
               </button>
@@ -649,7 +649,7 @@ export default function Reconciliation() {
                     : 'Sort by account value'}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   sortMode === 'balance-desc' || sortMode === 'balance-asc'
-                    ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                    ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
                 }`}>
                 Value {sortMode === 'balance-asc' ? '↑' : '↓'}
@@ -664,7 +664,7 @@ export default function Reconciliation() {
               title="Hide accounts that are fully reconciled with no balance difference"
               className={`w-full sm:w-auto px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
                 onlyAttention
-                  ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
+                  ? 'bg-[#1a2332] dark:bg-[#2d3a4d] border-[#1a2332] dark:border-[#2d3a4d] text-white'
                   : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >

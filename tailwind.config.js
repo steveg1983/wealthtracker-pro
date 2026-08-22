@@ -20,6 +20,14 @@ export default {
         // fifty-four raw `var(--color-primary)` readers are untouched.
         primary: 'rgb(var(--color-primary-rgb, 26 35 50) / <alpha-value>)',
         secondary: 'rgb(var(--color-secondary-rgb, 45 58 77) / <alpha-value>)',
+        // The primary ACTION fill and its label, ground-aware (Claude Design's
+        // canon ruling, 22 Aug 2026): navy-on-white in light, inverted to
+        // near-white-with-navy-text on dark — the .dark block in index.css
+        // flips the triples, so ONE class pair paints a button correctly on
+        // both grounds. New primary buttons use these; never dark:bg-blue-*.
+        'primary-action': 'rgb(var(--color-primary-action-rgb, 26 35 50) / <alpha-value>)',
+        'on-primary-action': 'rgb(var(--color-on-primary-action-rgb, 255 255 255) / <alpha-value>)',
+        'primary-action-hover': 'rgb(var(--color-primary-action-hover-rgb, 45 58 77) / <alpha-value>)',
         // Gold is a FILL colour only (chips, marks, the yellow thread's box).
         // As text on white it measures 2.21:1 — that is what accent-text is
         // for. (DESIGN_PASS_2026-08 §2.1, instrumented 2026-08-12.)

@@ -236,7 +236,7 @@ export default function MonthlyIncomeExpenseMatrix({
           title={showDetail ? 'Show group subtotals only' : 'Show every category under each group'}
           className={`px-3 py-1 text-sm font-medium rounded-lg border transition-colors ${
             showDetail
-              ? 'border-[#1a2332] dark:border-blue-500 bg-[#1a2332] dark:bg-blue-600 text-white'
+              ? 'border-[#1a2332] dark:border-[#2d3a4d] bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
               : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
           }`}
         >

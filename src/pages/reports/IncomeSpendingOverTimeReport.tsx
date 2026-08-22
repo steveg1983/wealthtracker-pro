@@ -194,7 +194,7 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
                 aria-pressed={chartType === type}
                 className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
                   chartType === type
-                    ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                    ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
               >
