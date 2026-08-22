@@ -27,6 +27,7 @@ import CardPeriodControl from './CardPeriodControl';
 import { WIDGET_CHART_HEIGHT } from './widgetChrome';
 import { useReportDrill } from './useReportDrill';
 import { useHistoricalAccounts } from '../../../hooks/useHistoricalAccounts';
+import { useNetWorthConversion } from '../../../hooks/useNetWorthConversion';
 
 /**
  * Compact, live versions of the Reports-hub reports for the Dashboard's
@@ -109,9 +110,22 @@ export function NetWorthWidget({ picker, pin }: {
    */
   const accounts = useHistoricalAccounts(openAccounts);
 
+  /**
+   * The SAME conversion the full report applies (ruling C: this card and the
+   * report may not disagree about the same money) — foreign-currency accounts
+   * convert at today's rates instead of counting native units as display
+   * units. The full provenance sentence lives on the report this card opens;
+   * the ≈ on the headline is this card's own honest mark.
+   */
+  const { conversion, displayCurrency } = useNetWorthConversion(accounts);
+  const holdsForeign = useMemo(
+    () => accounts.some(a => (a.currency || displayCurrency) !== displayCurrency),
+    [accounts, displayCurrency]
+  );
+
   const snapshots = useMemo(
-    () => buildNetWorthSnapshots(accounts, transactions, picker.range),
-    [accounts, transactions, picker.range]
+    () => buildNetWorthSnapshots(accounts, transactions, picker.range, new Date(), conversion ?? undefined),
+    [accounts, transactions, picker.range, conversion]
   );
   const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
 
@@ -124,7 +138,7 @@ export function NetWorthWidget({ picker, pin }: {
       subtitle={
         <>
           <span className="min-w-0 text-xl font-bold text-gray-900 dark:text-white truncate">
-            {latest ? formatCurrency(latest.netWorth) : '—'}
+            {latest ? `${holdsForeign ? '≈ ' : ''}${formatCurrency(latest.netWorth)}` : '—'}
           </span>
           {pin && <CardPeriodControl cardLabel={NET_WORTH_TITLE} picker={picker} pin={pin} />}
         </>

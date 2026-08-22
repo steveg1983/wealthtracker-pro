@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthValueAxis } from './netWorthSeries';
+import { buildNetWorthSnapshots, buildNetWorthConversion, netWorthAxisTicks, netWorthValueAxis } from './netWorthSeries';
 import type { Account, Transaction } from '../types';
 import type { PeriodRange } from '../hooks/usePeriod';
 
@@ -185,5 +185,44 @@ describe('netWorthValueAxis — the floor belongs to the data, not the tick step
   it('an empty or all-zero series stays sane', () => {
     expect(netWorthValueAxis([])).toEqual({ domain: [0, 1], ticks: [0, 1] });
     expect(netWorthValueAxis([0, 0])).toEqual({ domain: [0, 1], ticks: [0, 1] });
+  });
+});
+
+/**
+ * FOREIGN MONEY JOINS THE SUM CONVERTED, NOT UNIT-FOR-UNIT (Claude Design,
+ * 22 Aug §1 — and the finding underneath it: the walk summed a dollar
+ * account's native units as pounds, while the dashboard's summary converted.
+ * The two could disagree by the whole unconverted delta).
+ *
+ * The rate table is the app's own shape: units of each currency per one GBP,
+ * so a factor from USD into GBP is rates.GBP / rates.USD. Every figure here
+ * is invented; the repo is public.
+ */
+describe('buildNetWorthSnapshots — currency conversion at the summing', () => {
+  const book = [
+    account({ id: 'gbp-1', name: 'Sterling Current', openingBalance: 1000, openingBalanceDate: D(2026, 1, 1) }),
+    account({ id: 'usd-1', name: 'Dollar Current', currency: 'USD', openingBalance: 200, openingBalanceDate: D(2026, 1, 1) }),
+  ];
+
+  it('applies each account\'s factor at the sum, leaving native walks native', () => {
+    const conversion = buildNetWorthConversion(book, { GBP: 1, USD: 2 }, 'GBP');
+    // Two dollars to the pound: the $200 opening joins the total as £100.
+    const snaps = buildNetWorthSnapshots(book, [], RANGE, new Date(2026, 2, 28), conversion);
+    expect(on(snaps, 14)?.netWorth).toBe(1100);
+    expect(conversion.unconverted).toEqual([]);
+  });
+
+  it('without a conversion the old native-unit behaviour is unchanged', () => {
+    const snaps = buildNetWorthSnapshots(book, [], RANGE, new Date(2026, 2, 28));
+    expect(on(snaps, 14)?.netWorth).toBe(1200);
+  });
+
+  it('a currency with no rate is counted native and REPORTED, never guessed', () => {
+    const conversion = buildNetWorthConversion(book, { GBP: 1 }, 'GBP');
+    expect(conversion.unconverted).toEqual(['USD']);
+    expect(conversion.factors.size).toBe(0);
+    const snaps = buildNetWorthSnapshots(book, [], RANGE, new Date(2026, 2, 28), conversion);
+    // Native fallback: the figure carries the residue the caller must say.
+    expect(on(snaps, 14)?.netWorth).toBe(1200);
   });
 });

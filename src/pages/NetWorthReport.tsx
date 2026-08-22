@@ -20,6 +20,10 @@ import { toDecimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { preserveDemoParam } from '../utils/navigation';
 import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthPointToken, netWorthValueAxis } from '../utils/netWorthSeries';
+import { buildReportDrillPath } from '../utils/reportDrillLink';
+import { withProvenance } from '../utils/navigationProvenance';
+import ConvertedTotalNote from '../components/ConvertedTotalNote';
+import { useNetWorthConversion } from '../hooks/useNetWorthConversion';
 import { useArrivalAction } from '../hooks/useArrivalFocus';
 import { resolveEffectiveOpeningDates } from '../utils/openingDates';
 import { TrendingUpIcon, ChevronRightIcon } from '../components/icons';
@@ -120,7 +124,7 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
    * separately-computed figure, so it moves with them.
    */
   const accounts = useHistoricalAccounts(openAccounts);
-  const { formatCurrency } = useCurrencyDecimal();
+  const { formatCurrency, displayCurrency } = useCurrencyDecimal();
   // Watches the dark class rather than reading it once — the theme scheduler
   // can flip the ground under a mounted chart. The series does the same, and
   // for the same measured reason: the light navies are 1.08:1 on a dark card.
@@ -155,9 +159,16 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
     [transactions]
   );
 
+  /**
+   * The currency conversion for this series — the ONE hook the dashboard's
+   * net-worth card also calls, so the two surfaces cannot disagree about the
+   * same money (ruling C). See useNetWorthConversion for the whole account.
+   */
+  const { conversion, provenance: ratesProvenance } = useNetWorthConversion(accounts);
+
   const snapshots = useMemo(
-    () => buildNetWorthSnapshots(accounts, sortedTransactions, picker.range),
-    [accounts, sortedTransactions, picker.range]
+    () => buildNetWorthSnapshots(accounts, sortedTransactions, picker.range, new Date(), conversion ?? undefined),
+    [accounts, sortedTransactions, picker.range, conversion]
   );
 
   /**
@@ -316,15 +327,51 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
         return {
           section,
           entries,
-          subtotal: entries.reduce((sum, e) => sum.plus(e.balance), toDecimal(0)),
+          // CONVERTED into the display currency where a factor exists (Claude
+          // Design, 22 Aug §1): the rows print their own currency, but a band
+          // total mixing dollars into a pounds figure unit-for-unit was a
+          // number nobody quoted. Wears ≈ and the sheet's provenance line
+          // when any conversion (or unconverted residue) is in it.
+          subtotal: entries.reduce((sum, e) => {
+            const factor = conversion?.factors.get(e.account.id);
+            return sum.plus(factor ? e.balance.times(factor) : e.balance);
+          }, toDecimal(0)),
+          holdsForeign: entries.some(e => (e.account.currency || displayCurrency) !== displayCurrency),
         };
       });
-  }, [drillBalances, drillSort]);
+  }, [drillBalances, drillSort, conversion, displayCurrency]);
 
   const drillAll = useMemo(
     () => drillGroups.flatMap(group => group.entries),
     [drillGroups]
   );
+
+  /** Any foreign money in the drilled day at all — gates the ≈ and its line. */
+  const drillHoldsForeign = useMemo(
+    () => drillBalances.some(e => (e.account.currency || displayCurrency) !== displayCurrency),
+    [drillBalances, displayCurrency]
+  );
+
+  /**
+   * Open an account's register FROM the drill, with the way back stated
+   * (owner, 22 Aug): the register's back button — and the closed-account
+   * page's — reads this provenance and returns HERE, to this report with the
+   * drill reopened on the same date, via the same focus token the Dashboard's
+   * card already lands on. Without it, "Back to Accounts" dumped the reader
+   * on the Accounts page mid-analysis.
+   */
+  const openRegisterFromDrill = useCallback((accountId: string): void => {
+    const state = drillDate
+      ? withProvenance({
+          path: buildReportDrillPath('net-worth-over-time', {
+            focus: netWorthPointToken(drillDate),
+            currentSearch: location.search,
+          }),
+          label: 'Back to report',
+        })
+      : undefined;
+    navigate(preserveDemoParam(`/accounts/${accountId}`, location.search), { state });
+  }, [drillDate, navigate, location.search]);
 
   return (
     <div className="max-w-[1400px] mx-auto">
@@ -362,6 +409,17 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
             {change.greaterThanOrEqualTo(0) ? '+' : ''}{formatCurrency(change.toNumber())}
           </span>.
         </p>
+        {/* The SAME provenance note the summary card carries everywhere else
+            (ruling C reaching this surface, Claude Design 22 Aug §1) — only
+            when a conversion is actually in the figures. Rendered nothing for
+            the single-currency majority, per the data-health rule. */}
+        {conversion && (
+          <ConvertedTotalNote
+            provenance={conversion.factors.size > 0 ? ratesProvenance : null}
+            unconverted={conversion.unconverted}
+            displayCurrency={displayCurrency}
+          />
+        )}
       </div>
 
       {/* Opening-date caveat — shown right above the chart it qualifies, and
@@ -661,11 +719,11 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                     <button
                       key={account.id}
                       type="button"
-                      onClick={() => navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
+                      onClick={() => openRegisterFromDrill(account.id)}
                       className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors rounded-lg px-2 -mx-2"
                       title="Open this account's register"
                     >
-                      <span className="flex-1 min-w-0 truncate text-sm text-gray-800 dark:text-gray-200">{account.name}</span>
+                      <span className="flex-1 min-w-0 text-sm text-gray-800 dark:text-gray-200 break-words line-clamp-2">{account.name}</span>
                       <span className={`text-sm font-semibold tabular-nums ${
                         balance.greaterThanOrEqualTo(0) ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'
                       }`}>
@@ -688,7 +746,9 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                         <span className={`text-sm font-semibold tabular-nums ${
                           group.subtotal.greaterThanOrEqualTo(0) ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'
                         }`}>
-                          {formatCurrency(group.subtotal.toNumber())}
+                          {/* ≈ when the band holds converted money — the mark
+                              the summary cards already use for the same fact. */}
+                          {group.holdsForeign ? '≈ ' : ''}{formatCurrency(group.subtotal.toNumber())}
                         </span>
                       </div>
                       {drillView === 'grouped' && (
@@ -697,11 +757,11 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                             <button
                               key={account.id}
                               type="button"
-                              onClick={() => navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
+                              onClick={() => openRegisterFromDrill(account.id)}
                               className="w-full flex items-center gap-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors rounded-lg px-2"
                               title="Open this account's register"
                             >
-                              <span className="flex-1 min-w-0 truncate text-sm text-gray-800 dark:text-gray-200">{account.name}</span>
+                              <span className="flex-1 min-w-0 text-sm text-gray-800 dark:text-gray-200 break-words line-clamp-2">{account.name}</span>
                               <span className={`text-sm font-semibold tabular-nums ${
                                 balance.greaterThanOrEqualTo(0) ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'
                               }`}>
@@ -720,11 +780,30 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
               <div className="flex items-center justify-between pt-3 mt-1 border-t border-gray-200 dark:border-gray-700">
                 <span className="text-sm font-semibold text-gray-900 dark:text-white">Net worth</span>
                 <span className="text-sm font-bold tabular-nums text-gray-900 dark:text-white">
+                  {drillHoldsForeign ? '≈ ' : ''}
                   {formatCurrency(
-                    drillBalances.reduce((sum, e) => sum.plus(e.balance), toDecimal(0)).toNumber()
+                    drillBalances.reduce((sum, e) => {
+                      const factor = conversion?.factors.get(e.account.id);
+                      return sum.plus(factor ? e.balance.times(factor) : e.balance);
+                    }, toDecimal(0)).toNumber()
                   )}
                 </span>
               </div>
+              {/* THE RATE BASIS, SAID (Claude Design, 22 Aug §1): a historic
+                  drill converts at SOME date's rate, and which one is a real
+                  decision the reader cannot infer. The app holds no
+                  historical rate table, so the answer is today's — defensible
+                  only if stated. Rendered nothing when nothing converted. */}
+              {drillHoldsForeign && (
+                <p className="pt-2 text-dense text-gray-500 dark:text-gray-400">
+                  ≈ marks totals holding another currency, converted at{' '}
+                  {ratesProvenance
+                    ? <>today&rsquo;s rates (as of {ratesProvenance.asOf.toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' })})</>
+                    : 'no available rate — those amounts are counted unconverted'}
+                  {' '}applied to that day&rsquo;s balances. Each account&rsquo;s own
+                  figure is shown in its own currency.
+                </p>
+              )}
             </div>
           )}
         </ModalBody>

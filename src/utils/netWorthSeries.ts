@@ -1,8 +1,54 @@
 import type { Account, Transaction } from '../types';
-import { toDecimal } from './decimal';
+import { toDecimal, type DecimalInstance } from './decimal';
 import { resolveEffectiveOpeningDates } from './openingDates';
 import type { PeriodRange } from '../hooks/usePeriod';
 import { getDateLocale } from '../utils/dateFormatter';
+
+/**
+ * How foreign-currency accounts join a net-worth sum (Claude Design, 22 Aug
+ * §1 — and the finding underneath it: the walk was summing every account's
+ * NATIVE units as display-currency units, so a dollar account's balance
+ * counted as that many pounds. The dashboard's summary converts; this series
+ * did not, and the two could disagree by the whole unconverted delta).
+ *
+ * `factors` multiplies an account's native balance into the display currency
+ * at TODAY'S rates — which is a real decision for a historic series, and the
+ * caller's provenance line must say it: yesterday's balance at today's rate,
+ * because the app holds no historical rate table. An account with no factor
+ * (its currency has no rate) counts UNCONVERTED, exactly as the summary's
+ * ConvertedTotalNote already reports that state — wrong by however much it
+ * was worth, and said out loud rather than guessed at parity.
+ */
+export interface NetWorthConversion {
+  /** Multiplier into the display currency, per account id. Absent = native. */
+  factors: Map<string, DecimalInstance>;
+  /** Currency codes with no rate: their amounts counted unconverted. */
+  unconverted: string[];
+}
+
+/** Build the per-account factors from a units-per-GBP rate table. */
+export function buildNetWorthConversion(
+  accounts: readonly Pick<Account, 'id' | 'currency'>[],
+  rates: Record<string, number>,
+  displayCurrency: string
+): NetWorthConversion {
+  const factors = new Map<string, DecimalInstance>();
+  const unconverted = new Set<string>();
+  const displayRate = rates[displayCurrency];
+  for (const account of accounts) {
+    const currency = account.currency || displayCurrency;
+    if (currency === displayCurrency) continue;
+    const accountRate = rates[currency];
+    if (!accountRate || !displayRate) {
+      unconverted.add(currency);
+      continue;
+    }
+    // The table is units per GBP, so A→B is rates[B]/rates[A]; GBP is only
+    // the pivot — the same arithmetic useFxQuote documents.
+    factors.set(account.id, toDecimal(displayRate).dividedBy(toDecimal(accountRate)));
+  }
+  return { factors, unconverted: [...unconverted].sort() };
+}
 
 export interface NetWorthSnapshot {
   date: Date;
@@ -49,7 +95,8 @@ export function buildNetWorthSnapshots(
   accounts: Account[],
   transactions: Transaction[],
   range: PeriodRange,
-  now: Date = new Date()
+  now: Date = new Date(),
+  conversion?: NetWorthConversion
 ): NetWorthSnapshot[] {
   if (accounts.length === 0) return [];
 
@@ -120,7 +167,13 @@ export function buildNetWorthSnapshots(
     }
     let assets = toDecimal(0);
     let liabilities = toDecimal(0);
-    for (const b of balances.values()) {
+    for (const [accountId, native] of balances.entries()) {
+      // Into the display currency where a factor exists; native (and reported
+      // by the caller as unconverted) where it does not. Balances stay native
+      // through the walk — the transactions are native — and convert only at
+      // the summing, so one rate refresh never has to replay the history.
+      const factor = conversion?.factors.get(accountId);
+      const b = factor ? native.times(factor) : native;
       if (b.greaterThan(0)) assets = assets.plus(b);
       else liabilities = liabilities.plus(b.abs());
     }
