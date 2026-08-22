@@ -160,3 +160,33 @@ describe('ResponsiveModal', () => {
     expect(listenerCount()).toBe(0);
   });
 });
+
+/**
+ * THE SHEET'S OWN CHROME DECLARES WHAT IT IS (22 Aug, found while capturing
+ * the FX dialog). The close button carried no type and so REPORTED
+ * type="submit" — inert today, because the hosted form sits in the children
+ * below the header, but one caller restructure away from the transaction
+ * editor's stray-submitter bug (#375) landing on this surface. The spec pins
+ * the declared type and that closing never submits a hosted form.
+ */
+describe('the sheet close button is not a submitter', () => {
+  it('closes without submitting a hosted form', () => {
+    installMatchMedia(true);
+    const onClose = vi.fn();
+    const onSubmit = vi.fn((e: React.FormEvent) => e.preventDefault());
+
+    render(
+      <ResponsiveModal isOpen onClose={onClose} title="Add Transaction">
+        <form onSubmit={onSubmit}>
+          <input aria-label="Amount" />
+        </form>
+      </ResponsiveModal>
+    );
+
+    const close = screen.getByRole('button', { name: 'Close bottom sheet' });
+    expect((close as HTMLButtonElement).type).toBe('button');
+    close.click();
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
