@@ -3,6 +3,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { expandSplitTransactions } from '../utils/transactionSplits';
 import { financialSummaryService } from '../services/financialSummaryService';
 import PageWrapper from '../components/PageWrapper';
+import MixedCurrencyDisclosure from '../components/MixedCurrencyDisclosure';
 import FinancialSummary from '../components/FinancialSummary';
 import { CalendarIcon, BarChart3Icon, TrendingUpIcon } from '../components/icons';
 import { format } from 'date-fns';
@@ -61,6 +62,10 @@ export default function FinancialSummaries() {
       }
     >
       <div className="space-y-6">
+        {/* Phase 0 (the disclosure ruling, 22 Aug §2): the summaries below
+            still sum native units — said until their conversion phase.
+            Nothing for a single-currency ledger. */}
+        <MixedCurrencyDisclosure />
         {/* Tab Navigation */}
         <div className="flex gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
           <button

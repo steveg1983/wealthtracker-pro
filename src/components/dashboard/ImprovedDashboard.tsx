@@ -20,6 +20,7 @@ import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { useConvertedNetWorth, type AccountBalanceEntry } from '../../hooks/useConvertedNetWorth';
 import { useNetWorthConversion } from '../../hooks/useNetWorthConversion';
+import MixedCurrencyDisclosure from '../MixedCurrencyDisclosure';
 import { preserveDemoParam } from '../../utils/navigation';
 import EmptyState from '../EmptyState';
 import FilteredEmptyState from '../FilteredEmptyState';
@@ -791,6 +792,10 @@ export function ImprovedDashboard() {
           />
         </div>
 
+        {/* Phase 0 (the disclosure ruling, 22 Aug §2): the two figures below
+            still sum native units — said until their conversion phase.
+            Nothing for a single-currency ledger. */}
+        <MixedCurrencyDisclosure className="mb-3" />
         {/* ─ NO TINTED GROUND (Claude Design §2, and §2.5 before it) ────────
             These were `bg-green-50` and `bg-red-50` side by side. The figures
             are already green and red; the tint said the same thing a second

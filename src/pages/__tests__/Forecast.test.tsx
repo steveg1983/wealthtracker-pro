@@ -12,6 +12,8 @@ import type { Account, Category, ForecastAdjustment, SuggestionDismissal, Transa
 // `dataPort` — for now only to COUNT it on the Forecast tab.
 const seam = vi.hoisted(() => ({
   listForecastAdjustments: vi.fn(async (): Promise<ForecastAdjustment[]> => []),
+  // The Phase 0 mixed-currency disclosure asks for closed accounts too.
+  listClosedAccounts: vi.fn(async () => []),
 }));
 vi.mock('@data', () => ({ dataPort: seam }));
 

@@ -139,14 +139,28 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
       Institution: acc.institution || ''
     }));
 
+    // Phase 0 (the disclosure ruling, 22 Aug §2): the file's own Currency
+    // column proves the accounts can differ, and every total above sums them
+    // unit-for-unit. A spreadsheet outlives the app's caveats, so the sheet
+    // itself says so — until the exports' conversion phase. Nothing for a
+    // single-currency ledger.
+    const currencies = new Set(accounts.map(acc => acc.currency).filter(Boolean));
+    const overview: Array<{ Metric: string; Value: number | string }> = [
+      { Metric: 'Total Income', Value: income },
+      { Metric: 'Total Expenses', Value: expenses },
+      { Metric: 'Net Income', Value: toDecimal(income).minus(toDecimal(expenses)).toNumber() },
+      { Metric: 'Transaction Count', Value: filtered.length },
+      { Metric: 'Date Range', Value: `${options.dateRange.start?.toLocaleDateString()} - ${options.dateRange.end?.toLocaleDateString()}` }
+    ];
+    if (currencies.size > 1) {
+      overview.push({
+        Metric: 'Note',
+        Value: 'Totals mix currencies: amounts in another currency are counted unit-for-unit, not converted.',
+      });
+    }
+
     return {
-      overview: [
-        { Metric: 'Total Income', Value: income },
-        { Metric: 'Total Expenses', Value: expenses },
-        { Metric: 'Net Income', Value: toDecimal(income).minus(toDecimal(expenses)).toNumber() },
-        { Metric: 'Transaction Count', Value: filtered.length },
-        { Metric: 'Date Range', Value: `${options.dateRange.start?.toLocaleDateString()} - ${options.dateRange.end?.toLocaleDateString()}` }
-      ],
+      overview,
       categoryBreakdown,
       accountSummary
     };
