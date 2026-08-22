@@ -388,7 +388,13 @@ export default function Layout(): React.JSX.Element {
             <TopNavDropdown
               label="Plan"
               icon={TargetIcon}
-              homeTo="/budget"
+              // The group's namesake page (Claude Design 22 Aug §9,
+              // owner-approved): /forecast is now titled Plan — the actuals
+              // P&L with the scenario tool beside it — so the LABEL navigates
+              // there, exactly as the Accounts label navigates to Accounts.
+              // It is no longer a sub-item of itself; the chevron holds the
+              // group's other three pages.
+              homeTo="/forecast"
               items={[
                 { to: '/budget', icon: BarChart3Icon, label: 'Budget' },
                 { to: '/calendar', icon: CalendarIcon, label: 'Calendar' },
@@ -398,10 +404,6 @@ export default function Layout(): React.JSX.Element {
                 // says what the page is; the page's own heading keeps the
                 // question it answers — "What I'm committed to".
                 { to: '/recurring-payments', icon: ClockIcon, label: 'Recurring Payments' },
-                // The scenario tool's base — review twelve months of actuals,
-                // strike the one-offs, and only ever promote to Budget by an
-                // explicit, per-category act (docs/forecast-direction.md).
-                { to: '/forecast', icon: TrendingUpIcon, label: 'Forecast' },
               ]}
               activePaths={['/budget', '/calendar', '/recurring-payments', '/forecast']}
               openDropdown={openDropdown}
@@ -715,27 +717,43 @@ export default function Layout(): React.JSX.Element {
                     the desktop menu. This group used to be "deliberately
                     absent" as desk work; the owner overruled it (17 Aug), and
                     the Calendar now carries the due-next panel, which is
-                    exactly a thing to check from a phone. */}
+                    exactly a thing to check from a phone.
+
+                    THE NAME NAVIGATES, THE ARROW EXPANDS — the Accounts row's
+                    arrangement exactly, and for the same reason it exists
+                    there: since §9 (22 Aug) the group has a namesake page.
+                    /forecast is titled Plan now, so tapping Plan opens it and
+                    the chevron unfolds the group's other three pages. */}
                 <div>
-                  <button
-                    type="button"
-                    onClick={() => setPlanExpanded(!planExpanded)}
-                    aria-expanded={planExpanded}
+                  <Link
+                    to={isDemoModeRoutingEnabled ? '/forecast?demo=true' : '/forecast'}
+                    onClick={toggleMobileMenu}
                     className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors h-12 md:h-auto bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
                   >
                     <TargetIcon size={18} />
                     <span className="flex-1 text-sm text-left">Plan</span>
-                    <ChevronRightIcon
-                      size={14}
-                      className={`text-gray-400 transition-transform duration-200 ${planExpanded ? 'rotate-90' : ''}`}
-                    />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setPlanExpanded(!planExpanded);
+                      }}
+                      aria-expanded={planExpanded}
+                      aria-label={planExpanded ? 'Hide the Plan pages' : 'Show the Plan pages'}
+                      className="inline-flex items-center justify-end py-2 -my-2 pl-2 pr-3 -mr-3 rounded-lg"
+                    >
+                      <ChevronRightIcon
+                        size={14}
+                        className={`text-gray-400 transition-transform duration-200 ${planExpanded ? 'rotate-90' : ''}`}
+                      />
+                    </button>
+                  </Link>
                   {planExpanded && (
                     <div className="mt-1 space-y-1">
                       <SidebarLink to="/budget" icon={BarChart3Icon} label="Budget" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/calendar" icon={CalendarIcon} label="Calendar" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/recurring-payments" icon={ClockIcon} label="Recurring Payments" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/forecast" icon={TrendingUpIcon} label="Forecast" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>
                   )}
                 </div>

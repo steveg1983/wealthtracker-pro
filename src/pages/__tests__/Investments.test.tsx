@@ -96,9 +96,17 @@ describe('Investments page — the pair is the portfolio', () => {
      * completes it.
      */
     // The itemised line, not the page title: both say "Investments", so the
-    // label is read from the same paragraph as its figure.
-    const investedFigure = screen.getByText('£1,300.00');
-    expect(investedFigure.closest('p')?.textContent).toContain('Investments');
+    // label is read from the same container as its figure. TWO occurrences
+    // since 22 Aug — the itemised line, and the cash-only card's section
+    // row — and each must sit beside its own "Investments" label.
+    const investedFigures = screen.getAllByText('£1,300.00');
+    expect(investedFigures).toHaveLength(2);
+    investedFigures.forEach(figure => {
+      // The itemised line is a <p>; the section row is a justify-between div
+      // whose label sits in a sibling span — either way, the figure's own
+      // row must name what it is.
+      expect(figure.closest('p, [class*="justify-between"]')?.textContent).toContain('Investments');
+    });
   });
 
   it('shows the nested cash inside the holding, not as a holding of its own', async () => {
@@ -129,9 +137,17 @@ describe('Investments page — the pair is the portfolio', () => {
     // its own words. The count is still the point (nothing double-counted),
     // so it moves with the page rather than being loosened.
     expect(await screen.findAllByText('100.00%')).toHaveLength(2);
+    // REVISED 22 Aug (owner): the cash-only card shows the TWO SECTION
+    // totals — investments against settlement cash, sharing out the
+    // portfolio — rather than a sentence naming a figure the reader could
+    // not square with the Portfolio Value. £1,300 + £200 = £1,500 here, so
+    // the shares are 86.67% and 13.33%, summing to 100%.
     expect(
-      screen.getByText(/No securities are recorded in these accounts/)
+      screen.getByText(/No individual securities are recorded in these accounts/)
     ).toBeInTheDocument();
+    expect(screen.getByText('86.67%')).toBeInTheDocument();
+    expect(screen.getByText('13.33%')).toBeInTheDocument();
+    expect(screen.getByText(/Together they are the portfolio’s/)).toBeInTheDocument();
   });
 });
 

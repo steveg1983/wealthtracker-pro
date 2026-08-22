@@ -212,8 +212,10 @@ describe('Layout — the Plan menu and split triggers', () => {
   it('groups the forward-looking pages under Plan, not as top-level items', () => {
     renderWithProviders(<Layout />);
 
-    // Plan's label navigates to Budget, its menu holds all three.
-    expect(navLink('Plan')).toHaveAttribute('href', '/budget');
+    // Plan's label navigates to its NAMESAKE page (§9, 22 Aug: /forecast is
+    // titled Plan — the actuals P&L with the scenario tool beside it), the
+    // same idiom as the Accounts label; its menu holds the other three.
+    expect(navLink('Plan')).toHaveAttribute('href', '/forecast');
     fireEvent.click(menuButton('Plan'));
     expect(navLink('Budget')).toHaveAttribute('href', '/budget');
     expect(navLink('Calendar')).toHaveAttribute('href', '/calendar');
@@ -223,14 +225,15 @@ describe('Layout — the Plan menu and split triggers', () => {
     expect(navLink('Recurring Payments')).toHaveAttribute('href', '/recurring-payments');
   });
 
-  it('orders Plan as Budget, Calendar, Recurring Payments, Forecast', () => {
+  it('orders Plan as Budget, Calendar, Recurring Payments — the Plan page itself is the label', () => {
     renderWithProviders(<Layout />);
 
+    // No 'Forecast' item: the page is not a sub-item of itself, exactly as
+    // there is no 'Accounts' item inside the Accounts menu.
     expect(openMenuItems('Plan')).toEqual([
       'Budget',
       'Calendar',
       'Recurring Payments',
-      'Forecast',
     ]);
   });
 
