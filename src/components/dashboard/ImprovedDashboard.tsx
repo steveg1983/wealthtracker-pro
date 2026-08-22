@@ -1315,7 +1315,7 @@ export function ImprovedDashboard() {
                             {account.name}
                           </span>
                           <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto whitespace-nowrap">
-                            {formatCurrencyWithSymbol(getAccountBalance(account))}
+                            {formatCurrencyWithSymbol(getAccountBalance(account), account.currency)}
                           </span>
                         </button>
                       );
@@ -1364,7 +1364,7 @@ export function ImprovedDashboard() {
                     navigate(preserveDemoParam(`/accounts/${account.id}`, location.search));
                   }
                 }}
-                aria-label={`View ${account.name} account details. Balance: ${formatCurrencyWithSymbol(getAccountBalance(account))}. Hold Alt and press an arrow key to move this card.`}
+                aria-label={`View ${account.name} account details. Balance: ${formatCurrencyWithSymbol(getAccountBalance(account), account.currency)}. Hold Alt and press an arrow key to move this card.`}
               >
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 dark:text-white">
@@ -1390,7 +1390,7 @@ export function ImprovedDashboard() {
                       ? 'text-red-600 dark:text-red-400'
                       : 'text-gray-900 dark:text-white'
                   }`}>
-                    {formatCurrencyWithSymbol(getAccountBalance(account))}
+                    {formatCurrencyWithSymbol(getAccountBalance(account), account.currency)}
                   </p>
                   {account.creditLimit && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">

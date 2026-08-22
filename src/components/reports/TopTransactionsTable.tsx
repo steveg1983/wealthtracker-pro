@@ -6,6 +6,7 @@ import { selectTopTransactions } from '../../utils/topTransactions';
 import type { Category } from '../../types';
 import type { SplitExpandedTransaction } from '../../utils/transactionSplits';
 import { preferences } from '../../services/preferencesService';
+import { useAccountCurrencies } from '../../hooks/useAccountNames';
 
 /**
  * The biggest real money movements of the period, on the "Monthly income and
@@ -49,6 +50,11 @@ export default function TopTransactionsTable({
   onOpenTransaction: (transactionId: string) => void;
 }): React.JSX.Element {
   const { formatCurrency } = useCurrencyDecimal();
+  // Each row's OWN currency, closed accounts included — a $100 row must
+  // never print as £100 (the disclosure ruling, 22 Aug §3: a correct number
+  // wearing the wrong symbol is the most directly checkable falsehood in
+  // the app, and history lives in closed accounts).
+  const currencyOf = useAccountCurrencies();
   // A curiosity next to the matrix, so it starts hidden; the choice is
   // persisted like the report's other view preferences.
   const [show, setShow] = useState<boolean>(() => preferences.getItem(SHOW_KEY) === '1');
@@ -160,7 +166,7 @@ export default function TopTransactionsTable({
                       transaction.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400'
                     }`}>
                       {/* Amounts are stored signed; derive the sign from the value */}
-                      {transaction.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(transaction.amount))}
+                      {transaction.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(transaction.amount), currencyOf(transaction.accountId))}
                     </p>
                   </div>
                 </div>
@@ -232,7 +238,7 @@ export default function TopTransactionsTable({
                       transaction.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400'
                     }`}>
                       {/* Amounts are stored signed; derive the sign from the value */}
-                      {transaction.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(transaction.amount))}
+                      {transaction.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(transaction.amount), currencyOf(transaction.accountId))}
                     </td>
                   </tr>
                 ))

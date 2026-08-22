@@ -9,6 +9,7 @@ import { toDecimal } from '../utils/decimal';
 import type { Category } from '../types';
 import type { SplitExpandedTransaction } from '../utils/transactionSplits';
 import { getDateLocale } from '../utils/dateFormatter';
+import { useAccountCurrencies } from '../hooks/useAccountNames';
 
 /**
  * The income/expense breakdown pop-up, shared by the Dashboard and Reports —
@@ -65,6 +66,11 @@ export default function IncomeExpenseBreakdownModal({
   onApplyCategories,
 }: Props): React.JSX.Element {
   const { formatCurrency } = useCurrencyDecimal();
+  // Each row's OWN currency, closed accounts included — a $100 row must
+  // never print as £100 (the disclosure ruling, 22 Aug §3: a correct number
+  // wearing the wrong symbol is the most directly checkable falsehood in
+  // the app, and history lives in closed accounts).
+  const currencyOf = useAccountCurrencies();
   const inlineFiling = bucket === 'uncategorized' && onApplyCategories !== undefined;
 
   // Row id → chosen category ('' = choice cleared).
@@ -311,7 +317,7 @@ export default function IncomeExpenseBreakdownModal({
           </td>
         )}
         <td className={`block sm:table-cell py-2 text-sm font-medium text-right whitespace-nowrap tabular-nums ${rowColour}`}>
-          {formatCurrency(value)}
+          {formatCurrency(value, currencyOf(t.accountId))}
         </td>
       </tr>
     );

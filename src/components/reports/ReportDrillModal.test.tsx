@@ -33,7 +33,9 @@ interface AppData {
 const store = vi.hoisted(() => {
   const listeners = new Set<() => void>();
   const state = {
-    snapshot: { transactions: [], transactionSplits: [] } as AppData,
+    // accounts too: the breakdown rows resolve each row's own currency
+    // through useAccountCurrencies, which reads them from this context.
+    snapshot: { transactions: [], transactionSplits: [], accounts: [] } as AppData,
     subscribe(listener: () => void): () => void {
       listeners.add(listener);
       return () => { listeners.delete(listener); };

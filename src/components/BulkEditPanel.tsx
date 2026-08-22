@@ -173,7 +173,7 @@ export default function BulkEditPanel({
               placeholder="Keep in current account"
               searchPlaceholder="Search or select account…"
               clearOption="Keep in current account"
-              formatLabel={(acc) => `${acc.name} (${formatCurrency(acc.balance)})`}
+              formatLabel={(acc) => `${acc.name} (${formatCurrency(acc.balance, acc.currency)})`}
               className="w-full px-3 py-2 h-[42px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
               ariaLabel="Move to account"
             />
