@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { NotificationService, type NotificationRule } from '../notificationService';
+import type { Budget, Category, Transaction } from '../../types';
 
 const createStorage = () => {
   const data = new Map<string, string>();
@@ -119,5 +120,62 @@ describe('NotificationService (deterministic)', () => {
 
     expect(newRule.id).toBe(`rule-${fixedNow}`);
     expect(newRule.created.getTime()).toBe(fixedNow);
+  });
+});
+
+/**
+ * A silent exclusion fails like a silent conversion (the disclosure ruling,
+ * 22 Aug §4): the budget maths correctly leaves out accounts in another
+ * currency, and the alert built on it must SAY so — the Budget card's own
+ * sentence, on the alert it qualifies.
+ * Every figure here is invented; the repo is public.
+ */
+describe('budget alerts say what they leave out', () => {
+  const rule: NotificationRule = {
+    id: 'r-90',
+    name: 'Half spent',
+    type: 'budget',
+    enabled: true,
+    priority: 'high',
+    conditions: [{ field: 'percentage_spent', operator: 'greater_than', value: 50 }],
+    actions: [{
+      type: 'show_notification',
+      config: { title: 'Budget alert', message: '{categoryName} is at {percentage}%.' }
+    }]
+  };
+
+  const categories: Category[] = [
+    { id: 'cat-food', name: 'Food', type: 'expense', level: 'detail' }
+  ];
+  const budgets: Budget[] = [
+    { id: 'b1', categoryId: 'cat-food', amount: 100, period: 'monthly', isActive: true, createdAt: new Date(fixedNow) }
+  ];
+  const spend = (accountId: string, id: string): Transaction[] => ([
+    { id, accountId, amount: -80, category: 'cat-food', date: new Date(fixedNow), type: 'expense', description: 'shop' }
+  ]);
+
+  it('appends the exclusion sentence when foreign-account rows were left out', () => {
+    const { service } = createService();
+    service.addRule(rule);
+    const alerts = service.checkBudgetAlerts(budgets, spend('acc-gbp', 't-gbp'), categories, {
+      foreignAccountIds: new Set(['acc-usd']),
+      // A row on the excluded account, in the same window and category —
+      // what the total leaves out and the sentence must own up to.
+      transactionSplits: [],
+    });
+    // The GBP-only pass has nothing excluded: no caveat.
+    expect(alerts.length).toBeGreaterThan(0);
+    expect(alerts[0].message).not.toMatch(/another currency/);
+
+    const withForeign = service.checkBudgetAlerts(
+      budgets,
+      [...spend('acc-gbp', 't-gbp'), ...spend('acc-usd', 't-usd')],
+      categories,
+      { foreignAccountIds: new Set(['acc-usd']), transactionSplits: [] }
+    );
+    expect(withForeign.length).toBeGreaterThan(0);
+    expect(withForeign[0].message).toMatch(
+      /Spending on accounts in another currency is left out, so you have spent more than this\./
+    );
   });
 });

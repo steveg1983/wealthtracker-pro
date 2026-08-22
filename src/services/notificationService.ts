@@ -389,7 +389,7 @@ export class NotificationService {
       // The Budget page's calculation, not a second one: the budget's OWN
       // period window, split lines expanded, refunds netted, Decimal throughout.
       const amount = getEffectiveBudgetAmount(budget);
-      const { spent: spentDecimal } = calculateBudgetSpend(budget, prepared, {
+      const { spent: spentDecimal, excludedForeignCount } = calculateBudgetSpend(budget, prepared, {
         now,
         foreignAccountIds: context.foreignAccountIds
       });
@@ -423,6 +423,14 @@ export class NotificationService {
           });
 
           if (notification) {
+            // A silent exclusion fails like a silent conversion (the
+            // disclosure ruling, 22 Aug §4): the exclusion was already
+            // correct — the Budget card's own rule — but an alert built on
+            // it could not say so, and the reader could not audit what they
+            // weren't told. The card's sentence, on the alert it qualifies.
+            if (excludedForeignCount > 0) {
+              notification.message = `${notification.message} Spending on accounts in another currency is left out, so you have spent more than this.`;
+            }
             notifications.push(notification);
             this.updateRuleLastTriggered(rule.id, now);
           }
