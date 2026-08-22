@@ -23,7 +23,11 @@ import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthPointToken, netWorth
 import { useArrivalAction } from '../hooks/useArrivalFocus';
 import { resolveEffectiveOpeningDates } from '../utils/openingDates';
 import { TrendingUpIcon, ChevronRightIcon } from '../components/icons';
-import { DECOMPOSITION_SERIES, useChartTooltipStyle } from '../components/charts/chartColors';
+import { useDecompositionSeries, useChartTooltipStyle } from '../components/charts/chartColors';
+import type { DecompositionSeries } from '../components/charts/chartColors';
+import PeriodBar from '../components/PeriodBar';
+import { sectionTypeForAccount, ACCOUNT_SECTION_DEFINITIONS, OTHER_SECTION_DEFINITION } from '../utils/accountGrouping';
+import { DEPTH_LEVEL_1 } from '../styles/depthShading';
 import type { ReportViewProps } from './reports/types';
 import { preferences } from '../services/preferencesService';
 import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
@@ -56,15 +60,18 @@ import { getDateLocale } from '../utils/dateFormatter';
  * identical navy lines. The whole point of the ruling is that shape carries
  * identity, and the default legend is the one place shape was being dropped.
  *
- * So the swatch is drawn here from the same `DECOMPOSITION_SERIES` entry the
+ * So the swatch is drawn here from the same `useDecompositionSeries` entry the
  * chart draws from, which is also what stops the two drifting: there is no
  * second copy of the pattern to forget to update.
  */
 function DecompositionLegend({ payload }: { payload?: readonly { value?: string }[] }): React.JSX.Element {
-  const style = (name: string | undefined): typeof DECOMPOSITION_SERIES[keyof typeof DECOMPOSITION_SERIES] =>
-    name === 'Assets' ? DECOMPOSITION_SERIES.part
-      : name === 'Liabilities' ? DECOMPOSITION_SERIES.counterpart
-        : DECOMPOSITION_SERIES.total;
+  // The ground-aware series — the same hook the chart reads, so the legend
+  // can never show a light-ground navy beside a dark-ground line.
+  const decomposition = useDecompositionSeries();
+  const style = (name: string | undefined): DecompositionSeries[keyof DecompositionSeries] =>
+    name === 'Assets' ? decomposition.part
+      : name === 'Liabilities' ? decomposition.counterpart
+        : decomposition.total;
 
   return (
     <ul className="flex flex-wrap items-center justify-center gap-4 pt-1">
@@ -115,8 +122,10 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
   const accounts = useHistoricalAccounts(openAccounts);
   const { formatCurrency } = useCurrencyDecimal();
   // Watches the dark class rather than reading it once — the theme scheduler
-  // can flip the ground under a mounted chart.
+  // can flip the ground under a mounted chart. The series does the same, and
+  // for the same measured reason: the light navies are 1.08:1 on a dark card.
   const chartTooltipStyle = useChartTooltipStyle();
+  const decomposition = useDecompositionSeries();
   const navigate = useNavigate();
   const location = useLocation();
   const [drillDate, setDrillDate] = useState<Date | null>(null);
@@ -230,6 +239,93 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
     ? toDecimal(latest.netWorth).minus(toDecimal(earliest.netWorth))
     : toDecimal(0);
 
+  /**
+   * The growth band (owner, 22 Aug: "my investments may be growing by say 5%
+   * average but are my overall net assets growing in line with that, or more
+   * or less") — the Investments page's Started/Ended/Change strip, for the
+   * whole balance sheet, with an annualised rate to stand beside the
+   * portfolio's.
+   *
+   * ONE HONESTY LINE IS NOT OPTIONAL: net worth growth counts money you SAVED
+   * as growth, where the portfolio's TWR/MWR strip payments out. The two
+   * rates answer different questions and the band says so, or the comparison
+   * the owner wants to make would be a comparison of unlike things without
+   * either of them admitting it.
+   *
+   * Unmeasurable is null with a reason, never 0% (the portfolio maths'
+   * standing rule): a start at or below zero has no base to grow from, and a
+   * single-point window has no growth to measure. Decimal throughout,
+   * fractional power via toPower — the same arithmetic portfolioPerformance
+   * annualises with.
+   */
+  const growth = useMemo(() => {
+    if (!latest || !earliest || snapshots.length < 2) {
+      return { periodPct: null as null, annualisedPct: null as null, reason: 'This window holds a single point, so there is no growth to measure' };
+    }
+    const start = toDecimal(earliest.netWorth);
+    const end = toDecimal(latest.netWorth);
+    if (start.lessThanOrEqualTo(0)) {
+      return { periodPct: null, annualisedPct: null, reason: 'Net worth started at or below zero in this window, so a growth rate has no base to measure from' };
+    }
+    const days = Math.max(1, Math.round((latest.date.getTime() - earliest.date.getTime()) / 86_400_000));
+    const ratio = end.dividedBy(start);
+    const periodPct = ratio.minus(1).times(100);
+    // end ≤ 0 from a positive start: the ratio has no real fractional power,
+    // so the annualised figure is honestly absent while the period one stands.
+    const annualisedPct = end.greaterThan(0)
+      ? ratio.toPower(toDecimal(365.25).dividedBy(days)).minus(1).times(100)
+      : null;
+    return { periodPct, annualisedPct, reason: null };
+  }, [latest, earliest, snapshots.length]);
+
+  const formatGrowth = (value: ReturnType<typeof toDecimal>): string =>
+    `${value.greaterThan(0) ? '+' : ''}${formatDecimal(value, 2)}%`;
+
+  /**
+   * The drill's three views and two sorts (owner, 22 Aug): the DEFAULT answer
+   * to "what was net worth made of that day" is the section totals — Current
+   * Accounts, Credit Cards, Investments, Assets, Liabilities — with the
+   * accounts themselves one step further in ("By account") or flat ("All").
+   * Sorts follow the Accounts page's idiom: press the active pill again to
+   * flip its direction. Groups always sit in the section ladder's own order;
+   * the sort orders accounts within them.
+   */
+  const [drillView, setDrillView] = useState<'groups' | 'grouped' | 'all'>('groups');
+  const [drillSort, setDrillSort] = useState<'value-desc' | 'value-asc' | 'name' | 'name-desc'>('value-desc');
+
+  const drillGroups = useMemo(() => {
+    const sorted = [...drillBalances].sort((a, b) => {
+      switch (drillSort) {
+        case 'name': return a.account.name.localeCompare(b.account.name, undefined, { sensitivity: 'base' });
+        case 'name-desc': return b.account.name.localeCompare(a.account.name, undefined, { sensitivity: 'base' });
+        case 'value-asc': return a.balance.comparedTo(b.balance);
+        default: return b.balance.comparedTo(a.balance);
+      }
+    });
+    const bySection = new Map<string, typeof sorted>();
+    for (const entry of sorted) {
+      const key = sectionTypeForAccount(entry.account.type);
+      const bucket = bySection.get(key);
+      if (bucket) bucket.push(entry);
+      else bySection.set(key, [entry]);
+    }
+    return [...ACCOUNT_SECTION_DEFINITIONS, OTHER_SECTION_DEFINITION]
+      .filter(section => bySection.has(section.type))
+      .map(section => {
+        const entries = bySection.get(section.type) ?? [];
+        return {
+          section,
+          entries,
+          subtotal: entries.reduce((sum, e) => sum.plus(e.balance), toDecimal(0)),
+        };
+      });
+  }, [drillBalances, drillSort]);
+
+  const drillAll = useMemo(
+    () => drillGroups.flatMap(group => group.entries),
+    [drillGroups]
+  );
+
   return (
     <div className="max-w-[1400px] mx-auto">
       {/* The period comes from the hub, so it persists between reports. */}
@@ -296,7 +392,15 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
             <TrendingUpIcon size={20} className="text-gray-500" />
             Net Worth Over Time
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* The window, IN the card it governs (owner, 22 Aug: "have the
+                timescale selector in the chart, on the left of the Assets &
+                Liabilities button") — the Investments card's arrangement. It
+                is still the hub's shared picker, so the period chosen here
+                follows the reader to every other report exactly as before;
+                only where it stands changed. The hub knows not to render its
+                own copy for this report (ownsPeriodBar in the registry). */}
+            <PeriodBar picker={picker} label="Reporting period" />
             <button
               type="button"
               onClick={toggleDetail}
@@ -331,6 +435,71 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
           Computed from your full transaction history. Click any point to see every account's balance on that date.
         </p>
+        {/* ─ THE GROWTH BAND ─────────────────────────────────────────────────
+            The Investments strip's shape, for the whole balance sheet, so the
+            two rates can stand side by side — which is the owner's stated
+            use: "my investments may be growing by say 5% average but are my
+            overall net assets growing in line with that". The provenance line
+            is the difference between the two rates said out loud. */}
+        {latest && earliest && snapshots.length > 1 && (
+          <div className="mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
+              <div>
+                <p className="text-label uppercase tracking-wider text-gray-500 dark:text-gray-400">Started at</p>
+                <p className="text-body font-semibold tabular-nums text-gray-900 dark:text-white">
+                  {formatCurrency(earliest.netWorth)}
+                </p>
+                <p className="text-dense text-gray-500 dark:text-gray-400">{earliest.label}</p>
+              </div>
+              <div>
+                <p className="text-label uppercase tracking-wider text-gray-500 dark:text-gray-400">Ended at</p>
+                <p className="text-body font-semibold tabular-nums text-gray-900 dark:text-white">
+                  {formatCurrency(latest.netWorth)}
+                </p>
+                <p className="text-dense text-gray-500 dark:text-gray-400">{latest.label}</p>
+              </div>
+              <div>
+                <p className="text-label uppercase tracking-wider text-gray-500 dark:text-gray-400">Change</p>
+                <p className={`text-body font-semibold tabular-nums ${
+                  change.isZero()
+                    ? 'text-gray-900 dark:text-white'
+                    : change.greaterThan(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {change.greaterThan(0) ? '+' : ''}{formatCurrency(change.toNumber())}
+                </p>
+                {growth.periodPct !== null && (
+                  <p className="text-dense text-gray-500 dark:text-gray-400 tabular-nums">
+                    {formatGrowth(growth.periodPct)} over the period
+                  </p>
+                )}
+              </div>
+              <div>
+                <p className="text-label uppercase tracking-wider text-gray-500 dark:text-gray-400">Growth, annualised</p>
+                {growth.annualisedPct !== null ? (
+                  <p className={`text-body font-semibold tabular-nums ${
+                    growth.annualisedPct.isZero()
+                      ? 'text-gray-900 dark:text-white'
+                      : growth.annualisedPct.greaterThan(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {formatGrowth(growth.annualisedPct)}
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-body font-semibold text-gray-500 dark:text-gray-400">—</p>
+                    {growth.reason && (
+                      <p className="text-dense text-gray-500 dark:text-gray-400">{growth.reason}</p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+            <p className="mt-2 text-dense text-gray-500 dark:text-gray-400">
+              Growth of everything you own less what you owe — money you saved counts
+              as growth here, unlike the portfolio&rsquo;s return figures, which strip
+              your payments in and out.
+            </p>
+          </div>
+        )}
         {snapshots.length === 0 ? (
           <p className="text-center py-16 text-gray-400">No data in this period</p>
         ) : (
@@ -376,15 +545,15 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                 {chartType === 'bar' ? (
                   // Money-style bar view: net worth as bars, assets/liabilities
                   // as context lines. Same data, same click-to-drill.
-                  <Bar dataKey="netWorth" name="Net Worth" fill={DECOMPOSITION_SERIES.total.color} radius={[3, 3, 0, 0]} cursor="pointer" />
+                  <Bar dataKey="netWorth" name="Net Worth" fill={decomposition.total.color} radius={[3, 3, 0, 0]} cursor="pointer" />
                 ) : (
                   <Line
                     type="monotone"
                     dataKey="netWorth"
                     name="Net Worth"
-                    stroke={DECOMPOSITION_SERIES.total.color}
-                    strokeWidth={DECOMPOSITION_SERIES.total.width}
-                    dot={singlePointDot(snapshots, DECOMPOSITION_SERIES.total.color)}
+                    stroke={decomposition.total.color}
+                    strokeWidth={decomposition.total.width}
+                    dot={singlePointDot(snapshots, decomposition.total.color)}
                     activeDot={{ r: 5 }}
                     isAnimationActive={false}
                   />
@@ -394,10 +563,10 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                     type="monotone"
                     dataKey="assets"
                     name="Assets"
-                    stroke={DECOMPOSITION_SERIES.part.color}
-                    strokeWidth={DECOMPOSITION_SERIES.part.width}
-                    strokeDasharray={DECOMPOSITION_SERIES.part.dash}
-                    dot={singlePointDot(snapshots, DECOMPOSITION_SERIES.part.color)}
+                    stroke={decomposition.part.color}
+                    strokeWidth={decomposition.part.width}
+                    strokeDasharray={decomposition.part.dash}
+                    dot={singlePointDot(snapshots, decomposition.part.color)}
                     isAnimationActive={false}
                   />
                 )}
@@ -406,10 +575,10 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                     type="monotone"
                     dataKey="liabilities"
                     name="Liabilities"
-                    stroke={DECOMPOSITION_SERIES.counterpart.color}
-                    strokeWidth={DECOMPOSITION_SERIES.counterpart.width}
-                    strokeDasharray={DECOMPOSITION_SERIES.counterpart.dash}
-                    dot={singlePointDot(snapshots, DECOMPOSITION_SERIES.counterpart.color)}
+                    stroke={decomposition.counterpart.color}
+                    strokeWidth={decomposition.counterpart.width}
+                    strokeDasharray={decomposition.counterpart.dash}
+                    dot={singlePointDot(snapshots, decomposition.counterpart.color)}
                     isAnimationActive={false}
                   />
                 )}
@@ -430,25 +599,125 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
           {drillBalances.length === 0 ? (
             <p className="text-center py-8 text-gray-400">No account balances on this date</p>
           ) : (
-            <div className="divide-y divide-gray-100 dark:divide-gray-700">
-              {drillBalances.map(({ account, balance }) => (
-                <button
-                  key={account.id}
-                  type="button"
-                  onClick={() => navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
-                  className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors rounded-lg px-2 -mx-2"
-                  title="Open this account's register"
-                >
-                  <span className="flex-1 min-w-0 truncate text-sm text-gray-800 dark:text-gray-200">{account.name}</span>
-                  <span className={`text-sm font-semibold tabular-nums ${
-                    balance.greaterThanOrEqualTo(0) ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {formatCurrency(balance.toNumber(), account.currency)}
-                  </span>
-                  <ChevronRightIcon size={16} className="text-gray-400 flex-shrink-0" />
-                </button>
-              ))}
-              <div className="flex items-center justify-between pt-3">
+            <div>
+              {/* ─ WHAT NET WORTH WAS MADE OF (owner, 22 Aug) ────────────────
+                  The default answer is the SECTION totals — the same bands
+                  the Accounts page files under — because "net worth made up
+                  of Current Accounts / Investments / Assets…" is the summary
+                  a day's flat list buried. "By account" opens each section's
+                  accounts beneath its heading; "All" is the old flat list.
+                  Sorts follow the Accounts page's idiom — press the active
+                  pill again to flip it — and order accounts, never the
+                  sections, which keep the ladder's own order. */}
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+                  {([['groups', 'Groups'], ['grouped', 'By account'], ['all', 'All']] as const).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setDrillView(mode)}
+                      aria-pressed={drillView === mode}
+                      className={`px-2.5 py-1 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
+                        drillView === mode
+                          ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {drillView !== 'groups' && (
+                  <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setDrillSort(drillSort === 'name' ? 'name-desc' : 'name')}
+                      className={`px-2.5 py-1 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
+                        drillSort === 'name' || drillSort === 'name-desc'
+                          ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                      }`}
+                    >
+                      Name {drillSort === 'name-desc' ? 'Z–A' : 'A–Z'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDrillSort(drillSort === 'value-desc' ? 'value-asc' : 'value-desc')}
+                      className={`px-2.5 py-1 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
+                        drillSort === 'value-desc' || drillSort === 'value-asc'
+                          ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                      }`}
+                    >
+                      Value {drillSort === 'value-asc' ? '↑' : '↓'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {drillView === 'all' ? (
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {drillAll.map(({ account, balance }) => (
+                    <button
+                      key={account.id}
+                      type="button"
+                      onClick={() => navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
+                      className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors rounded-lg px-2 -mx-2"
+                      title="Open this account's register"
+                    >
+                      <span className="flex-1 min-w-0 truncate text-sm text-gray-800 dark:text-gray-200">{account.name}</span>
+                      <span className={`text-sm font-semibold tabular-nums ${
+                        balance.greaterThanOrEqualTo(0) ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {formatCurrency(balance.toNumber(), account.currency)}
+                      </span>
+                      <ChevronRightIcon size={16} className="text-gray-400 flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {drillGroups.map(group => (
+                    <div key={group.section.type}>
+                      {/* The depth ladder's top step, as everywhere a section
+                          heads its rows. */}
+                      <div className={`flex items-center justify-between gap-3 rounded px-2 py-2 ${DEPTH_LEVEL_1}`}>
+                        <span className="text-sm font-bold uppercase tracking-wide text-gray-900 dark:text-white">
+                          {group.section.title}
+                        </span>
+                        <span className={`text-sm font-semibold tabular-nums ${
+                          group.subtotal.greaterThanOrEqualTo(0) ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {formatCurrency(group.subtotal.toNumber())}
+                        </span>
+                      </div>
+                      {drillView === 'grouped' && (
+                        <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                          {group.entries.map(({ account, balance }) => (
+                            <button
+                              key={account.id}
+                              type="button"
+                              onClick={() => navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
+                              className="w-full flex items-center gap-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors rounded-lg px-2"
+                              title="Open this account's register"
+                            >
+                              <span className="flex-1 min-w-0 truncate text-sm text-gray-800 dark:text-gray-200">{account.name}</span>
+                              <span className={`text-sm font-semibold tabular-nums ${
+                                balance.greaterThanOrEqualTo(0) ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'
+                              }`}>
+                                {formatCurrency(balance.toNumber(), account.currency)}
+                              </span>
+                              <ChevronRightIcon size={16} className="text-gray-400 flex-shrink-0" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-3 mt-1 border-t border-gray-200 dark:border-gray-700">
                 <span className="text-sm font-semibold text-gray-900 dark:text-white">Net worth</span>
                 <span className="text-sm font-bold tabular-nums text-gray-900 dark:text-white">
                   {formatCurrency(

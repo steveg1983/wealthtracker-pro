@@ -347,12 +347,44 @@ export const SEMANTIC_SERIES = {
  * legend content rather than trusting recharts' default swatch — see
  * NetWorthReport. `dash` is `strokeDasharray`; `undefined` is a solid line.
  */
-export const DECOMPOSITION_SERIES = {
-  /** The answer. Solid and heaviest — the other two explain it. */
-  total: { color: CATEGORICAL_AXIS[0], width: 2.5, dash: undefined },
-  /** A component. Same hue, dashed. (#2d3a4d — index [1] since the axis
-      became the ruled five; the colour itself did not move.) */
-  part: { color: CATEGORICAL_AXIS[1], width: 1.5, dash: '6 3' },
-  /** The other component. Same hue again, dotted, so the two parts differ. */
-  counterpart: { color: CATEGORICAL_AXIS[1], width: 1.5, dash: '1 3' },
-} as const;
+export interface DecompositionSeriesStyle {
+  color: string;
+  width: number;
+  dash: string | undefined;
+}
+
+export interface DecompositionSeries {
+  total: DecompositionSeriesStyle;
+  part: DecompositionSeriesStyle;
+  counterpart: DecompositionSeriesStyle;
+}
+
+/**
+ * GROUND-AWARE since 22 Aug, and the owner's screenshot is why: the constants
+ * below were the light ground's navies on BOTH grounds, and this file's own
+ * table measures them at 1.08:1 and 1.27:1 against a dark card — "invisible on
+ * a dark card", in its own words. The Net worth chart was a ghost in dark
+ * mode, and the tooltip's item rows (recharts colours them with the series
+ * stroke) vanished with it. Same remedy as the ramp: the axis's dark-legible
+ * steps on a dark ground (#cdd4e0 at 9.85:1 for the answer, #94a3b8 at 5.72:1
+ * for its two parts — heavier contrast on the heavier line, matching the
+ * light pair's 14.98 over 10.93), shape and weight unchanged.
+ */
+export function decompositionSeries(isDarkGround: boolean): DecompositionSeries {
+  const totalColor = isDarkGround ? '#cdd4e0' : CATEGORICAL_AXIS[0];
+  const partColor = isDarkGround ? '#94a3b8' : CATEGORICAL_AXIS[1];
+  return {
+    /** The answer. Solid and heaviest — the other two explain it. */
+    total: { color: totalColor, width: 2.5, dash: undefined },
+    /** A component. Same hue, dashed. (#2d3a4d on light — index [1] since the
+        axis became the ruled five; the colour itself did not move.) */
+    part: { color: partColor, width: 1.5, dash: '6 3' },
+    /** The other component. Same hue again, dotted, so the two parts differ. */
+    counterpart: { color: partColor, width: 1.5, dash: '1 3' },
+  };
+}
+
+/** The decomposition series for the ground currently on screen. */
+export function useDecompositionSeries(): DecompositionSeries {
+  return decompositionSeries(useIsDarkGround());
+}

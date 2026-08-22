@@ -146,7 +146,7 @@ export default function ReportsHub(): React.JSX.Element {
             the report's title, so it has to say what it governs on its own.
 
             No card around it any more — see components/PeriodBar. */}
-        {(report?.usesPeriod ?? true) && (
+        {(report?.usesPeriod ?? true) && !report?.ownsPeriodBar && (
           <PeriodBar picker={picker} label="Reporting period" />
         )}
 
