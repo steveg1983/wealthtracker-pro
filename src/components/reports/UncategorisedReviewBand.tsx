@@ -32,6 +32,15 @@ export default function UncategorisedReviewBand({
 
   return (
     <div className="space-y-2">
+      {/* NEUTRAL band, semantic figures, ONE link colour (Design, 23 Aug §2).
+          The first draft carried five signals in one strip — amber border and
+          tint, a green, a red, a red-BORDERED box around the net (a piece of
+          furniture nothing else in the app has), and an amber link over two
+          blue ones. The exclusion is information, not an alarm: the container
+          is the house card surface, the three figures keep the money colours
+          they'd have anywhere else (no box — the "net" label already sets the
+          figure apart), a zero net wears no colour at all, and all three
+          routes to the same job speak in the one link colour. */}
       <button
         type="button"
         onClick={() => setDrill({
@@ -40,9 +49,9 @@ export default function UncategorisedReviewBand({
           rows: flows.uncategorizedRows,
           total: null,
         })}
-        className="w-full flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20 px-5 py-3 text-left hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+        className="w-full flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-line dark:border-gray-700 bg-white dark:bg-gray-800 px-5 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
       >
-        <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
           {count.toLocaleString()} uncategorised transaction{count === 1 ? '' : 's'} excluded from these totals
         </span>
         {/* The money the report cannot see, in the app's money colours: in
@@ -55,29 +64,25 @@ export default function UncategorisedReviewBand({
           <span className="text-red-600 dark:text-red-400">
             {formatCurrency(flows.uncategorizedOut.toNumber())} out
           </span>
-          {/* The net wears a subtle bordered chip: it is the one figure that
-              says how far these totals could move, so it stands apart from
-              the two components it nets. */}
           {(() => {
             const net = flows.uncategorizedIn.minus(flows.uncategorizedOut);
             if (net.isZero()) {
+              // A zero asks for no attention, so it wears no colour.
               return (
-                <span className="px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400">
-                  nets to zero
-                </span>
+                <span className="text-gray-500 dark:text-gray-400">nets to zero</span>
               );
             }
-            const chip = net.isNegative()
-              ? 'border-red-300 dark:border-red-600/70 text-red-600 dark:text-red-400'
-              : 'border-green-300 dark:border-green-600/70 text-green-600 dark:text-green-400';
+            const tone = net.isNegative()
+              ? 'text-red-600 dark:text-red-400'
+              : 'text-green-600 dark:text-green-400';
             return (
-              <span className={`px-2 py-0.5 rounded-md border ${chip}`}>
+              <span className={tone}>
                 {formatCurrency(net.abs().toNumber())} net {net.isNegative() ? 'out' : 'in'}
               </span>
             );
           })()}
         </span>
-        <span className="ml-auto text-xs text-amber-700 dark:text-amber-400">
+        <span className="ml-auto text-xs text-blue-700 dark:text-blue-400">
           Click to review and categorise
         </span>
       </button>
