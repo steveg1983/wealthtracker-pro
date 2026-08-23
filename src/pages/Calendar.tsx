@@ -13,6 +13,9 @@ import { detectRecurring } from '../utils/recurringDetection';
 import { projectRecurringSchedule } from '../utils/recurringSchedule';
 import { dismissedKeys, recurringAnswerKey } from '../utils/suggestionDismissals';
 import { computeIncomeExpense, buildCategoryKindLookup, classifyFlow } from '../utils/incomeExpense';
+import { useFlowConvert } from '../hooks/useFlowConvert';
+import { useNetWorthConversion } from '../hooks/useNetWorthConversion';
+import { dailyFactorLookup } from '../utils/netWorthSeries';
 import { Modal, ModalBody } from '../components/common/Modal';
 import EditTransactionModal from '../components/EditTransactionModal';
 import type { Transaction } from '../types';
@@ -55,6 +58,12 @@ function CalendarView() {
     if (suggestionDismissalsStatus === 'idle') void refreshSuggestionDismissals();
   }, [suggestionDismissalsStatus, refreshSuggestionDismissals]);
   const { formatCurrency } = useCurrencyDecimal();
+  // The seams (the long tail's conversion, 23 Aug): day tiles convert each
+  // movement at its own day's rate; the running balance values each day's
+  // per-account natives at that day's rate. Native while the history is
+  // absent — the page's disclosure then stands.
+  const convert = useFlowConvert(accounts);
+  const { conversionAt, historical: flowsHistorical } = useNetWorthConversion(accounts, { range: { from: null, to: null } });
   const navigate = useNavigate();
   const location = useLocation();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -62,12 +71,6 @@ function CalendarView() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  // Calculate total balance across all accounts
-  const totalOpeningBalance = useMemo(() => {
-    return accounts.reduce((sum, acc) => {
-      return sum + (acc.openingBalance ?? 0);
-    }, 0);
-  }, [accounts]);
 
   // Build calendar grid data
   const calendarData = useMemo(() => {
@@ -93,36 +96,44 @@ function CalendarView() {
       const dateKey = toDateKey(t.date);
       const existing = txByDate.get(dateKey) || { income: 0, expense: 0, count: 0 };
       existing.count++;
+      // Each movement at its own day's rate (native when no factor).
+      const factor = convert?.(t) ?? null;
+      const amount = factor !== null ? toDecimal(t.amount).times(factor) : toDecimal(t.amount);
       if (t.amount >= 0) {
-        existing.income = toDecimal(existing.income).plus(toDecimal(t.amount)).toNumber();
+        existing.income = toDecimal(existing.income).plus(amount).toNumber();
       } else {
-        existing.expense = toDecimal(existing.expense).plus(toDecimal(t.amount).abs()).toNumber();
+        existing.expense = toDecimal(existing.expense).plus(amount.abs()).toNumber();
       }
       txByDate.set(dateKey, existing);
     });
 
-    // Compute running balance day by day
-    // Sort all transactions chronologically
+    // The running balance, per-account and Decimal (float `+` retired with
+    // the native summing): natives accumulate chronologically, and each
+    // rendered day values every account's native at THAT day's own rate —
+    // a held foreign balance changes its sterling value with no transaction,
+    // and only day-of valuation sees it.
     const allSorted = [...transactions].sort((a, b) =>
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
-    const balanceByDate = new Map<string, number>();
-    let runningBal = totalOpeningBalance;
-    allSorted.forEach(t => {
-      runningBal += t.amount;
-      balanceByDate.set(toDateKey(t.date), runningBal);
-    });
-
-    // Fill in balances for dates with no transactions (carry forward)
-    const startOfMonth = new Date(year, month, 1);
-
-    // Find the last known balance before the month starts
-    let lastKnownBalance = totalOpeningBalance;
-    allSorted.forEach(t => {
-      if (new Date(t.date) < startOfMonth) {
-        lastKnownBalance = balanceByDate.get(toDateKey(t.date)) ?? lastKnownBalance;
+    const factorFor = dailyFactorLookup(conversionAt ?? undefined);
+    const natives = new Map<string, ReturnType<typeof toDecimal>>();
+    accounts.forEach(acc => natives.set(acc.id, toDecimal(acc.openingBalance ?? 0)));
+    const valueOn = (dateKey: string): number => {
+      let total = toDecimal(0);
+      for (const [accountId, native] of natives) {
+        const factor = factorFor(accountId, dateKey);
+        total = total.plus(factor ? native.times(factor) : native);
       }
-    });
+      return total.toNumber();
+    };
+    const startOfMonth = new Date(year, month, 1);
+    let cursor = 0;
+    // Everything before the month advances the natives silently.
+    while (cursor < allSorted.length && new Date(allSorted[cursor].date) < startOfMonth) {
+      const t = allSorted[cursor];
+      natives.set(t.accountId, (natives.get(t.accountId) ?? toDecimal(0)).plus(toDecimal(t.amount)));
+      cursor++;
+    }
 
     // Build grid: fill previous month days, current month, next month
     const days: DayData[] = [];
@@ -143,15 +154,19 @@ function CalendarView() {
     }
 
     // Current month days
-    let currentBalance = lastKnownBalance;
     for (let d = 1; d <= daysInMonth; d++) {
       const date = new Date(year, month, d);
       const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const dayTx = txByDate.get(dateKey);
 
-      if (balanceByDate.has(dateKey)) {
-        currentBalance = balanceByDate.get(dateKey)!;
+      // Advance natives through this day, then value AT this day.
+      const endOfDay = new Date(year, month, d, 23, 59, 59, 999);
+      while (cursor < allSorted.length && new Date(allSorted[cursor].date) <= endOfDay) {
+        const t = allSorted[cursor];
+        natives.set(t.accountId, (natives.get(t.accountId) ?? toDecimal(0)).plus(toDecimal(t.amount)));
+        cursor++;
       }
+      const currentBalance = valueOn(dateKey);
 
       days.push({
         date,
@@ -182,7 +197,7 @@ function CalendarView() {
     }
 
     return days;
-  }, [transactions, year, month, totalOpeningBalance]);
+  }, [transactions, year, month, accounts, convert, conversionAt]);
 
   /**
    * THE FORWARD HALF (Design handover 17 Aug, §1 and §8 step 3): what is
@@ -307,7 +322,7 @@ function CalendarView() {
    * a movement count over the same window.
    */
   const windowSummary = useMemo(() => {
-    const flows = computeIncomeExpense(transactions, transactionSplits, categories, visibleWindow);
+    const flows = computeIncomeExpense(transactions, transactionSplits, categories, { ...visibleWindow, convert });
     const count = transactions.filter(t => {
       const time = new Date(t.date).getTime();
       return time >= visibleWindow.from.getTime() && time <= visibleWindow.to.getTime();
@@ -317,7 +332,7 @@ function CalendarView() {
       totalExpense: flows.expenses.toNumber(),
       totalTransactions: count,
     };
-  }, [transactions, transactionSplits, categories, visibleWindow]);
+  }, [transactions, transactionSplits, categories, visibleWindow, convert]);
 
   /**
    * THE WEEK, BY CATEGORY, split income from expenditure (owner, 18 Aug:
@@ -333,7 +348,7 @@ function CalendarView() {
 
   const weekBreakdown = useMemo(() => {
     if (view !== 'week') return null;
-    const flows = computeIncomeExpense(transactions, transactionSplits, categories, visibleWindow);
+    const flows = computeIncomeExpense(transactions, transactionSplits, categories, { ...visibleWindow, convert });
     const label = labeller;
     const grouped = (rows: typeof flows.incomeRows): Array<{ label: string; total: number }> => {
       const totals = new Map<string, ReturnType<typeof toDecimal>>();
@@ -351,7 +366,7 @@ function CalendarView() {
       uncategorizedIn: flows.uncategorizedIn.toNumber(),
       uncategorizedOut: flows.uncategorizedOut.toNumber(),
     };
-  }, [view, transactions, transactionSplits, categories, labeller, visibleWindow]);
+  }, [view, transactions, transactionSplits, categories, labeller, visibleWindow, convert]);
 
   /**
    * THE YEAR AS TWELVE MONTHS, each with its own income and expenditure,
@@ -363,12 +378,13 @@ function CalendarView() {
     if (view !== 'year') return null;
     return Array.from({ length: 12 }, (_, m) => {
       const flows = computeIncomeExpense(transactions, transactionSplits, categories, {
+        convert,
         from: new Date(year, m, 1),
         to: new Date(year, m + 1, 0, 23, 59, 59, 999),
       });
       return { month: m, income: flows.income.toNumber(), expense: flows.expenses.toNumber() };
     });
-  }, [view, transactions, transactionSplits, categories, year]);
+  }, [view, transactions, transactionSplits, categories, year, convert]);
 
   /**
    * THE DAY, TRANSACTION BY TRANSACTION (owner, 18 Aug: "in daily view…
@@ -439,6 +455,7 @@ function CalendarView() {
       // way the list can sum to the figure that was clicked (splits expanded,
       // refunds netting, exactly as the tile counted them).
       const flows = computeIncomeExpense(transactions, transactionSplits, categories, {
+        convert,
         from: drill.from, to: drill.to,
       });
       const rows =
@@ -486,7 +503,7 @@ function CalendarView() {
         if (ra !== -1 || rb !== -1) return (ra === -1 ? -1 : ra + 1) - (rb === -1 ? -1 : rb + 1);
         return b.total - a.total;
       });
-  }, [drill, transactions, transactionSplits, categories, categoryKinds, labeller]);
+  }, [drill, transactions, transactionSplits, categories, categoryKinds, labeller, convert]);
 
   /** The real editor, over whichever row was clicked in a day or a drill. */
   const [editing, setEditing] = useState<Transaction | null>(null);
@@ -564,10 +581,19 @@ function CalendarView() {
 
   return (
     <PageWrapper title="Calendar">
-      {/* Phase 0 (the disclosure ruling, 22 Aug §2): the month figures and
-          the running balance still sum native units — said until their
-          conversion phase. Nothing for a single-currency ledger. */}
-      <MixedCurrencyDisclosure className="mb-3" />
+      {/* The ladder (the long tail's conversion, 23 Aug): with the history
+          in force each movement converts at its own day and the running
+          balance values each day at that day's rate — the line says so;
+          while it is absent the totals stay native and the Phase 0
+          disclosure stands. Nothing for a single-currency ledger. */}
+      {flowsHistorical ? (
+        <p className="mb-3 text-dense text-gray-500 dark:text-gray-400" data-testid="calendar-rates-basis">
+          ≈ Converted at each day’s ECB reference rate. Weekends and holidays carry
+          the previous business day’s rate.
+        </p>
+      ) : (
+        <MixedCurrencyDisclosure className="mb-3" />
+      )}
       {/* Month summary bar — each figure tile is a DRILL into what made it
           up, the same popup the day cells open (owner, 19 Aug: "the
           'Income' / 'Expenditure' / 'Net' should be clickable"). */}

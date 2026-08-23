@@ -70,7 +70,7 @@ const LEDGER: Record<string, Partial<Record<(typeof PRIMITIVES)[number], Status>
   // ── the audit's known native sums, phase-ordered in the ruling ──
   'src/hooks/useReportDataset.ts': { computeIncomeExpense: 'converts' },
   'src/components/dashboard/ImprovedDashboard.tsx': { computeIncomeExpense: 'converts' },
-  'src/pages/Calendar.tsx': { computeIncomeExpense: 'native-known' },
+  'src/pages/Calendar.tsx': { computeIncomeExpense: 'converts' },
   'src/pages/Categorisation.tsx': { computeIncomeExpense: 'native-known' },
   'src/pages/reports/PeriodComparisonReport.tsx': { computeIncomeExpense: 'converts' },
   'src/utils/categoryHealth.ts': { computeIncomeExpense: 'native-known' },
