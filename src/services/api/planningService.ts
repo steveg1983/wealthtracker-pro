@@ -22,8 +22,9 @@
  * could not run:
  *
  *  - The only production importer of this class is `dataService.ts` (`grep -rn
- *    PlanningService src api scripts` — every other match is
- *    `taxPlanningService`, an unrelated file, or a test).
+ *    PlanningService src api scripts` — every other match is a test; the
+ *    unrelated `taxPlanningService` that used to share the suffix was
+ *    retired 23 Aug 2026).
  *  - Every one of its call sites there sits inside a branch guarded by
  *    `userId && this.supabaseChecker()`, where `userId` is resolved on the same
  *    tick from `userIdService.getCurrentDatabaseUserId()` and `supabaseChecker`
