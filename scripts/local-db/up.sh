@@ -50,7 +50,15 @@ SQL
 
 cd "$MIG" || exit 1
 BASE=20251030003814__initial-schema.sql
-run -v ON_ERROR_STOP=1 -f "$BASE" >/tmp/wt-base.log 2>&1 || { echo "baseline FAILED"; tail -5 /tmp/wt-base.log; exit 1; }
+# `SET transaction_timeout` is a PostgreSQL 17 parameter that pg_dump 17
+# writes into every dump. On the 16-and-earlier cluster CI's plain apt
+# install provides, it aborts the whole baseline ("unrecognized configuration
+# parameter") — which is why the differential nightly had never once gone
+# green: it died HERE, before a single test ran, every night. Dropped on
+# every server, 17 included: zero is the parameter's own default, so the
+# line never did anything except decide whether older servers could restore.
+grep -v '^SET transaction_timeout' "$BASE" > /tmp/wt-base-portable.sql
+run -v ON_ERROR_STOP=1 -f /tmp/wt-base-portable.sql >/tmp/wt-base.log 2>&1 || { echo "baseline FAILED"; tail -5 /tmp/wt-base.log; exit 1; }
 
 # Three passes: filename order is not dependency order (the baseline dump sorts
 # after files it already contains), so a migration can fail on pass 1 for want
