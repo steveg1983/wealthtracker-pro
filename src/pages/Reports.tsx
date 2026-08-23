@@ -35,7 +35,7 @@ const CUMULATIVE_KEY = 'reports.monthlyIncomeExpenses.cumulative.v1';
 
 export default function Reports({ picker }: ReportViewProps): React.JSX.Element {
   const selection = useReportAccountSelection();
-  const { accounts, categories, rows, flows, allTransactions } = useReportDataset(picker, selection.scope);
+  const { accounts, categories, rows, flows, allTransactions, convert } = useReportDataset(picker, selection.scope);
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   // Gains, losses & adjustments are net-worth movements, not day-to-day income
@@ -60,9 +60,9 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
   // The Money-style category × month matrix, built from the SAME classified
   // rows as the summary cards so the two can never disagree.
   const matrix = useMemo(() => {
-    const monthly = buildMonthlyCategoryMatrix(flows.incomeRows, flows.expenseRows, categories, picker.range);
+    const monthly = buildMonthlyCategoryMatrix(flows.incomeRows, flows.expenseRows, categories, picker.range, { convert });
     return cumulative ? toCumulativeMatrix(monthly) : monthly;
-  }, [flows, categories, picker.range, cumulative]);
+  }, [flows, categories, picker.range, cumulative, convert]);
 
   const firstColumnKey = matrix.months[0]?.key ?? null;
 

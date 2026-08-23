@@ -39,7 +39,7 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
   // category; its row in the ranked table below is highlighted and scrolled to,
   // where the share, the count and the way into its transactions all are.
   const categoryFocus = useArrivalRowFocus(focus);
-  const { accounts, categories, rows, flows } = useReportDataset(picker, selection.scope);
+  const { accounts, categories, rows, flows, convert } = useReportDataset(picker, selection.scope);
   const { formatCurrency } = useCurrencyDecimal();
   // Recharts' default tooltip is black-on-white whatever the mode.
   const chartTooltipStyle = useChartTooltipStyle();
@@ -49,8 +49,8 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
   // Shared implementation — the same totals the Dashboard widget and the PDF
   // export use, so the three can never drift.
   const totals = useMemo(
-    () => computeExpenseCategoryNetTotals(rows, categories),
-    [rows, categories]
+    () => computeExpenseCategoryNetTotals(rows, categories, convert),
+    [rows, categories, convert]
   );
 
   const counts = useMemo(() => {
@@ -114,7 +114,7 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
             Where the money went
           </h2>
           <span className="text-card font-bold tabular-nums text-red-600 dark:text-red-400">
-            {formatCurrency(flows.expenses)}
+            {flows.holdsForeign ? '\u2248 ' : ''}{formatCurrency(flows.expenses)}
           </span>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">

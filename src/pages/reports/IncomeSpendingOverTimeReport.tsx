@@ -57,7 +57,7 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
   // row below is highlighted and scrolled into view, with both figures on it a
   // click from the transactions behind them.
   const monthFocus = useArrivalRowFocus(focus);
-  const { accounts, categories, rows, flows } = useReportDataset(picker, selection.scope);
+  const { accounts, categories, rows, flows, convert } = useReportDataset(picker, selection.scope);
   const { formatCurrency } = useCurrencyDecimal();
   // Recharts' default tooltip is black-on-white whatever the mode.
   const chartTooltipStyle = useChartTooltipStyle();
@@ -76,7 +76,7 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
   const cumulativeToggle = useCumulativeReport(CUMULATIVE_KEY);
   const { cumulative } = cumulativeToggle;
 
-  const trend = useMemo(() => buildMonthlyTrend(rows, categories), [rows, categories]);
+  const trend = useMemo(() => buildMonthlyTrend(rows, categories, convert), [rows, categories, convert]);
   const series = useMemo(
     () => (cumulative ? toCumulativeTrend(trend) : trend),
     [trend, cumulative]

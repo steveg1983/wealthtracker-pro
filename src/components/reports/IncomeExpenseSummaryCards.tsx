@@ -38,6 +38,11 @@ export default function IncomeExpenseSummaryCards({
   const { formatCurrency } = useCurrencyDecimal();
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
 
+  // The seam's own flag: ≈ only when a conversion is actually inside the
+  // figures (the ruling §6.3 — a converted figure is a valuation, and the
+  // marker says which kind of number the reader is holding).
+  const approx = flows.holdsForeign ? '\u2248 ' : '';
+
   const summary = useMemo(() => {
     const net = flows.income.minus(flows.expenses);
     const savingsRate = flows.income.greaterThan(0)
@@ -75,7 +80,7 @@ export default function IncomeExpenseSummaryCards({
           {/* div, not p: the loading skeleton renders block elements and a
               <div> inside <p> is invalid DOM nesting */}
           <div className="text-2xl font-bold text-green-700 dark:text-green-400">
-            {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.income)}
+            {isLoading ? <SkeletonText className="w-32 h-8" /> : `${approx}${formatCurrency(summary.income)}`}
           </div>
         </button>
 
@@ -91,7 +96,7 @@ export default function IncomeExpenseSummaryCards({
         >
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Expenses</p>
           <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-            {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.expenses)}
+            {isLoading ? <SkeletonText className="w-32 h-8" /> : `${approx}${formatCurrency(summary.expenses)}`}
           </div>
         </button>
 
@@ -100,7 +105,7 @@ export default function IncomeExpenseSummaryCards({
           <div className={`text-2xl font-bold ${
             summary.net >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
           }`}>
-            {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.net)}
+            {isLoading ? <SkeletonText className="w-32 h-8" /> : `${approx}${formatCurrency(summary.net)}`}
           </div>
         </div>
 

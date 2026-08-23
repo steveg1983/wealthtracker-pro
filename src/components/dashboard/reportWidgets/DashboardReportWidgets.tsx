@@ -28,6 +28,7 @@ import { WIDGET_CHART_HEIGHT } from './widgetChrome';
 import { useReportDrill } from './useReportDrill';
 import { useHistoricalAccounts } from '../../../hooks/useHistoricalAccounts';
 import { useNetWorthConversion } from '../../../hooks/useNetWorthConversion';
+import { useFlowConvert } from '../../../hooks/useFlowConvert';
 
 /**
  * Compact, live versions of the Reports-hub reports for the Dashboard's
@@ -207,9 +208,12 @@ export function IncomeExpenseTrendWidget({ picker, pin }: {
   picker: UsePeriodResult;
   pin?: CardPeriodPin;
 }): React.JSX.Element {
-  const { transactions, transactionSplits, categories } = useApp();
+  const { transactions, transactionSplits, categories, accounts } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const openReport = useReportDrill();
+  // The flows seam (ruling C): the same per-date resolver the report this
+  // card opens uses, so the two cannot sum on different bases.
+  const convert = useFlowConvert(accounts);
   // Recharts' default tooltip is black-on-white whatever the page's mode —
   // the themed style is the difference between a label and a glare in dark.
   const chartTooltipStyle = useChartTooltipStyle();
@@ -222,8 +226,8 @@ export function IncomeExpenseTrendWidget({ picker, pin }: {
       if (range.to && time > range.to.getTime()) return false;
       return true;
     });
-    return buildMonthlyTrend(rows, categories);
-  }, [transactions, transactionSplits, categories, range]);
+    return buildMonthlyTrend(rows, categories, convert);
+  }, [transactions, transactionSplits, categories, range, convert]);
 
   const open = (focus?: string): void =>
     openReport('income-and-spending-over-time', { period: picker, focus });
@@ -292,9 +296,12 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
   picker: UsePeriodResult;
   pin?: CardPeriodPin;
 }): React.JSX.Element {
-  const { transactions, transactionSplits, categories } = useApp();
+  const { transactions, transactionSplits, categories, accounts } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const openReport = useReportDrill();
+  // The flows seam (ruling C): the same per-date resolver the report this
+  // card opens uses, so the two cannot sum on different bases.
+  const convert = useFlowConvert(accounts);
   // Recharts' default tooltip is black-on-white whatever the page's mode —
   // the themed style is the difference between a label and a glare in dark.
   const chartTooltipStyle = useChartTooltipStyle();
@@ -313,7 +320,7 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
     // FIVE, from the palette, not six. Six slices against a five-colour ramp
     // meant the sixth was painted like the first — reported by the owner as
     // "the pie is split into 5 sections and the legend lists 6".
-    const top = computeExpenseCategoryNetTotals(rows, categories).slice(0, MAX_CATEGORICAL_SERIES);
+    const top = computeExpenseCategoryNetTotals(rows, categories, convert).slice(0, MAX_CATEGORICAL_SERIES);
     /*
      * The share is of THE SLICES SHOWN, not of all spending — the ring is the
      * top six and the percentages have to add up to the ring the reader is
@@ -327,7 +334,7 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
       value,
       share: shown > 0 ? (value / shown) * 100 : 0,
     }));
-  }, [transactions, transactionSplits, categories, range]);
+  }, [transactions, transactionSplits, categories, range, convert]);
 
   const open = (focus?: string): void =>
     openReport('spending-by-category', { period: picker, focus });

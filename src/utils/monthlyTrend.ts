@@ -1,6 +1,7 @@
 import type { Category, Transaction } from '../types';
 import { toDecimal, type DecimalInstance } from './decimal';
 import { bucketByCategoryDirection } from './categoryNetting';
+import type { FlowFactorResolver } from './incomeExpense';
 import { getDateLocale } from '../utils/dateFormatter';
 
 export interface MonthlyTrendPoint {
@@ -21,7 +22,12 @@ export interface MonthlyTrendPoint {
  * `rows` must already be split-expanded (each split line lands in ITS
  * category's month).
  */
-export function buildMonthlyTrend(rows: Transaction[], categories: Category[]): MonthlyTrendPoint[] {
+export function buildMonthlyTrend(
+  rows: Transaction[],
+  categories: Category[],
+  /** The flows seam: per-row factor into the display currency (see incomeExpense). */
+  convert?: FlowFactorResolver
+): MonthlyTrendPoint[] {
   const monthlyData: Record<string, { income: DecimalInstance; expenses: DecimalInstance }> = {};
   const categoryById = new Map(categories.map(c => [c.id, c]));
 
@@ -33,11 +39,13 @@ export function buildMonthlyTrend(rows: Transaction[], categories: Category[]): 
       monthlyData[monthKey] = { income: toDecimal(0), expenses: toDecimal(0) };
     }
 
+    const factor = convert?.(t) ?? null;
+    const amount = factor !== null ? toDecimal(t.amount).times(factor) : toDecimal(t.amount);
     if (bucket === 'income') {
-      monthlyData[monthKey].income = monthlyData[monthKey].income.plus(t.amount);
+      monthlyData[monthKey].income = monthlyData[monthKey].income.plus(amount);
     } else {
       // Spending is negative; negate so refunds net the month down.
-      monthlyData[monthKey].expenses = monthlyData[monthKey].expenses.minus(t.amount);
+      monthlyData[monthKey].expenses = monthlyData[monthKey].expenses.minus(amount);
     }
   });
 

@@ -1,6 +1,7 @@
 import type { Category } from '../types';
 import type { PeriodRange } from '../hooks/usePeriod';
 import type { SplitExpandedTransaction } from './transactionSplits';
+import type { FlowFactorResolver } from './incomeExpense';
 import { toDecimal, type DecimalInstance } from './decimal';
 import { getDateLocale } from '../utils/dateFormatter';
 
@@ -126,7 +127,8 @@ function buildSide(
   byId: ReadonlyMap<string, Category>,
   monthIndex: ReadonlyMap<string, number>,
   monthCount: number,
-  bucket: 'income' | 'expense'
+  bucket: 'income' | 'expense',
+  convert?: FlowFactorResolver
 ): { groups: MatrixGroup[]; values: number[]; total: DecimalInstance } {
   const groups = new Map<string, GroupBucket>();
   const sideValues = zeros(monthCount);
@@ -139,8 +141,11 @@ function buildSide(
     if (!category) continue;
 
     // Spending is stored negative — negate so the expense side reads as a
-    // positive magnitude and a refund credit subtracts.
-    const value = bucket === 'income' ? toDecimal(row.amount) : toDecimal(row.amount).negated();
+    // positive magnitude and a refund credit subtracts. The flows seam
+    // converts into the display currency where a factor is handed back.
+    const factor = convert?.(row) ?? null;
+    const rowAmount = factor !== null ? toDecimal(row.amount).times(factor) : toDecimal(row.amount);
+    const value = bucket === 'income' ? rowAmount : rowAmount.negated();
     const index = monthIndex.get(monthKeyOf(row.date));
 
     const groupCategory = groupCategoryOf(category, byId);
@@ -240,7 +245,7 @@ export function buildMonthlyCategoryMatrix(
   expenseRows: SplitExpandedTransaction[],
   categories: Category[],
   range: PeriodRange,
-  opts: { now?: Date; maxMonths?: number } = {}
+  opts: { now?: Date; maxMonths?: number; convert?: FlowFactorResolver } = {}
 ): MonthlyCategoryMatrix {
   const now = opts.now ?? new Date();
   const maxMonths = opts.maxMonths ?? DEFAULT_MAX_MONTHS;
@@ -249,8 +254,8 @@ export function buildMonthlyCategoryMatrix(
   const { months, omittedMonths } = enumerateMonths(range, [incomeRows, expenseRows], now, maxMonths);
   const monthIndex = new Map(months.map((m, i) => [m.key, i]));
 
-  const income = buildSide(incomeRows, byId, monthIndex, months.length, 'income');
-  const expense = buildSide(expenseRows, byId, monthIndex, months.length, 'expense');
+  const income = buildSide(incomeRows, byId, monthIndex, months.length, 'income', opts.convert);
+  const expense = buildSide(expenseRows, byId, monthIndex, months.length, 'expense', opts.convert);
 
   const netValues = months.map((_, i) =>
     toDecimal(income.values[i]).minus(toDecimal(expense.values[i])).toNumber()

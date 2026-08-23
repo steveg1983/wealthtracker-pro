@@ -1,5 +1,5 @@
 import { toDecimal } from './decimal';
-import { categoryKindOf } from './incomeExpense';
+import { categoryKindOf, type FlowFactorResolver } from './incomeExpense';
 import type { Transaction, Category } from '../types';
 
 export interface CategoryNetTotal {
@@ -55,7 +55,9 @@ export function bucketByCategoryDirection(
 
 export function computeExpenseCategoryNetTotals(
   transactions: Transaction[],
-  categories: Category[]
+  categories: Category[],
+  /** The flows seam: per-row factor into the display currency (see incomeExpense). */
+  convert?: FlowFactorResolver
 ): CategoryNetTotal[] {
   const categoryById = new Map(categories.map(c => [c.id, c]));
   const totals = new Map<string, ReturnType<typeof toDecimal>>();
@@ -66,10 +68,12 @@ export function computeExpenseCategoryNetTotals(
     // category to have resolved to the expense tree).
     if (bucketByCategoryDirection(t, categoryById) !== 'expense') continue;
 
+    const factor = convert?.(t) ?? null;
+    const amount = factor !== null ? toDecimal(t.amount).times(factor) : toDecimal(t.amount);
     const previous = totals.get(t.category) ?? toDecimal(0);
     // Signed convention: spending is negative, so negate to accumulate spend;
     // an income-row refund (+) filed under this category nets the total down.
-    totals.set(t.category, previous.minus(toDecimal(t.amount)));
+    totals.set(t.category, previous.minus(amount));
   }
 
   const entries = [...totals.entries()]

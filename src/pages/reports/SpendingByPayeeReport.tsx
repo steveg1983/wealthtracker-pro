@@ -38,7 +38,7 @@ export default function SpendingByPayeeReport({ picker }: ReportViewProps): Reac
   // pie slice.
   const ramp = useCategoricalRamp();
   const selection = useReportAccountSelection();
-  const { accounts, categories, rows, flows } = useReportDataset(picker, selection.scope);
+  const { accounts, categories, rows, flows, convert } = useReportDataset(picker, selection.scope);
   const { formatCurrency } = useCurrencyDecimal();
   // Recharts' default tooltip is black-on-white whatever the mode.
   const chartTooltipStyle = useChartTooltipStyle();
@@ -54,8 +54,8 @@ export default function SpendingByPayeeReport({ picker }: ReportViewProps): Reac
 
   const sideRows = side === 'income' ? flows.incomeRows : flows.expenseRows;
   const totals = useMemo(
-    () => buildPayeeTotals(sideRows, side, categories),
-    [sideRows, side, categories]
+    () => buildPayeeTotals(sideRows, side, categories, convert),
+    [sideRows, side, categories, convert]
   );
 
   // The datum fields are `payee`/`name`, never `key`: recharts spreads datum
@@ -132,7 +132,7 @@ export default function SpendingByPayeeReport({ picker }: ReportViewProps): Reac
           <span className={`text-card font-bold tabular-nums ${
             side === 'income' ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
           }`}>
-            {money(totals.total)}
+            {flows.holdsForeign ? '\u2248 ' : ''}{money(totals.total)}
           </span>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">

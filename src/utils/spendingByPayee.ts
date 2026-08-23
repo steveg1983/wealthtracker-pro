@@ -3,6 +3,7 @@ import type { SplitExpandedTransaction } from './transactionSplits';
 import { toDecimal } from './decimal';
 import { normalizePayee, FALLBACK_BANK_DESCRIPTION } from './payeeAutoCategorize';
 import { buildCategoryNameLookup } from './categoryNames';
+import type { FlowFactorResolver } from './incomeExpense';
 
 /**
  * "Spending by payee" — the Microsoft Money report: who the money actually
@@ -79,7 +80,9 @@ interface PayeeAccumulator {
 export function buildPayeeTotals(
   rows: SplitExpandedTransaction[],
   bucket: 'income' | 'expense',
-  categories: Category[]
+  categories: Category[],
+  /** The flows seam: per-row factor into the display currency (see incomeExpense). */
+  convert?: FlowFactorResolver
 ): PayeeTotals {
   const categoryName = buildCategoryNameLookup(categories);
   const groups = new Map<string, PayeeAccumulator>();
@@ -87,9 +90,11 @@ export function buildPayeeTotals(
 
   for (const row of rows) {
     const payee = payeeKeyOf(row.description);
+    const factor = convert?.(row) ?? null;
+    const rowAmount = factor !== null ? toDecimal(row.amount).times(factor) : toDecimal(row.amount);
     // Spending is stored negative, so negate to read as a positive magnitude
     // and let a refund credit subtract.
-    const value = bucket === 'income' ? toDecimal(row.amount) : toDecimal(row.amount).negated();
+    const value = bucket === 'income' ? rowAmount : rowAmount.negated();
     const date = new Date(row.date);
     total = total.plus(value);
 

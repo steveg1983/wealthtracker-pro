@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildCategoryKindLookup, classifyFlow, computeIncomeExpense, bucketContribution } from './incomeExpense';
 import type { Category, Transaction, TransactionSplit } from '../types';
+import { toDecimal } from './decimal';
 
 const CATEGORIES: Category[] = [
   { id: 'type-income', name: 'Income', type: 'income', level: 'type', isSystem: true },
@@ -192,5 +193,42 @@ describe('bucketContribution', () => {
     expect(bucketContribution({ amount: -100 }, 'expense')).toBe(100);
     expect(bucketContribution({ amount: 40 }, 'expense')).toBe(-40); // refund credit
     expect(bucketContribution({ amount: 2500 }, 'income')).toBe(2500);
+  });
+});
+
+/**
+ * THE FLOWS SEAM (the disclosure ruling, 22 Aug §7 phase 1): amounts convert
+ * into the display currency at the summing when the caller hands over a
+ * per-row factor; without one, every figure is exactly what it always was.
+ * Every figure here is invented; the repo is public.
+ */
+describe('computeIncomeExpense — the flows seam', () => {
+  const transactions: Transaction[] = [
+    txn({ id: 'gbp', type: 'income', amount: 1000, category: 'cat-salary', accountId: 'acc-gbp' }),
+    txn({ id: 'usd', type: 'income', amount: 200, category: 'cat-salary', accountId: 'acc-usd' }),
+    txn({ id: 'usd-spend', type: 'expense', amount: -50, category: 'cat-groceries', accountId: 'acc-usd' }),
+  ];
+  // Two dollars to the pound, whatever the date — the resolver owns policy.
+  const convert = (row: Pick<Transaction, 'accountId' | 'date'>) =>
+    row.accountId === 'acc-usd' ? toDecimal(0.5) : null;
+
+  it('applies the factor at the sum and flags that a conversion is inside', () => {
+    const flows = computeIncomeExpense(transactions, [], CATEGORIES, { convert });
+    expect(flows.income.toNumber()).toBe(1100);   // 1000 + $200×0.5
+    expect(flows.expenses.toNumber()).toBe(25);   // $50×0.5
+    expect(flows.holdsForeign).toBe(true);
+  });
+
+  it('without a resolver the totals are native and unflagged — unchanged behaviour', () => {
+    const flows = computeIncomeExpense(transactions, [], CATEGORIES);
+    expect(flows.income.toNumber()).toBe(1200);
+    expect(flows.expenses.toNumber()).toBe(50);
+    expect(flows.holdsForeign).toBe(false);
+  });
+
+  it('rows themselves stay native — a row display keeps its own currency', () => {
+    const flows = computeIncomeExpense(transactions, [], CATEGORIES, { convert });
+    const usdRow = flows.incomeRows.find(r => r.id === 'usd');
+    expect(usdRow?.amount).toBe(200);
   });
 });

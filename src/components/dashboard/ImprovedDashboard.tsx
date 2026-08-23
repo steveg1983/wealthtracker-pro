@@ -20,6 +20,7 @@ import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { useConvertedNetWorth, type AccountBalanceEntry } from '../../hooks/useConvertedNetWorth';
 import { useNetWorthConversion } from '../../hooks/useNetWorthConversion';
+import { useFlowConvert } from '../../hooks/useFlowConvert';
 import MixedCurrencyDisclosure from '../MixedCurrencyDisclosure';
 import { preserveDemoParam } from '../../utils/navigation';
 import EmptyState from '../EmptyState';
@@ -298,6 +299,7 @@ export function ImprovedDashboard() {
   // the trio's conversion, so the drill cannot quote a different rate than
   // the card it opens from. Null on a single-currency ledger.
   const { conversion: rowConversion } = useNetWorthConversion(accounts);
+  const flowConvert = useFlowConvert(accounts);
 
   // Calculate key metrics — all money sums use Decimal arithmetic (float math
   // is banned on currency values; IEEE-754 drifts on long sums).
@@ -387,17 +389,21 @@ export function ImprovedDashboard() {
   // these same totals, so both always describe one and the same window.
   const performance = useMemo(() => {
     const { from, to } = performancePeriod.range;
+    // The flows seam (ruling C): the same per-date resolver the reports use,
+    // so this card and the report it opens cannot sum on different bases.
     const flows = computeIncomeExpense(transactions, transactionSplits, categories, {
       from: from ?? undefined,
       to: to ?? undefined,
+      convert: flowConvert,
     });
     return {
       income: flows.income.toNumber(),
       expenses: flows.expenses.toNumber(),
       incomeRows: flows.incomeRows,
       expenseRows: flows.expenseRows,
+      holdsForeign: flows.holdsForeign,
     };
-  }, [transactions, transactionSplits, categories, performancePeriod.range]);
+  }, [transactions, transactionSplits, categories, performancePeriod.range, flowConvert]);
 
   // Generate net worth data for chart - ONLY REAL DATA
   const netWorthData = useMemo(() => {
