@@ -286,13 +286,17 @@ describe('Budget page — an empty page is an empty state, not zeroed furniture'
     expect(screen.queryByText('Total Budgeted')).not.toBeInTheDocument();
     expect(screen.queryByText('Total Spent')).not.toBeInTheDocument();
     expect(screen.queryByText('Total Remaining')).not.toBeInTheDocument();
-    // Nor the six methodology tabs — a choice of budgeting philosophies is
-    // furniture until there is a budget to slice (Claude Design 22 Aug §7).
-    expect(screen.queryByRole('button', { name: 'Envelope' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Zero-Based' })).not.toBeInTheDocument();
+    // Nor the feature folds — furniture until there is a budget to slice
+    // (Claude Design 22 Aug §7, carried into §12's one-page shape).
+    expect(screen.queryByRole('button', { name: /Budget templates/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Spending alerts/ })).not.toBeInTheDocument();
   });
 
-  it('brings the tabs back the moment a budget exists', async () => {
+  it('brings the feature folds — not tabs — the moment a budget exists (§12)', async () => {
+    // §12 (owner, 23 Aug): one budgeting approach. Envelope and Zero-Based
+    // are RETIRED — they must never come back as choices — and Templates,
+    // Rollover and Alerts are collapsed folds below the budgets, mounting
+    // their content only when opened.
     // Every figure here is invented; the repo is public.
     __setAppContextValue({
       accounts: ACCOUNTS,
@@ -303,7 +307,13 @@ describe('Budget page — an empty page is an empty state, not zeroed furniture'
     });
     renderBudget();
 
-    expect(await screen.findByRole('button', { name: 'Envelope' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Zero-Based' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Budget templates/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Rollover/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Spending alerts/ })).toBeInTheDocument();
+    // The retired approaches are gone for good.
+    expect(screen.queryByText('Envelope')).not.toBeInTheDocument();
+    expect(screen.queryByText('Zero-Based')).not.toBeInTheDocument();
+    // Folds start closed: a fold's content mounts only when opened.
+    expect(screen.getByRole('button', { name: /Budget templates/ })).toHaveAttribute('aria-expanded', 'false');
   });
 });
