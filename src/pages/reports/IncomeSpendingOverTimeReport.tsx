@@ -21,6 +21,7 @@ import UncategorisedReviewBand from '../../components/reports/UncategorisedRevie
 import { buildMonthlyTrend } from '../../utils/monthlyTrend';
 import { toCumulativeTrend } from '../../utils/cumulativeSeries';
 import { SEMANTIC_SERIES, useChartTooltipStyle, useChartTooltipItemStyle } from '../../components/charts/chartColors';
+import { legendText } from '../../components/charts/ChartLegendText';
 import { singlePointDot } from '../../components/charts/singlePointDots';
 import { toDecimal } from '../../utils/decimal';
 import { formatDecimal } from '../../utils/decimal-format';
@@ -224,7 +225,7 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
                     formatCurrency(typeof value === 'number' ? value : Number(value))
                   }
                 />
-                <Legend />
+                <Legend formatter={legendText} />
                 {chartType === 'bar' ? (
                   <Bar dataKey="income" name={incomeSeriesName} fill={SEMANTIC_SERIES.income} radius={[3, 3, 0, 0]} cursor="pointer" isAnimationActive={false} onClick={handlePointClick('income')} />
                 ) : (

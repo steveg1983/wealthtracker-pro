@@ -151,8 +151,12 @@ export function capSeriesWithRemainder<T>(
   value: (item: T) => number,
   name: (item: T) => string,
   remainderLabel: (count: number) => string
-): Array<{ name: string; value: number }> {
-  const all = items.map((item) => ({ name: name(item), value: value(item) }));
+): Array<{ name: string; value: number; source?: T }> {
+  // `source` carries the caller's own datum on every REAL slice, so a capped
+  // chart can still answer a click (drill by id, open the account) — the
+  // remainder has no single source and carries none, which is also how a
+  // caller tells the fold apart from a slice.
+  const all = items.map((item) => ({ name: name(item), value: value(item), source: item }));
   if (all.length <= MAX_CATEGORICAL_SERIES) return all;
 
   const shown = all.slice(0, MAX_CATEGORICAL_SERIES - 1);

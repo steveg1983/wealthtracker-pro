@@ -13,7 +13,8 @@ import { formatDecimal } from '../../utils/decimal-format';
 import { ARRIVAL_ROW_CLASS, useArrivalRowFocus } from '../../hooks/useArrivalFocus';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
-import { categoricalColor, useCategoricalRamp, useChartTooltipStyle, useChartTooltipItemStyle } from '../../components/charts/chartColors';
+import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp, useChartTooltipStyle, useChartTooltipItemStyle } from '../../components/charts/chartColors';
+import { legendText } from '../../components/charts/ChartLegendText';
 
 /**
  * "Spending by category" — where the money went, ranked.
@@ -25,14 +26,11 @@ import { categoricalColor, useCategoricalRamp, useChartTooltipStyle, useChartToo
  * through to the transactions behind it.
  */
 
-/** Slices beyond this become hard to tell apart; the table still lists all. */
-const PIE_SLICES = 8;
-
 export default function SpendingByCategoryReport({ picker, focus }: ReportViewProps): React.JSX.Element {
-  // The shared ramp. Note it is five long per theme against PIE_SLICES of
-  // eight, so the last three slices repeat a colour — the stated cost of a
-  // single-hue ramp. The legend and tooltip name every slice, which is what
-  // actually identifies it.
+  // The shared ramp — five per theme, and the ring draws exactly five slices
+  // (capSeriesWithRemainder), so no slice ever repeats a colour. This chart
+  // used to draw eight with no remainder: a CLOSED ring showing roughly half
+  // the period's total, with three colours repeated (Design, 23 Aug §3).
   const ramp = useCategoricalRamp();
   const selection = useReportAccountSelection();
   // A slice clicked on the Dashboard's Expense Categories card names a
@@ -69,9 +67,16 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
 
   // The datum field is `categoryId`, NOT `key`: recharts spreads datum fields
   // onto React elements and a `key` field collides with React's reserved prop,
-  // silently breaking sector rendering.
+  // silently breaking sector rendering. The remainder slice has no categoryId
+  // — clicking it drills into the folded categories together (see below).
   const pieData = useMemo(
-    () => totals.slice(0, PIE_SLICES).map(({ key, name, value }) => ({ categoryId: key, name, value })),
+    () =>
+      capSeriesWithRemainder(
+        totals,
+        entry => entry.value,
+        entry => entry.name,
+        count => `${count} smaller categories`
+      ).map(({ name, value, source }) => ({ categoryId: source?.key, name, value })),
     [totals]
   );
 
@@ -80,6 +85,22 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
       title: `${name} — ${PERIOD_LABELS[picker.period]}`,
       bucket: 'expense',
       rows: flows.expenseRows.filter(t => t.category === categoryId),
+      total: value,
+    });
+  };
+
+  // The remainder is still a slice of real money, so it still answers a click
+  // ("click a slice for the transactions behind it" is the card's promise):
+  // the drill holds every FOLDED category's rows together — the categories in
+  // `totals` beyond the shown four, not every unshown row (a category netted
+  // to zero by refunds is listed nowhere and belongs behind no slice).
+  const drillIntoRemainder = (name: string, value: number): void => {
+    const shown = new Set(pieData.map(d => d.categoryId).filter(Boolean));
+    const folded = new Set(totals.map(t => t.key).filter(key => !shown.has(key)));
+    setDrill({
+      title: `${name} — ${PERIOD_LABELS[picker.period]}`,
+      bucket: 'expense',
+      rows: flows.expenseRows.filter(t => folded.has(t.category)),
       total: value,
     });
   };
@@ -138,11 +159,14 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
                   cursor="pointer"
                   onClick={(entry) => {
                     const datum = ((entry as { payload?: typeof pieData[number] })?.payload ?? entry) as typeof pieData[number];
-                    if (datum?.categoryId) drillIntoCategory(datum.categoryId, datum.name, datum.value);
+                    if (!datum) return;
+                    if (datum.categoryId) drillIntoCategory(datum.categoryId, datum.name, datum.value);
+                    else drillIntoRemainder(datum.name, datum.value);
                   }}
                 >
                   {pieData.map((entry, index) => (
-                    <Cell key={entry.categoryId} fill={categoricalColor(ramp, index)} />
+                    // The remainder has no categoryId; its label is unique.
+                    <Cell key={entry.categoryId ?? entry.name} fill={categoricalColor(ramp, index)} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -151,7 +175,12 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
                     formatCurrency(typeof value === 'number' ? value : Number(value))
                   }
                 />
-                <Legend layout="vertical" align="right" verticalAlign="middle" />
+                {/* itemSorter: recharts' default ('value' — the LABEL, for a
+                    pie) alphabetises the legend, which floated "N smaller
+                    categories" above the real ones. A constant sorter keeps
+                    payload order: rank order, the fold last — the same order
+                    the ring is painted in. */}
+                <Legend layout="vertical" align="right" verticalAlign="middle" formatter={legendText} itemSorter={() => 0} />
               </RechartsPieChart>
             </ResponsiveContainer>
           </div>
