@@ -13,6 +13,8 @@ import { ArrowDownIcon, ArrowUpIcon, ChevronDownIcon, ChevronRightIcon } from '.
 import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
 import { DEPTH_LEVEL_1, DEPTH_LEVEL_2, DEPTH_LEVEL_2_STICKY } from '../styles/depthShading';
 import { dataPort } from '@data';
+import { useFlowConvert } from '../hooks/useFlowConvert';
+import { useNetWorthConversion } from '../hooks/useNetWorthConversion';
 import type { ForecastAdjustment, Transaction } from '../types';
 
 /**
@@ -104,6 +106,10 @@ function ForecastStatement(): React.JSX.Element {
     suggestionDismissals, suggestionDismissalsStatus, refreshSuggestionDismissals,
   } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
+  // The flows seam: per-row factors at each row's own date, undefined while
+  // the ECB history is absent (the totals then stay native, disclosed).
+  const convert = useFlowConvert(accounts);
+  const { historical: flowsHistorical } = useNetWorthConversion(accounts, { range: { from: null, to: null } });
 
   const [tab, setTab] = useState<'current' | 'forecast'>('current');
 
@@ -199,6 +205,7 @@ function ForecastStatement(): React.JSX.Element {
     const sides: Record<'in' | 'out', Map<string, BuildEntry>> = { in: new Map(), out: new Map() };
     let transfers = 0;
     let revaluations = 0;
+    let holdsForeign = false;
 
     // Keyed by IDS, never wordings — two groups or categories that happened
     // to share a name must not share a figure.
@@ -218,7 +225,13 @@ function ForecastStatement(): React.JSX.Element {
       const categoryKey = categoryId ?? UNFILED_LABEL;
       const category = entry.categories.get(categoryKey)
         ?? { categoryId, label: leafLabel, total: 0, perBucket: Array.from({ length: bucketCount }, () => 0), rows: [] };
-      const magnitude = toDecimal(row.amount).abs();
+      // The flows seam (the long tail's conversion, 23 Aug): each row at
+      // its own day's rate, through the same resolver every other flows
+      // surface sums with. Native while the history is absent — the page's
+      // disclosure then stands.
+      const factor = convert?.(row) ?? null;
+      if (factor !== null) holdsForeign = true;
+      const magnitude = (factor !== null ? toDecimal(row.amount).times(factor) : toDecimal(row.amount)).abs();
       category.total = toDecimal(category.total).plus(magnitude).toNumber();
       category.perBucket[bucket] = toDecimal(category.perBucket[bucket]).plus(magnitude).toNumber();
       category.rows.push(row);
@@ -314,8 +327,9 @@ function ForecastStatement(): React.JSX.Element {
       ),
       transfers,
       revaluations,
+      holdsForeign,
     };
-  }, [transactions, plWindow, categoryKinds, categoryById, sort]);
+  }, [transactions, plWindow, categoryKinds, categoryById, sort, convert]);
 
   const average = (total: number): number =>
     toDecimal(total).dividedBy(plWindow.buckets.length).toNumber();
@@ -339,9 +353,12 @@ function ForecastStatement(): React.JSX.Element {
   const cellText = (side: 'in' | 'out', value: number): string =>
     value === 0 ? '—' : flowText(side, value);
 
+  // ≈ when a conversion is actually inside (ruling §6.3) — the same gate the
+  // basis line renders under, so mark and line always agree.
+  const approx = statement.holdsForeign ? '≈ ' : '';
   const netText = (value: number): string =>
-    value === 0 ? formatCurrency(0)
-      : value > 0 ? `+${formatCurrency(value)}` : formatCurrency(value);
+    approx + (value === 0 ? formatCurrency(0)
+      : value > 0 ? `+${formatCurrency(value)}` : formatCurrency(value));
 
   const netLabel = statement.net >= 0 ? 'Net income' : 'Net expenditure';
   const netColour = statement.net === 0 ? 'text-gray-900 dark:text-white'
@@ -683,10 +700,19 @@ function ForecastStatement(): React.JSX.Element {
        also went — what that side shows is history, so it says Actuals. */
     <PageWrapper title="Plan">
       <div className="max-w-[1400px] mx-auto space-y-6">
-        {/* Phase 0 (the disclosure ruling, 22 Aug §2): the P&L's category and
-            bucket totals still sum native units — said until their conversion
-            phase. Nothing for a single-currency ledger. */}
-        <MixedCurrencyDisclosure />
+        {/* The ladder (the long tail's conversion, 23 Aug): with the ECB
+            history in force every figure converts at its row's own day and
+            the basis is said; while it is absent the totals stay native and
+            the Phase 0 disclosure stands. Nothing for a single-currency
+            ledger. */}
+        {flowsHistorical && statement.holdsForeign ? (
+          <p className="text-dense text-gray-500 dark:text-gray-400" data-testid="forecast-rates-basis">
+            ≈ Converted at each day’s ECB reference rate. Weekends and holidays carry
+            the previous business day’s rate.
+          </p>
+        ) : (
+          !flowsHistorical && <MixedCurrencyDisclosure />
+        )}
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* The tab, chosen the way the calendar chooses its view — a
               segmented control (owner, 19 Aug: "Lets have two tabs for now",
