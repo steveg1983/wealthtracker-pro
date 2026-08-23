@@ -115,6 +115,9 @@ export const REPORTS: ReportDefinition[] = [
     group: 'what-i-have',
     icon: WalletIcon,
     usesPeriod: true,
+    // Totals convert on the per-day basis (each movement at its own day,
+    // openings at the window's start) — the hub's note states it.
+    currency: 'flows',
     component: lazyWithRecovery(() => import('./NetWorthStatementReport')),
   },
   {
@@ -139,6 +142,9 @@ export const REPORTS: ReportDefinition[] = [
     group: 'what-i-have',
     icon: LandmarkIcon,
     usesPeriod: true,
+    // Totals convert on the per-day basis (each movement at its own day,
+    // openings at the window's start) — the hub's note states it.
+    currency: 'flows',
     component: lazyWithRecovery(() => import('./AccountBalancesReport')),
   },
   {
@@ -151,6 +157,9 @@ export const REPORTS: ReportDefinition[] = [
     // March" to draw, so the hub's period picker is hidden rather than shown
     // governing nothing.
     usesPeriod: false,
+    // Converts at today's rates and carries its own ConvertedTotalNote — the
+    // current-balance treatment, not the flows basis.
+    currency: 'self',
     component: lazyWithRecovery(() => import('./AccountDistributionReport')),
   },
   {

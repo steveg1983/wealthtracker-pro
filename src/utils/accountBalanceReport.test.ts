@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildAccountBalanceReport } from './accountBalanceReport';
+import { toDecimal } from './decimal';
 import type { Account, Transaction } from '../types';
 
 /** Synthetic fixtures only — no real accounts or amounts in this repo. */
@@ -168,5 +169,51 @@ describe('buildAccountBalanceReport', () => {
     const row = report.rows.find(r => r.accountId === 'acc-card');
     expect(row).toMatchObject({ opening: 0, moneyIn: 0, moneyOut: 200, change: -200, closing: -200 });
     expect(report.liabilities).toBe(200);
+  });
+});
+
+/**
+ * THE DATED CONVERSION SEAM (balance reports, 23 Aug): the table's contract
+ * is the accounting identity — opening + change = closing — so every column
+ * converts on the identity's own terms: each movement at its own day's rate,
+ * the opening column at the day the window opens. Rows stay native; only
+ * the totals wear the converted figures.
+ * Every figure here is invented; the repo is public.
+ */
+describe('buildAccountBalanceReport — the dated conversion seam', () => {
+  const usd = account({ id: 'acc-usd', name: 'Dollar Current', type: 'current', currency: 'USD' });
+  // Two dollars to the pound in January, four from February on.
+  const conversionAt = (date: Date) => ({
+    factors: new Map([['acc-usd', toDecimal(date < new Date(2026, 1, 1) ? 0.5 : 0.25)]]),
+    unconverted: [] as string[],
+  });
+  const rows: Transaction[] = [
+    txn({ id: 'pre', accountId: 'acc-usd', amount: 1000, date: new Date(2026, 0, 10) }),   // pre-window
+    txn({ id: 'in', accountId: 'acc-usd', amount: 400, date: new Date(2026, 1, 10) }),     // in-window
+  ];
+  const range = { from: new Date(2026, 1, 1), to: new Date(2026, 1, 28) };
+
+  it('converts each column at its basis and keeps the identity in the totals', () => {
+    const report = buildAccountBalanceReport([usd], rows, range, new Date(2026, 2, 1), conversionAt);
+    const row = report.rows[0];
+    // The row itself stays native, in its own currency.
+    expect(row.opening).toBe(1000);
+    expect(row.closing).toBe(1400);
+    // Opening at the window's opening day (31 Jan → £0.50/$): $1,000 = £500.
+    expect(row.openingConverted).toBe(500);
+    // The February movement at its own day (£0.25/$): $400 = £100.
+    expect(row.changeConverted).toBe(100);
+    // The identity holds in the converted figures the totals show.
+    expect(row.closingConverted).toBe(600);
+    expect(report.netWorth).toBe(600);
+    expect(report.openingNetWorth).toBe(500);
+    expect(report.holdsForeign).toBe(true);
+  });
+
+  it('without the seam every figure is native and unflagged — unchanged behaviour', () => {
+    const report = buildAccountBalanceReport([usd], rows, range);
+    expect(report.rows[0].closingConverted).toBe(1400);
+    expect(report.netWorth).toBe(1400);
+    expect(report.holdsForeign).toBe(false);
   });
 });

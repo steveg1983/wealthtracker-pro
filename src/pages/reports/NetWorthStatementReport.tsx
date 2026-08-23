@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
+import { useNetWorthConversion } from '../../hooks/useNetWorthConversion';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
 import { buildAccountBalanceReport, type AccountBalanceRow } from '../../utils/accountBalanceReport';
@@ -24,10 +25,14 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
   const { formatCurrency } = useCurrencyDecimal();
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
 
+  // The dated seam (balance reports' conversion, 23 Aug) — same terms as
+  // the Account Balances report, from the same util.
+  const { conversionAt } = useNetWorthConversion(accounts, { range: { from: null, to: null } });
   const report = useMemo(
-    () => buildAccountBalanceReport(accounts, transactions, picker.range),
-    [accounts, transactions, picker.range]
+    () => buildAccountBalanceReport(accounts, transactions, picker.range, new Date(), conversionAt ?? undefined),
+    [accounts, transactions, picker.range, conversionAt]
   );
+  const approx = report.holdsForeign ? '≈ ' : '';
 
   /** Which statement section each account sits under, e.g. "Savings". */
   const groupLabels = useMemo(() => {
@@ -147,9 +152,9 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
           words became the override rather than the rule. Converting a surface
           is not permission to overwrite the words somebody chose for it. */}
       <NetWorthSummary
-        netWorth={money(report.netWorth)}
-        assets={formatCurrency(report.assets)}
-        liabilities={formatCurrency(report.liabilities)}
+        netWorth={`${approx}${money(report.netWorth)}`}
+        assets={`${approx}${formatCurrency(report.assets)}`}
+        liabilities={`${approx}${formatCurrency(report.liabilities)}`}
       />
 
       {/* As-at and change, in the caption voice the net-worth report uses for

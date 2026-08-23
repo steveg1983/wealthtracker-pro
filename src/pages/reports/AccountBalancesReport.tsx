@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
+import { useNetWorthConversion } from '../../hooks/useNetWorthConversion';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
 import { buildAccountBalanceReport, type AccountBalanceRow } from '../../utils/accountBalanceReport';
@@ -22,10 +23,16 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
   const { formatCurrency } = useCurrencyDecimal();
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
 
+  // The dated seam (balance reports' conversion, 23 Aug): each movement at
+  // its own day's rate, openings at the window's start; null while the
+  // history is absent, when the totals stay native and the hub's disclosure
+  // says so.
+  const { conversionAt } = useNetWorthConversion(accounts, { range: { from: null, to: null } });
   const report = useMemo(
-    () => buildAccountBalanceReport(accounts, transactions, picker.range),
-    [accounts, transactions, picker.range]
+    () => buildAccountBalanceReport(accounts, transactions, picker.range, new Date(), conversionAt ?? undefined),
+    [accounts, transactions, picker.range, conversionAt]
   );
+  const approx = report.holdsForeign ? '≈ ' : '';
 
   const drillIntoAccount = (row: AccountBalanceRow): void => {
     const rows = transactions
@@ -57,7 +64,7 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
           <p className="text-label uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
             Total balance
           </p>
-          <p className="text-page font-bold mt-1">{money(report.netWorth)}</p>
+          <p className="text-page font-bold mt-1">{approx}{money(report.netWorth)}</p>
           <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
             As at {report.asOf.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
@@ -65,13 +72,13 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-line dark:border-gray-700">
           <p className="text-dense text-gray-500 uppercase tracking-wider font-medium">In credit</p>
           <p className="text-page font-semibold mt-1 text-primary dark:text-white">
-            {formatCurrency(report.assets)}
+            {approx}{formatCurrency(report.assets)}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-line dark:border-gray-700">
           <p className="text-dense text-gray-500 uppercase tracking-wider font-medium">Overdrawn / owed</p>
           <p className="text-page font-semibold mt-1 text-primary dark:text-white">
-            {formatCurrency(report.liabilities)}
+            {approx}{formatCurrency(report.liabilities)}
           </p>
         </div>
       </div>
