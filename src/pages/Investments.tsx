@@ -30,6 +30,7 @@ import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsCont
 import ToggleSwitch from '../components/ui/ToggleSwitch';
 import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
 import { useNetWorthConversion } from '../hooks/useNetWorthConversion';
+import { useFlowConvert } from '../hooks/useFlowConvert';
 import HistoricRatesRestatementNotice from '../components/HistoricRatesRestatementNotice';
 import MixedCurrencyDisclosure from '../components/MixedCurrencyDisclosure';
 import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
@@ -449,9 +450,27 @@ function InvestmentsView() {
    * £0), which is what makes the contributions attribution sum true.
    */
   const historicalAccounts = useHistoricalAccounts(openAccounts);
+  /**
+   * ONE conversion source for the whole chain (the Investments chain,
+   * 23 Aug): balances at today's factors, valuations and flows at their own
+   * days' ECB rates, holdings by listing currency — over open AND CLOSED
+   * members, because the walks span their history. Null/undefined on an
+   * all-sterling ledger, which keeps every figure exactly as it was.
+   */
+  const {
+    seriesConversion: scopeConversion,
+    historical: scopeHistorical,
+    conversion,
+    conversionAt,
+    rateFor,
+  } = useNetWorthConversion(historicalAccounts, { range: { from: null, to: null } });
+  const flowConvert = useFlowConvert(historicalAccounts);
   const summary = useMemo(
-    () => buildPortfolioSummary({ accounts: historicalAccounts, transactions, transactionSplits, categories }),
-    [historicalAccounts, transactions, transactionSplits, categories]
+    () => buildPortfolioSummary({
+      accounts: historicalAccounts, transactions, transactionSplits, categories,
+      conversion: conversion ?? undefined, flowConvert,
+    }),
+    [historicalAccounts, transactions, transactionSplits, categories, conversion, flowConvert]
   );
 
   /**
@@ -566,8 +585,12 @@ function InvestmentsView() {
   // backdated-rates ask), so a currency's movement stops masquerading as
   // portfolio value. Null for the all-sterling scope, which keeps its
   // arithmetic untouched.
-  const { seriesConversion: scopeConversion, historical: scopeHistorical } =
-    useNetWorthConversion(scopeMembers, { range: historyRange });
+  /** ≈ gates (ruling §6.3): only where a conversion is actually inside. */
+  const scopeHoldsForeign = useMemo(
+    () => conversion !== null && scopeMembers.some(m => conversion.factors.has(m.id)),
+    [conversion, scopeMembers]
+  );
+  const scopeApprox = scopeHoldsForeign ? '\u2248 ' : '';
   const performanceData = useMemo(
     () => buildPortfolioHistory(scopeMembers, transactions, historyRange, new Date(), scopeConversion ?? undefined),
     [scopeMembers, transactions, historyRange, scopeConversion]
@@ -587,8 +610,9 @@ function InvestmentsView() {
       transactionSplits,
       categories,
       range: historyRange,
+      conversionAt: conversionAt ?? undefined,
     }),
-    [scopeMembers, transactions, transactionSplits, categories, historyRange]
+    [scopeMembers, transactions, transactionSplits, categories, historyRange, conversionAt]
   );
 
   /**
@@ -605,7 +629,7 @@ function InvestmentsView() {
       .map(root => ({
         accountId: root.id,
         name: root.name,
-        value: scopeValueAt(pairGroups.membersByTopLevelId.get(root.id) ?? [root], transactions, drillDate),
+        value: scopeValueAt(pairGroups.membersByTopLevelId.get(root.id) ?? [root], transactions, drillDate, conversionAt ?? undefined),
       }))
       .filter(row => !row.value.isZero())
       .sort((a, b) => b.value.minus(a.value).toNumber());
@@ -613,7 +637,7 @@ function InvestmentsView() {
       rows,
       total: rows.reduce((sum, row) => sum.plus(row.value), toDecimal(0)),
     };
-  }, [drillDate, historicalAccounts, pairGroups, performanceScope, transactions]);
+  }, [drillDate, historicalAccounts, pairGroups, performanceScope, transactions, conversionAt]);
 
   /**
    * Per-pair windowed performance, for the tile drills: the same maths as
@@ -625,6 +649,7 @@ function InvestmentsView() {
     for (const line of summary.lines) {
       if (performanceScope !== 'all' && line.accountId !== performanceScope) continue;
       byRoot.set(line.accountId, computePortfolioPerformance({
+        conversionAt: conversionAt ?? undefined,
         memberAccounts: pairGroups.membersByTopLevelId.get(line.accountId) ?? [],
         transactions,
         transactionSplits,
@@ -633,7 +658,7 @@ function InvestmentsView() {
       }));
     }
     return byRoot;
-  }, [summary.lines, performanceScope, pairGroups, transactions, transactionSplits, categories, historyRange]);
+  }, [summary.lines, performanceScope, pairGroups, transactions, transactionSplits, categories, historyRange, conversionAt]);
 
   const netPortfolioValue = useMemo(
     () => toDecimal(performance.endValue).minus(securedAgainstPortfolio.total),
@@ -748,8 +773,8 @@ function InvestmentsView() {
    * sleeve in the portfolio is a single Cash category.
    */
   const holdingAllocation = useMemo(
-    () => buildHoldingAllocation(holdings, summary.lines),
-    [holdings, summary.lines]
+    () => buildHoldingAllocation(holdings, summary.lines, rateFor),
+    [holdings, summary.lines, rateFor]
   );
 
   const holdingSlices = useMemo(
@@ -931,12 +956,27 @@ function InvestmentsView() {
       <div className="flex justify-end mb-2">
         <WholePoundsToggle />
       </div>
-      {/* Phase 0 (the disclosure ruling, 22 Aug §2): the portfolio value,
-          allocation and return figures still sum native units — said until
-          the Investments chain's conversion phase. The performance CHART
-          already converts (per-day reference rates); these totals do not
-          yet. Nothing for a single-currency ledger. */}
-      <MixedCurrencyDisclosure className="mb-3" />
+      {/* THE PAGE'S ONE RATE-BASIS LINE (ruling §6.2), now that the chain
+          converts (23 Aug): two bases, both said — balances are worth what
+          they are worth TODAY, flows moved on their own days. While the
+          history is absent the flows stay native and the line says that
+          instead; with no rates at all the Phase 0 disclosure stands.
+          Nothing for a single-currency ledger. */}
+      {conversion !== null && (
+        conversion.factors.size === 0 ? (
+          <MixedCurrencyDisclosure className="mb-3" />
+        ) : scopeHistorical ? (
+          <p className="mb-3 text-dense text-gray-500 dark:text-gray-400" data-testid="investments-rates-basis">
+            ≈ Balances converted at today’s rates; money in and out at each
+            day’s ECB reference rate.
+          </p>
+        ) : (
+          <p className="mb-3 text-dense text-gray-500 dark:text-gray-400" data-testid="investments-rates-basis">
+            ≈ Balances converted at today’s rates. Money in and out is counted
+            unit-for-unit until the rate history loads.
+          </p>
+        )
+      )}
       {/* Navigation Tabs */}
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-6">
         <button
@@ -1013,7 +1053,7 @@ function InvestmentsView() {
                   : 'Portfolio Value'}
               </p>
               <p className="text-page font-bold text-gray-900 dark:text-white">
-                {formatCurrency(
+                {scopeApprox}{formatCurrency(
                   showNetPosition && securedAgainstPortfolio.names.length > 0
                     ? netPortfolioValue
                     : performance.endValue
@@ -1288,7 +1328,7 @@ function InvestmentsView() {
               const drillMembers = pairGroups.membersByTopLevelId.get(drillLine.accountId) ?? [];
               const windowRows = [
                 ...drillLine.contributionRows.filter(row => inWindow(row.date)),
-                ...scopeOpeningFlows(drillMembers, transactions)
+                ...scopeOpeningFlows(drillMembers, transactions, conversionAt ?? undefined)
                   .filter(o => inWindow(new Date(`${o.day}T00:00:00Z`)))
                   .map(o => ({
                     transactionId: `opening:${o.accountId}`,
@@ -1514,9 +1554,9 @@ function InvestmentsView() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-3">
                 {([
-                  ['Started at', formatCurrency(performance.startValue), ''],
-                  ['Put in', formatCurrency(performance.moneyIn), ''],
-                  ['Taken out', formatCurrency(performance.moneyOut), ''],
+                  ['Started at', `${scopeApprox}${formatCurrency(performance.startValue)}`, ''],
+                  ['Put in', `${scopeApprox}${formatCurrency(performance.moneyIn)}`, ''],
+                  ['Taken out', `${scopeApprox}${formatCurrency(performance.moneyOut)}`, ''],
                   ['Gain', performance.gain.greaterThan(0)
                     ? `+${formatCurrency(performance.gain)}`
                     : formatCurrency(performance.gain),
@@ -1524,7 +1564,7 @@ function InvestmentsView() {
                     : performance.gain.greaterThan(0)
                       ? 'text-green-600 dark:text-green-400'
                       : 'text-red-600 dark:text-red-400'],
-                  ['Ended at', formatCurrency(performance.endValue), ''],
+                  ['Ended at', `${scopeApprox}${formatCurrency(performance.endValue)}`, ''],
                 ] as const).map(([label, figure, colour]) => (
                   <div key={label}>
                     <p className="text-label uppercase tracking-wider text-gray-500 dark:text-gray-400">{label}</p>

@@ -53,8 +53,9 @@ const LEDGER: Record<string, Partial<Record<(typeof PRIMITIVES)[number], Status>
   'src/utils/portfolioSummary.ts': {
     buildNetWorthSnapshots: 'converts',
     buildPortfolioHistory: 'converts',
-    // portfolio value/allocation/returns — audit P2, awaiting its phase.
-    calculateTotalBalance: 'native-known',
+    // The Investments chain converted 23 Aug: value at today's factors,
+    // contributions at their own dates, per-member at the summing.
+    calculateTotalBalance: 'converts',
   },
 
   // ── converted surfaces ──

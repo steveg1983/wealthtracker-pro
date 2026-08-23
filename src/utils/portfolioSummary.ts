@@ -3,7 +3,7 @@ import { toDecimal, sumDecimals, type DecimalInstance } from './decimal';
 import { toDecimalAccount, toDecimalTransaction } from './decimal-converters';
 import { calculateTotalBalance } from './calculations-decimal';
 import { buildTopLevelIdByAccountId, groupByTopLevelId } from './accountNesting';
-import { buildCategoryKindLookup, classifyFlow } from './incomeExpense';
+import { buildCategoryKindLookup, classifyFlow, type FlowFactorResolver } from './incomeExpense';
 import { expandSplitTransactions, type SplitExpandedTransaction } from './transactionSplits';
 import { buildNetWorthSnapshots, type NetWorthConversion, type NetWorthConversionByDate } from './netWorthSeries';
 import type { PeriodRange } from '../hooks/usePeriod';
@@ -118,6 +118,8 @@ export interface PortfolioSummary {
    */
   returnPercent: DecimalInstance | null;
   unattributedTransfers: UnattributedTransfers;
+  /** True when any conversion factor was applied — the ≈ gate. */
+  holdsForeign: boolean;
 }
 
 export interface PortfolioSummaryInput {
@@ -127,6 +129,19 @@ export interface PortfolioSummaryInput {
   /** Split lines, so a transfer leg inside a split is classified as one. */
   transactionSplits: readonly TransactionSplit[];
   categories: readonly Category[];
+  /**
+   * The currency seams (the Investments chain's conversion, 23 Aug). VALUE is
+   * a current balance, so it converts at TODAY's factors (`conversion` — the
+   * same per-account map every current-balance surface uses). CONTRIBUTIONS
+   * are historical flows, so each converts at ITS OWN date (`flowConvert` —
+   * the same resolver the report gallery sums through). Total return is then
+   * today's value less what was actually put in, measured in the pounds of
+   * the day it was put in — FX movement on held money lands in return, where
+   * a sterling-measured portfolio truly earns or loses it. Omitted, the
+   * arithmetic is exactly what it always was: native units.
+   */
+  conversion?: NetWorthConversion;
+  flowConvert?: FlowFactorResolver;
 }
 
 const ZERO = toDecimal(0);
@@ -214,8 +229,15 @@ export function buildPortfolioSummary(input: PortfolioSummaryInput): PortfolioSu
   const memberTransactions = transactions.filter(t => memberIds.has(t.accountId));
   const decimalTransactions = memberTransactions.map(toDecimalTransaction);
 
+  const factors = input.conversion?.factors;
+  let holdsForeign = false;
   const valueOf = (group: readonly Account[]): DecimalInstance =>
-    calculateTotalBalance(group.map(toDecimalAccount), decimalTransactions);
+    group.reduce((sum, member) => {
+      const native = calculateTotalBalance([toDecimalAccount(member)], decimalTransactions);
+      const factor = factors?.get(member.id);
+      if (factor) holdsForeign = true;
+      return sum.plus(factor ? native.times(factor) : native);
+    }, ZERO);
 
   const lineValues = roots.map(root => {
     const members = membersOf(root);
@@ -276,7 +298,11 @@ export function buildPortfolioSummary(input: PortfolioSummaryInput): PortfolioSu
     ) {
       continue;
     }
-    const amount = toDecimal(row.amount);
+    const flowFactor = input.flowConvert?.(row) ?? null;
+    if (flowFactor !== null) holdsForeign = true;
+    const amount = flowFactor !== null
+      ? toDecimal(row.amount).times(flowFactor)
+      : toDecimal(row.amount);
     netContributions = netContributions.plus(amount);
     const lineId = topLevelIdByAccountId.get(row.accountId) ?? row.accountId;
     contributionsByLine.set(lineId, (contributionsByLine.get(lineId) ?? ZERO).plus(amount));
@@ -317,6 +343,7 @@ export function buildPortfolioSummary(input: PortfolioSummaryInput): PortfolioSu
       ? totalReturn.dividedBy(netContributions).times(100)
       : null,
     unattributedTransfers: { count: unattributedCount, amount: unattributedAmount },
+    holdsForeign,
   };
 }
 

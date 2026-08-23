@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computePortfolioPerformance, scopeValueAt } from './portfolioPerformance';
+import { toDecimal } from './decimal';
 import type { Account, Category, Transaction } from '../types';
 
 /**
@@ -222,5 +223,62 @@ describe('scopeValueAt — the drill\'s per-date valuation', () => {
     expect(scopeValueAt([INV], rows, new Date('2025-02-01T00:00:00Z')).toNumber()).toBe(1_000);
     expect(scopeValueAt([INV], rows, new Date('2025-03-01T00:00:00Z')).toNumber()).toBe(10_000);
     expect(scopeValueAt([INV], rows, new Date('2025-12-31T00:00:00Z')).toNumber()).toBe(10_500);
+  });
+});
+
+/**
+ * THE DATED CONVERSION SEAM (the Investments chain, 23 Aug). The decisive
+ * case is FX DRIFT: a dollar balance held across a rate move changes its
+ * sterling value with NO transaction, and that change must land in gain and
+ * TWR — a sterling-measured portfolio really did earn or lose it. Flows
+ * convert at their own day: the pounds that actually moved.
+ * Every figure here is invented; the repo is public.
+ */
+describe('computePortfolioPerformance — the dated conversion seam', () => {
+  const USD_INV = portfolio('acc-usd-inv', { currency: 'USD' });
+  // Two dollars to the pound until June 2025, four after — the pound
+  // strengthens, so a held dollar balance loses sterling value.
+  const conversionAt = (date: Date) => ({
+    factors: new Map([[USD_INV.id, toDecimal(date < new Date(2025, 5, 1) ? 0.5 : 0.25)]]),
+    unconverted: [] as string[],
+  });
+
+  const LEDGER = [
+    transferIn(USD_INV.id, '2025-01-10', 1000, EXTERNAL.id), // $1,000 in at £0.50/$ → £500 flow
+  ];
+
+  it('books FX drift on held money as (negative) gain, not as a flow', () => {
+    const result = computePortfolioPerformance({
+      memberAccounts: [USD_INV],
+      transactions: LEDGER,
+      transactionSplits: [],
+      categories: CATEGORIES,
+      range: { from: null, to: null },
+      now: new Date('2025-12-31T00:00:00Z'),
+      conversionAt,
+    });
+    // End value: $1,000 at December's £0.25/$ = £250.
+    expect(result.endValue.toNumber()).toBe(250);
+    // The January flow moved £500 of actual money.
+    expect(result.moneyIn.toNumber()).toBe(500);
+    // The £250 fall is the currency's doing — gain, never a flow.
+    expect(result.gain.toNumber()).toBe(-250);
+    // TWR sees the same halving: a −0.5 fraction (−50%) over the period.
+    expect(pct(result.twrPeriod)).toBeCloseTo(-0.5, 10);
+  });
+
+  it('values a cutoff at the cutoff day\'s own rate', () => {
+    expect(
+      scopeValueAt([USD_INV], LEDGER, new Date('2025-03-01T00:00:00Z'), conversionAt).toNumber()
+    ).toBe(500);
+    expect(
+      scopeValueAt([USD_INV], LEDGER, new Date('2025-09-01T00:00:00Z'), conversionAt).toNumber()
+    ).toBe(250);
+  });
+
+  it('without the seam every figure is native — unchanged behaviour', () => {
+    const result = compute([USD_INV], LEDGER, { from: null, to: null });
+    expect(result.endValue.toNumber()).toBe(1000);
+    expect(result.gain.toNumber()).toBe(0);
   });
 });

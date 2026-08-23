@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Account } from '../types';
 import type { PeriodRange } from './usePeriod';
 import {
@@ -48,6 +48,12 @@ export function useNetWorthConversion(
   seriesConversion: NetWorthConversion | NetWorthConversionByDate | null;
   /** Per-date factors for a drill into one day; null while degraded. */
   conversionAt: ((date: Date) => NetWorthConversion | null) | null;
+  /**
+   * Units-per-display-currency factor for an arbitrary CURRENCY at today's
+   * rates (for values keyed by listing currency rather than account —
+   * holdings). Null while rates are absent or for an unknown code.
+   */
+  rateFor: (currency: string) => DecimalInstance | null;
   /** True when per-date reference rates are in force for the series. */
   historical: boolean;
   provenance: RatesProvenance | null;
@@ -161,6 +167,15 @@ export function useNetWorthConversion(
     return { byDate: { at, unconverted }, at };
   }, [wantsHistory, historyState, accounts, displayCurrency, foreignCurrencies]);
 
+  const rateFor = useCallback((currency: string): DecimalInstance | null => {
+    if (!ratesState || currency === displayCurrency) return currency === displayCurrency ? toDecimal(1) : null;
+    const displayRate = ratesState.rates[displayCurrency];
+    const currencyRate = ratesState.rates[currency];
+    if (!displayRate || !currencyRate) return null;
+    // Units-per-GBP both sides, GBP the pivot — the app's one arithmetic.
+    return toDecimal(displayRate).dividedBy(toDecimal(currencyRate));
+  }, [ratesState, displayCurrency]);
+
   return {
     conversion,
     seriesConversion: dated?.byDate ?? conversion,
@@ -168,5 +183,6 @@ export function useNetWorthConversion(
     historical: dated !== null,
     provenance: ratesState?.provenance ?? null,
     displayCurrency,
+    rateFor,
   };
 }
