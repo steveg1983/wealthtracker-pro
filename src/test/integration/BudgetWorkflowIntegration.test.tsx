@@ -85,32 +85,43 @@ describe('Budget Workflow Integration', () => {
       });
     });
 
-    it('should display different budget tabs', async () => {
+    it('folds the features below the budgets — no tabs, no retired approaches (§12)', async () => {
+      const budgets: Budget[] = [{
+        id: 'budget-1',
+        categoryId: 'cat-1',
+        name: 'Entertainment',
+        amount: 200,
+        period: 'monthly',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        spent: 0
+      }];
+      const categories: Category[] = [
+        { id: 'cat-1', name: 'Entertainment', type: 'expense', level: 'detail' }
+      ];
+      __setAppContextValue({ budgets, categories, transactions: [] });
       renderWithProviders(<BudgetPage />);
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { level: 1, name: /budget/i })).toBeInTheDocument();
       });
 
-      // Find tab buttons
-      const traditionalTab = screen.getByRole('button', { name: /traditional/i });
-      const envelopeTab = screen.getByRole('button', { name: /envelope/i });
-      const alertsTab = screen.getByRole('button', { name: /alerts/i });
+      // The three features are collapsed folds, earned by the budget existing.
+      const templatesFold = await screen.findByRole('button', { name: /budget templates/i });
+      expect(templatesFold).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.getByRole('button', { name: /rollover/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /spending alerts/i })).toBeInTheDocument();
 
-      // Test envelope tab
-      await user.click(envelopeTab);
+      // The retired approaches are gone for good.
+      expect(screen.queryByText(/envelope/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/zero-based/i)).not.toBeInTheDocument();
+
+      // Opening a fold mounts its content.
+      await user.click(templatesFold);
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /envelope budgeting/i })).toBeInTheDocument();
+        expect(templatesFold).toHaveAttribute('aria-expanded', 'true');
       });
-
-      // Test alerts tab
-      await user.click(alertsTab);
-      await waitFor(() => {
-        expect(screen.getByText(/spending alerts/i)).toBeInTheDocument();
-      });
-
-      // Go back to traditional tab
-      await user.click(traditionalTab);
     });
 
     it('should handle budget with existing data', async () => {
@@ -245,29 +256,31 @@ describe('Budget Workflow Integration', () => {
       });
     });
 
-    it('should navigate between budget tabs successfully', async () => {
+    it('keeps the budget page a single approach — the page itself is Traditional (§12)', async () => {
+      const budgets: Budget[] = [{
+        id: 'budget-1',
+        categoryId: 'cat-1',
+        name: 'Entertainment',
+        amount: 200,
+        period: 'monthly',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        spent: 0
+      }];
+      const categories: Category[] = [
+        { id: 'cat-1', name: 'Entertainment', type: 'expense', level: 'detail' }
+      ];
+      __setAppContextValue({ budgets, categories, transactions: [] });
       renderWithProviders(<BudgetPage />);
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { level: 1, name: /budget/i })).toBeInTheDocument();
       });
 
-      // Verify all tabs are present
-      expect(screen.getByRole('button', { name: /traditional/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /envelope/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /templates/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /rollover/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /alerts/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /zero-based/i })).toBeInTheDocument();
-
-      // Test clicking envelope tab
-      const envelopeTab = screen.getByRole('button', { name: /envelope/i });
-      await user.click(envelopeTab);
-
-      // The envelope tab should show envelope budgeting content
-      await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /envelope budgeting/i })).toBeInTheDocument();
-      });
+      // No tab strip anywhere: the budgets ARE the page.
+      expect(screen.queryByRole('button', { name: /traditional/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 3, name: 'Entertainment' })).toBeInTheDocument();
     });
   });
 });

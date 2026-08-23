@@ -5,16 +5,14 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useNotifications } from '../contexts/NotificationContext';
 import { useToast } from '../contexts/ToastContext';
-import { BanknoteIcon, RepeatIcon, PiggyBankIcon, ArrowRightIcon, BellIcon, CalculatorIcon } from '../components/icons';
+import { RepeatIcon, ArrowRightIcon, BellIcon, ChevronDownIcon, ChevronRightIcon } from '../components/icons';
 import TrendArrow from '../components/TrendArrow';
 import { EditIcon, DeleteIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
 import BudgetModal from '../components/BudgetModal';
-import EnvelopeBudgeting from '../components/EnvelopeBudgeting';
 import RecurringBudgetTemplates from '../components/RecurringBudgetTemplates';
 import BudgetRollover from '../components/BudgetRollover';
 import SpendingAlerts from '../components/SpendingAlerts';
-import ZeroBasedBudgeting from '../components/ZeroBasedBudgeting';
 import type { Budget } from '../types';
 import { getEffectiveBudgetAmount } from '../utils/budgetAmounts';
 import PageWrapper from '../components/PageWrapper';
@@ -50,7 +48,22 @@ function BudgetView() {
   const location = useLocation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
-  const [activeTab, setActiveTab] = useState<'traditional' | 'envelope' | 'templates' | 'rollover' | 'alerts' | 'zero-based'>('traditional');
+  /**
+   * §12 (owner, 23 Aug): ONE budgeting approach — the traditional page IS
+   * Budget. Envelope and Zero-Based are retired; Templates, Rollover and
+   * Alerts fold in as features below the budgets, each a collapsed section
+   * that mounts only when opened. No tab strip: a first-time user is never
+   * asked to choose between budgeting philosophies before they have a
+   * single budget.
+   */
+  const [openFeatures, setOpenFeatures] = useState<Set<'templates' | 'rollover' | 'alerts'>>(new Set());
+  const toggleFeature = (key: 'templates' | 'rollover' | 'alerts'): void =>
+    setOpenFeatures(previous => {
+      const next = new Set(previous);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   const [isLoading, setIsLoading] = useState(true);
   const { formatCurrency, displayCurrency } = useCurrencyDecimal();
   const formatPercentage = (value: number | DecimalInstance, decimals: number = 0) => {
@@ -105,8 +118,8 @@ function BudgetView() {
       .filter(budget => budget !== null && budget !== undefined)
       .map((budget) => {
         // Effective amount = base budget plus any rollover carried in — the
-        // same figure the Envelope, Rollover and Alerts tabs use, so the five
-        // tabs can never disagree.
+        // same figure the Rollover and Alerts folds use, so the surfaces can
+        // never disagree.
         const effectiveAmount = getEffectiveBudgetAmount(budget);
 
         // A budget on a GROUP category counts every detail category beneath
@@ -280,13 +293,10 @@ function BudgetView() {
     }
   }, [budgets, transactions, categories, transactionSplits, foreignAccountIds, checkEnhancedBudgetAlerts]);
 
-  // The six methodology tabs are furniture for content that doesn't exist
-  // until a budget does (Claude Design 22 Aug §7) — the summary trio already
-  // stands down over the empty page, and the tab strip answers to the same
-  // rule. While the tabs are away the page shows the traditional view, which
-  // is where the empty state and its remedies live.
-  const tabsEarned = isLoading || budgets.length > 0;
-  const view = tabsEarned ? activeTab : 'traditional';
+  // The feature folds are furniture for content that doesn't exist until a
+  // budget does (Claude Design 22 Aug §7) — the summary trio stands down
+  // over the empty page, and the folds answer to the same rule.
+  const featuresEarned = !isLoading && budgets.length > 0;
 
   return (
     <PageWrapper
@@ -311,83 +321,8 @@ function BudgetView() {
       <div className="flex justify-end mb-2">
         <WholePoundsToggle />
       </div>
-      {/* Navigation Tabs — only once there is a budget for them to slice
-          (Claude Design 22 Aug §7). */}
-      {tabsEarned && (
-      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-6">
-        <button
-          onClick={() => setActiveTab('traditional')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
-            activeTab === 'traditional'
-              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
-          title="Traditional category-based budgeting"
-        >
-          <BanknoteIcon size={16} />
-          Traditional
-        </button>
-        <button
-          onClick={() => setActiveTab('envelope')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
-            activeTab === 'envelope'
-              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
-          title="Envelope budgeting - allocate money to virtual envelopes"
-        >
-          <PiggyBankIcon size={16} />
-          Envelope
-        </button>
-        <button
-          onClick={() => setActiveTab('templates')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
-            activeTab === 'templates'
-              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
-        >
-          <RepeatIcon size={16} />
-          Templates
-        </button>
-        <button
-          onClick={() => setActiveTab('rollover')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
-            activeTab === 'rollover'
-              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
-        >
-          <ArrowRightIcon size={16} />
-          Rollover
-        </button>
-        <button
-          onClick={() => setActiveTab('alerts')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
-            activeTab === 'alerts'
-              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
-        >
-          <BellIcon size={16} />
-          Alerts
-        </button>
-        <button
-          onClick={() => setActiveTab('zero-based')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-body font-medium rounded-md transition-colors ${
-            activeTab === 'zero-based'
-              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
-        >
-          <CalculatorIcon size={16} />
-          Zero-Based
-        </button>
-      </div>
-      )}
-
-      {/* Tab Content */}
-      {view === 'traditional' && (
+      {/* The budgets — the page itself. */}
+      {(
         <div className="grid gap-6">
         {/* Summary Cards — HIDDEN WHILE THERE ARE NO BUDGETS (Claude Design,
             22 Aug §3). Three £0.00 cards above "no budgets yet" are furniture
@@ -592,29 +527,43 @@ function BudgetView() {
         </div>
       )}
 
-      {/* Envelope Budgeting Tab */}
-      {view === 'envelope' && (
-        <EnvelopeBudgeting />
-      )}
-
-      {/* Templates Tab */}
-      {view === 'templates' && (
-        <RecurringBudgetTemplates />
-      )}
-
-      {/* Rollover Tab */}
-      {view === 'rollover' && (
-        <BudgetRollover />
-      )}
-
-      {/* Alerts Tab */}
-      {view === 'alerts' && (
-        <SpendingAlerts />
-      )}
-
-      {/* Zero-Based Budgeting Tab */}
-      {view === 'zero-based' && (
-        <ZeroBasedBudgeting />
+      {/* The features that used to be tabs (§12): each a collapsed fold,
+          content mounted only when opened — a heading is cheap, five hundred
+          lines of hidden component are not. Earned by a budget existing,
+          per the same rule as the summary trio. */}
+      {featuresEarned && (
+        <div className="mt-8 space-y-3">
+          {([
+            ['templates', RepeatIcon, 'Budget templates', 'Recurring budget sets you can apply in one go.'],
+            ['rollover', ArrowRightIcon, 'Rollover', 'Carry what is left of a budget into the next period.'],
+            ['alerts', BellIcon, 'Spending alerts', 'Warnings as a budget fills, before it overflows.'],
+          ] as const).map(([key, Icon, title, blurb]) => (
+            <div key={key} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => toggleFeature(key)}
+                aria-expanded={openFeatures.has(key)}
+                className="w-full flex items-center gap-3 p-5 text-left"
+              >
+                <Icon size={18} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-body font-semibold text-gray-900 dark:text-white">{title}</span>
+                  <span className="block text-sm text-gray-500 dark:text-gray-400">{blurb}</span>
+                </span>
+                {openFeatures.has(key)
+                  ? <ChevronDownIcon size={18} className="text-gray-400 shrink-0" />
+                  : <ChevronRightIcon size={18} className="text-gray-400 shrink-0" />}
+              </button>
+              {openFeatures.has(key) && (
+                <div className="px-5 pb-5">
+                  {key === 'templates' && <RecurringBudgetTemplates />}
+                  {key === 'rollover' && <BudgetRollover />}
+                  {key === 'alerts' && <SpendingAlerts />}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
 
       <BudgetModal
