@@ -2477,9 +2477,14 @@ function AccountsList() {
               // play. A single-currency ledger keeps the exact arithmetic it
               // had — same functions, same number — so this change is invisible
               // to everyone it does not concern.
-              netWorth={formatDisplayCurrency(spansCurrencies ? convertedNetWorth.netWorth : totalBalance)}
-              assets={formatDisplayCurrency(spansCurrencies ? convertedNetWorth.assets : totalAssets)}
-              liabilities={formatDisplayCurrency(spansCurrencies ? convertedNetWorth.liabilities : totalLiabilities)}
+              // The ≈ on the trio itself (Design, 24 Aug §1): the group
+              // totals below already wear it for the same conversion, and a
+              // converted figure marked on one surface and not the other
+              // reads as two different kinds of number. provenance is null
+              // exactly when nothing converted.
+              netWorth={`${spansCurrencies && convertedNetWorth.provenance ? '≈ ' : ''}${formatDisplayCurrency(spansCurrencies ? convertedNetWorth.netWorth : totalBalance)}`}
+              assets={`${spansCurrencies && convertedNetWorth.provenance ? '≈ ' : ''}${formatDisplayCurrency(spansCurrencies ? convertedNetWorth.assets : totalAssets)}`}
+              liabilities={`${spansCurrencies && convertedNetWorth.provenance ? '≈ ' : ''}${formatDisplayCurrency(spansCurrencies ? convertedNetWorth.liabilities : totalLiabilities)}`}
               onSelect={figure => setBreakdownView(figure)}
               provenance={spansCurrencies ? convertedNetWorth.provenance : null}
               unconverted={spansCurrencies ? convertedNetWorth.unconverted : []}

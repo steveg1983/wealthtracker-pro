@@ -106,6 +106,36 @@ interface Accumulator {
   count: number;
 }
 
+const dayKeyOf = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/**
+ * WHICH rates value the closing balances (Design ruling, 24 Aug §1, refined
+ * by the owner the same night): a net worth is a snapshot AS AT the
+ * statement's own date.
+ *
+ * As at TODAY — every default period — that is today's rates, the very
+ * factors the Accounts page converts with, so the two surfaces give one
+ * answer to "what am I worth". As at a PAST day (a custom range ending
+ * there), it is that day's ECB reference rate — wealth held in dollars in
+ * 2015 values at 2015's rate, never restated by today's. Degraded (no
+ * history), today's rates stand in and the basis line says so.
+ *
+ * One exported rule, because two report pages call it and they may not
+ * disagree about the same money.
+ */
+export function resolveClosingSnapshot(
+  range: PeriodRange,
+  now: Date,
+  conversion: NetWorthConversion | null,
+  conversionAt: ((date: Date) => NetWorthConversion | null) | null
+): NetWorthConversion | null {
+  if (range.to && dayKeyOf(range.to) < dayKeyOf(now)) {
+    return conversionAt?.(range.to) ?? conversion;
+  }
+  return conversion;
+}
+
 export function buildAccountBalanceReport(
   accounts: Account[],
   transactions: Transaction[],
@@ -113,23 +143,34 @@ export function buildAccountBalanceReport(
   now: Date = new Date(),
   /**
    * The dated conversion seam (the balance reports' conversion, 23 Aug).
-   * The table's contract is the accounting identity — opening + change =
-   * closing — so every column converts on the identity's own terms: each
-   * movement at ITS OWN day's rate, the opening column at the day the
-   * window opens (each lump at its own effective day on an all-time
-   * window). Rows stay native — they print their account's own currency —
-   * and only the group and report totals wear the converted figures.
-   * Omitted, every figure is exactly what it always was.
+   * Movements convert on the identity's own terms: each movement at ITS OWN
+   * day's rate, the opening column at the day the window opens (each lump at
+   * its own effective day on an all-time window). Rows stay native — they
+   * print their account's own currency — and only the group and report
+   * totals wear the converted figures. Omitted, every figure is exactly what
+   * it always was.
    */
-  conversionAt?: (date: Date) => NetWorthConversion | null
+  conversionAt?: (date: Date) => NetWorthConversion | null,
+  /**
+   * TODAY'S-rates factors for the CLOSING figures (Design ruling, 24 Aug §1):
+   * a net worth is a snapshot, and two surfaces one click apart were giving
+   * two authoritative answers to "what am I worth" — Accounts at today's
+   * rates, this report's closings at each day's. One basis for the snapshot
+   * everywhere: pass the same today's-rates conversion the Accounts card
+   * uses and every converted closing (row, group total, assets/liabilities/
+   * net worth) values the native closing at it. The identity argument keeps
+   * the movement columns — which is where it was always aimed — so
+   * `opening + change` and `closing` may differ in converted terms by
+   * exactly the FX drift on held money; the caller's basis line states the
+   * two bases. Omitted, closings keep the identity construction.
+   */
+  snapshot?: NetWorthConversion | null
 ): AccountBalanceReport {
   const asOf = range.to ?? now;
   const fromTime = range.from ? range.from.getTime() : null;
   const toTime = asOf.getTime();
   const factorFor = dailyFactorLookup(conversionAt);
-  const dayKey = (d: Date): string =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const openingBasisDay = fromTime !== null ? dayKey(new Date(fromTime - 86_400_000)) : null;
+  const openingBasisDay = fromTime !== null ? dayKeyOf(new Date(fromTime - 86_400_000)) : null;
   let holdsForeign = false;
   const convert = (accountId: string, day: string, amount: DecimalInstance): DecimalInstance => {
     const factor = factorFor(accountId, day);
@@ -169,7 +210,7 @@ export function buildAccountBalanceReport(
     if (effTime !== null && effTime > toTime) continue; // not yet effective
     const insideWindow = fromTime !== null && effTime !== null && effTime >= fromTime;
     if (insideWindow) {
-      const converted = convert(account.id, dayKey(new Date(effTime)), opening);
+      const converted = convert(account.id, dayKeyOf(new Date(effTime)), opening);
       if (opening.greaterThanOrEqualTo(0)) {
         accumulator.moneyIn = accumulator.moneyIn.plus(opening);
         accumulator.moneyInConverted = accumulator.moneyInConverted.plus(converted);
@@ -182,7 +223,7 @@ export function buildAccountBalanceReport(
       // all-time window, at each lump's own effective day (the epoch's
       // earliest rate carries back for the undated).
       const basisDay = openingBasisDay
-        ?? (effTime !== null ? dayKey(new Date(effTime)) : '1999-01-04');
+        ?? (effTime !== null ? dayKeyOf(new Date(effTime)) : '1999-01-04');
       accumulator.opening = accumulator.opening.plus(opening);
       accumulator.openingConverted = accumulator.openingConverted.plus(convert(account.id, basisDay, opening));
     }
@@ -200,12 +241,12 @@ export function buildAccountBalanceReport(
     if (fromTime !== null && time < fromTime) {
       accumulator.opening = accumulator.opening.plus(amount);
       accumulator.openingConverted = accumulator.openingConverted.plus(
-        convert(transaction.accountId, openingBasisDay ?? dayKey(new Date(time)), amount)
+        convert(transaction.accountId, openingBasisDay ?? dayKeyOf(new Date(time)), amount)
       );
       continue;
     }
     accumulator.count += 1;
-    const converted = convert(transaction.accountId, dayKey(new Date(time)), amount);
+    const converted = convert(transaction.accountId, dayKeyOf(new Date(time)), amount);
     if (amount.greaterThanOrEqualTo(0)) {
       accumulator.moneyIn = accumulator.moneyIn.plus(amount);
       accumulator.moneyInConverted = accumulator.moneyInConverted.plus(converted);
@@ -227,6 +268,21 @@ export function buildAccountBalanceReport(
     };
     const change = accumulator.moneyIn.minus(accumulator.moneyOut);
     const changeConverted = accumulator.moneyInConverted.minus(accumulator.moneyOutConverted);
+    const closing = accumulator.opening.plus(change);
+    // The snapshot basis (see the parameter): the native closing valued at
+    // today's rates — the Accounts card's own factors — so every surface
+    // answers "what is this worth" with one number. Without a snapshot the
+    // closing keeps the identity construction.
+    const snapshotFactor = snapshot?.factors.get(account.id);
+    let closingConverted: DecimalInstance;
+    if (snapshot === undefined) {
+      closingConverted = accumulator.openingConverted.plus(changeConverted);
+    } else if (snapshotFactor) {
+      holdsForeign = true;
+      closingConverted = closing.times(snapshotFactor);
+    } else {
+      closingConverted = closing;
+    }
     return {
       accountId: account.id,
       name: account.name,
@@ -236,10 +292,10 @@ export function buildAccountBalanceReport(
       moneyIn: accumulator.moneyIn.toNumber(),
       moneyOut: accumulator.moneyOut.toNumber(),
       change: change.toNumber(),
-      closing: accumulator.opening.plus(change).toNumber(),
+      closing: closing.toNumber(),
       openingConverted: accumulator.openingConverted.toNumber(),
       changeConverted: changeConverted.toNumber(),
-      closingConverted: accumulator.openingConverted.plus(changeConverted).toNumber(),
+      closingConverted: closingConverted.toNumber(),
       count: accumulator.count,
     };
   });
@@ -276,12 +332,14 @@ export function buildAccountBalanceReport(
   let liabilities = toDecimal(0);
   let openingNetWorth = toDecimal(0);
   let netWorth = toDecimal(0);
+  let periodChange = toDecimal(0);
   for (const row of rows) {
     const closing = toDecimal(row.closingConverted);
     if (closing.greaterThan(0)) assets = assets.plus(closing);
     else liabilities = liabilities.plus(closing.abs());
     netWorth = netWorth.plus(closing);
     openingNetWorth = openingNetWorth.plus(toDecimal(row.openingConverted));
+    periodChange = periodChange.plus(toDecimal(row.changeConverted));
   }
 
   return {
@@ -292,7 +350,10 @@ export function buildAccountBalanceReport(
     netWorth: netWorth.toNumber(),
     openingNetWorth: openingNetWorth.toNumber(),
     holdsForeign,
-    change: netWorth.minus(openingNetWorth).toNumber(),
+    // The period's MOVEMENTS on their own per-day basis — never derived as
+    // netWorth − opening, which would mix the snapshot basis into a flow
+    // figure. Identity mode makes the two formulas equal exactly.
+    change: periodChange.toNumber(),
     asOf,
   };
 }

@@ -3,7 +3,8 @@ import { useApp } from '../../contexts/AppContextSupabase';
 import { useNetWorthConversion } from '../../hooks/useNetWorthConversion';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
-import { buildAccountBalanceReport, type AccountBalanceRow } from '../../utils/accountBalanceReport';
+import { buildAccountBalanceReport, resolveClosingSnapshot, type AccountBalanceRow } from '../../utils/accountBalanceReport';
+import BalanceReportCurrencyNote from '../../components/reports/BalanceReportCurrencyNote';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
 import { getDateLocale } from '../../utils/dateFormatter';
@@ -24,13 +25,18 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
 
   // The dated seam (balance reports' conversion, 23 Aug): each movement at
-  // its own day's rate, openings at the window's start; null while the
-  // history is absent, when the totals stay native and the hub's disclosure
-  // says so.
-  const { conversionAt } = useNetWorthConversion(accounts, { range: { from: null, to: null } });
+  // its own day's rate, openings at the window's start. The CLOSING figures
+  // take the snapshot basis (one-net-worth ruling, 24 Aug §1) — the as-at
+  // day's own rates — so this page's total agrees with Accounts and the
+  // Net worth report to the penny.
+  const { conversion, conversionAt } = useNetWorthConversion(accounts, { range: { from: null, to: null } });
   const report = useMemo(
-    () => buildAccountBalanceReport(accounts, transactions, picker.range, new Date(), conversionAt ?? undefined),
-    [accounts, transactions, picker.range, conversionAt]
+    () => buildAccountBalanceReport(
+      accounts, transactions, picker.range, new Date(),
+      conversionAt ?? undefined,
+      resolveClosingSnapshot(picker.range, new Date(), conversion, conversionAt)
+    ),
+    [accounts, transactions, picker.range, conversion, conversionAt]
   );
   const approx = report.holdsForeign ? '≈ ' : '';
 
@@ -82,6 +88,11 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
           </p>
         </div>
       </div>
+
+      {/* The two bases, said — balances at the as-at day, movements at their
+          own days (the one-net-worth ruling). The hub stands down for this
+          report; the note is its own. */}
+      <BalanceReportCurrencyNote asOf={report.asOf} />
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
         <div className="p-6 pb-3">

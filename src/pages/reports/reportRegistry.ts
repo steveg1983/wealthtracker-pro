@@ -115,9 +115,11 @@ export const REPORTS: ReportDefinition[] = [
     group: 'what-i-have',
     icon: WalletIcon,
     usesPeriod: true,
-    // Totals convert on the per-day basis (each movement at its own day,
-    // openings at the window's start) — the hub's note states it.
-    currency: 'flows',
+    // Two bases since the one-net-worth ruling (24 Aug §1): closings at the
+    // as-at day's rates, movements at their own days. The report states them
+    // itself (BalanceReportCurrencyNote) — the hub's one-basis note would be
+    // wrong here.
+    currency: 'self',
     component: lazyWithRecovery(() => import('./NetWorthStatementReport')),
   },
   {
@@ -142,9 +144,11 @@ export const REPORTS: ReportDefinition[] = [
     group: 'what-i-have',
     icon: LandmarkIcon,
     usesPeriod: true,
-    // Totals convert on the per-day basis (each movement at its own day,
-    // openings at the window's start) — the hub's note states it.
-    currency: 'flows',
+    // Two bases since the one-net-worth ruling (24 Aug §1): closings at the
+    // as-at day's rates, movements at their own days. The report states them
+    // itself (BalanceReportCurrencyNote) — the hub's one-basis note would be
+    // wrong here.
+    currency: 'self',
     component: lazyWithRecovery(() => import('./AccountBalancesReport')),
   },
   {
