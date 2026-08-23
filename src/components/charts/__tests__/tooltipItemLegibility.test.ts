@@ -97,6 +97,35 @@ describe('every recharts tooltip pins its item text (census)', () => {
   });
 });
 
+describe('every recharts legend neutralises its label text (census)', () => {
+  // Recharts' default legend colours each LABEL with its series colour — the
+  // same promotion of a graphics colour to text the tooltip items had. Two of
+  // the spending donut's labels read as a second, lighter kind of text
+  // (Design, 23 Aug §3). A legend must either pass `formatter={legendText}`
+  // (ChartLegendText — neutral words, series-coloured swatch) or draw its own
+  // `content`, which owns its text colour outright.
+  it('every <Legend passes formatter or content', () => {
+    const sites: string[] = [];
+    for (const path of tsxFilesUnder(SRC)) {
+      const content = readFileSync(path, 'utf8');
+      if (!/from ['"]recharts['"]/.test(content)) continue;
+      let index = content.indexOf('<Legend');
+      while (index !== -1) {
+        const next = content[index + '<Legend'.length];
+        if (next === undefined || /[\s/>]/.test(next)) {
+          const close = content.indexOf('/>', index);
+          const tag = content.slice(index, close === -1 ? undefined : close + 2);
+          if (!tag.includes('formatter') && !tag.includes('content')) {
+            sites.push(`${relative(process.cwd(), path)}:${content.slice(0, index).split('\n').length}`);
+          }
+        }
+        index = content.indexOf('<Legend', index + 1);
+      }
+    }
+    expect(sites, 'these legends let recharts colour label text with the series colour').toEqual([]);
+  });
+});
+
 describe('the pinned item colour is legible on its own bubble (measured)', () => {
   for (const ground of ['light', 'dark'] as const) {
     it(`${ground}: item text clears the 4.5:1 text bar on the ${ground} bubble`, () => {

@@ -24,7 +24,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ColorContrastChecker } from '../../../utils/color-contrast-checker';
-import { CATEGORICAL_AXIS, categoricalColor, categoricalRamp } from '../chartColors';
+import { CATEGORICAL_AXIS, MAX_CATEGORICAL_SERIES, capSeriesWithRemainder, categoricalColor, categoricalRamp } from '../chartColors';
 
 const AA_GRAPHICS = 3.0;
 const SURFACES_LIGHT = ['#ffffff', '#f8f9fb'] as const;
@@ -171,5 +171,40 @@ describe('the categorical ramp is the only chart palette', () => {
       const found = withoutComments(read(path)).match(PALETTE_SHAPE) ?? [];
       expect(found, `${path} declares a palette of its own: ${found.join(' ')}`).toEqual([]);
     }
+  });
+});
+
+describe('capSeriesWithRemainder — the fold a capped chart answers clicks with', () => {
+  // Every figure below is invented; the repo is public.
+  const items = [
+    { id: 'a', total: 500 },
+    { id: 'b', total: 400 },
+    { id: 'c', total: 300 },
+    { id: 'd', total: 200 },
+    { id: 'e', total: 100 },
+    { id: 'f', total: 50 },
+    { id: 'g', total: 25 },
+  ];
+  const cap = (list: typeof items) =>
+    capSeriesWithRemainder(list, i => i.total, i => i.id, count => `${count} smaller`);
+
+  it('folds everything past the ceiling into one named remainder', () => {
+    const rows = cap(items);
+    expect(rows.length).toBe(MAX_CATEGORICAL_SERIES);
+    expect(rows[rows.length - 1]).toMatchObject({ name: '3 smaller', value: 175 });
+  });
+
+  it('carries the caller’s own datum on every real slice, and none on the fold', () => {
+    const rows = cap(items);
+    // The `source` is what lets a capped ring still answer a click (drill by
+    // id) — and its absence is how a caller tells the fold from a slice.
+    expect(rows.slice(0, -1).map(r => r.source?.id)).toEqual(['a', 'b', 'c', 'd']);
+    expect(rows[rows.length - 1].source).toBeUndefined();
+  });
+
+  it('leaves an uncapped series whole, every slice with its source', () => {
+    const rows = cap(items.slice(0, 3));
+    expect(rows.map(r => r.name)).toEqual(['a', 'b', 'c']);
+    expect(rows.every(r => r.source !== undefined)).toBe(true);
   });
 });

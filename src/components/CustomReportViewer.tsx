@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp, useChartTooltipStyle, useChartTooltipItemStyle } from './charts/chartColors';
+import { legendText } from './charts/ChartLegendText';
 import { formatDecimal } from '../utils/decimal-format';
 import type { CustomReport, ReportComponent } from './CustomReportBuilder';
 import { getDateLocale } from '../utils/dateFormatter';
@@ -123,7 +124,7 @@ export default function CustomReportViewer({
                   <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 11 }} minTickGap={24} />
                   <YAxis tick={{ fill: '#6B7280', fontSize: 11 }} tickFormatter={compactTick} width={56} />
                   <Tooltip formatter={money} contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": " />
-                  <Legend />
+                  <Legend formatter={legendText} />
                   {series.datasets.map((ds, i) => (
                     <Line
                       key={ds.label}
@@ -142,7 +143,7 @@ export default function CustomReportViewer({
                   <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 11 }} minTickGap={24} />
                   <YAxis tick={{ fill: '#6B7280', fontSize: 11 }} tickFormatter={compactTick} width={56} />
                   <Tooltip formatter={money} contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": " />
-                  <Legend />
+                  <Legend formatter={legendText} />
                   {series.datasets.map((ds, i) => (
                     <Bar
                       key={ds.label}
