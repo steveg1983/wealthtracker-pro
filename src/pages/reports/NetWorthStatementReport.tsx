@@ -113,7 +113,10 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
                       <span className="block text-sm text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline">
                         {row.name}
                       </span>
-                      <span className="block text-xs text-gray-400 dark:text-gray-500">
+                      {/* mt-0.5: a long name wraps to the line above this
+                          label, and with no gap the two read as one string
+                          (Design, 23 Aug §4). */}
+                      <span className="block mt-0.5 text-xs text-gray-400 dark:text-gray-500">
                         {groupLabels.get(row.accountId) ?? 'Other'}
                       </span>
                     </button>

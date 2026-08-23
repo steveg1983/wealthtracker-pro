@@ -251,8 +251,11 @@ function CalendarView() {
     [accounts]
   );
 
-  /** The due-next panel, opened out past its eight-row cap. */
-  const [showAllDue, setShowAllDue] = useState(false);
+  /* The due-next panel shows EVERYTHING in its window. It capped at eight
+     nearest-by-date with a "show all" door — which buried anything large
+     falling later in the month behind a link, in a panel whose one job is
+     "what's coming" (Design, 23 Aug §6). The rows are one line each; the
+     honest cost of a heavy month is a longer list. */
 
   /**
    * WEEK / MONTH / YEAR (owner, 19 Aug: "apple style buttons for week /
@@ -688,7 +691,7 @@ function CalendarView() {
         ) : (
           <>
             <ul className="mt-2 divide-y divide-gray-50 dark:divide-gray-700/50">
-              {(showAllDue ? dueNext : dueNext.slice(0, 8)).map((occurrence) => (
+              {dueNext.map((occurrence) => (
                 <li
                   key={`${occurrence.detection.key}-${occurrence.date.getTime()}`}
                   className="py-1.5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5"
@@ -721,19 +724,6 @@ function CalendarView() {
                 </li>
               ))}
             </ul>
-            {dueNext.length > 8 && (
-              /* Named, never silently truncated — and now a door, not a
-                 remark (owner, 18 Aug: "click to view all"). */
-              <button
-                type="button"
-                onClick={() => setShowAllDue(open => !open)}
-                className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline"
-              >
-                {showAllDue
-                  ? 'Show fewer'
-                  : `…and ${dueNext.length - 8} more in the next 30 days — show all`}
-              </button>
-            )}
           </>
         )}
       </section>
@@ -842,8 +832,12 @@ function CalendarView() {
                 transition-colors
               `}
             >
-              {/* Day number */}
-              <div className="flex items-center justify-between mb-1">
+              {/* Day number. The transaction COUNT used to share this row,
+                  competing with the date for the corner at nearly its size —
+                  but the count is how many, not how much, the least useful
+                  figure in the cell. It sits at the bottom in caption size
+                  now; the amounts are the day's story (Design, 23 Aug §5). */}
+              <div className="mb-1">
                 <span className={`text-sm font-medium ${
                   day.isToday
                     ? 'bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs'
@@ -853,11 +847,6 @@ function CalendarView() {
                 }`}>
                   {day.day}
                 </span>
-                {day.transactionCount > 0 && (
-                  <span className="text-xs text-gray-400 dark:text-gray-500">
-                    {day.transactionCount}
-                  </span>
-                )}
               </div>
 
               {/* Movement figures — each a door into what composed it
@@ -903,9 +892,22 @@ function CalendarView() {
                 </button>
               )}
 
+              {/* The count, demoted to a bottom caption (Design, 23 Aug §5):
+                  a cell too narrow for the word keeps the bare figure, so the
+                  full phrase rides on title and the accessible name. */}
+              {day.isCurrentMonth && day.transactionCount > 0 && (
+                <span
+                  className="mt-auto pt-0.5 text-[10px] leading-tight text-gray-400 dark:text-gray-500"
+                  title={`${day.transactionCount} transaction${day.transactionCount === 1 ? '' : 's'}`}
+                  aria-label={`${day.transactionCount} transaction${day.transactionCount === 1 ? '' : 's'}`}
+                >
+                  {day.transactionCount}
+                </span>
+              )}
+
               {/* Running balance at bottom — only when asked for. */}
               {showNetWorth && day.isCurrentMonth && day.transactionCount > 0 && (
-                <div className={`text-xs mt-auto pt-1 font-medium truncate ${
+                <div className={`text-xs pt-1 font-medium truncate ${
                   day.runningBalance < 0 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'
                 }`}>
                   {formatCurrency(day.runningBalance)}
