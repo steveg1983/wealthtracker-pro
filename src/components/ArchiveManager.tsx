@@ -315,7 +315,7 @@ export default function ArchiveManager() {
             onClick={event => { event.stopPropagation(); void handleArchive(account.id); }}
             disabled={busy || !cutoff || impact.willHide === 0}
             title={!cutoff ? 'Pick a date range above' : describeArchiveConsequence(impact, cutoff)}
-            className="px-3 py-1.5 text-sm rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1"
+            className="px-3 py-1.5 text-sm rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1"
           >
             {busy ? 'Working…' : impact.willHide > 0 ? `Archive ${impact.willHide.toLocaleString()}` : 'Archive'}
           </button>
@@ -497,7 +497,7 @@ export default function ArchiveManager() {
               onClick={saveOverride}
               disabled={draftDate === '' || !draftAcknowledged}
               title={draftDate === '' ? 'Choose a date first' : !draftAcknowledged ? 'Tick the acknowledgement first' : undefined}
-              className="px-4 py-2 text-sm rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Use this date
             </button>

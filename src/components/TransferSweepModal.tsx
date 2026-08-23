@@ -1170,7 +1170,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                 type="button"
                 onClick={() => void handleApply()}
                 disabled={applying || chosen.length === 0}
-                className="justify-center px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="justify-center px-4 py-2 text-sm font-medium rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {applying ? 'Linking…' : `Link ${chosen.length.toLocaleString()} pair${chosen.length === 1 ? '' : 's'}`}
               </button>
@@ -1232,7 +1232,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                   setSelected(next);
                   setInspecting(null);
                 }}
-                className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover transition-colors"
               >
                 Yes — select this pair
               </button>
@@ -1301,7 +1301,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                   setSelected(next);
                   setInspectingLeg(null);
                 }}
-                className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover transition-colors"
               >
                 Yes — select this line
               </button>
@@ -1429,7 +1429,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                 type="button"
                 disabled={resolving || (needsAdjustmentCategory(reviewing) && !adjustmentCategory)}
                 onClick={() => void handleStranded(reviewing)}
-                className="justify-center px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="justify-center px-4 py-2 text-sm font-medium rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {resolving ? 'Working…' : STRANDED_CONFIRM[reviewing.kind]}
               </button>
@@ -1507,7 +1507,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                     }
                   })();
                 }}
-                className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover transition-colors disabled:opacity-50"
               >
                 {reopening ? 'Re-opening…' : 'Re-open and view'}
               </button>

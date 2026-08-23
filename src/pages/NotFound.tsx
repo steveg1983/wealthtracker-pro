@@ -36,7 +36,7 @@ export default function NotFound(): React.JSX.Element {
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Link
             to="/dashboard"
-            className="inline-flex items-center justify-center rounded-lg bg-[#1a2332] px-4 py-2 text-sm font-medium text-white hover:bg-[#2d3a4d] dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center justify-center rounded-lg bg-primary-action px-4 py-2 text-sm font-medium text-on-primary-action hover:bg-primary-action-hover transition-colors"
           >
             Go to your dashboard
           </Link>

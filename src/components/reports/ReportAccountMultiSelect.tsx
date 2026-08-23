@@ -219,7 +219,7 @@ export default function ReportAccountMultiSelect({
               <button
                 type="button"
                 onClick={save}
-                className="px-3 py-1 text-sm font-medium rounded-md bg-[#1a2332] dark:bg-blue-600 text-white hover:opacity-90"
+                className="px-3 py-1 text-sm font-medium rounded-md bg-primary-action text-on-primary-action hover:opacity-90"
               >
                 Save
               </button>

@@ -187,7 +187,7 @@ export default function LoadTestDataModal({ isOpen, onClose }: Props): React.JSX
             <button
               onClick={() => { void handleLoad(); }}
               disabled={phase === 'loading'}
-              className="flex-1 justify-center px-4 py-2 bg-[#1a2332] dark:bg-blue-600 text-white rounded-lg hover:bg-[#243044] dark:hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex-1 justify-center px-4 py-2 bg-primary-action text-on-primary-action rounded-lg hover:bg-primary-action-hover disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {phase === 'loading' ? 'Loading…' : phase === 'failed' ? 'Try again' : 'Load test data'}
             </button>
