@@ -138,7 +138,10 @@ export default function MsMoneyImportModal({ isOpen, onClose, onBackup, onExecut
           {/* ── Reading ──────────────────────────────────────────── */}
           {stage === 'reading' && (
             <div className="text-center py-10">
-              <div className="inline-block h-8 w-8 border-2 border-[#1a2332] dark:border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
+              {/* A spinner is motion, not a signal — neutral: line-strong on
+                  light, the focus-family slate on dark (Design ruling, 23 Aug
+                  §8). */}
+              <div className="inline-block h-8 w-8 border-2 border-line-strong dark:border-[#94a3b8] border-t-transparent rounded-full animate-spin mb-4" />
               <p className="text-gray-600 dark:text-gray-400">Reading {fileName}…</p>
             </div>
           )}
@@ -226,7 +229,7 @@ export default function MsMoneyImportModal({ isOpen, onClose, onBackup, onExecut
             <div className="py-8">
               <p className="text-center text-gray-700 dark:text-gray-300 mb-4">{progress.message}</p>
               <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                <div className="h-full bg-[#1a2332] dark:bg-blue-600 transition-[width] duration-300"
+                <div className="h-full bg-navy-400 dark:bg-primary-action transition-[width] duration-300"
                   style={{ width: `${Math.round(progress.fraction * 100)}%` }} />
               </div>
               <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-3">

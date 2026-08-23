@@ -531,7 +531,10 @@ function LinkCard({ to, icon: Icon, title, description }: {
   return (
     <Link
       to={to}
-      className="w-full text-left rounded-xl border border-[#1a2332]/15 dark:border-blue-500/30 bg-[#1a2332]/[0.03] dark:bg-blue-500/10 hover:bg-[#1a2332]/[0.06] dark:hover:bg-blue-500/20 transition-colors p-4 flex items-center gap-3"
+      // No tinted wash: a wash behind a call to action is decoration under
+      // P2 — the hairline and the icon's primary fill say it (Design
+      // ruling, 23 Aug §8).
+      className="w-full text-left rounded-xl border border-line dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors p-4 flex items-center gap-3"
     >
       <span className="shrink-0 grid place-items-center h-10 w-10 rounded-lg bg-primary-action text-on-primary-action">
         <Icon size={20} />

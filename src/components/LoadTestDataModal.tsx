@@ -121,9 +121,12 @@ export default function LoadTestDataModal({ isOpen, onClose }: Props): React.JSX
             <p className="text-sm text-gray-700 dark:text-gray-300">
               {progress?.message ?? 'Working…'}
             </p>
+            {/* A progress fill is a MAGNITUDE: navy-400 on light, the
+                primary-action near-white on dark — the buttons' own
+                inversion, no invented blue (Design ruling, 23 Aug §8). */}
             <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
               <div
-                className="h-full bg-[#1a2332] dark:bg-blue-600 transition-all duration-200"
+                className="h-full bg-navy-400 dark:bg-primary-action transition-all duration-200"
                 style={{ width: `${Math.round((progress?.fraction ?? 0) * 100)}%` }}
               />
             </div>
