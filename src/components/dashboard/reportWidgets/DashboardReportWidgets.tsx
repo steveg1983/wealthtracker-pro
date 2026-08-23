@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import { useApp } from '../../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../../hooks/useCurrencyDecimal';
-import { categoricalColor, MAX_CATEGORICAL_SERIES, useCategoricalRamp, SEMANTIC_SERIES, useChartTooltipStyle } from '../../charts/chartColors';
+import { categoricalColor, MAX_CATEGORICAL_SERIES, useCategoricalRamp, SEMANTIC_SERIES, useChartTooltipStyle, useChartTooltipItemStyle } from '../../charts/chartColors';
 import { singlePointDot } from '../../charts/singlePointDots';
 import { buildMonthlyTrend } from '../../../utils/monthlyTrend';
 import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthPointToken, netWorthValueAxis } from '../../../utils/netWorthSeries';
@@ -85,6 +85,7 @@ export function NetWorthWidget({ picker, pin }: {
   // Recharts' default tooltip is black-on-white whatever the page's mode —
   // the themed style is the difference between a label and a glare in dark.
   const chartTooltipStyle = useChartTooltipStyle();
+  const chartTooltipItemStyle = useChartTooltipItemStyle();
 
   /*
    * THE LINE HAS TO SURVIVE THE GROUND IT IS DRAWN ON.
@@ -192,7 +193,7 @@ export function NetWorthWidget({ picker, pin }: {
               tick={{ fill: '#6B7280', fontSize: 10 }} tickFormatter={compactTick} width={44}
               {...netWorthValueAxis(snapshots.map(s => s.netWorth))}
             />
-            <Tooltip contentStyle={chartTooltipStyle} separator=": " formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
+            <Tooltip contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": " formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
             <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke={lineStroke} strokeWidth={2} dot={singlePointDot(snapshots, lineStroke)} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
@@ -217,6 +218,7 @@ export function IncomeExpenseTrendWidget({ picker, pin }: {
   // Recharts' default tooltip is black-on-white whatever the page's mode —
   // the themed style is the difference between a label and a glare in dark.
   const chartTooltipStyle = useChartTooltipStyle();
+  const chartTooltipItemStyle = useChartTooltipItemStyle();
   const { range } = picker;
 
   const data = useMemo(() => {
@@ -279,7 +281,7 @@ export function IncomeExpenseTrendWidget({ picker, pin }: {
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.2)" />
             <XAxis dataKey="month" tick={{ fill: '#6B7280', fontSize: 10 }} minTickGap={32} />
             <YAxis tick={{ fill: '#6B7280', fontSize: 10 }} tickFormatter={compactTick} width={44} />
-            <Tooltip contentStyle={chartTooltipStyle} separator=": " formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
+            <Tooltip contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": " formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
             <Line type="monotone" dataKey="income" name="Income" stroke={SEMANTIC_SERIES.income} strokeWidth={2} dot={singlePointDot(data, SEMANTIC_SERIES.income)} isAnimationActive={false} />
             <Line type="monotone" dataKey="expenses" name="Expenses" stroke={SEMANTIC_SERIES.expense} strokeWidth={2} dot={singlePointDot(data, SEMANTIC_SERIES.expense)} isAnimationActive={false} />
           </LineChart>
@@ -305,6 +307,7 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
   // Recharts' default tooltip is black-on-white whatever the page's mode —
   // the themed style is the difference between a label and a glare in dark.
   const chartTooltipStyle = useChartTooltipStyle();
+  const chartTooltipItemStyle = useChartTooltipItemStyle();
   const { range } = picker;
   // The shared ramp — see charts/chartColors. The copy that used to live in
   // this file was byte-identical to three others and drifted from a fourth.
@@ -407,7 +410,7 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
                     <Cell key={entry.name} fill={categoricalColor(ramp, index)} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={chartTooltipStyle} separator=": " formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
+                <Tooltip contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": " formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
               </RechartsPieChart>
             </ResponsiveContainer>
           </div>

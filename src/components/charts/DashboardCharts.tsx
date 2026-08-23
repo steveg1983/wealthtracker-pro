@@ -21,7 +21,7 @@ import {
   Cell
 } from 'recharts';
 import { formatDecimal } from '../../utils/decimal-format';
-import { categoricalColor, useCategoricalRamp, useChartTooltipStyle } from './chartColors';
+import { categoricalColor, useCategoricalRamp, useChartTooltipStyle, useChartTooltipItemStyle } from './chartColors';
 
 export { ResponsiveContainer };
 
@@ -85,6 +85,7 @@ export function BarChart({
   const ramp = useCategoricalRamp();
   const barFill = fill ?? ramp[0];
   const tooltipStyle = useChartTooltipStyle();
+  const tooltipItemStyle = useChartTooltipItemStyle();
   const formatValue = formatter ?? defaultTickFormatter;
   const summary = buildChartSummary(
     ariaLabel,
@@ -103,6 +104,7 @@ export function BarChart({
       />
       <Tooltip
         contentStyle={contentStyle ?? tooltipStyle}
+        itemStyle={tooltipItemStyle}
         separator=": "
         formatter={(value: number | string | Array<number | string>) => {
           const numeric = typeof value === 'number' ? value : Number(value);
@@ -151,6 +153,7 @@ export function PieChart<T extends PieDatum>({
   // 17 Aug §2.6). `separator` likewise: " : " with spaces is a library
   // default, not the house format.
   const tooltipStyle = useChartTooltipStyle();
+  const tooltipItemStyle = useChartTooltipItemStyle();
 
   // Recharts wants index-signature rows; keep the original datum reachable by
   // index so onClick hands back the caller's own object, not a copy.
@@ -185,6 +188,7 @@ export function PieChart<T extends PieDatum>({
       </Pie>
       <Tooltip
         contentStyle={contentStyle ?? tooltipStyle}
+        itemStyle={tooltipItemStyle}
         separator=": "
         formatter={(value: number | string | Array<number | string>) => {
           const numeric = typeof value === 'number' ? value : Number(value);

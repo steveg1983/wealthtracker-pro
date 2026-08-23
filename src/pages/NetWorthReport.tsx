@@ -28,7 +28,7 @@ import { useNetWorthConversion } from '../hooks/useNetWorthConversion';
 import { useArrivalAction } from '../hooks/useArrivalFocus';
 import { resolveEffectiveOpeningDates } from '../utils/openingDates';
 import { TrendingUpIcon, ChevronRightIcon } from '../components/icons';
-import { useDecompositionSeries, useChartTooltipStyle } from '../components/charts/chartColors';
+import { useDecompositionSeries, useChartTooltipStyle, useChartTooltipItemStyle } from '../components/charts/chartColors';
 import type { DecompositionSeries } from '../components/charts/chartColors';
 import PeriodBar from '../components/PeriodBar';
 import { sectionTypeForAccount, ACCOUNT_SECTION_DEFINITIONS, OTHER_SECTION_DEFINITION } from '../utils/accountGrouping';
@@ -130,6 +130,7 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
   // can flip the ground under a mounted chart. The series does the same, and
   // for the same measured reason: the light navies are 1.08:1 on a dark card.
   const chartTooltipStyle = useChartTooltipStyle();
+  const chartTooltipItemStyle = useChartTooltipItemStyle();
   const decomposition = useDecompositionSeries();
   const navigate = useNavigate();
   const location = useLocation();
@@ -652,7 +653,7 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                     on three other report pages. */}
                 <Tooltip
                   formatter={(value: number | string) => formatCurrency(typeof value === 'number' ? value : Number(value))}
-                  contentStyle={chartTooltipStyle} separator=": "
+                  contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": "
                 />
                 {/* A legend distinguishes series; with one line there is
                     nothing to distinguish and the card title already names it

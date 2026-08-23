@@ -12,7 +12,7 @@ import { formatDecimal } from '../../utils/decimal-format';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
 import { preferences } from '../../services/preferencesService';
-import { categoricalColor, useCategoricalRamp, useChartTooltipStyle } from '../../components/charts/chartColors';
+import { categoricalColor, useCategoricalRamp, useChartTooltipStyle, useChartTooltipItemStyle } from '../../components/charts/chartColors';
 import { getDateLocale } from '../../utils/dateFormatter';
 
 /**
@@ -42,6 +42,7 @@ export default function SpendingByPayeeReport({ picker }: ReportViewProps): Reac
   const { formatCurrency } = useCurrencyDecimal();
   // Recharts' default tooltip is black-on-white whatever the mode.
   const chartTooltipStyle = useChartTooltipStyle();
+  const chartTooltipItemStyle = useChartTooltipItemStyle();
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const [side, setSide] = useState<'expense' | 'income'>(() =>
@@ -160,7 +161,7 @@ export default function SpendingByPayeeReport({ picker }: ReportViewProps): Reac
                   interval={0}
                 />
                 <Tooltip
-                  contentStyle={chartTooltipStyle} separator=": "
+                  contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": "
                   formatter={(value: number | string) =>
                     formatCurrency(typeof value === 'number' ? value : Number(value))
                   }

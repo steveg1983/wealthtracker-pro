@@ -55,7 +55,7 @@ import { buildHoldingAllocation } from '../utils/holdingAllocation';
 import { dataPort } from '@data';
 import type { InvestmentHolding } from '@data';
 import { fetchQuotes } from '../services/stockPriceService';
-import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp, useChartTooltipStyle } from '../components/charts/chartColors';
+import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp, useChartTooltipStyle, useChartTooltipItemStyle } from '../components/charts/chartColors';
 import { resolvePeriod } from '../hooks/usePeriod';
 import DatePicker from '../components/common/DatePicker';
 
@@ -826,6 +826,7 @@ function InvestmentsView() {
   // twin — positions seven and eight had drifted to a cyan and a lime.
   const ramp = useCategoricalRamp();
   const chartTooltipStyle = useChartTooltipStyle();
+  const chartTooltipItemStyle = useChartTooltipItemStyle();
 
   /*
    * NO INVESTMENT ACCOUNTS — but the WATCHLIST still opens.
@@ -1596,7 +1597,7 @@ function InvestmentsView() {
               />
               <Tooltip
                 formatter={(value) => formatCurrency(toDecimal(Number(value)))}
-                contentStyle={chartTooltipStyle} separator=": "
+                contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": "
               />
               <Line 
                 type="monotone" 

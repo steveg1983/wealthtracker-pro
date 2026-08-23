@@ -15,7 +15,7 @@ import {
   Legend,
 } from 'recharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp } from './charts/chartColors';
+import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp, useChartTooltipStyle, useChartTooltipItemStyle } from './charts/chartColors';
 import { formatDecimal } from '../utils/decimal-format';
 import type { CustomReport, ReportComponent } from './CustomReportBuilder';
 import { getDateLocale } from '../utils/dateFormatter';
@@ -69,6 +69,11 @@ export default function CustomReportViewer({
   // sit at the top of this file put an emerald and a red in a CATEGORICAL
   // list, inches from figures where those two hues mean income and expense.
   const ramp = useCategoricalRamp();
+  // The house tooltip surface — these three charts were the last still
+  // showing recharts' bare white box (glaring on a dark card), with item
+  // rows in whatever colour each series happened to be.
+  const chartTooltipStyle = useChartTooltipStyle();
+  const chartTooltipItemStyle = useChartTooltipItemStyle();
 
   const money = (v: number | string): string =>
     formatCurrency(typeof v === 'number' ? v : Number(v));
@@ -117,7 +122,7 @@ export default function CustomReportViewer({
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.2)" />
                   <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 11 }} minTickGap={24} />
                   <YAxis tick={{ fill: '#6B7280', fontSize: 11 }} tickFormatter={compactTick} width={56} />
-                  <Tooltip formatter={money} />
+                  <Tooltip formatter={money} contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": " />
                   <Legend />
                   {series.datasets.map((ds, i) => (
                     <Line
@@ -136,7 +141,7 @@ export default function CustomReportViewer({
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.2)" />
                   <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 11 }} minTickGap={24} />
                   <YAxis tick={{ fill: '#6B7280', fontSize: 11 }} tickFormatter={compactTick} width={56} />
-                  <Tooltip formatter={money} />
+                  <Tooltip formatter={money} contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": " />
                   <Legend />
                   {series.datasets.map((ds, i) => (
                     <Bar
@@ -177,7 +182,7 @@ export default function CustomReportViewer({
                       <Cell key={row.name} fill={categoricalColor(ramp, i)} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={money} />
+                  <Tooltip formatter={money} contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": " />
                 </RechartsPieChart>
               </ResponsiveContainer>
             </div>
