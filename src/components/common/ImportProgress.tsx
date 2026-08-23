@@ -76,11 +76,13 @@ export default function ImportProgress({
       >
         {percent === null ? (
           // Alive, but claiming nothing. Stilled for anyone who has asked the
-          // system for less motion.
-          <div className="h-full w-full bg-[#1a2332]/30 dark:bg-blue-500/30 animate-pulse motion-reduce:animate-none" />
+          // system for less motion. Magnitude colours (Design ruling, 23 Aug
+          // §8): navy-400 light, primary-action dark — the determinate fill's
+          // own pair, washed to 30% while the size is still unknown.
+          <div className="h-full w-full bg-navy-400/30 dark:bg-primary-action/30 animate-pulse motion-reduce:animate-none" />
         ) : (
           <div
-            className="h-full bg-[#1a2332] dark:bg-blue-500 transition-all"
+            className="h-full bg-navy-400 dark:bg-primary-action transition-all"
             style={{ width: `${percent}%` }}
           />
         )}

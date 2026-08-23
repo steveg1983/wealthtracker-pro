@@ -43,7 +43,13 @@ const ToggleSwitch = forwardRef<HTMLButtonElement, ToggleSwitchProps>(function T
         aria-hidden="true"
         className={`relative inline-block h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ease-in-out
           ${checked
-            ? 'bg-[#1a2332] dark:bg-blue-600'
+            // ON is SELECTED, so it takes the selected-state family (Design
+            // ruling, 23 Aug §8): navy-900 on light, the focus/selected slate
+            // on dark. NOT the chosen segment's #2d3a4d fill — measured, that
+            // is ~1.15:1 against a gray-800 panel, and a toggle whose ON
+            // state is invisible fails its one job. #94a3b8 reads 5.7:1
+            // against the panel and ~2.2:1 apart from the OFF gray.
+            ? 'bg-[#1a2332] dark:bg-[#94a3b8]'
             : 'bg-gray-300 dark:bg-gray-600'}
           ${disabled ? 'opacity-40' : ''}`}
       >
