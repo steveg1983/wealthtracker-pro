@@ -104,6 +104,32 @@ export interface NetWorthConversionByDate {
   unconverted: readonly string[];
 }
 
+/** 'YYYY-MM-DD' → local Date, never the ISO/UTC parse that moves a boundary. */
+const dayKeyToDate = (day: string): Date => {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+/**
+ * A per-day factor lookup over a dated conversion, memoised by day — the
+ * walks that consume it ask for the same day once per account. Identity
+ * (always null) when no seam is passed, so callers keep one code path.
+ */
+export const dailyFactorLookup = (
+  conversionAt: ((date: Date) => NetWorthConversion | null) | undefined
+): ((accountId: string, day: string) => DecimalInstance | null) => {
+  if (!conversionAt) return () => null;
+  const byDay = new Map<string, ReadonlyMap<string, DecimalInstance> | null>();
+  return (accountId, day) => {
+    let factors = byDay.get(day);
+    if (factors === undefined) {
+      factors = conversionAt(dayKeyToDate(day))?.factors ?? null;
+      byDay.set(day, factors);
+    }
+    return factors?.get(accountId) ?? null;
+  };
+};
+
 const isDatedConversion = (
   c: NetWorthConversion | NetWorthConversionByDate
 ): c is NetWorthConversionByDate => typeof (c as NetWorthConversionByDate).at === 'function';

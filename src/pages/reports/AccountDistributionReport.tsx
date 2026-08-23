@@ -4,6 +4,9 @@ import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { PieChart, ResponsiveContainer } from '../../components/charts/DashboardCharts';
 import { categoricalColor, useCategoricalRamp } from '../../components/charts/chartColors';
+import { useNetWorthConversion } from '../../hooks/useNetWorthConversion';
+import ConvertedTotalNote from '../../components/ConvertedTotalNote';
+import { toDecimal } from '../../utils/decimal';
 import { computeAccountBalances } from '../../utils/accountBalances';
 import {
   ACCOUNT_DISTRIBUTION_REMAINDER_ID,
@@ -43,10 +46,24 @@ export default function AccountDistributionReport(): React.JSX.Element {
   // nothing checked, and exactly the drift the one-module rule removes.
   const ramp = useCategoricalRamp();
 
+  // A snapshot of NOW, so today's factors (the balance reports' conversion,
+  // 23 Aug): each balance converts before the shares are taken, so the
+  // footnote's claim — the shares sum to 100% across every account — is
+  // finally true of one currency. Native while no rate exists, and the note
+  // below says which state is in force.
+  const { conversion, provenance: ratesProvenance } = useNetWorthConversion(accounts);
   const distribution = useMemo(() => {
     const balances = computeAccountBalances(accounts, transactions, serverBalances);
-    return buildAccountDistribution(accounts, id => balances.get(id) ?? 0);
-  }, [accounts, transactions, serverBalances]);
+    return buildAccountDistribution(accounts, id => {
+      const native = balances.get(id) ?? 0;
+      const factor = conversion?.factors.get(id);
+      return factor ? toDecimal(native).times(factor).toNumber() : native;
+    });
+  }, [accounts, transactions, serverBalances, conversion]);
+  const holdsForeign = useMemo(
+    () => conversion !== null && conversion.factors.size > 0,
+    [conversion]
+  );
 
   /** Which colour each drawn slice got, so the table's swatches match the donut. */
   const sliceColours = useMemo(
@@ -81,7 +98,14 @@ export default function AccountDistributionReport(): React.JSX.Element {
               must be the one the Dashboard's headline shows — two totals for
               one page is the disagreement this report exists to prevent. */}
           <p className="text-label uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">Net worth</p>
-          <p className="text-page font-bold mt-1">{money(distribution.netWorth.toNumber())}</p>
+          <p className="text-page font-bold mt-1">{holdsForeign ? '≈ ' : ''}{money(distribution.netWorth.toNumber())}</p>
+          {conversion && (
+            <ConvertedTotalNote
+              provenance={conversion.factors.size > 0 ? ratesProvenance : null}
+              unconverted={conversion.unconverted}
+              displayCurrency={displayCurrency}
+            />
+          )}
           {/* What every share below is a share OF, said once. */}
           <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">Current balances — every share below is a contribution to this total</p>
         </div>
@@ -220,7 +244,7 @@ export default function AccountDistributionReport(): React.JSX.Element {
                   <td className={`px-4 py-3 text-body text-right font-bold tabular-nums ${
                     distribution.netWorth.lessThan(0) ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'
                   }`}>
-                    {money(distribution.netWorth.toNumber())}
+                    {holdsForeign ? '≈ ' : ''}{money(distribution.netWorth.toNumber())}
                   </td>
                   <td className="px-4 py-3" />
                 </tr>

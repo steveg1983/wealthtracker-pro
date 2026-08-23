@@ -451,8 +451,15 @@ export function ImprovedDashboard() {
   // utils/accountDistribution). The card shows the slices a donut can carry;
   // the report behind it lists every account.
   const distribution = useMemo(
-    () => buildAccountDistribution(accounts, id => accountBalanceMap.get(id) ?? 0),
-    [accounts, accountBalanceMap]
+    // Converted through the same per-account factors the trio and the
+    // breakdown modal use (balance reports' conversion, 23 Aug), so a share
+    // of "together, your net worth" is a share of ONE currency.
+    () => buildAccountDistribution(accounts, id => {
+      const native = accountBalanceMap.get(id) ?? 0;
+      const factor = rowConversion?.factors.get(id);
+      return factor ? toDecimal(native).times(factor).toNumber() : native;
+    }),
+    [accounts, accountBalanceMap, rowConversion]
   );
   const pieData = distribution.slices;
 

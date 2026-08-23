@@ -1,6 +1,7 @@
 import type { Account, Transaction } from '../types';
 import type { PeriodRange } from '../hooks/usePeriod';
-import { toDecimal } from './decimal';
+import { dailyFactorLookup, type NetWorthConversion } from './netWorthSeries';
+import { toDecimal, type DecimalInstance } from './decimal';
 import { resolveEffectiveOpeningDates } from './openingDates';
 
 /**
@@ -32,6 +33,14 @@ export interface AccountBalanceRow {
   change: number;
   /** Balance at the end of the period. */
   closing: number;
+  /**
+   * The display-currency figures the group and report totals sum — equal to
+   * the native ones when nothing converted. The row's own printed figures
+   * stay native, in the account's own currency.
+   */
+  openingConverted: number;
+  changeConverted: number;
+  closingConverted: number;
   /** Transactions inside the period. */
   count: number;
 }
@@ -59,6 +68,8 @@ export interface AccountBalanceReport {
   change: number;
   /** The date the closing balances are stated at. */
   asOf: Date;
+  /** True when any conversion factor was applied — the ≈ gate. */
+  holdsForeign: boolean;
 }
 
 /** Presentation order and wording for account types. */
@@ -88,6 +99,10 @@ interface Accumulator {
   opening: ReturnType<typeof toDecimal>;
   moneyIn: ReturnType<typeof toDecimal>;
   moneyOut: ReturnType<typeof toDecimal>;
+  /** The same three in the display currency (equal when nothing converted). */
+  openingConverted: ReturnType<typeof toDecimal>;
+  moneyInConverted: ReturnType<typeof toDecimal>;
+  moneyOutConverted: ReturnType<typeof toDecimal>;
   count: number;
 }
 
@@ -95,11 +110,33 @@ export function buildAccountBalanceReport(
   accounts: Account[],
   transactions: Transaction[],
   range: PeriodRange,
-  now: Date = new Date()
+  now: Date = new Date(),
+  /**
+   * The dated conversion seam (the balance reports' conversion, 23 Aug).
+   * The table's contract is the accounting identity — opening + change =
+   * closing — so every column converts on the identity's own terms: each
+   * movement at ITS OWN day's rate, the opening column at the day the
+   * window opens (each lump at its own effective day on an all-time
+   * window). Rows stay native — they print their account's own currency —
+   * and only the group and report totals wear the converted figures.
+   * Omitted, every figure is exactly what it always was.
+   */
+  conversionAt?: (date: Date) => NetWorthConversion | null
 ): AccountBalanceReport {
   const asOf = range.to ?? now;
   const fromTime = range.from ? range.from.getTime() : null;
   const toTime = asOf.getTime();
+  const factorFor = dailyFactorLookup(conversionAt);
+  const dayKey = (d: Date): string =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const openingBasisDay = fromTime !== null ? dayKey(new Date(fromTime - 86_400_000)) : null;
+  let holdsForeign = false;
+  const convert = (accountId: string, day: string, amount: DecimalInstance): DecimalInstance => {
+    const factor = factorFor(accountId, day);
+    if (factor === null) return amount;
+    holdsForeign = true;
+    return amount.times(factor);
+  };
 
   const openingDates = resolveEffectiveOpeningDates(accounts, transactions);
   const totals = new Map<string, Accumulator>();
@@ -108,6 +145,9 @@ export function buildAccountBalanceReport(
       opening: toDecimal(0),
       moneyIn: toDecimal(0),
       moneyOut: toDecimal(0),
+      openingConverted: toDecimal(0),
+      moneyInConverted: toDecimal(0),
+      moneyOutConverted: toDecimal(0),
       count: 0,
     });
   }
@@ -129,10 +169,22 @@ export function buildAccountBalanceReport(
     if (effTime !== null && effTime > toTime) continue; // not yet effective
     const insideWindow = fromTime !== null && effTime !== null && effTime >= fromTime;
     if (insideWindow) {
-      if (opening.greaterThanOrEqualTo(0)) accumulator.moneyIn = accumulator.moneyIn.plus(opening);
-      else accumulator.moneyOut = accumulator.moneyOut.plus(opening.abs());
+      const converted = convert(account.id, dayKey(new Date(effTime)), opening);
+      if (opening.greaterThanOrEqualTo(0)) {
+        accumulator.moneyIn = accumulator.moneyIn.plus(opening);
+        accumulator.moneyInConverted = accumulator.moneyInConverted.plus(converted);
+      } else {
+        accumulator.moneyOut = accumulator.moneyOut.plus(opening.abs());
+        accumulator.moneyOutConverted = accumulator.moneyOutConverted.plus(converted.abs());
+      }
     } else {
+      // The opening column values at the day the window opens; on an
+      // all-time window, at each lump's own effective day (the epoch's
+      // earliest rate carries back for the undated).
+      const basisDay = openingBasisDay
+        ?? (effTime !== null ? dayKey(new Date(effTime)) : '1999-01-04');
       accumulator.opening = accumulator.opening.plus(opening);
+      accumulator.openingConverted = accumulator.openingConverted.plus(convert(account.id, basisDay, opening));
     }
   }
 
@@ -147,11 +199,20 @@ export function buildAccountBalanceReport(
     const amount = toDecimal(transaction.amount);
     if (fromTime !== null && time < fromTime) {
       accumulator.opening = accumulator.opening.plus(amount);
+      accumulator.openingConverted = accumulator.openingConverted.plus(
+        convert(transaction.accountId, openingBasisDay ?? dayKey(new Date(time)), amount)
+      );
       continue;
     }
     accumulator.count += 1;
-    if (amount.greaterThanOrEqualTo(0)) accumulator.moneyIn = accumulator.moneyIn.plus(amount);
-    else accumulator.moneyOut = accumulator.moneyOut.plus(amount.abs());
+    const converted = convert(transaction.accountId, dayKey(new Date(time)), amount);
+    if (amount.greaterThanOrEqualTo(0)) {
+      accumulator.moneyIn = accumulator.moneyIn.plus(amount);
+      accumulator.moneyInConverted = accumulator.moneyInConverted.plus(converted);
+    } else {
+      accumulator.moneyOut = accumulator.moneyOut.plus(amount.abs());
+      accumulator.moneyOutConverted = accumulator.moneyOutConverted.plus(converted.abs());
+    }
   }
 
   const rows: AccountBalanceRow[] = accounts.map(account => {
@@ -159,9 +220,13 @@ export function buildAccountBalanceReport(
       opening: toDecimal(account.openingBalance ?? 0),
       moneyIn: toDecimal(0),
       moneyOut: toDecimal(0),
+      openingConverted: toDecimal(account.openingBalance ?? 0),
+      moneyInConverted: toDecimal(0),
+      moneyOutConverted: toDecimal(0),
       count: 0,
     };
     const change = accumulator.moneyIn.minus(accumulator.moneyOut);
+    const changeConverted = accumulator.moneyInConverted.minus(accumulator.moneyOutConverted);
     return {
       accountId: account.id,
       name: account.name,
@@ -172,6 +237,9 @@ export function buildAccountBalanceReport(
       moneyOut: accumulator.moneyOut.toNumber(),
       change: change.toNumber(),
       closing: accumulator.opening.plus(change).toNumber(),
+      openingConverted: accumulator.openingConverted.toNumber(),
+      changeConverted: changeConverted.toNumber(),
+      closingConverted: accumulator.openingConverted.plus(changeConverted).toNumber(),
       count: accumulator.count,
     };
   });
@@ -191,13 +259,15 @@ export function buildAccountBalanceReport(
       );
       const sum = (pick: (row: AccountBalanceRow) => number): number =>
         sorted.reduce((acc, row) => acc.plus(toDecimal(pick(row))), toDecimal(0)).toNumber();
+      // Totals sum the CONVERTED figures — the rows above them stay native
+      // in their own currencies, exactly as everywhere else in the app.
       return {
         key: label,
         label,
         rows: sorted,
-        opening: sum(row => row.opening),
-        change: sum(row => row.change),
-        closing: sum(row => row.closing),
+        opening: sum(row => row.openingConverted),
+        change: sum(row => row.changeConverted),
+        closing: sum(row => row.closingConverted),
       };
     })
     .sort((a, b) => orderOfLabel(a.label) - orderOfLabel(b.label));
@@ -207,11 +277,11 @@ export function buildAccountBalanceReport(
   let openingNetWorth = toDecimal(0);
   let netWorth = toDecimal(0);
   for (const row of rows) {
-    const closing = toDecimal(row.closing);
+    const closing = toDecimal(row.closingConverted);
     if (closing.greaterThan(0)) assets = assets.plus(closing);
     else liabilities = liabilities.plus(closing.abs());
     netWorth = netWorth.plus(closing);
-    openingNetWorth = openingNetWorth.plus(toDecimal(row.opening));
+    openingNetWorth = openingNetWorth.plus(toDecimal(row.openingConverted));
   }
 
   return {
@@ -221,6 +291,7 @@ export function buildAccountBalanceReport(
     liabilities: liabilities.toNumber(),
     netWorth: netWorth.toNumber(),
     openingNetWorth: openingNetWorth.toNumber(),
+    holdsForeign,
     change: netWorth.minus(openingNetWorth).toNumber(),
     asOf,
   };

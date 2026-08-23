@@ -5,7 +5,7 @@ import { expandSplitTransactions } from './transactionSplits';
 import { resolveEffectiveOpeningDates } from './openingDates';
 import { counterpartyAccountId, transferCategoryAccounts } from './portfolioSummary';
 import { dayOf } from './plWindow';
-import type { NetWorthConversion } from './netWorthSeries';
+import { dailyFactorLookup, type NetWorthConversion } from './netWorthSeries';
 
 /**
  * PORTFOLIO PERFORMANCE, the way the industry measures it — both ways.
@@ -105,31 +105,6 @@ const DAYS_PER_YEAR = toDecimal('365.25');
 /** Local day string → a comparable time (UTC midnight of that day). */
 const dayTime = (day: string): number => Date.parse(`${day}T00:00:00Z`);
 
-/** 'YYYY-MM-DD' → local Date, never the ISO/UTC parse that moves a boundary. */
-const dayToDate = (day: string): Date => {
-  const [y, m, d] = day.split('-').map(Number);
-  return new Date(y, m - 1, d);
-};
-
-/**
- * A per-day factor lookup over the dated seam, memoised by day — the walks
- * below ask for the same day once per account.
- */
-const factorLookup = (
-  conversionAt: ((date: Date) => NetWorthConversion | null) | undefined
-): ((accountId: string, day: string) => DecimalInstance | null) => {
-  if (!conversionAt) return () => null;
-  const byDay = new Map<string, ReadonlyMap<string, DecimalInstance> | null>();
-  return (accountId, day) => {
-    let factors = byDay.get(day);
-    if (factors === undefined) {
-      factors = conversionAt(dayToDate(day))?.factors ?? null;
-      byDay.set(day, factors);
-    }
-    return factors?.get(accountId) ?? null;
-  };
-};
-
 /**
  * The scope's opening-balance flows — each account's dated opening lump, the
  * same resolution the performance walk counts as money in. Exposed so the
@@ -144,7 +119,7 @@ export function scopeOpeningFlows(
   const memberIds = new Set(memberAccounts.map(a => a.id));
   const memberTransactions = transactions.filter(t => memberIds.has(t.accountId));
   const openingDates = resolveEffectiveOpeningDates([...memberAccounts], [...memberTransactions]);
-  const factorFor = factorLookup(conversionAt);
+  const factorFor = dailyFactorLookup(conversionAt);
   const flows: Array<{ accountId: string; day: string; amount: DecimalInstance }> = [];
   for (const account of memberAccounts) {
     const opening = toDecimal(account.openingBalance ?? 0);
@@ -174,7 +149,7 @@ export function scopeValueAt(
   const memberTransactions = transactions.filter(t => memberIds.has(t.accountId));
   const cutoff = dayOf(date);
   const openingDates = resolveEffectiveOpeningDates([...memberAccounts], [...memberTransactions]);
-  const factorFor = factorLookup(conversionAt);
+  const factorFor = dailyFactorLookup(conversionAt);
   // Native per account first, ONE factor at the cutoff after: a balance held
   // across a rate move changes its sterling value with no transaction, and
   // only valuation-day conversion sees that.
@@ -206,7 +181,7 @@ export function computePortfolioPerformance(input: PortfolioPerformanceInput): P
 
   const memberIds = new Set(memberAccounts.map(a => a.id));
   const memberTransactions = transactions.filter(t => memberIds.has(t.accountId));
-  const factorFor = factorLookup(input.conversionAt);
+  const factorFor = dailyFactorLookup(input.conversionAt);
 
   /**
    * Every event that moves the scope's value, PER ACCOUNT, by local day.
