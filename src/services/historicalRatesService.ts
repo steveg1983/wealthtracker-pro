@@ -35,7 +35,13 @@
  * never for rewriting recorded transfers.
  */
 
-const PROVIDER_ORIGIN = 'https://api.frankfurter.dev';
+/**
+ * Exported so the CSP guard (connectSrcCoversFetchOrigins.test.ts) can assert
+ * the ORIGIN THE CODE ACTUALLY FETCHES is allowed by both content-security
+ * policies — swapping providers here without updating them fails a named test
+ * instead of silently degrading every production report.
+ */
+export const PROVIDER_ORIGIN = 'https://api.frankfurter.dev';
 export const HISTORICAL_RATES_PROVIDER = 'European Central Bank reference rates';
 /** The first date the ECB series exists for. */
 const SERIES_EPOCH = '1999-01-04';
