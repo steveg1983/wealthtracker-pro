@@ -62,7 +62,13 @@ export const CASH_SLICE_LABEL = 'Cash';
 
 export function buildHoldingAllocation(
   holdings: readonly InvestmentHolding[],
-  lines: readonly PortfolioLine[]
+  lines: readonly PortfolioLine[],
+  /**
+   * Units-per-£1 factor for a holding's own currency at today's rates, or
+   * null to count native (the caller's disclosure then owns saying so).
+   * Currency-keyed, not account-keyed: a holding's currency is its listing's.
+   */
+  rateFor?: (currency: string) => DecimalInstance | null
 ): HoldingAllocation {
   const bySymbol = new Map<string, HoldingAllocationSlice>();
   let unpricedCount = 0;
@@ -75,18 +81,25 @@ export function buildHoldingAllocation(
     }
     if (holding.marketValue.lessThanOrEqualTo(0)) continue;
 
+    // Into the display currency where a rate exists (the Investments chain,
+    // 23 Aug): a dollar-listed holding merging by ticker into a sterling
+    // ring was mixed units in one slice. Native where no rate can be had —
+    // the caller's ≈/notes own saying so.
+    const factor = rateFor?.(holding.currency) ?? null;
+    const marketValue = factor ? holding.marketValue.times(factor) : holding.marketValue;
+
     // Apple in an ISA and Apple in a dealing account are ONE position. The
     // symbol is the identity; the name is only what to print, and two rows for
     // the same ticker can spell it differently.
     const key = (holding.symbol || holding.name).trim().toUpperCase();
     const existing = bySymbol.get(key);
     if (existing) {
-      existing.value = existing.value.plus(holding.marketValue);
+      existing.value = existing.value.plus(marketValue);
     } else {
       bySymbol.set(key, {
         key,
         label: holding.name?.trim() || holding.symbol,
-        value: holding.marketValue
+        value: marketValue
       });
     }
   }

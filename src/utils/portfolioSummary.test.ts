@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildPortfolioSummary, buildPortfolioHistory } from './portfolioSummary';
 import { buildNetWorthConversion } from './netWorthSeries';
+import { toDecimal } from './decimal';
 import type { Account, Category, Transaction, TransactionSplit } from '../types';
 
 /**
@@ -397,5 +398,50 @@ describe('buildPortfolioHistory', () => {
       new Date(2026, 5, 30)
     );
     expect(native[native.length - 1].value).toBe(1200);
+  });
+});
+
+/**
+ * THE CURRENCY SEAMS (the Investments chain, 23 Aug): value converts at
+ * TODAY's factors — it is a current balance — and each contribution at its
+ * own date's factor, so total return is today's worth less the pounds
+ * actually put in. Every figure here is invented; the repo is public.
+ */
+describe('buildPortfolioSummary — the currency seams', () => {
+  const usdRoot = account({
+    id: 'inv-usd', name: 'Dollar Fund', type: 'investment',
+    currency: 'USD', openingBalance: 0, openingBalanceDate: new Date(2026, 0, 5),
+  });
+  const funding = {
+    id: 'c-1', accountId: 'inv-usd', date: new Date(2026, 0, 10), amount: 1000,
+    description: 'funding', category: 'tofrom-outside', type: 'transfer' as const,
+    transferAccountId: 'acc-outside',
+  };
+
+  it('values at today\'s factors, converts each contribution at its own date, and flags the ≈', () => {
+    const summary = buildPortfolioSummary({
+      accounts: [usdRoot],
+      transactions: [funding],
+      transactionSplits: [],
+      categories,
+      // Today: four dollars to the pound. The January contribution: two.
+      conversion: buildNetWorthConversion([usdRoot], { GBP: 1, USD: 4 }, 'GBP'),
+      flowConvert: () => toDecimal(0.5),
+    });
+    expect(summary.value.toNumber()).toBe(250);            // $1,000 at £0.25
+    expect(summary.netContributions.toNumber()).toBe(500); // $1,000 at £0.50, when it moved
+    expect(summary.totalReturn.toNumber()).toBe(-250);     // the currency's doing — return, honestly
+    expect(summary.holdsForeign).toBe(true);
+  });
+
+  it('without the seams the figures are native and unflagged — unchanged behaviour', () => {
+    const summary = buildPortfolioSummary({
+      accounts: [usdRoot],
+      transactions: [funding],
+      transactionSplits: [],
+      categories,
+    });
+    expect(summary.value.toNumber()).toBe(1000);
+    expect(summary.holdsForeign).toBe(false);
   });
 });

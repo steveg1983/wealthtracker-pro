@@ -5,6 +5,7 @@ import { expandSplitTransactions } from './transactionSplits';
 import { resolveEffectiveOpeningDates } from './openingDates';
 import { counterpartyAccountId, transferCategoryAccounts } from './portfolioSummary';
 import { dayOf } from './plWindow';
+import type { NetWorthConversion } from './netWorthSeries';
 
 /**
  * PORTFOLIO PERFORMANCE, the way the industry measures it — both ways.
@@ -61,6 +62,16 @@ export interface PortfolioPerformanceInput {
   /** Null/undefined bounds mean "from the beginning" / "until now". */
   range: { from?: Date | null; to?: Date | null };
   now?: Date;
+  /**
+   * The dated conversion seam (the Investments chain, 23 Aug): the factors
+   * in force on a given date, from the same ECB history every other dated
+   * surface reads. VALUATIONS convert each account's native balance at the
+   * VALUATION day's rate — so FX movement on held money lands in gain and
+   * TWR, where a sterling-measured portfolio truly earns or loses it — and
+   * FLOWS convert at their own day's rate, the pounds that actually moved.
+   * Omitted, every figure is exactly what it always was: native units.
+   */
+  conversionAt?: (date: Date) => NetWorthConversion | null;
 }
 
 export interface PortfolioPerformance {
@@ -94,6 +105,31 @@ const DAYS_PER_YEAR = toDecimal('365.25');
 /** Local day string → a comparable time (UTC midnight of that day). */
 const dayTime = (day: string): number => Date.parse(`${day}T00:00:00Z`);
 
+/** 'YYYY-MM-DD' → local Date, never the ISO/UTC parse that moves a boundary. */
+const dayToDate = (day: string): Date => {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+/**
+ * A per-day factor lookup over the dated seam, memoised by day — the walks
+ * below ask for the same day once per account.
+ */
+const factorLookup = (
+  conversionAt: ((date: Date) => NetWorthConversion | null) | undefined
+): ((accountId: string, day: string) => DecimalInstance | null) => {
+  if (!conversionAt) return () => null;
+  const byDay = new Map<string, ReadonlyMap<string, DecimalInstance> | null>();
+  return (accountId, day) => {
+    let factors = byDay.get(day);
+    if (factors === undefined) {
+      factors = conversionAt(dayToDate(day))?.factors ?? null;
+      byDay.set(day, factors);
+    }
+    return factors?.get(accountId) ?? null;
+  };
+};
+
 /**
  * The scope's opening-balance flows — each account's dated opening lump, the
  * same resolution the performance walk counts as money in. Exposed so the
@@ -102,18 +138,22 @@ const dayTime = (day: string): number => Date.parse(`${day}T00:00:00Z`);
  */
 export function scopeOpeningFlows(
   memberAccounts: readonly Account[],
-  transactions: readonly Transaction[]
+  transactions: readonly Transaction[],
+  conversionAt?: (date: Date) => NetWorthConversion | null
 ): Array<{ accountId: string; day: string; amount: DecimalInstance }> {
   const memberIds = new Set(memberAccounts.map(a => a.id));
   const memberTransactions = transactions.filter(t => memberIds.has(t.accountId));
   const openingDates = resolveEffectiveOpeningDates([...memberAccounts], [...memberTransactions]);
+  const factorFor = factorLookup(conversionAt);
   const flows: Array<{ accountId: string; day: string; amount: DecimalInstance }> = [];
   for (const account of memberAccounts) {
     const opening = toDecimal(account.openingBalance ?? 0);
     if (opening.isZero()) continue;
     const effective = openingDates.get(account.id);
     if (effective === undefined) continue; // time-zero seed — never a window flow
-    flows.push({ accountId: account.id, day: dayOf(effective), amount: opening });
+    const day = dayOf(effective);
+    const factor = factorFor(account.id, day);
+    flows.push({ accountId: account.id, day, amount: factor ? opening.times(factor) : opening });
   }
   return flows;
 }
@@ -127,21 +167,35 @@ export function scopeOpeningFlows(
 export function scopeValueAt(
   memberAccounts: readonly Account[],
   transactions: readonly Transaction[],
-  date: Date
+  date: Date,
+  conversionAt?: (date: Date) => NetWorthConversion | null
 ): DecimalInstance {
   const memberIds = new Set(memberAccounts.map(a => a.id));
   const memberTransactions = transactions.filter(t => memberIds.has(t.accountId));
   const cutoff = dayOf(date);
   const openingDates = resolveEffectiveOpeningDates([...memberAccounts], [...memberTransactions]);
-  let value = ZERO;
+  const factorFor = factorLookup(conversionAt);
+  // Native per account first, ONE factor at the cutoff after: a balance held
+  // across a rate move changes its sterling value with no transaction, and
+  // only valuation-day conversion sees that.
+  const nativeById = new Map<string, DecimalInstance>();
   for (const account of memberAccounts) {
     const opening = toDecimal(account.openingBalance ?? 0);
     if (opening.isZero()) continue;
     const effective = openingDates.get(account.id);
-    if (effective === undefined || dayOf(effective) <= cutoff) value = value.plus(opening);
+    if (effective === undefined || dayOf(effective) <= cutoff) {
+      nativeById.set(account.id, (nativeById.get(account.id) ?? ZERO).plus(opening));
+    }
   }
   for (const row of memberTransactions) {
-    if (dayOf(row.date) <= cutoff) value = value.plus(toDecimal(row.amount));
+    if (dayOf(row.date) <= cutoff) {
+      nativeById.set(row.accountId, (nativeById.get(row.accountId) ?? ZERO).plus(toDecimal(row.amount)));
+    }
+  }
+  let value = ZERO;
+  for (const [accountId, native] of nativeById) {
+    const factor = factorFor(accountId, cutoff);
+    value = value.plus(factor ? native.times(factor) : native);
   }
   return value;
 }
@@ -152,15 +206,27 @@ export function computePortfolioPerformance(input: PortfolioPerformanceInput): P
 
   const memberIds = new Set(memberAccounts.map(a => a.id));
   const memberTransactions = transactions.filter(t => memberIds.has(t.accountId));
+  const factorFor = factorLookup(input.conversionAt);
 
   /**
-   * Every event that moves the scope's value, by local day:
-   * value[d] = the day's total change; flow[d] = the external part of it.
+   * Every event that moves the scope's value, PER ACCOUNT, by local day.
+   * Native deltas keep their account identity all the way to valuation,
+   * because a valuation at day D converts each account's native balance at
+   * D's OWN rate — a balance held across a rate move changes its sterling
+   * value with no transaction, and only valuation-day conversion sees that.
+   * Flows convert at their own day at bump time: they ARE points in time.
    */
-  const valueByDay = new Map<string, DecimalInstance>();
+  const nativeDeltaByDay = new Map<string, Map<string, DecimalInstance>>();
   const flowByDay = new Map<string, DecimalInstance>();
-  const bump = (map: Map<string, DecimalInstance>, day: string, amount: DecimalInstance): void => {
-    map.set(day, (map.get(day) ?? ZERO).plus(amount));
+  const bumpNative = (accountId: string, day: string, amount: DecimalInstance): void => {
+    const byDay = nativeDeltaByDay.get(accountId) ?? new Map<string, DecimalInstance>();
+    byDay.set(day, (byDay.get(day) ?? ZERO).plus(amount));
+    nativeDeltaByDay.set(accountId, byDay);
+  };
+  const bumpFlow = (accountId: string, day: string, native: DecimalInstance): void => {
+    const factor = factorFor(accountId, day);
+    const amount = factor ? native.times(factor) : native;
+    flowByDay.set(day, (flowByDay.get(day) ?? ZERO).plus(amount));
   };
 
   // Opening balances: money in, on their effective date. An account with no
@@ -173,8 +239,8 @@ export function computePortfolioPerformance(input: PortfolioPerformanceInput): P
     if (opening.isZero()) continue;
     const effective = openingDates.get(account.id);
     const day = effective === undefined ? TIME_ZERO : dayOf(effective);
-    bump(valueByDay, day, opening);
-    if (effective !== undefined) bump(flowByDay, day, opening);
+    bumpNative(account.id, day, opening);
+    if (effective !== undefined) bumpFlow(account.id, day, opening);
   }
 
   const categoryKinds = buildCategoryKindLookup([...categories]);
@@ -187,32 +253,57 @@ export function computePortfolioPerformance(input: PortfolioPerformanceInput): P
   for (const row of memberRows) {
     const day = dayOf(row.date);
     const amount = toDecimal(row.amount);
-    bump(valueByDay, day, amount);
+    bumpNative(row.accountId, day, amount);
     if (classifyFlow(row, categoryKinds) !== 'transfer') continue;
     const other = counterpartyAccountId(row, transactionsById, categoryAccounts);
     // Membership, not pair-equality: for a whole-portfolio scope a transfer
     // between two pairs is internal to the whole. Unidentified = external.
     if (other !== undefined && memberIds.has(other)) continue;
-    bump(flowByDay, day, amount);
+    bumpFlow(row.accountId, day, amount);
   }
 
-  const days = [...valueByDay.keys()].sort();
+  // Per-account prefix sums over each account's own sorted event days, so a
+  // valuation can ask "native balance as of D" with one binary search.
+  const nativeSeries = new Map<string, { days: string[]; prefixes: DecimalInstance[] }>();
+  for (const [accountId, byDay] of nativeDeltaByDay) {
+    const accountDays = [...byDay.keys()].sort();
+    const prefixes: DecimalInstance[] = [];
+    let running = ZERO;
+    for (const day of accountDays) {
+      running = running.plus(byDay.get(day) ?? ZERO);
+      prefixes.push(running);
+    }
+    nativeSeries.set(accountId, { days: accountDays, prefixes });
+  }
+  const nativeAsOf = (accountId: string, day: string): DecimalInstance => {
+    const series = nativeSeries.get(accountId);
+    if (!series || series.days.length === 0 || day < series.days[0]) return ZERO;
+    let lo = 0;
+    let hi = series.days.length - 1;
+    if (day >= series.days[hi]) return series.prefixes[hi];
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      if (series.days[mid] <= day) lo = mid;
+      else hi = mid - 1;
+    }
+    return series.prefixes[lo];
+  };
+
+  const days = [...new Set(
+    [...nativeDeltaByDay.values()].flatMap(byDay => [...byDay.keys()])
+  )].sort();
   const fromDay = range.from ? dayOf(range.from) : null;
   const toDay = dayOf(range.to ?? now);
 
-  /** Value at the END of `day` (inclusive walk). */
-  let running = ZERO;
-  const valueAtEndOf = new Map<string, DecimalInstance>();
-  for (const day of days) {
-    running = running.plus(valueByDay.get(day) ?? ZERO);
-    valueAtEndOf.set(day, running);
-  }
+  /** Value at the END of `day`: every account's native as of that day, each
+      converted at that day's own factor. */
   const valueAsOf = (day: string): DecimalInstance => {
-    // Last event day ≤ day. The list is sorted and short; linear is honest.
     let value = ZERO;
-    for (const eventDay of days) {
-      if (eventDay > day) break;
-      value = valueAtEndOf.get(eventDay) ?? value;
+    for (const accountId of nativeSeries.keys()) {
+      const native = nativeAsOf(accountId, day);
+      if (native.isZero()) continue;
+      const factor = factorFor(accountId, day);
+      value = value.plus(factor ? native.times(factor) : native);
     }
     return value;
   };
