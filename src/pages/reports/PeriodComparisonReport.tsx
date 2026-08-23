@@ -7,7 +7,7 @@ import ReportAccountMultiSelect from '../../components/reports/ReportAccountMult
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
 import ReportExportBar from '../../components/reports/ReportExportBar';
 import UncategorisedReviewBand from '../../components/reports/UncategorisedReviewBand';
-import { SEMANTIC_SERIES, useChartTooltipStyle } from '../../components/charts/chartColors';
+import { SEMANTIC_SERIES, useChartTooltipStyle, useChartTooltipItemStyle } from '../../components/charts/chartColors';
 import { computeIncomeExpense } from '../../utils/incomeExpense';
 import {
   buildPeriodComparison,
@@ -62,6 +62,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
   const { formatCurrency } = useCurrencyDecimal();
   // Recharts' default tooltip is black-on-white whatever the mode.
   const chartTooltipStyle = useChartTooltipStyle();
+  const chartTooltipItemStyle = useChartTooltipItemStyle();
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const [basis, setBasis] = useState<ComparisonBasis>(() =>
@@ -356,7 +357,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
                       interval={0}
                     />
                     <Tooltip
-                  contentStyle={chartTooltipStyle} separator=": "
+                  contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": "
                       formatter={(value: number | string) =>
                         formatCurrency(typeof value === 'number' ? value : Number(value))
                       }

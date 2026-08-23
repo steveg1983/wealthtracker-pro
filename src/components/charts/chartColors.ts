@@ -233,26 +233,45 @@ export function useCategoricalRamp(): readonly string[] {
  * figure in a tooltip is money, so `tabular-nums` applies here the same as
  * everywhere else money is printed (P5).
  */
+export const TOOLTIP_SURFACE = {
+  dark: {
+    backgroundColor: '#1f2937', // gray-800
+    border: '1px solid #4b5563', // gray-600
+    color: '#f9fafb',
+  },
+  light: {
+    backgroundColor: '#ffffff',
+    border: '1px solid #e5e7eb', // gray-200 hairline
+    color: '#111827',
+  },
+} as const;
+
 export function useChartTooltipStyle(): React.CSSProperties {
-  const dark = useIsDarkGround();
-  const shared: React.CSSProperties = {
+  const surface = TOOLTIP_SURFACE[useIsDarkGround() ? 'dark' : 'light'];
+  return {
     borderRadius: '8px',
     fontSize: '0.75rem',
     fontVariantNumeric: 'tabular-nums',
+    ...surface,
   };
-  return dark
-    ? {
-        ...shared,
-        backgroundColor: '#1f2937', // gray-800
-        border: '1px solid #4b5563', // gray-600
-        color: '#f9fafb',
-      }
-    : {
-        ...shared,
-        backgroundColor: '#ffffff',
-        border: '1px solid #e5e7eb', // gray-200 hairline
-        color: '#111827',
-      };
+}
+
+/**
+ * Recharts colours each tooltip ITEM ROW with its series' own colour — which
+ * promotes a series colour to TEXT. Series colours are built for the 3:1
+ * graphics bar, not the 4.5:1 text bar: the semantic pair's own table above
+ * measures 4.34 and 3.36 on the dark bubble, and the ramp's dark-ground steps
+ * are mid navies that all but vanish on it (the owner's category-donut hover,
+ * 23 Aug, was unreadable). The house rule already covers this — "colour
+ * groups the series, the label identifies it" — and every tooltip row NAMES
+ * its series, so the colour was carrying nothing the name doesn't.
+ *
+ * Item text therefore wears the tooltip surface's own text colour, every
+ * chart, no exceptions — including the decomposition chart, whose rows are
+ * named too. tooltipItemLegibility.test.ts holds every <Tooltip> to this.
+ */
+export function useChartTooltipItemStyle(): React.CSSProperties {
+  return { color: TOOLTIP_SURFACE[useIsDarkGround() ? 'dark' : 'light'].color };
 }
 
 /**

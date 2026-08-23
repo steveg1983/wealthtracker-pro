@@ -20,7 +20,7 @@ import ReportCumulativeToggle from '../../components/reports/ReportCumulativeTog
 import UncategorisedReviewBand from '../../components/reports/UncategorisedReviewBand';
 import { buildMonthlyTrend } from '../../utils/monthlyTrend';
 import { toCumulativeTrend } from '../../utils/cumulativeSeries';
-import { SEMANTIC_SERIES, useChartTooltipStyle } from '../../components/charts/chartColors';
+import { SEMANTIC_SERIES, useChartTooltipStyle, useChartTooltipItemStyle } from '../../components/charts/chartColors';
 import { singlePointDot } from '../../components/charts/singlePointDots';
 import { toDecimal } from '../../utils/decimal';
 import { formatDecimal } from '../../utils/decimal-format';
@@ -61,6 +61,7 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
   const { formatCurrency } = useCurrencyDecimal();
   // Recharts' default tooltip is black-on-white whatever the mode.
   const chartTooltipStyle = useChartTooltipStyle();
+  const chartTooltipItemStyle = useChartTooltipItemStyle();
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   // Lines or bars — same data, same drill-in; the choice is persisted.
@@ -218,7 +219,7 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
                 <XAxis dataKey="month" tick={{ fill: '#6B7280', fontSize: 12 }} minTickGap={24} />
                 <YAxis tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={compactTick} width={70} />
                 <Tooltip
-                  contentStyle={chartTooltipStyle} separator=": "
+                  contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": "
                   formatter={(value: number | string) =>
                     formatCurrency(typeof value === 'number' ? value : Number(value))
                   }
