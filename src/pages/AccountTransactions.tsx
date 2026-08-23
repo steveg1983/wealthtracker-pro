@@ -230,7 +230,11 @@ const TOOLBAR_QUIET_IDLE =
   'border-line-strong dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-surface-tertiary dark:hover:bg-gray-700';
 /** The same button, switched on. A state of the one style, not a second style. */
 const TOOLBAR_QUIET_ACTIVE =
-  'border-[#1a2332] dark:border-blue-500 text-[#1a2332] dark:text-blue-400 bg-surface-secondary dark:bg-gray-700';
+  // Dark side wears the focus-family slate, not a blue: blue means link in
+  // this app, and a selected border already has a dark ruling (index.css's
+  // `.dark .border-primary`) — same family as the focus ring, no second
+  // highlight colour (Claude Design's canon ruling, 22 Aug §2/§6).
+  'border-[#1a2332] dark:border-[#94a3b8] text-[#1a2332] dark:text-[#94a3b8] bg-surface-secondary dark:bg-gray-700';
 
 /** The sortable columns, named as their headers name them. */
 const SORT_FIELD_LABELS: Record<TransactionSortField, string> = {
@@ -3015,7 +3019,7 @@ export default function AccountTransactions() {
                 type="button"
                 onClick={() => { void handleReopenAccount(); }}
                 disabled={reopening}
-                className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {reopening ? 'Re-opening…' : 'Re-open and view'}
               </button>

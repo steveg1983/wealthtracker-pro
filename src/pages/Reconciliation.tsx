@@ -772,7 +772,7 @@ export default function Reconciliation() {
             className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
               balanceConfirmed
                 ? NEXT_ACTION_YELLOW
-                : 'border-transparent bg-[#1a2332] dark:bg-blue-600 text-white'
+                : 'border-transparent bg-primary-action text-on-primary-action'
             }`}
           >
             <CheckCircleIcon size={18} />

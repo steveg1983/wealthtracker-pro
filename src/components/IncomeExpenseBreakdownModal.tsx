@@ -337,7 +337,7 @@ export default function IncomeExpenseBreakdownModal({
             type="button"
             onClick={() => void handleSave()}
             disabled={saving}
-            className="px-4 py-1.5 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-wait"
+            className="px-4 py-1.5 text-sm font-medium rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover transition-colors disabled:opacity-60 disabled:cursor-wait"
           >
             {saving ? 'Saving…' : `Save ${pendingIds.length}`}
           </button>

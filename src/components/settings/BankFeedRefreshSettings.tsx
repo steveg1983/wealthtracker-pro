@@ -62,7 +62,7 @@ export default function BankFeedRefreshSettings(): React.JSX.Element | null {
             key={value}
             className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
               prefs.mode === value
-                ? 'border-[#1a2332] dark:border-blue-500 bg-gray-50 dark:bg-gray-700/50'
+                ? 'border-[#1a2332] dark:border-[#94a3b8] bg-gray-50 dark:bg-gray-700/50'
                 : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
             }`}
           >

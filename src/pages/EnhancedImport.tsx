@@ -129,7 +129,7 @@ export default function EnhancedImport(): React.JSX.Element {
           onClick={() => setShowMsMoneyImport(true)}
           className="w-full mb-6 text-left rounded-2xl border border-[#1a2332]/15 dark:border-blue-500/30 bg-[#1a2332]/[0.03] dark:bg-blue-500/10 hover:bg-[#1a2332]/[0.06] dark:hover:bg-blue-500/20 transition-colors p-5 flex items-center gap-4"
         >
-          <span className="shrink-0 grid place-items-center h-12 w-12 rounded-xl bg-[#1a2332] dark:bg-blue-600 text-white">
+          <span className="shrink-0 grid place-items-center h-12 w-12 rounded-xl bg-primary-action text-on-primary-action">
             <DatabaseIcon size={24} />
           </span>
           <span className="min-w-0">

@@ -128,7 +128,7 @@ export default function MsMoneyImportModal({ isOpen, onClose, onBackup, onExecut
               </p>
               <input ref={inputRef} type="file" accept=".mny" onChange={onInputChange} className="hidden" />
               <button onClick={() => inputRef.current?.click()}
-                className="px-5 py-3 bg-[#1a2332] dark:bg-blue-600 text-white rounded-lg hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors inline-flex items-center gap-2 font-medium">
+                className="px-5 py-3 bg-primary-action text-on-primary-action rounded-lg hover:bg-primary-action-hover transition-colors inline-flex items-center gap-2 font-medium">
                 <UploadIcon size={20} />
                 Choose Microsoft Money file
               </button>
@@ -244,7 +244,7 @@ export default function MsMoneyImportModal({ isOpen, onClose, onBackup, onExecut
                 {s.accounts.total} accounts and {s.transactions.imported.toLocaleString()} transactions are now in WealthTracker.
               </p>
               <button onClick={handleClose}
-                className="px-5 py-2 bg-[#1a2332] dark:bg-blue-600 text-white rounded-lg hover:bg-[#2d3a4d] dark:hover:bg-blue-700 font-medium">
+                className="px-5 py-2 bg-primary-action text-on-primary-action rounded-lg hover:bg-primary-action-hover font-medium">
                 Done
               </button>
             </div>
@@ -262,7 +262,7 @@ export default function MsMoneyImportModal({ isOpen, onClose, onBackup, onExecut
                   Close
                 </button>
                 <button onClick={reset}
-                  className="px-4 py-2 bg-[#1a2332] dark:bg-blue-600 text-white rounded-lg hover:bg-[#2d3a4d] dark:hover:bg-blue-700">
+                  className="px-4 py-2 bg-primary-action text-on-primary-action rounded-lg hover:bg-primary-action-hover">
                   Try another file
                 </button>
               </div>

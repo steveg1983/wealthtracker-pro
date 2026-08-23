@@ -222,7 +222,10 @@ describe('Reconciliation — the yellow that travels', () => {
 
     const finalize = finalizeButton();
     expect(amber(finalize)).toEqual([]);
-    expect(finalize).toHaveClass('bg-[#1a2332]', 'text-white');
+    // The ordinary primary is now the ground-aware TOKEN pair (the canon
+    // ruling, 22 Aug) — which is a stronger version of what this spec always
+    // meant: the quiet Finalize wears the app's one primary, by name.
+    expect(finalize).toHaveClass('bg-primary-action', 'text-on-primary-action');
     expect(finalize).toHaveClass('disabled:opacity-50', 'disabled:cursor-not-allowed');
   });
 

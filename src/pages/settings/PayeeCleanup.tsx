@@ -937,7 +937,7 @@ export default function PayeeCleanup(): React.JSX.Element {
               onClick={() => setRenameOpen(true)}
               disabled={selected.size === 0}
               aria-describedby="payee-bulk-help"
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Rename selected…
             </button>
