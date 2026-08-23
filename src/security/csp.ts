@@ -54,7 +54,15 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       "'self'",
       'ws:', // WebSocket for Vite HMR
       'wss:',
-      'https://api.exchangerate-api.com', // Exchange rate API
+      'https://api.exchangerate-api.com', // Exchange rate API (today's display rates)
+      // ECB historical reference rates (frankfurter.dev). This origin was
+      // MISSING for the first weeks the history service shipped: dev servers
+      // send no CSP, so every local verification passed while production
+      // blocked the fetch and silently pinned every user in the degraded
+      // unit-for-unit state. connectSrcCoversFetchOrigins.test.ts now fails
+      // if either policy (this one or vercel.json's header) drops a fetch
+      // origin — the browser enforces the INTERSECTION of the two.
+      'https://api.frankfurter.dev',
       'https://cdn.jsdelivr.net', // CDN for libraries
       'https://*.clerk.accounts.dev', // Clerk authentication
       'https://clerk.com',
