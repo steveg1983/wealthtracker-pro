@@ -122,7 +122,9 @@ describe('useConvertedNetWorth', () => {
 
       await waitFor(() => expect(result.current.isReady).toBe(true));
 
-      expect(result.current.provenance?.source).toBe('api');
+      // The suite's stub answers both providers, and the ECB overlay wins —
+      // the one-provider rule (Design, 24 Aug §1).
+      expect(result.current.provenance?.source).toBe('ecb');
     });
 
     it('reports the fallback when the provider cannot be reached', async () => {

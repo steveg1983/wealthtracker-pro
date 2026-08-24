@@ -154,13 +154,13 @@ describe('currency-decimal', () => {
         json: () => Promise.resolve(mockApiResponse)
       });
 
-      // First call
+      // First call — one request per provider (api, then the ECB overlay)
       const rates1 = await getExchangeRatesFresh();
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
 
       // Second call should use cache
       const rates2 = await getExchangeRatesFresh();
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
       expect(rates2).toEqual(rates1);
     });
 
@@ -173,9 +173,9 @@ describe('currency-decimal', () => {
         json: () => Promise.resolve(mockApiResponse)
       });
 
-      // First call
+      // First call — one request per provider (api, then the ECB overlay)
       await getExchangeRatesFresh();
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
 
       // Mock time passing (1 hour + 1 minute)
       const originalDateNow = Date.now;
@@ -183,7 +183,7 @@ describe('currency-decimal', () => {
 
       // Second call should fetch again
       await getExchangeRatesFresh();
-      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledTimes(4);
 
       vi.restoreAllMocks();
     });
@@ -327,7 +327,8 @@ describe('currency-decimal', () => {
       
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       
-      mockFetch.mockRejectedValueOnce(new Error('API error'));
+      // Both providers down (api, then the ECB overlay).
+      mockFetch.mockRejectedValueOnce(new Error('API error')).mockRejectedValueOnce(new Error('API error'));
 
       const result = await convertCurrency(100, 'GBP', 'USD');
       // Falls back to hardcoded rates: 100 * 1.27
@@ -464,7 +465,8 @@ describe('currency-decimal', () => {
       
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       
-      mockFetch.mockRejectedValueOnce(new Error('API error'));
+      // Both providers down (api, then the ECB overlay).
+      mockFetch.mockRejectedValueOnce(new Error('API error')).mockRejectedValueOnce(new Error('API error'));
 
       const amounts = [
         { amount: 100, currency: 'GBP' },
@@ -585,5 +587,53 @@ describe('formatCurrencyCompact — axis notation (owner, 21 Aug: £8m, never £
   it('whole units below a thousand; negatives keep the minus (colourless axis notation)', () => {
     expect(formatCurrencyCompact(850)).toBe('£850');
     expect(formatCurrencyCompact(-2_400_000)).toBe('-£2.4m');
+  });
+});
+
+describe('one provider for a given day — the ECB overlay (Design, 24 Aug §1)', () => {
+  // Every rate below is invented; the repo is public.
+  const apiResponse = { ok: true, json: () => Promise.resolve({ rates: { GBP: 1, USD: 1.27, XXX: 5 } }) };
+  const ecbResponse = { ok: true, json: () => Promise.resolve({ rates: { USD: 1.3 } }) };
+  const down = () => Promise.reject(new Error('down'));
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  it('ECB values overlay the api record wherever the ECB publishes; api keeps the breadth', async () => {
+    const { getExchangeRatesWithProvenance } = await import('../currency-decimal');
+    mockFetch.mockResolvedValueOnce(apiResponse).mockResolvedValueOnce(ecbResponse);
+    const { rates, provenance } = await getExchangeRatesWithProvenance();
+    // The major quotes the ECB — the same provider every backdated figure
+    // uses, so the chart's last point and the closing snapshot agree.
+    expect(rates.USD).toBe(1.3);
+    // A currency the ECB does not publish keeps the api's live quote.
+    expect(rates.XXX).toBe(5);
+    expect(provenance.source).toBe('ecb');
+  });
+
+  it('with the ECB unreachable, the api record stands alone and says so', async () => {
+    const { getExchangeRatesWithProvenance } = await import('../currency-decimal');
+    mockFetch.mockResolvedValueOnce(apiResponse).mockImplementationOnce(down);
+    const { rates, provenance } = await getExchangeRatesWithProvenance();
+    expect(rates.USD).toBe(1.27);
+    expect(provenance.source).toBe('api');
+  });
+
+  it('with the api unreachable, the ECB majors overlay the stored approximations', async () => {
+    const { getExchangeRatesWithProvenance } = await import('../currency-decimal');
+    mockFetch.mockImplementationOnce(down).mockResolvedValueOnce(ecbResponse);
+    const { rates, provenance } = await getExchangeRatesWithProvenance();
+    expect(rates.USD).toBe(1.3);
+    expect(provenance.source).toBe('ecb');
+  });
+
+  it('with both unreachable, the fallback says it is one', async () => {
+    const { getExchangeRatesWithProvenance } = await import('../currency-decimal');
+    mockFetch.mockImplementationOnce(down).mockImplementationOnce(down);
+    const { provenance } = await getExchangeRatesWithProvenance();
+    expect(provenance.source).toBe('fallback');
   });
 });

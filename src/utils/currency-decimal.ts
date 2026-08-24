@@ -18,6 +18,14 @@ interface ExchangeRates {
  * from a guess and a figure derived from a quote looked identical.
  */
 export type RatesSource =
+  /**
+   * Today's ECB reference rates — the SAME provider every historical figure
+   * converts at, overlaid on the api record below. Preferred (Design, 24 Aug
+   * §1): the net-worth chart's last point valued a day at the ECB while the
+   * closing snapshot valued the same day at exchangerate-api, and the two
+   * quoted £106 apart. One day, one provider.
+   */
+  | 'ecb'
   /** A live quote from the provider named in {@link RATES_PROVIDER}. */
   | 'api'
   /** The hardcoded approximations below. The provider could not be reached. */
@@ -228,24 +236,53 @@ export function formatCurrencyWhole(
 
 // Fetch exchange rates from a free API
 async function fetchExchangeRates(): Promise<{ rates: ExchangeRates; source: RatesSource }> {
+  // exchangerate-api gives BREADTH (~160 currencies); the ECB reference rates
+  // give the one authoritative figure per day for the majors — and they are
+  // the provider every backdated figure already converts at
+  // (historicalRatesService). So the ECB's latest OVERLAYS the api record
+  // wherever the ECB publishes: for any given currency, "today" and "each
+  // day" can never quote two different providers (Design, 24 Aug §1 — the
+  // chart's last point and the closing snapshot were £106 apart on the same
+  // day). The origin is already in both content security policies —
+  // connectSrcCoversFetchOrigins.test.ts guards it.
+  let rates: ExchangeRates | null = null;
+  let source: RatesSource = 'fallback';
   try {
     // Using exchangerate-api.com free tier
     const response = await fetch('https://api.exchangerate-api.com/v4/latest/GBP');
-
     if (!response.ok) {
       throw new Error('Failed to fetch exchange rates');
     }
-
     const data = await response.json();
-    return { rates: data.rates, source: 'api' };
+    rates = data.rates;
+    source = 'api';
   } catch (error) {
     currencyLogger.error('Error fetching exchange rates:', error);
+  }
+  try {
+    const response = await fetch('https://api.frankfurter.dev/v1/latest?base=GBP');
+    if (response.ok) {
+      const body = (await response.json()) as { rates?: Record<string, number> };
+      if (body.rates && Object.keys(body.rates).length > 0) {
+        // With the api down, the ECB majors overlay the stored
+        // approximations — live for the currencies the ECB covers, which is
+        // near-certainly every currency a ledger here holds.
+        rates = { ...(rates ?? { ...FALLBACK_RATES }), ...body.rates, GBP: 1 };
+        source = 'ecb';
+      }
+    }
+  } catch (error) {
+    currencyLogger.error('Error fetching ECB reference rates:', error);
+  }
 
-    // Fallback to approximate rates if API fails. The caller is TOLD it is a
-    // fallback — this is the one branch that used to be silent, and a total
-    // built on a guess that cannot say so is the thing this reports.
+  if (rates === null) {
+    // Fallback to approximate rates if both providers fail. The caller is
+    // TOLD it is a fallback — this is the one branch that used to be silent,
+    // and a total built on a guess that cannot say so is the thing this
+    // reports.
     return { rates: { ...FALLBACK_RATES }, source: 'fallback' };
   }
+  return { rates, source };
 }
 
 // Get cached or fresh exchange rates
@@ -269,7 +306,9 @@ export async function getExchangeRatesWithProvenance(): Promise<{
   // A fallback is held for minutes, a live quote for an hour: see
   // FALLBACK_CACHE_DURATION for why the two differ.
   if (ratesCache) {
-    const ttl = ratesCache.source === 'api' ? CACHE_DURATION : FALLBACK_CACHE_DURATION;
+    // A LIVE quote (ecb or api) holds for the hour; only a fallback retries
+    // sooner.
+    const ttl = ratesCache.source === 'fallback' ? FALLBACK_CACHE_DURATION : CACHE_DURATION;
     if ((now - ratesCache.timestamp) < ttl) {
       return {
         rates: ratesCache.rates,

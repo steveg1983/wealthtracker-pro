@@ -100,13 +100,20 @@ export default function ConvertedTotalNote({
     );
   }
 
-  // The quiet, everyday case: converted, at a live quote, at a stated time.
+  // The quiet, everyday case: converted at a live figure, its source named.
+  // The ECB reference rate is a DAILY figure — the one every backdated
+  // conversion in the app already uses — so its line names the day's rate
+  // rather than a wall-clock time that would overstate its freshness.
   return (
     <p
       className="mt-2 text-dense text-gray-500 dark:text-gray-400"
       data-testid="converted-total-note"
     >
-      {provenance ? `Converted at rates as of ${atTime(provenance.asOf)}` : null}
+      {provenance
+        ? provenance.source === 'ecb'
+          ? 'Converted at today’s ECB reference rate'
+          : `Converted at rates as of ${atTime(provenance.asOf)}`
+        : null}
     </p>
   );
 }

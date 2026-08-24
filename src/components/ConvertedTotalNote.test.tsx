@@ -133,4 +133,15 @@ describe('ConvertedTotalNote', () => {
       expect(screen.getByTestId('converted-total-note')).toHaveTextContent(/This total is wrong/);
     });
   });
+
+  describe('the ECB reference rate — the preferred provider (24 Aug §1)', () => {
+    it('names the day\'s reference rate, not a wall-clock time', () => {
+      // The reference rate is a DAILY figure; a clock time would overstate
+      // its freshness.
+      render(<ConvertedTotalNote provenance={{ source: 'ecb', asOf: new Date(2026, 7, 24, 9, 30) }} />);
+      const note = screen.getByTestId('converted-total-note');
+      expect(note).toHaveTextContent('Converted at today’s ECB reference rate');
+      expect(note.textContent).not.toMatch(/09|9:30/);
+    });
+  });
 });
