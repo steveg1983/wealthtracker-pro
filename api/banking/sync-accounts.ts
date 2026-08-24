@@ -11,12 +11,12 @@ import { applyRateLimit } from '../_lib/rate-limit.js';
 import { createErrorResponse } from '../_lib/http-error.js';
 import { captureServerError, withSentry } from '../_lib/sentry.js';
 import {
-  getUserTrueLayerConnection,
+  getUserBankConnection,
   isReauthRequiredError,
   markConnectionNeedsReauth,
   markConnectionSyncFailure,
   markConnectionSyncSuccess,
-  withTrueLayerAccessToken
+  withProviderAccessToken
 } from '../_lib/banking-sync.js';
 import { fetchAccountBalance, fetchAccounts, fetchCardBalance, fetchCards } from '../_lib/truelayer.js';
 import {
@@ -438,12 +438,12 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const connectionId = body.connectionId.trim();
-    const connection = await getUserTrueLayerConnection(supabase, auth.userId, connectionId);
+    const connection = await getUserBankConnection(supabase, auth.userId, connectionId);
     if (!connection) {
       return createErrorResponse(res, 404, 'Connection not found', 'not_found');
     }
 
-    const accounts = await withTrueLayerAccessToken(supabase, connection, async (accessToken) => {
+    const accounts = await withProviderAccessToken(supabase, connection, async (accessToken) => {
       const truelayerAccounts = await fetchAccounts(accessToken);
       // Cards live on a separate API surface; [] when the token predates the
       // cards scope, so old bank connections sync exactly as before.
@@ -454,7 +454,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
           // Retried, then believed — including when the answer is "no figure".
           // The old code caught the failure and left `balance` at its initial
           // 0, which the seeding path below then wrote to three columns as a
-          // fact. A 401 is re-thrown from here so withTrueLayerAccessToken can
+          // fact. A 401 is re-thrown from here so withProviderAccessToken can
           // refresh the token and replay the whole operation.
           const balance = await resolveBalanceSnapshot(
             () => fetchAccountBalance(accessToken, account.account_id),
@@ -577,7 +577,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     // state, or one user could flip another's connection to error/reauth.
     const sb = getServiceRoleSupabase();
     const ownedConnection = body?.connectionId && authUserId
-      ? await getUserTrueLayerConnection(sb, authUserId, body.connectionId.trim())
+      ? await getUserBankConnection(sb, authUserId, body.connectionId.trim())
       : null;
     if (ownedConnection && authUserId) {
       if (needsReauth) {

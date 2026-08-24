@@ -11,13 +11,13 @@ import { captureServerError, withSentry } from '../_lib/sentry.js';
 import { applyRateLimit } from '../_lib/rate-limit.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import {
-  getUserTrueLayerConnection,
+  getUserBankConnection,
   isReauthRequiredError,
   markConnectionNeedsReauth,
   markConnectionSyncFailure,
   markConnectionSyncNoAccounts,
   markConnectionSyncSuccess,
-  withTrueLayerAccessToken
+  withProviderAccessToken
 } from '../_lib/banking-sync.js';
 import type { TrueLayerTransaction } from '../_lib/truelayer.js';
 import { fetchCardTransactions, fetchTransactions } from '../_lib/truelayer.js';
@@ -141,7 +141,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const connectionId = body.connectionId.trim();
-    const connection = await getUserTrueLayerConnection(supabase, auth.userId, connectionId);
+    const connection = await getUserBankConnection(supabase, auth.userId, connectionId);
     if (!connection) {
       return createErrorResponse(res, 404, 'Connection not found', 'not_found');
     }
@@ -204,7 +204,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(response);
     }
 
-    const fetchedTransactions = await withTrueLayerAccessToken(supabase, connection, async (accessToken) => {
+    const fetchedTransactions = await withProviderAccessToken(supabase, connection, async (accessToken) => {
       const allTransactions: Array<{
         accountId: string;
         transaction: TrueLayerTransaction;
@@ -256,13 +256,13 @@ async function handler(req: VercelRequest, res: VercelResponse) {
           account_id: accountId,
           connection_id: connection.id,
           external_transaction_id: externalTransactionId,
-          external_provider: 'truelayer',
+          external_provider: connection.provider,
           description,
           amount,
           type,
           date: toDateOnly(transaction.timestamp),
           metadata: {
-            provider: 'truelayer',
+            provider: connection.provider,
             sourceKind: isCard ? 'card' : 'account',
             sourceAccountId: transaction.account_id,
             transactionType: transaction.transaction_type ?? null,
@@ -407,7 +407,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     // state, or one user could flip another's connection to error/reauth.
     const sb = getServiceRoleSupabase();
     const ownedConnection = body?.connectionId && authUserId
-      ? await getUserTrueLayerConnection(sb, authUserId, body.connectionId.trim())
+      ? await getUserBankConnection(sb, authUserId, body.connectionId.trim())
       : null;
     if (ownedConnection && authUserId) {
       if (needsReauth) {

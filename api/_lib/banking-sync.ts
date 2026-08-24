@@ -1,8 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { decryptSecret, encryptSecret } from './encryption.js';
-import { refreshAccessToken } from './truelayer.js';
+import { getProvider, type BankProvider } from './providers/index.js';
 
-export interface TrueLayerConnectionRow {
+/**
+ * A connection row, whichever provider issued it.
+ *
+ * Named for TrueLayer until 24 Aug because it could only ever BE TrueLayer:
+ * the loader below rejected every other provider, so a second provider's
+ * connection 404'd as "Connection not found" on every sync. The row carries
+ * its own provider and the shared path dispatches on it now.
+ */
+export interface BankConnectionRow {
   id: string;
   user_id: string;
   provider: string;
@@ -12,11 +20,20 @@ export interface TrueLayerConnectionRow {
   refresh_token_encrypted: string | null;
 }
 
-const isUnauthorizedTrueLayerError = (error: unknown): boolean => {
-  if (!(error instanceof Error)) {
-    return false;
+/**
+ * The provider that drives this row, or a thrown error naming the row that
+ * cannot be driven. Called at the top of every operation that talks to a
+ * bank, so an unknown provider fails once, loudly, rather than being
+ * mistaken for the default one.
+ */
+const providerFor = (connection: BankConnectionRow): BankProvider => {
+  const provider = getProvider(connection.provider);
+  if (!provider) {
+    throw new Error(
+      `Connection ${connection.id} names provider "${connection.provider}", which this server cannot drive`
+    );
   }
-  return /\b401\b/.test(error.message);
+  return provider;
 };
 
 /**
@@ -39,21 +56,32 @@ export class ReauthRequiredError extends Error {
  * (HTTP 400), not 401, so a literal-401 check (issue #22) misses it. Treat any
  * refresh-call failure, plus a missing refresh token, as needs-reauth.
  */
-export const isReauthRequiredError = (error: unknown): boolean => {
+export const isReauthRequiredError = (error: unknown, connection?: BankConnectionRow): boolean => {
   if (error instanceof ReauthRequiredError) {
     return true;
   }
   if (!(error instanceof Error)) {
     return false;
   }
+  // Each provider classifies in its OWN vocabulary — TrueLayer says
+  // `invalid_grant` on a 400, Plaid says ITEM_LOGIN_REQUIRED in a JSON body
+  // and never uses 401 for a dead item. A shared regex would retry forever
+  // on one provider while raising the reauth CTA correctly on the other.
+  const provider = connection ? getProvider(connection.provider) : null;
+  if (provider) {
+    return provider.isReauthRequiredError(error);
+  }
+  // No row in hand (the handlers' outer catch): fall back to the union of
+  // what the known providers say, which is what this predicate meant before
+  // it could ask anyone.
   return /invalid_grant|no refresh token|token refresh failed|reauth/i.test(error.message);
 };
 
-export const getUserTrueLayerConnection = async (
+export const getUserBankConnection = async (
   supabase: SupabaseClient,
   userId: string,
   connectionId: string
-): Promise<TrueLayerConnectionRow | null> => {
+): Promise<BankConnectionRow | null> => {
   const { data, error } = await supabase
     .from('bank_connections')
     .select('id, user_id, provider, institution_id, institution_name, access_token_encrypted, refresh_token_encrypted')
@@ -65,11 +93,16 @@ export const getUserTrueLayerConnection = async (
     return null;
   }
 
-  if (data.provider !== 'truelayer') {
+  // DISPATCH, not a guard. This used to `return null` for anything that was
+  // not TrueLayer, which is why the schema's second provider was unreachable
+  // from the day it was allowed. An unknown provider is still refused —
+  // driving a connection with the wrong provider's client is how one bank's
+  // data would land in another's account — but a KNOWN one now passes.
+  if (!getProvider(data.provider)) {
     return null;
   }
 
-  return data as TrueLayerConnectionRow;
+  return data as BankConnectionRow;
 };
 
 interface AccessTokenResolution {
@@ -79,30 +112,33 @@ interface AccessTokenResolution {
 
 const refreshConnectionAccessToken = async (
   supabase: SupabaseClient,
-  connection: TrueLayerConnectionRow
+  connection: BankConnectionRow
 ): Promise<AccessTokenResolution> => {
+  const provider = providerFor(connection);
   if (!connection.refresh_token_encrypted) {
-    throw new ReauthRequiredError('TrueLayer access token expired and no refresh token is stored');
+    throw new ReauthRequiredError(
+      `${provider.displayName} access token expired and no refresh token is stored`
+    );
   }
 
   const refreshToken = decryptSecret(connection.refresh_token_encrypted);
   let refreshed;
   try {
-    refreshed = await refreshAccessToken(refreshToken);
+    refreshed = await provider.refreshAccessToken(refreshToken);
   } catch (error) {
     // A failed refresh (invalid_grant / 400 / 401 / expired refresh token) is
     // unrecoverable without the user re-linking — surface it as needs-reauth
     // rather than a transient error.
     const detail = error instanceof Error ? error.message : 'token refresh failed';
-    throw new ReauthRequiredError(`TrueLayer token refresh failed: ${detail}`);
+    throw new ReauthRequiredError(`${provider.displayName} token refresh failed: ${detail}`);
   }
-  const encryptedAccess = encryptSecret(refreshed.access_token);
-  const encryptedRefresh = refreshed.refresh_token
-    ? encryptSecret(refreshed.refresh_token)
+  const encryptedAccess = encryptSecret(refreshed.accessToken);
+  const encryptedRefresh = refreshed.refreshToken
+    ? encryptSecret(refreshed.refreshToken)
     : connection.refresh_token_encrypted;
 
-  const expiresAt = typeof refreshed.expires_in === 'number' && Number.isFinite(refreshed.expires_in)
-    ? new Date(Date.now() + refreshed.expires_in * 1000).toISOString()
+  const expiresAt = refreshed.expiresInSeconds !== null
+    ? new Date(Date.now() + refreshed.expiresInSeconds * 1000).toISOString()
     : null;
 
   const nowIso = new Date().toISOString();
@@ -121,21 +157,24 @@ const refreshConnectionAccessToken = async (
     .eq('user_id', connection.user_id);
 
   return {
-    accessToken: refreshed.access_token,
+    accessToken: refreshed.accessToken,
     refreshed: true
   };
 };
 
-export const withTrueLayerAccessToken = async <T>(
+export const withProviderAccessToken = async <T>(
   supabase: SupabaseClient,
-  connection: TrueLayerConnectionRow,
+  connection: BankConnectionRow,
   operation: (accessToken: string) => Promise<T>
 ): Promise<T> => {
+  const provider = providerFor(connection);
   const accessToken = decryptSecret(connection.access_token_encrypted);
   try {
     return await operation(accessToken);
   } catch (error) {
-    if (!isUnauthorizedTrueLayerError(error)) {
+    // "Is this a stale ACCESS token?" — the provider's own answer, because a
+    // literal 401 is TrueLayer's convention and not everyone's.
+    if (!provider.isExpiredTokenError(error)) {
       throw error;
     }
   }

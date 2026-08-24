@@ -1,0 +1,87 @@
+/**
+ * THE PROVIDER SEAM — the thing whose absence made the schema's second
+ * provider unreachable.
+ *
+ * `bank_connections.provider` has allowed 'plaid' since the table was
+ * written, and `UNIQUE (user_id, institution_id, provider)` was designed so
+ * the same bank could exist under two providers at once. The code never
+ * caught up: `banking-sync` returned null for any row that was not
+ * TrueLayer, so such a connection 404'd as "Connection not found" on every
+ * single sync.
+ *
+ * These specs pin the seam that replaced that guard. Every id and message
+ * below is invented; the repo is public.
+ */
+import { describe, it, expect } from 'vitest';
+// api/** is excluded from the vitest project (see vitest.config.ts), so the
+// serverless helpers are exercised from here — the same arrangement
+// timing-safe.test.ts and quotes.test.ts use.
+import { getProvider, listProviders, defaultProviderId } from '../../../api/_lib/providers/index';
+import { trueLayerProvider } from '../../../api/_lib/providers/truelayer';
+
+describe('the bank-provider registry', () => {
+  it('answers for a provider it knows, keyed by the value the ROW stores', () => {
+    // The row is the routing decision — there is no second source of truth
+    // about which provider a connection belongs to.
+    expect(getProvider('truelayer')).toBe(trueLayerProvider);
+  });
+
+  it('refuses an unknown provider rather than falling back to the default', () => {
+    // A silent fallback is how one bank's data would be fetched with another
+    // bank's client and land in the wrong account.
+    expect(getProvider('some-provider-this-server-cannot-drive')).toBeNull();
+    expect(getProvider('')).toBeNull();
+    expect(getProvider(null)).toBeNull();
+    expect(getProvider(undefined)).toBeNull();
+  });
+
+  it('names a default explicitly rather than letting key order decide it', () => {
+    expect(defaultProviderId()).toBe('truelayer');
+    expect(getProvider(defaultProviderId())).not.toBeNull();
+  });
+
+  it('every registered provider is reachable by its own id', () => {
+    const providers = listProviders();
+    expect(providers.length).toBeGreaterThan(0);
+    for (const provider of providers) {
+      expect(getProvider(provider.id)).toBe(provider);
+      expect(provider.displayName).toBeTruthy();
+    }
+  });
+
+  it('every registered id is one the database CHECK constraint allows', () => {
+    // bank_connections.provider CHECK (provider IN ('truelayer','plaid')) —
+    // registering an id outside that set would fail at INSERT with PG 23514,
+    // which surfaces as an opaque 500 long after the mistake was made.
+    const allowedByCheckConstraint = ['truelayer', 'plaid'];
+    for (const provider of listProviders()) {
+      expect(allowedByCheckConstraint).toContain(provider.id);
+    }
+  });
+});
+
+describe('TrueLayer classifies its own failures', () => {
+  it('reads a literal 401 as a stale ACCESS token — recoverable by refresh', () => {
+    expect(trueLayerProvider.isExpiredTokenError(new Error('Request failed: 401'))).toBe(true);
+    expect(trueLayerProvider.isExpiredTokenError(new Error('Request failed: 500'))).toBe(false);
+    expect(trueLayerProvider.isExpiredTokenError('not an error')).toBe(false);
+  });
+
+  it('reads invalid_grant as needing the USER, not a retry', () => {
+    // The bug this encodes (issue #22): a dead refresh token comes back as
+    // `invalid_grant` on an HTTP 400, so a literal-401 check missed it and
+    // left a Sync button that could never succeed.
+    expect(trueLayerProvider.isReauthRequiredError(new Error('invalid_grant'))).toBe(true);
+    expect(trueLayerProvider.isReauthRequiredError(new Error('token refresh failed: 400'))).toBe(true);
+    expect(trueLayerProvider.isReauthRequiredError(new Error('Request failed: 500'))).toBe(false);
+  });
+
+  it('keeps the two questions apart', () => {
+    // A 401 is recoverable without the user; invalid_grant is not. A
+    // provider that answered both the same way would either retry forever on
+    // a dead item or send the user to re-consent over a blip.
+    const transient = new Error('Request failed: 401');
+    expect(trueLayerProvider.isExpiredTokenError(transient)).toBe(true);
+    expect(trueLayerProvider.isReauthRequiredError(transient)).toBe(false);
+  });
+});
