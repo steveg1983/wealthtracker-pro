@@ -112,8 +112,35 @@ const TRUELAYER_PROVIDER_BY_INSTITUTION: Record<string, string> = {
   tsb: 'ob-tsb',
 };
 
-export const providerForInstitution = (institutionId: string | undefined): string | undefined =>
-  institutionId ? TRUELAYER_PROVIDER_BY_INSTITUTION[institutionId] : undefined;
+export const providerForInstitution = (institutionId: string | undefined): string | undefined => {
+  if (!institutionId) return undefined;
+  /*
+   * A STORED connection already holds TrueLayer's OWN provider id.
+   *
+   * `bank_connections.institution_id` is written from the provider metadata
+   * TrueLayer returns with the accounts (`provider.provider_id`), so a
+   * Revolut connection is saved as `ob-revolut` — while the shortcut map
+   * below is keyed by OUR ids (`revolut`, `amex`). The lookup therefore
+   * missed on every existing connection and fell through to the full UK
+   * list.
+   *
+   * That is nearly invisible when CONNECTING (the user picked their bank
+   * from our list a moment ago, so a chooser is merely redundant) and badly
+   * wrong when RECONNECTING: the user clicks Reconnect on a row that says
+   * REVOLUT and lands on ninety banks, which reads as the wrong page and is
+   * a very good way to abandon the journey. The owner's connection went
+   * twelve days without a completed re-authorisation while its SCA
+   * exemption sat expired.
+   *
+   * So an id that is already TrueLayer's passes straight through. Their
+   * registry (GET /api/providers, 90 entries) uses these prefixes and no
+   * others.
+   */
+  if (/^(ob|oauth|xs2a)-/.test(institutionId) || institutionId === 'mock') {
+    return institutionId;
+  }
+  return TRUELAYER_PROVIDER_BY_INSTITUTION[institutionId];
+};
 
 export const buildAuthUrl = (options: AuthUrlOptions): string => {
   const url = new URL(getAuthBaseUrl());
