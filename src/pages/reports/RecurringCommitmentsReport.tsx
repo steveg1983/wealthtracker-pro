@@ -411,7 +411,7 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
         </h2>
         {/* The page's one earned total: "how much of my year is already
             spoken for?" is a question people genuinely ask (§3). */}
-        <p className="text-page font-bold mt-1 tabular-nums">
+        <p className="text-page font-bold mt-1 tabular-nums text-gray-900 dark:text-white">
           {formatCurrency(annualTotal, displayCurrency)}
         </p>
         <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">

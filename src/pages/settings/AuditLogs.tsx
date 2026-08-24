@@ -240,7 +240,7 @@ export default function AuditLogs() {
         <div className="bg-gradient-to-r from-gray-600 to-gray-800 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6 mb-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-page font-bold mb-2">Audit Logs</h1>
+              <h1 className="text-page font-bold mb-2 text-gray-900 dark:text-white">Audit Logs</h1>
               <p className="text-gray-100">
                 Complete history of all system activities and changes
               </p>

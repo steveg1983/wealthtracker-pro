@@ -70,7 +70,7 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
           <p className="text-label uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
             Total balance
           </p>
-          <p className="text-page font-bold mt-1">{approx}{money(report.netWorth)}</p>
+          <p className="text-page font-bold mt-1 text-gray-900 dark:text-white">{approx}{money(report.netWorth)}</p>
           <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
             As at {report.asOf.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
