@@ -3,7 +3,8 @@ import { useApp } from '../../contexts/AppContextSupabase';
 import { useNetWorthConversion } from '../../hooks/useNetWorthConversion';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
-import { buildAccountBalanceReport, type AccountBalanceRow } from '../../utils/accountBalanceReport';
+import { buildAccountBalanceReport, resolveClosingSnapshot, type AccountBalanceRow } from '../../utils/accountBalanceReport';
+import BalanceReportCurrencyNote from '../../components/reports/BalanceReportCurrencyNote';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import NetWorthSummary from '../../components/NetWorthSummary';
 import type { ReportViewProps } from './types';
@@ -26,11 +27,18 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
 
   // The dated seam (balance reports' conversion, 23 Aug) — same terms as
-  // the Account Balances report, from the same util.
-  const { conversionAt } = useNetWorthConversion(accounts, { range: { from: null, to: null } });
+  // the Account Balances report, from the same util. The CLOSING figures
+  // take the snapshot basis (one-net-worth ruling, 24 Aug §1): the as-at
+  // day's own rates, which as at today are the Accounts page's exact
+  // factors — one answer to "what am I worth" on both surfaces.
+  const { conversion, conversionAt } = useNetWorthConversion(accounts, { range: { from: null, to: null } });
   const report = useMemo(
-    () => buildAccountBalanceReport(accounts, transactions, picker.range, new Date(), conversionAt ?? undefined),
-    [accounts, transactions, picker.range, conversionAt]
+    () => buildAccountBalanceReport(
+      accounts, transactions, picker.range, new Date(),
+      conversionAt ?? undefined,
+      resolveClosingSnapshot(picker.range, new Date(), conversion, conversionAt)
+    ),
+    [accounts, transactions, picker.range, conversion, conversionAt]
   );
   const approx = report.holdsForeign ? '≈ ' : '';
 
@@ -174,10 +182,15 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
         </span>
         . Change over {PERIOD_LABELS[picker.period].toLowerCase()}{' '}
         <span className={report.change < 0 ? 'text-expense font-medium' : 'text-income font-medium'}>
-          {report.change > 0 ? '+' : ''}{money(report.change)}
+          {report.change > 0 ? '+' : ''}{approx}{money(report.change)}
         </span>
-        , from {money(report.openingNetWorth)}.
+        , from {approx}{money(report.openingNetWorth)}.
       </p>
+
+      {/* The two bases, said — balances at the as-at day, movements at their
+          own days (the one-net-worth ruling). The hub stands down for this
+          report; the note is its own. */}
+      <BalanceReportCurrencyNote asOf={report.asOf} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {section('What you own', sides.owned, report.assets, 'No account is in credit in this period')}
