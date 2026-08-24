@@ -54,7 +54,8 @@ import type {
   Transaction
 } from '../types';
 import Decimal from 'decimal.js';
-import { buildCategoryKindLookup, classifyFlow, type FlowKind } from '../utils/incomeExpense';
+import { toDecimal } from '../utils/decimal';
+import { buildCategoryKindLookup, classifyFlow, type FlowKind, type FlowFactorResolver } from '../utils/incomeExpense';
 import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, parseISO, format } from 'date-fns';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
@@ -457,11 +458,24 @@ export class CustomReportService {
       accounts: Account[];
       budgets: Budget[];
       categories: Category[];
-    }
+    },
+    /**
+     * The flows seam (the disclosure ruling's ladder, closed here 24 Aug —
+     * this was the LAST surface still summing native units): each row's
+     * amount converts at its own day's reference rate before any aggregating
+     * generator sees it, so stats, charts, breakdowns and comparisons all
+     * convert through the one resolver every report uses. The TABLE
+     * component keeps the raw rows — a listed transaction prints its own
+     * money, only aggregates convert. Omitted, everything sums native and
+     * the page's Phase 0 disclosure stays true.
+     */
+    convert?: FlowFactorResolver
   ): Promise<{
     report: CustomReport;
     dateRange: { startDate: Date; endDate: Date };
     data: Record<string, unknown>;
+    /** True when any conversion factor was applied — the ≈ gate. */
+    holdsForeign: boolean;
   }> {
     // Apply date filters
     const { startDate, endDate } = this.getDateRange(report.filters.dateRange, {
@@ -496,14 +510,28 @@ export class CustomReportService {
       );
     }
 
+    // The seam: aggregating generators receive rows whose amounts are
+    // already in the display currency, each at its own day's factor. The
+    // table generator receives the RAW rows below — listed money stays
+    // native.
+    let holdsForeign = false;
+    const aggregable = convert
+      ? filteredTransactions.map(t => {
+          const factor = convert(t);
+          if (factor === null) return t;
+          holdsForeign = true;
+          return { ...t, amount: toDecimal(t.amount).times(factor).toNumber() };
+        })
+      : filteredTransactions;
+
     // Generate component data
     const componentData: Record<string, unknown> = {};
-    
+
     for (const component of report.components) {
       componentData[component.id] = await this.generateComponentData(
         component,
         {
-          transactions: filteredTransactions,
+          transactions: component.type === 'table' ? filteredTransactions : aggregable,
           accounts: data.accounts,
           budgets: data.budgets,
           categories: data.categories,
@@ -515,7 +543,8 @@ export class CustomReportService {
     return {
       report,
       dateRange: { startDate, endDate },
-      data: componentData
+      data: componentData,
+      holdsForeign
     };
   }
 

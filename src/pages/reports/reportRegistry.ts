@@ -244,6 +244,12 @@ export const REPORTS: ReportDefinition[] = [
     icon: FileTextIcon,
     // Custom reports carry their own date and account filters.
     usesPeriod: false,
+    // The LAST surface to convert (24 Aug): aggregates run through the
+    // shared flows seam — each row at its own day's rate — so the hub's
+    // note states the basis, and its degraded fallback keeps the old
+    // sentence honest while the history loads. Listed table rows stay
+    // native, as rows do everywhere.
+    currency: 'flows',
     component: lazyWithRecovery(() => import('../CustomReports')),
   },
 ];

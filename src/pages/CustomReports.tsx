@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useNotifications } from '../contexts/NotificationContext';
 import { customReportService } from '../services/customReportService';
+import { useFlowConvert } from '../hooks/useFlowConvert';
 import CustomReportBuilder from '../components/CustomReportBuilder';
 import CustomReportViewer, { type GeneratedReport } from '../components/CustomReportViewer';
 import type { CustomReport } from '../components/CustomReportBuilder';
@@ -28,6 +29,11 @@ export default function CustomReports(): React.JSX.Element {
     customReports, saveCustomReport, deleteCustomReport
   } = useApp();
   const { addNotification } = useNotifications();
+  // The flows seam (closed here 24 Aug — the last native surface): each
+  // row's amount converts at its own day's reference rate before the
+  // aggregating generators sum it. Undefined while the history loads, when
+  // the hub's disclosure keeps saying the totals are native.
+  const flowConvert = useFlowConvert(accounts);
 
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingReport, setEditingReport] = useState<CustomReport | undefined>();
@@ -122,7 +128,7 @@ export default function CustomReports(): React.JSX.Element {
         accounts,
         budgets,
         categories
-      });
+      }, flowConvert);
       
       // Show the report itself — "generated" used to mean a toast and
       // nothing to look at.
