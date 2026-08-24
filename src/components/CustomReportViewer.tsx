@@ -33,6 +33,8 @@ export interface GeneratedReport {
   report: CustomReport;
   dateRange: { startDate: Date; endDate: Date };
   data: Record<string, unknown>;
+  /** True when the flows seam applied a conversion factor — the ≈ gate. */
+  holdsForeign: boolean;
 }
 
 interface ChartSeries {
@@ -101,7 +103,12 @@ export default function CustomReportViewer({
                   {key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()).trim()}
                 </p>
                 <p className="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">
-                  {/count|Count/.test(key) ? value.toLocaleString() : money(value)}
+                  {/count|Count/.test(key)
+                    ? value.toLocaleString()
+                    // ≈ on converted money figures — the hub's basis line
+                    // states the mechanism; the mark says which figures it
+                    // reached. Rates and counts are not money.
+                    : `${generated.holdsForeign && !/[Rr]ate/.test(key) ? '≈ ' : ''}${money(value)}`}
                 </p>
               </div>
             ))}
