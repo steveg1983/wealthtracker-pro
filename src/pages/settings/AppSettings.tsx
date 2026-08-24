@@ -248,8 +248,13 @@ export default function AppSettings() {
           ))}
         </div>
 
-        <div className="mt-6 p-4 bg-theme-accent dark:bg-gray-800/50 rounded-2xl">
-          <p className="text-body text-theme-heading dark:text-gray-300">
+        {/* The neutral house panel, NOT bg-theme-accent: that class carries
+            !important in index.css, so it beat dark:bg-gray-800/50 and left
+            light-grey text on a near-white ground — invisible in dark mode
+            (Design, 24 Aug §6; the index.css specificity-trap family). This
+            was its only remaining use. */}
+        <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+          <p className="text-body text-gray-700 dark:text-gray-300">
             <strong>Note:</strong> Hidden pages will not appear in the sidebar navigation but can still be accessed if you have a direct link.
           </p>
         </div>
