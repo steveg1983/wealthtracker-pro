@@ -823,20 +823,22 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
               </fieldset>
             )}
 
-            {/* Summary */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {parseResult.statementRows.length}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">In this file</p>
-              </div>
-              <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {willImport}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Will be imported</p>
-              </div>
+            {/* ONE SENTENCE, not two equal cards (Design, 24 Aug §2): two
+                large neutral figures side by side made the eye read the
+                numbers before it read which was which, and left the
+                relationship between them — how many are already here — for
+                the reader to compute. The figure that matters is what is
+                about to change, and the sentence states all three facts in
+                the order they answer. */}
+            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{willImport}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                of {parseResult.statementRows.length}{' '}
+                {parseResult.statementRows.length === 1 ? 'transaction' : 'transactions'} in this
+                file {parseResult.statementRows.length === 1 ? 'is' : 'are'} new
+                {parseResult.statementRows.length - willImport > 0 &&
+                  ` — you already have the ${parseResult.statementRows.length - willImport === 1 ? 'other one' : `other ${parseResult.statementRows.length - willImport}`}`}
+              </p>
             </div>
             
             {/* What the import is doing, from the click onwards — the file's
@@ -860,9 +862,14 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
               >
                 Cancel
               </button>
+              {/* The button keeps its RESTING label while busy (Design,
+                  24 Aug §3): the progress row above already says "Importing…
+                  N of M", in detail, and two labels for one state left the
+                  less informative one competing with it. Disabled plus the
+                  spinner is the busy signal. */}
               <LoadingButton
                 isLoading={isProcessing}
-                loadingText="Importing…"
+                loadingText="Import Transactions"
                 onClick={processImport}
                 disabled={!selectedAccountId && !parseResult.matchedAccount}
                 className="flex items-center gap-2 px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50"
@@ -879,8 +886,12 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
           <div className="text-center">
             {importResult.status === 'imported' && (
               <>
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-4">
-                  <CheckIcon size={32} className="text-blue-600 dark:text-blue-400" />
+                {/* A completed import is a SUCCESS, and the app has a token
+                    for that — the stock blue disc was a colour standing in
+                    for a semantic one that exists (Design, 24 Aug §4; same
+                    family as the Calendar TODAY circle). */}
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
+                  <CheckIcon size={32} className="text-green-700 dark:text-green-400" />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                   Import Successful!
@@ -902,8 +913,15 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
                   </p>
                 )}
 
+                {/* NEUTRAL, not amber (Design, 24 Aug §1): this sentence is
+                    the app declaring it PROTECTED the reader from
+                    double-counting — reassurance, not a warning, and no
+                    control here ends any condition. Amber on "left out 16
+                    transactions" invites the opposite reading, that part of
+                    the statement failed to import. The tick above already
+                    does the "this succeeded" work. */}
                 {importResult.duplicates > 0 && (
-                  <p className="text-sm text-yellow-600 dark:text-yellow-400 mb-6">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
                     Left out {importResult.duplicates}{' '}
                     {importResult.duplicates === 1 ? 'transaction' : 'transactions'} this
                     account already had, so the statement period is not recorded twice.
@@ -1039,9 +1057,12 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
                 <RefreshCwIcon size={20} />
                 Import Another File
               </button>
+              {/* Done is the likely next step and wears the primary token
+                  (Design, 24 Aug §5 — dark-correct now, not a hardcoded
+                  navy); Import Another File stays the quiet one. */}
               <button
                 onClick={onClose}
-                className="px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
+                className="px-6 py-2 bg-primary-action text-on-primary-action rounded-lg hover:bg-primary-action-hover transition-colors"
               >
                 Done
               </button>
