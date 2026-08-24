@@ -185,7 +185,7 @@ describe('ReconciliationAccountList — rows, not cards', () => {
       summaries: [{ ...summary('a5', 'Settled Account', 100, 100), unreconciledCount: 0 }],
     };
     renderGrouping(reconciled);
-    const badge = screen.getByText('All reconciled');
+    const badge = screen.getByText('All transactions ticked');
 
     // It was `bg-blue-100 text-blue-700` — the app's LINK blue, on a thing that
     // is not a link, on every unremarkable row at once.

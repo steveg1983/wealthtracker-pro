@@ -180,7 +180,7 @@ describe('Reconciliation — marking is a holding state', () => {
     // 1. The reconciliation account list — the screen the user comes back to.
     const list = renderAccountList();
     expect(await screen.findByText('3 unreconciled')).toBeInTheDocument();
-    expect(screen.queryByText('All reconciled')).not.toBeInTheDocument();
+    expect(screen.queryByText('All transactions ticked')).not.toBeInTheDocument();
     list.unmount();
 
     // 2. The Accounts page's Unreconciled column, which is where the owner

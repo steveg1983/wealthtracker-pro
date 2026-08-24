@@ -3,7 +3,7 @@
  *
  * The owner's book showed this page saying **2,447 unreconciled transactions
  * across all accounts** above a screen of rows that every one of them said
- * "All reconciled", Difference £0.00. Both numbers were produced correctly by
+ * "All transactions ticked", Difference £0.00. Both numbers were produced correctly by
  * their own lights; they answered different questions, and nothing in the app
  * or in its tests ever put them side by side. That is the pin bug's failure
  * mode exactly: two facts written from different sources, read back under
@@ -137,7 +137,7 @@ describe('Reconciliation — the headline decomposes into the rows', () => {
     expect(headline()).toBeNull();
     expect(badgeTotal()).toBe(0);
     expect(screen.getByText('All accounts are up to date')).toBeInTheDocument();
-    expect(screen.getByText('All reconciled')).toBeInTheDocument();
+    expect(screen.getByText('All transactions ticked')).toBeInTheDocument();
     // The exact contradiction that cost trust: a headline over a screen that
     // disagrees with it.
     expect(screen.queryByText(/unreconciled transactions across all accounts/)).not.toBeInTheDocument();
