@@ -27,6 +27,14 @@ import { join, relative } from 'node:path';
  * - 'native-known'        — sums native, recorded by the audit, awaiting its
  *                           phase in the ruling's order. New code may NOT
  *                           enter at this status: convert or exclude-and-say.
+ * - 'counts-only'         — reads only ROW COUNTS from the primitive and no
+ *                           money figure at all, so currency cannot affect
+ *                           its output. Not part of the ruling's four-state
+ *                           table, because that table is about disclosing
+ *                           money: a caller that never shows an amount has
+ *                           nothing to disclose. New code MAY enter here,
+ *                           but only if it genuinely touches no total —
+ *                           reading one figure moves it to 'converts'.
  */
 
 const PRIMITIVES = [
@@ -37,7 +45,7 @@ const PRIMITIVES = [
   'buildPortfolioHistory',
 ] as const;
 
-type Status = 'converts' | 'excludes-and-states' | 'native-known';
+type Status = 'converts' | 'excludes-and-states' | 'native-known' | 'counts-only';
 
 /** file (repo-relative, posix) → the statuses of the primitives it calls. */
 const LEDGER: Record<string, Partial<Record<(typeof PRIMITIVES)[number], Status>>> = {
@@ -74,6 +82,12 @@ const LEDGER: Record<string, Partial<Record<(typeof PRIMITIVES)[number], Status>
   'src/pages/Categorisation.tsx': { computeIncomeExpense: 'native-known' },
   'src/pages/reports/PeriodComparisonReport.tsx': { computeIncomeExpense: 'converts' },
   'src/utils/categoryHealth.ts': { computeIncomeExpense: 'native-known' },
+
+  // ── callers that read no money at all ──
+  // The ladder asks "is there outstanding work of this kind?" and reads
+  // `uncategorizedRows.length` — never a total. Its answer is a rung name,
+  // so no exchange rate could change it.
+  'src/hooks/useAttentionLadder.ts': { computeIncomeExpense: 'counts-only' },
 };
 
 const SRC = join(process.cwd(), 'src');

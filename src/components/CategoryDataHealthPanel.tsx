@@ -50,8 +50,15 @@ export default function CategoryDataHealthPanel({
   onFileUnassignedBucket,
   onShowEmptyCategories,
   onFixTransferFilings,
+  wearsAmber,
 }: {
   health: CategoryHealth;
+  /**
+   * Whether the categorise rung is the app's current next thing (see
+   * utils/attentionLadder). Passed in rather than read here, so this stays
+   * a presentational panel and its state is testable without a provider.
+   */
+  wearsAmber: boolean;
   /** Open the import bucket's rows for filing (the id is the one measured). */
   onFileUnassignedBucket: (categoryId: string) => void;
   /** Show the empty categories in the tree, with deletion reachable. */
@@ -77,24 +84,40 @@ export default function CategoryDataHealthPanel({
   const bucketId = health.unassignedBucketCategoryId;
 
   return (
+    /* THE COLOUR IS THE LADDER'S, THE CONTENT IS THIS PANEL'S (Design's
+       per-app ruling, 24 Aug). This panel and Categorisation's summary
+       report the SAME rung — "a rung is a kind of work, not a location", so
+       two surfaces reporting one rung is normal where two rungs reporting
+       one condition would double-count it. They therefore light and stand
+       down together, and every finding, figure and remedy stays legible in
+       both states: what is surrendered is the claim to be next, not the
+       information. */
     <section
       aria-labelledby="category-data-health-heading"
-      className="lg:shrink-0 rounded-2xl border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20 p-4 mb-6"
+      className={`lg:shrink-0 rounded-2xl border p-4 mb-6 ${
+        wearsAmber
+          ? 'border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20'
+          : 'border-line dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+      }`}
     >
       <h3
         id="category-data-health-heading"
-        className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2"
+        className={`text-sm font-semibold mb-2 ${
+          wearsAmber ? 'text-amber-800 dark:text-amber-300' : 'text-gray-900 dark:text-white'
+        }`}
       >
         Data health
       </h3>
-      <ul className="space-y-1.5 text-sm text-amber-800 dark:text-amber-200">
+      <ul className={`space-y-1.5 text-sm ${
+        wearsAmber ? 'text-amber-800 dark:text-amber-200' : 'text-gray-700 dark:text-gray-300'
+      }`}>
         {health.uncategorizedCount > 0 && (
           <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span>
               <strong className="tabular-nums">{health.uncategorizedCount.toLocaleString()}</strong>{' '}
               uncategorised transaction{plural(health.uncategorizedCount)} sit outside every report
             </span>
-            <span className="text-amber-700 dark:text-amber-400 tabular-nums">
+            <span className={`tabular-nums ${wearsAmber ? 'text-amber-700 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>
               ({formatCurrency(health.uncategorizedIn)} in · {formatCurrency(health.uncategorizedOut)} out)
             </span>
             <Link
