@@ -21,7 +21,12 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = getServiceRoleSupabase();
     const { data, error } = await supabase
       .from('bank_connections')
-      .select('id, provider, institution_id, institution_name, institution_logo, status, last_sync, expires_at')
+      // `error` is selected because the UI READS it: a broken row prints
+      // "The provider said: …", and a connected row whose last sync failed
+      // is only distinguishable from a healthy one by this column. It was
+      // absent, so both of those states rendered as though nothing had
+      // happened.
+      .select('id, provider, institution_id, institution_name, institution_logo, status, last_sync, expires_at, error')
       .eq('user_id', auth.userId)
       .order('created_at', { ascending: false });
 

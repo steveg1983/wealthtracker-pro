@@ -264,6 +264,20 @@ export default function OpenBanking() {
           <div className="space-y-3">
             {connections.map(connection => {
               const broken = connection.status === 'error' || connection.status === 'reauth_required';
+              // ALIVE, BUT THE LAST SYNC DID NOT FINISH — a third state, and
+              // the one the owner was actually living with. His audit log
+              // shows `accounts` succeeding and `transactions` failing three
+              // seconds later on the same token, for weeks: the connection
+              // was never broken, one endpoint at the bank was flaky. Saying
+              // "this connection has stopped working" sent him to
+              // re-authorise something with nothing wrong with it, roughly
+              // daily.
+              //
+              // It matters that this is NOT the broken treatment: here Sync
+              // can genuinely work, so it is offered (Design's rule — an
+              // affordance that leads nowhere is a defect), where a broken
+              // row offers only Reconnect.
+              const lastSyncFailed = !broken && Boolean(connection.error);
               return (
               <div
                 key={connection.id}
@@ -273,7 +287,11 @@ export default function OpenBanking() {
                 // feed is the highest-stakes broken state on this page and
                 // it reads like one now.
                 className={`p-4 border border-gray-200 dark:border-gray-700 rounded-lg border-l-[3px] ${
-                  broken ? 'border-l-amber-400 dark:border-l-amber-500' : 'border-l-transparent'
+                  broken
+                    ? 'border-l-amber-400 dark:border-l-amber-500'
+                    : lastSyncFailed
+                      ? 'border-l-gray-300 dark:border-l-gray-600'
+                      : 'border-l-transparent'
                 }`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -375,6 +393,22 @@ export default function OpenBanking() {
                         The provider said: {connection.error}
                       </span>
                     ) : null}
+                  </p>
+                )}
+                {/* CONNECTED, BUT BEHIND. Says which half did not arrive and
+                    what to do — and does NOT claim the connection is dead,
+                    which is the whole point. */}
+                {lastSyncFailed && (
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      The last sync didn’t finish.
+                    </span>{' '}
+                    The connection itself is fine — {connection.institutionName} answered, but
+                    part of the data didn’t come through, so some transactions may be missing.
+                    Syncing again usually completes it.
+                    <span className="block mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      The provider said: {connection.error}
+                    </span>
                   </p>
                 )}
               </div>

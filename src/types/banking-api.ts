@@ -185,6 +185,16 @@ export interface BankConnection {
   /** WealthTracker account ids linked to this connection (for per-account UI). */
   linkedAccountIds: string[];
   expiresAt?: string;
+  /**
+   * The last failure the server recorded against this connection, if any.
+   *
+   * Present on a CONNECTED row too, and that is the point: a sync can fail
+   * without the connection being broken (one bank endpoint flaking while
+   * authentication is perfectly good), and this column is the only thing
+   * that tells those two apart. It was missing from the endpoint's select,
+   * so the UI's "The provider said: …" line could never render.
+   */
+  error?: string | null;
 }
 
 export type ConnectionsResponse = BankConnection[];
