@@ -26,10 +26,21 @@
      pinned every page off-centre — none of it ever reproducible on a
      desktop, because this media query never matches one. Positioning
      belongs to components; this block's job is minimum hit areas only. */
+  /* CHECKBOXES AND RADIOS ARE EXEMPT, and the rule below is why.
+     `min-width`/`min-height` CLAMP the used value, so they beat the
+     `width: 24px; height: 24px` that the checkbox rule further down sets —
+     which meant that rule's whole intent ("a 24px box with 10px on each
+     side is the 44px target, which is the one way to give a checkbox a
+     finger-sized region without drawing a finger-sized checkbox") was
+     inverted by this one: every checkbox on a touch device was DRAWN at
+     44px, as a large empty square beside its label. Measured on the
+     calendar's "Hide decimals" and "Daily net worth" toggles in the mobile
+     sweep, 24 Aug. Same family as the other index.css traps: a global rule
+     silently outranking the thing that was supposed to govern. */
   .touch-target,
   button:not(.toggle-switch),
   a,
-  input,
+  input:not([type="checkbox"]):not([type="radio"]),
   select,
   textarea,
   [role="button"],

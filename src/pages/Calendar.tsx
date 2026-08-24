@@ -730,10 +730,42 @@ function CalendarView() {
 
       {/* Calendar header with navigation */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {windowTitle}
-          </h2>
+        {/* WRAPS, AND THE ARROWS TRAVEL WITH THE TITLE.
+
+            On a 375px phone this row measured 524px wide inside a card that
+            is `overflow-hidden`, so it was CLIPPED rather than wrapped or
+            scrolled: Today and both navigation arrows were simply
+            unreachable, and a calendar you cannot page is not a calendar.
+            (Found by measurement in the mobile sweep, 24 Aug — the row looks
+            fine at every desktop width, which is why it survived.)
+
+            Two changes, and the second is the one that makes it fit: the row
+            wraps, and the arrows move to flank the title they move — the
+            pattern every calendar app uses on a phone, and the pair that
+            actually belongs together. The owner's 19 Aug ruling governs the
+            OTHER pair ("apple style buttons for week / Month / Year on the
+            left hand side of the 'Today' button") and is untouched: those
+            two stay adjacent, in that order, and now wrap as one unit. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-1 min-w-0">
+            <button
+              onClick={() => step(-1)}
+              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+              aria-label={`Previous ${view}`}
+            >
+              <ChevronLeftIcon size={20} className="text-gray-600 dark:text-gray-400" />
+            </button>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white truncate">
+              {windowTitle}
+            </h2>
+            <button
+              onClick={() => step(1)}
+              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+              aria-label={`Next ${view}`}
+            >
+              <ChevronRightIcon size={20} className="text-gray-600 dark:text-gray-400" />
+            </button>
+          </div>
           <div className="flex items-center gap-2">
             {/* The view, chosen the way Apple Calendar chooses it — a
                 segmented control beside Today (owner, 19 Aug). The chosen
@@ -760,20 +792,6 @@ function CalendarView() {
               className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               Today
-            </button>
-            <button
-              onClick={() => step(-1)}
-              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              aria-label={`Previous ${view}`}
-            >
-              <ChevronLeftIcon size={20} className="text-gray-600 dark:text-gray-400" />
-            </button>
-            <button
-              onClick={() => step(1)}
-              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              aria-label={`Next ${view}`}
-            >
-              <ChevronRightIcon size={20} className="text-gray-600 dark:text-gray-400" />
             </button>
           </div>
         </div>
