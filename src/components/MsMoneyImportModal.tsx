@@ -107,7 +107,11 @@ export default function MsMoneyImportModal({ isOpen, onClose, onBackup, onExecut
       <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <DatabaseIcon size={22} className="text-[#1a2332] dark:text-blue-400" />
+            {/* Neutral — the header's own text colour (Design, 24 Aug §3).
+                A blue non-link glyph is the same disqualification as the
+                register chip: blue means "this is a link" everywhere else,
+                and an icon beside a title is neither a link nor a signal. */}
+            <DatabaseIcon size={22} className="text-gray-900 dark:text-white" />
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Import from Microsoft Money</h2>
           </div>
           <button onClick={handleClose} disabled={stage === 'importing'}

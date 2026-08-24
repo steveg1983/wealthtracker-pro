@@ -198,6 +198,52 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
       ? figure.current === 0 ? '—' : 'new'
       : `${figure.changePercent > 0 ? '+' : ''}${formatDecimal(figure.changePercent, 1)}%`;
 
+  /**
+   * THE DELTA, SAID IN WORDS WHEN A SIGN WOULD LIE (Design's signed-label
+   * ruling, 24 Aug).
+   *
+   * Against a NEGATIVE base — a deficit — the arithmetic is right and the
+   * reading is wrong: a deficit shrinking by £23,006.66 printed
+   * "+£23,006.66 · +10.0%", and "+10%" of a deficit sounds like more
+   * deficit. The percentage is also 10% of what, exactly — a base the reader
+   * would have to invert to make sense of.
+   *
+   * So against a deficit the pair is phrased rather than signed: the
+   * magnitude, the direction as a WORD, and the percentage as the
+   * improvement or worsening it actually is. The "was (£X)" line beneath
+   * still anchors which period it moved from, so this line does not have to
+   * name the window and risk naming it wrongly.
+   *
+   * Positive bases keep signs untouched — nothing reads awkwardly there,
+   * and the ruling's carve-out is explicit that this is for DERIVED summary
+   * figures only.
+   */
+  const deltaInWords = (figure: ComparisonFigure): React.JSX.Element => {
+    const deficitBase = figure.previous < 0;
+    if (!deficitBase || figure.change === 0 || figure.changePercent === null) {
+      return (
+        <>
+          <span className={`font-semibold tabular-nums ${moveClass(figure.change, 'up')}`}>
+            {figure.change > 0 ? '+' : ''}{money(figure.change)}
+          </span>
+          <span className="text-gray-400 dark:text-gray-500"> · {percent(figure)}</span>
+        </>
+      );
+    }
+    const improving = figure.change > 0;
+    return (
+      <>
+        <span className={`font-semibold tabular-nums ${improving ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+          {money(Math.abs(figure.change))} {improving ? 'smaller' : 'larger'}
+        </span>
+        <span className="text-gray-400 dark:text-gray-500">
+          {' '}· a {formatDecimal(Math.abs(figure.changePercent), 1)}%{' '}
+          {improving ? 'improvement' : 'worsening'}
+        </span>
+      </>
+    );
+  };
+
   /** Green when the move is the good one: more income, or less spending. */
   const moveClass = (change: number, goodWhen: 'up' | 'down'): string => {
     if (change === 0) return 'text-gray-500 dark:text-gray-400';
@@ -233,10 +279,14 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
         </button>
       )}
       <p className="text-sm mt-2">
-        <span className={`font-semibold tabular-nums ${moveClass(figure.change, goodWhen)}`}>
-          {figure.change > 0 ? '+' : ''}{money(figure.change)}
-        </span>
-        <span className="text-gray-400 dark:text-gray-500"> · {percent(figure)}</span>
+        {figure.previous < 0 ? deltaInWords(figure) : (
+          <>
+            <span className={`font-semibold tabular-nums ${moveClass(figure.change, goodWhen)}`}>
+              {figure.change > 0 ? '+' : ''}{money(figure.change)}
+            </span>
+            <span className="text-gray-400 dark:text-gray-500"> · {percent(figure)}</span>
+          </>
+        )}
       </p>
       <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
         {bucket === null ? (
