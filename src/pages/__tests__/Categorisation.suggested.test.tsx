@@ -157,4 +157,83 @@ describe('Categorisation — suggested categories', () => {
     expect(screen.queryByRole('button', { name: /confirm all/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /confirm everything/i })).not.toBeInTheDocument();
   });
+
+  describe('the two views — by category, and by account (owner, 24 Aug)', () => {
+    const second: Account = {
+      id: 'acct-2',
+      name: 'Second Account',
+      type: 'current',
+      balance: 0,
+      currency: 'GBP',
+      lastUpdated: new Date('2026-01-01')
+    };
+    const at = (id: string, accountId: string, category: string): Transaction => ({
+      ...txn(id, category, false),
+      accountId
+    }) as Transaction;
+
+    const givenTwoAccounts = (): void => {
+      __setAppContextValue({
+        accounts: [account, second],
+        categories,
+        transactionSplits: [],
+        transactions: [
+          at('a', 'acct-1', 'det-groceries'),
+          at('b', 'acct-1', 'det-groceries'),
+          at('c', 'acct-1', 'det-dining'),
+          at('d', 'acct-2', 'det-groceries')
+        ],
+        confirmTransactionCategories
+      });
+    };
+
+    it('opens on the category view, where a guess is judged against its category', () => {
+      givenTwoAccounts();
+      renderPage();
+      expect(screen.getByRole('button', { name: 'By category' })).toHaveAttribute('aria-pressed', 'true');
+      // Groceries across BOTH accounts is one group of three here.
+      expect(screen.getByText('3 transactions')).toBeInTheDocument();
+      expect(screen.queryByText('Everyday Account')).toBeNull();
+    });
+
+    it('shows each account with its own category groups when asked', () => {
+      givenTwoAccounts();
+      renderPage();
+      fireEvent.click(screen.getByRole('button', { name: 'By account' }));
+
+      expect(screen.getByText('Everyday Account')).toBeInTheDocument();
+      expect(screen.getByText('Second Account')).toBeInTheDocument();
+      // Worst account first, and its own split: 2 groceries + 1 dining.
+      expect(screen.getByText('3 suggested')).toBeInTheDocument();
+      expect(screen.getByText('1 suggested')).toBeInTheDocument();
+      // Groceries is no longer ONE group of three — it is per account.
+      expect(screen.queryByText('3 transactions')).toBeNull();
+    });
+
+    it('confirms only the account it was asked about', async () => {
+      givenTwoAccounts();
+      renderPage();
+      fireEvent.click(screen.getByRole('button', { name: 'By account' }));
+
+      const confirms = screen.getAllByRole('button', { name: 'Confirm these' });
+      fireEvent.click(confirms[0]);
+
+      await waitFor(() => expect(confirmTransactionCategories).toHaveBeenCalled());
+      // The first group is Everyday Account's groceries — two rows, not the
+      // three that share the category across both accounts.
+      expect(confirmTransactionCategories).toHaveBeenCalledWith(['a', 'b']);
+    });
+
+    it('confirming is optional bookkeeping, so no button on this page wears amber', () => {
+      givenTwoAccounts();
+      const { container } = renderPage();
+      // Design's ruling, 24 Aug §1a: seven amber buttons in a column was the
+      // most amber the app had ever shown at once, and amber is "this one,
+      // next" — singular.
+      for (const button of screen.getAllByRole('button', { name: 'Confirm these' })) {
+        expect(button.className).not.toMatch(/amber/);
+      }
+      expect(container.querySelectorAll('[class*="amber"]')).toHaveLength(0);
+    });
+  });
 });

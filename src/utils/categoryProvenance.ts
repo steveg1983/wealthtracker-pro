@@ -131,3 +131,51 @@ export function groupSuggestedByCategory<T extends CategoryProvenanceRow>(
   return Array.from(byCategory, ([categoryId, groupRows]) => ({ categoryId, rows: groupRows }))
     .sort((a, b) => b.rows.length - a.rows.length || a.categoryId.localeCompare(b.categoryId));
 }
+
+/** One account's suggestions, gathered by the category guessed for them. */
+export interface SuggestedAccountGroup<T> {
+  accountId: string;
+  /** Every suggested row in this account, across its categories. */
+  rows: T[];
+  /** Those rows by guessed category, biggest group first. */
+  categories: SuggestedCategoryGroup<T>[];
+}
+
+/**
+ * Suggested rows gathered by ACCOUNT, each account's category groups beneath
+ * it (owner, 24 Aug: "view the suggested ones by account, and then the list
+ * of suggested categories below each").
+ *
+ * Why both views exist. A guess is judged against its CATEGORY first — "are
+ * these forty really groceries?" — which is why that stays the default. But
+ * a guess also has a provenance the category view hides: one card's import
+ * can produce a run of suggestions that a glance at the account would settle
+ * in one go. Same rows, same confirm, different question.
+ *
+ * Worst first, ties broken by account NAME rather than by arrival order, for
+ * the reason groupUncategorisedByAccount states: a list that reorders itself
+ * under your thumb is how you tap the wrong row.
+ */
+export function groupSuggestedByAccount<T extends CategoryProvenanceRow & { accountId: string }>(
+  rows: readonly T[],
+  accountName: (accountId: string) => string
+): SuggestedAccountGroup<T>[] {
+  const byAccount = new Map<string, T[]>();
+  for (const row of suggestedRows(rows)) {
+    const existing = byAccount.get(row.accountId);
+    if (existing) existing.push(row);
+    else byAccount.set(row.accountId, [row]);
+  }
+
+  return Array.from(byAccount, ([accountId, accountRows]) => ({
+    accountId,
+    rows: accountRows,
+    // The same grouping the category view uses, so a category means the same
+    // thing on both — one implementation, no second sort to drift.
+    categories: groupSuggestedByCategory(accountRows),
+  })).sort(
+    (a, b) =>
+      b.rows.length - a.rows.length ||
+      accountName(a.accountId).localeCompare(accountName(b.accountId))
+  );
+}

@@ -4,7 +4,9 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { computeIncomeExpense } from '../utils/incomeExpense';
 import { expandSplitTransactions, type SplitExpandedTransaction } from '../utils/transactionSplits';
 import { groupUncategorisedByAccount } from '../utils/uncategorisedByAccount';
-import { groupSuggestedByCategory } from '../utils/categoryProvenance';
+import { groupSuggestedByCategory, groupSuggestedByAccount } from '../utils/categoryProvenance';
+import { preferences } from '../services/preferencesService';
+import { DEPTH_LEVEL_1 } from '../styles/depthShading';
 import { useAccountNames } from '../hooks/useAccountNames';
 import { useToast } from '../contexts/ToastContext';
 import TransferSweepModal from '../components/TransferSweepModal';
@@ -13,6 +15,9 @@ import ReportDrillModal, { type ReportDrillTarget } from '../components/reports/
 import { ArrowRightLeftIcon, TagIcon, ListIcon, CheckCircleIcon, ChevronRightIcon } from '../components/icons';
 import EmptyState from '../components/EmptyState';
 import type { Transaction } from '../types';
+
+/** Which of the two suggested views the reader last chose. */
+const SUGGESTED_VIEW_KEY = 'categorisationSuggestedView';
 
 /**
  * Categorisation — the counterpart to Reconciliation.
@@ -40,7 +45,7 @@ export default function Categorisation(): React.JSX.Element {
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const [showTransferSweep, setShowTransferSweep] = useState(false);
   const [showBulkCategorize, setShowBulkCategorize] = useState(false);
-  /** Which category group is mid-confirm, so its button can say so. */
+  /** Which group button is mid-confirm, so it alone can say so. */
   const [confirmingCategoryId, setConfirmingCategoryId] = useState<string | null>(null);
 
   // Split parents become one row per line, so a half-filed split still shows
@@ -81,11 +86,38 @@ export default function Categorisation(): React.JSX.Element {
     [suggestedGroups]
   );
 
+  /**
+   * The same suggestions seen BY ACCOUNT (owner, 24 Aug), each account's own
+   * category groups beneath it — the shape the unfiled list above already
+   * uses, and the one that answers "what has this card been guessing at?".
+   * The category view stays the default: a guess is judged against its
+   * category first, and an account is how you narrow it.
+   *
+   * Persisted, because it is a way of working rather than a one-off look.
+   */
+  const [suggestedView, setSuggestedView] = useState<'category' | 'account'>(
+    () => (preferences.getItem(SUGGESTED_VIEW_KEY) === 'account' ? 'account' : 'category')
+  );
+  const chooseSuggestedView = (view: 'category' | 'account'): void => {
+    setSuggestedView(view);
+    preferences.setItem(SUGGESTED_VIEW_KEY, view);
+  };
+
+  const suggestedByAccount = useMemo(
+    () => groupSuggestedByAccount(transactions, accountName),
+    [transactions, accountName]
+  );
+
   const categoryLabel = (categoryId: string): string =>
     categories.find(c => c.id === categoryId)?.name ?? 'Unknown category';
 
-  const confirmGroup = async (categoryId: string, groupRows: Transaction[]): Promise<void> => {
-    setConfirmingCategoryId(categoryId);
+  const confirmGroup = async (
+    categoryId: string,
+    groupRows: Transaction[],
+    /** Which BUTTON is busy — the account view has one per account+category. */
+    busyKey: string = categoryId
+  ): Promise<void> => {
+    setConfirmingCategoryId(busyKey);
     try {
       const confirmed = await confirmTransactionCategories(groupRows.map(row => row.id));
       showSuccess(
@@ -233,43 +265,74 @@ export default function Categorisation(): React.JSX.Element {
           honestly be judged at a glance. */}
       {suggestedCount > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            Suggested categories ({suggestedCount.toLocaleString()})
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              Suggested categories ({suggestedCount.toLocaleString()})
+            </h2>
+            {/* The same segmented idiom the period picker uses. */}
+            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+              {([['category', 'By category'], ['account', 'By account']] as const).map(([view, label]) => (
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => chooseSuggestedView(view)}
+                  aria-pressed={suggestedView === view}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
+                    suggestedView === view
+                      ? 'bg-[#1a2332] dark:bg-[#2d3a4d] text-white'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
             The app filled these in from what you have filed before. They already count in your
             reports — confirming just records that you have checked them.
           </p>
           <div className="flex flex-col gap-2">
-            {suggestedGroups.map(({ categoryId, rows: groupRows }) => (
-              <div
-                key={categoryId}
-                className="w-full bg-white dark:bg-gray-800 rounded-xl border-2 border-amber-200 dark:border-amber-700/60 p-4 flex items-center gap-3"
-              >
-                <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex-shrink-0">
-                  <TagIcon size={20} className="text-amber-700 dark:text-amber-400" />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => openSuggestedDrill(categoryId, groupRows)}
-                  className="font-medium text-gray-900 dark:text-white truncate min-w-0 flex-1 text-left hover:underline"
-                  title="Look through these transactions before deciding"
-                >
-                  {categoryLabel(categoryId)}
-                  <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
-                    {groupRows.length.toLocaleString()} transaction{groupRows.length === 1 ? '' : 's'}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void confirmGroup(categoryId, groupRows)}
-                  disabled={confirmingCategoryId !== null}
-                  className="px-4 h-[42px] inline-flex items-center justify-center text-sm font-medium bg-amber-600 text-white rounded-xl hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0"
-                >
-                  {confirmingCategoryId === categoryId ? 'Confirming…' : 'Confirm these'}
-                </button>
-              </div>
-            ))}
+            {suggestedView === 'category'
+              ? suggestedGroups.map(({ categoryId, rows: groupRows }) => (
+                  <SuggestedGroupRow
+                    key={categoryId}
+                    label={categoryLabel(categoryId)}
+                    rows={groupRows}
+                    busy={confirmingCategoryId !== null}
+                    confirming={confirmingCategoryId === categoryId}
+                    onOpen={() => openSuggestedDrill(categoryId, groupRows)}
+                    onConfirm={() => void confirmGroup(categoryId, groupRows)}
+                  />
+                ))
+              : suggestedByAccount.map(({ accountId, rows: accountRows, categories: accountCategories }) => (
+                  <div key={accountId} className="flex flex-col gap-2">
+                    {/* The account heads its own categories — the depth ladder's
+                        top step, as everywhere a section heads its rows. */}
+                    <div className={`flex items-baseline justify-between gap-3 rounded px-2 py-2 ${DEPTH_LEVEL_1}`}>
+                      <span className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                        {accountName(accountId)}
+                      </span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        {accountRows.length.toLocaleString()} suggested
+                      </span>
+                    </div>
+                    {accountCategories.map(({ categoryId, rows: groupRows }) => (
+                      <SuggestedGroupRow
+                        key={`${accountId}-${categoryId}`}
+                        label={categoryLabel(categoryId)}
+                        rows={groupRows}
+                        indent
+                        busy={confirmingCategoryId !== null}
+                        confirming={confirmingCategoryId === `${accountId}-${categoryId}`}
+                        onOpen={() => openSuggestedDrill(categoryId, groupRows)}
+                        // Confirms THIS ACCOUNT's rows for that category, not
+                        // every account's: the view is the scope.
+                        onConfirm={() => void confirmGroup(categoryId, groupRows, `${accountId}-${categoryId}`)}
+                      />
+                    ))}
+                  </div>
+                ))}
           </div>
         </div>
       )}
@@ -304,5 +367,66 @@ function ActionCard({
       </span>
       <span className="text-sm text-gray-500 dark:text-gray-400">{body}</span>
     </button>
+  );
+}
+
+/**
+ * One suggested group — a guessed category, its size, and the way to agree
+ * with it.
+ *
+ * NEUTRAL, not amber (Design ruling, 24 Aug §1a). Seven amber buttons in a
+ * column was the most amber the app had ever shown at once, and under
+ * Ruling A amber is "this one, next" — singular. These are not next actions
+ * in that sense either: the panel above them says the rows already count in
+ * the reports and confirming only records that they were checked, which
+ * makes this optional bookkeeping. A quiet outline is what optional
+ * bookkeeping looks like.
+ */
+function SuggestedGroupRow({
+  label,
+  rows,
+  indent = false,
+  busy,
+  confirming,
+  onOpen,
+  onConfirm,
+}: {
+  label: string;
+  rows: readonly Transaction[];
+  indent?: boolean;
+  busy: boolean;
+  confirming: boolean;
+  onOpen: () => void;
+  onConfirm: () => void;
+}): React.JSX.Element {
+  return (
+    <div
+      className={`w-full bg-white dark:bg-gray-800 rounded-xl border border-line dark:border-gray-700 p-4 flex items-center gap-3 ${
+        indent ? 'ml-4' : ''
+      }`}
+    >
+      <div className="p-2 bg-gray-100 dark:bg-gray-700/50 rounded-lg flex-shrink-0">
+        <TagIcon size={20} className="text-gray-500 dark:text-gray-400" />
+      </div>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="font-medium text-gray-900 dark:text-white truncate min-w-0 flex-1 text-left hover:underline"
+        title="Look through these transactions before deciding"
+      >
+        {label}
+        <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+          {rows.length.toLocaleString()} transaction{rows.length === 1 ? '' : 's'}
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={onConfirm}
+        disabled={busy}
+        className="px-4 h-[42px] inline-flex items-center justify-center text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0"
+      >
+        {confirming ? 'Confirming…' : 'Confirm these'}
+      </button>
+    </div>
   );
 }

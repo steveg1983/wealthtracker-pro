@@ -2925,8 +2925,16 @@ function AccountsList() {
                 the step you are on, the alternative in a plain control. */}
             {(reviewTotal > 0 || reconcileAccountCount > 0) && (() => {
               const nextJob: 'review' | 'reconcile' = reviewTotal > 0 ? 'review' : 'reconcile';
+              // "NEW", because this count answers a different question from
+              // Categorisation's (owner, 24 Aug — he compared 29 here with 30
+              // there and reasonably expected them to agree). This is "arrived
+              // and nobody has looked at it since", over OPEN accounts;
+              // Categorisation counts "has no category" and "the category was
+              // guessed", over every account including closed ones. Three
+              // populations, overlapping, none a subset of another — so the
+              // word has to carry the difference.
               const label = nextJob === 'review'
-                ? `Review ${reviewTotal} transaction${reviewTotal === 1 ? '' : 's'}`
+                ? `Review ${reviewTotal} new transaction${reviewTotal === 1 ? '' : 's'}`
                 : `Reconcile ${reconcileAccountCount} account${reconcileAccountCount === 1 ? '' : 's'}`;
               const wearsAmber = feedsNeedingAttention === 0 && !isFocused;
               const other: 'review' | 'reconcile' = focusMode === 'review' ? 'reconcile' : 'review';
