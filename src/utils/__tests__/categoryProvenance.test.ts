@@ -6,6 +6,7 @@ import {
   isConfirmableSuggestion,
   suggestedRows,
   groupSuggestedByCategory,
+  groupSuggestedByAccount,
   type CategoryProvenanceRow,
   type ConfirmableCategoryRow,
 } from '../categoryProvenance';
@@ -141,5 +142,58 @@ describe('groupSuggestedByCategory', () => {
 
   it('returns nothing when nothing was guessed', () => {
     expect(groupSuggestedByCategory([row('cat-a', true), row('')])).toEqual([]);
+  });
+});
+
+describe('groupSuggestedByAccount — the same guesses, by where they landed', () => {
+  // Every figure and name below is invented; the repo is public.
+  const name = (id: string): string => ({ 'acc-1': 'Test Card', 'acc-2': 'Test Current' }[id] ?? id);
+  const row = (id: string, accountId: string, category: string) => ({
+    id,
+    accountId,
+    category,
+    // The marker the app actually reads: a guess is a category the user has
+    // not confirmed (see isCategorySuggested).
+    categoryConfirmed: false as const,
+    type: 'expense' as const,
+  });
+
+  it('gathers each account’s suggestions, biggest account first, with its own category groups', () => {
+    const groups = groupSuggestedByAccount(
+      [
+        row('a', 'acc-1', 'cat-food'),
+        row('b', 'acc-1', 'cat-food'),
+        row('c', 'acc-1', 'cat-fuel'),
+        row('d', 'acc-2', 'cat-food'),
+      ],
+      name
+    );
+    expect(groups.map(g => g.accountId)).toEqual(['acc-1', 'acc-2']);
+    expect(groups[0].rows).toHaveLength(3);
+    // Within an account, the same "biggest group first" rule as the category view.
+    expect(groups[0].categories.map(c => [c.categoryId, c.rows.length])).toEqual([
+      ['cat-food', 2],
+      ['cat-fuel', 1],
+    ]);
+    expect(groups[1].categories).toEqual([{ categoryId: 'cat-food', rows: [groups[1].rows[0]] }]);
+  });
+
+  it('leaves out rows nobody guessed at — the two views hold the same population', () => {
+    const confirmed = {
+      id: 'x', accountId: 'acc-1', category: 'cat-food',
+      categoryConfirmed: true as const, type: 'expense' as const,
+    };
+    const groups = groupSuggestedByAccount([confirmed, row('a', 'acc-1', 'cat-food')], name);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].rows.map(r => r.id)).toEqual(['a']);
+  });
+
+  it('breaks a tie on account NAME, so the list cannot reorder under your thumb', () => {
+    const groups = groupSuggestedByAccount(
+      [row('a', 'acc-2', 'cat-food'), row('b', 'acc-1', 'cat-food')],
+      name
+    );
+    // "Test Card" before "Test Current" — one row each.
+    expect(groups.map(g => g.accountId)).toEqual(['acc-1', 'acc-2']);
   });
 });
