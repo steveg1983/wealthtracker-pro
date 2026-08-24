@@ -1599,12 +1599,18 @@ function InvestmentsView() {
                 formatter={(value) => formatCurrency(toDecimal(Number(value)))}
                 contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": "
               />
-              <Line 
-                type="monotone" 
-                dataKey="value" 
-                stroke="#3B82F6" 
+              {/* The shared ramp's first step, not a stock blue (Design,
+                  24 Aug §4): this was the last chart in the app still
+                  carrying the recharts documentation colour, on a page whose
+                  Asset Allocation ring beside it uses the ramp correctly.
+                  A single series takes ramp[0], the same rule DashboardCharts'
+                  BarChart follows. */}
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={ramp[0]}
                 strokeWidth={2}
-                dot={{ fill: '#3B82F6' }}
+                dot={{ fill: ramp[0] }}
               />
             </LineChart>
           </ResponsiveContainer>
