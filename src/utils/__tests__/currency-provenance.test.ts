@@ -87,14 +87,15 @@ describe('rates provenance', () => {
       const { getExchangeRates } = await freshModule();
       mockFetch.mockResolvedValue(okResponse());
 
+      // One request per provider (api, then the ECB overlay).
       await getExchangeRates();
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
 
-      // 30 minutes later: still inside the hour, so no second request.
+      // 30 minutes later: still inside the hour, so no further requests.
       const realNow = Date.now();
       vi.spyOn(Date, 'now').mockReturnValue(realNow + 30 * 60 * 1000);
       await getExchangeRates();
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
     it('retries a fallback after five minutes, not after an hour', async () => {
@@ -107,7 +108,8 @@ describe('rates provenance', () => {
 
       await getExchangeRates();
       expect(getRatesProvenance()?.source).toBe('fallback');
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      // Both providers were attempted before falling back.
+      expect(mockFetch).toHaveBeenCalledTimes(2);
 
       // Six minutes later the provider is reachable again.
       const realNow = Date.now();
@@ -116,7 +118,7 @@ describe('rates provenance', () => {
 
       await getExchangeRates();
 
-      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledTimes(4);
       expect(getRatesProvenance()?.source).toBe('api');
       consoleErrorSpy.mockRestore();
     });

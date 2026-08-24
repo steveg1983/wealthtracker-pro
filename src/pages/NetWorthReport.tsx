@@ -418,10 +418,15 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
           reader had already seen (the ruling, 22 Aug §6.4). */}
       <HistoricRatesRestatementNotice visible={historical && conversion !== null} />
       <div className="mb-6 space-y-2">
+        {/* ≈ when a conversion is in force (Design, 24 Aug §1): this page's
+            own basis line says the figures converted, and the dashboard's
+            card for the same series already wears the mark — a converted
+            figure marked on one surface and plain on the other reads as two
+            different kinds of number. */}
         <NetWorthSummary
-          netWorth={latest ? formatCurrency(latest.netWorth) : '—'}
-          assets={latest ? formatCurrency(latest.assets) : '—'}
-          liabilities={latest ? formatCurrency(latest.liabilities) : '—'}
+          netWorth={latest ? `${conversion ? '≈ ' : ''}${formatCurrency(latest.netWorth)}` : '—'}
+          assets={latest ? `${conversion ? '≈ ' : ''}${formatCurrency(latest.assets)}` : '—'}
+          liabilities={latest ? `${conversion ? '≈ ' : ''}${formatCurrency(latest.liabilities)}` : '—'}
         />
         {/* The date alone. The change figure lived here too, and again as the
             band's CHANGE tile two hundred pixels down — the same money said
