@@ -101,6 +101,15 @@ export default function AccountDistributionReport(): React.JSX.Element {
     ? { count: distribution.entries.length, name: largestWedge.name, share: shareOf(largestWedge) }
     : null;
 
+  /**
+   * How many accounts the ring draws INDIVIDUALLY — the boundary the table's
+   * rule announces below. Zero when nothing was folded (every row is drawn,
+   * so there is no boundary to state) or when the ring stood down entirely.
+   */
+  const namedSliceCount = distribution.foldedCount > 0 && !spreadNote
+    ? distribution.wedges.filter(w => w.id !== ACCOUNT_DISTRIBUTION_REMAINDER_ID).length
+    : 0;
+
   const headCell = 'px-4 py-2 text-dense font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400';
 
   return (
@@ -222,8 +231,23 @@ export default function AccountDistributionReport(): React.JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {distribution.entries.map(entry => (
-                  <tr key={entry.id} className="border-t border-gray-50 dark:border-gray-700/50">
+                {distribution.entries.map((entry, index) => (
+                  <React.Fragment key={entry.id}>
+                  {/* WHERE THE CHART ENDS, said (Design, 24 Aug §2): four
+                      coloured rows followed by twenty-eight bare ones read
+                      as rows that failed to render, rather than rows the
+                      ring gathered into its remainder. The rule states the
+                      boundary once, in place, rather than leaving the
+                      colour to stop unexplained. */}
+                  {namedSliceCount > 0 && index === namedSliceCount && (
+                    <tr>
+                      <td colSpan={3} className="px-4 pt-4 pb-1 text-dense text-gray-500 dark:text-gray-400 border-t border-line dark:border-gray-700">
+                        Below here, the ring draws these accounts together as
+                        one slice — {distribution.foldedCount.toLocaleString()} of them.
+                      </td>
+                    </tr>
+                  )}
+                  <tr className="border-t border-gray-50 dark:border-gray-700/50">
                     <th scope="row" className="px-4 py-2 text-left font-normal">
                       <span className="flex items-center gap-2">
                         {/* Only the NAMED slices carry a colour. The folded
@@ -255,6 +279,7 @@ export default function AccountDistributionReport(): React.JSX.Element {
                       {shareOf(entry)}
                     </td>
                   </tr>
+                  </React.Fragment>
                 ))}
               </tbody>
               <tfoot className="border-t-2 border-gray-200 dark:border-gray-600">
