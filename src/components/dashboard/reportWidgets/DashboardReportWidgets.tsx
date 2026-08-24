@@ -443,7 +443,9 @@ export function ExpenseCategoriesWidget({ picker, pin }: {
                   title={`${d.name} — open the full report on this category`}
                   className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                 >
-                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: categoricalColor(ramp, i) }} aria-hidden="true" />
+                  {/* 16px swatch (Design §11): the ramp's neighbouring slates
+                      read as one tone at 12px. */}
+                  <span className="w-4 h-4 rounded-sm flex-shrink-0" style={{ backgroundColor: categoricalColor(ramp, i) }} aria-hidden="true" />
                   <span className="flex-1 min-w-0 truncate text-sm text-gray-700 dark:text-gray-300">{d.name}</span>
                   {/* The figure takes what it needs and the name yields — a
                       truncated CATEGORY is still readable, a truncated amount

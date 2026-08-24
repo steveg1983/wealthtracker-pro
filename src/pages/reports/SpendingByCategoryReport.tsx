@@ -201,7 +201,10 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
                     categories" above the real ones. A constant sorter keeps
                     payload order: rank order, the fold last — the same order
                     the ring is painted in. */}
-                <Legend layout="vertical" align="right" verticalAlign="middle" formatter={legendText} itemSorter={() => 0} />
+                {/* iconSize 16: the ramp's neighbours need a swatch big
+                    enough to tell apart — at recharts' default the named
+                    slates read as two tones (Design §11, landed 24 Aug). */}
+                <Legend layout="vertical" align="right" verticalAlign="middle" formatter={legendText} itemSorter={() => 0} iconSize={16} />
               </RechartsPieChart>
             </ResponsiveContainer>
           </div>

@@ -190,7 +190,9 @@ export default function CustomReportViewer({
             <ul className="w-44 space-y-1">
               {rows.map((row, i) => (
                 <li key={row.name} className="flex items-center gap-2 text-xs">
-                  <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: categoricalColor(ramp, i) }} />
+                  {/* 16px swatch (Design §11): neighbouring ramp slates read
+                      as one tone smaller. */}
+                  <span className="w-4 h-4 rounded-sm flex-shrink-0" style={{ backgroundColor: categoricalColor(ramp, i) }} />
                   <span className="flex-1 min-w-0 truncate text-gray-600 dark:text-gray-300">{row.name}</span>
                   <span className="tabular-nums text-gray-900 dark:text-white">{money(row.value)}</span>
                 </li>

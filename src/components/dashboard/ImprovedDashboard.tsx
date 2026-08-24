@@ -1055,8 +1055,10 @@ export function ImprovedDashboard() {
                               : navigate(preserveDemoParam(`/accounts/${d.id}`, location.search))}
                             className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
                           >
+                            {/* 16px swatch (Design §11): neighbouring ramp
+                                slates read as one tone at 12px. */}
                             <span
-                              className="w-3 h-3 rounded-sm flex-shrink-0"
+                              className="w-4 h-4 rounded-sm flex-shrink-0"
                               style={{ backgroundColor: categoricalColor(chartRamp, i) }}
                               aria-hidden="true"
                             />

@@ -840,7 +840,10 @@ function CalendarView() {
               <div className="mb-1">
                 <span className={`text-sm font-medium ${
                   day.isToday
-                    ? 'bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs'
+                    // TODAY wears the primary-action pair, not a stock blue —
+                    // the last blue fill outside links (Design, 24 Aug §4):
+                    // navy circle in light, the near-white inversion in dark.
+                    ? 'bg-primary-action text-on-primary-action w-6 h-6 rounded-full flex items-center justify-center text-xs'
                     : day.isCurrentMonth
                       ? 'text-gray-900 dark:text-gray-200'
                       : 'text-gray-400 dark:text-gray-600'
