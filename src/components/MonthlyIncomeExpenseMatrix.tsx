@@ -245,7 +245,10 @@ export default function MonthlyIncomeExpenseMatrix({
       </div>
 
       {matrix.omittedMonths > 0 && (
-        <p className="px-6 pb-3 text-xs text-amber-700 dark:text-amber-400">
+        // Neutral, not amber (Design, 24 Aug §4): this is a caveat about the
+        // VIEW — consequence and remedy stated — not a condition a control
+        // ends. The page needs no amber at all.
+        <p className="px-6 pb-3 text-xs text-gray-500 dark:text-gray-400">
           This period spans {matrix.omittedMonths + months.length} months — the most recent {months.length} are shown
           as columns, and the Total column still covers all of it.
           {cumulative && ' The running total starts at the first column shown, so it stops short of the Total.'}
