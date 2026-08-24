@@ -111,9 +111,13 @@ export default function IncomeExpenseSummaryCards({
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Income vs Expenditure</p>
-          <div className={`text-2xl font-bold ${
-            summary.savingsRate >= 20 ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'
-          }`}>
+          {/* NEUTRAL, like its three neighbours (Design, 24 Aug §3). This
+              used to be green at ≥20% and amber below — but the figure is a
+              RATIO with no bad end defined anywhere: a year a property
+              purchase lands in, spending exceeds income by design, and amber
+              asserted a judgement the app hasn't earned. No control ends the
+              condition, so under the amber test it isn't amber either. */}
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">
             {isLoading ? <SkeletonText className="w-20 h-8" /> : `${formatDecimal(summary.savingsRate, 1)}%`}
           </div>
         </div>

@@ -111,10 +111,15 @@ export default function ReportExportBar({
 
   return (
     <div className="flex flex-wrap gap-2">
+      {/* Two QUIET OUTLINES (Design, 24 Aug §5): Export PDF wore a solid
+          red — the expense/destructive token as furniture on a routine
+          action, the loudest thing on five report pages — and CSV a navy
+          fill beside it. The two are the same kind of action and look
+          alike; neither has earned a primary. */}
       <button
         type="button"
         onClick={exportCSV}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
+        className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
       >
         <DownloadIcon size={16} />
         Export CSV
@@ -123,7 +128,7 @@ export default function ReportExportBar({
         type="button"
         onClick={exportPDF}
         disabled={isGenerating}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <PdfIcon size={16} />
         {isGenerating ? 'Generating…' : 'Export PDF'}
