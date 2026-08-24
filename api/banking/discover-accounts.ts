@@ -9,8 +9,8 @@ import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { createErrorResponse } from '../_lib/http-error.js';
 import {
-  getUserTrueLayerConnection,
-  withTrueLayerAccessToken
+  getUserBankConnection,
+  withProviderAccessToken
 } from '../_lib/banking-sync.js';
 import { fetchAccountBalance, fetchAccounts, fetchCardBalance, fetchCards } from '../_lib/truelayer.js';
 import {
@@ -58,12 +58,12 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const connectionId = body.connectionId.trim();
-    const connection = await getUserTrueLayerConnection(supabase, auth.userId, connectionId);
+    const connection = await getUserBankConnection(supabase, auth.userId, connectionId);
     if (!connection) {
       return createErrorResponse(res, 404, 'Connection not found', 'not_found');
     }
 
-    const accounts = await withTrueLayerAccessToken(supabase, connection, async (accessToken) => {
+    const accounts = await withProviderAccessToken(supabase, connection, async (accessToken) => {
       const truelayerAccounts = await fetchAccounts(accessToken);
       // Credit cards live on a separate API surface. fetchCards returns []
       // when the connection's token lacks the cards scope (pre-cards links).

@@ -9,9 +9,9 @@ import { setCorsHeaders } from '../_lib/cors.js';
 import { createErrorResponse } from '../_lib/http-error.js';
 import { applyRateLimit } from '../_lib/rate-limit.js';
 import {
-  getUserTrueLayerConnection,
-  withTrueLayerAccessToken,
-  type TrueLayerConnectionRow
+  getUserBankConnection,
+  withProviderAccessToken,
+  type BankConnectionRow
 } from '../_lib/banking-sync.js';
 import { fetchAccountBalance, fetchCardBalance } from '../_lib/truelayer.js';
 import { withSentry } from '../_lib/sentry.js';
@@ -43,11 +43,11 @@ import {
  */
 const fetchLinkBalances = async (
   supabase: ReturnType<typeof getServiceRoleSupabase>,
-  connection: TrueLayerConnectionRow,
+  connection: BankConnectionRow,
   links: LinkAccountsRequest['links']
 ): Promise<Map<string, BankBalanceSnapshot>> => {
   try {
-    return await withTrueLayerAccessToken(supabase, connection, async (accessToken) => {
+    return await withProviderAccessToken(supabase, connection, async (accessToken) => {
       const entries = await Promise.all(
         links.map(async (link): Promise<[string, BankBalanceSnapshot]> => [
           link.externalAccountId,
@@ -105,7 +105,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const connectionId = body.connectionId.trim();
-    const connection = await getUserTrueLayerConnection(supabase, auth.userId, connectionId);
+    const connection = await getUserBankConnection(supabase, auth.userId, connectionId);
     if (!connection) {
       return createErrorResponse(res, 404, 'Connection not found', 'not_found');
     }

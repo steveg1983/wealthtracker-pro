@@ -121,7 +121,7 @@ export const httpStatusOfError = (error: unknown): number | undefined => {
 
 /**
  * 401 means the access token has expired, which is not this module's problem
- * to solve: withTrueLayerAccessToken refreshes the token and replays the whole
+ * to solve: withProviderAccessToken refreshes the token and replays the whole
  * operation. Such an error is re-thrown rather than retried or swallowed —
  * swallowing it is how an expired token used to become a £0.00 balance.
  */
