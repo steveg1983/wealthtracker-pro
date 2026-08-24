@@ -283,8 +283,20 @@ export default function ReconciliationAccountList({
                     // balance entered that column reads "—", so delegating
                     // the answer to it would leave the question unanswered on
                     // exactly the rows this page exists for.
+                    //
+                    // "ALL TRANSACTIONS TICKED", not "All reconciled"
+                    // (Design, 24 Aug §2). Both sentences were true at once
+                    // on the owner's ledger — every row ticked, and the
+                    // statement balance still £80,000 away — but a reader
+                    // takes "all reconciled" to mean THIS ACCOUNT IS DONE,
+                    // and then meets a difference in red beside it. This
+                    // badge only ever knew one of those two facts; now it
+                    // says which, and the Difference column answers whether
+                    // the account actually agrees. On the page that anchors
+                    // the app's claim to being provable, a contradiction the
+                    // reader has to resolve themselves is the costliest kind.
                     <span className="inline-flex items-center py-1 text-xs font-medium text-gray-500 dark:text-gray-400">
-                      All reconciled
+                      All transactions ticked
                     </span>
                   )}
                 </div>
