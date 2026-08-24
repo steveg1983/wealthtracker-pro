@@ -6,6 +6,7 @@ import { expandSplitTransactions, type SplitExpandedTransaction } from '../utils
 import { groupUncategorisedByAccount } from '../utils/uncategorisedByAccount';
 import { groupSuggestedByCategory, groupSuggestedByAccount } from '../utils/categoryProvenance';
 import { preferences } from '../services/preferencesService';
+import { useAttentionLadder } from '../hooks/useAttentionLadder';
 import { DEPTH_LEVEL_1 } from '../styles/depthShading';
 import { useAccountNames } from '../hooks/useAccountNames';
 import { useToast } from '../contexts/ToastContext';
@@ -41,6 +42,8 @@ export default function Categorisation(): React.JSX.Element {
   const { transactions, transactionSplits, categories, confirmTransactionCategories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { showSuccess, showError } = useToast();
+  // One rule, app-wide — see utils/attentionLadder.
+  const ladder = useAttentionLadder();
 
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const [showTransferSweep, setShowTransferSweep] = useState(false);
@@ -178,11 +181,26 @@ export default function Categorisation(): React.JSX.Element {
         <>
           {/* What is outstanding, and what it is worth. Two columns on a phone,
               four on a desktop — the same shape as the reconciliation bar. */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-amber-300 dark:border-amber-600 p-4">
+          {/* THE LADDER DECIDES THE COLOUR, NOT THE COUNT (Design's per-app
+              ruling, 24 Aug). Categorise is the bottom rung: while a feed is
+              dead, or rows are unreviewed, or an account disagrees with its
+              bank, this panel's figures are not yet facts — so it keeps
+              every one of them and gives up only the amber. Standing down
+              is about which work is NEXT, never about what the reader is
+              allowed to know. */}
+          <div className={`bg-white dark:bg-gray-800 rounded-xl border-2 p-4 ${
+            ladder.wearsAmber('categorise')
+              ? 'border-amber-300 dark:border-amber-600'
+              : 'border-line dark:border-gray-700'
+          }`}>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
               <div className="text-center">
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Needs a category</p>
-                <p className="text-lg font-bold text-amber-700 dark:text-amber-400 tabular-nums">
+                <p className={`text-lg font-bold tabular-nums ${
+                  ladder.wearsAmber('categorise')
+                    ? 'text-amber-700 dark:text-amber-400'
+                    : 'text-gray-900 dark:text-white'
+                }`}>
                   {count.toLocaleString()}
                 </p>
               </div>

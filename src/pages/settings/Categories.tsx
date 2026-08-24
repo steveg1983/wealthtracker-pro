@@ -8,6 +8,7 @@ import EditCategoryModal from '../../components/EditCategoryModal';
 import CategorySelector from '../../components/CategorySelector';
 import CategoryTransactionsModal from '../../components/CategoryTransactionsModal';
 import CategoryDataHealthPanel from '../../components/CategoryDataHealthPanel';
+import { useAttentionLadder } from '../../hooks/useAttentionLadder';
 import IncomeExpenseBreakdownModal from '../../components/IncomeExpenseBreakdownModal';
 import EditTransactionModal from '../../components/EditTransactionModal';
 import { computeCategoryHealth } from '../../utils/categoryHealth';
@@ -245,6 +246,9 @@ export default function CategoriesSettings() {
   // Where the category data is weak — uncategorised rows, import buckets,
   // dangling references, empty categories. Shares the reports' classifier and
   // split expansion so the numbers agree with the report band this points at.
+  // One rule, app-wide — see utils/attentionLadder.
+  const ladder = useAttentionLadder();
+
   const categoryHealth = useMemo(
     () => computeCategoryHealth(transactions, transactionSplits, categories),
     [transactions, transactionSplits, categories]
@@ -1036,6 +1040,7 @@ export default function CategoriesSettings() {
           that land on THIS page are wired here. */}
       <CategoryDataHealthPanel
         health={categoryHealth}
+        wearsAmber={ladder.wearsAmber('categorise')}
         onFileUnassignedBucket={fileUnassignedBucket}
         onShowEmptyCategories={showEmptyCategories}
         onFixTransferFilings={fixTransferFilings}

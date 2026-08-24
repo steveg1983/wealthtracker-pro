@@ -49,6 +49,7 @@ import { useNetWorthConversion } from '../hooks/useNetWorthConversion';
 import { useReconciliation } from '../hooks/useReconciliation';
 import { countAwaitingReviewByAccount } from '../utils/transactionReview';
 import { useAccountBankSync } from '@service';
+import { useAttentionLadder } from '../hooks/useAttentionLadder';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
 import { calculateTotalBalance } from '../utils/calculations-decimal';
@@ -380,6 +381,9 @@ function AccountsList() {
   );
   // Per-account bank connection metadata + one-click "pull fresh bank data".
   const { getAccountLink, isAccountSyncing, syncAccount, syncAllConnections, connectedCount, feedsNeedingAttention, isSyncingAny } = useAccountBankSync({ onSynced: refreshAccountsAndTransactions });
+  // WHAT THE APP IS POINTING AT — one rule, read by every amber-bearing
+  // surface (Design's per-app ruling, 24 Aug). See utils/attentionLadder.
+  const ladder = useAttentionLadder();
 
   // Only OPEN accounts appear in the main list and totals; closed ones live in
   // the Closed Accounts section below (the Microsoft Money model — closing
@@ -2895,10 +2899,16 @@ function AccountsList() {
                 mixed one: amber-700 on amber-100 measures 5.5:1, amber-300 on
                 amber-900 10.7:1. Its neighbour Refresh feeds keeps the quiet
                 outline, so there is still exactly one loud control here. */}
+            {/* The COLOUR now comes from the app-wide ladder (Design,
+                24 Aug), not from this page's own count — feed is the top
+                rung, so in practice it wins whenever it has work, but it
+                asks rather than assumes. The LABEL and the count are
+                unchanged either way: standing down surrenders the colour,
+                never the facts. */}
             <button
               onClick={() => setBankConnectionsView('plain')}
               className={`w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors flex items-center gap-2 ${
-                feedsNeedingAttention > 0
+                ladder.wearsAmber('feed')
                   ? 'border-amber-400 bg-amber-100 text-amber-700 hover:bg-amber-200 dark:border-amber-500 dark:bg-amber-900 dark:text-amber-300 dark:hover:bg-amber-800'
                   : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
@@ -2936,7 +2946,12 @@ function AccountsList() {
               const label = nextJob === 'review'
                 ? `Review ${reviewTotal} new transaction${reviewTotal === 1 ? '' : 's'}`
                 : `Reconcile ${reconcileAccountCount} account${reconcileAccountCount === 1 ? '' : 's'}`;
-              const wearsAmber = feedsNeedingAttention === 0 && !isFocused;
+              // Was "no feed trouble and not focused" — this page reasoning
+              // about one other page's rung. It asks the ladder for its own
+              // rung now, so a Categorisation backlog or a dead feed
+              // anywhere in the app is accounted for by one rule rather than
+              // by each surface guessing about its neighbours.
+              const wearsAmber = ladder.wearsAmber(nextJob) && !isFocused;
               const other: 'review' | 'reconcile' = focusMode === 'review' ? 'reconcile' : 'review';
               const otherHasWork = other === 'review' ? reviewTotal > 0 : reconcileAccountCount > 0;
               return (
