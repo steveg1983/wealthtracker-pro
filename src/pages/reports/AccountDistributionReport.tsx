@@ -121,7 +121,7 @@ export default function AccountDistributionReport(): React.JSX.Element {
               must be the one the Dashboard's headline shows — two totals for
               one page is the disagreement this report exists to prevent. */}
           <p className="text-label uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">Net worth</p>
-          <p className="text-page font-bold mt-1">{holdsForeign ? '≈ ' : ''}{money(distribution.netWorth.toNumber())}</p>
+          <p className="text-page font-bold mt-1 text-gray-900 dark:text-white">{holdsForeign ? '≈ ' : ''}{money(distribution.netWorth.toNumber())}</p>
           {conversion && (
             <ConvertedTotalNote
               provenance={conversion.factors.size > 0 ? ratesProvenance : null}
