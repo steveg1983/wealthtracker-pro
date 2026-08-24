@@ -108,3 +108,36 @@ describe('TrueLayer classifies its own failures', () => {
     expect(trueLayerProvider.isReauthRequiredError(new Error('Request failed: 500'))).toBe(false);
   });
 });
+
+describe('reconnecting lands on the bank, not on a list of ninety', () => {
+  /**
+   * `bank_connections.institution_id` is written from TrueLayer's own
+   * provider metadata, so a stored Revolut connection is `ob-revolut` —
+   * while the shortcut map is keyed by our ids (`revolut`). Every existing
+   * connection therefore missed the lookup and fell through to the full UK
+   * chooser. Merely redundant when connecting; actively misleading when
+   * RECONNECTING, which is the journey a lapsed SCA exemption depends on.
+   * Every id below is TrueLayer's, from their public registry.
+   */
+  it('passes a stored TrueLayer provider id straight through', async () => {
+    const { providerForInstitution } = await import('../../../api/_lib/truelayer');
+    expect(providerForInstitution('ob-revolut')).toBe('ob-revolut');
+    expect(providerForInstitution('ob-natwest')).toBe('ob-natwest');
+    expect(providerForInstitution('ob-amex')).toBe('ob-amex');
+    expect(providerForInstitution('mock')).toBe('mock');
+  });
+
+  it('still maps our own shortcut ids, so the connect journey is unchanged', async () => {
+    const { providerForInstitution } = await import('../../../api/_lib/truelayer');
+    expect(providerForInstitution('revolut')).toBe('ob-revolut');
+    expect(providerForInstitution('hsbc')).toBe('ob-hsbc');
+  });
+
+  it('still yields nothing for an id it genuinely does not know', async () => {
+    // The caller falls back to the full list — a worse journey, never a
+    // broken one.
+    const { providerForInstitution } = await import('../../../api/_lib/truelayer');
+    expect(providerForInstitution('a-bank-we-have-never-heard-of')).toBeUndefined();
+    expect(providerForInstitution(undefined)).toBeUndefined();
+  });
+});
