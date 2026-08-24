@@ -106,7 +106,16 @@ export default function OpenBanking() {
     try {
       bankConnectionService.setAuthTokenProvider(() => getToken());
       const result = await bankConnectionService.syncConnection(connectionId);
-      setSyncNotice(result.success ? null : (result.errors[0] ?? 'The bank sync did not complete.'));
+      // CONSEQUENCE, THEN REMEDY — not the API's deliberately generic
+      // "Transaction sync failed", which names a subsystem rather than
+      // telling the reader anything about their money. The modal's copy of
+      // this was fixed and the PAGE's was missed; both say it now.
+      setSyncNotice(
+        result.success
+          ? null
+          : 'Some transactions didn’t come through, so this account may be behind. ' +
+            'If the row below asks you to reconnect, that is the fix; otherwise syncing again usually completes it.'
+      );
       await loadConnections();
     } catch {
       // A thrown sync failure flips the connection's own status (error /

@@ -141,3 +141,38 @@ describe('reconnecting lands on the bank, not on a list of ninety', () => {
     expect(providerForInstitution(undefined)).toBeUndefined();
   });
 });
+
+describe('the reauth classifier is reachable from where it is called', () => {
+  /**
+   * The defect this pins: `isReauthRequiredError` was taught to ask the
+   * connection's PROVIDER, but both handlers called it without the
+   * connection — so it fell through to a generic fallback every time and
+   * the provider-aware answer never ran once in production. The owner's
+   * "403 SCA exemption has expired" was filed as an ordinary sync failure,
+   * and the row that needed a Reconnect button went on looking healthy.
+   */
+  const SCA_403 = 'TrueLayer transactions fetch failed (invented-account-id): 403 ' +
+    '{"error_description":"SCA exemption has expired. This resource is protected by SCA.","error":"access_denied"}';
+
+  it('classifies through the connection when one is given', async () => {
+    const { isReauthRequiredError } = await import('../../../api/_lib/banking-sync');
+    const connection = {
+      id: 'conn-1', user_id: 'user-1', provider: 'truelayer',
+      institution_id: 'ob-revolut', institution_name: 'Invented Bank',
+      access_token_encrypted: 'x', refresh_token_encrypted: 'y',
+    };
+    expect(isReauthRequiredError(new Error(SCA_403), connection)).toBe(true);
+  });
+
+  it('and STILL says yes with no connection in hand — the fallback asks every provider', async () => {
+    // The fallback used to be a hardcoded copy of one provider's regex,
+    // free to drift from the real one. It did.
+    const { isReauthRequiredError } = await import('../../../api/_lib/banking-sync');
+    expect(isReauthRequiredError(new Error(SCA_403))).toBe(true);
+  });
+
+  it('still says no to an ordinary failure, either way', async () => {
+    const { isReauthRequiredError } = await import('../../../api/_lib/banking-sync');
+    expect(isReauthRequiredError(new Error('TrueLayer accounts fetch failed: 500 upstream'))).toBe(false);
+  });
+});

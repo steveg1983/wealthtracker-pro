@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { decryptSecret, encryptSecret } from './encryption.js';
-import { getProvider, type BankProvider } from './providers/index.js';
+import { getProvider, listProviders, type BankProvider } from './providers/index.js';
 
 /**
  * A connection row, whichever provider issued it.
@@ -71,10 +71,14 @@ export const isReauthRequiredError = (error: unknown, connection?: BankConnectio
   if (provider) {
     return provider.isReauthRequiredError(error);
   }
-  // No row in hand (the handlers' outer catch): fall back to the union of
-  // what the known providers say, which is what this predicate meant before
-  // it could ask anyone.
-  return /invalid_grant|no refresh token|token refresh failed|reauth/i.test(error.message);
+  // NO ROW IN HAND: ask every provider the server knows, and take any yes.
+  //
+  // This used to be a hardcoded copy of TrueLayer's own regex, which made it
+  // a second definition free to drift from the first — and it did, the day
+  // TrueLayer learned to recognise `403 access_denied` and this did not.
+  // A union of the registered providers cannot drift, because there is
+  // nothing left to keep in step.
+  return listProviders().some(provider => provider.isReauthRequiredError(error));
 };
 
 export const getUserBankConnection = async (
