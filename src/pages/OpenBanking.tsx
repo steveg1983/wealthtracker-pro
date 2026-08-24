@@ -283,12 +283,16 @@ export default function OpenBanking() {
                       <span>
                         {connection.accountsCount ?? 0} account{(connection.accountsCount ?? 0) !== 1 ? 's' : ''}
                       </span>
-                      {connection.lastSync && (
+                      {/* The house date words, not the US locale default with
+                          seconds (Design §3): every other surface says
+                          "24 Aug 2026". Dropped WHILE BROKEN (Design, 24 Aug
+                          §4): the consequence sentence below already carries
+                          the same timestamp as its evidence, and the same
+                          figure twice in one row reads as a rendering fault
+                          to anyone scanning rather than reading. */}
+                      {connection.lastSync && !broken && (
                         <>
                           <span className="text-gray-300 dark:text-gray-600">&middot;</span>
-                          {/* The house date words, not the US locale default
-                              with seconds (Design §3): every other surface
-                              says "24 Aug 2026". */}
                           <span>Last synced {formatDateTime(connection.lastSync)}</span>
                         </>
                       )}
@@ -309,30 +313,45 @@ export default function OpenBanking() {
                         {reauthorizingIds.has(connection.id) ? 'Redirecting…' : 'Reconnect'}
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setLinkingConnectionId(connection.id)}
-                      className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                    >
-                      Link accounts
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSync(connection.id)}
-                      disabled={syncingIds.has(connection.id)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 disabled:opacity-50 transition-colors"
-                    >
-                      <RefreshCwIcon size={14} className={syncingIds.has(connection.id) ? 'animate-spin' : ''} />
-                      {syncingIds.has(connection.id) ? 'Syncing…' : 'Sync'}
-                    </button>
-                    {/* The destructive action says its name and stands apart
-                        by INK, not by being one more grey icon. It asks
-                        first, and the question states the consequence. */}
+                    {/* AN AFFORDANCE THAT LEADS NOWHERE IS A DEFECT (Design,
+                        24 Aug §3 — the clickable-zero rule, one surface on).
+                        Linking an account to a feed that is not delivering,
+                        or syncing one that cannot authorise, produces
+                        nothing. While the connection is broken, Reconnect is
+                        the only thing that can change the state, so it is the
+                        only thing offered besides leaving. */}
+                    {!broken && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setLinkingConnectionId(connection.id)}
+                          className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                        >
+                          Link accounts
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSync(connection.id)}
+                          disabled={syncingIds.has(connection.id)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 disabled:opacity-50 transition-colors"
+                        >
+                          <RefreshCwIcon size={14} className={syncingIds.has(connection.id) ? 'animate-spin' : ''} />
+                          {syncingIds.has(connection.id) ? 'Syncing…' : 'Sync'}
+                        </button>
+                      </>
+                    )}
+                    {/* NEUTRAL AT REST, RED AT THE MOMENT OF INTENT (the
+                        Accounts ruling of the 13th, restated 24 Aug §1).
+                        Three resting expense-token reds made the loudest
+                        thing on the page the thing you least want pressed —
+                        the same overspend as the Export PDF fill. What keeps
+                        this apart from its neighbours is its POSITION and the
+                        confirm it raises, not a colour worn permanently. */}
                     <button
                       type="button"
                       onClick={() => handleDisconnect(connection.id, connection.institutionName)}
                       disabled={deletingIds.has(connection.id)}
-                      className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 transition-colors"
+                      className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:border-red-300 hover:bg-red-50 hover:text-red-600 dark:hover:border-red-800 dark:hover:bg-red-900/20 dark:hover:text-red-400 disabled:opacity-50 transition-colors"
                     >
                       {deletingIds.has(connection.id) ? 'Disconnecting…' : 'Disconnect'}
                     </button>
