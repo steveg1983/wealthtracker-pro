@@ -77,22 +77,27 @@ export default function BudgetAlertSettings() {
         {/* Alert Types */}
         <div className={`transition-opacity ${budgetAlertsEnabled ? 'opacity-100' : 'opacity-50'}`}>
           <h3 className="font-medium text-gray-900 dark:text-white mb-3">Alert Types</h3>
+          {/* NEUTRAL rows (Design, 24 Aug §7): these describe what the app
+              WILL DO at the thresholds — a mechanism, not a condition — and
+              were wearing the alert colours as decoration. The colours
+              belong to the alerts themselves; the Example panel below shows
+              what those look like. */}
           <div className="space-y-3">
-            <div className="flex items-start gap-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-              <AlertCircleIcon size={20} className="text-yellow-600 dark:text-yellow-400 mt-0.5" />
+            <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <AlertCircleIcon size={20} className="text-gray-500 dark:text-gray-400 mt-0.5" />
               <div>
-                <p className="font-medium text-yellow-800 dark:text-yellow-200">Warning Alert</p>
-                <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                <p className="font-medium text-gray-900 dark:text-white">Warning Alert</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   Triggered when spending reaches {alertThreshold}% of budget
                 </p>
               </div>
             </div>
-            
-            <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-              <AlertCircleIcon size={20} className="text-red-600 dark:text-red-400 mt-0.5" />
+
+            <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <AlertCircleIcon size={20} className="text-gray-500 dark:text-gray-400 mt-0.5" />
               <div>
-                <p className="font-medium text-red-800 dark:text-red-200">Danger Alert</p>
-                <p className="text-sm text-red-700 dark:text-red-300">
+                <p className="font-medium text-gray-900 dark:text-white">Danger Alert</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   Triggered when spending exceeds 100% of budget
                 </p>
               </div>

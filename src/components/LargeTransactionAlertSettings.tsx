@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNotifications } from '../contexts/NotificationContext';
-import { AlertCircleIcon, DollarSignIcon } from './icons';
+import { AlertCircleIcon } from './icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import MoneyInput from './common/MoneyInput';
 import { parseMoneyInput } from '../utils/decimal';
@@ -46,8 +46,11 @@ export default function LargeTransactionAlertSettings() {
           </p>
           
           <div className="space-y-4">
+            {/* No dollar glyph (Design, 24 Aug §6): the field's chips and
+                the figure beside it already print the app's own currency,
+                and a $ icon beside £ values was one field wearing two
+                symbols. The icon said nothing the formatted value doesn't. */}
             <div className="flex items-center gap-4">
-              <DollarSignIcon size={20} className="text-gray-500" />
               <MoneyInput
                 aria-label="Large transaction alert threshold"
                 value={largeTransactionThreshold}
