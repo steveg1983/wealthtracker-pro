@@ -192,3 +192,50 @@ describe('SpendingByCategoryReport — the accounts the spending is read over', 
     expect(screen.getAllByText('No categorised spending in this period').length).toBeGreaterThan(0);
   });
 });
+
+describe('the ring stands down when the fold would dominate it (Design, 24 Aug §2)', () => {
+  // Seven near-equal categories: the cap would show four and fold three, and
+  // the fold would outweigh the largest named slice — spread, not
+  // concentrated. Every figure is invented; the repo is public.
+  const SPREAD_CATEGORIES: Category[] = [
+    { id: 'type-expense', name: 'Expense', type: 'expense', level: 'type', isSystem: true },
+    ...Array.from({ length: 7 }, (_, i) => ({
+      id: `cat-s${i}`,
+      name: `Synthetic Category ${i}`,
+      type: 'expense' as const,
+      level: 'detail' as const,
+      parentId: 'type-expense',
+    })),
+  ];
+  const spreadTxns: Transaction[] = Array.from({ length: 7 }, (_, i) =>
+    txn({ id: `s${i}`, amount: -10, category: `cat-s${i}` })
+  );
+
+  beforeEach(() => {
+    localStorage.clear();
+    useMarch2026();
+  });
+  afterEach(() => __resetAppContextValue());
+
+  it('says the shape of the data instead of drawing one enormous quiet wedge', () => {
+    __setAppContextValue({ accounts: ACCOUNTS, categories: SPREAD_CATEGORIES, transactions: spreadTxns, transactionSplits: [] });
+    renderReport();
+    const note = screen.getByTestId('spending-spread-note');
+    expect(note.textContent).toContain('spread across 7 categories');
+    expect(note.textContent).toContain('14.3%');
+    expect(document.querySelector('.recharts-responsive-container')).toBeNull();
+    // The subtitle stops promising slices that are not there.
+    expect(screen.queryByText(/click a slice/)).toBeNull();
+  });
+
+  it('keeps the ring for genuinely concentrated spending', () => {
+    const concentrated = [
+      txn({ id: 'big', amount: -100, category: 'cat-s0' }),
+      ...Array.from({ length: 6 }, (_, i) => txn({ id: `small${i}`, amount: -5, category: `cat-s${i + 1}` })),
+    ];
+    __setAppContextValue({ accounts: ACCOUNTS, categories: SPREAD_CATEGORIES, transactions: concentrated, transactionSplits: [] });
+    renderReport();
+    expect(screen.queryByTestId('spending-spread-note')).toBeNull();
+    expect(document.querySelector('.recharts-responsive-container')).not.toBeNull();
+  });
+});

@@ -113,6 +113,21 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
   // up to the period's total.
   const netted = flows.expenses.greaterThan(0) && !listedTotal.equals(flows.expenses);
 
+  /**
+   * When the fold outweighs the largest named slice, the ring is the wrong
+   * instrument (Design ruling, 24 Aug §2): the spend simply isn't
+   * concentrated, so a top-4-plus-remainder ring is one enormous quiet wedge
+   * and four slivers — and quietest-step placement assumes the fold is the
+   * TAIL. Say the shape of the data instead and let the table do the work
+   * it already does well. Same rule as "one point is not a time series",
+   * one dimension over.
+   */
+  const fold = pieData.find(d => !d.categoryId);
+  const largestNamed = pieData.find(d => d.categoryId);
+  const spreadNote = fold && largestNamed && fold.value > largestNamed.value
+    ? { count: totals.length, name: largestNamed.name, share: shareOf(largestNamed.value) }
+    : null;
+
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -140,10 +155,16 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
           </span>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          {PERIOD_LABELS[picker.period]} — click a slice for the transactions behind it.
+          {PERIOD_LABELS[picker.period]}{spreadNote ? '' : ' — click a slice for the transactions behind it.'}
         </p>
         {pieData.length === 0 ? (
           <p className="text-center py-16 text-gray-400">No categorised spending in this period</p>
+        ) : spreadNote ? (
+          <p className="text-body text-gray-600 dark:text-gray-300" data-testid="spending-spread-note">
+            Spending is spread across {spreadNote.count.toLocaleString()} categories — the
+            largest, {spreadNote.name}, is {spreadNote.share} of the total. Every category
+            is ranked in the table below.
+          </p>
         ) : (
           <div className="h-80" ref={chartRef}>
             <ResponsiveContainer width="100%" height="100%">
