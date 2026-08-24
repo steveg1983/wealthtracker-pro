@@ -396,4 +396,75 @@ describe('PeriodComparisonReport — which accounts, and which comparison', () =
       expect(screen.getByRole('button', { name: 'Previous period' })).not.toHaveAttribute('aria-disabled');
     });
   });
+
+  describe('the delta against a deficit is phrased, not signed (Design, 24 Aug)', () => {
+    /**
+     * A deficit that SHRANK printed "+£40.00 · +66.7%", and "+66%" of a
+     * deficit sounds like more deficit. Against a negative base the pair is
+     * said in words instead. Every figure is invented; the repo is public.
+     */
+    const deficitStory: Transaction[] = [
+      // March 2026: spent £20 more than earned — Left over is (£20).
+      txn({ id: 'd-in', amount: 100, type: 'income', category: 'grp-salary' }),
+      txn({ id: 'd-out', amount: -120 }),
+      // February 2026: spent £60 more than earned — Left over was (£60).
+      txn({ id: 'p-in', date: new Date(2026, 1, 10), amount: 100, type: 'income', category: 'grp-salary' }),
+      txn({ id: 'p-out', date: new Date(2026, 1, 12), amount: -160 }),
+    ];
+
+    beforeEach(() => {
+      localStorage.clear();
+      useMarch2026();
+      __setAppContextValue({ accounts: ACCOUNTS, categories: CATEGORIES, transactions: deficitStory });
+    });
+
+    it('says the magnitude and the DIRECTION as a word, never "+66.7%" of a deficit', () => {
+      renderReport();
+      // The deficit went from (£60) to (£20): £40 smaller, a 66.7% improvement.
+      expect(screen.getByText(/£40\.00 smaller/)).toBeInTheDocument();
+      expect(screen.getByText(/66\.7% improvement/)).toBeInTheDocument();
+      // The sign that read as "more deficit" is gone from that line.
+      expect(screen.queryByText(/\+66\.7%/)).toBeNull();
+    });
+
+    it('calls a growing deficit larger, and a worsening', () => {
+      // Swap the windows: (£20) last month, (£60) this one.
+      __setAppContextValue({
+        accounts: ACCOUNTS,
+        categories: CATEGORIES,
+        transactions: [
+          txn({ id: 'd-in', amount: 100, type: 'income', category: 'grp-salary' }),
+          txn({ id: 'd-out', amount: -160 }),
+          txn({ id: 'p-in', date: new Date(2026, 1, 10), amount: 100, type: 'income', category: 'grp-salary' }),
+          txn({ id: 'p-out', date: new Date(2026, 1, 12), amount: -120 }),
+        ],
+      });
+      renderReport();
+      expect(screen.getByText(/£40\.00 larger/)).toBeInTheDocument();
+      expect(screen.getByText(/worsening/)).toBeInTheDocument();
+    });
+
+    it('leaves a POSITIVE base alone — nothing reads awkwardly there', () => {
+      // Both windows in surplus: Left over was £400, is now £900. A signed
+      // "+£500.00 · +125.0%" reads perfectly well, so it stands untouched.
+      // (The default fixture is NOT this case — its previous window is a
+      // deficit, which is why the phrasing correctly fires there.)
+      __setAppContextValue({
+        accounts: ACCOUNTS,
+        categories: CATEGORIES,
+        transactions: [
+          txn({ id: 's-in', amount: 1000, type: 'income', category: 'grp-salary' }),
+          txn({ id: 's-out', amount: -100 }),
+          txn({ id: 'q-in', date: new Date(2026, 1, 10), amount: 500, type: 'income', category: 'grp-salary' }),
+          txn({ id: 'q-out', date: new Date(2026, 1, 12), amount: -100 }),
+        ],
+      });
+      renderReport();
+      expect(screen.queryByText(/improvement/)).toBeNull();
+      expect(screen.queryByText(/smaller/)).toBeNull();
+      // Income and Left over both moved by £500 here, so the signed form
+      // appears more than once — its presence is the assertion, not its count.
+      expect(screen.getAllByText(/\+£500\.00/).length).toBeGreaterThan(0);
+    });
+  });
 });

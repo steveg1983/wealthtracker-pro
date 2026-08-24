@@ -1128,18 +1128,32 @@ function InvestmentsView() {
             openBreakdown === 'contributions' ? 'border-[#6b86b3]' : 'border-line dark:border-gray-700'
           }`}
         >
-          <p className="text-body text-gray-500 dark:text-gray-400">Net Contributions</p>
+          {/* THE LABEL FLIPS RATHER THAN THE FIGURE (Design's signed-label
+              ruling, 24 Aug): a label describing a DIRECTION carrying a
+              negative value asks the reader to invert a word, and words do
+              not inverse cleanly — "Net Contributions (£19,338)" means money
+              came out, which is the opposite of what it says. The app has a
+              name for the other direction, so it uses it and prints the
+              magnitude positive.
+
+              The ruling's carve-outs hold elsewhere: this is a DERIVED
+              SUMMARY figure, so it may be renamed. Transactions, balances
+              and column totals keep the parentheses absolutely — a ledger's
+              sign is data, not phrasing. */}
+          <p className="text-body text-gray-500 dark:text-gray-400">
+            {performance.netFlows.isNegative() ? 'Net withdrawals' : 'Net Contributions'}
+          </p>
           {/* NEUTRAL, not link blue (Claude Design, 22 Aug §6): the tile IS
               clickable, but the affordance is the button's own hover border —
               permanently recolouring the number claimed link-ness in the one
-              place colour already means something else. Amounts wear semantic
-              colours or none; a negative net contribution keeps its
-              parentheses from the house formatter. */}
+              place colour already means something else. */}
           <p className="text-page font-bold text-gray-900 dark:text-white">
-            {formatCurrency(performance.netFlows)}
+            {formatCurrency(performance.netFlows.abs())}
           </p>
           <p className="text-dense text-gray-500 dark:text-gray-400 mt-1">
-            Put in less taken out over this period — click for each account's share
+            {performance.netFlows.isNegative()
+              ? 'Taken out less put in over this period — click for each account’s share'
+              : 'Put in less taken out over this period — click for each account’s share'}
           </p>
         </button>
 
@@ -1272,7 +1286,9 @@ function InvestmentsView() {
         <Modal
           isOpen={openBreakdown !== null}
           onClose={() => { setOpenBreakdown(null); setDrillLineId(null); }}
-          title={openBreakdown === 'contributions' ? 'Net Contributions by account' : 'Total Return by account'}
+          title={openBreakdown === 'contributions'
+            ? `${performance.netFlows.isNegative() ? 'Net withdrawals' : 'Net Contributions'} by account`
+            : 'Total Return by account'}
           size="lg"
         >
           <ModalBody>
