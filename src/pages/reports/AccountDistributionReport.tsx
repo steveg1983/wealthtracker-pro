@@ -87,6 +87,20 @@ export default function AccountDistributionReport(): React.JSX.Element {
         : `${formatDecimal(entry.share, 1)}%`
       : '—';
 
+  /**
+   * When the fold matches or outweighs the largest named slice, the ring is
+   * the wrong instrument (Design ruling, 24 Aug §2 and §4): a ring whose
+   * biggest wedge is "the other N accounts" tells the reader less than a
+   * sentence would, and quietest-step placement assumes the fold is the
+   * tail. Ties count as dominance — a fold as big as the biggest account is
+   * already not a tail.
+   */
+  const remainderWedge = distribution.wedges.find(w => w.id === ACCOUNT_DISTRIBUTION_REMAINDER_ID);
+  const largestWedge = distribution.wedges.find(w => w.id !== ACCOUNT_DISTRIBUTION_REMAINDER_ID);
+  const spreadNote = remainderWedge && largestWedge && remainderWedge.value >= largestWedge.value
+    ? { count: distribution.entries.length, name: largestWedge.name, share: shareOf(largestWedge) }
+    : null;
+
   const headCell = 'px-4 py-2 text-dense font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400';
 
   return (
@@ -140,14 +154,24 @@ export default function AccountDistributionReport(): React.JSX.Element {
             must come back to that number, "otherwise it looks like a useless
             report"). */}
         <p className="text-body text-gray-500 dark:text-gray-400 mb-4">
-          {distribution.foldedCount > 0
-            ? `The ${distribution.slices.length - 1} largest accounts in credit, with every other account netted into one slice — together, your net worth`
-            : 'Every account, drawn to its balance — together, your net worth'}
-          {' '}— the same slices the Dashboard shows. Every account is listed below.
-          Click a slice for its transactions.
+          {spreadNote
+            ? 'Current balances, as shares of your net worth.'
+            : <>
+                {distribution.foldedCount > 0
+                  ? `The ${distribution.slices.length - 1} largest accounts in credit, with every other account netted into one slice — together, your net worth`
+                  : 'Every account, drawn to its balance — together, your net worth'}
+                {' '}— the same slices the Dashboard shows. Every account is listed below.
+                Click a slice for its transactions.
+              </>}
         </p>
         {distribution.wedges.length === 0 ? (
           <p className="text-center py-16 text-gray-400">No account is in credit</p>
+        ) : spreadNote ? (
+          <p className="text-body text-gray-600 dark:text-gray-300" data-testid="distribution-spread-note">
+            Your money is spread across {spreadNote.count.toLocaleString()} accounts — the
+            largest, {spreadNote.name}, holds {spreadNote.share} of your net worth. Every
+            account is listed below.
+          </p>
         ) : (
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
