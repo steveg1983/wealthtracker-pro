@@ -502,7 +502,12 @@ export class BankConnectionService {
         accounts: [],
         accountsCount: connection.accountsCount,
         linkedAccountIds: connection.linkedAccountIds ?? [],
-        expiresAt: connection.expiresAt ? new Date(connection.expiresAt) : undefined
+        expiresAt: connection.expiresAt ? new Date(connection.expiresAt) : undefined,
+        // The last failure the server recorded. Present on a CONNECTED row
+        // too — that is the "connected, but the last sync did not finish"
+        // state, which is the difference between a bank we cannot reach and
+        // one endpoint that flaked.
+        error: connection.error ?? undefined
       }));
     } catch (error) {
       this.logger.error('Failed to load bank connections', error as Error);

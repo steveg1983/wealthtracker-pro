@@ -201,6 +201,31 @@ export const markConnectionSyncSuccess = async (
     .eq('user_id', userId);
 };
 
+/**
+ * A SYNC FAILED. THE CONNECTION IS NOT NECESSARILY BROKEN.
+ *
+ * This used to write `status: 'error'`, which is the app telling the user
+ * their bank connection has stopped working — and the owner's audit log
+ * shows how wrong that was. Every single `accounts` sync succeeded, and the
+ * `transactions` sync three seconds later failed against the same token,
+ * over and over, for weeks. The connection was healthy the entire time; one
+ * endpoint at the bank was flaky. What he saw was "this connection has
+ * stopped working", so he re-authorised a connection that had nothing wrong
+ * with it, roughly daily.
+ *
+ * The rule now: `status` describes the CONNECTION — can we still talk to
+ * this bank as this user? Only an authentication failure can answer no, and
+ * that is `markConnectionNeedsReauth`. A fetch that 500s, times out or is
+ * rate-limited is a fact about one SYNC, and sync facts belong to
+ * `sync_history` (which already records every attempt) and to the response
+ * the client shows as "Bank sync incomplete".
+ *
+ * The error text is still stored, because the row is where the last failure
+ * is read from — but it no longer changes what the connection CLAIMS about
+ * itself. `last_sync` is deliberately untouched: it means "when did data
+ * last actually arrive", so a run of failures shows up honestly as a date
+ * going stale rather than as a healthy-looking timestamp.
+ */
 export const markConnectionSyncFailure = async (
   supabase: SupabaseClient,
   connectionId: string,
@@ -211,7 +236,6 @@ export const markConnectionSyncFailure = async (
   await supabase
     .from('bank_connections')
     .update({
-      status: 'error',
       error: errorMessage.slice(0, 2000),
       updated_at: nowIso
     })

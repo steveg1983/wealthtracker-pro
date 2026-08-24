@@ -16,7 +16,7 @@ import {
   PlusIcon,
   SearchIcon
 } from './icons';
-import { format } from 'date-fns';
+import { formatDateTime } from '../utils/dateFormatter';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 // Module scope, not a useMemo: the loaders below are started from a mount
@@ -246,7 +246,16 @@ export default function BankConnections({
         onAccountsLinked?.();
       } else {
         logger.error('Sync failed', result.errors);
-        setSyncNotice(result.errors[0] ?? 'The bank sync did not complete.');
+        // CONSEQUENCE, THEN REMEDY — not "Transaction sync failed", which is
+        // the API's deliberately generic message and tells the reader
+        // nothing about their money. The connection is not implicated here:
+        // a failing sync means one call did not land, and the owner's audit
+        // log is weeks of exactly that (accounts fine, transactions flaky)
+        // being misread as a dead feed.
+        setSyncNotice(
+          'Some transactions didn’t come through, so this account may be behind. ' +
+          'The connection itself is fine — syncing again usually completes it.'
+        );
         // Reload so a status change from the failed sync (e.g. reauth_required)
         // surfaces immediately — otherwise the Reauthorize CTA wouldn't appear
         // until the next manual refresh.
@@ -445,7 +454,18 @@ export default function BankConnections({
                       {connection.lastSync && (
                         <span className="flex items-center gap-1">
                           <ClockIcon size={12} />
-                          Last synced {format(new Date(connection.lastSync), 'MMM d, h:mm a')}
+                          Last synced {formatDateTime(connection.lastSync)}
+                        </span>
+                      )}
+                      {/* CONNECTED, BUT BEHIND. Without this the modal
+                          contradicts itself: the banner says a sync did not
+                          finish while every row wears a tick. `error` is
+                          present on a connected row exactly when the last
+                          sync failed without the credentials being at
+                          fault. */}
+                      {connection.status === 'connected' && connection.error && (
+                        <span className="text-gray-500 dark:text-gray-400">
+                          · last sync didn’t finish
                         </span>
                       )}
                     </div>

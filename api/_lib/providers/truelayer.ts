@@ -59,12 +59,33 @@ export const trueLayerProvider: BankProvider = {
    * A dead REFRESH token comes back as `invalid_grant` on an HTTP 400 — not a
    * 401 — which is why a literal-401 check missed it (issue #22) and left the
    * user with a Sync button that could never succeed.
+   *
+   * AND `403 access_denied` ON A DATA FETCH, which is the one that cost the
+   * owner weeks. TrueLayer's documentation is explicit: when a bank's 90-day
+   * consent lapses, "if you try to fetch data using an access_token
+   * TrueLayer will return a 403 access_denied error", and the documented
+   * remedy is the reauthentication flow.
+   *
+   * His audit log is that error, ten times out of ten, on the transactions
+   * endpoint — while the accounts endpoint kept succeeding on the same token
+   * seconds earlier, because a lapsed consent stops DETAILED data without
+   * stopping the account list. Classified as a generic failure, it produced
+   * "something went wrong" and a Sync button that could never work; the one
+   * control that would have fixed it — Reconnect — was never offered,
+   * because the app did not know this was a consent problem.
+   *
+   * Deliberately narrow: `access_denied`, or a 403 from a DATA fetch (whose
+   * messages all begin "TrueLayer <thing> fetch failed"). A bare 403
+   * elsewhere is not swept in, and note fetchCards treats its own 403 as
+   * "this provider has no cards" and returns before ever throwing.
    */
   isReauthRequiredError(error: unknown): boolean {
-    return (
-      error instanceof Error &&
-      /invalid_grant|no refresh token|token refresh failed|reauth/i.test(error.message)
-    );
+    if (!(error instanceof Error)) return false;
+    if (/invalid_grant|no refresh token|token refresh failed|reauth/i.test(error.message)) {
+      return true;
+    }
+    return /access_denied/i.test(error.message)
+      || /fetch failed[^:]*:\s*403\b/i.test(error.message);
   },
 
   async revokeAccessToken(accessToken: string): Promise<void> {

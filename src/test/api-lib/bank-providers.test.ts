@@ -84,4 +84,27 @@ describe('TrueLayer classifies its own failures', () => {
     expect(trueLayerProvider.isExpiredTokenError(transient)).toBe(true);
     expect(trueLayerProvider.isReauthRequiredError(transient)).toBe(false);
   });
+
+  it('reads 403 access_denied on a DATA fetch as a lapsed consent, not a blip', () => {
+    // The owner's Revolut feed, ten failures out of ten. TrueLayer's docs:
+    // when a bank's 90-day consent lapses, fetching data returns 403
+    // access_denied and the remedy is the reauthentication flow. Classified
+    // as a generic failure it produced "something went wrong" and a Sync
+    // button that could never work — the one control that fixes it was
+    // never shown.
+    const real = new Error(
+      'TrueLayer transactions fetch failed (48be73de3317ced2e2be7782afebb07x): 403 {"error":"access_denied"}'
+    );
+    expect(trueLayerProvider.isReauthRequiredError(real)).toBe(true);
+    // …and it is NOT a stale access token, so nothing tries to refresh and
+    // replay a call that will always be refused.
+    expect(trueLayerProvider.isExpiredTokenError(real)).toBe(false);
+  });
+
+  it('does not sweep in an unrelated 403', () => {
+    // Narrow on purpose: a 403 from somewhere that is not a data fetch, and
+    // carries no access_denied, must not send the user to re-authorise.
+    expect(trueLayerProvider.isReauthRequiredError(new Error('Some other 403 thing'))).toBe(false);
+    expect(trueLayerProvider.isReauthRequiredError(new Error('Request failed: 500'))).toBe(false);
+  });
 });
