@@ -231,9 +231,16 @@ describe('OFXImportModal', () => {
   };
 
   /** A preview summary tile, found by its label rather than by its number. */
-  const summaryTile = (label: string): HTMLElement => {
-    const tile = screen.getByText(label).parentElement;
-    if (!tile) throw new Error(`no summary tile labelled "${label}"`);
+  /**
+   * The preview summary — ONE sentence since Design's 24 Aug §2 ruling
+   * ("N transactions are new — of M in this file, the other K you already
+   * have"), where two equal cards used to make the reader work out the
+   * relationship themselves. Matched on the tile's whole text.
+   */
+  const summary = (): HTMLElement => {
+    const figure = screen.getByText(/in this file (is|are) new/);
+    const tile = figure.parentElement;
+    if (!tile) throw new Error('no summary tile');
     return tile;
   };
 
@@ -412,8 +419,9 @@ describe('OFXImportModal', () => {
       });
       // The tiles are read by their label, not by hunting for a loose "2":
       // both of them say 2 here, and which is which is the whole point.
-      expect(summaryTile('In this file')).toHaveTextContent('2');
-      expect(summaryTile('Will be imported')).toHaveTextContent('2');
+      // The tile prints the figure and the sentence as siblings, so the
+      // whole-tile text reads "2transactions are new — of 2 in this file".
+      expect(summary()).toHaveTextContent(/^2of 2 transactions in this file are new/);
     });
 
     it('says when a row in the file could not be read', async () => {
@@ -787,7 +795,9 @@ describe('OFXImportModal', () => {
       fireEvent.click(importButton);
 
       expect(importButton).toHaveAttribute('data-loading', 'true');
-      expect(importButton).toHaveTextContent('Importing…');
+      // The button keeps its RESTING label while busy (Design §3): the
+      // progress row reports the state, in detail.
+      expect(importButton).toHaveTextContent('Import Transactions');
 
       // The mocked import resolves ~100ms later — wait for the async work to
       // settle inside the test (otherwise the finally-block setState fires
@@ -1385,7 +1395,9 @@ describe('OFXImportModal', () => {
       
       await waitFor(() => {
         expect(screen.getByText('0 transactions found')).toBeInTheDocument();
-        expect(screen.getAllByText('0')).toHaveLength(2); // In file info and summary sections
+        // ONE figure since the summary became a sentence (Design §2): the
+        // count of new rows, with the file's own total inside the words.
+        expect(screen.getAllByText('0')).toHaveLength(1);
       });
     });
 
@@ -1803,15 +1815,14 @@ describe('OFXImportModal', () => {
       expect(screen.getByText(/Already here as “Test Transaction” on 01\/01\/2024/)).toBeInTheDocument();
 
       expect(screen.getByRole('checkbox', { name: /Immediate Faster Payment/ })).not.toBeChecked();
-      expect(summaryTile('In this file')).toHaveTextContent('1');
-      expect(summaryTile('Will be imported')).toHaveTextContent('0');
+      expect(summary()).toHaveTextContent(/^0of 1 transaction in this file is new/);
     });
 
     it('imports it after the user says it is a separate payment', async () => {
       await openPreview();
 
       fireEvent.click(screen.getByRole('checkbox', { name: /Immediate Faster Payment/ }));
-      expect(summaryTile('Will be imported')).toHaveTextContent('1');
+      expect(summary()).toHaveTextContent(/^1of 1 transaction in this file is new/);
 
       vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(
         createMockImportResult({
@@ -1842,11 +1853,11 @@ describe('OFXImportModal', () => {
       // the overrule must not survive into an account it was never about.
       chooseAccount(SAVINGS_ACCOUNT);
       expect(screen.queryByText(/looks like one you already have/)).not.toBeInTheDocument();
-      expect(summaryTile('Will be imported')).toHaveTextContent('1');
+      expect(summary()).toHaveTextContent(/^1of 1 transaction in this file is new/);
 
       chooseAccount(CURRENT_ACCOUNT);
       expect(screen.getByRole('checkbox', { name: /Immediate Faster Payment/ })).not.toBeChecked();
-      expect(summaryTile('Will be imported')).toHaveTextContent('0');
+      expect(summary()).toHaveTextContent(/^0of 1 transaction in this file is new/);
     });
   });
 
