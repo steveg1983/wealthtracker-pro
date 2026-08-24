@@ -114,7 +114,17 @@ export function FocusIndicator() {
          with their own >=44px hit area via padding (.toggle-switch) are
          exempt everywhere. */
       @media (hover: none) and (pointer: coarse) {
-        button:not(.toggle-switch), a, input, select, textarea, [role="button"] {
+        /* Checkboxes and radios are exempt — index.css gives them a 24px box
+           with a 10px margin, which IS a 44px target without drawing a
+           44px control. min-* clamps the used value, so an unqualified
+           \`input\` here overrode that and rendered every checkbox on a
+           phone as a large empty square (measured on the calendar's two
+           toggles, mobile sweep 24 Aug). This block is a runtime-injected
+           DUPLICATE of the one in index.css; both carry the exemption now,
+           and the duplication itself is why one of them was missed. */
+        button:not(.toggle-switch), a,
+        input:not([type="checkbox"]):not([type="radio"]),
+        select, textarea, [role="button"] {
           min-height: 44px;
           min-width: 44px;
         }
