@@ -124,7 +124,9 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
    */
   const fold = pieData.find(d => !d.categoryId);
   const largestNamed = pieData.find(d => d.categoryId);
-  const spreadNote = fold && largestNamed && fold.value > largestNamed.value
+  // >= — ties count as dominance (Design, 24 Aug §4): a fold as big as the
+  // biggest category is already not a tail.
+  const spreadNote = fold && largestNamed && fold.value >= largestNamed.value
     ? { count: totals.length, name: largestNamed.name, share: shareOf(largestNamed.value) }
     : null;
 

@@ -762,10 +762,14 @@ export function ImprovedDashboard() {
         data-testid="dashboard-grid"
         aria-label="Net worth, assets and liabilities"
       >
+        {/* The ≈ on the trio itself (Design, 24 Aug §3): the Accounts page
+            marks the identical figure on the identical basis, and the note
+            under this card already says it converted. provenance is null
+            exactly when nothing converted — the same gate. */}
         <NetWorthSummary
-          netWorth={formatCurrencyWithSymbol(spansCurrencies ? convertedNetWorth.netWorth : metrics.netWorth)}
-          assets={formatCurrencyWithSymbol(spansCurrencies ? convertedNetWorth.assets : metrics.totalAssets)}
-          liabilities={formatCurrencyWithSymbol(spansCurrencies ? convertedNetWorth.liabilities : metrics.totalLiabilities)}
+          netWorth={`${spansCurrencies && convertedNetWorth.provenance ? '≈ ' : ''}${formatCurrencyWithSymbol(spansCurrencies ? convertedNetWorth.netWorth : metrics.netWorth)}`}
+          assets={`${spansCurrencies && convertedNetWorth.provenance ? '≈ ' : ''}${formatCurrencyWithSymbol(spansCurrencies ? convertedNetWorth.assets : metrics.totalAssets)}`}
+          liabilities={`${spansCurrencies && convertedNetWorth.provenance ? '≈ ' : ''}${formatCurrencyWithSymbol(spansCurrencies ? convertedNetWorth.liabilities : metrics.totalLiabilities)}`}
           onSelect={figure => setBreakdownView(figure)}
           provenance={spansCurrencies ? convertedNetWorth.provenance : null}
           unconverted={spansCurrencies ? convertedNetWorth.unconverted : []}
@@ -805,10 +809,13 @@ export function ImprovedDashboard() {
           />
         </div>
 
-        {/* Phase 0 (the disclosure ruling, 22 Aug §2): the two figures below
-            still sum native units — said until their conversion phase.
-            Nothing for a single-currency ledger. */}
-        <MixedCurrencyDisclosure className="mb-3" />
+        {/* The Phase 0 disclosure now mounts ONLY while the flows seam is
+            degraded (no rate history yet): the figures below convert through
+            the same per-date resolver the reports use, and this note
+            survived that conversion commit — a converted card telling the
+            reader it was unconverted, 200px under a header claiming the
+            opposite (Design, 24 Aug §2). Converted figures wear ≈ instead. */}
+        {flowConvert === undefined && <MixedCurrencyDisclosure className="mb-3" />}
         {/* ─ NO TINTED GROUND (Claude Design §2, and §2.5 before it) ────────
             These were `bg-green-50` and `bg-red-50` side by side. The figures
             are already green and red; the tint said the same thing a second
@@ -870,7 +877,7 @@ export function ImprovedDashboard() {
                 ? 'text-gray-900 dark:text-white'
                 : 'text-green-600 dark:text-green-400'
             }`}>
-              {formatCurrencyWithSymbol(performance.income)}
+              {performance.holdsForeign ? '≈ ' : ''}{formatCurrencyWithSymbol(performance.income)}
               {/* Through the SHARED zero rule now. This pair got "no direction
                   at zero" right first (16 Aug) — and then Budget's cards were
                   found re-deriving it wrong, the fourth copy in one pass. The
@@ -890,7 +897,7 @@ export function ImprovedDashboard() {
                 ? 'text-gray-900 dark:text-white'
                 : 'text-red-600 dark:text-red-400'
             }`}>
-              {formatCurrencyWithSymbol(performance.expenses)}
+              {performance.holdsForeign ? '≈ ' : ''}{formatCurrencyWithSymbol(performance.expenses)}
               <TrendArrow value={performance.expenses} direction="down" size={20} />
             </p>
           </button>
