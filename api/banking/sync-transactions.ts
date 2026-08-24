@@ -395,8 +395,18 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     // A needs-reauth failure (expired/invalid refresh token) is unrecoverable
     // without the user re-linking: persist 'reauth_required' so the UI shows its
     // Reauthorize CTA instead of a Sync button that will always fail (#21/#22).
-    const needsReauth = isReauthRequiredError(error);
     const body = req.body as SyncTransactionsRequest | undefined;
+    // OWNERSHIP FIRST, THEN CLASSIFY — because the ROW is what says
+    // which provider's vocabulary this error is written in, and
+    // asking without it silently fell back to a generic guess. That
+    // is exactly how a `403 SCA exemption has expired` — the one
+    // error that most needs the Reconnect button — was filed as an
+    // ordinary sync failure, leaving the row looking healthy.
+    const sb = getServiceRoleSupabase();
+    const ownedConnection = body?.connectionId && authUserId
+      ? await getUserBankConnection(sb, authUserId, body.connectionId.trim())
+      : null;
+    const needsReauth = isReauthRequiredError(error, ownedConnection ?? undefined);
     // needs-reauth is an expected user-action state, not a system fault — only
     // report genuine failures.
     if (!needsReauth) {
@@ -405,10 +415,6 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     // body.connectionId is client-supplied and the service-role client
     // bypasses RLS — re-validate ownership before persisting any failure
     // state, or one user could flip another's connection to error/reauth.
-    const sb = getServiceRoleSupabase();
-    const ownedConnection = body?.connectionId && authUserId
-      ? await getUserBankConnection(sb, authUserId, body.connectionId.trim())
-      : null;
     if (ownedConnection && authUserId) {
       if (needsReauth) {
         await markConnectionNeedsReauth(sb, ownedConnection.id, authUserId, message);

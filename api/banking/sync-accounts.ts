@@ -567,10 +567,6 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     const message = error instanceof Error ? error.message : 'Unexpected error';
     // Keep the detailed message server-side; return a generic one to the client.
     console.error('[sync-accounts] sync failed', { message });
-    const needsReauth = isReauthRequiredError(error);
-    if (!needsReauth) {
-      await captureServerError(error, { handler: 'sync-accounts' });
-    }
     const body = req.body as SyncAccountsRequest | undefined;
     // body.connectionId is client-supplied and the service-role client
     // bypasses RLS — re-validate ownership before persisting any failure
@@ -579,6 +575,15 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     const ownedConnection = body?.connectionId && authUserId
       ? await getUserBankConnection(sb, authUserId, body.connectionId.trim())
       : null;
+    // OWNERSHIP FIRST, THEN CLASSIFY — the ROW says which provider's
+    // vocabulary this error is written in, and asking without it fell back
+    // to a generic guess. That is how `403 SCA exemption has expired` — the
+    // one error that most needs the Reconnect button — was filed as an
+    // ordinary sync failure while the row went on looking healthy.
+    const needsReauth = isReauthRequiredError(error, ownedConnection ?? undefined);
+    if (!needsReauth) {
+      await captureServerError(error, { handler: 'sync-accounts' });
+    }
     if (ownedConnection && authUserId) {
       if (needsReauth) {
         await markConnectionNeedsReauth(sb, ownedConnection.id, authUserId, message);
