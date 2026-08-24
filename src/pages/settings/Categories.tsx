@@ -1000,19 +1000,14 @@ export default function CategoriesSettings() {
             </ul>
           </div>
         </div>
-      ) : (
-        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 mb-6">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            <p className="mb-2">💡 <strong>Tip:</strong></p>
-            <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>Click on any category name to view its transactions</li>
-              <li>Click the arrow buttons to expand/collapse subcategories</li>
-              <li>Use Edit Mode to rename or reorganize categories</li>
-              <li>The number in parentheses shows how many transactions are in each category</li>
-            </ul>
-          </div>
-        </div>
-      )}
+      ) : null}
+      {/* NO RESTING-STATE TUTORIAL (Design, 24 Aug §5). Four bullets
+          explaining four self-evident affordances — click a name, click an
+          arrow, the number in parentheses — sat permanently at the top of a
+          page people visit hundreds of times, and were the largest block
+          above the fold. P1: it is chrome. The one genuinely non-obvious
+          item, Edit Mode, explains itself in the panel above the moment the
+          mode is entered, which is where an instruction belongs. */}
 
       {/* Starter set import */}
       {!isEditMode && !isDeleteMode && (
