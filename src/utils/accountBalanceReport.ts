@@ -91,7 +91,66 @@ const TYPE_LABELS: Array<{ key: Account['type']; label: string }> = [
 const labelOfType = (type: Account['type']): string =>
   TYPE_LABELS.find(entry => entry.key === type)?.label ?? 'Other';
 
+/**
+ * Which side a TYPE would normally land on — not which side its balance
+ * actually puts it on, which is always the sign's business.
+ *
+ * The two differ more often than one would guess, and that is the point: an
+ * overdrawn current account is asset-typed and owed, an overpaid credit card
+ * is liability-typed and owned. The reports use this ONLY to say why a row
+ * has moved (Design §1.1, 25 Aug); nothing here classifies money.
+ *
+ * `null` for 'other', which implies no side, so a row of that type is never
+ * described as having moved anywhere.
+ */
+export type AccountSide = 'asset' | 'liability';
+
+const SIDE_OF_TYPE: Partial<Record<Account['type'], AccountSide>> = {
+  current: 'asset', checking: 'asset', savings: 'asset',
+  investment: 'asset', asset: 'asset', assets: 'asset',
+  credit: 'liability', loan: 'liability',
+  mortgage: 'liability', liability: 'liability',
+};
+
+export const sideOfType = (type: Account['type']): AccountSide | null =>
+  SIDE_OF_TYPE[type] ?? null;
+
+/**
+ * The word for a row sitting on the side its TYPE does not imply — the
+ * labelling that survived Design's own reversal on sign-vs-type (25 Aug).
+ *
+ * It was proposed to explain why a row sat on the *unexpected* side. Under
+ * sign-based classification — which is correct, because a balance sheet
+ * states claims rather than product categories — its job inverts: it explains
+ * why a row has MOVED. A reader looking for their current account under what
+ * you own, and not finding it, needs the row itself to say why it is on the
+ * other side.
+ *
+ * Null when the row is where its type implies, because then there is nothing
+ * to explain and a label would be noise on every row in the report.
+ */
+export function movedSideLabel(type: Account['type'], closing: number): string | null {
+  const side = sideOfType(type);
+  if (side === null || closing === 0) return null;
+  if (side === 'asset' && closing < 0) return 'overdrawn';
+  if (side === 'liability' && closing > 0) return 'in credit';
+  return null;
+}
+
+/**
+ * Where a band sits in the report.
+ *
+ * "Loans in" takes the place Loans held, among the bands of things you owe.
+ * "Loans out" sorts up with the asset bands instead, because that is what
+ * Design's "under what you own" means in a report that has no such heading to
+ * put it under: the band ORDER is this report's only way of agreeing with the
+ * two headline figures, so the asset half of a split loan band belongs beside
+ * the other assets rather than filed under debts by an accident of type.
+ */
 const orderOfLabel = (label: string): number => {
+  if (label === 'Loans in') return TYPE_LABELS.findIndex(entry => entry.label === 'Loans');
+  // Immediately after the last asset band, before the first liability one.
+  if (label === 'Loans out') return TYPE_LABELS.findIndex(entry => entry.label === 'Credit cards') - 0.5;
   const index = TYPE_LABELS.findIndex(entry => entry.label === label);
   return index === -1 ? TYPE_LABELS.length : index;
 };
@@ -328,9 +387,42 @@ export function buildAccountBalanceReport(
     for (const child of children) parentTypeOf.set(child.id, parent.type);
   }
 
+  /*
+   * THE LOANS BAND SPLITS BY SIDE (Design §2.1, ruled 24 Aug, confirmed 25th).
+   *
+   * The headline splits by SIGN — "In credit" against "Overdrawn / owed" —
+   * while the bands group by TYPE and net within themselves. Where a band
+   * holds both signs, its one total contradicts the two figures above it: a
+   * reader sees a loan counted as an asset up there and netted away down
+   * here, with nothing to say which reading is the real one.
+   *
+   * Loans are where this actually bites, because the two signs are two
+   * different PRODUCTS rather than one product in two states. A loan you made
+   * is money owed to you; a loan you took is money you owe. "Loans" is the
+   * only band label in the app that names both without distinguishing them —
+   * an overdrawn current account is still a current account, and Design's
+   * §1.1 row labelling is the answer for that case.
+   *
+   * Split ONLY when both signs are present. A ledger with borrowings alone
+   * has no contradiction to resolve, and "Loans in" as the sole band would be
+   * a distinction drawn against nothing.
+   */
+  const groupKeyOf = (row: AccountBalanceRow): string =>
+    labelOfType(parentTypeOf.get(row.accountId) ?? row.type);
+
+  const loanRows = rows.filter(row => groupKeyOf(row) === 'Loans');
+  const loansHoldBothSides =
+    loanRows.some(row => row.closing > 0) && loanRows.some(row => row.closing < 0);
+
   const byLabel = new Map<string, AccountBalanceRow[]>();
   for (const row of rows) {
-    const label = labelOfType(parentTypeOf.get(row.accountId) ?? row.type);
+    const base = groupKeyOf(row);
+    // A zero-balance loan sits with the borrowings: it is a loan you took and
+    // have cleared, not a loan you made. Filing it as an asset would put a
+    // settled debt under what you own.
+    const label = base === 'Loans' && loansHoldBothSides
+      ? (row.closing > 0 ? 'Loans out' : 'Loans in')
+      : base;
     const list = byLabel.get(label);
     if (list) list.push(row);
     else byLabel.set(label, [row]);
