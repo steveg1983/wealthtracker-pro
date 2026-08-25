@@ -1,0 +1,16 @@
+{
+  "name": "wealthtracker-mobile",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The iOS shell's own manifest, on the apps/desktop pattern: the web package.json carries no mobile dependencies. A Capacitor WebView around the CLOUD edition — the mobile app is cloud-only by ruling (owner, 25 Aug 2026): local-edition users have a file on their machine and no companion app.",
+  "scripts": {
+    "cap": "cap"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7",
+    "@capacitor/ios": "^7"
+  }
+}
