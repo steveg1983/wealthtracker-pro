@@ -3,6 +3,7 @@ import type { PeriodRange } from '../hooks/usePeriod';
 import { dailyFactorLookup, type NetWorthConversion } from './netWorthSeries';
 import { toDecimal, type DecimalInstance } from './decimal';
 import { resolveEffectiveOpeningDates } from './openingDates';
+import { buildChildrenByParent } from './accountNesting';
 
 /**
  * "Account balances" and "Net worth" — the two Microsoft Money statements,
@@ -300,9 +301,36 @@ export function buildAccountBalanceReport(
     };
   });
 
+  /*
+   * A NESTED ACCOUNT IS FILED WHERE ITS PARENT IS (owner, 25 Aug).
+   *
+   * The Accounts page has always nested a cash sleeve inside its investment
+   * and counted it toward that band — accountNesting's own header calls its
+   * rules "the whole answer to where does this account's money belong, so
+   * two pages can never disagree about what a paired account is worth". This
+   * report never asked it, and grouped by the row's own type. So a cash
+   * sleeve inside a portfolio appeared under Current accounts and inflated
+   * that total, while the same account sat inside Investments one page over.
+   * Same money, two homes, and the reader had no way to tell which was the
+   * lie.
+   *
+   * The parent must be present in the set to count — accountNesting's first
+   * invariant, and the reason this uses the same resolution rather than
+   * reading parentAccountId directly: on a window whose accounts exclude the
+   * parent, the child falls back to its own type rather than into a band
+   * that is not being drawn.
+   */
+  const childrenByParent = buildChildrenByParent(accounts);
+  const parentTypeOf = new Map<string, Account['type']>();
+  for (const [parentId, children] of childrenByParent) {
+    const parent = accounts.find(a => a.id === parentId);
+    if (!parent) continue;
+    for (const child of children) parentTypeOf.set(child.id, parent.type);
+  }
+
   const byLabel = new Map<string, AccountBalanceRow[]>();
   for (const row of rows) {
-    const label = labelOfType(row.type);
+    const label = labelOfType(parentTypeOf.get(row.accountId) ?? row.type);
     const list = byLabel.get(label);
     if (list) list.push(row);
     else byLabel.set(label, [row]);
