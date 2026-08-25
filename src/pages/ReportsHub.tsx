@@ -13,6 +13,14 @@ import ReportGallery from './reports/ReportGallery';
 import MixedCurrencyDisclosure from '../components/MixedCurrencyDisclosure';
 import ReportCurrencyNote from '../components/reports/ReportCurrencyNote';
 import { findReport } from './reports/reportRegistry';
+import ReportPeriodDefaultToggle from '../components/reports/ReportPeriodDefaultToggle';
+import {
+  clearReportPeriodDefault,
+  matchesReportPeriodDefault,
+  readReportPeriodDefault,
+  writeReportPeriodDefault,
+} from '../utils/reportPeriodDefaults';
+import { PERIOD_LABELS } from '../hooks/usePeriod';
 
 /** The window a report gets when it states no preference of its own. */
 const HUB_DEFAULT_PERIOD: PeriodKey = 'this-month';
@@ -24,7 +32,11 @@ const HUB_DEFAULT_PERIOD: PeriodKey = 'this-month';
  *
  * The hub owns the shared reporting period and hands it to whichever report
  * is open, so the period PERSISTS as the user moves between reports instead
- * of resetting each time. Each report lives at its own /reports/<id> URL and
+ * of resetting each time. The CONTROL, though, only appears on a report: on
+ * the gallery it changed a window nothing on screen was showing, which is
+ * how the owner came to report it as doing nothing (25 Aug). A report may
+ * also have its own saved window that outranks the shared one — see
+ * utils/reportPeriodDefaults. Each report lives at its own /reports/<id> URL and
  * is code-split, so opening the gallery never loads eight reports' worth of
  * charts.
  *
@@ -52,6 +64,42 @@ export default function ReportsHub(): React.JSX.Element {
   useEffect(() => {
     applyDefaultPeriod(preferredPeriod);
   }, [applyDefaultPeriod, preferredPeriod]);
+
+  /**
+   * A REPORT'S OWN SAVED WINDOW WINS WHEN IT OPENS (owner, 25 Aug).
+   *
+   * Through `applyArrivalPeriod` rather than `applyDefaultPeriod`, because
+   * those two words mean different things here: a surface DEFAULT stands down
+   * the moment the user has ever chosen a period for themselves, which is
+   * correct for "a window this report is worth reading over" and wrong for
+   * "the window this user told this report to open on". A saved default is
+   * the user's own instruction and has to outrank their last casual pick
+   * elsewhere.
+   *
+   * It also inherits the property that makes arrival right: it does NOT write
+   * to the shared reporting period. Opening a report that remembers Last
+   * month must not quietly move every other report to Last month.
+   *
+   * Keyed on the report id alone, so re-picking the window inside a report
+   * does not immediately snap back to the saved one — this fires when the
+   * report changes, which is exactly when "opens on" means anything.
+   */
+  const savedDefaultReportId = report?.id ?? null;
+  useEffect(() => {
+    if (savedDefaultReportId === null) return;
+    const saved = readReportPeriodDefault(savedDefaultReportId);
+    if (saved === null) return;
+    applyArrivalPeriod(saved.period, saved.customStart, saved.customEnd);
+  }, [savedDefaultReportId, applyArrivalPeriod]);
+
+  /** Re-read on every render so the tick answers to what is actually stored. */
+  const [savedDefaultVersion, setSavedDefaultVersion] = useState(0);
+  const savedDefault = useMemo(
+    () => (report === null ? null : readReportPeriodDefault(report.id)),
+    // savedDefaultVersion is the dependency: it changes when we write.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [report, savedDefaultVersion]
+  );
 
   /**
    * What a drill-down from the Dashboard arrived asking for: the window the
@@ -138,7 +186,7 @@ export default function ReportsHub(): React.JSX.Element {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {report
               ? report.description
-              : 'Choose a report. The period you pick follows you from one to the next.'}
+              : 'Choose a report. Each one carries its own period control.'}
           </p>
         }
         contentClassName="space-y-6"
@@ -148,8 +196,35 @@ export default function ReportsHub(): React.JSX.Element {
             the report's title, so it has to say what it governs on its own.
 
             No card around it any more — see components/PeriodBar. */}
-        {(report?.usesPeriod ?? true) && !report?.ownsPeriodBar && (
-          <PeriodBar picker={picker} label="Reporting period" />
+        {/*
+            ONLY ON A REPORT, NEVER ON THE GALLERY (owner, 25 Aug: "on the
+            front report page doesn't change anything").
+
+            It did do something — it set the window the next report would open
+            on — but nothing on the gallery moves when you press it, and a
+            control whose effect you cannot see reads as broken. It now
+            appears exactly where its effect is visible.
+        */}
+        {report !== null && (report.usesPeriod ?? true) && !report.ownsPeriodBar && (
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <PeriodBar picker={picker} label="Reporting period" />
+            <ReportPeriodDefaultToggle
+              isDefault={matchesReportPeriodDefault(savedDefault, picker)}
+              periodLabel={PERIOD_LABELS[picker.period].toLowerCase()}
+              onSave={() => {
+                writeReportPeriodDefault(report.id, {
+                  period: picker.period,
+                  customStart: picker.customStart,
+                  customEnd: picker.customEnd,
+                });
+                setSavedDefaultVersion(v => v + 1);
+              }}
+              onClear={() => {
+                clearReportPeriodDefault(report.id);
+                setSavedDefaultVersion(v => v + 1);
+              }}
+            />
+          </div>
         )}
 
         {ReportView ? (
@@ -174,10 +249,14 @@ export default function ReportsHub(): React.JSX.Element {
             heading in the gallery (§3.5). The id is deliberately NOT bumped:
             this content is a strict subset of what it already said, so anyone
             who dismissed it has read all of it. */}
+        {/* The tip describes the period rule, so it moved on with the control.
+            The id is BUMPED because the words changed materially: anyone who
+            dismissed the old sentence dismissed a claim about a picker that
+            is no longer on this page. */}
         <PageTip
-          id="reports-gallery-2"
-          title="The period follows you"
-          description="Pick a report — net worth, balances, spending by category or payee, period comparisons — and the period you choose follows you from one to the next."
+          id="reports-period-3"
+          title="Each report remembers its own period"
+          description="Pick a window inside a report and it follows you to the next one. If a report is always worth reading over the same window, save it there and that report will open on it."
         />
       </PageWrapper>
     </>
