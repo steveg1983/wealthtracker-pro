@@ -114,14 +114,26 @@ describe('ReportsHub gallery', () => {
     expect(screen.getByRole('link', { name: /Net worth over time/ })).toBeInTheDocument();
   });
 
+
+/**
+ * Pick a period the only place the control now lives — inside a report
+ * (owner, 25 Aug: on the gallery it "doesn't change anything").
+ *
+ * These specs are about what the CHOICE does as you move around; where the
+ * pills are drawn is not their subject, so this keeps them saying what they
+ * always said.
+ */
+const openReportAndPick = async (linkName: RegExp, heading: string, period: string): Promise<void> => {
+  fireEvent.click(screen.getByRole('link', { name: linkName }));
+  await screen.findByRole('heading', { name: heading }, LOADS_LAZY_REPORT);
+  fireEvent.click(screen.getByRole('button', { name: period }));
+  expect(screen.getByRole('button', { name: period })).toHaveAttribute('aria-pressed', 'true');
+};
+
   it('keeps the chosen period as the user moves between reports', async () => {
     renderHub();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Last month' }));
-    expect(screen.getByRole('button', { name: 'Last month' })).toHaveAttribute('aria-pressed', 'true');
-
-    fireEvent.click(screen.getByRole('link', { name: /Account balances/ }));
-    await screen.findByRole('heading', { name: 'Balances by account' }, LOADS_LAZY_REPORT);
+    await openReportAndPick(/Account balances/, 'Balances by account', 'Last month');
 
     // Still last month — the hub owns the period, not the report.
     expect(screen.getByRole('button', { name: 'Last month' })).toHaveAttribute('aria-pressed', 'true');
@@ -196,7 +208,8 @@ describe('ReportsHub gallery', () => {
   it('never overrides a period the user chose, whatever the report prefers', async () => {
     renderHub();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tax year' }));
+    await openReportAndPick(/Account balances/, 'Balances by account', 'Tax year');
+    fireEvent.click(screen.getByRole('link', { name: 'All reports' }));
 
     fireEvent.click(screen.getByRole('link', { name: /Net worth over time/ }));
     await screen.findByRole('heading', { name: 'Net Worth Over Time' }, LOADS_LAZY_REPORT);
@@ -213,7 +226,7 @@ describe('ReportsHub gallery', () => {
 
   it('remembers the choice after a reload, so no report can undo it', async () => {
     const first = renderHub();
-    fireEvent.click(screen.getByRole('button', { name: 'Tax year' }));
+    await openReportAndPick(/Account balances/, 'Balances by account', 'Tax year');
     first.unmount();
 
     // A fresh visit — straight to the report with the strongest preference.
@@ -226,6 +239,8 @@ describe('ReportsHub gallery', () => {
   it('treats a custom range as a choice like any other', async () => {
     renderHub();
 
+    fireEvent.click(screen.getByRole('link', { name: /Account balances/ }));
+    await screen.findByRole('heading', { name: 'Balances by account' }, LOADS_LAZY_REPORT);
     fireEvent.click(screen.getByRole('button', { name: 'Custom' }));
     // dd/mm/yyyy — the ONLY format the date field commits (parseTypedDate);
     // the ISO string this spec used to type never parsed, so it sat as an
@@ -238,6 +253,7 @@ describe('ReportsHub gallery', () => {
       target: { value: '10/01/2026' },
     });
 
+    fireEvent.click(screen.getByRole('link', { name: 'All reports' }));
     fireEvent.click(screen.getByRole('link', { name: /Net worth over time/ }));
     await screen.findByRole('heading', { name: 'Net Worth Over Time' }, LOADS_LAZY_REPORT);
 

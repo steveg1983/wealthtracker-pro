@@ -151,8 +151,13 @@ describe('the Reports heading is the app’s heading', () => {
 });
 
 describe('the period control is a control, directly under the heading', () => {
-  it('sits below the heading with no card around it, and still governs the report', () => {
-    renderHub('/reports');
+  it('sits below the heading with no card around it, and still governs the report', async () => {
+    // On a REPORT — since 25 Aug the gallery has no period control, because
+    // there it changed a window nothing on the page was showing and so read
+    // as doing nothing (owner). The shape assertions below are unchanged;
+    // only the page they are made on moved.
+    renderHub('/reports/account-balances');
+    await screen.findByRole('heading', { name: 'Balances by account' }, LOADS_LAZY_REPORT);
 
     const group = screen.getByRole('group', { name: 'Reporting period' });
 
@@ -166,7 +171,7 @@ describe('the period control is a control, directly under the heading', () => {
     expect(group.closest('.bg-white')).toBeNull();
 
     // Below the heading, not beside it inside the header.
-    const heading = screen.getByRole('heading', { level: 1, name: 'Reports' });
+    const heading = screen.getByRole('heading', { level: 1, name: 'Account balances' });
     expect(heading.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(heading.parentElement?.contains(group)).toBe(false);
 
@@ -174,6 +179,15 @@ describe('the period control is a control, directly under the heading', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Last month' }));
     expect(screen.getByRole('button', { name: 'Last month' })).toHaveAttribute('aria-pressed', 'true');
     expect(preferences.getItem('reportsPeriod')).toBe('last-month');
+  });
+
+  it('is absent from the GALLERY, which shows no window for it to govern', () => {
+    // The owner's report, 25 Aug: "on the front report page doesn't change
+    // anything". It did set what the next report would open on, but nothing
+    // here moves when you press it — a control whose effect is invisible
+    // reads as broken, so it lives only where the effect is visible.
+    renderHub('/reports');
+    expect(screen.queryByRole('group', { name: 'Reporting period' })).not.toBeInTheDocument();
   });
 
   it('is absent, not inert, on a report that shows no period', async () => {
