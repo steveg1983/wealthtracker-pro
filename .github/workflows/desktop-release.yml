@@ -35,12 +35,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest # arm64 (Apple Silicon)
+          # ONE universal .dmg rather than two single-arch ones. The first run
+          # tried `macos-13` for Intel and the job sat queued for 40 minutes
+          # while both siblings finished — that runner label is retired, and a
+          # retired label queues forever instead of failing. An arm64 runner
+          # cross-compiles x86_64 fine (same OS, second rustup target), and
+          # `universal-apple-darwin` lipos the two into the one artefact Mac
+          # users expect anyway. The renderer is arch-neutral; only the ~16 MB
+          # binary doubles.
+          - os: macos-latest
             bundles: app,dmg
-            artifact: macos-arm64
-          - os: macos-13 # x86_64 (Intel)
-            bundles: app,dmg
-            artifact: macos-x64
+            target: universal-apple-darwin
+            artifact: macos-universal
           - os: windows-latest
             bundles: nsis
             artifact: windows-x64
@@ -54,6 +60,9 @@ jobs:
           cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          # The universal build needs both halves; harmless elsewhere.
+          targets: ${{ matrix.target && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -79,13 +88,14 @@ jobs:
         shell: bash
 
       - name: Build the installer
-        run: npm run --prefix apps/desktop tauri -- build --bundles ${{ matrix.bundles }}
+        run: npm run --prefix apps/desktop tauri -- build --bundles ${{ matrix.bundles }} ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
 
       - name: Collect artefacts
         shell: bash
         run: |
           mkdir -p out
-          BUNDLE_DIR="apps/desktop/src-tauri/target/release/bundle"
+          # A --target build lands under target/<triple>/release; find covers both.
+          BUNDLE_DIR="apps/desktop/src-tauri/target"
           find "$BUNDLE_DIR" -name '*.dmg' -exec cp {} out/ \; 2>/dev/null || true
           find "$BUNDLE_DIR" -name '*-setup.exe' -exec cp {} out/ \; 2>/dev/null || true
           ls -la out/
