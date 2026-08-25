@@ -121,3 +121,49 @@ describe('clicking a notification', () => {
     expect(mocks.navigate).toHaveBeenCalledWith('/accounts/acc-1?txn=txn-9&demo=true');
   });
 });
+
+
+/**
+ * THE PANEL MUST ESCAPE THE APP'S ISOLATED ROOT.
+ *
+ * `src/App` renders the whole application inside a <div> carrying
+ * `isolation: isolate`, which makes the entire app ONE stacking context
+ * sitting at level 0 among <body>'s children. Anything portalled to <body>
+ * with a positive z-index — the PageTip at z-40 — then paints above every
+ * piece of in-app chrome, and no z-index INSIDE the app can outrank it.
+ *
+ * Measured on 25 Aug against the running app: with the panel at z-9999 and
+ * its header at z-9999, the tip still won at every overlapping pixel, and it
+ * covered the "Clear all notifications" control the owner reported he could
+ * not find. Portalling is the only fix, and it is the app's own idiom for
+ * exactly this — see CrossCurrencyTransferDialog.
+ *
+ * jsdom does no layout, so this cannot measure the overlap. What it CAN pin
+ * is the property the fix rests on: the panel is not a descendant of the
+ * component's own subtree, so no ancestor of the bell can trap it.
+ */
+describe('the panel is portalled out of the app tree', () => {
+  it('renders into document.body, not inside the bell’s own container', () => {
+    mocks.activities = [alert({ id: 'p1', title: 'Some Alert' })];
+    const { container } = render(<EnhancedNotificationBell />);
+    fireEvent.click(screen.getByRole('button', { name: /Notifications/ }));
+
+    const heading = screen.getByRole('heading', { name: 'Notifications' });
+    expect(container.contains(heading)).toBe(false);
+    expect(document.body.contains(heading)).toBe(true);
+  });
+
+  it('keeps the clear-all control in the panel, so it travels with it', () => {
+    // The control the owner could not reach. If it ever renders outside the
+    // portalled panel it is back inside the isolated root and coverable again.
+    mocks.activities = [alert({ id: 'p2', title: 'Some Alert' })];
+    render(<EnhancedNotificationBell />);
+    fireEvent.click(screen.getByRole('button', { name: /Notifications/ }));
+
+    const heading = screen.getByRole('heading', { name: 'Notifications' });
+    const panel = heading.closest('div.fixed');
+    expect(panel).not.toBeNull();
+    const clearAll = screen.getByRole('button', { name: /Clear all notifications/ });
+    expect(panel?.contains(clearAll)).toBe(true);
+  });
+});

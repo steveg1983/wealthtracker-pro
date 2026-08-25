@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BellIcon, TrendingUpIcon, CreditCardIcon, TargetIcon, PiggyBankIcon, CheckCircleIcon, InfoIcon, XIcon } from './icons';
 import { useActivityTracking, ActivityItem } from '../hooks/useActivityTracking';
 import { formatDistanceToNow } from 'date-fns';
@@ -26,6 +27,63 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
   const { formatCurrency } = useCurrencyDecimal();
   
   const [isOpen, setIsOpen] = useState(false);
+
+  /*
+   * THE PANEL IS PORTALLED, AND THEREFORE POSITIONED BY MEASUREMENT.
+   *
+   * The app's root <div> carries `isolation: isolate`, which makes the WHOLE
+   * application one stacking context sitting at level 0 among <body>'s
+   * children. Anything portalled to <body> with a positive z-index — the
+   * PageTip at z-40, for one — paints above every piece of in-app chrome no
+   * matter what z-index that chrome asks for. Measured 25 Aug: raising this
+   * panel to z-9999, and its header to z-9999, changed nothing; the tip still
+   * won at every overlapping pixel. z-index inside an isolated root cannot
+   * reach outside it.
+   *
+   * So the panel joins <body> like the dialogs do — CrossCurrencyTransferDialog
+   * names the same reason — and pays for it by having to position itself. It
+   * hangs from the bell's own right edge so it still reads as belonging to the
+   * bell, and is clamped to the viewport so a phone never gets it half off the
+   * screen (measured `left: -9` at 375px before this).
+   */
+  const bellRef = useRef<HTMLButtonElement>(null);
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
+
+  const placePanel = useCallback((): void => {
+    const bell = bellRef.current;
+    if (!bell) return;
+    const rect = bell.getBoundingClientRect();
+    // The panel hangs from the bell's right edge — EXCEPT where doing so
+    // would starve it. On a phone the bell has the search icon to its right,
+    // so bell-anchoring cost 68px of a 375px screen and drew a 291px panel
+    // beside 76px of nothing. Where the screen is the binding constraint the
+    // panel takes the screen instead, and on a wide one it still reads as
+    // belonging to the bell.
+    // clientWidth, not innerWidth: it excludes the scrollbar (which is the
+    // room a panel actually has) and it is the one that survives being read
+    // in an embedded or freshly-resized frame, where innerWidth can still be
+    // 0 — measured, and a 0 here computes a 2px-wide panel.
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    if (viewportWidth === 0) return;
+    const wanted = Math.min(384, viewportWidth - 16);
+    const fromBell = Math.round(viewportWidth - rect.right);
+    setAnchor({
+      top: Math.round(rect.bottom + 8),
+      right: Math.max(8, Math.min(fromBell, viewportWidth - 8 - wanted)),
+    });
+  }, []);
+
+  // Before paint, so the panel never appears at the wrong place for a frame.
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    placePanel();
+    window.addEventListener('resize', placePanel);
+    window.addEventListener('scroll', placePanel, true);
+    return () => {
+      window.removeEventListener('resize', placePanel);
+      window.removeEventListener('scroll', placePanel, true);
+    };
+  }, [isOpen, placePanel]);
   const [filter, setFilter] = useState<FilterValue>('all');
   // The pulse state, its three-second timer and the effect that drove them
   // went with the ping: a `setTimeout` whose only purpose was a removed
@@ -154,6 +212,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
         the desktop edition's chrome returns null for it.
       */}
       <button
+        ref={bellRef}
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center"
         aria-label={`Notifications${counts.unread > 0 ? ` (${counts.unread} unread)` : ''}`}
@@ -186,19 +245,55 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
         */}
       </button>
 
-      {/* Notification Panel */}
-      {isOpen && (
+      {/* Notification Panel — see the note on `bellRef` for why it portals. */}
+      {isOpen && anchor !== null && createPortal(
         <>
           {/* Backdrop */}
-          <div 
-            className="fixed inset-0 z-40" 
+          <div
+            className="fixed inset-0 z-[60]"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Panel */}
-          <div className="absolute right-0 top-12 z-50 w-96 max-h-[600px] bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          {/*
+            A COLUMN, NOT A FIXED BOX — measured 2026-08-25 on the owner's
+            phone and reproduced at both widths.
+
+            It was `w-96 max-h-[600px] overflow-hidden` with the list given a
+            hard `maxHeight: 450px`. Header (139) + list (450) + footer (44)
+            comes to 633, so `overflow-hidden` cut 33px off a 44px footer —
+            "Clear all notifications" was three-quarters clipped at EVERY
+            width, desktop included. That is why the owner reported no way to
+            clear notifications on the phone: on a wide screen enough of it
+            survived to know it was there.
+
+            So the panel lays itself out instead of being told: a flex column
+            whose list takes what is left (`flex-1 min-h-0`) and whose footer
+            is a fixed row that cannot be squeezed out. `min-h-0` is not
+            decoration — a flex item defaults to `min-height: auto` and
+            refuses to shrink below its content, which is the same trap the
+            app-wide `button { display: inline-flex }` rule sets.
+
+            And 384px does not fit a 375px phone: measured `left: -9`, so the
+            panel hung off the screen edge. Capped to the viewport.
+          */}
+          <div
+            className="fixed z-[61] flex flex-col w-96 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+            style={{
+              top: anchor.top,
+              right: anchor.right,
+              // The room actually LEFT once the panel hangs from the bell —
+              // not `100vw`, which is the whole screen and ignores the offset
+              // the anchor already spent. Measured at 375px: the naive form
+              // put the left edge at -60.
+              maxWidth: `calc(100dvw - ${anchor.right + 8}px)`,
+              // Whatever is left below the bell, keeping clear of the floating
+              // bottom nav.
+              maxHeight: `min(600px, calc(100vh - ${anchor.top + 96}px))`,
+            }}
+          >
             {/* Header */}
-            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <div className="shrink-0 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Notifications
@@ -221,8 +316,14 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
                 </div>
               </div>
 
-              {/* Filter Tabs */}
-              <div className="flex gap-1 mt-3 overflow-x-auto">
+              {/* Filter Tabs — WRAP, never a hidden horizontal scroll.
+
+                  Measured at 375px: the row needed 354px and had 350, so
+                  "System" was cut off with no scrollbar to say so, and the
+                  five pills read as one squashed string. A horizontal scroll
+                  nobody can see is a filter nobody can reach; two legible
+                  lines cost one row of height and hide nothing. */}
+              <div className="flex flex-wrap gap-1.5 mt-3">
                 {filterTabs.map(tab => (
                   <button
                     key={tab.value}
@@ -242,8 +343,8 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
               </div>
             </div>
 
-            {/* Activity List */}
-            <div className="overflow-y-auto" style={{ maxHeight: '450px' }}>
+            {/* Activity List — `min-h-0` is what lets it actually shrink. */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
               {getFilteredActivities().length === 0 ? (
                 <div className="p-8 text-center">
                   <BellIcon size={48} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" />
@@ -308,7 +409,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
 
             {/* Footer */}
             {getFilteredActivities().length > 0 && (
-              <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="shrink-0 px-4 py-3 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={handleClearAll}
                   className="w-full justify-center text-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
@@ -318,7 +419,8 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
               </div>
             )}
           </div>
-        </>
+        </>,
+        document.body
       )}
     </>
   );
