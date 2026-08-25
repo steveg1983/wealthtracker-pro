@@ -1,0 +1,106 @@
+# Desktop installers — macOS (.dmg, both architectures) and Windows (.exe).
+#
+# WHY A WORKFLOW AND NOT A CROSS-COMPILE: Windows bundling (NSIS) runs only on
+# Windows, and a .dmg is only honest when it came from a macOS toolchain. The
+# per-platform runner IS the build machine, exactly as it is for the nightly
+# desktop build.
+#
+# WHY NOT ON EVERY PR: one release build costs ~262 CPU-seconds per platform
+# (454 crates). The per-PR desktop-renderer job already proves the renderer
+# builds, is cloud-free and fits the ratchet; THIS workflow exists to produce
+# artefacts somebody will download, so it runs when a release is asked for:
+# a `desktop-v*` tag, or the Run-workflow button.
+#
+# SIGNING: deliberately absent for now. These artefacts are unsigned — macOS
+# users right-click → Open the first time; Windows shows SmartScreen's "more
+# info". Signing needs the owner's Developer ID certificate (macOS) and a
+# code-signing cert (Windows) added as repo secrets; the env hooks below are
+# where they will plug in (APPLE_CERTIFICATE / APPLE_SIGNING_IDENTITY /
+# APPLE_ID for notarisation — see Tauri's macOS signing guide). The repo is
+# PUBLIC: certificates and passwords go in Actions secrets, never in this file.
+name: Desktop installers
+
+on:
+  push:
+    tags:
+      - 'desktop-v*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # release upload on tag builds
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest # arm64 (Apple Silicon)
+            bundles: app,dmg
+            artifact: macos-arm64
+          - os: macos-13 # x86_64 (Intel)
+            bundles: app,dmg
+            artifact: macos-x64
+          - os: windows-latest
+            bundles: nsis
+            artifact: windows-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            apps/desktop/src-tauri
+            crates
+
+      # The web install: vite and the renderer's dependencies. The desktop
+      # CLI is a separate install on purpose — the web package.json carries
+      # no desktop dependencies (apps/desktop/README.md).
+      - run: npm ci
+      - run: npm ci --prefix apps/desktop
+
+      - name: Build the renderer
+        run: npm run desktop:ui
+
+      # The same three gates the per-PR job runs, so an installer can never
+      # be built from a renderer that would have failed the PR.
+      - name: Cloud-free greps and size ratchet
+        run: |
+          npm run desktop:greps
+          npm run bundle:check:desktop
+        shell: bash
+
+      - name: Build the installer
+        run: npm run --prefix apps/desktop tauri -- build --bundles ${{ matrix.bundles }}
+
+      - name: Collect artefacts
+        shell: bash
+        run: |
+          mkdir -p out
+          BUNDLE_DIR="apps/desktop/src-tauri/target/release/bundle"
+          find "$BUNDLE_DIR" -name '*.dmg' -exec cp {} out/ \; 2>/dev/null || true
+          find "$BUNDLE_DIR" -name '*-setup.exe' -exec cp {} out/ \; 2>/dev/null || true
+          ls -la out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wealthtracker-${{ matrix.artifact }}
+          path: out/*
+          if-no-files-found: error
+
+      # On a tag build, the artefacts also land on a GitHub release, which is
+      # the download page until there is a better one.
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/desktop-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          draft: true
