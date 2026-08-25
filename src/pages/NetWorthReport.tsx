@@ -31,6 +31,8 @@ import { TrendingUpIcon, ChevronRightIcon } from '../components/icons';
 import { useDecompositionSeries, useChartTooltipStyle, useChartTooltipItemStyle } from '../components/charts/chartColors';
 import type { DecompositionSeries } from '../components/charts/chartColors';
 import PeriodBar from '../components/PeriodBar';
+import ReportPeriodDefaultToggle from '../components/reports/ReportPeriodDefaultToggle';
+import { useReportPeriodDefault } from '../hooks/useReportPeriodDefault';
 import { sectionTypeForAccount, ACCOUNT_SECTION_DEFINITIONS, OTHER_SECTION_DEFINITION } from '../utils/accountGrouping';
 import { DEPTH_LEVEL_1 } from '../styles/depthShading';
 import type { ReportViewProps } from './reports/types';
@@ -111,6 +113,9 @@ const compactTick = (value: number): string => {
 
 export default function NetWorthReport({ picker, focus }: ReportViewProps): React.JSX.Element {
   const { accounts: openAccounts, transactions } = useApp();
+  // The id is this report's registry key; the hub applies whatever is saved
+  // under it when the report opens.
+  const periodDefault = useReportPeriodDefault('net-worth-over-time', picker);
   /**
    * OPEN AND CLOSED, because this page walks history.
    *
@@ -544,6 +549,17 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                 </button>
               ))}
             </div>
+            {/* This report draws its own period bar (ownsPeriodBar), so the
+                hub does not render the save-as-default control above it —
+                it belongs beside the picker it modifies, which is this row. Same
+                hook as the hub's, so the two cannot disagree about whether
+                what is on screen is the saved window. */}
+            <ReportPeriodDefaultToggle
+              isDefault={periodDefault.isDefault}
+              periodLabel={periodDefault.periodLabel}
+              onSave={periodDefault.save}
+              onClear={periodDefault.clear}
+            />
           </div>
         </div>
         {/* The card's subtitle used to restate the page header's ("computed
