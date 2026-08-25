@@ -69,7 +69,17 @@ npm run bundle:check:desktop   # the renderer's size ratchet, over the same buil
 npm run desktop:verify         # the three above, in that order
 npm run desktop:build          # desktop:ui, then cargo build --release
 npm run desktop:check          # clippy -D warnings, and the shell's own tests
+
+# The INSTALLERS (.app/.dmg here; .exe from the Windows runner in CI):
+npm ci --prefix apps/desktop   # the Tauri CLI, this directory's own manifest
+npm run desktop:ui             # the CLI does not run it for you
+(cd apps/desktop && npx tauri build)
 ```
+
+Releases: push a `desktop-v*` tag (or press Run workflow on “Desktop
+installers”) and `.github/workflows/desktop-release.yml` builds macOS
+arm64 + x64 and a Windows NSIS installer, and attaches them to a draft
+release.
 
 `cargo build` needs `dist/` to exist first: `tauri::generate_context!` embeds the
 renderer at compile time.
@@ -123,25 +133,38 @@ Verified on this machine, at this commit:
 | the ledger path end to end | the contract suite drives 127 checks in five files through the real crate against real files (`npm run test:local-contract`) |
 | the settings path end to end | `localCore.preferences.test.ts` writes a document into a real file, closes it, reads it back, and follows a preference's account ids through a real backup and restore |
 
-**NOT verified here, because it needs a GUI session:**
+**Verified in a GUI session on 25 Aug 2026** — the first time the window was
+ever drawn — on the arm64 macOS build, driven end to end:
 
-* **the window itself.** Nothing in this environment can start one, so
-  `tauri::Builder::run` has never been executed. The binary links and the
-  context is embedded; whether a window appears is unproven. Since slice 29
-  there is also a React tree inside it that has never been painted — it is
-  rendered in jsdom by `desktopRouter.test.tsx`, which is not the same as being
-  drawn by a WebView.
-* **the native file chooser.** `blocking_pick_file` / `blocking_save_file` are
-  called from `async` commands so that the modal panel is dispatched to the main
-  thread and waited on from a runtime thread — the pattern the plugin documents,
-  and the one place a wrong choice deadlocks rather than fails. Untested here.
-* **`tauri dev` and `tauri build`.** The Tauri CLI is not installed (it is an npm
-  package, and this repo deliberately does not carry desktop dependencies in the
-  web app's `package.json`); bundling, code signing and notarisation are
-  therefore all unrun.
-* **the icon at every size.** `icons/icon.png` is one 512×512 file. A real
-  release needs the platform set (`.icns`, `.ico`, the @2x variants), which is
-  what `tauri icon` generates.
+* **the window itself.** `tauri::Builder::run` executed; the chooser painted;
+  the full React tree mounted inside the WebView. Not jsdom — the real thing.
+* **the native file chooser.** "New ledger…" raised the platform save sheet
+  from the async command with no deadlock — the one place the
+  `blocking_save_file` threading pattern could have hung rather than failed.
+* **the whole boot path.** The sheet created `Verification ledger.db` in
+  Documents: WAL mode, the `.lock` sidecar, every migration, and the 78-row
+  category seed — then `bootDeviceLedger` mounted the application over it.
+* **one verb, all the way down.** An account created through the UI went
+  renderer → `wealth_core_invoke` → the crate → the file, and reading the file
+  with a second process shows the row exactly as the core stores money:
+  `123456` integer minor units for £1,234.56, no float anywhere.
+* **`tauri build` and the icon set.** The CLI now lives in this directory's own
+  `package.json` (the web manifest still carries no desktop dependencies), the
+  platform icons are generated (`.icns`, `.ico`, the iOS and Android sets for
+  later), and `npx tauri build` produced `WealthTracker.app` and a 6.1 MB
+  `.dmg`.
+
+**Still NOT verified:**
+
+* **`tauri dev`** — the hot-reload loop has not been run.
+* **signing and notarisation.** The `.app` is ad-hoc signed
+  (`Signature=adhoc`), so a downloaded copy meets Gatekeeper's
+  right-click-→-Open ritual. A Developer ID Application certificate, and the
+  notarisation flow, are the remaining steps to a clean install experience —
+  the release workflow's header says where the secrets plug in.
+* **Windows and Intel macOS.** Neither has ever been built. The
+  `desktop-release.yml` workflow exists to produce both (NSIS on a Windows
+  runner, dmg on `macos-13`) and has not yet had a green run.
 
 ## What one open file gives the app
 

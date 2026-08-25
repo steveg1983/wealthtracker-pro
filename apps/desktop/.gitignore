@@ -6,3 +6,5 @@ src-tauri/target/
 # capability JSON schemas editors read. Tauri's own template ignores these, and
 # a generated file in the tree is a file somebody eventually edits by hand.
 src-tauri/gen/schemas/
+# The CLI's own install.
+node_modules/
