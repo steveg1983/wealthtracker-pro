@@ -258,7 +258,15 @@ export default function Categorisation(): React.JSX.Element {
                   <span className="font-medium text-gray-900 dark:text-white truncate min-w-0 flex-1">
                     {accountName(accountId)}
                   </span>
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 whitespace-nowrap">
+                  {/* NEUTRAL — a count is not a signal (Design, 25 Aug §4,
+                      and their own rule since the 13th: "a zero, a count and a
+                      settled row need none"). Five soft ambers sat here on the
+                      page representing the STOOD-DOWN categorise rung, which
+                      is precisely the erosion the ladder exists to prevent.
+                      Not rung-dependent: a per-account count has no business
+                      wearing the attention colour at any rung, so this is
+                      neutral outright rather than conditional. */}
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 whitespace-nowrap">
                     {accountRows.length.toLocaleString()}
                   </span>
                   <ChevronRightIcon size={18} className="text-gray-400 flex-shrink-0" />
