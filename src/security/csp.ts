@@ -72,6 +72,8 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       // no CSP. Both policies carry it; the browser enforces their
       // intersection.
       'https://clerk.wealthtrackerpro.co.uk',
+      // Turnstile's own telemetry/result calls from the widget.
+      'https://challenges.cloudflare.com',
       'https://*.clerk.accounts.dev', // Clerk authentication (dev instance)
       'https://clerk.com',
       'https://*.clerk.com',
@@ -100,6 +102,12 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       "'self'",
       'https://js.stripe.com',
       'https://hooks.stripe.com',
+      // Cloudflare Turnstile — Clerk's PRODUCTION bot protection renders in
+      // this iframe. Dev instances skip bot protection entirely, so the very
+      // first production sign-up (25 Aug) was the first time this frame ever
+      // loaded — and the header policy admitted it while this one refused:
+      // "The CAPTCHA failed to load", intersection enforcement again.
+      'https://challenges.cloudflare.com',
     ],
     
     // Worker sources: self and blob for service workers
