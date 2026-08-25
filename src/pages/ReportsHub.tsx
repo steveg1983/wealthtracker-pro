@@ -14,13 +14,8 @@ import MixedCurrencyDisclosure from '../components/MixedCurrencyDisclosure';
 import ReportCurrencyNote from '../components/reports/ReportCurrencyNote';
 import { findReport } from './reports/reportRegistry';
 import ReportPeriodDefaultToggle from '../components/reports/ReportPeriodDefaultToggle';
-import {
-  clearReportPeriodDefault,
-  matchesReportPeriodDefault,
-  readReportPeriodDefault,
-  writeReportPeriodDefault,
-} from '../utils/reportPeriodDefaults';
-import { PERIOD_LABELS } from '../hooks/usePeriod';
+import { readReportPeriodDefault } from '../utils/reportPeriodDefaults';
+import { useReportPeriodDefault } from '../hooks/useReportPeriodDefault';
 
 /** The window a report gets when it states no preference of its own. */
 const HUB_DEFAULT_PERIOD: PeriodKey = 'this-month';
@@ -92,14 +87,9 @@ export default function ReportsHub(): React.JSX.Element {
     applyArrivalPeriod(saved.period, saved.customStart, saved.customEnd);
   }, [savedDefaultReportId, applyArrivalPeriod]);
 
-  /** Re-read on every render so the tick answers to what is actually stored. */
-  const [savedDefaultVersion, setSavedDefaultVersion] = useState(0);
-  const savedDefault = useMemo(
-    () => (report === null ? null : readReportPeriodDefault(report.id)),
-    // savedDefaultVersion is the dependency: it changes when we write.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [report, savedDefaultVersion]
-  );
+  // The save-as-default control's state, shared with the one report that
+  // draws its own period bar (see hooks/useReportPeriodDefault).
+  const periodDefault = useReportPeriodDefault(report?.id ?? '', picker);
 
   /**
    * What a drill-down from the Dashboard arrived asking for: the window the
@@ -209,20 +199,10 @@ export default function ReportsHub(): React.JSX.Element {
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <PeriodBar picker={picker} label="Reporting period" />
             <ReportPeriodDefaultToggle
-              isDefault={matchesReportPeriodDefault(savedDefault, picker)}
-              periodLabel={PERIOD_LABELS[picker.period].toLowerCase()}
-              onSave={() => {
-                writeReportPeriodDefault(report.id, {
-                  period: picker.period,
-                  customStart: picker.customStart,
-                  customEnd: picker.customEnd,
-                });
-                setSavedDefaultVersion(v => v + 1);
-              }}
-              onClear={() => {
-                clearReportPeriodDefault(report.id);
-                setSavedDefaultVersion(v => v + 1);
-              }}
+              isDefault={periodDefault.isDefault}
+              periodLabel={periodDefault.periodLabel}
+              onSave={periodDefault.save}
+              onClear={periodDefault.clear}
             />
           </div>
         )}

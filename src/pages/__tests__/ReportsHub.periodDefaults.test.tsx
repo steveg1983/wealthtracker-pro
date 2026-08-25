@@ -46,6 +46,7 @@ const TRANSACTIONS: Transaction[] = [{
 const PERIOD_KEYS = [
   'reportsPeriod', 'reportsPeriodExplicit', 'reportsPeriodCustomStart', 'reportsPeriodCustomEnd',
   'reportDefaultPeriod:account-balances', 'reportDefaultPeriodCustom:account-balances',
+  'reportDefaultPeriod:net-worth-over-time', 'reportDefaultPeriodCustom:net-worth-over-time',
 ];
 
 const renderHub = (entry: string) =>
@@ -154,5 +155,35 @@ describe('a report remembers its own window', () => {
     await waitFor(() => {
       expect(within(again.container).queryByText(/Opens on tax year/)).not.toBeNull();
     }, LOADS_LAZY_REPORT);
+  });
+});
+
+describe('every report gets the control, including the one that draws its own bar', () => {
+  /**
+   * `net-worth-over-time` is the single report with `ownsPeriodBar` — its
+   * picker lives inside the chart card (Design, 22 Aug), so the hub does not
+   * render one above it. The first cut of this feature put the save control
+   * in the hub's block only, which quietly left that report without it while
+   * the owner had asked for "each report". The control follows the picker.
+   */
+  it('the net-worth report carries its own save-as-default control', async () => {
+    renderHub('/reports/net-worth-over-time');
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Always open on/ })).toBeInTheDocument();
+    }, LOADS_LAZY_REPORT);
+
+    // And it is the same control, backed by the same store.
+    fireEvent.click(screen.getByRole('button', { name: /^Always open on/ }));
+    expect(readReportPeriodDefault('net-worth-over-time')).not.toBeNull();
+    expect(screen.getByText(/Opens on/)).toBeInTheDocument();
+  });
+
+  it('the hub does not ALSO draw one over it', async () => {
+    // Two save controls on one page would be two answers to one question.
+    renderHub('/reports/net-worth-over-time');
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Always open on/ })).toBeInTheDocument();
+    }, LOADS_LAZY_REPORT);
+    expect(screen.getAllByRole('button', { name: /^Always open on/ })).toHaveLength(1);
   });
 });
