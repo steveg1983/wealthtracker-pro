@@ -197,8 +197,8 @@ export default function IncomeExpenseBreakdownModal({
       return { sections: [{ name: null as string | null, subtotal: 0, rows: sorted.slice(0, CAP) }], truncated: Math.max(0, sorted.length - CAP) };
     }
 
-    // Category sections: subtotal per section (Decimal), sections ordered by
-    // |subtotal| descending (dir flips it), rows newest-first inside.
+    // Category sections: subtotal per section (Decimal), rows newest-first
+    // inside, sections ordered A→Z (dir flips it) — see below.
     const byCategory = new Map<string, SplitExpandedTransaction[]>();
     for (const t of sorted) {
       const name = categoryName(t.category);
@@ -211,19 +211,53 @@ export default function IncomeExpenseBreakdownModal({
       subtotal: sectionRows.reduce((s, t) => s.plus(toDecimal(valueOf(t))), toDecimal(0)).toNumber(),
       rows: sectionRows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     }));
-    sections.sort((a, b) => sortDir * (Math.abs(b.subtotal) - Math.abs(a.subtotal)));
-
-    // Apply the cap across sections in order.
+    /*
+     * SECTIONS READ IN THE ORDER THE CATEGORY LIST DOES (owner, 25 Aug):
+     * "in the order of how I read the categories from top to bottom, which is
+     * alphabetical groupings then alphabetical category names".
+     *
+     * They were ordered by |subtotal| — biggest spend first — which answers a
+     * question nobody asked here. This drill is opened to FIND something: the
+     * reader already knows which category they are looking for and has to
+     * hunt for it down a list whose order changes with every period. The
+     * Categories page, the picker and the tree all read A→Z, and a list that
+     * agrees with them can be scanned without being read.
+     *
+     * One comparison does both halves of his rule, because a section's name
+     * IS "Parent : Child" (utils/categoryNames): the parent dominates the
+     * comparison, so groups sort alphabetically and categories sort
+     * alphabetically inside them.
+     *
+     * Biggest-first is still one click away — that is what the Amount column
+     * sorts by, and the direction arrow on Category now flips A→Z / Z→A,
+     * which is what a name column should mean.
+     */
+    /*
+     * WHAT TO KEEP AND WHAT ORDER TO SHOW IT IN ARE TWO QUESTIONS.
+     *
+     * The cap exists so an All-time window cannot render tens of thousands of
+     * rows, and it spends its budget across sections IN ORDER. While that
+     * order was |subtotal| the two questions had the same answer by accident:
+     * capping kept the biggest sections. Ordering alphabetically without
+     * separating them would start truncating at the end of the ALPHABET,
+     * which is an arbitrary reason to hide someone's money.
+     *
+     * So the budget is spent biggest-first — the significant sections survive
+     * — and what survives is then ordered for reading.
+     */
+    const capped = [];
     let budget = CAP;
     let truncated = 0;
-    const capped = [];
-    for (const s of sections) {
-      if (budget <= 0) { truncated += s.rows.length; continue; }
-      const take = s.rows.slice(0, budget);
-      truncated += s.rows.length - take.length;
+    for (const section of [...sections].sort((a, b) => Math.abs(b.subtotal) - Math.abs(a.subtotal))) {
+      if (budget <= 0) { truncated += section.rows.length; continue; }
+      const take = section.rows.slice(0, budget);
+      truncated += section.rows.length - take.length;
       budget -= take.length;
-      capped.push({ ...s, rows: take });
+      capped.push({ ...section, rows: take });
     }
+    capped.sort((a, b) =>
+      sortDir * (a.name ?? '').localeCompare(b.name ?? '', undefined, { sensitivity: 'base' })
+    );
     return { sections: capped, truncated };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleRows, sortKey, sortDir, categoryName, bucket]);
