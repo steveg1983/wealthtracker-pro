@@ -76,12 +76,19 @@ const LEDGER: Record<string, Partial<Record<(typeof PRIMITIVES)[number], Status>
   'src/pages/Accounts.tsx': { calculateTotalBalance: 'converts' },
 
   // ── the audit's known native sums, phase-ordered in the ruling ──
+  // All converted as of 25 Aug. The last two were Categorisation and the
+  // Categories data-health panel: the census had them at 'native-known' for a
+  // fortnight, which is the status doing exactly its job — it named them
+  // before anyone looked at the screen, and Design's §5 ruling ("convert;
+  // disclosure was the honest interim, never the goal") closed them out.
+  // NOTHING is at 'native-known' for computeIncomeExpense any more, and new
+  // code may not enter at that status.
   'src/hooks/useReportDataset.ts': { computeIncomeExpense: 'converts' },
   'src/components/dashboard/ImprovedDashboard.tsx': { computeIncomeExpense: 'converts' },
   'src/pages/Calendar.tsx': { computeIncomeExpense: 'converts' },
-  'src/pages/Categorisation.tsx': { computeIncomeExpense: 'native-known' },
+  'src/pages/Categorisation.tsx': { computeIncomeExpense: 'converts' },
   'src/pages/reports/PeriodComparisonReport.tsx': { computeIncomeExpense: 'converts' },
-  'src/utils/categoryHealth.ts': { computeIncomeExpense: 'native-known' },
+  'src/utils/categoryHealth.ts': { computeIncomeExpense: 'converts' },
 
   // ── callers that read no money at all ──
   // The ladder asks "is there outstanding work of this kind?" and reads

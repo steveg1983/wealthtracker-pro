@@ -284,3 +284,56 @@ describe('computeCategoryHealth', () => {
     });
   });
 });
+
+describe('computeCategoryHealth — the flows seam (Design §5, 25 Aug)', () => {
+  // Every figure below is invented; this repo is public. The factor 2 is
+  // chosen because it makes a wrong basis visible at a glance rather than
+  // plausible — a real rate never would.
+  const FOREIGN = txn({ id: 't1', category: '', type: 'income', amount: 100, accountId: 'acc-usd' });
+
+  it('the money figures convert when a resolver hands back a factor', () => {
+    const health = computeCategoryHealth([FOREIGN], [], CATEGORIES, {
+      convert: row => (row.accountId === 'acc-usd' ? 2 : null),
+    });
+    expect(health.uncategorizedIn).toBe(200);
+    expect(health.uncategorizedCount).toBe(1);
+  });
+
+  it('holdsForeign gates the ≈: true only when a factor was actually applied', () => {
+    const converted = computeCategoryHealth([FOREIGN], [], CATEGORIES, {
+      convert: row => (row.accountId === 'acc-usd' ? 2 : null),
+    });
+    expect(converted.holdsForeign).toBe(true);
+
+    // A resolver that declines every row is the single-currency case: nothing
+    // converted, so nothing may wear the mark.
+    const declined = computeCategoryHealth([FOREIGN], [], CATEGORIES, { convert: () => null });
+    expect(declined.holdsForeign).toBe(false);
+    expect(declined.uncategorizedIn).toBe(100);
+  });
+
+  it('no resolver → native, and the mark stays off (the degraded path)', () => {
+    // Not a defect: with no ECB history the seam declines to convert, and the
+    // caller's basis line falls back to saying the totals are native. The one
+    // state the ruling forbids is converting on a basis nobody stated.
+    const health = computeCategoryHealth([FOREIGN], [], CATEGORIES);
+    expect(health.uncategorizedIn).toBe(100);
+    expect(health.holdsForeign).toBe(false);
+  });
+
+  it('a row the resolver has no factor for stays native and does not fake the mark', () => {
+    // THE CLOSED-ACCOUNT CASE, which is why both callers build their resolver
+    // from useHistoricalAccounts: 43 of the 90 accounts behind the real
+    // backlog are closed, and a resolver built from open accounts alone would
+    // return null for exactly those rows.
+    const health = computeCategoryHealth(
+      [FOREIGN, txn({ id: 't2', category: '', type: 'income', amount: 50, accountId: 'acc-closed' })],
+      [],
+      CATEGORIES,
+      { convert: row => (row.accountId === 'acc-usd' ? 2 : null) }
+    );
+    // 200 converted + 50 left native — the arithmetic the ≈ is admitting to.
+    expect(health.uncategorizedIn).toBe(250);
+    expect(health.holdsForeign).toBe(true);
+  });
+});

@@ -7,6 +7,9 @@ import { groupUncategorisedByAccount } from '../utils/uncategorisedByAccount';
 import { groupSuggestedByCategory, groupSuggestedByAccount } from '../utils/categoryProvenance';
 import { preferences } from '../services/preferencesService';
 import { useAttentionLadder } from '../hooks/useAttentionLadder';
+import { useFlowConvert } from '../hooks/useFlowConvert';
+import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
+import ReportCurrencyNote from '../components/reports/ReportCurrencyNote';
 import { DEPTH_LEVEL_1 } from '../styles/depthShading';
 import { useAccountNames } from '../hooks/useAccountNames';
 import { useToast } from '../contexts/ToastContext';
@@ -37,9 +40,19 @@ const SUGGESTED_VIEW_KEY = 'categorisationSuggestedView';
  * Deliberately reads ALL transactions, not a period: a chore is only finished
  * when nothing is left, and a date filter would hide the work rather than do
  * it.
+ *
+ * MONEY IN / MONEY OUT CONVERT (Design's §5, 25 Aug). They summed native units
+ * as display units and said nothing about it — this page and the Categories
+ * data-health panel were the last two such sums in the app, both carried by
+ * the currency census at 'native-known' since the 22nd. Offered the choice
+ * between mounting the Phase 0 disclosure and converting, Design ruled
+ * convert: "disclosure was the honest interim, never the goal." So the figures
+ * go through the same flows seam every other aggregation surface uses, and
+ * ReportCurrencyNote states the basis — including the degraded case, where the
+ * seam declines to convert and the Phase 0 sentence is what says so.
  */
 export default function Categorisation(): React.JSX.Element {
-  const { transactions, transactionSplits, categories, confirmTransactionCategories } = useApp();
+  const { accounts, transactions, transactionSplits, categories, confirmTransactionCategories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { showSuccess, showError } = useToast();
   // One rule, app-wide — see utils/attentionLadder.
@@ -58,7 +71,21 @@ export default function Categorisation(): React.JSX.Element {
     [transactions, transactionSplits]
   );
 
-  const flows = useMemo(() => computeIncomeExpense(rows, [], categories), [rows, categories]);
+  /**
+   * CLOSED ACCOUNTS ARE THE POINT (Design's §5, 25 Aug: convert rather than
+   * disclose). The backlog lives in old history — measured, 43 of the 90
+   * accounts behind it are closed — and a resolver built from the context's
+   * open-accounts list would hand back no factor for exactly those rows. They
+   * would sum native while the ≈ said everything was converted, which is worse
+   * than the honest native sum this replaces.
+   */
+  const historicalAccounts = useHistoricalAccounts(accounts);
+  const convert = useFlowConvert(historicalAccounts);
+
+  const flows = useMemo(
+    () => computeIncomeExpense(rows, [], categories, { convert }),
+    [rows, categories, convert]
+  );
 
   const uncategorised = flows.uncategorizedRows;
   const count = uncategorised.length;
@@ -206,18 +233,25 @@ export default function Categorisation(): React.JSX.Element {
               </div>
               <div className="text-center">
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Money in</p>
-                <p className="text-lg font-bold text-gray-900 dark:text-white tabular-nums">
-                  {formatCurrency(flows.uncategorizedIn.toNumber())}
+                <p className="text-lg font-bold text-gray-900 dark:text-white tabular-nums" data-testid="categorisation-money-in">
+                  {flows.holdsForeign ? '≈ ' : ''}{formatCurrency(flows.uncategorizedIn.toNumber())}
                 </p>
               </div>
               <div className="text-center col-span-2 md:col-span-1">
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Money out</p>
-                <p className="text-lg font-bold text-gray-900 dark:text-white tabular-nums">
-                  {formatCurrency(flows.uncategorizedOut.toNumber())}
+                <p className="text-lg font-bold text-gray-900 dark:text-white tabular-nums" data-testid="categorisation-money-out">
+                  {flows.holdsForeign ? '≈ ' : ''}{formatCurrency(flows.uncategorizedOut.toNumber())}
                 </p>
               </div>
             </div>
           </div>
+
+          {/* The basis these two figures are on. Same component the report hub
+              mounts, so this page cannot drift from a report that quotes the
+              same backlog — and it degrades the same way: no ECB history, no
+              conversion, and the Phase 0 sentence says the totals are native
+              rather than a third basis nobody stated. */}
+          <ReportCurrencyNote />
 
           {/* The three ways through, cheapest first: a transfer sweep can clear
               thousands of rows without a decision, filing a payee clears every
