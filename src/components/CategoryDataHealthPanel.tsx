@@ -118,7 +118,8 @@ export default function CategoryDataHealthPanel({
               uncategorised transaction{plural(health.uncategorizedCount)} sit outside every report
             </span>
             <span className={`tabular-nums ${wearsAmber ? 'text-amber-700 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>
-              ({formatCurrency(health.uncategorizedIn)} in · {formatCurrency(health.uncategorizedOut)} out)
+              ({health.holdsForeign ? '≈ ' : ''}{formatCurrency(health.uncategorizedIn)} in ·{' '}
+              {health.holdsForeign ? '≈ ' : ''}{formatCurrency(health.uncategorizedOut)} out)
             </span>
             <Link
               to={preserveDemoParam('/categorisation', location.search)}

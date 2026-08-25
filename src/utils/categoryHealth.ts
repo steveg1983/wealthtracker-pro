@@ -1,5 +1,5 @@
 import type { Category, Transaction, TransactionSplit } from '../types';
-import { computeIncomeExpense } from './incomeExpense';
+import { computeIncomeExpense, type FlowFactorResolver } from './incomeExpense';
 import { expandSplitTransactions } from './transactionSplits';
 import { findMismatchedTransferFilings } from './transferCoherence';
 
@@ -34,6 +34,13 @@ import { findMismatchedTransferFilings } from './transferCoherence';
  *
  * (2) and (3) are filtered out of (1)'s rows rather than recomputed, so they are
  * exact subsets and can never drift from the classifier.
+ *
+ * The two MONEY figures convert through the flows seam when the caller hands
+ * one over (`opts.convert`), at each row's own date — the same resolver the
+ * report dataset uses, so the health line and the report it links to cannot
+ * quote the same backlog on two different bases. Without a resolver they stay
+ * native and `holdsForeign` is false, which is what the caller's basis line
+ * needs in order to say so.
  *
  * Each measure carries whatever its REMEDY needs to act — which bucket, which
  * categories — not just a number. A warning the user cannot act on from where
@@ -84,6 +91,17 @@ export interface CategoryHealth {
    * the number the user reads and the list they open can never disagree.
    */
   transferFilingMismatchIds: string[];
+  /**
+   * True when a conversion factor was actually applied to one of the money
+   * figures above — the ≈ gate, passed straight through from the flows seam
+   * rather than re-derived, so the mark and the arithmetic share one source.
+   *
+   * False on a single-currency ledger AND when the caller passed no resolver,
+   * which are different situations that call for the same mark: no ≈, because
+   * nothing was converted. Which of the two it is, the caller's basis line
+   * says — see ReportCurrencyNote.
+   */
+  holdsForeign: boolean;
   /** True when at least one measure is non-zero — the panel renders nothing otherwise. */
   hasWarnings: boolean;
 }
@@ -95,14 +113,15 @@ export interface CategoryHealth {
 export function computeCategoryHealth(
   transactions: Transaction[],
   transactionSplits: TransactionSplit[],
-  categories: Category[]
+  categories: Category[],
+  opts: { convert?: FlowFactorResolver } = {}
 ): CategoryHealth {
   // Expand split parents into per-line rows ONCE, then reuse those rows for
   // every measure — the same view `useReportDataset` builds, so counts here and
   // figures there read the identical rows. Splits are passed empty to
   // computeIncomeExpense because the rows are already expanded (no re-expansion).
   const rows = expandSplitTransactions(transactions, transactionSplits);
-  const flows = computeIncomeExpense(rows, [], categories);
+  const flows = computeIncomeExpense(rows, [], categories, { convert: opts.convert });
 
   const categoryIds = new Set(categories.map(c => c.id));
   const bucketIds = new Set(
@@ -178,6 +197,7 @@ export function computeCategoryHealth(
     emptyCategoryIds,
     transferFilingMismatchCount: transferFilingMismatchIds.length,
     transferFilingMismatchIds,
+    holdsForeign: flows.holdsForeign,
     hasWarnings:
       uncategorizedCount > 0 ||
       unassignedBucketCount > 0 ||

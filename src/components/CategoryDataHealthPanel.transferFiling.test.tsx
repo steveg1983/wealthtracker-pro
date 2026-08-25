@@ -36,6 +36,7 @@ const CLEAN: CategoryHealth = {
   emptyCategoryIds: [],
   transferFilingMismatchCount: 0,
   transferFilingMismatchIds: [],
+  holdsForeign: false,
   hasWarnings: false,
 };
 

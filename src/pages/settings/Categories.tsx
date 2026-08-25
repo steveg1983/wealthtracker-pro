@@ -12,6 +12,9 @@ import { useAttentionLadder } from '../../hooks/useAttentionLadder';
 import IncomeExpenseBreakdownModal from '../../components/IncomeExpenseBreakdownModal';
 import EditTransactionModal from '../../components/EditTransactionModal';
 import { computeCategoryHealth } from '../../utils/categoryHealth';
+import { useFlowConvert } from '../../hooks/useFlowConvert';
+import { useHistoricalAccounts } from '../../hooks/useHistoricalAccounts';
+import ReportCurrencyNote from '../../components/reports/ReportCurrencyNote';
 import { findMismatchedTransferFilings } from '../../utils/transferCoherence';
 import { ARRIVAL_ROW_CLASS, useArrivalRowFocus } from '../../hooks/useArrivalFocus';
 import { AlertCircleIcon, Settings2Icon, GripVerticalIcon, MergeIcon } from '../../components/icons';
@@ -208,6 +211,7 @@ function movingClause(transactions: number, splitLines: number, budgets: number)
 
 export default function CategoriesSettings() {
   const {
+    accounts,
     transactions,
     categories,
     budgets,
@@ -249,9 +253,15 @@ export default function CategoriesSettings() {
   // One rule, app-wide — see utils/attentionLadder.
   const ladder = useAttentionLadder();
 
+  // Its money figures convert on the same basis the Categorisation page's do,
+  // through the same seam — closed accounts included, because that is where
+  // most of the backlog is (see the note on that page).
+  const historicalAccounts = useHistoricalAccounts(accounts);
+  const flowConvert = useFlowConvert(historicalAccounts);
+
   const categoryHealth = useMemo(
-    () => computeCategoryHealth(transactions, transactionSplits, categories),
-    [transactions, transactionSplits, categories]
+    () => computeCategoryHealth(transactions, transactionSplits, categories, { convert: flowConvert }),
+    [transactions, transactionSplits, categories, flowConvert]
   );
 
   // The type-level ids are user-specific UUIDs after cloud migration — the old
@@ -1045,6 +1055,12 @@ export default function CategoriesSettings() {
         onShowEmptyCategories={showEmptyCategories}
         onFixTransferFilings={fixTransferFilings}
       />
+
+      {/* The basis the panel's money figures are on — mounted HERE rather than
+          inside the panel, which is deliberately presentational and testable
+          without a provider. Gated on the only line that shows an amount: a
+          basis line above no figures is a statement about nothing. */}
+      {categoryHealth.uncategorizedCount > 0 && <ReportCurrencyNote />}
 
       {/* Categories Tree */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
