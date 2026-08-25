@@ -87,16 +87,25 @@ interface PairingState {
 /**
  * Investment↔cash pairing, from the account being edited outwards.
  *
- * Pairing is ONE-DIRECTIONAL and ONE DEEP (the Microsoft Money model): a cash
- * account sits inside an investment account, and that is the whole shape. So
- * the field is offered only while this account is not itself an investment
- * account and nothing is already nested inside it, and the candidates exclude
- * any investment account that is itself paired — three guards that between them
- * make a grandparent, a self-parent and a cycle unrepresentable from the UI.
+ * Pairing is ONE-DIRECTIONAL and ONE DEEP (the Microsoft Money model): an
+ * account sits inside an investment account, and that is the whole shape.
  *
- * `selectedType` is the type CURRENTLY CHOSEN in the form, not the stored one:
- * switching an account to Investments takes the field away with it, exactly as
- * switching to Credit Card takes the sort code away.
+ * WHAT MAY BE NESTED WIDENED ON 25 AUG, at the owner's ask. It was cash only,
+ * which forced a false choice: a cash sleeve typed `current` sat correctly
+ * inside its portfolio, but retyping it `investment` — which is what it
+ * actually is, in a wrapper holding several sleeves — took the pairing field
+ * away and threw it back out to the top level. Any type may now name a
+ * parent; the shape is unchanged.
+ *
+ * ONE DEEP IS STILL ENFORCED, and by the two guards that were always doing
+ * that work rather than by the type test: nothing may be nested inside this
+ * account (`!hasChildren`), and the candidates exclude any investment that is
+ * itself already paired. Between them a grandparent, a self-parent and a
+ * cycle stay unrepresentable from the UI — which is why dropping the type
+ * test costs nothing structurally.
+ *
+ * `selectedType` is the type CURRENTLY CHOSEN in the form, not the stored
+ * one, so the field reacts to the type dropdown as the reader changes it.
  *
  * The account's existing parent is always among the candidates, even if it
  * would no longer qualify. A select whose value is missing from its own option
@@ -122,7 +131,10 @@ function resolvePairing(
     options.push(current);
   }
   return {
-    offered: selectedType !== 'investment' && !hasChildren && options.length > 0,
+    // No type test: an investment may sit inside an investment too (owner,
+    // 25 Aug). `selectedType` is still read so a future type-specific rule
+    // has it to hand, and so the dependency is honest.
+    offered: Boolean(selectedType) && !hasChildren && options.length > 0,
     options
   };
 }
@@ -567,10 +579,12 @@ export default function AccountSettingsModal({
                 <GroupedAccountOptions accounts={pairing.options} />
               </select>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                For the cash held alongside an investment account. This account
-                keeps its own register and transactions; it moves inside that
-                account on the Accounts page, and its balance counts towards
-                that investment's value.
+                For anything held inside an investment account — the cash
+                alongside it, or a sleeve of it. This account keeps its own
+                register and transactions; it moves inside that account on the
+                Accounts page, its balance counts towards that investment's
+                value, and reports file it under Investments rather than under
+                its own type.
               </p>
             </div>
           )}

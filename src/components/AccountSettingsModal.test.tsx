@@ -396,25 +396,39 @@ describe('AccountSettingsModal', () => {
       });
     });
 
-    it('does not offer pairing for an investment account — pairing runs one way', () => {
+    /*
+     * These two pinned the OLD rule — cash only inside an investment — which
+     * the owner asked to widen on 25 Aug. His case: a sleeve typed `current`
+     * sat correctly inside its portfolio, but retyping it `investment`, which
+     * is what it actually is, took the field away and threw it back to the
+     * top level. They now pin the widened rule and, more importantly, that
+     * ONE DEEP still holds without the type test doing that work.
+     */
+    it('offers pairing to an investment account too — an investment may sit in an investment', () => {
       render(<AccountSettingsModal {...pairable} account={{ ...mockAccount, type: 'investment' }} />);
 
-      expect(screen.queryByLabelText('Part of investment account')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Part of investment account')).toBeInTheDocument();
     });
 
-    it('takes the field away, and writes nothing, when the type is switched to Investments', async () => {
+    it('keeps a sleeve INSIDE its portfolio when its type is switched to Investments', async () => {
+      // The owner's exact case, 25 Aug: a cash sleeve filed inside a
+      // portfolio, retyped to Investments because that is what it is. It
+      // used to lose the field and be thrown back to the top level.
       const onSave = vi.fn();
-      render(<AccountSettingsModal {...pairable} onSave={onSave} />);
+      const sleeve = { ...mockAccount, parentAccountId: 'inv1' };
+      render(<AccountSettingsModal {...pairable} account={sleeve} onSave={onSave} />);
 
-      expect(screen.getByLabelText('Part of investment account')).toBeInTheDocument();
+      expect(screen.getByLabelText('Part of investment account')).toHaveValue('inv1');
       fireEvent.change(screen.getByDisplayValue('Current Account'), { target: { value: 'investment' } });
-      expect(screen.queryByLabelText('Part of investment account')).not.toBeInTheDocument();
+      // The field SURVIVES the type change — that is the whole ask — and it
+      // is still pointing at the portfolio.
+      expect(screen.getByLabelText('Part of investment account')).toHaveValue('inv1');
 
       fireEvent.click(screen.getByText('Save Changes'));
       await waitFor(() => {
         expect(onSave).toHaveBeenCalledTimes(1);
       });
-      expect(onSave.mock.calls[0][1]).not.toHaveProperty('parentAccountId');
+      expect(onSave.mock.calls[0][1]).toMatchObject({ parentAccountId: 'inv1', type: 'investment' });
     });
 
     it('does not offer pairing to an account that already has accounts inside it', () => {

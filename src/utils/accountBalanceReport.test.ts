@@ -301,3 +301,58 @@ describe('resolveClosingSnapshot — which day values the closings', () => {
     ).toBe(conversionToday);
   });
 });
+
+describe('a nested account is filed where its parent is (owner, 25 Aug)', () => {
+  // Every name and figure is invented; the repo is public.
+  const portfolio = account({ id: 'acc-portfolio', name: 'Test Portfolio', type: 'investment', openingBalance: 1000 });
+  const cashSleeve = account({
+    id: 'acc-sleeve', name: 'Test Portfolio (Cash)', type: 'current',
+    openingBalance: 250, parentAccountId: 'acc-portfolio',
+  });
+  const ordinaryCurrent = account({ id: 'acc-current', name: 'Test Current', type: 'current', openingBalance: 400 });
+
+  const labelsOf = (report: ReturnType<typeof buildAccountBalanceReport>): string[] =>
+    report.groups.map(g => g.label);
+
+  it('puts a cash sleeve under Investments, not Current accounts', () => {
+    const report = buildAccountBalanceReport(
+      [portfolio, cashSleeve, ordinaryCurrent], [], { from: null, to: null }, new Date(2026, 7, 25)
+    );
+    const investments = report.groups.find(g => g.label === 'Investments');
+    const current = report.groups.find(g => g.label === 'Current accounts');
+    // The sleeve's money sits with the portfolio it belongs to…
+    expect(investments?.rows.map(r => r.accountId).sort()).toEqual(['acc-portfolio', 'acc-sleeve']);
+    expect(investments?.closing).toBe(1250);
+    // …and no longer inflates the current-account total, which is now just
+    // the account that really is one.
+    expect(current?.rows.map(r => r.accountId)).toEqual(['acc-current']);
+    expect(current?.closing).toBe(400);
+  });
+
+  it('files an INVESTMENT nested in an investment there too', () => {
+    // The owner's actual ask: retyping a sleeve to Investments must not throw
+    // it back out to the top level.
+    const sleeveAsInvestment = { ...cashSleeve, type: 'investment' as const };
+    const report = buildAccountBalanceReport(
+      [portfolio, sleeveAsInvestment], [], { from: null, to: null }, new Date(2026, 7, 25)
+    );
+    expect(labelsOf(report)).toEqual(['Investments']);
+    expect(report.groups[0].closing).toBe(1250);
+  });
+
+  it('falls back to its own type when the parent is not in the window', () => {
+    // accountNesting's first invariant: a parent that is not in the set is no
+    // parent. Filing the child into a band nobody is drawing would lose it.
+    const report = buildAccountBalanceReport(
+      [cashSleeve], [], { from: null, to: null }, new Date(2026, 7, 25)
+    );
+    expect(labelsOf(report)).toEqual(['Current accounts']);
+  });
+
+  it('leaves an unnested account exactly where it was', () => {
+    const report = buildAccountBalanceReport(
+      [ordinaryCurrent, portfolio], [], { from: null, to: null }, new Date(2026, 7, 25)
+    );
+    expect(labelsOf(report).sort()).toEqual(['Current accounts', 'Investments']);
+  });
+});
