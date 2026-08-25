@@ -1,0 +1,5 @@
+# The CLI's own install.
+node_modules/
+# Xcode's output.
+ios/App/DerivedData/
+ios/App/build/
