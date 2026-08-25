@@ -64,7 +64,15 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       // origin — the browser enforces the INTERSECTION of the two.
       'https://api.frankfurter.dev',
       'https://cdn.jsdelivr.net', // CDN for libraries
-      'https://*.clerk.accounts.dev', // Clerk authentication
+      // The PRODUCTION Clerk frontend API — the instance's own subdomain of
+      // the app's domain, which no wildcard below covers. Absent, the moment
+      // the pk_live key ships every auth call is CSP-refused and sign-in
+      // dies exactly the way the currency provider did (#397): clean in
+      // every local check, dead only in production, because dev servers send
+      // no CSP. Both policies carry it; the browser enforces their
+      // intersection.
+      'https://clerk.wealthtrackerpro.co.uk',
+      'https://*.clerk.accounts.dev', // Clerk authentication (dev instance)
       'https://clerk.com',
       'https://*.clerk.com',
       'https://api.stripe.com', // Stripe payments
