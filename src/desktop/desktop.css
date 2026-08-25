@@ -7,14 +7,21 @@
  * here they will bring their stylesheet with them, and this file's job will be
  * over — it is not a second design system, it is the chrome of a chooser.
  *
- * `color-scheme: light dark` is the whole of the dark-mode story for now, and
- * deliberately: the app's theme is a PREFERENCE, kept in the ledger file, and a
- * window that read it would need the preferences service this build cannot yet
- * import. Letting the platform decide is the honest default until it can.
+ * `color-scheme: light` — ONE dark-mode mechanism, not two. This window used
+ * to say `light dark` ("let the platform decide") while the app stylesheet it
+ * now loads beside (index.css, since the mount slice) paints the ground
+ * CLASS-based: #f8f9fb always, dark only once `html.dark` is set — and before
+ * a ledger opens nothing can set it, because the theme preference lives IN
+ * the ledger file. On any OS in dark mode those two mechanisms disagreed:
+ * the UA painted its default ink white, the app painted the ground light,
+ * and the chooser rendered white-on-white — found by the owner on a Windows
+ * 11 VM, 25 Aug 2026, reported as "installs ok, then just a white screen".
+ * The window declares the SAME state the ground is actually in; when the app
+ * mounts and applies the stored theme, its own stylesheet takes over.
  */
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
