@@ -2330,12 +2330,18 @@ function AccountsList() {
                         </p>
                       </button>
                       <div id={subRegionId}>
+                        {sub.isExpanded && sub.displayed.length > 0 && <AccountColumnHeader />}
                         {sub.isExpanded && sub.displayed.map(renderAccountCard)}
                       </div>
                     </div>
                   );
                 })
-              : displayed.map(renderAccountCard)}
+              : (
+                <>
+                  {displayed.length > 0 && <AccountColumnHeader />}
+                  {displayed.map(renderAccountCard)}
+                </>
+              )}
           </div>
         )}
       </div>
@@ -3008,7 +3014,18 @@ function AccountsList() {
           matches nothing leaves exactly the same strip over exactly the same
           nothing, and the filtered empty state below already explains itself
           without a column header helping. */}
-      {!isLoading && matchedTopLevelCount > 0 && <AccountColumnHeader />}
+      {/* ONLY FOR THE FLAT LIST (Design, 25 Aug §1). With bands on, the rows
+          this strip names are several levels down and BAND HEADINGS sit in
+          between — each showing a single right-aligned total under none of
+          the four column names. Four headings over a one-column layout, and
+          a reader scanning down from "TO REVIEW" landing on a band total.
+
+          The reconciliation list solved this in the August pass and this
+          page never got the same treatment: there, a run of rows and the
+          strip that heads it are ONE unit, always drawn together, because
+          the strip belongs to the row group rather than to the section.
+          Banded views below now do the same. */}
+      {!isLoading && matchedTopLevelCount > 0 && displayedList.mode === 'flat' && <AccountColumnHeader />}
       </div>
 
       {/* The `-ml-1 pl-1 pr-1` that used to be here went with the scroll
