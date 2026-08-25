@@ -179,7 +179,17 @@ export default function NetWorthSummary({
               type="button"
               onClick={() => onSelect(figure)}
               className="flex flex-col items-start p-4 text-left transition-colors duration-state hover:bg-surface-secondary dark:hover:bg-gray-700/50 !shadow-none"
-              title="See the accounts behind this figure"
+              /* aria-label, not title (Design, 25 Aug §3). A native `title`
+                 tooltip is positioned by the BROWSER relative to the cursor,
+                 not by us — which is why it was caught rendering over the
+                 page heading and clipping the word "Accounts". There is no
+                 anchor to change: the only choices are to drop the visual
+                 tooltip or to build a custom one. The hover state already
+                 says the tile is pressable, so the text is kept where it
+                 still does work — as the control's accessible name — and
+                 stops drawing a box over whatever the cursor happens to be
+                 near. */
+              aria-label="See the accounts behind this figure"
             >
               {content}
             </button>
