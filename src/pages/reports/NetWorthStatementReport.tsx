@@ -3,7 +3,7 @@ import { useApp } from '../../contexts/AppContextSupabase';
 import { useNetWorthConversion } from '../../hooks/useNetWorthConversion';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
-import { buildAccountBalanceReport, resolveClosingSnapshot, type AccountBalanceRow } from '../../utils/accountBalanceReport';
+import { buildAccountBalanceReport, movedSideLabel, resolveClosingSnapshot, type AccountBalanceRow } from '../../utils/accountBalanceReport';
 import BalanceReportCurrencyNote from '../../components/reports/BalanceReportCurrencyNote';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import NetWorthSummary from '../../components/NetWorthSummary';
@@ -112,10 +112,19 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
               {rows.map(row => (
                 <tr key={row.accountId} className="border-t border-gray-50 dark:border-gray-700/50">
                   <th scope="row" className="px-6 py-2.5 text-left font-normal">
+                    {/* flex-col items-start: index.css sets `button { display:
+                        inline-flex; align-items: center }` globally, which
+                        turns the two block spans below into flex items laid
+                        side by side — the name and its label ran together on
+                        one line ("Credit CardCredit cards"), silently, for as
+                        long as this table has existed. An element selector
+                        loses to a utility class, so stating the direction here
+                        is the fix; `block` on the children cannot win, because
+                        a flex item's display is blocked out either way. */}
                     <button
                       type="button"
                       onClick={() => drillIntoAccount(row)}
-                      className="text-left rounded"
+                      className="flex flex-col items-start text-left rounded"
                       title={`${row.name} — view these transactions`}
                     >
                       <span className="block text-sm text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline">
@@ -123,9 +132,21 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
                       </span>
                       {/* mt-0.5: a long name wraps to the line above this
                           label, and with no gap the two read as one string
-                          (Design, 23 Aug §4). */}
+                          (Design, 23 Aug §4).
+
+                          WHY A ROW MOVED (Design §1.1, 25 Aug). Sections split
+                          by SIGN, bands name a TYPE, and the two disagree
+                          whenever an account is overdrawn or a card is
+                          overpaid. A reader looking for their current account
+                          under what you own, and not finding it, needs the row
+                          to say why it is on the other side. Only the moved
+                          rows carry the word: on every other row it would be
+                          restating the section heading. */}
                       <span className="block mt-0.5 text-xs text-gray-400 dark:text-gray-500">
                         {groupLabels.get(row.accountId) ?? 'Other'}
+                        {movedSideLabel(row.type, row.closing) !== null && (
+                          <> · {movedSideLabel(row.type, row.closing)}</>
+                        )}
                       </span>
                     </button>
                   </th>

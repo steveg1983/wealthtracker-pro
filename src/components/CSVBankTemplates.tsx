@@ -118,7 +118,15 @@ export default function CSVBankTemplates({
                         // the banner further up the step.
                         aria-pressed={isSelected}
                         onClick={() => onSelectBank(template)}
-                        className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                        // flex-col items-start: the global `button { display:
+                        // inline-flex; align-items: center }` in index.css lays
+                        // the two block spans below SIDE BY SIDE, so the format
+                        // name and its column list ran together on one line.
+                        // Same trap, same week, as the net-worth statement's
+                        // account rows — an element selector cannot be beaten
+                        // by `block` on the children, only by stating the
+                        // direction on the flex container itself.
+                        className={`w-full flex flex-col items-start text-left px-3 py-2 rounded-lg transition-colors ${
                           isSelected
                             ? 'bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-400'
                             : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'

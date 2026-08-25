@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildAccountBalanceReport } from './accountBalanceReport';
+import { buildAccountBalanceReport, movedSideLabel, sideOfType } from './accountBalanceReport';
 import { toDecimal } from './decimal';
 import type { Account, Transaction } from '../types';
 
@@ -354,5 +354,97 @@ describe('a nested account is filed where its parent is (owner, 25 Aug)', () => 
       [ordinaryCurrent, portfolio], [], { from: null, to: null }, new Date(2026, 7, 25)
     );
     expect(labelsOf(report).sort()).toEqual(['Current accounts', 'Investments']);
+  });
+});
+
+
+/**
+ * THE LOANS BAND, AND THE WORD FOR A ROW THAT MOVED (Design §2.1 and §1.1,
+ * ruled 24 Aug and confirmed 25th, after they withdrew the type-based
+ * classification that prompted them).
+ *
+ * Every figure below is invented; this repo is public.
+ */
+describe('bands agree with the headline', () => {
+  const WIDE = { from: null, to: null };
+
+  const loans = (out: number, owed: number): Account[] => [
+    account({ id: 'lent', name: 'Money I lent', type: 'loan', openingBalance: out }),
+    account({ id: 'borrowed', name: 'Money I borrowed', type: 'loan', openingBalance: owed }),
+  ];
+
+  it('splits Loans by side when it holds both — no band nets against the headline', () => {
+    const report = buildAccountBalanceReport(loans(2000, -5000), [], WIDE);
+    const labels = report.groups.map(g => g.label);
+    expect(labels).toContain('Loans out');
+    expect(labels).toContain('Loans in');
+    expect(labels).not.toContain('Loans');
+
+    // Each band now agrees with the headline figure it feeds, instead of one
+    // −£3,000 total contradicting both.
+    expect(report.groups.find(g => g.label === 'Loans out')?.closing).toBe(2000);
+    expect(report.groups.find(g => g.label === 'Loans in')?.closing).toBe(-5000);
+    expect(report.assets).toBe(2000);
+    expect(report.liabilities).toBe(5000);
+  });
+
+  it('leaves Loans whole when every loan runs the same way', () => {
+    // Nothing to resolve: the band total and the headline already agree, and
+    // "Loans in" as the only band would draw a distinction against nothing.
+    const borrowedOnly = buildAccountBalanceReport(
+      [account({ id: 'b', name: 'Mine', type: 'loan', openingBalance: -5000 })], [], WIDE
+    );
+    expect(borrowedOnly.groups.map(g => g.label)).toEqual(['Loans']);
+
+    const lentOnly = buildAccountBalanceReport(
+      [account({ id: 'l', name: 'Theirs', type: 'loan', openingBalance: 2000 })], [], WIDE
+    );
+    expect(lentOnly.groups.map(g => g.label)).toEqual(['Loans']);
+  });
+
+  it('files a cleared loan with the borrowings, never as an asset', () => {
+    const report = buildAccountBalanceReport(
+      [...loans(2000, -5000), account({ id: 'paid', name: 'Paid off', type: 'loan', openingBalance: 0 })],
+      [], WIDE
+    );
+    const inBand = report.groups.find(g => g.label === 'Loans in');
+    expect(inBand?.rows.map(r => r.accountId).sort()).toEqual(['borrowed', 'paid']);
+  });
+
+  it('sorts the owed-to-you half up with the assets, the owed half where Loans was', () => {
+    const report = buildAccountBalanceReport(
+      [
+        ...loans(2000, -5000),
+        account({ id: 'cur', name: 'Everyday', type: 'current', openingBalance: 100 }),
+        account({ id: 'card', name: 'Card', type: 'credit', openingBalance: -50 }),
+      ],
+      [], WIDE
+    );
+    const order = report.groups.map(g => g.label);
+    // Band order is this report's only way of agreeing with the two headline
+    // figures — it has no own/owe headings to file a band under.
+    expect(order).toEqual(['Current accounts', 'Loans out', 'Credit cards', 'Loans in']);
+  });
+});
+
+describe('movedSideLabel — why a row is on the other side', () => {
+  it('names the move, in each direction', () => {
+    expect(movedSideLabel('current', -120)).toBe('overdrawn');
+    expect(movedSideLabel('savings', -1)).toBe('overdrawn');
+    expect(movedSideLabel('credit', 45)).toBe('in credit');
+    expect(movedSideLabel('mortgage', 10)).toBe('in credit');
+  });
+
+  it('says nothing when the row is where its type implies', () => {
+    // Otherwise every row in the report would carry a label restating the
+    // heading it already sits under.
+    expect(movedSideLabel('current', 500)).toBeNull();
+    expect(movedSideLabel('credit', -500)).toBeNull();
+  });
+
+  it('says nothing for a zero balance, or a type that implies no side', () => {
+    expect(movedSideLabel('current', 0)).toBeNull();
+    expect(movedSideLabel('other', -500)).toBeNull();
+    expect(sideOfType('other')).toBeNull();
   });
 });
