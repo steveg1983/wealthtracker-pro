@@ -22,6 +22,7 @@ import {
 import type { TrueLayerTransaction } from '../_lib/truelayer.js';
 import { fetchCardTransactions, fetchTransactions } from '../_lib/truelayer.js';
 import { cardAmountToAppSigned } from '../../src/services/banking/cardNormalization.js';
+import { resolveIdChurn, type ExistingBankRow } from '../../src/services/banking/idChurn.js';
 
 const coerceIsoDateTime = (value: string, endOfDay: boolean): string | null => {
   const trimmed = value.trim();
@@ -315,7 +316,71 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const insertCandidates = uniquePrepared.filter((row) => !existingIds.has(row.external_transaction_id));
+    const unknownIdCandidates = uniquePrepared.filter((row) => !existingIds.has(row.external_transaction_id));
+
+    // Id churn (observed live, Aug 2026, a cheque deposit): the provider can re-issue the SAME
+    // transaction under a new external id between syncs, which sails past the
+    // exact-id dedup above and lands as a duplicate. An unknown id is only a
+    // new transaction if no existing row in the window matches it while its
+    // own id has VANISHED from this sync's feed — see resolveIdChurn's header
+    // for why the vanished id is what keeps two genuine identical cheques
+    // apart. Adopted rows get their id repointed in place (categorisation and
+    // reconciliation survive); nothing about the money changes, so this stays
+    // outside the atomic import RPC.
+    let insertCandidates = unknownIdCandidates;
+    let idChurnRepaired = 0;
+    if (unknownIdCandidates.length > 0) {
+      const windowRowsResult = await supabase
+        .from('transactions')
+        .select('id, external_transaction_id, account_id, date, amount, metadata')
+        .eq('connection_id', connection.id)
+        .eq('user_id', auth.userId)
+        .gte('date', dateRange.from.slice(0, 10))
+        .lte('date', dateRange.to.slice(0, 10))
+        .not('external_transaction_id', 'is', null);
+
+      if (windowRowsResult.error) {
+        throw new Error(`Failed to load window transactions for churn check: ${windowRowsResult.error.message}`);
+      }
+
+      const windowRows = (windowRowsResult.data ?? []) as Array<ExistingBankRow & {
+        metadata: Record<string, unknown> | null;
+      }>;
+      const metadataByRowId = new Map(windowRows.map((row) => [row.id, row.metadata]));
+      const fetchedExternalIds = new Set(prepared.map((row) => row.external_transaction_id));
+      const resolution = resolveIdChurn(unknownIdCandidates, windowRows, fetchedExternalIds);
+      insertCandidates = resolution.inserts;
+
+      for (const adoption of resolution.adoptions) {
+        const previousMetadata = metadataByRowId.get(adoption.existingRowId) ?? {};
+        const previousHistory = Array.isArray(previousMetadata['idChurnHistory'])
+          ? previousMetadata['idChurnHistory']
+          : [];
+        const updateResult = await supabase
+          .from('transactions')
+          .update({
+            external_transaction_id: adoption.candidate.external_transaction_id,
+            metadata: {
+              ...previousMetadata,
+              idChurnHistory: [
+                ...previousHistory,
+                {
+                  previousExternalId: adoption.previousExternalId,
+                  repairedAt: new Date().toISOString()
+                }
+              ]
+            }
+          })
+          .eq('id', adoption.existingRowId)
+          .eq('user_id', auth.userId);
+
+        if (updateResult.error) {
+          throw new Error(`Failed to repoint churned transaction id: ${updateResult.error.message}`);
+        }
+        idChurnRepaired += 1;
+      }
+    }
+
     let insertedCount = 0;
     for (const insertChunk of chunk(insertCandidates, 200)) {
       if (insertChunk.length === 0) {
@@ -365,7 +430,9 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       insertedCount += summary?.inserted ?? 0;
     }
 
-    const duplicatesSkipped = prepared.length - insertedCount;
+    // Adopted rows are neither imports nor duplicates — they are the same
+    // transaction keeping its ledger row, so they leave both other counts.
+    const duplicatesSkipped = prepared.length - insertedCount - idChurnRepaired;
 
     await markConnectionSyncSuccess(supabase, connection.id, auth.userId);
     await supabase.from('sync_history').insert({
@@ -379,7 +446,8 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     const response: SyncTransactionsResponse = {
       success: true,
       transactionsImported: insertedCount,
-      duplicatesSkipped
+      duplicatesSkipped,
+      ...(idChurnRepaired > 0 ? { idChurnRepaired } : {})
     };
     return res.status(200).json(response);
   } catch (error) {
