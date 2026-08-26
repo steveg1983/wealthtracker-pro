@@ -30,6 +30,19 @@
       "schedule": "20 4 * * 2-6"
     }
   ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "wealthtracker-web.vercel.app"
+        }
+      ],
+      "destination": "https://www.wealthtrackerpro.co.uk/:path*",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
