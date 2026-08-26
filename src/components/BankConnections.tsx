@@ -79,6 +79,8 @@ export default function BankConnections({
    */
   const [connectionsLoaded, setConnectionsLoaded] = useState(false);
   const [configChecked, setConfigChecked] = useState(false);
+  /** False when the last health check FAILED — verdict unknown, not a config fact. */
+  const [configKnown, setConfigKnown] = useState(true);
   const [linkingConnectionId, setLinkingConnectionId] = useState<string | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
   // What an incomplete sync could not do. It used to go to the console only,
@@ -190,6 +192,7 @@ export default function BankConnections({
     try {
       await bankConnectionService.refreshConfigStatus();
       setConfigStatus(bankConnectionService.getConfigStatus());
+      setConfigKnown(bankConnectionService.isConfigStatusKnown());
     } catch (error) {
       logger.error('Failed to check bank provider configuration', error as Error);
     } finally {
@@ -320,8 +323,29 @@ export default function BankConnections({
 
   return (
     <div className="space-y-6">
-      {/* Configuration Warning */}
-      {configChecked && !configStatus.plaid && !configStatus.trueLayer && (
+      {/* Configuration warning — ONLY when the server actually answered
+          'degraded'. A failed check is a different sentence: it happened on
+          the owner's TestFlight install, where the health call lost a race
+          with the freshly-booting session and this banner told him his
+          working backend was unconfigured (26 Aug, item 6). Consequence,
+          then remedy, and never a server fact the client never learned. */}
+      {configChecked && !configKnown && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircleIcon className="text-yellow-600 dark:text-yellow-400 mt-0.5" size={20} />
+            <div>
+              <p className="font-medium text-yellow-800 dark:text-yellow-200">
+                Couldn&rsquo;t check whether bank feeds are available
+              </p>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                The status check didn&rsquo;t get an answer, so connecting a bank may
+                not work right now. Close this and try again in a moment.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      {configChecked && configKnown && !configStatus.plaid && !configStatus.trueLayer && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
           <div className="flex items-start gap-3">
             <AlertCircleIcon className="text-yellow-600 dark:text-yellow-400 mt-0.5" size={20} />

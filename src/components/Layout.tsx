@@ -19,7 +19,8 @@ import {
   OfflineQueueIndicator,
   QuickAddTransaction,
   RealtimeDot,
-  type GlobalSearchHandle
+  CHROME_HAS_BANK_FEEDS,
+  type GlobalSearchHandle,
 } from '@chrome';
 import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, ChevronRightIcon, ClockIcon, DatabaseIcon, TagIcon, Settings2Icon, TargetIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon, UsersIcon } from '../components/icons';
 import { SidebarLink, TopNavItem, TopNavDropdown } from './layout/NavComponents';
@@ -373,7 +374,13 @@ export default function Layout(): React.JSX.Element {
                 { to: '/investments', icon: TrendingUpIcon, label: 'Investments' },
                 { to: '/reconciliation', icon: ArrowRightLeftIcon, label: 'Reconciliation' },
                 { to: '/categorisation', icon: TagIcon, label: 'Categorisation' },
-                { to: '/open-banking', icon: BankIcon, label: 'Bank Feeds' },
+                // A ledger-in-a-file has no server to hold a bank token, so
+                // the device edition does not print the menu item at all
+                // (owner, 26 Aug — the first desktop install offered a page
+                // that could only apologise). @chrome resolves the fact.
+                ...(CHROME_HAS_BANK_FEEDS
+                  ? [{ to: '/open-banking', icon: BankIcon, label: 'Bank Feeds' }]
+                  : []),
               ]}
               // The highlight follows the menu: on /investments it is Accounts
               // that lights up now, not Manage.
@@ -708,7 +715,9 @@ export default function Layout(): React.JSX.Element {
                       )}
                       <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/categorisation" icon={TagIcon} label="Categorisation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/open-banking" icon={BankIcon} label="Bank Feeds" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      {CHROME_HAS_BANK_FEEDS && (
+                        <SidebarLink to="/open-banking" icon={BankIcon} label="Bank Feeds" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      )}
                     </div>
                   )}
                 </div>

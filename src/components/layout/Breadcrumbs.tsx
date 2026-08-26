@@ -62,6 +62,17 @@ const routeLabels: Record<string, string> = {
  * `/settings/tags`, "‹ Accounts" from an account register — so it no longer
  * repeats the title of the page it sits on, which was the finding.
  */
+/**
+ * Nested pages that draw their OWN back control ("← Back to Accounts" on an
+ * account register, "← All reports" on a report) — rendering this row above
+ * them put two back buttons in the first 120px of a phone screen, saying the
+ * same thing in different words (owner, 26 Aug, item 7). The page's own
+ * control wins: it can say more (provenance-aware labels like "Back to
+ * report") than a path segment ever could. Keyed by PARENT segment, so
+ * /settings/* — whose subpages have no back of their own — keeps this row.
+ */
+const PARENTS_WITH_OWN_BACK = new Set(['accounts', 'reports']);
+
 export function MobileBreadcrumb() {
   const location = useLocation();
   const { accounts } = useApp();
@@ -74,6 +85,10 @@ export function MobileBreadcrumb() {
 
   const parentPath = `/${pathSegments.slice(0, -1).join('/')}`;
   const parentSegment = pathSegments[pathSegments.length - 2];
+
+  if (PARENTS_WITH_OWN_BACK.has(parentSegment)) {
+    return null;
+  }
   // A route nested under a single account names that account, not its id.
   const matchedAccount = accounts.find(a => a.id === parentSegment);
   const label = matchedAccount

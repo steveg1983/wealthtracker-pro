@@ -100,6 +100,7 @@ export class BankConnectionService {
   private connections: BankConnection[] = [];
   private connectionListeners = new Set<() => void>();
   private configStatus = { plaid: false, trueLayer: false };
+  private configStatusKnown = true;
   private fetcher: FetchLike | null;
   private logger: Logger;
   private apiBaseUrl: string;
@@ -552,12 +553,27 @@ export class BankConnectionService {
         plaid: false,
         trueLayer: data.status === 'ok'
       };
+      this.configStatusKnown = true;
     } catch (error) {
+      // A FAILED check is not a 'degraded' verdict, and folding it into one
+      // told the owner's TestFlight install "bank connections not configured
+      // — add provider credentials" while the very same backend was serving
+      // his live feeds (26 Aug, item 6). A health call can fail for reasons
+      // that say nothing about configuration — the auth token not yet
+      // minted in a freshly-booted WebView is the likely one there — so the
+      // answer is "unknown", and the UI says it could not check rather than
+      // asserting a server fact it never learned.
       this.logger.warn('Failed to load banking config status', error as Error);
       this.configStatus = { plaid: false, trueLayer: false };
+      this.configStatusKnown = false;
     }
 
     return this.configStatus;
+  }
+
+  /** False when the last health check FAILED (verdict unknown), true when it answered. */
+  isConfigStatusKnown(): boolean {
+    return this.configStatusKnown;
   }
 
   getConfigStatus(): { plaid: boolean; trueLayer: boolean } {

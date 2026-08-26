@@ -282,18 +282,31 @@ describe('Account register — the row itself becomes the editor', () => {
     expect(rows.indexOf(stripRow as HTMLElement)).toBe(rows.indexOf(editorRow()) + 1);
   });
 
-  it('draws every other row exactly as it drew it before', async () => {
+  it('draws every other row exactly as it drew it before — hover aside', async () => {
     await openRegister();
 
     // Byte for byte: opening an editor on one row must not so much as re-space
     // a neighbour. Anything that changes here changes it for eleven thousand
     // rows at once.
+    //
+    // ONE licensed exception since 26 Aug: the hover classes. While an editor
+    // row is open the pointer is not the instrument, so every row's hover
+    // lift stands down — the parked mouse's row had been wearing its hover
+    // band through whole Save & Next sessions, reading as a second selection
+    // (owner, item 11). The comparison strips exactly that delta and no
+    // other, so this spec still catches any real re-spacing.
+    const withoutHover = (html: string | undefined): string | undefined =>
+      html?.replace(/[^\s"]*hover:[^\s"]+/g, '').replace(/\s+/g, ' ');
     const before = within(grid()).getByText('Thistledown Books').closest('[role="row"]')?.outerHTML;
 
     clickRow('Sandpiper Foods');
 
     const after = within(grid()).getByText('Thistledown Books').closest('[role="row"]')?.outerHTML;
-    expect(after).toBe(before);
+    expect(withoutHover(after)).toBe(withoutHover(before));
+    // And the licensed delta is REAL — the hover classes were there before
+    // and are gone while the editor is open, or the item-11 fix regressed.
+    expect(before).toContain('hover:bg-gray-50');
+    expect(after).not.toContain('hover:bg-gray-50');
   });
 
   it('leaves the add bar exactly where it was', async () => {

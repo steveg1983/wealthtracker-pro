@@ -189,7 +189,19 @@ export default function Categorisation(): React.JSX.Element {
         </p>
       </div>
 
-      {count === 0 ? (
+      {count === 0 && transactions.length === 0 ? (
+        // AN EMPTY LEDGER IS NOT A FILED LEDGER (owner, 26 Aug, from the
+        // desktop build's first open). "Everything is filed" congratulated a
+        // ledger with nothing in it — a claim that happened to be vacuously
+        // true and read as a lie. Zero transactions is a different state
+        // with a different remedy, and the remedy lives on other pages.
+        <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700">
+          <EmptyState
+            title="No transactions to categorise yet"
+            description="Once you add or import transactions, this is where you file anything the app could not place — so every report counts all of your money."
+          />
+        </div>
+      ) : count === 0 ? (
         // The hand-rolled centred copy this page carried since batch 7 is what
         // exposed the inconsistency — and it was the one that was right. Now
         // the shared component, which the owner centred app-wide on 15 August.
