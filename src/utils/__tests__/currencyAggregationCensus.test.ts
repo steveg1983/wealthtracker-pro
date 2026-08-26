@@ -95,6 +95,9 @@ const LEDGER: Record<string, Partial<Record<(typeof PRIMITIVES)[number], Status>
   // `uncategorizedRows.length` — never a total. Its answer is a rung name,
   // so no exchange rate could change it.
   'src/hooks/useAttentionLadder.ts': { computeIncomeExpense: 'counts-only' },
+  // First-steps checklist: reads uncategorizedRows.length to derive its
+  // "categorise them" tick — a count, never a total.
+  'src/components/dashboard/FirstSteps.tsx': { computeIncomeExpense: 'counts-only' },
 };
 
 const SRC = join(process.cwd(), 'src');
