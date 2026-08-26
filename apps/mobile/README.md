@@ -62,8 +62,31 @@ build.
 
 ## Releasing to TestFlight
 
-`xcodebuild archive` then `-exportArchive` with an export options plist naming
-`method: app-store-connect` and `destination: upload`. Team `VT6W829WRX`.
+`scripts/ios-release.sh [build-number]` — archives, checks the entitlement
+survived into the signed binary, exports and uploads. No Xcode, no GUI.
+
+**Why a script and not two xcodebuild commands.** Build 2 could not be
+uploaded headlessly. The first failure said App Store Connect access was
+required; the second said the plain truth:
+
+> Provisioning profile "iOS Team Store Provisioning Profile:
+> com.wealthtracker.mobile" doesn't include the
+> com.apple.developer.associated-domains entitlement.
+
+Adding a capability in Xcode regenerates the **development** profile — the
+**distribution** profile is a separate object and does not follow. Only
+something holding an App Store Connect session can regenerate it, so the
+upload went through Xcode's Organizer.
+
+An **App Store Connect API key** is that session. With
+`-authenticationKeyPath/-ID/-IssuerID`, `-allowProvisioningUpdates` regenerates
+the distribution profile itself. The key lives in
+`~/Documents/WealthTracker-signing/` and Apple allows it to be downloaded
+**once** — back that folder up.
+
+A build number already on App Store Connect is rejected *after* the upload
+rather than before, so the script sets it deliberately and refuses to let
+Xcode renumber.
 
 App Store icons must carry **no alpha channel** — the upload is rejected for
 it, and the fix is a JPEG round-trip through `sips`.
