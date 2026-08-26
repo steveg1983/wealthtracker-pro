@@ -121,13 +121,19 @@ jobs:
           # What a person downloads.
           find "$BUNDLE_DIR" -name '*.dmg' -exec cp {} out/ \; 2>/dev/null || true
           find "$BUNDLE_DIR" -name '*-setup.exe' -exec cp {} out/ \; 2>/dev/null || true
-          # What an INSTALLED app downloads: the update archives and their
-          # signatures. Different files from the two above — an installer is
-          # not an update — and the manifest job needs both halves.
+          # What an INSTALLED app downloads, and the two platforms do NOT
+          # agree on its shape:
+          #
+          #   macOS   a SEPARATE archive, WealthTracker.app.tar.gz, beside the
+          #           .dmg a person downloads;
+          #   Windows the SAME -setup.exe a person downloads, with a .sig next
+          #           to it. (Tauri v1 produced a -setup.nsis.zip here and v2
+          #           does not — measured on the 0.1.1 build, where asking for
+          #           the v1 name found nothing and the manifest job below
+          #           correctly refused to publish half a manifest.)
           find "$BUNDLE_DIR" -name '*.app.tar.gz' -exec cp {} out/ \; 2>/dev/null || true
           find "$BUNDLE_DIR" -name '*.app.tar.gz.sig' -exec cp {} out/ \; 2>/dev/null || true
-          find "$BUNDLE_DIR" -name '*-setup.nsis.zip' -exec cp {} out/ \; 2>/dev/null || true
-          find "$BUNDLE_DIR" -name '*-setup.nsis.zip.sig' -exec cp {} out/ \; 2>/dev/null || true
+          find "$BUNDLE_DIR" -name '*-setup.exe.sig' -exec cp {} out/ \; 2>/dev/null || true
           ls -la out/
 
       - uses: actions/upload-artifact@v4
@@ -194,8 +200,9 @@ jobs:
 
           MAC_ARCHIVE="$(need '*.app.tar.gz')"
           MAC_SIGNATURE="$(cat "$(need '*.app.tar.gz.sig')")"
-          WIN_ARCHIVE="$(need '*-setup.nsis.zip')"
-          WIN_SIGNATURE="$(cat "$(need '*-setup.nsis.zip.sig')")"
+          # Windows updates FROM the installer itself — see the collect step.
+          WIN_ARCHIVE="$(need '*-setup.exe')"
+          WIN_SIGNATURE="$(cat "$(need '*-setup.exe.sig')")"
 
           # The macOS build is universal, so both Apple architectures are
           # served the one archive — that is what `universal-apple-darwin`
