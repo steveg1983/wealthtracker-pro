@@ -34,6 +34,7 @@ import { Modal, ModalBody } from '../common/Modal';
 import PeriodBar from '../../components/PeriodBar';
 import { WholePoundsToggle } from '../../contexts/WholePoundsContext';
 import NetWorthSummary from '../../components/NetWorthSummary';
+import FirstSteps from './FirstSteps';
 import AccountBreakdownModal, { type AccountBreakdownView } from '../../components/AccountBreakdownModal';
 import { PERIOD_LABELS, usePeriod } from '../../hooks/usePeriod';
 import { cardPeriodKey, useCardPeriod } from '../../hooks/useCardPeriod';
@@ -775,6 +776,10 @@ export function ImprovedDashboard() {
           unconverted={spansCurrencies ? convertedNetWorth.unconverted : []}
           displayCurrency={displayCurrency}
         />
+
+        {/* The walk from nothing to a working ledger — derives its own ticks
+            and stands down by itself; see the component header. */}
+        <FirstSteps />
       </section>
 
       {/* WHAT CAME IN AND WHAT WENT OUT, over the chosen period.

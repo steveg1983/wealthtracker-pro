@@ -74,6 +74,12 @@ vi.mock('react-router-dom', async () => {
     ...actual,
     useNavigate: () => mocks.navigate,
     useLocation: () => ({ pathname: '/dashboard', search: '', hash: '', state: null, key: 'test' }),
+    // Same stub, same reason as ImprovedDashboard.test.tsx: the FirstSteps
+    // card renders real <Link>s, which need router context these hook mocks
+    // do not provide.
+    Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode }) => (
+      <a href={to} {...rest}>{children}</a>
+    ),
   };
 });
 

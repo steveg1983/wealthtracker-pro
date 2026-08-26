@@ -18,7 +18,7 @@ const ImprovedDashboard = lazyWithRecovery(() => import('../components/dashboard
 
 
 export default function Dashboard() {
-  const { firstName, setFirstName, setCurrency } = usePreferences();
+  const { firstName, setCurrency } = usePreferences();
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Retired 2026-08-10: the Supabase "connection check".
@@ -47,8 +47,7 @@ export default function Dashboard() {
   }, [firstName]);
 
   // Handle onboarding completion
-  const handleOnboardingComplete = (name: string, currency: string) => {
-    setFirstName(name);
+  const handleOnboardingComplete = (currency: string) => {
     setCurrency(currency);
     localStorage.setItem('onboardingCompleted', 'true');
     setShowOnboarding(false);

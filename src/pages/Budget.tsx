@@ -576,10 +576,14 @@ function BudgetView() {
         onEditExisting={setEditingBudget}
       />
 
+      {/* id bumped from `budget-intro`: the old copy recommended envelope
+          and zero-based budgeting, both retired in #393 — a tip pointing at
+          deleted features is wrong, not stale, so past dismissers see the
+          correction once. */}
       <PageTip
-        id="budget-intro"
+        id="budget-intro-2"
         title="Track your spending with budgets"
-        description="Set monthly, weekly, or yearly budgets for each category. The progress bars show how much you've spent versus your limit. Try envelope budgeting or zero-based budgeting for different approaches."
+        description="Give a category a limit for its period — weekly, monthly or yearly — and the bar shows what you've spent against it. Templates, rollover and alerts are in the folds below the list."
       />
     </PageWrapper>
   );

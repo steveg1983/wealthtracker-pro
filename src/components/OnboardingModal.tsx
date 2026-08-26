@@ -4,19 +4,16 @@ import { supportedCurrencies } from '../utils/currency';
 
 interface OnboardingModalProps {
   isOpen: boolean;
-  onComplete: (name: string, currency: string) => void;
+  onComplete: (currency: string) => void;
 }
 
 export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps): React.JSX.Element | null {
-  const [firstName, setFirstName] = useState('');
   const [baseCurrency, setBaseCurrency] = useState('GBP');
   const modalRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault();
-    if (firstName.trim()) {
-      onComplete(firstName.trim(), baseCurrency);
-    }
+    onComplete(baseCurrency);
   };
 
   // The comment that used to sit here said "no scroll prevention — the modal
@@ -133,36 +130,28 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
         {/* Purpose before manner (Design, 17 Aug §3): a reader learns what
             the app is FOR before how it feels to use. Same length. */}
         <p className="text-gray-600 dark:text-gray-400 mb-6">
-          Two answers and you're in. WealthTracker is a ledger, not an
+          One answer and you're in. WealthTracker is a ledger, not an
           estimator — every figure traces to something you entered or
           imported, and every report says what it leaves out.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              What's your first name?
-            </label>
-            <input
-              type="text"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg"
-              placeholder="Enter your first name"
-              required
-              autoFocus
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              It greets you on the dashboard. That is all it is used for.
-            </p>
-          </div>
-
+          {/* THE NAME FIELD IS GONE (owner, 26 Aug). Its caption claimed "it
+              greets you on the dashboard" — the dashboard greeting had already
+              been retired, leaving one marginal "Welcome back" on the landing
+              page as the only reader, and the cloud edition learns a name from
+              sign-up anyway. A required field whose stated purpose does not
+              exist is a small lie at the front door; the modal now asks the
+              one question the app actually uses. A name can still be set in
+              Settings → App Settings, which is where the landing greeting
+              looks. */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Preferred base currency
             </label>
             <select
               aria-label="Preferred base currency"
+              autoFocus
               value={baseCurrency}
               onChange={(e) => setBaseCurrency(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg"
@@ -196,7 +185,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
             hairline and a quiet grey separate it from the form just as well,
             and cost nothing that is needed later. */}
         <p className="mt-6 border-t border-line dark:border-gray-700 pt-4 text-xs text-gray-500 dark:text-gray-400">
-          Both can be changed later in Settings → App Settings.
+          It can be changed later in Settings → App Settings.
         </p>
       </div>
     </>,

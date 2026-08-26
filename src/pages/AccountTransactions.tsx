@@ -4248,7 +4248,7 @@ export default function AccountTransactions() {
       <PageTip
         id="register-keyboard"
         title="This register runs on the keyboard"
-        description="Click any row and the row itself becomes the editor: its Date, Description and Category turn into boxes where they already sit, with the buttons on a strip underneath. Enter accepts what you typed, and the Enter after it saves and moves you to the next transaction with the cursor back in the same field. Esc stops editing. The arrow keys move the highlight (and the editor with it), Enter on the list opens the full editor, Space reconciles and Delete removes. Press ? for the whole list — or find it under View ▸ Keyboard shortcuts."
+        description="Click a row and it becomes the editor, right where it sits; Enter saves and moves to the next transaction. Press ? for every shortcut — or find them under View ▸ Keyboard shortcuts."
       />
     </div>
   );

@@ -10,6 +10,7 @@
  *
  * Every account name, figure and institution here is invented.
  */
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -64,6 +65,12 @@ vi.mock('react-router-dom', async () => {
     ...actual,
     useNavigate: () => mocks.navigate,
     useLocation: () => ({ pathname: '/dashboard', search: '', hash: '', state: null, key: 'test' }),
+    // The FirstSteps card (26 Aug) renders real <Link>s, which need router
+    // CONTEXT the hook mocks above do not provide. A stub that renders the
+    // anchor keeps this harness router-free while the hrefs stay assertable.
+    Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode }) => (
+      <a href={to} {...rest}>{children}</a>
+    ),
   };
 });
 
