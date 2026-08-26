@@ -18,6 +18,14 @@ export interface BankConnectionRow {
   institution_name: string;
   access_token_encrypted: string;
   refresh_token_encrypted: string | null;
+  /**
+   * When this connection last synced successfully, or null if it never has.
+   *
+   * Carried because it decides HOW FAR BACK a sync may ask. See
+   * `getDateRange` in api/banking/sync-transactions.ts: the long window is
+   * only lawful while authentication is fresh.
+   */
+  last_sync?: string | null;
 }
 
 /**
@@ -88,7 +96,7 @@ export const getUserBankConnection = async (
 ): Promise<BankConnectionRow | null> => {
   const { data, error } = await supabase
     .from('bank_connections')
-    .select('id, user_id, provider, institution_id, institution_name, access_token_encrypted, refresh_token_encrypted')
+    .select('id, user_id, provider, institution_id, institution_name, access_token_encrypted, refresh_token_encrypted, last_sync')
     .eq('id', connectionId)
     .eq('user_id', userId)
     .single();
