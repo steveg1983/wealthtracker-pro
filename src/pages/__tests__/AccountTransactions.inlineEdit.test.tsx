@@ -1051,4 +1051,44 @@ describe('Account register — the Notes cell joins the run', () => {
     expect(isEditing()).toBe(true);
     expect(screen.queryByLabelText('Transaction notes')).not.toBeInTheDocument();
   });
+
+  it('does not let a finished category run steal the NEXT run\'s field', async () => {
+    // THE ORDERING NOTHING COVERED. Every field-landing spec above starts from
+    // a fresh page, where the editor's category token is still zero and the
+    // picker's mount guard therefore holds. The owner works down a real
+    // register: one category run raises that token, the token is never reset,
+    // and the picker is rebuilt on every hop — so from then on a NOTES run
+    // mounted a picker that opened itself and took the keyboard, in a commit
+    // after the editor had correctly put the cursor in the notes box.
+    //
+    // A latch, not a race, which is why he reported it as "not every time":
+    // well behaved until the first category landing, wrong on every hop after.
+    const user = userEvent.setup();
+    await openRegister();
+    await showNotesColumn();
+
+    // ── First, a category run. This is what raises the token. ────────────────
+    clickRow('Sandpiper Foods');
+    fireEvent.click(within(editorRow()).getByRole('combobox', { name: 'Category' }));
+    fireEvent.change(categorySearch(), { target: { value: 'Takeaway' } });
+    fireEvent.keyDown(categorySearch(), { key: 'ArrowDown' });
+    fireEvent.keyDown(categorySearch(), { key: 'Enter' });
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(document.activeElement).toBe(categorySearch()));
+
+    // ── Now a NOTES run, in the same never-unmounted editor. ─────────────────
+    fireEvent.keyDown(categorySearch(), { key: 'Escape' });
+    notesField().focus();
+    fireEvent.change(notesField(), { target: { value: 'Second run' } });
+    fireEvent.keyDown(notesField(), { key: 'Enter' });
+    await user.keyboard('{Enter}');
+
+    // The cursor belongs to the notes box of the row we moved to — and the
+    // category list must not have opened itself on the way.
+    await waitFor(() => {
+      expect(document.activeElement).toBe(notesField());
+    });
+    expect(within(editorRow()).queryByRole('textbox', { name: /search or select category/i })).toBeNull();
+  });
+
 });

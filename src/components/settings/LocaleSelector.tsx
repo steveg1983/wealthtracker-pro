@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getUserLocale, setUserLocale, formatShortDate, getDateFormatPlaceholder } from '../../utils/dateFormatter';
+import { preferences } from '../../services/preferencesService';
 import { CalendarIcon, GlobeIcon } from '../icons';
 
 interface LocaleSelectorProps {
@@ -26,13 +27,30 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
     setCurrentLocale(getUserLocale());
   }, []);
 
-  const handleLocaleChange = (locale: string) => {
+  const handleLocaleChange = async (locale: string): Promise<void> => {
     setUserLocale(locale);
     setCurrentLocale(locale);
     if (onLocaleChange) {
       onLocaleChange(locale);
     }
-    // Reload the page to apply the new locale
+
+    // WAIT FOR THE WRITE BEFORE THROWING THE PAGE AWAY.
+    //
+    // `setUserLocale` puts the choice in memory and schedules the write on an
+    // 800ms debounce. Reloading in the same tick destroyed the timer before it
+    // ever fired, so the choice reached the mirror and nothing else — and on
+    // the DESKTOP edition that was fatal rather than merely unlucky: the
+    // ledger file is attached before the first render, and once the store is
+    // loaded it stops consulting the mirror by design. The stored value was
+    // therefore unreadable, `getUserLocale` fell through to `navigator.language`,
+    // and the dropdown snapped back to whatever the machine's OS was set to,
+    // every time. (Measured on a Mac set to en-US and a Windows VM set to
+    // en-GB; each would only ever show its own OS locale.)
+    //
+    // The web edition got away with it because it attaches preferences
+    // lazily, after Clerk resolves, so the mirror was still being read.
+    await preferences.flush();
+    // Reload to apply the new locale to already-formatted dates.
     window.location.reload();
   };
 
@@ -60,7 +78,7 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
           <select
             id="locale-select"
             value={currentLocale}
-            onChange={(e) => handleLocaleChange(e.target.value)}
+            onChange={(e) => { void handleLocaleChange(e.target.value); }}
             className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white"
           >
             {SUPPORTED_LOCALES.map((locale) => (

@@ -172,6 +172,38 @@ describe('BankingOpsAlertStatsCard', () => {
     });
   });
 
+  it('shows nothing before the server has confirmed anything', () => {
+    // The card asks whether this person is an ops admin and must not draw the
+    // console while it waits. It used to start visible and retreat on a 403,
+    // which holds only while the API is healthy — during the 26 Aug outage
+    // every route answered 401, the retreat never ran, and a full admin
+    // console appeared for an ordinary user wearing four red errors.
+    mockGetOpsAlertStats.mockReturnValueOnce(new Promise(() => {}));
+
+    render(<BankingOpsAlertStatsCard />);
+
+    expect(screen.queryByText('Ops Alert Suppression (Admin)')).not.toBeInTheDocument();
+  });
+
+  it('stays hidden when the request fails for any reason, not only a 403', async () => {
+    // 401, a dropped connection, a proxy in the way — none of them are proof
+    // of admin rights, so none of them may reveal the console.
+    mockGetOpsAlertStats.mockRejectedValueOnce(
+      Object.assign(new Error('Invalid authentication token'), {
+        status: 401,
+        code: 'invalid_auth'
+      })
+    );
+
+    render(<BankingOpsAlertStatsCard />);
+
+    await waitFor(() => {
+      expect(mockGetOpsAlertStats).toHaveBeenCalled();
+    });
+    expect(screen.queryByText('Ops Alert Suppression (Admin)')).not.toBeInTheDocument();
+    expect(screen.queryByText('Invalid authentication token')).not.toBeInTheDocument();
+  });
+
   it('applies filters and reloads with parsed values', async () => {
     mockGetOpsAlertStats.mockResolvedValue(createResponse());
 

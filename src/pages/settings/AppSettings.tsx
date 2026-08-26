@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, GlobeIcon, EyeIcon, EyeOffIcon, MoonIcon, SunIcon, MonitorIcon, ClockIcon } from '../../components/icons';
+import { ArrowLeftIcon, GlobeIcon, MoonIcon, SunIcon, MonitorIcon, ClockIcon } from '../../components/icons';
 import { useNavigate } from 'react-router-dom';
 import { usePreferences } from '../../contexts/PreferencesContext';
 import PageWrapper from '../../components/PageWrapper';
@@ -9,21 +9,16 @@ import ShowTipsAgain from '../../components/settings/ShowTipsAgain';
 // Through the seam: a refresh schedule is a thing a SERVER keeps.
 // See src/editions/service.ts.
 import { BankFeedRefreshSettings } from '@service';
-import ToggleSwitch from '../../components/ui/ToggleSwitch';
 
 export default function AppSettings() {
   const navigate = useNavigate();
   const { 
     currency, 
     setCurrency,
-    firstName,
-    setFirstName,
     theme,
     setTheme,
     themeSchedule,
     setThemeSchedule,
-    showInvestments,
-    setShowInvestments,
   } = usePreferences();
 
   const currencies = [
@@ -46,20 +41,6 @@ export default function AppSettings() {
     { value: 'scheduled', label: 'Scheduled', icon: ClockIcon },
   ];
 
-  // Only the Investments page is optional. The other toggles that used to live
-  // here gated nothing — their pages are either always in the sidebar or have
-  // been retired — so hiding them misled people into thinking they had an
-  // effect. "Investment Analytics" went the same way: the page it showed
-  // (/enhanced-investments) invented its own risk and ESG figures.
-  const pageToggles = [
-    {
-      title: 'Investments',
-      description: 'Show investment portfolio tracking',
-      value: showInvestments,
-      onChange: setShowInvestments,
-      icon: showInvestments ? EyeIcon : EyeOffIcon
-    }
-  ];
 
   // Every section below is a sibling card inside the wrapper's content
   // container, so the gap between any two of them comes from the one
@@ -81,25 +62,15 @@ export default function AppSettings() {
     >
       <BankFeedRefreshSettings />
 
-      {/* Personal Information */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
-        <h2 className="text-card font-semibold text-theme-heading dark:text-white mb-4">Personal Information</h2>
-        <div className="mb-6">
-          <label className="block text-body font-medium text-gray-700 dark:text-gray-300 mb-3">
-            First Name
-          </label>
-          <input
-            type="text"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            placeholder="Enter your first name"
-            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
-          />
-          <p className="mt-2 text-body text-gray-500 dark:text-gray-400">
-            This will be used in the welcome message on your dashboard. Leave blank to use "User".
-          </p>
-        </div>
-      </div>
+      {/* Personal Information retired 2026-08-26. The field held a first name
+          whose caption made two claims the app could not keep — it named a
+          dashboard welcome message that had already been retired, and a "User"
+          fallback nothing implemented. Its one remaining reader was a greeting
+          in the redirect interstitial that flashes for a single render on the
+          way to the dashboard. The cloud edition already learns a name at
+          sign-up, and the desktop edition has no person to name: its identity
+          is the ledger FILE, and the @identity seam deliberately refuses to
+          answer "what is this called". */}
 
       {/* Locale & Date Format */}
       <LocaleSelector />
@@ -214,51 +185,14 @@ export default function AppSettings() {
         )}
       </div>
 
-      {/* Page Visibility */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
-        <h2 className="text-card font-semibold text-theme-heading dark:text-white mb-4">Page Visibility</h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">
-          Choose which pages appear in the navigation sidebar
-        </p>
-        
-        <div className="space-y-4">
-          {pageToggles.map((toggle) => (
-            <div
-              key={toggle.title}
-              className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-2xl"
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  <toggle.icon 
-                    size={20} 
-                    className={toggle.value ? 'text-primary' : 'text-gray-400 dark:text-gray-500'} 
-                  />
-                  <h3 className="font-medium text-gray-900 dark:text-white">{toggle.title}</h3>
-                </div>
-                <p className="text-body text-gray-600 dark:text-gray-400 mt-1 ml-8">
-                  {toggle.description}
-                </p>
-              </div>
-              <ToggleSwitch
-                checked={toggle.value}
-                onChange={toggle.onChange}
-                aria-label={toggle.title}
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* The neutral house panel, NOT bg-theme-accent: that class carries
-            !important in index.css, so it beat dark:bg-gray-800/50 and left
-            light-grey text on a near-white ground — invisible in dark mode
-            (Design, 24 Aug §6; the index.css specificity-trap family). This
-            was its only remaining use. */}
-        <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
-          <p className="text-body text-gray-700 dark:text-gray-300">
-            <strong>Note:</strong> Hidden pages will not appear in the sidebar navigation but can still be accessed if you have a direct link.
-          </p>
-        </div>
-      </div>
+      {/* Page Visibility retired 2026-08-26, and with it the last toggle in a
+          section whose other entries had already gone the same way (see the
+          note on the toggles array above). "Investments" gated ONE link in the
+          mobile drawer; the desktop top nav's Investments entry was never
+          behind it, the route was unconditional in both routers, and the
+          keyboard shortcut ignored it — so a control captioned "choose which
+          pages appear in the navigation sidebar" did not govern the sidebar it
+          was shown beside. */}
 
       {/* Budget Alerts */}
       <BudgetAlertSettings />

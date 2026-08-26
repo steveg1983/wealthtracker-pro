@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { SignInButton, SignUpButton, useAuth } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
-import { usePreferences } from '../contexts/PreferencesContext';
 import { WalletIcon, TagIcon, PieChartIcon, UploadIcon, ArrowRightIcon } from '../components/icons';
 import type { IconProps } from '../components/icons/IconBase';
 
@@ -37,7 +36,6 @@ const FEATURES: ReadonlyArray<{ Icon: React.FC<IconProps>; title: string; body: 
 
 export default function Welcome(): React.JSX.Element {
   const { isSignedIn } = useAuth();
-  const { firstName } = usePreferences();
   const navigate = useNavigate();
 
   // Signed-in visitors have no business on the landing page — send them home.
@@ -52,7 +50,7 @@ export default function Welcome(): React.JSX.Element {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Welcome back{firstName ? `, ${firstName}` : ''}
+          Welcome back
         </h1>
         <p className="mt-2 text-gray-500 dark:text-gray-400">Taking you to your dashboard…</p>
       </div>

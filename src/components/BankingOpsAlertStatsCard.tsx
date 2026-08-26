@@ -78,7 +78,24 @@ export default function BankingOpsAlertStatsCard({
   const [auditError, setAuditError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<ActionFeedback | null>(null);
-  const [isVisible, setIsVisible] = useState(true);
+  // HIDDEN UNTIL THE SERVER SAYS OTHERWISE, not shown until it objects.
+  //
+  // Whether someone is an ops admin is a server fact — an allow-list of Clerk
+  // ids in BANKING_OPS_ADMIN_CLERK_IDS that fails closed — so the browser
+  // cannot answer it and must ask. Asking was always the design; the default
+  // was the wrong way round. Starting visible meant every person who opened
+  // Bank Connections rendered a full admin console — dead-letter resets,
+  // suppression counters, a JWKS circuit view — and it disappeared only once a
+  // 403 came back.
+  //
+  // Which assumes a 403 comes back. On 26 Aug 2026 the API was returning 401
+  // to everyone for a day, that branch never ran, and the owner's phone showed
+  // the admin console wearing four red "Invalid authentication token" errors.
+  // A default that only holds while the server is healthy is not a default.
+  //
+  // Hiding also silences the three secondary loaders below, which are gated on
+  // this: one refused request instead of four.
+  const [isVisible, setIsVisible] = useState(false);
   const logger = useMemo(() => createScopedLogger('BankingOpsAlertStatsCard'), []);
 
   const loadStats = useCallback(async (options?: { silent?: boolean }) => {

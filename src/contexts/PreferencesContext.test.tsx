@@ -35,14 +35,12 @@ describe('PreferencesContext', () => {
     expect(result.current.compactView).toBe(true); // Default is true (compact view)
     expect(result.current.currency).toBe('GBP');
     expect(result.current.theme).toBe('light');
-    expect(result.current.firstName).toBe('');
   });
 
   it('loads preferences from the stored document', () => {
     preferences.setItem('money_management_compact_view', 'true');
     preferences.setItem('money_management_currency', 'USD');
     preferences.setItem('money_management_theme', 'dark');
-    preferences.setItem('money_management_first_name', 'John');
 
     const { result } = renderHook(() => usePreferences(), {
       wrapper: PreferencesProvider,
@@ -51,7 +49,6 @@ describe('PreferencesContext', () => {
     expect(result.current.compactView).toBe(true);
     expect(result.current.currency).toBe('USD');
     expect(result.current.theme).toBe('dark');
-    expect(result.current.firstName).toBe('John');
   });
 
   it('reads a preference this browser holds but the document has not seen yet', () => {

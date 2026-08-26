@@ -32,8 +32,6 @@ interface PreferencesContextType {
   theme: 'light' | 'dark' | 'auto' | 'scheduled';
   setTheme: (value: 'light' | 'dark' | 'auto' | 'scheduled') => void;
   actualTheme: 'light' | 'dark';
-  firstName: string;
-  setFirstName: (value: string) => void;
   // Theme scheduling
   themeSchedule: {
     enabled: boolean;
@@ -41,9 +39,6 @@ interface PreferencesContextType {
     darkStartTime: string; // HH:MM format
   };
   setThemeSchedule: (schedule: { enabled: boolean; lightStartTime: string; darkStartTime: string }) => void;
-  // Page visibility settings
-  showInvestments: boolean;
-  setShowInvestments: (value: boolean) => void;
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -99,15 +94,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
     return isThemeChoice(saved) ? saved : 'light';
   });
 
-  const [firstName, setFirstName] = useState(
-    (): string => preferences.getItem('money_management_first_name') || ''
-  );
-
-  // Page visibility settings
-  const [showInvestments, setShowInvestments] = useState(
-    (): boolean => preferences.getItem('money_management_show_investments') !== 'false'
-  );
-
   const [themeSchedule, setThemeSchedule] = useState<ThemeSchedule>(readThemeSchedule);
 
   /**
@@ -129,8 +115,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       setCurrency(preferences.getItem('money_management_currency') || 'GBP');
       const storedTheme = preferences.getItem('money_management_theme');
       setTheme(isThemeChoice(storedTheme) ? storedTheme : 'light');
-      setFirstName(preferences.getItem('money_management_first_name') || '');
-      setShowInvestments(preferences.getItem('money_management_show_investments') !== 'false');
       setThemeSchedule(readThemeSchedule());
     });
     return unsubscribe;
@@ -227,22 +211,20 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
   }, []);
 
   // One write-through for all seven. The service does its own debouncing of the
-  // network write, so the 300ms here is only about not re-serialising the theme
-  // schedule on every keystroke of a name.
+  // network write, so the 300ms here is only about not re-serialising the
+  // theme schedule on every change.
   useEffect(() => {
     const savePreferences = (): void => {
       preferences.setItem('money_management_compact_view', compactView.toString());
       preferences.setItem('money_management_currency', currency);
       preferences.setItem('money_management_theme', theme);
-      preferences.setItem('money_management_first_name', firstName);
-      preferences.setItem('money_management_show_investments', showInvestments.toString());
       preferences.setItem('money_management_theme_schedule', JSON.stringify(themeSchedule));
     };
 
     const timeoutId = setTimeout(savePreferences, 300);
 
     return (): void => clearTimeout(timeoutId);
-  }, [compactView, currency, theme, firstName, showInvestments, themeSchedule]);
+  }, [compactView, currency, theme, themeSchedule]);
 
   return (
     <PreferencesContext.Provider value={{
@@ -253,12 +235,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       theme,
       setTheme,
       actualTheme,
-      firstName,
-      setFirstName,
       themeSchedule,
       setThemeSchedule,
-      showInvestments,
-      setShowInvestments,
     }}>
       {children}
     </PreferencesContext.Provider>
