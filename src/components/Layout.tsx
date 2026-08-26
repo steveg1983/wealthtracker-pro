@@ -24,7 +24,6 @@ import {
 } from '@chrome';
 import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, ChevronRightIcon, ClockIcon, DatabaseIcon, TagIcon, Settings2Icon, TargetIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon, UsersIcon } from '../components/icons';
 import { SidebarLink, TopNavItem, TopNavDropdown } from './layout/NavComponents';
-import { usePreferences } from '../contexts/PreferencesContext';
 import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
 import { EnhancedSkipLinks, FocusIndicator, RouteAnnouncer } from './layout/AccessibilityImprovements';
 import PullToRefreshIndicator from './PullToRefreshIndicator';
@@ -42,7 +41,6 @@ import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import KeyboardSequenceIndicator from './KeyboardSequenceIndicator';
 import MobileBottomNav from './MobileBottomNav';
 import ViewportDebugOverlay from './ViewportDebugOverlay';
-import SyncStatusIndicator from './SyncStatusIndicator';
 import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
 import { APP_BAR_HEIGHT_VAR, TOP_CHROME_OFFSET } from './layout/chromeOffsets';
 
@@ -74,7 +72,6 @@ export default function Layout(): React.JSX.Element {
   const isDemoModeRoutingEnabled =
     isDemoModeRuntimeAllowed(import.meta.env) && searchParams.get('demo') === 'true';
   const { registration } = useServiceWorker();
-  const { showInvestments } = usePreferences();
   const { isOpen: isHelpOpen, openHelp, closeHelp } = useKeyboardShortcutsHelp();
   const [showGlobalAddTransaction, setShowGlobalAddTransaction] = useState(false);
 
@@ -553,7 +550,6 @@ export default function Layout(): React.JSX.Element {
           <h1 className="text-lg font-semibold text-gray-900 dark:text-white tracking-tight" id="mobile-app-title">WealthTracker</h1>
           
           <div className="flex items-center gap-2">
-            <SyncStatusIndicator variant="compact" className="mr-1" />
             <NotificationBell />
             <button
               onClick={() => {
@@ -638,7 +634,14 @@ export default function Layout(): React.JSX.Element {
                 </div>
               </header>
               <div className="space-y-2" role="none">
-                <SidebarLink to="/" icon={HomeIcon} label="Home" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                {/* No "Home" entry, deliberately. It pointed at "/", the public
+                    welcome page, which for a signed-in visitor lazy-loads a
+                    marketing chunk only to flash "taking you to your
+                    dashboard" and redirect here anyway — a longer road to the
+                    same screen, plus a history entry that redirects again on
+                    Back. The desktop nav has never had one and the bottom bar's
+                    "Home" already points straight at the dashboard. One way to
+                    your figures per navigation. */}
                 <SidebarLink to="/dashboard" icon={BarChart3Icon} label="Dashboard" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 
                 {/* Accounts with Sub-navigation (but no "All Accounts" redundancy) */}
@@ -710,9 +713,7 @@ export default function Layout(): React.JSX.Element {
                   {accountsExpanded && (
                     <div className="mt-1 space-y-1">
                       <SidebarLink to="/find" icon={SearchIcon} label="Find Transactions" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      {showInvestments && (
-                        <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      )}
+                      <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/categorisation" icon={TagIcon} label="Categorisation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       {CHROME_HAS_BANK_FEEDS && (

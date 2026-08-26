@@ -1,6 +1,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { usePreferences } from '../contexts/PreferencesContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import PageWrapper from '../components/PageWrapper';
 import { WholePoundsScope } from '../contexts/WholePoundsContext';
 import { SkeletonCard } from '../components/loading/Skeleton';
@@ -18,7 +19,8 @@ const ImprovedDashboard = lazyWithRecovery(() => import('../components/dashboard
 
 
 export default function Dashboard() {
-  const { firstName, setCurrency } = usePreferences();
+  const { setCurrency } = usePreferences();
+  const { accounts } = useApp();
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Retired 2026-08-10: the Supabase "connection check".
@@ -38,13 +40,20 @@ export default function Dashboard() {
   // ported, and with it go this page's imports of the database client, the auth
   // context and the app context, none of which it used for anything else.
 
-  // Check if onboarding should be shown
+  // Check if onboarding should be shown.
+  //
+  // The second half of this used to be `!firstName` — a person who had typed a
+  // name into Settings was taken to have started. That was a proxy from when
+  // onboarding asked for the name, and it outlived both the question and the
+  // Settings field. An EMPTY LEDGER is the real thing being asked about, and
+  // it cannot go stale: someone with accounts has plainly begun, whether or
+  // not they ever dismissed this modal.
   useEffect(() => {
     const onboardingCompleted = localStorage.getItem('onboardingCompleted');
-    if (!onboardingCompleted && !firstName) {
+    if (!onboardingCompleted && accounts.length === 0) {
       setShowOnboarding(true);
     }
-  }, [firstName]);
+  }, [accounts.length]);
 
   // Handle onboarding completion
   const handleOnboardingComplete = (currency: string) => {

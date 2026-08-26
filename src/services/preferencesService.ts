@@ -199,6 +199,10 @@ export const PORTABLE_PREFERENCE_KEYS: readonly string[] = [
   'money_management_currency',
   'money_management_theme',
   'money_management_theme_schedule',
+  // Retired, and still carried for the same reason `reconciliationGroupBy` is:
+  // a backup taken today may be restored by a build that still reads them, and
+  // dropping a key from this list silently discards whatever the document
+  // holds. Nothing in the app reads any of the three.
   'money_management_first_name',
   'money_management_show_investments',
   'money_management_goal_celebrations',

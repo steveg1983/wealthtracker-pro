@@ -1,6 +1,5 @@
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
-import SyncStatusIndicator from '../components/SyncStatusIndicator';
 // Through the seam, not by path: the billing card and the sign-out are both
 // about the hosted SERVICE rather than about the ledger, and a device edition
 // has neither. See src/editions/service.ts.
@@ -40,9 +39,16 @@ export default function Settings() {
   return (
     <PageWrapper title="Settings">
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      {/* The Sync Status card that used to sit beside this said "All changes
+          saved" and could say nothing else: it read navigator.onLine, its
+          refresh button awaited a 1.5s timer and called no service, and the
+          event that would have marked work pending was dispatched by nothing
+          in the codebase. A panel that reports a state it does not measure is
+          worse than no panel — on the desktop edition it was also announcing
+          cloud sync to an edition with no server. The compact copy in the
+          header went for the same reason. */}
+      <div className="mb-6">
         <SubscriptionStatus />
-        <SyncStatusIndicator variant="detailed" showLastSync={true} />
       </div>
 
       {/* Above the About card, deliberately. Somebody who opens Settings
