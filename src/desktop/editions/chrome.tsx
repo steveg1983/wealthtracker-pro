@@ -54,6 +54,7 @@
 import { forwardRef, useImperativeHandle, type ReactElement } from 'react';
 import { currentDeviceIdentity } from '../../services/local/deviceIdentity';
 import type {
+  ChromeHasBankFeeds,
   ChromeGlobalSearch,
   ChromeOrnament,
   ChromeQuickAddTransaction
@@ -62,6 +63,7 @@ import type {
 // The same list the cloud half re-exports, for the same reason: a specifier is
 // only a substitution if both sides answer for the same vocabulary.
 export type {
+  ChromeHasBankFeeds,
   ChromeGlobalSearch,
   ChromeOrnament,
   ChromeQuickAddTransaction,
@@ -136,3 +138,6 @@ export const OfflineQueueIndicator: ChromeOrnament = () => null;
 
 /** …and nothing to add to the queue that is not there. */
 export const OfflineQuickAdd: ChromeOrnament = () => null;
+
+/** No server, no tokens, no sync — see editions/chrome.ts. */
+export const CHROME_HAS_BANK_FEEDS: ChromeHasBankFeeds = false;

@@ -102,3 +102,21 @@ export interface QuickAddTransactionProps {
  * chunk of its own should not have to pretend otherwise.
  */
 export type ChromeQuickAddTransaction = ComponentType<QuickAddTransactionProps>;
+
+/**
+ * WHETHER THIS EDITION HAS BANK FEEDS AT ALL — a fact, not furniture.
+ *
+ * The device edition's ledger is a file; there is no server to hold a bank
+ * token, no cron to sync one, and never will be (the "NEVER_ON_A_DESKTOP"
+ * class above). Yet the shared chrome offered "Bank Feeds" in its nav and
+ * the Accounts page offered a "Bank connections" button, both opening
+ * surfaces that could only apologise (owner, 26 Aug, item 4, from the first
+ * real install). A control whose action cannot exist in this edition is not
+ * furniture to stub — it is a menu item to NOT PRINT.
+ *
+ * A boolean rather than a stubbed component because the callers are not
+ * mounting a thing, they are deciding whether to draw their OWN things (a
+ * nav row, a toolbar button). The cloud half answers true, the device half
+ * false, and the compiler holds both to this declaration.
+ */
+export type ChromeHasBankFeeds = boolean;

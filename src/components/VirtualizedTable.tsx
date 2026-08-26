@@ -460,7 +460,16 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
     // Only apply hover effects if not selected. No scale: these rows sit in
     // an overflow-clipped table, and a 1.01 scale pushed the rightmost
     // column's digits past the edge — the shadow and z-lift suffice.
-    const hoverClass = onRowClick && !isSelected ? 'hover:shadow-[0_-6px_10px_-2px_rgba(0,0,0,0.15),0_6px_10px_-2px_rgba(0,0,0,0.15)] hover:z-10 hover:bg-gray-50 dark:hover:bg-gray-800' : '';
+    //
+    // And NOT while an editor row is open anywhere in the table: Save & Next
+    // is keyboard work, the mouse sits parked wherever the session started,
+    // and the row under it held its hover band for the whole session —
+    // reading as a second "selected" row rows above the real one (owner,
+    // 26 Aug, item 11). While the editor is open the pointer is not the
+    // instrument, so its effects stand down; they return the moment the
+    // editor closes.
+    const editorOpenSomewhere = !!rowDetail && detailIndex !== -1;
+    const hoverClass = onRowClick && !isSelected && !editorOpenSomewhere ? 'hover:shadow-[0_-6px_10px_-2px_rgba(0,0,0,0.15),0_6px_10px_-2px_rgba(0,0,0,0.15)] hover:z-10 hover:bg-gray-50 dark:hover:bg-gray-800' : '';
     // Don't apply stripe classes to selected rows. Unstriped, every unselected
     // row wears the plain background the even ones already wore — the stripe
     // is what goes, not the surface.

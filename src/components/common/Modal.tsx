@@ -216,12 +216,19 @@ export function Modal({
       >
         <div
           ref={modalRef}
+          // 100dvh AFTER 100vh, deliberately: on iOS 100vh is the LARGE
+          // viewport, taller than the glass, so a modal sized by it hangs its
+          // last row of buttons below the screen with the page scroll-locked —
+          // the owner's "only Delete, no Save" on the phone edit sheet
+          // (26 Aug, item 10). dvh tracks what is actually visible; a browser
+          // without it drops the invalid declaration and keeps the vh line.
           className={`
             bg-white dark:bg-gray-900
             rounded-2xl
             shadow-2xl
             w-full
             max-h-[calc(100vh-5.5rem)]
+            max-h-[calc(100dvh-5.5rem)]
             ${sizeClasses[size]}
             overflow-hidden
             flex

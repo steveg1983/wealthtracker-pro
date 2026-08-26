@@ -487,6 +487,14 @@ export default function AccountTransactions() {
   const [showFilters, setShowFilters] = useState(false);
   const [tableExpanded, setTableExpanded] = useState(false);
   const [sortField, setSortField] = useState<TransactionSortField>('date');
+  /**
+   * Has the PHONE's Order control been used? The phone reverses the default
+   * chronology (newest first — see phoneListRows), and that reversal must
+   * stand down the moment the order is CHOSEN, or "oldest first" would be
+   * unreachable: choosing date-ascending would be flipped right back to
+   * newest-first by the default's own courtesy.
+   */
+  const [phoneSortChosen, setPhoneSortChosen] = useState(false);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   // The table's height is MEASURED (viewport minus everything above it and a
   // reserve for the bottom dock) so the whole page always fits one screen,
@@ -1278,10 +1286,10 @@ export default function AccountTransactions() {
    * dashboard perf pass existed to remove.
    */
   const phoneListRows = useMemo(
-    () => (sortField === 'date' && sortDirection === 'asc'
+    () => (sortField === 'date' && sortDirection === 'asc' && !phoneSortChosen
       ? [...transactionsWithBalance].reverse()
       : transactionsWithBalance),
-    [transactionsWithBalance, sortField, sortDirection]
+    [transactionsWithBalance, sortField, sortDirection, phoneSortChosen]
   );
 
   // ── Opening at the foot of the register ────────────────────────────────────
@@ -3291,7 +3299,9 @@ export default function AccountTransactions() {
           wrapped inside the buttons and gave each a different height — and a
           fourth wraps to the next line, exactly as Show archived already
           does. */}
-      <div className="grid grid-cols-3 items-stretch gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
+      {/* relative: the View panel spans THIS row edge to edge on a phone —
+          see its own comment. Positioning context only; nothing else moves. */}
+      <div className="relative grid grid-cols-3 items-stretch gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
         {/* display:contents on phones dissolves this wrapper so every button
             inside it is an equal grid cell of the row above; from sm it is the
             left cluster again. */}
@@ -3337,7 +3347,7 @@ export default function AccountTransactions() {
         )}
 
         {/* View: choose which columns to show, and how far back to list */}
-        <div className="relative flex" ref={viewRef}>
+        <div className="static sm:relative flex" ref={viewRef}>
           <button
             onClick={() => setShowView(prev => !prev)}
             className={`${TOOLBAR_QUIET_BUTTON} ${TOOLBAR_QUIET_IDLE}`}
@@ -3349,8 +3359,15 @@ export default function AccountTransactions() {
             )}
             {showView ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
           </button>
+          {/* FULL TOOLBAR WIDTH on a phone: the button's place in the row
+              depends on how the toolbar wrapped, so anchoring 256px to either
+              of its edges clips one way or the other (measured both: 150px
+              off the right, then 14px off the left). The wrapper goes static
+              below sm, the panel anchors to the toolbar row and spans it —
+              found adding the Order section (owner item 9). Desktop keeps
+              the anchored w-64 it always had. */}
           {showView && (
-            <div className="absolute z-50 mt-1 left-0 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg p-3">
+            <div className="absolute z-50 mt-1 left-0 right-0 w-auto top-full sm:top-auto sm:right-auto sm:w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg p-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Columns</p>
               <div className="max-h-52 overflow-y-auto -mx-1 px-1">
                 {baseColumns.map(col => (
@@ -3362,6 +3379,46 @@ export default function AccountTransactions() {
                       className="rounded border-gray-300 dark:border-gray-600"
                     />
                     {COLUMN_LABELS[col.key] ?? col.header}
+                  </label>
+                ))}
+              </div>
+              {/* ORDER — phone only (owner, 26 Aug, item 9): the desktop
+                  sorts by clicking column headers, which a card list does not
+                  have. Six orders, each named by what ARRIVES FIRST, because
+                  "descending" makes a thumb stop and think. Picking any of
+                  them marks the order as CHOSEN, which stands the phone's
+                  newest-first default reversal down — see phoneSortChosen. */}
+              <div className="sm:hidden mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Order</p>
+                {([
+                  { label: 'Date — newest first', field: 'date', direction: 'desc' },
+                  { label: 'Date — oldest first', field: 'date', direction: 'asc' },
+                  { label: 'Description — A to Z', field: 'description', direction: 'asc' },
+                  { label: 'Description — Z to A', field: 'description', direction: 'desc' },
+                  { label: 'Amount — largest first', field: 'amount', direction: 'desc' },
+                  { label: 'Amount — smallest first', field: 'amount', direction: 'asc' },
+                ] as const).map(option => (
+                  <label key={option.label} className="flex items-center gap-2 py-1 text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="phone-order"
+                      checked={
+                        sortField === option.field &&
+                        (phoneSortChosen
+                          ? sortDirection === option.direction
+                          // The unchosen default (date ascending, reversed for
+                          // the phone) DISPLAYS newest first, so that is the
+                          // radio it honestly matches.
+                          : option.direction === 'desc' && option.field === 'date')
+                      }
+                      onChange={() => {
+                        setSortField(option.field);
+                        setSortDirection(option.direction);
+                        setPhoneSortChosen(true);
+                      }}
+                      className="border-gray-300 dark:border-gray-600"
+                    />
+                    {option.label}
                   </label>
                 ))}
               </div>

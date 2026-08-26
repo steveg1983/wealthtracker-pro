@@ -6,6 +6,7 @@ import { dataPort } from '@data';
 import { preserveDemoParam } from '../utils/navigation';
 import { DEPTH_LEVEL_1, DEPTH_LEVEL_2 } from '../styles/depthShading';
 import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
+import { CHROME_HAS_BANK_FEEDS } from '@chrome';
 import AddAccountModal from '../components/AddAccountModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import AccountBreakdownModal, { type AccountBreakdownView } from '../components/AccountBreakdownModal';
@@ -2506,10 +2507,17 @@ function AccountsList() {
 
       {/* On the RIGHT, between the summary boxes and the controls — the same
           side every page keeps this choice on (owner, 20 Aug: "the location
-          on each page should be similar, as in on the right hand side"). */}
-      <div className="-mt-4 mb-2 flex justify-end">
-        <WholePoundsToggle />
-      </div>
+          on each page should be similar, as in on the right hand side").
+
+          Only while there are figures to hide: with no accounts the summary
+          above does not render, the -mt-4 that tucks this under it grabbed
+          the Add Account button instead (owner, 26 Aug, on the desktop
+          build), and a decimals toggle over an empty page governs nothing. */}
+      {accounts.length > 0 && (
+        <div className="-mt-4 mb-2 flex justify-end">
+          <WholePoundsToggle />
+        </div>
+      )}
 
       {/* Group + sort controls, with bank connections on the right.
           ─ WHICH LABEL GOES WITH WHICH CONTROL ────────────────────────────
@@ -2911,6 +2919,7 @@ function AccountsList() {
                 asks rather than assumes. The LABEL and the count are
                 unchanged either way: standing down surrenders the colour,
                 never the facts. */}
+            {CHROME_HAS_BANK_FEEDS && (
             <button
               onClick={() => setBankConnectionsView('plain')}
               className={`w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors flex items-center gap-2 ${
@@ -2924,6 +2933,7 @@ function AccountsList() {
                 ? `Bank connections — ${feedsNeedingAttention} need${feedsNeedingAttention === 1 ? 's' : ''} attention`
                 : 'Bank connections'}
             </button>
+            )}
             {/* ─ THE TRAVELLING AMBER ─────────────────────────────────────────
                 See `focusMode` for the whole argument. In short: one control
                 naming the next job, which MOVES to the next one as each is

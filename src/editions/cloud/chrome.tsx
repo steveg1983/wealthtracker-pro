@@ -33,6 +33,7 @@ import { OfflineIndicator as PWAOfflineIndicatorComponent } from '../../componen
 import { QuickAddOfflineButton as QuickAddOfflineButtonComponent } from '../../components/pwa/QuickAddOfflineButton';
 import { useAutoBankSync } from '../../hooks/useAutoBankSync';
 import type {
+  ChromeHasBankFeeds,
   ChromeGlobalSearch,
   ChromeOrnament,
   ChromeQuickAddTransaction
@@ -45,6 +46,7 @@ import type {
 // `editions/__tests__/editionAliases.test.ts` requires both halves to answer
 // for the same list.
 export type {
+  ChromeHasBankFeeds,
   ChromeGlobalSearch,
   ChromeOrnament,
   ChromeQuickAddTransaction,
@@ -108,3 +110,6 @@ export const OfflineQueueIndicator: ChromeOrnament = PWAOfflineIndicatorComponen
 
 /** Write a transaction into that queue without a connection. */
 export const OfflineQuickAdd: ChromeOrnament = QuickAddOfflineButtonComponent;
+
+/** The cloud has the server, the tokens and the cron — see editions/chrome.ts. */
+export const CHROME_HAS_BANK_FEEDS: ChromeHasBankFeeds = true;

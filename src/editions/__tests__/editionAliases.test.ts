@@ -197,10 +197,15 @@ describe('the edition seams', () => {
     // the big one: ten pieces of furniture — eight from the mount's first half
     // and two the BUNDLE GREP added in its second, when a PWA offline queue in
     // the frame turned out to be keeping writes for a server that does not
-    // exist. `RealtimeDot` is certainly one of them.
+    // exist. `RealtimeDot` is certainly one of them. Plus one FACT:
+    // CHROME_HAS_BANK_FEEDS (26 Aug) — not furniture but a boolean the
+    // callers use to decide whether to draw their own bank-feed controls,
+    // after the first desktop install offered a nav item that could only
+    // apologise.
     const chrome = valueExportsOf('src/editions/cloud/chrome.tsx');
-    expect(chrome.length).toBe(10);
+    expect(chrome.length).toBe(11);
     expect(chrome).toContain('RealtimeDot');
+    expect(chrome).toContain('CHROME_HAS_BANK_FEEDS');
     expect(typeExportsOf('src/editions/cloud/chrome.tsx')).toContain('GlobalSearchHandle');
     expect(valueExportsOf('src/desktop/editions/telemetry.ts')).toEqual([
       'captureException',
