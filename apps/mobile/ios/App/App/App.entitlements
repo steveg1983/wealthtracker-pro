@@ -2,28 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!--
-	  Associated Domains — what lets iOS treat this app and the website as the
-	  same place.
-
-	  WHY IT IS HERE: the shell is a native window around
-	  https://www.wealthtrackerpro.co.uk, and iOS will not offer to save or fill
-	  a password in an app's web view unless the app has PROVED it owns that
-	  domain. Without this, Apple Passwords ignores the sign-in form entirely —
-	  which is exactly what the owner saw: Safari on the same Mac remembers him,
-	  the app never offers.
-
-	  The proof is two-sided. This half is the claim; the other half is
-	  /.well-known/apple-app-site-association on the domain, which names this
-	  app's team and bundle id back. iOS fetches it and only believes a match.
-
-	  `webcredentials` is also the prerequisite for PASSKEYS — a passkey is
-	  bound to a domain, so an app can only use one for a site it has proved it
-	  owns.
-
-	  Only the www host is claimed: it is the origin the web view actually
-	  loads, so it is the origin any saved credential is scoped to.
-	-->
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>webcredentials:www.wealthtrackerpro.co.uk</string>
