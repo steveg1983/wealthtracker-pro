@@ -481,8 +481,32 @@ export default function CategorySelector({
 
   // A caller asking for the cursor (see openSearchToken). The search input is
   // autoFocused as it mounts, so opening the list IS handing over the keyboard.
+  //
+  // ONLY ON A CHANGE, NEVER ON A MOUNT. An effect with dependencies still runs
+  // once when the component mounts, and `if (!openSearchToken) return` only
+  // covers a token that is still zero — so a picker mounting with an already
+  // raised token opened itself, which is the exact thing the prop's contract
+  // above promises it will not do.
+  //
+  // That was invisible until the counter had been raised once. The register's
+  // editor never unmounts and never resets the token, and it rebuilds the
+  // picker on every Save & Next hop — so ONE landing on the category field
+  // latched it, and from then on every hop, whatever field the user was
+  // actually working in, mounted a picker that opened itself and took the
+  // keyboard. Because the search box is autoFocused in a LATER commit than the
+  // editor's own focus call, category always won. Hence the owner's report: a
+  // run down the notes column that keeps arriving in the category picker, but
+  // "not every time" — it is a latch, not a race, and a fresh page was well
+  // behaved until the first category landing tripped it.
+  //
+  // Comparing against the last token this picker acted on is what makes a
+  // rebuild indistinguishable from having never left.
+  const handledSearchToken = useRef(openSearchToken ?? 0);
   useEffect(() => {
-    if (!openSearchToken) return;
+    const token = openSearchToken ?? 0;
+    if (token === handledSearchToken.current) return;
+    handledSearchToken.current = token;
+    if (!token) return;
     setSearchTerm('');
     setShowDropdown(true);
   }, [openSearchToken]);
