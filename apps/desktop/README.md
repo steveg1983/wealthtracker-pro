@@ -119,6 +119,41 @@ typecheck:strict` is what catches it, via the root `tsconfig.json`'s reference
 to `tsconfig.desktop.json`, and that reference is now asserted by a test because
 it is the only thing standing between this renderer and being untyped.
 
+## How an installed copy gets fixes
+
+A desktop build is a **frozen** copy of the app: `frontendDist` embeds the
+renderer in the binary at compile time, so nothing about a download changes
+when the website changes. (The iOS shell is the opposite — it points a WebView
+at production, so a deploy IS its release. The two are not comparable and the
+difference catches people out.)
+
+Since **0.1.1** the app therefore updates itself:
+
+* on launch, `src-tauri/src/update.rs` asks the endpoint in `tauri.conf.json`
+  whether there is a newer release. Silent, off the main thread, and a failure
+  costs only the update — never a dialog;
+* if there is one, a native dialog offers it, saying what will happen (the
+  window closes and reopens) and what will not (the ledger file is untouched).
+  Declining is free; the next launch asks again;
+* the download is verified against the release public key before it is allowed
+  to run, so the endpoint is not trusted, only the signature is.
+
+It is driven from Rust rather than the renderer for the reason the file chooser
+is: the WebView must not be the part of the program that can replace the
+program. It also keeps the updater out of the size ratchet and out of the CSP.
+
+**The release is created as a DRAFT.** Nothing is offered to anyone until that
+draft is published by hand — publishing IS shipping the update, and it happens
+after the `.dmg` has been notarised and swapped in. Cutting a release is
+`git tag desktop-v<x.y.z> && git push origin desktop-v<x.y.z>`.
+
+**Still owed: OS code signing in CI.** Update signatures exist; Developer ID
+and Windows code-signing certificates do not, so first-run downloads still need
+right-click → Open (macOS) or "more info" (Windows), the published `.dmg` is
+notarised by hand, and the macOS update archive is only ad-hoc signed. The
+header of `.github/workflows/desktop-release.yml` names the secrets that would
+retire all of that.
+
 ## What has been verified, and what has not
 
 Verified on this machine, at this commit:

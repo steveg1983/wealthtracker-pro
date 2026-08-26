@@ -11,12 +11,24 @@
 # artefacts somebody will download, so it runs when a release is asked for:
 # a `desktop-v*` tag, or the Run-workflow button.
 #
-# SIGNING: deliberately absent for now. These artefacts are unsigned — macOS
-# users right-click → Open the first time; Windows shows SmartScreen's "more
-# info". Signing needs the owner's Developer ID certificate (macOS) and a
-# code-signing cert (Windows) added as repo secrets; the env hooks below are
-# where they will plug in (APPLE_CERTIFICATE / APPLE_SIGNING_IDENTITY /
-# APPLE_ID for notarisation — see Tauri's macOS signing guide). The repo is
+# SIGNING — TWO DIFFERENT SIGNATURES, AND ONLY ONE OF THEM EXISTS YET:
+#
+#   1. UPDATE signing (present since 0.1.1). Every updater archive is signed
+#      with the release keypair and the installed app verifies it against the
+#      public half in tauri.conf.json. This is what stops a hostile endpoint
+#      serving a payload that runs, and it is entirely separate from the OS's
+#      opinion of the binary.
+#
+#   2. OS code signing (still absent). The artefacts carry no Developer ID and
+#      no Windows code-signing certificate, so a first-run macOS download wants
+#      right-click → Open and Windows shows SmartScreen's "more info". The
+#      published .dmg is notarised BY HAND on the owner's Mac after the build;
+#      the macOS update archive is only ad-hoc signed.
+#
+# Adding the owner's Developer ID to Actions secrets (APPLE_CERTIFICATE /
+# APPLE_CERTIFICATE_PASSWORD / APPLE_SIGNING_IDENTITY / APPLE_ID /
+# APPLE_PASSWORD / APPLE_TEAM_ID — see Tauri's macOS signing guide) would sign
+# and notarise both artefacts here and retire the manual step. The repo is
 # PUBLIC: certificates and passwords go in Actions secrets, never in this file.
 name: Desktop installers
 
@@ -88,6 +100,16 @@ jobs:
         shell: bash
 
       - name: Build the installer
+        # The signing key is what makes the built app trust an update: the
+        # updater verifies every downloaded artefact against the public half in
+        # tauri.conf.json and refuses anything it cannot match, so a
+        # compromised endpoint cannot serve a payload that runs. Without these
+        # two variables `createUpdaterArtifacts` produces the archives and no
+        # .sig beside them, and the manifest job below fails rather than
+        # publishing an update nobody could install.
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run --prefix apps/desktop tauri -- build --bundles ${{ matrix.bundles }} ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
 
       - name: Collect artefacts
@@ -96,8 +118,16 @@ jobs:
           mkdir -p out
           # A --target build lands under target/<triple>/release; find covers both.
           BUNDLE_DIR="apps/desktop/src-tauri/target"
+          # What a person downloads.
           find "$BUNDLE_DIR" -name '*.dmg' -exec cp {} out/ \; 2>/dev/null || true
           find "$BUNDLE_DIR" -name '*-setup.exe' -exec cp {} out/ \; 2>/dev/null || true
+          # What an INSTALLED app downloads: the update archives and their
+          # signatures. Different files from the two above — an installer is
+          # not an update — and the manifest job needs both halves.
+          find "$BUNDLE_DIR" -name '*.app.tar.gz' -exec cp {} out/ \; 2>/dev/null || true
+          find "$BUNDLE_DIR" -name '*.app.tar.gz.sig' -exec cp {} out/ \; 2>/dev/null || true
+          find "$BUNDLE_DIR" -name '*-setup.nsis.zip' -exec cp {} out/ \; 2>/dev/null || true
+          find "$BUNDLE_DIR" -name '*-setup.nsis.zip.sig' -exec cp {} out/ \; 2>/dev/null || true
           ls -la out/
 
       - uses: actions/upload-artifact@v4
@@ -113,4 +143,87 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: out/*
+          draft: true
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # The manifest an INSTALLED app reads.
+  #
+  # It has to be its own job because it is the one artefact that needs BOTH
+  # platforms' output at once: one file naming the macOS archive and the
+  # Windows archive with their signatures. `needs: build` is that barrier.
+  #
+  # WHERE THE APP LOOKS: tauri.conf.json points at
+  # `releases/latest/download/latest.json`, and GitHub resolves "latest" to the
+  # newest PUBLISHED, non-draft release. The release this workflow creates is a
+  # DRAFT — so nothing is offered to anyone until the draft is published by
+  # hand. That is the intended safety catch: publishing the release IS the act
+  # of shipping the update, and it happens after the .dmg has been notarised
+  # and swapped in.
+  # ─────────────────────────────────────────────────────────────────────────
+  manifest:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefacts
+
+      - name: Compose latest.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#desktop-v}"
+          BASE="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+
+          # A missing half is a HARD failure. The alternative — emitting a
+          # manifest naming only the platform that built — would tell every
+          # user of the other platform that they are up to date when they are
+          # not, which is worse than no manifest at all.
+          need() {
+            local found
+            found="$(find artefacts -name "$1" -print -quit)"
+            if [ -z "$found" ]; then
+              echo "desktop-release: no artefact matching '$1' — refusing to publish a partial manifest" >&2
+              exit 1
+            fi
+            printf '%s' "$found"
+          }
+
+          MAC_ARCHIVE="$(need '*.app.tar.gz')"
+          MAC_SIGNATURE="$(cat "$(need '*.app.tar.gz.sig')")"
+          WIN_ARCHIVE="$(need '*-setup.nsis.zip')"
+          WIN_SIGNATURE="$(cat "$(need '*-setup.nsis.zip.sig')")"
+
+          # The macOS build is universal, so both Apple architectures are
+          # served the one archive — that is what `universal-apple-darwin`
+          # buys, and the updater still has to be told twice because it keys
+          # on the running architecture.
+          jq -n \
+            --arg version "$VERSION" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg mac_url "$BASE/$(basename "$MAC_ARCHIVE")" \
+            --arg mac_sig "$MAC_SIGNATURE" \
+            --arg win_url "$BASE/$(basename "$WIN_ARCHIVE")" \
+            --arg win_sig "$WIN_SIGNATURE" \
+            '{
+              version: $version,
+              pub_date: $pub_date,
+              notes: "See the release notes on GitHub.",
+              platforms: {
+                "darwin-aarch64": { signature: $mac_sig, url: $mac_url },
+                "darwin-x86_64":  { signature: $mac_sig, url: $mac_url },
+                "windows-x86_64": { signature: $win_sig, url: $win_url }
+              }
+            }' > latest.json
+
+          echo "--- latest.json (signatures elided) ---"
+          jq '.platforms |= map_values(.signature = "<signed>")' latest.json
+
+      - name: Attach the manifest to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: latest.json
           draft: true

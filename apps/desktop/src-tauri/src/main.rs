@@ -60,6 +60,7 @@
 
 mod document;
 mod lock;
+mod update;
 
 use std::sync::Mutex;
 
@@ -281,10 +282,14 @@ fn shell_build() -> ShellBuild {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             app.manage(Shell {
                 open: Mutex::new(None),
             });
+            // Returns at once; the look happens on the async runtime and can
+            // only ever cost the update. See `update.rs`.
+            update::offer_any_update(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

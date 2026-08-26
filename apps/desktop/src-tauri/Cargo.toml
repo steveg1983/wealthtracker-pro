@@ -22,7 +22,7 @@
 
 [package]
 name = "wealthtracker-desktop"
-version = "0.1.0"
+version = "0.1.1"
 description = "WealthTracker local edition — the desktop shell."
 edition = "2021"
 rust-version = "1.89"
@@ -63,6 +63,12 @@ tauri = { version = "2", features = ["devtools"] }
 # The NATIVE file chooser, and the reason the shell has file commands at all: a
 # path is not a payload. See `src/main.rs`.
 tauri-plugin-dialog = "2"
+# Self-update. Driven entirely from Rust (see `main.rs`'s update section) for
+# the same reason the file chooser is: the WebView is not the part of this
+# program that should be able to replace the program. Keeping it out of the
+# renderer also keeps it out of the size ratchet and away from a CSP that
+# would otherwise have to admit an update host.
+tauri-plugin-updater = "2"
 
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
