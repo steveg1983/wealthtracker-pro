@@ -147,6 +147,12 @@ export interface SyncTransactionsResponse {
   success: boolean;
   transactionsImported: number;
   duplicatesSkipped: number;
+  /**
+   * Existing rows repointed to a re-issued provider id (same transaction,
+   * new external id — the Aug 2026 churned-cheque class). Neither imported
+   * nor a duplicate; present only when non-zero.
+   */
+  idChurnRepaired?: number;
   error?: string;
 }
 
