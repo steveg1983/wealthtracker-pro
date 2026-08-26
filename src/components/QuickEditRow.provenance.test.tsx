@@ -142,6 +142,23 @@ describe('The register row editor — suggested categories', () => {
     expect(mocks.showSuccess).toHaveBeenCalled();
   });
 
+  it('does not claim a confirmation the store did not make', async () => {
+    // The owner's report: confirm a suggestion, go back to the register, and
+    // the row is still bold with the "Suggested" badge — having been told it
+    // was confirmed. The store had matched no rows; every layer between the
+    // RPC and the message reported success anyway, so nothing could notice.
+    // A zero count now says so instead of congratulating the user.
+    mocks.confirmTransactionCategories.mockResolvedValueOnce(0);
+
+    render(<RowEditor transaction={suggested} onDismiss={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => {
+      expect(mocks.showError).toHaveBeenCalled();
+    });
+    expect(mocks.showSuccess).not.toHaveBeenCalled();
+  });
+
   it('shows neither the badge nor the confirm button once the user has vouched', () => {
     render(
       <RowEditor

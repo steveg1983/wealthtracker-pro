@@ -23,6 +23,7 @@ import type { TrueLayerTransaction } from '../_lib/truelayer.js';
 import { fetchCardTransactions, fetchTransactions } from '../_lib/truelayer.js';
 import { cardAmountToAppSigned } from '../../src/services/banking/cardNormalization.js';
 import { resolveIdChurn, type ExistingBankRow } from '../../src/services/banking/idChurn.js';
+import { syncWindowStart } from '../../src/services/banking/syncWindow.js';
 
 const coerceIsoDateTime = (value: string, endOfDay: boolean): string | null => {
   const trimmed = value.trim();
@@ -43,9 +44,22 @@ const coerceIsoDateTime = (value: string, endOfDay: boolean): string | null => {
   return parsed.toISOString();
 };
 
-const getDateRange = (body: SyncTransactionsRequest): { from: string; to: string } => {
+/**
+ * The range this sync asks the provider for.
+ *
+ * The FROM is decided by `syncWindowStart`, which is where the PSD2 reasoning
+ * lives — asking for the full ninety days on an unattended run is asking for
+ * a protected resource, and a strict provider refuses the whole call.
+ *
+ * An explicit startDate still wins: a caller naming a range has a reason, and
+ * the deliberate backfill right after a reauthorization is one.
+ */
+const getDateRange = (
+  body: SyncTransactionsRequest,
+  lastSync: string | null | undefined
+): { from: string; to: string } => {
   const now = new Date();
-  const defaultFrom = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const defaultFrom = syncWindowStart(lastSync, now).toISOString();
   const defaultTo = now.toISOString();
 
   const from = typeof body.startDate === 'string'
@@ -147,7 +161,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       return createErrorResponse(res, 404, 'Connection not found', 'not_found');
     }
 
-    const dateRange = getDateRange(body);
+    const dateRange = getDateRange(body, connection.last_sync);
 
     const linkedAccountsResult = await supabase
       .from('linked_accounts')

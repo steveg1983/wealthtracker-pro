@@ -1167,7 +1167,18 @@ class TransactionServiceImpl {
         throw new Error(handleSupabaseError(error));
       }
 
-      return typeof data === 'number' ? data : ids.length;
+      // NEVER `: ids.length`. The RPC is declared RETURNS integer, so a
+      // non-number is a broken contract — and answering it with "all of them"
+      // is the most expensive possible guess: it reports a full success for a
+      // call that may have written nothing, and every caller downstream then
+      // paints rows confirmed on the strength of it. The owner's symptom was
+      // exactly that shape — a Confirm that announced itself and left the row
+      // bold and badged, because nothing between the RPC and the screen could
+      // notice a no-op.
+      if (typeof data !== 'number') {
+        throw new Error('confirm_transaction_categories did not return a count');
+      }
+      return data;
     } catch (error) {
       this.logger.error('TransactionService.confirmTransactionCategories error:', error as Error);
       throw error;

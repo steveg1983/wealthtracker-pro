@@ -1245,18 +1245,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       const count = await dataPort.confirmTransactionCategories(ids);
-      const idSet = new Set(ids);
-      setTransactions(prev => prev.map(t =>
-        idSet.has(t.id) && t.categoryConfirmed === false
-          ? { ...t, categoryConfirmed: true, needsReview: false }
-          : t
-      ));
+
+      // PAINT ONLY WHAT THE SERVER ACTUALLY CONFIRMED.
+      //
+      // This used to patch every id regardless of the count, so a call that
+      // matched NOTHING looked identical to one that matched everything — the
+      // rows went un-bold, the pill vanished, and the next read from the store
+      // put them straight back. That is the owner's report: confirm on the
+      // review page, return to the register, still bold, still "Suggested".
+      //
+      // A short count is not necessarily a failure — the RPC skips rows it
+      // finds already confirmed — but it does mean this client's picture and
+      // the store's disagree, and the store is the one that is right. So stop
+      // guessing and go and read it.
+      if (count === ids.length) {
+        const idSet = new Set(ids);
+        setTransactions(prev => prev.map(t =>
+          idSet.has(t.id) && t.categoryConfirmed === false
+            ? { ...t, categoryConfirmed: true, needsReview: false }
+            : t
+        ));
+      } else {
+        await refreshAccountsAndTransactions();
+      }
       return count;
     } catch (error) {
       appLogger.error('Failed to confirm categories', error);
       throw error;
     }
-  }, []);
+  }, [refreshAccountsAndTransactions]);
 
   const renameTransactionDescriptions = useCallback(async (
     ids: string[],

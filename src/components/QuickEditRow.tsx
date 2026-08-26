@@ -772,8 +772,18 @@ export function QuickEditRowProvider({
     restoreFocusRef.current = true;
     void (async (): Promise<void> => {
       try {
-        await confirmTransactionCategories([id]);
-        showSuccess('Category confirmed.');
+        const confirmed = await confirmTransactionCategories([id]);
+        if (confirmed === 0) {
+          // The store did not confirm this row, and saying so is the whole
+          // point: the alternative — the message this used to show every time
+          // — sent the owner back to a register where the row was still bold
+          // and still badged, with nothing to explain the disagreement.
+          showError(new Error(
+            'That row could not be confirmed — it may have changed since this list was loaded. It has been reloaded; try again.'
+          ));
+        } else {
+          showSuccess('Category confirmed.');
+        }
       } catch (error) {
         showError(error);
       } finally {
