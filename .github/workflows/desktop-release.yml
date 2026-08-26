@@ -11,25 +11,33 @@
 # artefacts somebody will download, so it runs when a release is asked for:
 # a `desktop-v*` tag, or the Run-workflow button.
 #
-# SIGNING — TWO DIFFERENT SIGNATURES, AND ONLY ONE OF THEM EXISTS YET:
+# SIGNING — THREE SIGNATURES, ANSWERING THREE DIFFERENT QUESTIONS:
 #
-#   1. UPDATE signing (present since 0.1.1). Every updater archive is signed
-#      with the release keypair and the installed app verifies it against the
-#      public half in tauri.conf.json. This is what stops a hostile endpoint
-#      serving a payload that runs, and it is entirely separate from the OS's
-#      opinion of the binary.
+#   1. UPDATE signing (since 0.1.1). Every updater archive is signed with the
+#      release keypair, and the installed app verifies it against the public
+#      half in tauri.conf.json. Stops a hostile endpoint serving a payload
+#      that runs. Nothing to do with Apple.
 #
-#   2. OS code signing (still absent). The artefacts carry no Developer ID and
-#      no Windows code-signing certificate, so a first-run macOS download wants
-#      right-click → Open and Windows shows SmartScreen's "more info". The
-#      published .dmg is notarised BY HAND on the owner's Mac after the build;
-#      the macOS update archive is only ad-hoc signed.
+#   2. macOS CODE signing (APPLE_CERTIFICATE). Without it the binary is
+#      unsigned — and an unsigned binary CANNOT BE NOTARISED. Measured on
+#      0.1.1: Apple refused it for "the binary is not signed", no secure
+#      timestamp and no hardened runtime, which is why 0.1.1 and 0.1.2 both had
+#      to be rebuilt by hand on the owner's Mac.
 #
-# Adding the owner's Developer ID to Actions secrets (APPLE_CERTIFICATE /
-# APPLE_CERTIFICATE_PASSWORD / APPLE_SIGNING_IDENTITY / APPLE_ID /
-# APPLE_PASSWORD / APPLE_TEAM_ID — see Tauri's macOS signing guide) would sign
-# and notarise both artefacts here and retire the manual step. The repo is
-# PUBLIC: certificates and passwords go in Actions secrets, never in this file.
+#   3. NOTARISATION (APPLE_API_*). Apple's opinion that the signed thing is not
+#      malware. An App Store Connect key rather than an app-specific password,
+#      because the same key also uploads the iOS build.
+#
+# WINDOWS code signing is still absent, so the .exe shows SmartScreen's "more
+# info" on first run. That needs a separate certificate from a commercial CA.
+#
+# Each of the three degrades quietly when its secret is missing — an unsigned
+# build, or a signed one that is not notarised — so this file works before the
+# secrets exist and keeps working if one is rotated away. It never claims
+# otherwise: the collect step publishes whatever was actually produced.
+#
+# The repo is PUBLIC: certificates, passwords and keys live in Actions
+# secrets, never in this file.
 name: Desktop installers
 
 on:
@@ -99,17 +107,62 @@ jobs:
           npm run bundle:check:desktop
         shell: bash
 
+      # The App Store Connect key, written to a file because that is the only
+      # form the bundler accepts (APPLE_API_KEY_PATH). Runner-local, and the
+      # runner is destroyed with the job.
+      - name: Provide the App Store Connect key
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          # The absence check is in the SCRIPT, not in an `if:`. The secrets
+          # context is not dependable in a step condition, and a workflow that
+          # silently stopped running this step would produce an unsigned build
+          # while looking exactly like a signed one.
+          if [ -z "${APPLE_API_KEY_P8:-}" ]; then
+            echo "No APPLE_API_KEY_P8 configured — this build will not be notarised."
+            exit 0
+          fi
+          printf '%s' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/AuthKey.p8"
+          echo "App Store Connect key staged."
+
       - name: Build the installer
-        # The signing key is what makes the built app trust an update: the
-        # updater verifies every downloaded artefact against the public half in
-        # tauri.conf.json and refuses anything it cannot match, so a
-        # compromised endpoint cannot serve a payload that runs. Without these
-        # two variables `createUpdaterArtifacts` produces the archives and no
-        # .sig beside them, and the manifest job below fails rather than
-        # publishing an update nobody could install.
+        # THREE DIFFERENT SIGNATURES MEET HERE, and they answer different
+        # questions. Keeping them straight is most of the difficulty:
+        #
+        #  TAURI_SIGNING_*   the UPDATE signature. The installed app verifies
+        #                    every downloaded archive against the public half
+        #                    in tauri.conf.json, so a compromised endpoint
+        #                    cannot serve a payload that runs. Nothing to do
+        #                    with Apple.
+        #  APPLE_CERTIFICATE the OS signature. Without it the binary is
+        #                    unsigned, and an unsigned binary CANNOT BE
+        #                    NOTARISED — Apple rejects it outright for "the
+        #                    binary is not signed", no secure timestamp and no
+        #                    hardened runtime. Measured on 0.1.1, which is why
+        #                    both 0.1.1 and 0.1.2 had to be rebuilt by hand on
+        #                    the owner's Mac and notarised there.
+        #  APPLE_API_*       notarisation itself: Apple's opinion that the
+        #                    signed thing is not malware. The same key also
+        #                    uploads the iOS build, which is why it is a key
+        #                    rather than an app-specific password.
+        #
+        # Every one of them degrades quietly when its secret is absent — an
+        # unsigned build, or a signed one that is not notarised — so this file
+        # keeps working before the secrets exist. What it must never do is
+        # claim otherwise, and it does not: the collect step publishes whatever
+        # was actually produced.
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
         run: npm run --prefix apps/desktop tauri -- build --bundles ${{ matrix.bundles }} ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
 
       - name: Collect artefacts
