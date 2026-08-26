@@ -21,7 +21,7 @@
 | Desktop bundle | `npm run desktop:verify` | ✅ | Builds `src/desktop` → `apps/desktop/dist`, then PHASE3-PLAN §5’s two bundle greps, then the size ratchet. REFUSES rather than skips when there is no build |
 | Desktop size | `npm run bundle:check:desktop` | ✅ | ~4,090 KiB raw / ~1,244 KiB gz; budgets 4320 / 1335 KiB. **Raw** is the gate — nothing is downloaded, the bytes are embedded in the binary. Binary size recorded, never gated. (The 259 KiB figure this row used to quote was the chooser window, before the app's screens were mounted; the baseline was re-recorded 2026‑08‑12 and the header of `scripts/desktop-bundle-size.mjs` narrates every step since.) |
 | Desktop shell | `npm run desktop:check` | ✅ | clippy `-D warnings` + the shell crate's own 12 tests (`apps/desktop/src-tauri`) |
-| Desktop build | `npm run desktop:build` | ✅ | `vite` → `apps/desktop/dist`, then `cargo build --release` → 16.1 MB. The renderer must be built first: `generate_context!` embeds it |
+| Desktop build | `npm run desktop:build` | ✅ | `vite` → `apps/desktop/dist`, then `cargo build --release` → ~20 MB arm64 (was 16.1 MB; the 0.1.1 updater brings an HTTP/TLS stack with it). The renderer must be built first: `generate_context!` embeds it. Since 0.1.1 a release build also emits `WealthTracker.app.tar.gz` + `.sig` — what an INSTALLED copy downloads, which is not the installer |
 
 ### The local edition's lanes
 
