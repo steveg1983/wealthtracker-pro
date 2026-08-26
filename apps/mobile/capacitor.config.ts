@@ -16,17 +16,18 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * assets means CORS work on the API and a second deploy pipeline, none of
  * which TestFlight requires.
  *
- * Sign-in on a phone requires the Clerk PRODUCTION instance (see
- * docs/clerk-production-runbook.md) — the dev instance's social login dies
- * on iOS Safari's tracking prevention. Until that lands, this shell is
- * proven against demo mode, which needs no sign-in.
+ * Points at the PRODUCTION domain, because that is where the Clerk
+ * production instance lives — the runbook completed 26 Aug 2026, and Google
+ * sign-in was verified on a real iPhone the same night. The vercel.app host
+ * would sign nobody in: the pk_live instance answers only on the first-party
+ * domain.
  */
 const config: CapacitorConfig = {
   appId: 'com.wealthtracker.mobile',
   appName: 'WealthTracker',
   webDir: 'www',
   server: {
-    url: 'https://wealthtracker-web.vercel.app',
+    url: 'https://www.wealthtrackerpro.co.uk',
   },
   ios: {
     contentInset: 'automatic',
