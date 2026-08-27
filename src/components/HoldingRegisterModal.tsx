@@ -16,7 +16,7 @@ import { dataPort } from '@data';
 import { Modal, ModalBody } from './common/Modal';
 import { buildHoldingRegister, type HoldingPricePoint } from '../services/investments/holdingRegister';
 import type { InvestmentHolding } from '../services/investments/holding';
-import { formatCurrency } from '../utils/currency-decimal';
+import { formatCurrency, formatUnitPrice } from '../utils/currency-decimal';
 
 interface HoldingRegisterModalProps {
   holding: InvestmentHolding;
@@ -121,14 +121,16 @@ export default function HoldingRegisterModal({
                       key={`${line.date ?? 'undated'}-${index}`}
                       className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
                     >
-                      <td className="py-2 pr-3 tabular-nums text-gray-900 dark:text-white">
+                      {/* nowrap, as in SecurityHistoryModal: dates must not
+                          split across lines; the overflow container scrolls. */}
+                      <td className="py-2 pr-3 tabular-nums whitespace-nowrap text-gray-900 dark:text-white">
                         {line.date ?? '—'}
                       </td>
                       <td className="py-2 px-3 text-gray-700 dark:text-gray-300">
                         {SOURCE_WORD[line.source]}
                       </td>
                       <td className="py-2 px-3 text-right tabular-nums text-gray-900 dark:text-white">
-                        {line.price === null ? '—' : formatCurrency(line.price, holding.currency)}
+                        {line.price === null ? '—' : formatUnitPrice(line.price, holding.currency)}
                       </td>
                       <td className="py-2 px-3 text-right tabular-nums text-gray-900 dark:text-white">
                         {formatCurrency(line.amount, holding.currency)}

@@ -168,6 +168,32 @@ export function formatCurrency(
 }
 
 /**
+ * A PER-UNIT price, up to four decimal places — the registers' Price column.
+ *
+ * Money showed four-decimal unit prices, and penny shares need them: a
+ * £0.0299 share rounded to £0.03 misstates the figure by a third of a penny
+ * per unit, which across 199,702 units is real money (owner, 27 Aug: "best
+ * be accurate with 4dp"). Two places minimum keep the familiar money shape;
+ * beyond that, only places that carry information — £2.722, never £2.7200.
+ *
+ * AMOUNTS stay on {@link formatCurrency}: a price is a rate, not a money
+ * amount (the same distinction numeric(20,8) draws in the schema), and this
+ * formatter is for rates alone.
+ */
+export function formatUnitPrice(
+  amount: DecimalInstance | number,
+  currency: string = 'GBP'
+): string {
+  const decimal = toDecimal(amount).toDecimalPlaces(4, Decimal.ROUND_HALF_UP);
+  const places = Math.max(2, decimal.decimalPlaces());
+  const symbol = getCurrencySymbol(currency);
+  const formatted = formatDecimal(decimal.abs(), places, { group: true });
+  const body = currency === 'CHF' ? `${formatted} ${symbol}` : `${symbol}${formatted}`;
+
+  return showsMinus(decimal) ? `(${body})` : body;
+}
+
+/**
  * The same amount, said out loud.
  *
  * Screen readers at default punctuation verbosity DO NOT announce brackets, so
