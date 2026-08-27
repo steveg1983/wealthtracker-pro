@@ -517,3 +517,90 @@ describe('the investment valuation term (slice 3b)', () => {
     expect(report.rows[0].closing).toBe(1000);
   });
 });
+
+describe('closed accounts — listed only where the window touches their life', () => {
+  const D = (y: number, m: number, d: number): Date => new Date(y, m - 1, d);
+  const closed = (over: Partial<Account> & Pick<Account, 'id' | 'name' | 'type'>): Account =>
+    account({ ...over, isActive: false });
+
+  it('keeps a closed account\'s row for a window it was alive in', () => {
+    // The owner's find: closing an account made its whole story vanish from
+    // this report while the net-worth chart still counted it.
+    const dormant = closed({ id: 'acc-old', name: 'Aged Brokerage', type: 'investment' });
+    const report = buildAccountBalanceReport(
+      [...ACCOUNTS, dormant],
+      [
+        txn({ id: 'o1', amount: 500, date: D(2012, 3, 1), accountId: 'acc-old' }),
+        txn({ id: 'o2', amount: -500, date: D(2012, 9, 1), accountId: 'acc-old' })
+      ],
+      { from: D(2012, 1, 1), to: D(2012, 12, 31) },
+      D(2026, 2, 28),
+      undefined,
+      undefined,
+      undefined,
+      new Set(['acc-old'])
+    );
+
+    const row = report.rows.find(r => r.accountId === 'acc-old');
+    expect(row?.moneyIn).toBe(500);
+    expect(row?.count).toBe(2);
+  });
+
+  it('drops a closed account the window never touched — the archive stays quiet', () => {
+    const dormant = closed({ id: 'acc-old', name: 'Aged Brokerage', type: 'investment' });
+    const report = buildAccountBalanceReport(
+      [...ACCOUNTS, dormant],
+      [
+        // Its life happened long before this window.
+        txn({ id: 'o1', amount: 500, date: D(2012, 3, 1), accountId: 'acc-old' }),
+        txn({ id: 'o2', amount: -500, date: D(2012, 9, 1), accountId: 'acc-old' })
+      ],
+      RANGE,
+      D(2026, 2, 28),
+      undefined,
+      undefined,
+      undefined,
+      new Set(['acc-old'])
+    );
+
+    expect(report.rows.find(r => r.accountId === 'acc-old')).toBeUndefined();
+    // The open accounts still all list, zeros included — the report's floor.
+    expect(report.rows.map(r => r.accountId)).toEqual(ACCOUNTS.map(a => a.id));
+  });
+
+  it('keeps an OPEN all-zero account — only the archive goes quiet', () => {
+    const report = buildAccountBalanceReport(
+      ACCOUNTS,
+      [],
+      RANGE,
+      D(2026, 2, 28),
+      undefined,
+      undefined,
+      undefined,
+      new Set(['acc-old'])
+    );
+
+    expect(report.rows).toHaveLength(ACCOUNTS.length);
+  });
+
+  it('keeps a closed account whose balance still stands at the window\'s close', () => {
+    // Closed since, but its money was real ON the as-at day: nonzero closing
+    // keeps the row even with no movement inside the window.
+    const dormant = closed({ id: 'acc-old', name: 'Aged Brokerage', type: 'investment' });
+    const report = buildAccountBalanceReport(
+      [...ACCOUNTS, dormant],
+      [txn({ id: 'o1', amount: 750, date: D(2012, 3, 1), accountId: 'acc-old' })],
+      { from: D(2013, 1, 1), to: D(2013, 12, 31) },
+      D(2026, 2, 28),
+      undefined,
+      undefined,
+      undefined,
+      new Set(['acc-old'])
+    );
+
+    const row = report.rows.find(r => r.accountId === 'acc-old');
+    expect(row?.opening).toBe(750);
+    expect(row?.closing).toBe(750);
+    expect(row?.count).toBe(0);
+  });
+});

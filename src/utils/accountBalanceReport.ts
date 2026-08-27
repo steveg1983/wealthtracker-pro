@@ -249,7 +249,18 @@ export function buildAccountBalanceReport(
    * movement-basis, like the money columns. Omitted, every figure is exactly
    * what it always was.
    */
-  investmentDeltaAt?: (accountId: string, day: string) => DecimalInstance
+  investmentDeltaAt?: (accountId: string, day: string) => DecimalInstance,
+  /**
+   * CLOSED accounts, listed only where the window touches their life (the
+   * owner's find, 27 Aug: closing an account made its whole 2006–2012 story
+   * vanish from this report while the net-worth chart still counted it —
+   * same money, two answers). An account in this set keeps its row when ANY
+   * figure is nonzero or it has transactions in the window; an all-quiet row
+   * is dropped, so a today-window does not grow a hundred permanent zero
+   * rows for the archive. Open accounts always list, zeros included — what
+   * you hold now is the report's floor.
+   */
+  omitWhenUntouched?: ReadonlySet<string>
 ): AccountBalanceReport {
   const asOf = range.to ?? now;
   const fromTime = range.from ? range.from.getTime() : null;
@@ -341,7 +352,15 @@ export function buildAccountBalanceReport(
     }
   }
 
-  const rows: AccountBalanceRow[] = accounts.map(account => {
+  const untouched = (row: AccountBalanceRow): boolean =>
+    row.opening === 0 &&
+    row.moneyIn === 0 &&
+    row.moneyOut === 0 &&
+    row.marketChange === 0 &&
+    row.closing === 0 &&
+    row.count === 0;
+
+  const allRows: AccountBalanceRow[] = accounts.map(account => {
     const accumulator = totals.get(account.id) ?? {
       opening: toDecimal(account.openingBalance ?? 0),
       moneyIn: toDecimal(0),
@@ -409,6 +428,12 @@ export function buildAccountBalanceReport(
       count: accumulator.count,
     };
   });
+
+  // The archive's quiet rows drop here — see `omitWhenUntouched`.
+  const rows =
+    omitWhenUntouched === undefined
+      ? allRows
+      : allRows.filter(row => !omitWhenUntouched.has(row.accountId) || !untouched(row));
 
   /*
    * A NESTED ACCOUNT IS FILED WHERE ITS PARENT IS (owner, 25 Aug).
