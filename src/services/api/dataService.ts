@@ -147,7 +147,7 @@ type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
  * file.
  */
 type InvestmentServiceLike = Pick<typeof import('./investmentService').InvestmentService,
-  'list' | 'create' | 'update' | 'remove' | 'applyQuotes'>;
+  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory'>;
 type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
 /**
@@ -3086,6 +3086,18 @@ class DataServiceImpl implements DataPort {
     throw new Error(HOLDINGS_NEED_A_LOGIN);
   }
 
+  async importInvestmentPriceHistory(
+    rows: readonly { symbol: string; date: string; price: string; currency: string }[]
+  ): Promise<number> {
+    if (rows.length === 0) return 0;
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).importPriceHistory(userId, rows);
+    }
+    this.guardCloudWrite();
+    throw new Error(HOLDINGS_NEED_A_LOGIN);
+  }
+
   /**
    * Create a category.
    *
@@ -3713,6 +3725,12 @@ export class DataService {
 
   static applyInvestmentPrices(quotes: readonly QuoteWriteback[]): Promise<number> {
     return this.service.applyInvestmentPrices(quotes);
+  }
+
+  static importInvestmentPriceHistory(
+    rows: readonly { symbol: string; date: string; price: string; currency: string }[]
+  ): Promise<number> {
+    return this.service.importInvestmentPriceHistory(rows);
   }
 
   static createCategory(category: Omit<Category, 'id'>): Promise<Category> {

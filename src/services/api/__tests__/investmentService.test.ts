@@ -343,6 +343,46 @@ describe('remove', () => {
   });
 });
 
+describe('importPriceHistory', () => {
+  it('files rows as import-provenance history, and existing days win', async () => {
+    // ignoreDuplicates, not update: 'import' is the weakest provenance, so a
+    // day already priced by a quote, a typed figure or a trade keeps what it
+    // has, and a re-run of the same file is a no-op rather than a rewrite.
+    outcomes = { upsert: [ok([{ id: 'p-1' }])] };
+
+    const inserted = await InvestmentService.importPriceHistory(USER, [
+      { symbol: 'RR.L', date: '2015-03-11', price: '9.5', currency: 'GBP' },
+      { symbol: 'RR.L', date: '2015-04-02', price: '9.7', currency: 'GBP' }
+    ]);
+
+    const upsert = lastCall('upsert');
+    expect(upsert.table).toBe('investment_prices');
+    expect(upsert.onConflict).toBe('user_id,symbol,price_date');
+    expect(upsert.payload).toEqual([
+      { user_id: USER, symbol: 'RR.L', price_date: '2015-03-11', price: '9.5', currency: 'GBP', source: 'import' },
+      { user_id: USER, symbol: 'RR.L', price_date: '2015-04-02', price: '9.7', currency: 'GBP', source: 'import' }
+    ]);
+    // One of two landed — the other day was already priced. Counted from the
+    // rows actually written, never claimed from the batch.
+    expect(inserted).toBe(1);
+  });
+
+  it('does nothing, and asks nothing, for an empty history', async () => {
+    await InvestmentService.importPriceHistory(USER, []);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('throws when the write fails', async () => {
+    outcomes = { upsert: [fails('permission denied')] };
+
+    await expect(
+      InvestmentService.importPriceHistory(USER, [
+        { symbol: 'RR.L', date: '2015-03-11', price: '9.5', currency: 'GBP' }
+      ])
+    ).rejects.toThrow();
+  });
+});
+
 describe('applyQuotes', () => {
   it('writes the price and its as-of date and nothing else', async () => {
     outcomes = { update: [ok([{ id: 'inv-1' }])] };

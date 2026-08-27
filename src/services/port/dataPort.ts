@@ -1284,6 +1284,23 @@ export interface DataPortInvestmentWrites {
    * Nothing in, zero out, nothing written.
    */
   applyInvestmentPrices(quotes: readonly QuoteWriteback[]): Promise<number>;
+
+  /**
+   * File a batch of DATED prices as history — another program's price table
+   * (Microsoft Money's SP), arriving with a date per row.
+   *
+   * Distinct from {@link applyInvestmentPrices}, which stamps TODAY's quote
+   * onto the holding and files today's history as a side effect. This one
+   * touches no holding row at all: history is its whole cargo, and existing
+   * rows for a (symbol, day) WIN over it — 'import' is the weakest
+   * provenance, so a re-run of the same file is a no-op, never a rewrite.
+   *
+   * Returns how many rows were actually written, because the door says
+   * "131 imported" and must not claim the batch.
+   */
+  importInvestmentPriceHistory(
+    rows: readonly { symbol: string; date: string; price: string; currency: string }[]
+  ): Promise<number>;
 }
 
 export interface DataPortDismissalWrites {

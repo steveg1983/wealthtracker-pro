@@ -34,6 +34,7 @@ import { QuickAddOfflineButton as QuickAddOfflineButtonComponent } from '../../c
 import { useAutoBankSync } from '../../hooks/useAutoBankSync';
 import type {
   ChromeHasBankFeeds,
+  ChromeHasPriceHistory,
   ChromeGlobalSearch,
   ChromeOrnament,
   ChromeQuickAddTransaction
@@ -113,3 +114,6 @@ export const OfflineQuickAdd: ChromeOrnament = QuickAddOfflineButtonComponent;
 
 /** The cloud has the server, the tokens and the cron — see editions/chrome.ts. */
 export const CHROME_HAS_BANK_FEEDS: ChromeHasBankFeeds = true;
+
+/** The cloud stores dated prices in investment_prices (27 Aug). */
+export const CHROME_HAS_PRICE_HISTORY: ChromeHasPriceHistory = true;
