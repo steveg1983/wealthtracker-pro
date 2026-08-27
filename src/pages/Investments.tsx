@@ -23,6 +23,7 @@ import { toDecimal } from '../utils/decimal';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { CHROME_HAS_PRICE_HISTORY } from '@chrome';
 import HoldingRegisterModal from '../components/HoldingRegisterModal';
+import PortfolioTradingHistory from '../components/PortfolioTradingHistory';
 import { normaliseSecuredIds } from '../utils/accountSecuring';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
@@ -2262,6 +2263,13 @@ function InvestmentsView() {
                     />
                   </div>
                 )}
+                {/* Imported trading history, when this portfolio has any —
+                    renders nothing otherwise, so the everyday card is
+                    untouched. (An open portfolio gets history when the owner
+                    ticks an open position through the import's confirm.) */}
+                {CHROME_HAS_PRICE_HISTORY && (
+                  <PortfolioTradingHistory accountId={account.id} hasHoldings />
+                )}
               </div>
             );
           })}
@@ -2280,12 +2288,7 @@ function InvestmentsView() {
                     </span>
                   </h3>
                 </div>
-                {accountHoldings.length === 0 ? (
-                  <p className="text-body text-gray-500 dark:text-gray-400">
-                    No holdings were recorded for this portfolio. Its transactions are still in its
-                    register, reachable from Closed Accounts on the Accounts page.
-                  </p>
-                ) : (
+                {accountHoldings.length > 0 && (
                   <InvestmentMarketView
                     holdings={accountHoldings}
                     onOpenRegister={CHROME_HAS_PRICE_HISTORY ? setRegisterHolding : undefined}
@@ -2300,6 +2303,23 @@ function InvestmentsView() {
                     updateError={quotedAccountId === account.id ? quoteError : null}
                     symbolErrors={quotedAccountId === account.id ? symbolErrors : undefined}
                   />
+                )}
+                {/* The traded-securities list — and, with it, the empty
+                    sentence, because only it knows whether imported history
+                    exists. The device edition has no history lane, so it
+                    keeps the plain sentence instead of an always-empty door. */}
+                {CHROME_HAS_PRICE_HISTORY ? (
+                  <PortfolioTradingHistory
+                    accountId={account.id}
+                    hasHoldings={accountHoldings.length > 0}
+                  />
+                ) : (
+                  accountHoldings.length === 0 && (
+                    <p className="text-body text-gray-500 dark:text-gray-400">
+                      No holdings were recorded for this portfolio. Its transactions are still in its
+                      register, reachable from Closed Accounts on the Accounts page.
+                    </p>
+                  )
                 )}
               </div>
             );
