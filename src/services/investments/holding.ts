@@ -102,6 +102,13 @@ export interface InvestmentDraft {
   quantity: DecimalInstance;
   /** Per unit. costBasis is derived from it so the two can never disagree. */
   averageCost: DecimalInstance;
+  /**
+   * The RAW market price of one unit at purchase — the buy is a price
+   * observation, so a new holding is born already priced rather than "Not
+   * priced" until the first quote fetch (the owner's find, 27 Aug). Distinct
+   * from averageCost, which folds charges in; a snapshot price must not.
+   */
+  currentPrice?: DecimalInstance;
   currency: string;
   assetType?: InvestmentAssetType;
   purchaseDate?: Date | null;

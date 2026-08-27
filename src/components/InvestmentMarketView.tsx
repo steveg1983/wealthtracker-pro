@@ -155,7 +155,7 @@ export default function InvestmentMarketView({
             <button
               type="button"
               onClick={onAddHolding}
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-body text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
             >
               Add holding
             </button>

@@ -767,3 +767,45 @@ describe('importPriceHistory — trade provenance', () => {
     expect(upsert.onConflict).toBe('user_id,symbol,price_date');
   });
 });
+
+describe('create — born priced', () => {
+  it('seeds the snapshot from the raw dealt price, dated at the purchase', async () => {
+    // "Not priced" on a share bought at a known figure reads as a fault —
+    // the buy IS a price observation (the owner, 27 Aug). Charges stay out
+    // of the snapshot: averageCost folds them, currentPrice must not.
+    outcomes = { insert: [ok({ id: 'inv-1', account_id: 'acct-1', symbol: 'ABC.L', name: 'Alphabet Soup Holdings', quantity: '100', cost_basis: '316', current_price: '3.15', currency: 'GBP', asset_type: 'stock', purchase_date: '2026-08-26', purchase_price: '3.16', last_updated: '2026-08-26T00:00:00.000Z', notes: null })] };
+
+    await InvestmentService.create(USER, {
+      accountId: 'acct-1',
+      symbol: 'ABC.L',
+      name: 'Alphabet Soup Holdings',
+      quantity: toDecimal('100'),
+      averageCost: toDecimal('3.16'),
+      currentPrice: toDecimal('3.15'),
+      currency: 'GBP',
+      purchaseDate: new Date('2026-08-26T00:00:00Z')
+    });
+
+    const insert = lastCall('insert');
+    const payload = (insert.payload as Record<string, unknown>);
+    expect(payload.current_price).toBe('3.15');
+    expect(payload.last_updated).toBe('2026-08-26T00:00:00.000Z');
+  });
+
+  it('leaves the snapshot empty when no price was given — never invents one', async () => {
+    outcomes = { insert: [ok({ id: 'inv-1', account_id: 'acct-1', symbol: 'ABC.L', name: 'A', quantity: '100', cost_basis: '316', current_price: null, currency: 'GBP', asset_type: 'stock', purchase_date: null, purchase_price: '3.16', last_updated: null, notes: null })] };
+
+    await InvestmentService.create(USER, {
+      accountId: 'acct-1',
+      symbol: 'ABC.L',
+      name: 'A',
+      quantity: toDecimal('100'),
+      averageCost: toDecimal('3.16'),
+      currency: 'GBP'
+    });
+
+    const payload = (lastCall('insert').payload as Record<string, unknown>);
+    expect(payload.current_price).toBeNull();
+    expect(payload.last_updated).toBeNull();
+  });
+});
