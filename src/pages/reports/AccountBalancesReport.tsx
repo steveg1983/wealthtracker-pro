@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useNetWorthConversion } from '../../hooks/useNetWorthConversion';
+import { useHistoricalAccounts } from '../../hooks/useHistoricalAccounts';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
 import { buildAccountBalanceReport, resolveClosingSnapshot, type AccountBalanceRow } from '../../utils/accountBalanceReport';
@@ -22,7 +23,19 @@ import { getDateLocale } from '../../utils/dateFormatter';
  * net-worth chart line for line.
  */
 export default function AccountBalancesReport({ picker }: ReportViewProps): React.JSX.Element {
-  const { accounts, transactions, categories } = useApp();
+  const { accounts: openAccounts, transactions, categories } = useApp();
+  /**
+   * Open AND closed (the owner's find, 27 Aug): he closed an account and its
+   * whole 2006–2012 story vanished from this report while the net-worth
+   * chart still counted it. This is a surface that walks HISTORY, so it
+   * takes the same historical set as the chart; the builder drops closed
+   * accounts the window never touched, so a today-window stays clean.
+   */
+  const accounts = useHistoricalAccounts(openAccounts);
+  const closedAccountIds = useMemo(
+    () => new Set(accounts.filter(a => a.isActive === false).map(a => a.id)),
+    [accounts]
+  );
   const { formatCurrency } = useCurrencyDecimal();
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
 
@@ -40,9 +53,10 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
       accounts, transactions, picker.range, new Date(),
       conversionAt ?? undefined,
       resolveClosingSnapshot(picker.range, new Date(), conversion, conversionAt),
-      valuation.deltaAt
+      valuation.deltaAt,
+      closedAccountIds
     ),
-    [accounts, transactions, picker.range, conversion, conversionAt, valuation]
+    [accounts, transactions, picker.range, conversion, conversionAt, valuation, closedAccountIds]
   );
   const approx = report.holdsForeign ? '≈ ' : '';
 
