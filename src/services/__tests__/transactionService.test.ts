@@ -35,7 +35,7 @@ const baseTransaction = (overrides: Partial<Transaction> = {}): Transaction => (
 });
 
 describe('TransactionService (deterministic fallback)', () => {
-  const logger = { error: vi.fn() };
+  const logger = { error: vi.fn(), warn: vi.fn() };
   const now = vi.fn(() => new Date(fixedNow));
   const uuid = vi.fn(() => 'generated-id');
 
@@ -154,6 +154,56 @@ describe('TransactionService (deterministic fallback)', () => {
       },
       body: JSON.stringify({ transactionId: 'txn-secure' })
     });
+  });
+
+  it('treats a 404 on delete as already deleted — the goal, not an error', async () => {
+    // The owner's ghost (28 Aug): a pair-delete removed both legs
+    // server-side, client state kept one, and every retry got this 404 and
+    // ERRORED — stranding the ghost until a hard refresh. Already gone is
+    // already done: resolve, so the caller's state update runs and heals it.
+    const storage = createStorage([]);
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 404,
+      json: async () => ({ error: 'Transaction not found' })
+    })) as unknown as typeof fetch;
+    const service = createTransactionService({
+      isSupabaseConfigured: () => true,
+      storageAdapter: storage,
+      logger,
+      now,
+      uuid,
+      fetchImpl: fetchMock,
+      authTokenProvider: vi.fn(async () => 'clerk-token'),
+      supabaseClient: {
+        from: vi.fn()
+      } as unknown as never
+    });
+
+    await expect(service.deleteTransaction('txn-ghost')).resolves.toBeUndefined();
+  });
+
+  it('still throws on any other delete failure — a 500 is not a success', async () => {
+    const storage = createStorage([]);
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'boom' })
+    })) as unknown as typeof fetch;
+    const service = createTransactionService({
+      isSupabaseConfigured: () => true,
+      storageAdapter: storage,
+      logger,
+      now,
+      uuid,
+      fetchImpl: fetchMock,
+      authTokenProvider: vi.fn(async () => 'clerk-token'),
+      supabaseClient: {
+        from: vi.fn()
+      } as unknown as never
+    });
+
+    await expect(service.deleteTransaction('txn-1')).rejects.toThrow('boom');
   });
 
   describe('getTransactions (Supabase paged load)', () => {
@@ -1405,7 +1455,7 @@ describe('TransactionService (deterministic fallback)', () => {
 // therefore refuse rather than call the RPC unscoped. These tests exist to make
 // a future "userId is optional here" edit fail loudly.
 describe('TransactionService — owner id cannot be silently omitted', () => {
-  const logger = { error: vi.fn() };
+  const logger = { error: vi.fn(), warn: vi.fn() };
 
   /** Supabase-mode service whose rpc must never be reached without an owner. */
   const createOwnerlessService = () => {
@@ -1472,7 +1522,7 @@ describe('TransactionService — owner id cannot be silently omitted', () => {
 // silent. Migration 20260805145035 gives each an audited RPC. These tests exist
 // so a future edit cannot quietly put the table update back.
 describe('TransactionService — transfer repair goes through audited RPCs', () => {
-  const logger = { error: vi.fn() };
+  const logger = { error: vi.fn(), warn: vi.fn() };
 
   const createRpcService = (data: unknown) => {
     const rpc = vi.fn(async () => ({ data, error: null }));
