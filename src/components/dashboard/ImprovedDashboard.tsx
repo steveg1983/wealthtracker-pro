@@ -19,6 +19,8 @@ import {
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { useConvertedNetWorth, type AccountBalanceEntry } from '../../hooks/useConvertedNetWorth';
+import { useInvestmentValuation } from '../../hooks/useInvestmentValuation';
+import { netWorthPointToken } from '../../utils/netWorthSeries';
 import { useNetWorthConversion } from '../../hooks/useNetWorthConversion';
 import { useFlowConvert } from '../../hooks/useFlowConvert';
 import MixedCurrencyDisclosure from '../MixedCurrencyDisclosure';
@@ -284,12 +286,18 @@ export function ImprovedDashboard() {
    * single-currency majority keeps the exact arithmetic below; only a ledger
    * that actually spans currencies converts, and says so.
    */
+  // The valuation term (slice 3b): today's derived investment value joins
+  // every account balance BEFORE the trio sums or converts — so the card,
+  // the reports and the series state one net worth. Zero for every account
+  // without open positions, and until the valuation's reads land.
+  const valuation = useInvestmentValuation();
+  const valuationDayKey = netWorthPointToken(new Date());
   const netWorthEntries = useMemo<AccountBalanceEntry[]>(
     () => accounts.map(a => ({
-      balance: accountBalanceMap.get(a.id) ?? 0,
+      balance: toDecimal(accountBalanceMap.get(a.id) ?? 0).plus(valuation.deltaAt(a.id, valuationDayKey)),
       currency: a.currency || displayCurrency,
     })),
-    [accounts, accountBalanceMap, displayCurrency]
+    [accounts, accountBalanceMap, displayCurrency, valuation, valuationDayKey]
   );
   const spansCurrencies = useMemo(
     () => netWorthEntries.some(entry => entry.currency !== displayCurrency),
@@ -305,7 +313,12 @@ export function ImprovedDashboard() {
   // Calculate key metrics — all money sums use Decimal arithmetic (float math
   // is banned on currency values; IEEE-754 drifts on long sums).
   const metrics = useMemo(() => {
-    const effectiveBalance = (acc: typeof accounts[0]): number => accountBalanceMap.get(acc.id) ?? 0;
+    // Ledger balance plus today's valuation term — the same figure the trio's
+    // converted path sums, so the two paths cannot disagree.
+    const effectiveBalance = (acc: typeof accounts[0]): number =>
+      toDecimal(accountBalanceMap.get(acc.id) ?? 0)
+        .plus(valuation.deltaAt(acc.id, valuationDayKey))
+        .toNumber();
 
     const totalAssets = accounts
       .filter(acc => effectiveBalance(acc) > 0)
@@ -381,7 +394,7 @@ export function ImprovedDashboard() {
       totalSpentOnBudgets,
       overallBudgetPercent
     };
-  }, [accounts, accountBalanceMap, transactions, transactionSplits, budgets, categories]);
+  }, [accounts, accountBalanceMap, transactions, transactionSplits, budgets, categories, valuation, valuationDayKey]);
 
   // Performance figures for the SELECTED period. Income/expenses come from
   // CATEGORY SEMANTICS (utils/incomeExpense): a refund filed under an expense

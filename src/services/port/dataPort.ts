@@ -1341,6 +1341,20 @@ export interface DataPortInvestmentWrites {
    * with {@link listInvestmentPrices} gives the historical register.
    */
   listInvestmentEvents(accountId: string): Promise<InvestmentEvent[]>;
+
+  /**
+   * EVERY quantity event, oldest first — what the net-worth valuation folds
+   * (slice 3b). One read, because the walks value all accounts at once.
+   */
+  listAllInvestmentEvents(): Promise<InvestmentEvent[]>;
+
+  /**
+   * EVERY dated price, with symbol and currency — the valuation's other
+   * half. The per-symbol read stays for the registers.
+   */
+  listAllInvestmentPrices(): Promise<
+    Array<{ symbol: string; date: string; price: string; currency: string }>
+  >;
 }
 
 export interface DataPortDismissalWrites {

@@ -17,6 +17,7 @@ import { categoricalColor, MAX_CATEGORICAL_SERIES, useCategoricalRamp, SEMANTIC_
 import { singlePointDot } from '../../charts/singlePointDots';
 import { buildMonthlyTrend } from '../../../utils/monthlyTrend';
 import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthPointToken, netWorthValueAxis } from '../../../utils/netWorthSeries';
+import { useInvestmentValuation } from '../../../hooks/useInvestmentValuation';
 import { computeExpenseCategoryNetTotals } from '../../../utils/categoryNetting';
 import { expandSplitTransactions } from '../../../utils/transactionSplits';
 import { formatDecimal } from '../../../utils/decimal-format';
@@ -126,9 +127,21 @@ export function NetWorthWidget({ picker, pin }: {
     [accounts, displayCurrency]
   );
 
+  // The SAME valuation term as the report this card opens (slice 3b) — the
+  // two must draw one line. The basis sentence lives on the report, exactly
+  // as the rates provenance does.
+  const valuation = useInvestmentValuation();
   const snapshots = useMemo(
-    () => buildNetWorthSnapshots(accounts, transactions, picker.range, new Date(), seriesConversion ?? undefined),
-    [accounts, transactions, picker.range, seriesConversion]
+    () =>
+      buildNetWorthSnapshots(
+        accounts,
+        transactions,
+        picker.range,
+        new Date(),
+        seriesConversion ?? undefined,
+        valuation.deltaAt
+      ),
+    [accounts, transactions, picker.range, seriesConversion, valuation]
   );
   const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
 

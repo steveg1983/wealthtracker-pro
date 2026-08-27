@@ -1704,6 +1704,18 @@ export class LocalDataPort implements DataPort {
     );
   }
 
+  async listAllInvestmentEvents(): Promise<InvestmentEvent[]> {
+    // Same honest empty as the per-account read: this file records no trades,
+    // so the device's net worth stays pure ledger — unchanged and true.
+    return [];
+  }
+
+  async listAllInvestmentPrices(): Promise<
+    Array<{ symbol: string; date: string; price: string; currency: string }>
+  > {
+    return [];
+  }
+
   /**
    * A write verb's answer as the app's holding.
    *

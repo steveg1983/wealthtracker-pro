@@ -142,6 +142,14 @@ export interface PortfolioSummaryInput {
    */
   conversion?: NetWorthConversion;
   flowConvert?: FlowFactorResolver;
+  /**
+   * The valuation term (slice 3b): today's derived investment value per
+   * account, in native units — the same buildInvestmentValuation the
+   * net-worth surfaces read, so this page's headline and the dashboard's
+   * cannot value the same position differently. Omitted, values are the
+   * ledger alone, exactly as they always were.
+   */
+  investmentDeltaToday?: (accountId: string) => DecimalInstance;
 }
 
 const ZERO = toDecimal(0);
@@ -233,7 +241,12 @@ export function buildPortfolioSummary(input: PortfolioSummaryInput): PortfolioSu
   let holdsForeign = false;
   const valueOf = (group: readonly Account[]): DecimalInstance =>
     group.reduce((sum, member) => {
-      const native = calculateTotalBalance([toDecimalAccount(member)], decimalTransactions);
+      // Ledger plus today's valuation term, in native units — then one
+      // conversion for the whole valued balance, as everywhere.
+      const ledger = calculateTotalBalance([toDecimalAccount(member)], decimalTransactions);
+      const native = input.investmentDeltaToday
+        ? ledger.plus(input.investmentDeltaToday(member.id))
+        : ledger;
       const factor = factors?.get(member.id);
       if (factor) holdsForeign = true;
       return sum.plus(factor ? native.times(factor) : native);
@@ -378,7 +391,9 @@ export function buildPortfolioHistory(
    * convert. Dated, each point converts at its own day's reference rate.
    * Omitted, the single-currency portfolio behaves exactly as before.
    */
-  conversion?: NetWorthConversion | NetWorthConversionByDate
+  conversion?: NetWorthConversion | NetWorthConversionByDate,
+  /** The valuation term (slice 3b) — the same seam the net-worth walks take. */
+  investmentDeltaAt?: (accountId: string, day: string) => DecimalInstance
 ): PortfolioHistoryPoint[] {
   const memberIds = new Set(memberAccounts.map(a => a.id));
   return buildNetWorthSnapshots(
@@ -386,6 +401,7 @@ export function buildPortfolioHistory(
     transactions.filter(t => memberIds.has(t.accountId)),
     range,
     now,
-    conversion
+    conversion,
+    investmentDeltaAt
   ).map(point => ({ label: point.label, value: point.netWorth, date: point.date }));
 }

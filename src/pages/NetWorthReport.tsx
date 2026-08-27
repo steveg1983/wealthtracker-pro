@@ -25,6 +25,8 @@ import { withProvenance } from '../utils/navigationProvenance';
 import ConvertedTotalNote from '../components/ConvertedTotalNote';
 import HistoricRatesRestatementNotice from '../components/HistoricRatesRestatementNotice';
 import { useNetWorthConversion } from '../hooks/useNetWorthConversion';
+import { useInvestmentValuation } from '../hooks/useInvestmentValuation';
+import InvestmentBasisNote from '../components/InvestmentBasisNote';
 import { useArrivalAction } from '../hooks/useArrivalFocus';
 import { resolveEffectiveOpeningDates } from '../utils/openingDates';
 import { TrendingUpIcon, ChevronRightIcon } from '../components/icons';
@@ -179,9 +181,25 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
     provenance: ratesProvenance,
   } = useNetWorthConversion(accounts, { range: picker.range });
 
+  /**
+   * The valuation term (slice 3b): the series values each account's open
+   * positions at the last price on or before each point, on top of the
+   * ledger. Empty — zero everywhere — until the reads land, and always on
+   * the device edition, so the chart never waits on it.
+   */
+  const valuation = useInvestmentValuation();
+
   const snapshots = useMemo(
-    () => buildNetWorthSnapshots(accounts, sortedTransactions, picker.range, new Date(), seriesConversion ?? undefined),
-    [accounts, sortedTransactions, picker.range, seriesConversion]
+    () =>
+      buildNetWorthSnapshots(
+        accounts,
+        sortedTransactions,
+        picker.range,
+        new Date(),
+        seriesConversion ?? undefined,
+        valuation.deltaAt
+      ),
+    [accounts, sortedTransactions, picker.range, seriesConversion, valuation]
   );
 
   /**
@@ -459,6 +477,7 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
               : null}
           </p>
         )}
+        <InvestmentBasisNote valuation={valuation} />
         {historical && seriesConversion && seriesConversion.unconverted.length > 0 && (
           // A currency with NO series at all is still counted native — the
           // wrong-total warning outranks any basis line, exactly as it does

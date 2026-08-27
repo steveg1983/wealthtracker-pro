@@ -5,6 +5,8 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
 import { buildAccountBalanceReport, resolveClosingSnapshot, type AccountBalanceRow } from '../../utils/accountBalanceReport';
 import BalanceReportCurrencyNote from '../../components/reports/BalanceReportCurrencyNote';
+import InvestmentBasisNote from '../../components/InvestmentBasisNote';
+import { useInvestmentValuation } from '../../hooks/useInvestmentValuation';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
 import { getDateLocale } from '../../utils/dateFormatter';
@@ -30,13 +32,17 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
   // day's own rates — so this page's total agrees with Accounts and the
   // Net worth report to the penny.
   const { conversion, conversionAt } = useNetWorthConversion(accounts, { range: { from: null, to: null } });
+  // The valuation term (slice 3b): openings and closings carry each day's
+  // derived investment value; the difference is the row's market movement.
+  const valuation = useInvestmentValuation();
   const report = useMemo(
     () => buildAccountBalanceReport(
       accounts, transactions, picker.range, new Date(),
       conversionAt ?? undefined,
-      resolveClosingSnapshot(picker.range, new Date(), conversion, conversionAt)
+      resolveClosingSnapshot(picker.range, new Date(), conversion, conversionAt),
+      valuation.deltaAt
     ),
-    [accounts, transactions, picker.range, conversion, conversionAt]
+    [accounts, transactions, picker.range, conversion, conversionAt, valuation]
   );
   const approx = report.holdsForeign ? '≈ ' : '';
 
@@ -93,6 +99,7 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
           own days (the one-net-worth ruling). The hub stands down for this
           report; the note is its own. */}
       <BalanceReportCurrencyNote asOf={report.asOf} />
+      <InvestmentBasisNote valuation={valuation} />
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
         <div className="p-6 pb-3">
@@ -163,6 +170,14 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
                       </td>
                       <td className={`${cell} ${signClass(row.change)}`}>
                         {money(row.change, row.currency)}
+                        {/* The market's movement is not cash — it sits under
+                            the cash change, named, only when it exists, so
+                            opening + change + this = closing stays legible. */}
+                        {row.marketChange !== 0 && (
+                          <span className="block text-xs text-gray-500 dark:text-gray-400">
+                            {money(row.marketChange, row.currency)} market
+                          </span>
+                        )}
                       </td>
                       <td className={`${cell} font-semibold ${signClass(row.closing)}`}>
                         {money(row.closing, row.currency)}
