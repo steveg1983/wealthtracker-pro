@@ -16,7 +16,7 @@ import MoneyInput from './common/MoneyInput';
 import DatePicker from './common/DatePicker';
 import StockSymbolSearch from './StockSymbolSearch';
 import { fetchQuotes, type StockQuote } from '../services/stockPriceService';
-import { PlusIcon, EditIcon, DeleteIcon, CheckIcon } from './icons';
+import { PlusIcon, EditIcon, DeleteIcon } from './icons';
 import { Modal } from './common/Modal';
 import { LoadingButton } from './loading/LoadingState';
 // From the LIFTED module, not from `services/api/investmentService` — which
@@ -686,14 +686,24 @@ export default function PortfolioManager({
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Holdings ({holdings.length})
         </h3>
-        <button
-          type="button"
-          onClick={startAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
-        >
-          <PlusIcon size={20} aria-hidden="true" />
-          Add Holding
-        </button>
+        {/* ONE PRIMARY PER SECTION, and while the list is empty the empty
+            state owns it. This button and the empty panel's button were the
+            same button, in the same treatment, 150px apart, doing the same
+            thing — the reader had to work out how they differed, and they did
+            not. The empty state's is the one in their path and carries the
+            better label, so this one waits until there is a list to add to.
+            Populated, the empty panel is gone and the two never coexist.
+            (Design, 27 Aug §1.) */}
+        {holdings.length > 0 && (
+          <button
+            type="button"
+            onClick={startAdd}
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
+          >
+            <PlusIcon size={20} aria-hidden="true" />
+            Add holding
+          </button>
+        )}
       </div>
 
       {listError && (
@@ -703,7 +713,11 @@ export default function PortfolioManager({
       )}
 
       {holdings.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+        /* No band. The sentence and its button sat on a tinted strip, with its
+           own inset, inside a card, below a divider — three levels of
+           container for one sentence and one control. Weight before boxes:
+           space separates them just as well. (Design, 27 Aug §6.) */
+        <div className="text-center py-12">
           <p className="text-gray-500 dark:text-gray-400 mb-4">
             No holdings yet. Add the shares, funds or ETFs this account holds.
           </p>
@@ -713,7 +727,7 @@ export default function PortfolioManager({
             className="inline-flex items-center gap-2 px-6 py-3 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
           >
             <PlusIcon size={20} aria-hidden="true" />
-            Add Your First Holding
+            Add your first holding
           </button>
         </div>
       ) : (
@@ -1114,7 +1128,12 @@ export default function PortfolioManager({
               className="px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               loadingText="Saving…"
             >
-              <CheckIcon size={16} className="mr-2" aria-hidden="true" />
+              {/* No tick. A tick means DONE, and this button means DO IT — it
+                  described the state after a press, on a control nobody had
+                  pressed yet. It also wrapped the label onto a second line at
+                  narrow widths, with the glyph stranded alone on the first.
+                  This is the only filled control in the modal; it needs no
+                  help being found. (Design, 27 Aug §3.) */}
               {editing ? 'Save changes' : 'Add holding'}
             </LoadingButton>
           </div>

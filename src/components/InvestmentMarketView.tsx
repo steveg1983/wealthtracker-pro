@@ -35,6 +35,16 @@ interface InvestmentMarketViewProps {
   /** Account currency, used when a holding does not name its own. */
   fallbackCurrency: string;
   onUpdateQuotes: () => void;
+  /**
+   * Whether the holdings panel is open BELOW this view.
+   *
+   * P8b — a message must be true of the state it is rendered in. The empty
+   * sentence tells the reader to open a panel; rendered while that panel is
+   * already open, it instructs them to do what they have just done, to reveal
+   * something already on screen. It belongs to the collapsed state, so it is
+   * only drawn there. (Design, 27 Aug §2.)
+   */
+  holdingsPanelOpen?: boolean;
   isUpdating: boolean;
   /** Shown above the table when the last update failed. */
   updateError?: string | null;
@@ -59,8 +69,9 @@ export default function InvestmentMarketView({
   onUpdateQuotes,
   isUpdating,
   updateError = null,
-  symbolErrors
-}: InvestmentMarketViewProps): React.JSX.Element {
+  symbolErrors,
+  holdingsPanelOpen = false
+}: InvestmentMarketViewProps): React.JSX.Element | null {
   const { formatCurrency } = useCurrencyDecimal();
 
   /**
@@ -99,10 +110,15 @@ export default function InvestmentMarketView({
   }, [holdings]);
 
   if (holdings.length === 0) {
+    // The panel below is already saying this, and saying it better — with the
+    // control that acts on it. Two empty states stacked is one too many.
+    if (holdingsPanelOpen) {
+      return null;
+    }
     return (
       <div className="text-center py-8">
         <p className="text-gray-500 dark:text-gray-400">
-          No holdings recorded for this account. Press Manage holdings above to add them and see market values.
+          No holdings recorded for this account. Press Show holdings to add them and see market values.
         </p>
       </div>
     );

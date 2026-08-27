@@ -431,6 +431,40 @@ function InvestmentsView() {
     [openAccounts]
   );
 
+  /**
+   * What the PORTFOLIO TAB lists: one card per portfolio, in alphabetical
+   * order.
+   *
+   * TWO THINGS THE FLAT LIST ABOVE GETS WRONG HERE, both reported by the
+   * owner.
+   *
+   * ORDER. `investmentAccounts` is a filter over the accounts as the store
+   * returned them, which is `created_at` ascending — for this ledger, the
+   * order Microsoft Money happened to be imported in. It reads as random
+   * because it is arbitrary, and nothing downstream re-sorted it.
+   *
+   * PAIRED CASH. A brokerage account and its settlement cash are ONE holding
+   * to the person who owns them — the Microsoft Money model this app already
+   * implements through `parentAccountId` (see utils/accountNesting and the
+   * 20260722090000 migration, whose header says listing the cash side as a
+   * free-standing account "is wrong"). The OVERVIEW tab has always honoured
+   * it; this tab did not, so a cash sleeve typed 'investment' drew its own
+   * card beside the portfolio it belongs to. Keeping only the roots folds it
+   * back where it belongs, and needs no schema change — the pairing is
+   * already in the data.
+   *
+   * A cash account that is genuinely unparented still appears on its own, and
+   * that is correct: the app cannot invent a pairing nobody has recorded. The
+   * remedy for those is Account Settings → "Part of investment account".
+   */
+  const portfolioRootAccounts = useMemo(() => {
+    const topLevelIdByAccountId = buildTopLevelIdByAccountId(openAccounts);
+    return investmentAccounts
+      .filter(acc => topLevelIdByAccountId.get(acc.id) === acc.id)
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, 'en-GB', { sensitivity: 'base' }));
+  }, [investmentAccounts, openAccounts]);
+
   const accountsById = useMemo(
     () => new Map(openAccounts.map(acc => [acc.id, acc])),
     [openAccounts]
@@ -2124,7 +2158,7 @@ function InvestmentsView() {
             </div>
           )}
 
-          {investmentAccounts.map((account) => {
+          {portfolioRootAccounts.map((account) => {
             const accountHoldings = holdingsByAccount.get(account.id) ?? [];
             return (
               <div key={account.id} className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
@@ -2136,11 +2170,17 @@ function InvestmentsView() {
                     aria-expanded={managingAccountId === account.id}
                     className="text-body text-primary hover:text-secondary transition-colors"
                   >
-                    {managingAccountId === account.id ? 'Done' : 'Manage holdings'}
+                    {/* A disclosure, named as one. "Manage holdings" promised a
+                        destination and delivered an inline list, and its
+                        closing word "Done" is the vocabulary of an action, not
+                        of a fold — which is exactly why the pair read oddly.
+                        (Design, 27 Aug §3.) */}
+                    {managingAccountId === account.id ? 'Hide holdings' : 'Show holdings'}
                   </button>
                 </div>
                 <InvestmentMarketView
                   holdings={accountHoldings}
+                  holdingsPanelOpen={managingAccountId === account.id}
                   fallbackCurrency={account.currency}
                   onUpdateQuotes={() =>
                     void updateQuotes(
