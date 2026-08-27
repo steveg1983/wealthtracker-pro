@@ -121,7 +121,9 @@ export default function HoldingRegisterModal({
                       key={`${line.date ?? 'undated'}-${index}`}
                       className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
                     >
-                      <td className="py-2 pr-3 tabular-nums text-gray-900 dark:text-white">
+                      {/* nowrap, as in SecurityHistoryModal: dates must not
+                          split across lines; the overflow container scrolls. */}
+                      <td className="py-2 pr-3 tabular-nums whitespace-nowrap text-gray-900 dark:text-white">
                         {line.date ?? '—'}
                       </td>
                       <td className="py-2 px-3 text-gray-700 dark:text-gray-300">

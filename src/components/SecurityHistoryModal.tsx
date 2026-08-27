@@ -112,7 +112,10 @@ export default function SecurityHistoryModal({
                         key={`${line.date}-${index}`}
                         className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
                       >
-                        <td className="py-2 pr-3 tabular-nums text-gray-900 dark:text-white">{line.date}</td>
+                        {/* nowrap: a date split across lines ("2010-04-␍19")
+                            is what the owner's first real screenshot showed.
+                            The table's overflow container scrolls instead. */}
+                        <td className="py-2 pr-3 tabular-nums whitespace-nowrap text-gray-900 dark:text-white">{line.date}</td>
                         <td className="py-2 px-3 text-gray-700 dark:text-gray-300">
                           {line.kind === 'revaluation'
                             ? `Revaluation — ${SOURCE_WORD[line.source as HoldingPricePoint['source']] ?? 'recorded'}`
