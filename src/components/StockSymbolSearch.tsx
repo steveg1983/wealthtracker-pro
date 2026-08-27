@@ -149,14 +149,18 @@ export default function StockSymbolSearch({
                 onClick={() => handleSelect(match)}
                 className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600 focus:bg-gray-100 dark:focus:bg-gray-600 focus:outline-none"
               >
-                <span className="flex items-baseline justify-between gap-3">
-                  <span className="font-medium text-gray-900 dark:text-white">{match.symbol}</span>
+                {/* One row, three cells, the NAME the only thing that gives
+                    (min-w-0 + truncate): the two-line layout rendered its
+                    lines on top of each other for long names — the owner's
+                    Vodafone search, 28 Aug. A flex row cannot overlap. */}
+                <span className="flex items-baseline gap-3">
+                  <span className="font-medium text-gray-900 dark:text-white shrink-0">{match.symbol}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-gray-600 dark:text-gray-300">
+                    {match.name}
+                  </span>
                   <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
                     {[match.exchange, match.type].filter(Boolean).join(' · ')}
                   </span>
-                </span>
-                <span className="block text-sm text-gray-600 dark:text-gray-300 truncate">
-                  {match.name}
                 </span>
               </button>
             </li>
