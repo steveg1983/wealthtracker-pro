@@ -24,6 +24,8 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { CHROME_HAS_PRICE_HISTORY } from '@chrome';
 import HoldingRegisterModal from '../components/HoldingRegisterModal';
 import PortfolioTradingHistory from '../components/PortfolioTradingHistory';
+import { useInvestmentValuation } from '../hooks/useInvestmentValuation';
+import { netWorthPointToken } from '../utils/netWorthSeries';
 import { normaliseSecuredIds } from '../utils/accountSecuring';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
@@ -531,12 +533,20 @@ function InvestmentsView() {
     rateFor,
   } = useNetWorthConversion(historicalAccounts, { range: { from: null, to: null } });
   const flowConvert = useFlowConvert(historicalAccounts);
+  /**
+   * The valuation term (slice 3b): the SAME buildInvestmentValuation every
+   * net-worth surface reads, so this page's headline cannot value a position
+   * differently from the dashboard one click away.
+   */
+  const valuation = useInvestmentValuation();
+  const valuationDayKey = netWorthPointToken(new Date());
   const summary = useMemo(
     () => buildPortfolioSummary({
       accounts: historicalAccounts, transactions, transactionSplits, categories,
       conversion: conversion ?? undefined, flowConvert,
+      investmentDeltaToday: (accountId) => valuation.deltaAt(accountId, valuationDayKey),
     }),
-    [historicalAccounts, transactions, transactionSplits, categories, conversion, flowConvert]
+    [historicalAccounts, transactions, transactionSplits, categories, conversion, flowConvert, valuation, valuationDayKey]
   );
 
   /**
@@ -658,8 +668,8 @@ function InvestmentsView() {
   );
   const scopeApprox = scopeHoldsForeign ? '\u2248 ' : '';
   const performanceData = useMemo(
-    () => buildPortfolioHistory(scopeMembers, transactions, historyRange, new Date(), scopeConversion ?? undefined),
-    [scopeMembers, transactions, historyRange, scopeConversion]
+    () => buildPortfolioHistory(scopeMembers, transactions, historyRange, new Date(), scopeConversion ?? undefined, valuation.deltaAt),
+    [scopeMembers, transactions, historyRange, scopeConversion, valuation]
   );
 
   /**

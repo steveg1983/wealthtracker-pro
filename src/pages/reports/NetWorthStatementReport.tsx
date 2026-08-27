@@ -5,6 +5,8 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
 import { buildAccountBalanceReport, movedSideLabel, resolveClosingSnapshot, type AccountBalanceRow } from '../../utils/accountBalanceReport';
 import BalanceReportCurrencyNote from '../../components/reports/BalanceReportCurrencyNote';
+import InvestmentBasisNote from '../../components/InvestmentBasisNote';
+import { useInvestmentValuation } from '../../hooks/useInvestmentValuation';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import NetWorthSummary from '../../components/NetWorthSummary';
 import type { ReportViewProps } from './types';
@@ -32,13 +34,16 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
   // day's own rates, which as at today are the Accounts page's exact
   // factors — one answer to "what am I worth" on both surfaces.
   const { conversion, conversionAt } = useNetWorthConversion(accounts, { range: { from: null, to: null } });
+  // The valuation term (slice 3b) — the same build every value surface takes.
+  const valuation = useInvestmentValuation();
   const report = useMemo(
     () => buildAccountBalanceReport(
       accounts, transactions, picker.range, new Date(),
       conversionAt ?? undefined,
-      resolveClosingSnapshot(picker.range, new Date(), conversion, conversionAt)
+      resolveClosingSnapshot(picker.range, new Date(), conversion, conversionAt),
+      valuation.deltaAt
     ),
-    [accounts, transactions, picker.range, conversion, conversionAt]
+    [accounts, transactions, picker.range, conversion, conversionAt, valuation]
   );
   const approx = report.holdsForeign ? '≈ ' : '';
 
@@ -212,6 +217,7 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
           own days (the one-net-worth ruling). The hub stands down for this
           report; the note is its own. */}
       <BalanceReportCurrencyNote asOf={report.asOf} />
+      <InvestmentBasisNote valuation={valuation} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {section('What you own', sides.owned, report.assets, 'No account is in credit in this period')}

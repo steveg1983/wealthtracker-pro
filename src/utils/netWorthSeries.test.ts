@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildNetWorthSnapshots, buildNetWorthConversion, netWorthAxisTicks, netWorthValueAxis } from './netWorthSeries';
 import type { Account, Transaction } from '../types';
 import type { PeriodRange } from '../hooks/usePeriod';
+import { toDecimal } from './decimal';
 
 /** Synthetic fixtures only — no real accounts or amounts in this repo. */
 const account = (over: Partial<Account> & Pick<Account, 'id' | 'name'>): Account => ({
@@ -240,5 +241,48 @@ describe('buildNetWorthSnapshots — currency conversion at the summing', () => 
     const snaps = buildNetWorthSnapshots(book, [], RANGE, new Date(2026, 2, 28), dated);
     expect(on(snaps, 10)?.netWorth).toBe(1100);
     expect(on(snaps, 20)?.netWorth).toBe(1080);
+  });
+});
+
+describe('the investment valuation term (slice 3b)', () => {
+  it('adds each account\'s delta on each point\'s own day, before conversion', () => {
+    // A holding bought mid-window: at cost (delta 0) until a price lands on
+    // the 10th, then worth £150 more than the ledger says.
+    const deltaAt = (accountId: string, day: string) =>
+      accountId === 'inv' && day >= '2026-02-10' ? toDecimal('150') : toDecimal('0');
+
+    const snaps = buildNetWorthSnapshots(
+      [account({ id: 'inv', name: 'Portfolio', type: 'investment', openingBalance: 1000 })],
+      [txn({ id: 't1', amount: 0, date: D(2026, 2, 1), accountId: 'inv' })],
+      RANGE,
+      D(2026, 2, 28),
+      undefined,
+      deltaAt
+    );
+
+    expect(on(snaps, 9)?.netWorth).toBe(1000);
+    expect(on(snaps, 10)?.netWorth).toBe(1150);
+    expect(on(snaps, 28)?.netWorth).toBe(1150);
+  });
+
+  it('converts the valued balance as one figure — delta rides the account\'s rate', () => {
+    const conversion = buildNetWorthConversion(
+      [{ id: 'inv', currency: 'USD' }],
+      { GBP: 1, USD: 2 },
+      'GBP'
+    );
+    const deltaAt = () => toDecimal('100');
+
+    const snaps = buildNetWorthSnapshots(
+      [account({ id: 'inv', name: 'US Portfolio', type: 'investment', currency: 'USD', openingBalance: 1000 })],
+      [txn({ id: 't1', amount: 0, date: D(2026, 2, 1), accountId: 'inv' })],
+      RANGE,
+      D(2026, 2, 28),
+      conversion,
+      deltaAt
+    );
+
+    // (1000 + 100) native × 0.5 — never 1000×0.5 + 100 unconverted.
+    expect(on(snaps, 15)?.netWorth).toBe(550);
   });
 });

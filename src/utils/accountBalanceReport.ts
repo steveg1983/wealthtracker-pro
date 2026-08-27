@@ -32,7 +32,15 @@ export interface AccountBalanceRow {
   moneyOut: number;
   /** moneyIn − moneyOut. */
   change: number;
-  /** Balance at the end of the period. */
+  /**
+   * The investment valuation's movement across the period (slice 3b): what
+   * the account's open positions gained or lost at market beyond their
+   * pooled cost. NOT cash — the row identity is
+   * opening + change + marketChange = closing, and this is the third term.
+   * Zero for every non-investment row and whenever no valuation is passed.
+   */
+  marketChange: number;
+  /** Balance at the end of the period — ledger plus the valuation term. */
   closing: number;
   /**
    * The display-currency figures the group and report totals sum — equal to
@@ -41,6 +49,7 @@ export interface AccountBalanceRow {
    */
   openingConverted: number;
   changeConverted: number;
+  marketChangeConverted: number;
   closingConverted: number;
   /** Transactions inside the period. */
   count: number;
@@ -53,6 +62,8 @@ export interface AccountBalanceGroup {
   rows: AccountBalanceRow[];
   opening: number;
   change: number;
+  /** Σ rows' converted market movement — zero unless a valuation is passed. */
+  marketChange: number;
   closing: number;
 }
 
@@ -67,6 +78,11 @@ export interface AccountBalanceReport {
   /** Net worth the moment the period opened, and the move since. */
   openingNetWorth: number;
   change: number;
+  /**
+   * The period's market revaluation across every investment position — the
+   * "of which" beside `change`, which deliberately stays cash movements.
+   */
+  marketChange: number;
   /** The date the closing balances are stated at. */
   asOf: Date;
   /** True when any conversion factor was applied — the ≈ gate. */
@@ -224,7 +240,16 @@ export function buildAccountBalanceReport(
    * exactly the FX drift on held money; the caller's basis line states the
    * two bases. Omitted, closings keep the identity construction.
    */
-  snapshot?: NetWorthConversion | null
+  snapshot?: NetWorthConversion | null,
+  /**
+   * The investment valuation term (slice 3b, buildInvestmentValuation): what
+   * an account's open positions are worth on a day beyond their pooled cost,
+   * in the account's NATIVE currency. Openings and closings gain the day's
+   * term; the difference across the window is the row's `marketChange` —
+   * movement-basis, like the money columns. Omitted, every figure is exactly
+   * what it always was.
+   */
+  investmentDeltaAt?: (accountId: string, day: string) => DecimalInstance
 ): AccountBalanceReport {
   const asOf = range.to ?? now;
   const fromTime = range.from ? range.from.getTime() : null;
@@ -328,7 +353,30 @@ export function buildAccountBalanceReport(
     };
     const change = accumulator.moneyIn.minus(accumulator.moneyOut);
     const changeConverted = accumulator.moneyInConverted.minus(accumulator.moneyOutConverted);
-    const closing = accumulator.opening.plus(change);
+
+    // The valuation term: the day-before-the-window's delta joins the
+    // opening, the as-of day's joins the closing, and their difference is
+    // the row's market movement — so opening + change + marketChange =
+    // closing holds exactly. An all-time window opens before any position
+    // existed, so its opening delta is zero by construction.
+    const openingDelta = investmentDeltaAt !== undefined && openingBasisDay !== null
+      ? investmentDeltaAt(account.id, openingBasisDay)
+      : toDecimal(0);
+    const closingDelta = investmentDeltaAt !== undefined
+      ? investmentDeltaAt(account.id, dayKeyOf(asOf))
+      : toDecimal(0);
+    const marketChange = closingDelta.minus(openingDelta);
+    const openingDeltaConverted = openingDelta.isZero() || openingBasisDay === null
+      ? openingDelta
+      : convert(account.id, openingBasisDay, openingDelta);
+    const closingDeltaConverted = closingDelta.isZero()
+      ? closingDelta
+      : convert(account.id, dayKeyOf(asOf), closingDelta);
+    const marketChangeConverted = closingDeltaConverted.minus(openingDeltaConverted);
+
+    const opening = accumulator.opening.plus(openingDelta);
+    const openingConverted = accumulator.openingConverted.plus(openingDeltaConverted);
+    const closing = opening.plus(change).plus(marketChange);
     // The snapshot basis (see the parameter): the native closing valued at
     // today's rates — the Accounts card's own factors — so every surface
     // answers "what is this worth" with one number. Without a snapshot the
@@ -336,7 +384,7 @@ export function buildAccountBalanceReport(
     const snapshotFactor = snapshot?.factors.get(account.id);
     let closingConverted: DecimalInstance;
     if (snapshot === undefined) {
-      closingConverted = accumulator.openingConverted.plus(changeConverted);
+      closingConverted = openingConverted.plus(changeConverted).plus(marketChangeConverted);
     } else if (snapshotFactor) {
       holdsForeign = true;
       closingConverted = closing.times(snapshotFactor);
@@ -348,13 +396,15 @@ export function buildAccountBalanceReport(
       name: account.name,
       type: account.type,
       currency: account.currency,
-      opening: accumulator.opening.toNumber(),
+      opening: opening.toNumber(),
       moneyIn: accumulator.moneyIn.toNumber(),
       moneyOut: accumulator.moneyOut.toNumber(),
       change: change.toNumber(),
+      marketChange: marketChange.toNumber(),
       closing: closing.toNumber(),
-      openingConverted: accumulator.openingConverted.toNumber(),
+      openingConverted: openingConverted.toNumber(),
       changeConverted: changeConverted.toNumber(),
+      marketChangeConverted: marketChangeConverted.toNumber(),
       closingConverted: closingConverted.toNumber(),
       count: accumulator.count,
     };
@@ -443,6 +493,7 @@ export function buildAccountBalanceReport(
         rows: sorted,
         opening: sum(row => row.openingConverted),
         change: sum(row => row.changeConverted),
+        marketChange: sum(row => row.marketChangeConverted),
         closing: sum(row => row.closingConverted),
       };
     })
@@ -453,6 +504,7 @@ export function buildAccountBalanceReport(
   let openingNetWorth = toDecimal(0);
   let netWorth = toDecimal(0);
   let periodChange = toDecimal(0);
+  let periodMarketChange = toDecimal(0);
   for (const row of rows) {
     const closing = toDecimal(row.closingConverted);
     if (closing.greaterThan(0)) assets = assets.plus(closing);
@@ -460,6 +512,7 @@ export function buildAccountBalanceReport(
     netWorth = netWorth.plus(closing);
     openingNetWorth = openingNetWorth.plus(toDecimal(row.openingConverted));
     periodChange = periodChange.plus(toDecimal(row.changeConverted));
+    periodMarketChange = periodMarketChange.plus(toDecimal(row.marketChangeConverted));
   }
 
   return {
@@ -474,6 +527,7 @@ export function buildAccountBalanceReport(
     // netWorth − opening, which would mix the snapshot basis into a flow
     // figure. Identity mode makes the two formulas equal exactly.
     change: periodChange.toNumber(),
+    marketChange: periodMarketChange.toNumber(),
     asOf,
   };
 }

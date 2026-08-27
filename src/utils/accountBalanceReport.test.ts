@@ -448,3 +448,72 @@ describe('movedSideLabel — why a row is on the other side', () => {
     expect(sideOfType('other')).toBeNull();
   });
 });
+
+describe('the investment valuation term (slice 3b)', () => {
+  const D = (y: number, m: number, d: number): Date => new Date(y, m - 1, d);
+
+  it('keeps the row identity: opening + change + marketChange = closing', () => {
+    // £100 of delta at the window's opening edge, £250 by its close: the
+    // market moved £150 during the window, beside £50 of cash movement.
+    const deltaAt = (accountId: string, day: string) => {
+      if (accountId !== 'inv') return toDecimal('0');
+      return toDecimal(day >= '2026-02-10' ? '250' : '100');
+    };
+
+    const report = buildAccountBalanceReport(
+      [account({ id: 'inv', name: 'Portfolio', type: 'investment', openingBalance: 1000 })],
+      [
+        // History before the window, so the opening lump is effective there
+        // (an undated account's lump would otherwise fold into the window).
+        txn({ id: 't0', amount: 0, date: D(2026, 1, 5), accountId: 'inv' }),
+        txn({ id: 't1', amount: 50, date: D(2026, 2, 15), accountId: 'inv' })
+      ],
+      { from: D(2026, 2, 1), to: D(2026, 2, 28) },
+      D(2026, 2, 28),
+      undefined,
+      undefined,
+      deltaAt
+    );
+
+    const row = report.rows[0];
+    expect(row.opening).toBe(1100); // ledger 1000 + delta at 31 Jan
+    expect(row.change).toBe(50);
+    expect(row.marketChange).toBe(150);
+    expect(row.closing).toBe(1300); // 1100 + 50 + 150, and = ledger 1050 + 250
+    expect(row.opening + row.change + row.marketChange).toBe(row.closing);
+    expect(report.marketChange).toBe(150);
+    expect(report.netWorth).toBe(1300);
+  });
+
+  it('leaves an all-time window\'s opening untouched — no position predates time', () => {
+    const deltaAt = (_: string, day: string) => toDecimal(day >= '2026-02-10' ? '250' : '0');
+
+    const report = buildAccountBalanceReport(
+      [account({ id: 'inv', name: 'Portfolio', type: 'investment', openingBalance: 1000 })],
+      [txn({ id: 't1', amount: 50, date: D(2026, 2, 15), accountId: 'inv' })],
+      { from: null, to: D(2026, 2, 28) },
+      D(2026, 2, 28),
+      undefined,
+      undefined,
+      deltaAt
+    );
+
+    const row = report.rows[0];
+    expect(row.opening).toBe(1000);
+    expect(row.marketChange).toBe(250);
+    expect(row.closing).toBe(1300);
+  });
+
+  it('is exactly the old report when no valuation is passed', () => {
+    const report = buildAccountBalanceReport(
+      [account({ id: 'inv', name: 'Portfolio', type: 'investment', openingBalance: 1000 })],
+      [],
+      { from: null, to: D(2026, 2, 28) },
+      D(2026, 2, 28)
+    );
+
+    expect(report.rows[0].marketChange).toBe(0);
+    expect(report.marketChange).toBe(0);
+    expect(report.rows[0].closing).toBe(1000);
+  });
+});

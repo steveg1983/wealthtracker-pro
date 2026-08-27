@@ -445,3 +445,23 @@ describe('buildPortfolioSummary — the currency seams', () => {
     expect(summary.holdsForeign).toBe(false);
   });
 });
+
+describe('buildPortfolioSummary — the investment valuation term (slice 3b)', () => {
+  it('adds today\'s derived value to the member it belongs to, and to the line', () => {
+    const base = summaryOf();
+    const withDelta = summaryOf({
+      investmentDeltaToday: (accountId) =>
+        toDecimal(accountId === ISA ? '150' : '0'),
+    });
+
+    const baseLine = base.lines.find(l => l.accountId === ISA)!;
+    const valuedLine = withDelta.lines.find(l => l.accountId === ISA)!;
+    expect(valuedLine.value.minus(baseLine.value).toString()).toBe('150');
+    expect(withDelta.value.minus(base.value).toString()).toBe('150');
+  });
+
+  it('changes nothing when the term is omitted', () => {
+    // The additive-parameter contract, stated as a spec.
+    expect(summaryOf().value.toString()).toBe(summaryOf({}).value.toString());
+  });
+});

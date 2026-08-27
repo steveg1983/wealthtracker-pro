@@ -46,6 +46,8 @@ import {
   useConvertedNetWorth,
   type AccountBalanceEntry,
 } from '../hooks/useConvertedNetWorth';
+import { useInvestmentValuation } from '../hooks/useInvestmentValuation';
+import { netWorthPointToken } from '../utils/netWorthSeries';
 import { useNetWorthConversion } from '../hooks/useNetWorthConversion';
 import { useReconciliation } from '../hooks/useReconciliation';
 import { countAwaitingReviewByAccount } from '../utils/transactionReview';
@@ -530,12 +532,22 @@ function AccountsList() {
    * written the rule down for budgets ("a number that is true in no currency at
    * all"); the summary above the account list was the surface still breaking it.
    */
+  /**
+   * The valuation term (slice 3b) joins the CARD's figures only: the three
+   * headline numbers must match the dashboard trio and the reports (the
+   * one-net-worth ruling), so today's derived investment value rides each
+   * account's balance into the sum. The ROWS below keep their ledger
+   * balances untouched — an account row states its register, and the
+   * register's bottom line must be findable on the page that links to it.
+   */
+  const valuation = useInvestmentValuation();
+  const valuationDayKey = netWorthPointToken(new Date());
   const netWorthEntries = useMemo(
     () => openAccounts.map(a => ({
-      balance: computeAccountBalance(a.id),
+      balance: toDecimal(computeAccountBalance(a.id)).plus(valuation.deltaAt(a.id, valuationDayKey)),
       currency: a.currency || displayCurrency,
     })),
-    [openAccounts, computeAccountBalance, displayCurrency]
+    [openAccounts, computeAccountBalance, displayCurrency, valuation, valuationDayKey]
   );
 
   /**
@@ -2454,19 +2466,22 @@ function AccountsList() {
       <div>
       {/* Net Worth Summary Bar */}
       {!isLoading && accounts.length > 0 && (() => {
-        const totalBalance = calculateTotalBalance(decimalAccounts, decimalTransactions);
+        // Ledger balance plus today's valuation term (slice 3b) — the same
+        // figure the converted path sums, so the two paths cannot disagree,
+        // and the same term the dashboard trio and the reports carry.
+        const valuedBalance = (id: string): number =>
+          toDecimal(computeAccountBalance(id)).plus(valuation.deltaAt(id, valuationDayKey)).toNumber();
+        const totalBalance = decimalAccounts
+          .reduce((sum, a) => sum.plus(toDecimal(valuedBalance(a.id))), toDecimal(0))
+          .toNumber();
         const totalAssets = decimalAccounts
-          .filter(a => {
-            const bal = computeAccountBalance(a.id);
-            return bal > 0;
-          })
-          .reduce((sum, a) => sum + computeAccountBalance(a.id), 0);
+          .filter(a => valuedBalance(a.id) > 0)
+          .reduce((sum, a) => sum.plus(toDecimal(valuedBalance(a.id))), toDecimal(0))
+          .toNumber();
         const totalLiabilities = decimalAccounts
-          .filter(a => {
-            const bal = computeAccountBalance(a.id);
-            return bal < 0;
-          })
-          .reduce((sum, a) => sum + Math.abs(computeAccountBalance(a.id)), 0);
+          .filter(a => valuedBalance(a.id) < 0)
+          .reduce((sum, a) => sum.plus(toDecimal(valuedBalance(a.id)).abs()), toDecimal(0))
+          .toNumber();
 
         // ONE card, three columns, hairline dividers — not a navy slab and two
         // white cards, which read as one important thing and two afterthoughts

@@ -139,7 +139,16 @@ export function buildNetWorthSnapshots(
   transactions: Transaction[],
   range: PeriodRange,
   now: Date = new Date(),
-  conversion?: NetWorthConversion | NetWorthConversionByDate
+  conversion?: NetWorthConversion | NetWorthConversionByDate,
+  /**
+   * The investment valuation term (slice 3b): what an account's open
+   * positions are worth on a day beyond their pooled cost, in the account's
+   * NATIVE currency — see buildInvestmentValuation. Applied per account per
+   * point BEFORE conversion, so a valued balance rides the same rate as the
+   * ledger balance it sits on. Omitted, every figure is exactly what it
+   * always was — pure ledger.
+   */
+  investmentDeltaAt?: (accountId: string, day: string) => DecimalInstance
 ): NetWorthSnapshot[] {
   if (accounts.length === 0) return [];
 
@@ -218,9 +227,15 @@ export function buildNetWorthSnapshots(
     const active = conversion === undefined
       ? undefined
       : isDatedConversion(conversion) ? conversion.at(point) ?? undefined : conversion;
+    const pointDay = investmentDeltaAt === undefined ? '' : netWorthPointToken(point);
     for (const [accountId, native] of balances.entries()) {
+      // Ledger plus the derived valuation term, in native units — then one
+      // conversion for the whole valued balance.
+      const valued = investmentDeltaAt === undefined
+        ? native
+        : native.plus(investmentDeltaAt(accountId, pointDay));
       const factor = active?.factors.get(accountId);
-      const b = factor ? native.times(factor) : native;
+      const b = factor ? valued.times(factor) : valued;
       if (b.greaterThan(0)) assets = assets.plus(b);
       else liabilities = liabilities.plus(b.abs());
     }
