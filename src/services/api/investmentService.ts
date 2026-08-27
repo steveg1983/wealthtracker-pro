@@ -357,11 +357,11 @@ export class InvestmentService {
   static async listPrices(
     userId: string,
     symbol: string
-  ): Promise<Array<{ date: string; price: string; source: 'quote' | 'manual' | 'trade' | 'import' }>> {
+  ): Promise<Array<{ date: string; price: string; source: 'quote' | 'manual' | 'trade' | 'import'; currency: string }>> {
     const client = requireClient('this price history');
     const { data, error } = await client
       .from('investment_prices')
-      .select('price_date, price, source')
+      .select('price_date, price, source, currency')
       .eq('user_id', userId)
       .eq('symbol', symbol)
       .order('price_date', { ascending: true });
@@ -372,8 +372,30 @@ export class InvestmentService {
     return (data ?? []).map((row) => ({
       date: String(row.price_date),
       price: String(row.price),
-      source: row.source as 'quote' | 'manual' | 'trade' | 'import'
+      source: row.source as 'quote' | 'manual' | 'trade' | 'import',
+      // The SECURITY's currency — the event registers refuse to mix a
+      // foreign series into account money, and need this to know.
+      currency: String(row.currency ?? 'GBP')
     }));
+  }
+
+  /**
+   * Erase one position's events — the DELETE-a-holding path (slice 4): a
+   * deleted holding is "this record was a mistake", and its events are the
+   * same mistake. A SALE is the real ending and never comes here.
+   */
+  static async deleteEventsFor(userId: string, accountId: string, symbol: string): Promise<void> {
+    const client = requireClient('this trading history');
+    const { error } = await client
+      .from('investment_events')
+      .delete()
+      .eq('user_id', userId)
+      .eq('account_id', accountId)
+      .eq('symbol', symbol);
+    if (error) {
+      this.logger.error('Failed to erase trading history', error);
+      throw new Error(handleSupabaseError(error));
+    }
   }
 
   /**

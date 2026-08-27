@@ -36,6 +36,12 @@ interface InvestmentMarketViewProps {
   fallbackCurrency: string;
   onUpdateQuotes: () => void;
   /**
+   * Opens the add-a-holding form for THIS account (the owner's ask, 27 Aug:
+   * once an account holds something, adding the next one should not require
+   * the page-level menu and its account list). Absent on closed cards.
+   */
+  onAddHolding?: () => void;
+  /**
    * Whether the holdings panel is open BELOW this view.
    *
    * P8b — a message must be true of the state it is rendered in. The empty
@@ -73,6 +79,7 @@ export default function InvestmentMarketView({
   holdings,
   fallbackCurrency,
   onUpdateQuotes,
+  onAddHolding,
   isUpdating,
   updateError = null,
   symbolErrors,
@@ -143,15 +150,26 @@ export default function InvestmentMarketView({
               : ' Nothing here has been priced yet.'}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onUpdateQuotes}
-          disabled={isUpdating}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <RefreshCwIcon size={16} className={isUpdating ? 'animate-spin' : ''} aria-hidden="true" />
-          {isUpdating ? 'Updating…' : 'Update quotes'}
-        </button>
+        <div className="flex items-center gap-2">
+          {onAddHolding && (
+            <button
+              type="button"
+              onClick={onAddHolding}
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-body text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+            >
+              Add holding
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onUpdateQuotes}
+            disabled={isUpdating}
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCwIcon size={16} className={isUpdating ? 'animate-spin' : ''} aria-hidden="true" />
+            {isUpdating ? 'Updating…' : 'Update quotes'}
+          </button>
+        </div>
       </div>
 
       {/* The double-counting warning is part of the feature, not decoration:

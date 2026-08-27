@@ -410,6 +410,13 @@ function InvestmentsView() {
           ? values.quantity.times(averageCost)
           : null;
       if (eventAmount !== null) {
+        // Charges arrive in the HOLDING's currency; the event's figures are
+        // account money — convert at the buy's own rate before any
+        // subtraction (the owner's first live FX buy had $100 of charges
+        // subtracted from a £ total before this line existed).
+        const chargesInAccountMoney = purchase.fx
+          ? purchase.charges.times(purchase.fx.rate)
+          : purchase.charges;
         try {
           await dataPort.recordInvestmentEvent({
             accountId,
@@ -421,8 +428,8 @@ function InvestmentsView() {
             quantity: values.quantity.toString(),
             // Per-unit in the ACCOUNT's money, fees out — the register
             // re-anchors value from it, exactly as the imported buys do.
-            price: eventAmount.minus(purchase.charges).dividedBy(values.quantity).toString(),
-            fees: purchase.charges.greaterThan(0) ? purchase.charges.toString() : null,
+            price: eventAmount.minus(chargesInAccountMoney).dividedBy(values.quantity).toString(),
+            fees: chargesInAccountMoney.greaterThan(0) ? chargesInAccountMoney.toString() : null,
             amount: eventAmount.toString(),
             currency: accountCurrency
           });
@@ -467,10 +474,18 @@ function InvestmentsView() {
 
   const handleDeleteHolding = useCallback(
     async (id: string): Promise<void> => {
+      // A deleted holding is "this record was a mistake" — its events are
+      // the same mistake, and left behind they would keep claiming the
+      // position is still held under Securities traded. A SALE is the real
+      // ending and goes through handleSell, never here.
+      const doomed = holdings.find(h => h.id === id);
       await dataPort.deleteInvestment(id);
+      if (doomed && doomed.accountId !== null) {
+        await dataPort.deleteInvestmentEvents(doomed.accountId, doomed.symbol);
+      }
       await reloadHoldings();
     },
-    [reloadHoldings]
+    [holdings, reloadHoldings]
   );
 
   /**
@@ -2458,6 +2473,7 @@ function InvestmentsView() {
                   holdings={accountHoldings}
                   holdingsPanelOpen={managingAccountId === account.id}
                   onOpenRegister={CHROME_HAS_PRICE_HISTORY ? setRegisterHolding : undefined}
+                  onAddHolding={() => openAddHoldingFor(account.id)}
                   fallbackCurrency={account.currency}
                   onUpdateQuotes={() =>
                     void updateQuotes(

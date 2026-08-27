@@ -38,6 +38,9 @@ export interface HoldingPricePoint {
   /** Decimal string, major unit, the SECURITY's currency. */
   price: string;
   source: 'quote' | 'manual' | 'trade' | 'import';
+  /** The security's ISO currency, where the store carries it — the event
+   *  registers use it to refuse mixing a foreign series into account money. */
+  currency?: string;
 }
 
 export interface RegisterLine {

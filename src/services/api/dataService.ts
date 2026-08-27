@@ -149,7 +149,7 @@ type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
  * file.
  */
 type InvestmentServiceLike = Pick<typeof import('./investmentService').InvestmentService,
-  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory' | 'listPrices' | 'recordManualPrice' | 'importEvents' | 'listEvents' | 'listAllEvents' | 'listAllPrices' | 'recordEvent'>;
+  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory' | 'listPrices' | 'recordManualPrice' | 'importEvents' | 'listEvents' | 'listAllEvents' | 'listAllPrices' | 'recordEvent' | 'deleteEventsFor'>;
 type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
 /**
@@ -3168,6 +3168,15 @@ class DataServiceImpl implements DataPort {
     throw new Error(HOLDINGS_NEED_A_LOGIN);
   }
 
+  async deleteInvestmentEvents(accountId: string, symbol: string): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).deleteEventsFor(userId, accountId, symbol);
+    }
+    // Nothing to erase where no events can exist — deleting a holding on the
+    // device edition must not trip over an empty history.
+  }
+
   async listAllInvestmentPrices(): Promise<
     Array<{ symbol: string; date: string; price: string; currency: string }>
   > {
@@ -3845,6 +3854,10 @@ export class DataService {
     rows: readonly { symbol: string; date: string; price: string; currency: string }[]
   ): Promise<number> {
     return this.service.recordTradePrices(rows);
+  }
+
+  static deleteInvestmentEvents(accountId: string, symbol: string): Promise<void> {
+    return this.service.deleteInvestmentEvents(accountId, symbol);
   }
 
   static listAllInvestmentPrices(): Promise<
