@@ -27,7 +27,7 @@ import {
 const BatchImportModal = lazyWithRecovery(() => import('../components/BatchImportModal'));
 const ImportRulesManager = lazyWithRecovery(() => import('../components/ImportRulesManager'));
 const MsMoneyImportModal = lazyWithRecovery(() => import('../components/MsMoneyImportModal'));
-const MnyPriceImportCard = lazyWithRecovery(() => import('../components/MnyPriceImportCard'));
+const MnyHistoryImportCard = lazyWithRecovery(() => import('../components/MnyHistoryImportCard'));
 const DataMigrationWizard = lazyWithRecovery(() => import('../components/DataMigrationWizard'));
 const CSVImportWizard = lazyWithRecovery(() => import('../components/CSVImportWizard'));
 const OFXImportModal = lazyWithRecovery(() => import('../components/OFXImportModal'));
@@ -151,7 +151,7 @@ export default function EnhancedImport(): React.JSX.Element {
             (the bank-feeds lesson). */}
         {CHROME_HAS_PRICE_HISTORY && (
           <Suspense fallback={null}>
-            <MnyPriceImportCard />
+            <MnyHistoryImportCard />
           </Suspense>
         )}
 

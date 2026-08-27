@@ -53,6 +53,11 @@
 
 import { supabase, handleSupabaseError } from './supabaseClient';
 import { createScopedLogger } from '../../loggers/scopedLogger';
+import {
+  toInvestmentEvent,
+  type InvestmentEvent,
+  type InvestmentEventDraft
+} from '../investments/events';
 import { toHolding, toHoldings, type InvestmentHolding } from '../investments/holding';
 
 export {
@@ -425,6 +430,82 @@ export class InvestmentService {
         throw new Error(handleSupabaseError(snapError));
       }
     }
+  }
+
+  /**
+   * File another program's quantity events — Money's buys/sells/write-offs.
+   *
+   * IGNORE DUPLICATES on (user, source_ref): every imported row carries the
+   * originating program's own per-row GUID, so a re-run of the same file is
+   * a no-op by construction — the price import's contract, and events write
+   * NO transactions (the cash side of every historical trade already lives
+   * in the ledger from the full migration; events are the view-layer lane
+   * the registers derive from).
+   *
+   * Returns how many rows were actually written, so the door can say
+   * "92 imported, 0 already present" instead of claiming the batch.
+   */
+  static async importEvents(
+    userId: string,
+    rows: readonly InvestmentEventDraft[]
+  ): Promise<number> {
+    if (rows.length === 0) return 0;
+    const client = requireClient('this trading history');
+
+    let inserted = 0;
+    for (let start = 0; start < rows.length; start += 500) {
+      const chunk = rows.slice(start, start + 500).map((row) => ({
+        user_id: userId,
+        account_id: row.accountId,
+        symbol: row.symbol,
+        security_name: row.securityName,
+        event_date: row.date,
+        kind: row.kind,
+        quantity: row.quantity,
+        price: row.price,
+        fees: row.fees,
+        amount: row.amount,
+        currency: row.currency,
+        source: 'import' as const,
+        source_ref: row.sourceRef
+      }));
+      const { data, error } = await client
+        .from('investment_events')
+        .upsert(chunk, { onConflict: 'user_id,source_ref', ignoreDuplicates: true })
+        .select('id');
+      if (error) {
+        this.logger.error('Failed to import trading history', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      inserted += data?.length ?? 0;
+    }
+    return inserted;
+  }
+
+  /**
+   * One account's quantity events, oldest first — a portfolio's trading
+   * history, and what the closed-portfolio registers derive from.
+   */
+  static async listEvents(userId: string, accountId: string): Promise<InvestmentEvent[]> {
+    const client = requireClient('this trading history');
+    const { data, error } = await client
+      .from('investment_events')
+      .select(
+        'id, account_id, symbol, security_name, event_date, kind, quantity, price, fees, amount, currency, source'
+      )
+      .eq('user_id', userId)
+      .eq('account_id', accountId)
+      .order('event_date', { ascending: true });
+    if (error) {
+      this.logger.error('Failed to read trading history', error);
+      throw new Error(handleSupabaseError(error));
+    }
+    const events: InvestmentEvent[] = [];
+    for (const row of data ?? []) {
+      const event = toInvestmentEvent(row);
+      if (event !== null) events.push(event);
+    }
+    return events;
   }
 
   private static async findOne(userId: string, id: string): Promise<InvestmentHolding | null> {

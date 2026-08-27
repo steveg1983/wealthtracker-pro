@@ -495,3 +495,143 @@ describe('applyQuotes', () => {
     ).rejects.toThrow('deadlock detected');
   });
 });
+
+describe('importEvents', () => {
+  const draft = {
+    accountId: 'acct-1',
+    symbol: 'ABC.L',
+    securityName: 'Alphabet Soup Holdings',
+    date: '2013-05-01',
+    kind: 'buy' as const,
+    quantity: '500',
+    price: '2.5',
+    fees: null,
+    amount: '1250',
+    currency: 'GBP',
+    sourceRef: 'guid-1'
+  };
+
+  it('files rows keyed by the source ref, and rows already filed win', async () => {
+    // ignoreDuplicates on (user, source_ref): every imported row carries the
+    // originating program's own GUID, so a re-run of the same file is a no-op.
+    outcomes = { upsert: [ok([{ id: 'e-1' }])] };
+
+    const inserted = await InvestmentService.importEvents(USER, [
+      draft,
+      { ...draft, date: '2013-09-01', kind: 'sell', amount: '1390.05', fees: '9.95', sourceRef: 'guid-2' }
+    ]);
+
+    const upsert = lastCall('upsert');
+    expect(upsert.table).toBe('investment_events');
+    expect(upsert.onConflict).toBe('user_id,source_ref');
+    expect(upsert.payload).toEqual([
+      {
+        user_id: USER,
+        account_id: 'acct-1',
+        symbol: 'ABC.L',
+        security_name: 'Alphabet Soup Holdings',
+        event_date: '2013-05-01',
+        kind: 'buy',
+        quantity: '500',
+        price: '2.5',
+        fees: null,
+        amount: '1250',
+        currency: 'GBP',
+        source: 'import',
+        source_ref: 'guid-1'
+      },
+      {
+        user_id: USER,
+        account_id: 'acct-1',
+        symbol: 'ABC.L',
+        security_name: 'Alphabet Soup Holdings',
+        event_date: '2013-09-01',
+        kind: 'sell',
+        quantity: '500',
+        price: '2.5',
+        fees: '9.95',
+        amount: '1390.05',
+        currency: 'GBP',
+        source: 'import',
+        source_ref: 'guid-2'
+      }
+    ]);
+    // One of two landed — the other was already filed. Counted from the rows
+    // actually written, never claimed from the batch.
+    expect(inserted).toBe(1);
+  });
+
+  it('does nothing, and asks nothing, for an empty batch', async () => {
+    await InvestmentService.importEvents(USER, []);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('throws when the write fails', async () => {
+    outcomes = { upsert: [fails('permission denied')] };
+
+    await expect(InvestmentService.importEvents(USER, [draft])).rejects.toThrow();
+  });
+});
+
+describe('listEvents', () => {
+  it('reads one account\'s events oldest first, scoped by user AND account', async () => {
+    outcomes = {
+      select: [
+        ok([
+          {
+            id: 'e-1',
+            account_id: 'acct-1',
+            symbol: 'ABC.L',
+            security_name: 'Alphabet Soup Holdings',
+            event_date: '2013-05-01',
+            kind: 'buy',
+            quantity: '500',
+            price: '2.5',
+            fees: null,
+            amount: '1250',
+            currency: 'GBP',
+            source: 'import'
+          }
+        ])
+      ]
+    };
+
+    const events = await InvestmentService.listEvents(USER, 'acct-1');
+
+    const select = lastCall('select');
+    expect(select.table).toBe('investment_events');
+    expect(select.filters).toEqual([
+      ['user_id', USER],
+      ['account_id', 'acct-1']
+    ]);
+    expect(events).toEqual([
+      {
+        id: 'e-1',
+        accountId: 'acct-1',
+        symbol: 'ABC.L',
+        securityName: 'Alphabet Soup Holdings',
+        date: '2013-05-01',
+        kind: 'buy',
+        quantity: '500',
+        price: '2.5',
+        fees: null,
+        amount: '1250',
+        currency: 'GBP',
+        source: 'import'
+      }
+    ]);
+  });
+
+  it('drops a row the mapper cannot make sense of rather than crashing the list', async () => {
+    outcomes = { select: [ok([{ id: 'e-broken' }])] };
+
+    const events = await InvestmentService.listEvents(USER, 'acct-1');
+    expect(events).toEqual([]);
+  });
+
+  it('throws when the read fails', async () => {
+    outcomes = { select: [fails('permission denied')] };
+
+    await expect(InvestmentService.listEvents(USER, 'acct-1')).rejects.toThrow();
+  });
+});
