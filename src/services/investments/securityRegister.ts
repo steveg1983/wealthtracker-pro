@@ -73,6 +73,13 @@ export interface SecurityRegister {
   skipped: {
     pricesBeforeFirstTrade: number;
     pricesWhileNothingHeld: number;
+    /**
+     * Prices in a different currency than the events — never mixed into the
+     * arithmetic (the owner's first live FX holding drew a $315 price into
+     * £ figures before this guard existed). Same rule as the valuation
+     * module: counted, not drawn.
+     */
+    pricesInOtherCurrency: number;
     /** Sells clamped because they exceeded the pool. Nonzero = broken data. */
     soldMoreThanHeld: number;
   };
@@ -86,10 +93,21 @@ export function buildSecurityRegister(
   series: readonly HoldingPricePoint[]
 ): SecurityRegister {
   const orderedEvents = events.slice().sort((a, b) => a.date.localeCompare(b.date));
-  const orderedPrices = series.slice().sort((a, b) => a.date.localeCompare(b.date));
+  const skipped = { pricesBeforeFirstTrade: 0, pricesWhileNothingHeld: 0, pricesInOtherCurrency: 0, soldMoreThanHeld: 0 };
+  // The register speaks the EVENTS' currency (account money). A price point
+  // that declares another currency is not arithmetic with these figures.
+  const registerCurrency = orderedEvents[0]?.currency;
+  const orderedPrices = series
+    .filter((point) => {
+      if (point.currency === undefined || registerCurrency === undefined || point.currency === registerCurrency) {
+        return true;
+      }
+      skipped.pricesInOtherCurrency += 1;
+      return false;
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   const lines: SecurityRegisterLine[] = [];
-  const skipped = { pricesBeforeFirstTrade: 0, pricesWhileNothingHeld: 0, soldMoreThanHeld: 0 };
 
   let poolQty = ZERO;
   let poolCost = ZERO;

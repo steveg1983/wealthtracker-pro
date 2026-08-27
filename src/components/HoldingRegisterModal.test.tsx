@@ -225,3 +225,39 @@ describe('HoldingRegisterModal — live trades (slice 4)', () => {
     expect(screen.getByText(/record\s+its trades through Add a holding/i)).toBeInTheDocument();
   });
 });
+
+describe('HoldingRegisterModal — the register speaks the events\' currency', () => {
+  it('prints event figures in the EVENTS\' currency, not the holding\'s', async () => {
+    // The owner's first live FX buy: a USD-priced holding in a GBP account.
+    // The event is account money (£23,184.92) and printed as dollars before
+    // this spec existed.
+    mockListPrices.mockResolvedValue([]);
+    mockListEvents.mockResolvedValue([
+      {
+        id: 'e-1',
+        accountId: 'acct-1',
+        symbol: 'RR.L',
+        securityName: 'Rolls-Royce Holdings',
+        date: '2026-08-26',
+        kind: 'buy',
+        quantity: '100',
+        price: '230.85',
+        fees: null,
+        amount: '23185',
+        currency: 'GBP',
+        source: 'manual'
+      }
+    ]);
+
+    render(
+      <HoldingRegisterModal
+        holding={{ ...holding(), currency: 'USD' }}
+        onClose={vi.fn()}
+        onPricesChanged={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText(/Bought £23,185\.00/)).toBeInTheDocument();
+    expect(screen.queryByText(/\$23,185/)).not.toBeInTheDocument();
+  });
+});

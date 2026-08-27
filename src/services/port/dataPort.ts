@@ -1359,6 +1359,13 @@ export interface DataPortInvestmentWrites {
   ): Promise<number>;
 
   /**
+   * Erase one position's events — the delete-a-holding path: a deleted
+   * holding is "this record was a mistake", and its events are the same
+   * mistake. A SALE is the real ending and never comes here.
+   */
+  deleteInvestmentEvents(accountId: string, symbol: string): Promise<void>;
+
+  /**
    * EVERY quantity event, oldest first — what the net-worth valuation folds
    * (slice 3b). One read, because the walks value all accounts at once.
    */

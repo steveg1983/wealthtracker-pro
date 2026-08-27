@@ -427,9 +427,12 @@ export default function HoldingRegisterModal({
 
         {securityRegister && (
           <>
+            {/* THE EVENTS' CURRENCY, not the holding's: events are account
+                money, and the owner's first live FX buy printed £23,184.92
+                as "$23,184.92" while this line read holding.currency. */}
             <SecurityRegisterTable
               register={securityRegister}
-              currency={holding.currency}
+              currency={events?.[0]?.currency ?? holding.currency}
               symbol={holding.symbol}
             />
             {actionArea}

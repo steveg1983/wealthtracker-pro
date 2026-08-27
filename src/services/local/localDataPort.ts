@@ -1722,6 +1722,10 @@ export class LocalDataPort implements DataPort {
     );
   }
 
+  async deleteInvestmentEvents(): Promise<void> {
+    // An empty history has nothing to erase; deleting a holding proceeds.
+  }
+
   async listAllInvestmentPrices(): Promise<
     Array<{ symbol: string; date: string; price: string; currency: string }>
   > {

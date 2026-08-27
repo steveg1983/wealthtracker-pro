@@ -147,3 +147,31 @@ describe('buildSecurityRegister', () => {
     ]);
   });
 });
+
+describe('the currency guard — account money only', () => {
+  it('refuses to draw a price in another currency, and counts it', () => {
+    // The owner's first live FX holding: GBP events, a USD price series —
+    // the pre-guard register drew 100 × $315 into £ figures.
+    const out = buildSecurityRegister(
+      [event()],
+      [{ date: '2013-02-01', price: '315', source: 'trade', currency: 'USD' }]
+    );
+
+    expect(out.lines).toHaveLength(1); // the buy alone, at cost
+    expect(out.skipped.pricesInOtherCurrency).toBe(1);
+    expect(out.endValue.toString()).toBe('1000');
+  });
+
+  it('draws a price that declares the SAME currency, and one with none (legacy)', () => {
+    const out = buildSecurityRegister(
+      [event()],
+      [
+        { date: '2013-02-01', price: '11', source: 'quote', currency: 'GBP' },
+        { date: '2013-03-01', price: '12', source: 'quote' }
+      ]
+    );
+
+    expect(out.lines.map((l) => l.kind)).toEqual(['buy', 'revaluation', 'revaluation']);
+    expect(out.skipped.pricesInOtherCurrency).toBe(0);
+  });
+});

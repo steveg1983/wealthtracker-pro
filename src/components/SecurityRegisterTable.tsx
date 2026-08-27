@@ -115,6 +115,14 @@ export default function SecurityRegisterTable({
             was held and moved nothing.
           </p>
         )}
+        {register.skipped.pricesInOtherCurrency > 0 && (
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {register.skipped.pricesInOtherCurrency} price
+            {register.skipped.pricesInOtherCurrency === 1 ? '' : 's'} in another currency
+            {register.skipped.pricesInOtherCurrency === 1 ? ' is' : ' are'} not drawn — this register
+            speaks the account&rsquo;s money.
+          </p>
+        )}
         {register.skipped.soldMoreThanHeld > 0 && (
           <p className="text-xs text-red-700 dark:text-red-400">
             {register.skipped.soldMoreThanHeld} sale
