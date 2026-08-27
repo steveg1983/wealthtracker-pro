@@ -13,11 +13,12 @@ import {
 import { formatDecimal } from '../utils/decimal-format';
 import { supportedCurrencies } from '../utils/currency';
 import MoneyInput from './common/MoneyInput';
+import { getCurrencySymbol } from '../utils/currency';
 import DatePicker from './common/DatePicker';
 import StockSymbolSearch from './StockSymbolSearch';
 import { fetchQuotes, type StockQuote } from '../services/stockPriceService';
 import { PlusIcon, EditIcon, DeleteIcon } from './icons';
-import { Modal } from './common/Modal';
+import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { LoadingButton } from './loading/LoadingState';
 // From the LIFTED module, not from `services/api/investmentService` — which
 // re-exports all three and whose first line builds a Supabase client. This is a
@@ -806,6 +807,11 @@ export default function PortfolioManager({
         onClose={closeModal}
         title={editing ? `Edit ${editing.symbol}` : 'Add a holding'}
       >
+        {/* ModalBody, not bare children: the Modal renders children unpadded
+            and the 24px gutter lives HERE — measured at ~2px against Add New
+            Account's ~23px, which was the whole of the "not as contained"
+            impression (Design, 27 Aug second look, §1). */}
+        <ModalBody>
         <div className="space-y-4">
           <div>
             <label className={labelClass}>
@@ -898,15 +904,24 @@ export default function PortfolioManager({
 
             <div>
               <label htmlFor="holding-average-cost" className={labelClass}>
-                Average cost per unit{!editing && crossCurrency ? ` (${entryCcy})` : ''}
+                Average cost per unit
               </label>
-              <MoneyInput
-                id="holding-average-cost"
-                value={averageCost}
-                onChange={setAverageCost}
-                className={inputClass}
-                disabled={isSaving}
-              />
+              {/* The symbol INSIDE the field, live from Priced in — the field
+                  says its own currency, the way Opening balance wears its £,
+                  and the label loses its parenthetical (Design, 27 Aug second
+                  look, §4). */}
+              <div className="relative">
+                <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none">
+                  {getCurrencySymbol(entryCcy)}
+                </span>
+                <MoneyInput
+                  id="holding-average-cost"
+                  value={averageCost}
+                  onChange={setAverageCost}
+                  className={`${inputClass} pl-8`}
+                  disabled={isSaving}
+                />
+              </div>
             </div>
 
             <div>
@@ -975,15 +990,20 @@ export default function PortfolioManager({
             <>
               <div>
                 <label htmlFor="holding-charges" className={labelClass}>
-                  Charges — stamp duty, levies, commission ({entryCcy})
+                  Charges — stamp duty, levies, commission
                 </label>
-                <MoneyInput
-                  id="holding-charges"
-                  value={charges}
-                  onChange={setCharges}
-                  className={inputClass}
-                  disabled={isSaving}
-                />
+                <div className="relative">
+                  <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none">
+                    {getCurrencySymbol(entryCcy)}
+                  </span>
+                  <MoneyInput
+                    id="holding-charges"
+                    value={charges}
+                    onChange={setCharges}
+                    className={`${inputClass} pl-8`}
+                    disabled={isSaving}
+                  />
+                </div>
                 <p className={helperClass}>
                   Folded into the cost basis, the way a contract note's total is.
                   Charged in another currency? Leave this at zero and put them in
@@ -1013,11 +1033,13 @@ export default function PortfolioManager({
                     </option>
                   ))}
                 </select>
+                {/* One line now, not three: the list is principled — this
+                    portfolio's own cash, nothing else — so the prose no longer
+                    has to explain away a hundred strangers (Design, 27 Aug). */}
                 <p className={helperClass}>
-                  Writes the transfer: out of the account you pick, into this
-                  investment account. Accounts in other currencies are not
-                  offered — a converted transfer needs its confirmed figure, so
-                  make it from the register instead.
+                  {fundingAccounts.length === 0
+                    ? 'No cash account is paired with this portfolio — pair one in Account Settings to fund buys from it.'
+                    : 'Writes the transfer: out of the cash account, into this investment account.'}
                 </p>
               </div>
 
@@ -1114,11 +1136,19 @@ export default function PortfolioManager({
             </div>
           )}
 
-          <div className="flex justify-end gap-3 pt-4">
+        </div>
+        </ModalBody>
+        {/* The four-role footer pair, matching Add New Account: an OUTLINED
+            secondary beside the filled primary, divider above (ModalFooter
+            carries it), both one height. Bare text beside a filled button read
+            as an afterthought and gave the reader nothing to aim at (Design,
+            27 Aug second look, §2). */}
+        <ModalFooter>
+          <div className="flex justify-end gap-3">
             <button
               type="button"
               onClick={closeModal}
-              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               Cancel
             </button>
@@ -1137,7 +1167,7 @@ export default function PortfolioManager({
               {editing ? 'Save changes' : 'Add holding'}
             </LoadingButton>
           </div>
-        </div>
+        </ModalFooter>
       </Modal>
     </div>
   );

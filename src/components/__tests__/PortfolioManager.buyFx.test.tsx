@@ -97,7 +97,7 @@ const fillDollarBuy = async (): Promise<void> => {
     expect(screen.getByLabelText('Priced in')).toHaveValue('USD');
   });
   fireEvent.change(screen.getByLabelText('Units held'), { target: { value: '10' } });
-  fireEvent.change(screen.getByLabelText('Average cost per unit (USD)'), { target: { value: '100' } });
+  fireEvent.change(screen.getByLabelText('Average cost per unit'), { target: { value: '100' } });
   fireEvent.change(screen.getByLabelText('Paid from'), { target: { value: FUNDING.id } });
 };
 
@@ -196,10 +196,13 @@ describe('PortfolioManager — a buy across a currency boundary', () => {
     fireEvent.change(screen.getByLabelText('Enter figures in'), {
       target: { value: 'account' },
     });
-    // The boxes now speak sterling…
-    expect(screen.getByLabelText('Average cost per unit (GBP)')).toBeInTheDocument();
+    // The boxes now speak sterling — said by the SYMBOL inside the field,
+    // where the parenthetical on the label used to say it (Design, 27 Aug
+    // second look, §4: the field wears its own currency).
+    const costField = screen.getByLabelText('Average cost per unit');
+    expect(costField.parentElement?.textContent).toContain('£');
     // …and the typed price is the sterling one: £80 a unit at 0.8 is $100.
-    fireEvent.change(screen.getByLabelText('Average cost per unit (GBP)'), {
+    fireEvent.change(costField, {
       target: { value: '80' },
     });
 
@@ -236,7 +239,7 @@ describe('PortfolioManager — a buy across a currency boundary', () => {
       target: { value: 'account' },
     });
     fireEvent.change(screen.getByLabelText('Units held'), { target: { value: '10' } });
-    fireEvent.change(screen.getByLabelText('Average cost per unit (GBP)'), {
+    fireEvent.change(screen.getByLabelText('Average cost per unit'), {
       target: { value: '80' },
     });
 

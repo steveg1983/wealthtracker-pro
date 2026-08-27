@@ -2236,21 +2236,26 @@ function InvestmentsView() {
                         addSignal?.accountId === account.id ? addSignal.nonce : undefined
                       }
                       onAddSignalHandled={clearAddSignal}
-                      // Where the purchase money may come from: any open account
-                      // in THIS account's currency (Money let a buy name any
-                      // funding account — measured, 2015 of 2029 did), with this
-                      // account's own cash sleeve(s) first because that is the
-                      // answer nine times in ten. Same-currency only: the
-                      // counterpart write copies the row's digits, and a
-                      // converted transfer needs its confirmed figure.
+                      // Where the purchase money may come from: THIS portfolio's
+                      // OWN nested cash, and nothing else (owner's ruling, 27
+                      // Aug — money reaches a portfolio through its sleeve, by
+                      // ordinary transfer, first). Money itself allowed any
+                      // funding account (measured: 2015 of 2029 buys did), and
+                      // the first draft copied that — which put EVERY
+                      // same-currency account in one flat list, while its
+                      // `type !== 'investment'` guard hid the one account that
+                      // belonged there, because his sleeves are typed
+                      // 'investment'. The two mistakes compounded into "all my
+                      // accounts except the right one".
+                      //
+                      // Same-currency still holds: the counterpart write copies
+                      // the row's digits, and a converted transfer needs its
+                      // confirmed figure.
                       fundingAccounts={openAccounts
                         .filter(a =>
-                          a.id !== account.id &&
-                          a.type !== 'investment' &&
+                          a.parentAccountId === account.id &&
                           a.currency === account.currency)
-                        .sort((a, b) =>
-                          Number(b.parentAccountId === account.id) - Number(a.parentAccountId === account.id) ||
-                          a.name.localeCompare(b.name))}
+                        .sort((a, b) => a.name.localeCompare(b.name))}
                       onAdd={(values, purchase) => handleAddHolding(account.id, values, purchase)}
                       onEdit={handleEditHolding}
                       onDelete={handleDeleteHolding}
