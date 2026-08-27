@@ -45,6 +45,12 @@ interface InvestmentMarketViewProps {
    * only drawn there. (Design, 27 Aug §2.)
    */
   holdingsPanelOpen?: boolean;
+  /**
+   * Opens this holding's register — buy, derived revaluations, revalue. When
+   * absent the rows stay plain (the desktop edition has no price series yet,
+   * so a click there would open a register of one line and a refusal).
+   */
+  onOpenRegister?: (holding: InvestmentHolding) => void;
   isUpdating: boolean;
   /** Shown above the table when the last update failed. */
   updateError?: string | null;
@@ -70,7 +76,8 @@ export default function InvestmentMarketView({
   isUpdating,
   updateError = null,
   symbolErrors,
-  holdingsPanelOpen = false
+  holdingsPanelOpen = false,
+  onOpenRegister
 }: InvestmentMarketViewProps): React.JSX.Element | null {
   const { formatCurrency } = useCurrencyDecimal();
 
@@ -191,7 +198,10 @@ export default function InvestmentMarketView({
               return (
                 <tr
                   key={holding.id}
-                  className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+                  onClick={onOpenRegister ? () => onOpenRegister(holding) : undefined}
+                  className={`border-b border-gray-100 dark:border-gray-700/50 last:border-0 ${
+                    onOpenRegister ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''
+                  }`}
                 >
                   <td className="py-3 pr-3">
                     <span className="block font-medium text-gray-900 dark:text-white">

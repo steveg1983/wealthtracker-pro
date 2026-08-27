@@ -147,7 +147,7 @@ type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
  * file.
  */
 type InvestmentServiceLike = Pick<typeof import('./investmentService').InvestmentService,
-  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory'>;
+  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory' | 'listPrices' | 'recordManualPrice'>;
 type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
 /**
@@ -3098,6 +3098,27 @@ class DataServiceImpl implements DataPort {
     throw new Error(HOLDINGS_NEED_A_LOGIN);
   }
 
+  async listInvestmentPrices(
+    symbol: string
+  ): Promise<Array<{ date: string; price: string; source: 'quote' | 'manual' | 'trade' | 'import' }>> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).listPrices(userId, symbol);
+    }
+    return [];
+  }
+
+  async recordInvestmentPrice(
+    entry: { symbol: string; date: string; price: string; currency: string }
+  ): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).recordManualPrice(userId, entry);
+    }
+    this.guardCloudWrite();
+    throw new Error(HOLDINGS_NEED_A_LOGIN);
+  }
+
   /**
    * Create a category.
    *
@@ -3731,6 +3752,18 @@ export class DataService {
     rows: readonly { symbol: string; date: string; price: string; currency: string }[]
   ): Promise<number> {
     return this.service.importInvestmentPriceHistory(rows);
+  }
+
+  static listInvestmentPrices(
+    symbol: string
+  ): Promise<Array<{ date: string; price: string; source: 'quote' | 'manual' | 'trade' | 'import' }>> {
+    return this.service.listInvestmentPrices(symbol);
+  }
+
+  static recordInvestmentPrice(
+    entry: { symbol: string; date: string; price: string; currency: string }
+  ): Promise<void> {
+    return this.service.recordInvestmentPrice(entry);
   }
 
   static createCategory(category: Omit<Category, 'id'>): Promise<Category> {

@@ -339,6 +339,94 @@ export class InvestmentService {
     return inserted;
   }
 
+  /**
+   * A symbol's full price series, oldest first — the register derives from it.
+   */
+  static async listPrices(
+    userId: string,
+    symbol: string
+  ): Promise<Array<{ date: string; price: string; source: 'quote' | 'manual' | 'trade' | 'import' }>> {
+    const client = requireClient('this price history');
+    const { data, error } = await client
+      .from('investment_prices')
+      .select('price_date, price, source')
+      .eq('user_id', userId)
+      .eq('symbol', symbol)
+      .order('price_date', { ascending: true });
+    if (error) {
+      this.logger.error('Failed to read price history', error);
+      throw new Error(handleSupabaseError(error));
+    }
+    return (data ?? []).map((row) => ({
+      date: String(row.price_date),
+      price: String(row.price),
+      source: row.source as 'quote' | 'manual' | 'trade' | 'import'
+    }));
+  }
+
+  /**
+   * The owner types a price — the register's Revalue action, and the local
+   * edition's only pricing path by design (when its lane lands).
+   *
+   * MANUAL IS THE STRONGEST PROVENANCE, so unlike an import this OVERWRITES
+   * the day: a person deliberately restating today's figure means the stored
+   * one was wrong. The holding's current_price snapshot moves too, but only
+   * when this price is the newest the symbol has — restating a HISTORICAL
+   * day must not stamp an old price over today's.
+   */
+  static async recordManualPrice(
+    userId: string,
+    entry: { symbol: string; date: string; price: string; currency: string }
+  ): Promise<void> {
+    const client = requireClient('this price');
+    const { error } = await client
+      .from('investment_prices')
+      .upsert(
+        [{
+          user_id: userId,
+          symbol: entry.symbol,
+          price_date: entry.date,
+          price: entry.price,
+          currency: entry.currency,
+          source: 'manual' as const,
+          updated_at: new Date().toISOString()
+        }],
+        { onConflict: 'user_id,symbol,price_date' }
+      );
+    if (error) {
+      this.logger.error('Failed to record manual price', error);
+      throw new Error(handleSupabaseError(error));
+    }
+
+    // Is this the newest date the symbol has? Only then does the snapshot move.
+    const { data: newer, error: newerError } = await client
+      .from('investment_prices')
+      .select('price_date')
+      .eq('user_id', userId)
+      .eq('symbol', entry.symbol)
+      .gt('price_date', entry.date)
+      .limit(1);
+    if (newerError) {
+      this.logger.error('Failed to check price recency', newerError);
+      throw new Error(handleSupabaseError(newerError));
+    }
+    if ((newer?.length ?? 0) === 0) {
+      const { error: snapError } = await client
+        .from('investments')
+        .update({
+          current_price: entry.price,
+          last_updated: `${entry.date}T00:00:00.000Z`,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .eq('symbol', entry.symbol);
+      if (snapError) {
+        this.logger.error('Failed to move the price snapshot', snapError);
+        throw new Error(handleSupabaseError(snapError));
+      }
+    }
+  }
+
   private static async findOne(userId: string, id: string): Promise<InvestmentHolding | null> {
     if (!supabase) return null;
 
