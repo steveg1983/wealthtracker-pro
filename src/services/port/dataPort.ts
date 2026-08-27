@@ -1343,6 +1343,22 @@ export interface DataPortInvestmentWrites {
   listInvestmentEvents(accountId: string): Promise<InvestmentEvent[]>;
 
   /**
+   * ONE quantity event, typed by hand — a live buy or sell (slice 4). No
+   * idempotency key: a person's second identical buy is a second buy. The
+   * event is the register's record; the CASH truth of the trade is the
+   * caller's transfer or sale split, written separately.
+   */
+  recordInvestmentEvent(draft: Omit<InvestmentEventDraft, 'sourceRef'>): Promise<void>;
+
+  /**
+   * Prices implied by live trades — importInvestmentPriceHistory's
+   * never-overwrite behaviour with 'trade' provenance.
+   */
+  recordTradePrices(
+    rows: readonly { symbol: string; date: string; price: string; currency: string }[]
+  ): Promise<number>;
+
+  /**
    * EVERY quantity event, oldest first — what the net-worth valuation folds
    * (slice 3b). One read, because the walks value all accounts at once.
    */

@@ -149,7 +149,7 @@ type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
  * file.
  */
 type InvestmentServiceLike = Pick<typeof import('./investmentService').InvestmentService,
-  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory' | 'listPrices' | 'recordManualPrice' | 'importEvents' | 'listEvents' | 'listAllEvents' | 'listAllPrices'>;
+  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory' | 'listPrices' | 'recordManualPrice' | 'importEvents' | 'listEvents' | 'listAllEvents' | 'listAllPrices' | 'recordEvent'>;
 type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
 /**
@@ -3147,6 +3147,27 @@ class DataServiceImpl implements DataPort {
     return [];
   }
 
+  async recordInvestmentEvent(draft: Omit<InvestmentEventDraft, 'sourceRef'>): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).recordEvent(userId, draft);
+    }
+    this.guardCloudWrite();
+    throw new Error(HOLDINGS_NEED_A_LOGIN);
+  }
+
+  async recordTradePrices(
+    rows: readonly { symbol: string; date: string; price: string; currency: string }[]
+  ): Promise<number> {
+    if (rows.length === 0) return 0;
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).importPriceHistory(userId, rows, 'trade');
+    }
+    this.guardCloudWrite();
+    throw new Error(HOLDINGS_NEED_A_LOGIN);
+  }
+
   async listAllInvestmentPrices(): Promise<
     Array<{ symbol: string; date: string; price: string; currency: string }>
   > {
@@ -3814,6 +3835,16 @@ export class DataService {
 
   static listAllInvestmentEvents(): Promise<InvestmentEvent[]> {
     return this.service.listAllInvestmentEvents();
+  }
+
+  static recordInvestmentEvent(draft: Omit<InvestmentEventDraft, 'sourceRef'>): Promise<void> {
+    return this.service.recordInvestmentEvent(draft);
+  }
+
+  static recordTradePrices(
+    rows: readonly { symbol: string; date: string; price: string; currency: string }[]
+  ): Promise<number> {
+    return this.service.recordTradePrices(rows);
   }
 
   static listAllInvestmentPrices(): Promise<

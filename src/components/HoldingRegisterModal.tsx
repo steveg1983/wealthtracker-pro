@@ -1,20 +1,28 @@
 /**
  * One holding's register — the Microsoft Money shape, derived live.
  *
- * Opened by clicking a holding on the Portfolio tab. Every revaluation line
- * is computed from consecutive points of the symbol's price series
- * (buildHoldingRegister holds the arithmetic and the rulings); nothing here
- * is stored, so a corrected price corrects this view on the next open.
+ * Opened by clicking a holding on the Portfolio tab. TWO derivations, one
+ * choice (slice 4): when the holding's (account, symbol) has EVENTS — a buy
+ * recorded at creation, imported history, later trades — the register is
+ * buildSecurityRegister over them, drawn by the same SecurityRegisterTable
+ * the history modal uses, so a live holding and an imported story can never
+ * disagree about a trade. The valuation module makes the same choice
+ * (events over the holding row), and the register must agree with what net
+ * worth counts. Without events — holdings from before the event lane — the
+ * original constant-quantity derivation stands, exactly as before.
  *
  * Revalue is the register's one write: the owner types a price, it files as
- * MANUAL provenance — the strongest, overwriting its day — and the series
- * reloads so the new line appears where it will always appear. The snapshot
- * on the holding row follows only when the typed date is the newest.
+ * MANUAL provenance — the strongest, overwriting its day — and everything
+ * reloads so the new line lands where it will always land. The snapshot on
+ * the holding row follows only when the typed date is the newest.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { dataPort } from '@data';
 import { Modal, ModalBody } from './common/Modal';
 import { buildHoldingRegister, type HoldingPricePoint } from '../services/investments/holdingRegister';
+import { buildSecurityRegister } from '../services/investments/securityRegister';
+import SecurityRegisterTable from './SecurityRegisterTable';
+import type { InvestmentEvent } from '../services/investments/events';
 import type { InvestmentHolding } from '../services/investments/holding';
 import { formatCurrency, formatUnitPrice } from '../utils/currency-decimal';
 
@@ -41,6 +49,7 @@ export default function HoldingRegisterModal({
   onPricesChanged
 }: HoldingRegisterModalProps): React.JSX.Element {
   const [series, setSeries] = useState<HoldingPricePoint[] | null>(null);
+  const [events, setEvents] = useState<InvestmentEvent[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [revaluePrice, setRevaluePrice] = useState('');
   const [revalueDate, setRevalueDate] = useState(today());
@@ -49,20 +58,39 @@ export default function HoldingRegisterModal({
 
   const load = useCallback(async (): Promise<void> => {
     try {
-      setSeries(await dataPort.listInvestmentPrices(holding.symbol));
+      const [prices, accountEvents] = await Promise.all([
+        dataPort.listInvestmentPrices(holding.symbol),
+        holding.accountId === null
+          ? Promise.resolve([] as InvestmentEvent[])
+          : dataPort.listInvestmentEvents(holding.accountId)
+      ]);
+      setSeries(prices);
+      setEvents(accountEvents.filter((event) => event.symbol === holding.symbol));
       setLoadError(null);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'The price history could not be read.');
     }
-  }, [holding.symbol]);
+  }, [holding.accountId, holding.symbol]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  /** The events derivation, when the position has any — see the header. */
+  const securityRegister = useMemo(
+    () =>
+      series === null || events === null || events.length === 0
+        ? null
+        : buildSecurityRegister(events, series),
+    [events, series]
+  );
+
   const register = useMemo(
-    () => (series === null ? null : buildHoldingRegister(holding, series)),
-    [holding, series]
+    () =>
+      series === null || securityRegister !== null
+        ? null
+        : buildHoldingRegister(holding, series),
+    [holding, series, securityRegister]
   );
 
   const revalue = useCallback(async (): Promise<void> => {
@@ -90,6 +118,52 @@ export default function HoldingRegisterModal({
     }
   }, [holding.currency, holding.symbol, load, onPricesChanged, revalueDate, revaluePrice]);
 
+  const revalueForm = (
+    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+      <p className="text-body font-medium text-gray-900 dark:text-white mb-2">Revalue</p>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="block">
+          <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+            Price per unit ({holding.currency})
+          </span>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={revaluePrice}
+            onChange={(e) => setRevaluePrice(e.target.value)}
+            placeholder="0.00"
+            className="w-36 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg text-gray-900 dark:text-white"
+          />
+        </label>
+        <label className="block">
+          <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">On</span>
+          <input
+            type="date"
+            value={revalueDate}
+            max={today()}
+            onChange={(e) => setRevalueDate(e.target.value)}
+            className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg text-gray-900 dark:text-white"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => void revalue()}
+          disabled={isSaving}
+          className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50"
+        >
+          {isSaving ? 'Saving…' : 'Record price'}
+        </button>
+      </div>
+      {saveError && (
+        <p role="alert" className="mt-2 text-body text-red-700 dark:text-red-400">{saveError}</p>
+      )}
+      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+        A price you set replaces that day&rsquo;s figure. The register recalculates from the series,
+        so the line lands where the date puts it.
+      </p>
+    </div>
+  );
+
   return (
     <Modal isOpen onClose={onClose} title={`${holding.symbol} — register`} size="lg">
       <ModalBody>
@@ -98,8 +172,19 @@ export default function HoldingRegisterModal({
           <p role="alert" className="text-body text-red-700 dark:text-red-400">{loadError}</p>
         )}
 
-        {register === null && !loadError && (
+        {register === null && securityRegister === null && !loadError && (
           <p className="text-body text-gray-500 dark:text-gray-400">Reading the price history…</p>
+        )}
+
+        {securityRegister && (
+          <>
+            <SecurityRegisterTable
+              register={securityRegister}
+              currency={holding.currency}
+              symbol={holding.symbol}
+            />
+            {revalueForm}
+          </>
         )}
 
         {register && (
@@ -158,49 +243,7 @@ export default function HoldingRegisterModal({
               )}
             </div>
 
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <p className="text-body font-medium text-gray-900 dark:text-white mb-2">Revalue</p>
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="block">
-                  <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Price per unit ({holding.currency})
-                  </span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={revaluePrice}
-                    onChange={(e) => setRevaluePrice(e.target.value)}
-                    placeholder="0.00"
-                    className="w-36 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg text-gray-900 dark:text-white"
-                  />
-                </label>
-                <label className="block">
-                  <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">On</span>
-                  <input
-                    type="date"
-                    value={revalueDate}
-                    max={today()}
-                    onChange={(e) => setRevalueDate(e.target.value)}
-                    className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg text-gray-900 dark:text-white"
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={() => void revalue()}
-                  disabled={isSaving}
-                  className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50"
-                >
-                  {isSaving ? 'Saving…' : 'Record price'}
-                </button>
-              </div>
-              {saveError && (
-                <p role="alert" className="mt-2 text-body text-red-700 dark:text-red-400">{saveError}</p>
-              )}
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                A price you set replaces that day&rsquo;s figure. The register recalculates from the
-                series, so the line lands where the date puts it.
-              </p>
-            </div>
+            {revalueForm}
           </>
         )}
       </div>

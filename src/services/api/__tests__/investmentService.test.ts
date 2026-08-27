@@ -693,3 +693,77 @@ describe('listAllEvents / listAllPrices — the valuation reads', () => {
     await expect(InvestmentService.listAllPrices(USER)).rejects.toThrow();
   });
 });
+
+describe('recordEvent — a live trade, typed by hand', () => {
+  it('inserts one manual event with no source ref', async () => {
+    outcomes = { insert: [ok(null)] };
+
+    await InvestmentService.recordEvent(USER, {
+      accountId: 'acct-1',
+      symbol: 'ABC.L',
+      securityName: 'Alphabet Soup Holdings',
+      date: '2026-08-27',
+      kind: 'buy',
+      quantity: '100',
+      price: '2.5',
+      fees: '9.95',
+      amount: '259.95',
+      currency: 'GBP'
+    });
+
+    const insert = lastCall('insert');
+    expect(insert.table).toBe('investment_events');
+    expect(insert.payload).toEqual([{
+      user_id: USER,
+      account_id: 'acct-1',
+      symbol: 'ABC.L',
+      security_name: 'Alphabet Soup Holdings',
+      event_date: '2026-08-27',
+      kind: 'buy',
+      quantity: '100',
+      price: '2.5',
+      fees: '9.95',
+      amount: '259.95',
+      currency: 'GBP',
+      source: 'manual',
+      source_ref: null
+    }]);
+  });
+
+  it('throws on failure — a trade that silently failed would be inexplicable later', async () => {
+    outcomes = { insert: [fails('permission denied')] };
+
+    await expect(
+      InvestmentService.recordEvent(USER, {
+        accountId: 'acct-1',
+        symbol: 'ABC.L',
+        securityName: 'Alphabet Soup Holdings',
+        date: '2026-08-27',
+        kind: 'sell',
+        quantity: '100',
+        price: '3',
+        fees: null,
+        amount: '300',
+        currency: 'GBP'
+      })
+    ).rejects.toThrow();
+  });
+});
+
+describe('importPriceHistory — trade provenance', () => {
+  it('files a trade-implied price with trade provenance, never overwriting', async () => {
+    outcomes = { upsert: [ok([{ id: 'p-1' }])] };
+
+    await InvestmentService.importPriceHistory(
+      USER,
+      [{ symbol: 'ABC.L', date: '2026-08-27', price: '2.5', currency: 'GBP' }],
+      'trade'
+    );
+
+    const upsert = lastCall('upsert');
+    expect(upsert.payload).toEqual([
+      { user_id: USER, symbol: 'ABC.L', price_date: '2026-08-27', price: '2.5', currency: 'GBP', source: 'trade' }
+    ]);
+    expect(upsert.onConflict).toBe('user_id,symbol,price_date');
+  });
+});

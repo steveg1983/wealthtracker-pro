@@ -1710,6 +1710,18 @@ export class LocalDataPort implements DataPort {
     return [];
   }
 
+  async recordInvestmentEvent(): Promise<void> {
+    throw new Error(
+      'This ledger file cannot hold trading history yet. Record the trade in the cloud edition for now.'
+    );
+  }
+
+  async recordTradePrices(): Promise<number> {
+    throw new Error(
+      'This ledger file cannot hold price history yet. Record it in the cloud edition for now.'
+    );
+  }
+
   async listAllInvestmentPrices(): Promise<
     Array<{ symbol: string; date: string; price: string; currency: string }>
   > {
