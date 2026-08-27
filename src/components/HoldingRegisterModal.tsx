@@ -16,7 +16,7 @@ import { dataPort } from '@data';
 import { Modal, ModalBody } from './common/Modal';
 import { buildHoldingRegister, type HoldingPricePoint } from '../services/investments/holdingRegister';
 import type { InvestmentHolding } from '../services/investments/holding';
-import { formatCurrency } from '../utils/currency-decimal';
+import { formatCurrency, formatUnitPrice } from '../utils/currency-decimal';
 
 interface HoldingRegisterModalProps {
   holding: InvestmentHolding;
@@ -130,7 +130,7 @@ export default function HoldingRegisterModal({
                         {SOURCE_WORD[line.source]}
                       </td>
                       <td className="py-2 px-3 text-right tabular-nums text-gray-900 dark:text-white">
-                        {line.price === null ? '—' : formatCurrency(line.price, holding.currency)}
+                        {line.price === null ? '—' : formatUnitPrice(line.price, holding.currency)}
                       </td>
                       <td className="py-2 px-3 text-right tabular-nums text-gray-900 dark:text-white">
                         {formatCurrency(line.amount, holding.currency)}

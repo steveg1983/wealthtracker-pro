@@ -17,7 +17,7 @@ import { buildSecurityRegister } from '../services/investments/securityRegister'
 import type { SecurityRegisterLine } from '../services/investments/securityRegister';
 import type { InvestmentEvent } from '../services/investments/events';
 import type { HoldingPricePoint } from '../services/investments/holdingRegister';
-import { formatCurrency } from '../utils/currency-decimal';
+import { formatCurrency, formatUnitPrice } from '../utils/currency-decimal';
 
 interface SecurityHistoryModalProps {
   symbol: string | null;
@@ -130,7 +130,7 @@ export default function SecurityHistoryModal({
                           {line.quantityAfter.toString()}
                         </td>
                         <td className="py-2 px-3 text-right tabular-nums text-gray-900 dark:text-white">
-                          {line.price === null ? '—' : formatCurrency(line.price, currency)}
+                          {line.price === null ? '—' : formatUnitPrice(line.price, currency)}
                         </td>
                         <td className="py-2 px-3 text-right tabular-nums text-gray-900 dark:text-white">
                           {line.amount.isZero() && line.kind === 'write_off'

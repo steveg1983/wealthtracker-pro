@@ -4,6 +4,7 @@ import {
   getCurrencySymbol,
   formatCurrency,
   formatCurrencyCompact,
+  formatUnitPrice,
   getExchangeRates,
   supportedCurrencies,
   currencySymbols
@@ -635,5 +636,27 @@ describe('one provider for a given day — the ECB overlay (Design, 24 Aug §1)'
     mockFetch.mockImplementationOnce(down).mockImplementationOnce(down);
     const { provenance } = await getExchangeRatesWithProvenance();
     expect(provenance.source).toBe('fallback');
+  });
+});
+
+describe('formatUnitPrice — a rate, up to four places', () => {
+  it('keeps the sub-penny places a penny share carries', () => {
+    // £0.0299 rounded to £0.03 misstates a 199,702-unit position by real
+    // money — the reason this formatter exists (owner, 27 Aug).
+    expect(formatUnitPrice(0.02988)).toBe('£0.0299');
+  });
+
+  it('shows only the places that carry information, two at minimum', () => {
+    expect(formatUnitPrice(2.722)).toBe('£2.722');
+    expect(formatUnitPrice(10)).toBe('£10.00');
+    expect(formatUnitPrice(1.5)).toBe('£1.50');
+  });
+
+  it('rounds the fifth place away rather than inventing precision', () => {
+    expect(formatUnitPrice(1.23456)).toBe('£1.2346');
+  });
+
+  it('groups thousands and respects the currency symbol', () => {
+    expect(formatUnitPrice(1234.5678, 'USD')).toBe('$1,234.5678');
   });
 });
