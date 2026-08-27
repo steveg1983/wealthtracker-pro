@@ -13,7 +13,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { dataPort } from '@data';
-import { Modal } from './common/Modal';
+import { Modal, ModalBody } from './common/Modal';
 import { buildHoldingRegister, type HoldingPricePoint } from '../services/investments/holdingRegister';
 import type { InvestmentHolding } from '../services/investments/holding';
 import { formatCurrency } from '../utils/currency-decimal';
@@ -92,6 +92,7 @@ export default function HoldingRegisterModal({
 
   return (
     <Modal isOpen onClose={onClose} title={`${holding.symbol} — register`} size="lg">
+      <ModalBody>
       <div className="space-y-4">
         {loadError && (
           <p role="alert" className="text-body text-red-700 dark:text-red-400">{loadError}</p>
@@ -201,6 +202,7 @@ export default function HoldingRegisterModal({
           </>
         )}
       </div>
+      </ModalBody>
     </Modal>
   );
 }
