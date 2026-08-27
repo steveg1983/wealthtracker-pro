@@ -51,6 +51,8 @@ import type {
   ImportSourceKind,
   InvestmentChanges,
   InvestmentDraft,
+  InvestmentEvent,
+  InvestmentEventDraft,
   InvestmentHolding,
   MsMoneyImportResult,
   QuoteWriteback,
@@ -147,7 +149,7 @@ type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
  * file.
  */
 type InvestmentServiceLike = Pick<typeof import('./investmentService').InvestmentService,
-  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory' | 'listPrices' | 'recordManualPrice'>;
+  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory' | 'listPrices' | 'recordManualPrice' | 'importEvents' | 'listEvents'>;
 type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
 /**
@@ -3119,6 +3121,24 @@ class DataServiceImpl implements DataPort {
     throw new Error(HOLDINGS_NEED_A_LOGIN);
   }
 
+  async importInvestmentEvents(rows: readonly InvestmentEventDraft[]): Promise<number> {
+    if (rows.length === 0) return 0;
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).importEvents(userId, rows);
+    }
+    this.guardCloudWrite();
+    throw new Error(HOLDINGS_NEED_A_LOGIN);
+  }
+
+  async listInvestmentEvents(accountId: string): Promise<InvestmentEvent[]> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).listEvents(userId, accountId);
+    }
+    return [];
+  }
+
   /**
    * Create a category.
    *
@@ -3764,6 +3784,14 @@ export class DataService {
     entry: { symbol: string; date: string; price: string; currency: string }
   ): Promise<void> {
     return this.service.recordInvestmentPrice(entry);
+  }
+
+  static importInvestmentEvents(rows: readonly InvestmentEventDraft[]): Promise<number> {
+    return this.service.importInvestmentEvents(rows);
+  }
+
+  static listInvestmentEvents(accountId: string): Promise<InvestmentEvent[]> {
+    return this.service.listInvestmentEvents(accountId);
   }
 
   static createCategory(category: Omit<Category, 'id'>): Promise<Category> {

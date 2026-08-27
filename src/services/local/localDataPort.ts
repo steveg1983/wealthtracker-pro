@@ -182,6 +182,7 @@ import type {
   ImportProgress,
   InvestmentChanges,
   InvestmentDraft,
+  InvestmentEvent,
   InvestmentHolding,
   MoneyNumber,
   MsMoneyImportResult,
@@ -1686,6 +1687,20 @@ export class LocalDataPort implements DataPort {
     // crash for whoever reaches it anyway.
     throw new Error(
       'This ledger file cannot hold price history yet. Import it in the cloud edition for now.'
+    );
+  }
+
+  async listInvestmentEvents(): Promise<InvestmentEvent[]> {
+    // No events table in the ledger file yet — same lane as price history.
+    // An empty history is the honest READ answer: this file records no
+    // trades, and the UI never offers the doors that would show them
+    // (CHROME_HAS_PRICE_HISTORY is false).
+    return [];
+  }
+
+  async importInvestmentEvents(): Promise<number> {
+    throw new Error(
+      'This ledger file cannot hold trading history yet. Import it in the cloud edition for now.'
     );
   }
 

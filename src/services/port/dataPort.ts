@@ -160,12 +160,15 @@ import type {
   InvestmentHolding,
   QuoteWriteback
 } from '../investments/holding';
+import type { InvestmentEvent, InvestmentEventDraft } from '../investments/events';
 
 export type {
   InvestmentChanges,
   InvestmentDraft,
   InvestmentHolding,
-  QuoteWriteback
+  QuoteWriteback,
+  InvestmentEvent,
+  InvestmentEventDraft
 };
 
 export type {
@@ -1320,6 +1323,24 @@ export interface DataPortInvestmentWrites {
   recordInvestmentPrice(
     entry: { symbol: string; date: string; price: string; currency: string }
   ): Promise<void>;
+
+  /**
+   * File a batch of quantity events — another program's buys, sells and
+   * write-offs (Microsoft Money's, typically). Events are the VIEW-LAYER
+   * lane the historical registers derive from: this writes no transactions,
+   * because the cash side of every historical trade already lives in the
+   * ledger. Idempotent on each row's sourceRef — a re-run of the same file
+   * is a no-op — and it returns how many rows were actually written, because
+   * the door says "92 imported" and must not claim the batch.
+   */
+  importInvestmentEvents(rows: readonly InvestmentEventDraft[]): Promise<number>;
+
+  /**
+   * One account's quantity events, oldest first — a portfolio's trading
+   * history. Folding these gives who-held-what-when; interleaving the fold
+   * with {@link listInvestmentPrices} gives the historical register.
+   */
+  listInvestmentEvents(accountId: string): Promise<InvestmentEvent[]>;
 }
 
 export interface DataPortDismissalWrites {
