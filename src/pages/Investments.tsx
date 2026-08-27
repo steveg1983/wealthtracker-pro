@@ -4,7 +4,7 @@ import { preserveDemoParam } from '../utils/navigation';
 import { Modal, ModalBody } from '../components/common/Modal';
 import { formatDate } from '../utils/dateFormatter';
 import { useApp } from '../contexts/AppContextSupabase';
-import { BarChart3Icon, AlertCircleIcon, LineChartIcon, EyeIcon } from '../components/icons';
+import { BarChart3Icon, AlertCircleIcon, LineChartIcon, EyeIcon, ChevronDownIcon, ChevronRightIcon } from '../components/icons';
 import TrendArrow from '../components/TrendArrow';
 import InvestmentMarketView from '../components/InvestmentMarketView';
 import PortfolioManager, { type HoldingFormValues, type PurchaseDetails } from '../components/PortfolioManager';
@@ -2536,7 +2536,29 @@ function InvestmentsView() {
             );
           })}
 
-          {showClosedPortfolios && closedPortfolioRootAccounts.map((account) => {
+          {/* THE ARCHIVE FOLDS (owner, 28 Aug): closed portfolios are looked
+              back at, not lived in, and a hundred tall cards of history were
+              burying the page. One band, the Accounts page's own closed-band
+              shape, collapsed by default — open it and the cards are exactly
+              where they were. */}
+          {closedPortfolioRootAccounts.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowClosedPortfolios(!showClosedPortfolios)}
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              >
+                <span className="flex items-center gap-2 text-sm font-semibold text-gray-600 dark:text-gray-300">
+                  {showClosedPortfolios ? <ChevronDownIcon size={16} /> : <ChevronRightIcon size={16} />}
+                  Closed portfolios ({closedPortfolioRootAccounts.length})
+                </span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  History preserved — look back any time
+                </span>
+              </button>
+              {showClosedPortfolios && (
+                <div className="border-t border-line dark:border-gray-700 p-4 space-y-4">
+          {closedPortfolioRootAccounts.map((account) => {
             const accountHoldings = holdingsByAccount.get(account.id) ?? [];
             return (
               <div key={account.id} className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
@@ -2586,22 +2608,10 @@ function InvestmentsView() {
               </div>
             );
           })}
-
-          {/* At the BOTTOM, where the owner asked for it: the everyday page is
-              about the money that exists today, and history is opted into.
-              A quiet text control, not a primary — it changes what is listed,
-              not what is true. */}
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => setShowClosedPortfolios(!showClosedPortfolios)}
-              className="text-body text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-            >
-              {showClosedPortfolios
-                ? 'Hide closed portfolios'
-                : `Show closed portfolios${closedPortfolioRootAccounts.length > 0 ? ` (${closedPortfolioRootAccounts.length})` : ''}`}
-            </button>
-          </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

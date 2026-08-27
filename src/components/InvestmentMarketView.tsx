@@ -6,6 +6,7 @@ import { RefreshCwIcon, AlertCircleIcon, InfoIcon } from './icons';
 // Type-only, so this one costs a bundle nothing either way — and it is moved
 // with its neighbour anyway, because the next person to need a VALUE from this
 // module should find the lifted path already in front of them.
+import { formatUnitPrice } from '../utils/currency-decimal';
 import type { InvestmentHolding } from '../services/investments/holding';
 
 /**
@@ -130,10 +131,25 @@ export default function InvestmentMarketView({
       return null;
     }
     return (
-      <div className="text-center py-8">
+      <div className="text-center py-8 space-y-3">
         <p className="text-gray-500 dark:text-gray-400">
-          No holdings recorded for this account. Press Show holdings to add them and see market values.
+          No holdings recorded for this account.
         </p>
+        {/* The door is VISIBLE, not behind Show holdings — nobody knows to
+            press a toggle to find an add button (the owner, 28 Aug). */}
+        {onAddHolding ? (
+          <button
+            type="button"
+            onClick={onAddHolding}
+            className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
+          >
+            Add your first holding
+          </button>
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Press Show holdings to add them and see market values.
+          </p>
+        )}
       </div>
     );
   }
@@ -238,7 +254,7 @@ export default function InvestmentMarketView({
                     {formatDecimal(holding.quantity, 4)}
                   </td>
                   <td className="py-3 px-3 text-right tabular-nums text-gray-900 dark:text-white">
-                    {formatCurrency(holding.averageCost, currency)}
+                    {formatUnitPrice(holding.averageCost, currency)}
                   </td>
                   <td className="py-3 px-3 text-right tabular-nums">
                     {holding.currentPrice === null ? (

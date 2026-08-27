@@ -14,6 +14,7 @@ import { formatDecimal } from '../utils/decimal-format';
 import { supportedCurrencies } from '../utils/currency';
 import MoneyInput from './common/MoneyInput';
 import { getCurrencySymbol } from '../utils/currency';
+import { formatUnitPrice } from '../utils/currency-decimal';
 import DatePicker from './common/DatePicker';
 import StockSymbolSearch from './StockSymbolSearch';
 import { fetchQuotes, type StockQuote } from '../services/stockPriceService';
@@ -758,7 +759,7 @@ export default function PortfolioManager({
                 </h4>
                 <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                   {formatDecimal(holding.quantity, 4)} units @{' '}
-                  {formatCurrency(holding.averageCost, holding.currency || currency)}
+                  {formatUnitPrice(holding.averageCost, holding.currency || currency)}
                 </p>
               </div>
 
@@ -806,7 +807,9 @@ export default function PortfolioManager({
                 )}
               </span>
               <span className="text-xl font-bold text-gray-900 dark:text-white tabular-nums">
-                {totalCostBasisInBase !== null ? formatCurrency(totalCostBasisInBase, displayCurrency) : '—'}
+                {totalCostBasisInBase !== null
+                  ? `${mixedCurrencies ? '\u2248 ' : ''}${formatCurrency(totalCostBasisInBase, displayCurrency)}`
+                  : '—'}
               </span>
             </div>
           </div>
@@ -840,7 +843,6 @@ export default function PortfolioManager({
                   }
                   loadQuote(picked);
                 }}
-                hint="Search by ticker or name — UK listings included (SHEL.L, VUSA.L)."
                 autoFocus={!editing}
               />
             ) : (
@@ -865,7 +867,7 @@ export default function PortfolioManager({
             )}
             {quote && (
               <p className={helperClass}>
-                Trading at {formatCurrency(toDecimal(quote.price), quote.currency)} ({quote.currency})
+                Trading at {formatUnitPrice(toDecimal(quote.price), quote.currency)} ({quote.currency})
               </p>
             )}
           </div>
@@ -952,9 +954,12 @@ export default function PortfolioManager({
                 disabled={isSaving}
                 className={inputClass}
               >
+                {/* "GBP £" fits the closed select where "GBP — British
+                    Pound" ran into the chevron (Design, 27 Aug §3); the full
+                    name rides the title for anyone who hovers. */}
                 {supportedCurrencies.map((option) => (
-                  <option key={option.code} value={option.code}>
-                    {option.code} — {option.name}
+                  <option key={option.code} value={option.code} title={option.name}>
+                    {option.code} {getCurrencySymbol(option.code)}
                   </option>
                 ))}
               </select>
@@ -1016,9 +1021,7 @@ export default function PortfolioManager({
                   />
                 </div>
                 <p className={helperClass}>
-                  Folded into the cost basis, the way a contract note's total is.
-                  Charged in another currency? Leave this at zero and put them in
-                  the total paid below.
+                  Folded into the cost basis, the way a contract note&rsquo;s total is.
                 </p>
               </div>
 
@@ -1047,11 +1050,18 @@ export default function PortfolioManager({
                 {/* One line now, not three: the list is principled — this
                     portfolio's own cash, nothing else — so the prose no longer
                     has to explain away a hundred strangers (Design, 27 Aug). */}
-                <p className={helperClass}>
-                  {fundingAccounts.length === 0
-                    ? 'No cash account is paired with this portfolio — pair one in Account Settings to fund buys from it.'
-                    : 'Writes the transfer: out of the cash account, into this investment account.'}
-                </p>
+                {/* P8b: the transfer sentence renders only when a transfer
+                    will actually be written (Design, 27 Aug §1). */}
+                {fundingAccounts.length === 0 ? (
+                  <p className={helperClass}>
+                    No cash account is paired with this portfolio — pair one in Account Settings to
+                    fund buys from it.
+                  </p>
+                ) : fundingAccountId !== null ? (
+                  <p className={helperClass}>
+                    Writes the transfer: out of the cash account, into this investment account.
+                  </p>
+                ) : null}
               </div>
 
               {/* THE RATE, whenever a conversion stands anywhere in this buy:
