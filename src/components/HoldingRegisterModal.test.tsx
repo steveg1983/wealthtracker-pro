@@ -7,15 +7,17 @@ import type { InvestmentHolding } from '../services/investments/holding';
 // holdingRegister.test.ts — these specs pin the WIRING: series in, lines
 // drawn, a revalue written with manual provenance and the series re-read.
 
-const { mockListPrices, mockRecordPrice } = vi.hoisted(() => ({
+const { mockListPrices, mockRecordPrice, mockListEvents } = vi.hoisted(() => ({
   mockListPrices: vi.fn(),
-  mockRecordPrice: vi.fn()
+  mockRecordPrice: vi.fn(),
+  mockListEvents: vi.fn()
 }));
 
 vi.mock('@data', () => ({
   dataPort: {
     listInvestmentPrices: mockListPrices,
-    recordInvestmentPrice: mockRecordPrice
+    recordInvestmentPrice: mockRecordPrice,
+    listInvestmentEvents: mockListEvents
   }
 }));
 
@@ -42,6 +44,8 @@ const holding = (): InvestmentHolding => ({
 describe('HoldingRegisterModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The constant-quantity path: no events recorded for this position.
+    mockListEvents.mockResolvedValue([]);
   });
 
   it('reads the series and draws the derived register — buy first, value last', async () => {
@@ -95,5 +99,50 @@ describe('HoldingRegisterModal', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/plain number/);
     expect(mockRecordPrice).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('HoldingRegisterModal — the events derivation (slice 4)', () => {
+  it('derives from events when the position has any, and keeps Revalue', async () => {
+    mockListPrices.mockResolvedValue([]);
+    mockListEvents.mockResolvedValue([
+      {
+        id: 'e-1',
+        accountId: 'acct-1',
+        symbol: 'RR.L',
+        securityName: 'Rolls-Royce Holdings',
+        date: '2026-01-10',
+        kind: 'buy',
+        quantity: '100',
+        price: '10',
+        fees: null,
+        amount: '1000',
+        currency: 'GBP',
+        source: 'manual'
+      },
+      // Another symbol in the same account must NOT leak into this register.
+      {
+        id: 'e-2',
+        accountId: 'acct-1',
+        symbol: 'XYZ',
+        securityName: 'Xylophone Group',
+        date: '2026-02-01',
+        kind: 'buy',
+        quantity: '5',
+        price: '1',
+        fees: null,
+        amount: '5',
+        currency: 'GBP',
+        source: 'manual'
+      }
+    ]);
+
+    render(<HoldingRegisterModal holding={holding()} onClose={vi.fn()} onPricesChanged={vi.fn()} />);
+
+    // The shared table's footer — the events derivation, one position only.
+    expect(await screen.findByText(/Bought £1,000\.00 · Sold £0\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/Still held: 100 units/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Record price' })).toBeInTheDocument();
   });
 });

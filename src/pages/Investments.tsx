@@ -384,6 +384,63 @@ function InvestmentsView() {
         }
       }
 
+      /**
+       * THE BUY EVENT (slice 4): every new holding's register derives from
+       * events, so the register's first line is this buy — same lane the
+       * imported history lives in, and what Buy more / Sell extend.
+       *
+       * EVENTS ARE ALWAYS IN THE ACCOUNT'S CURRENCY — the valuation module
+       * trusts event.currency as the account's (the import reader guaranteed
+       * it), so a foreign-priced holding recorded WITHOUT a funding total in
+       * account money writes NO event: it stays on the holding-row valuation
+       * path, which handles its currency correctly, and its register derives
+       * from the holding as before. A funded buy always has the account
+       * figure (totalPaid).
+       */
+      const portfolioAccount = accounts.find(a => a.id === accountId) ?? null;
+      const accountCurrency = portfolioAccount?.currency ?? values.currency;
+      const eventAmount = purchase.totalPaid !== null
+        ? purchase.totalPaid
+        : values.currency === accountCurrency
+          ? values.quantity.times(averageCost)
+          : null;
+      if (eventAmount !== null) {
+        try {
+          await dataPort.recordInvestmentEvent({
+            accountId,
+            symbol: values.symbol,
+            securityName: values.name,
+            // A date string, not-a-charted-series (the slice-count census).
+            date: purchase.date.toISOString().slice(0, 10),
+            kind: 'buy',
+            quantity: values.quantity.toString(),
+            // Per-unit in the ACCOUNT's money, fees out — the register
+            // re-anchors value from it, exactly as the imported buys do.
+            price: eventAmount.minus(purchase.charges).dividedBy(values.quantity).toString(),
+            fees: purchase.charges.greaterThan(0) ? purchase.charges.toString() : null,
+            amount: eventAmount.toString(),
+            currency: accountCurrency
+          });
+          // The trade implies the day's price, in the INSTRUMENT's currency —
+          // never overwriting a quote or a typed figure.
+          await dataPort.recordTradePrices([{
+            symbol: values.symbol,
+            // A date string, not-a-charted-series (the slice-count census).
+            date: purchase.date.toISOString().slice(0, 10),
+            price: values.averageCost.toString(),
+            currency: values.currency
+          }]);
+        } catch (error) {
+          // Holding and transfer are saved; only the register's event line is
+          // missing, and the register falls back to the holding itself.
+          throw new Error(
+            'The holding was saved, but the buy could not be recorded in its register' +
+            `${error instanceof Error ? ` (${error.message})` : ''}. ` +
+            'The register will show the position from the holding until a trade is recorded.'
+          );
+        }
+      }
+
       await reloadHoldings();
     },
     [accounts, categories, addTransaction, createTransferCounterpart, formatCurrency, reloadHoldings]

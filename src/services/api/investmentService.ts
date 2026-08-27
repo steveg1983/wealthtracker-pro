@@ -316,7 +316,14 @@ export class InvestmentService {
    */
   static async importPriceHistory(
     userId: string,
-    rows: readonly { symbol: string; date: string; price: string; currency: string }[]
+    rows: readonly { symbol: string; date: string; price: string; currency: string }[],
+    /**
+     * 'trade' when the rows are prices IMPLIED by live buys and sells
+     * (slice 4): same never-overwrite behaviour — a day already priced by a
+     * quote or a typed figure keeps what it has, and the trade's own record
+     * lives in investment_events regardless.
+     */
+    source: 'import' | 'trade' = 'import'
   ): Promise<number> {
     if (rows.length === 0) return 0;
     const client = requireClient('this price history');
@@ -329,7 +336,7 @@ export class InvestmentService {
         price_date: row.date,
         price: row.price,
         currency: row.currency,
-        source: 'import' as const
+        source
       }));
       const { data, error } = await client
         .from('investment_prices')
@@ -506,6 +513,40 @@ export class InvestmentService {
       if (event !== null) events.push(event);
     }
     return events;
+  }
+
+  /**
+   * ONE quantity event, typed by hand — a live buy or sell (slice 4).
+   *
+   * source='manual', no source ref: idempotency is the IMPORT lane's
+   * contract (a file can be re-run); a person's second identical buy is a
+   * second buy. Throws on failure — an event that silently failed to record
+   * would surface as a register missing a trade nobody can explain.
+   */
+  static async recordEvent(
+    userId: string,
+    draft: Omit<InvestmentEventDraft, 'sourceRef'>
+  ): Promise<void> {
+    const client = requireClient('this trade');
+    const { error } = await client.from('investment_events').insert([{
+      user_id: userId,
+      account_id: draft.accountId,
+      symbol: draft.symbol,
+      security_name: draft.securityName,
+      event_date: draft.date,
+      kind: draft.kind,
+      quantity: draft.quantity,
+      price: draft.price,
+      fees: draft.fees,
+      amount: draft.amount,
+      currency: draft.currency,
+      source: 'manual' as const,
+      source_ref: null
+    }]);
+    if (error) {
+      this.logger.error('Failed to record trade', error);
+      throw new Error(handleSupabaseError(error));
+    }
   }
 
   /**
