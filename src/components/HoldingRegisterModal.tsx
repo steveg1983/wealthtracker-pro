@@ -25,12 +25,41 @@ import SecurityRegisterTable from './SecurityRegisterTable';
 import type { InvestmentEvent } from '../services/investments/events';
 import type { InvestmentHolding } from '../services/investments/holding';
 import { formatCurrency, formatUnitPrice } from '../utils/currency-decimal';
+import { toDecimal, type DecimalInstance } from '../utils/decimal';
+
+/** A live buy, as the register's form collects it (slice 4). */
+export interface LiveBuyDetails {
+  quantity: DecimalInstance;
+  /** Per unit, in the account's currency. */
+  price: DecimalInstance;
+  charges: DecimalInstance;
+  date: Date;
+  /** null: just record — no cash leg. */
+  fundingAccountId: string | null;
+}
+
+/** A live sale. */
+export interface LiveSellDetails {
+  quantity: DecimalInstance;
+  price: DecimalInstance;
+  fees: DecimalInstance;
+  date: Date;
+  /** null: just record — no cash leg. */
+  destinationAccountId: string | null;
+}
 
 interface HoldingRegisterModalProps {
   holding: InvestmentHolding;
   onClose: () => void;
   /** The snapshot may have moved (a newest-date revalue) — the page re-reads. */
   onPricesChanged: () => void;
+  /** The portfolio's currency — trades only offered when the holding's agrees. */
+  accountCurrency?: string;
+  /** The portfolio's own nested cash, for Paid from / Proceeds to. */
+  fundingAccounts?: ReadonlyArray<{ id: string; name: string }>;
+  onBuyMore?: (trade: LiveBuyDetails) => Promise<void>;
+  /** Resolves true when the position is fully sold — the page closes this. */
+  onSell?: (trade: LiveSellDetails) => Promise<boolean>;
 }
 
 const SOURCE_WORD: Record<HoldingPricePoint['source'] | 'purchase', string> = {
@@ -46,7 +75,11 @@ const today = (): string => new Date().toISOString().slice(0, 10);
 export default function HoldingRegisterModal({
   holding,
   onClose,
-  onPricesChanged
+  onPricesChanged,
+  accountCurrency,
+  fundingAccounts = [],
+  onBuyMore,
+  onSell
 }: HoldingRegisterModalProps): React.JSX.Element {
   const [series, setSeries] = useState<HoldingPricePoint[] | null>(null);
   const [events, setEvents] = useState<InvestmentEvent[] | null>(null);
@@ -55,6 +88,25 @@ export default function HoldingRegisterModal({
   const [revalueDate, setRevalueDate] = useState(today());
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  /** Which action form is open: Revalue always exists; trades when offered. */
+  const [mode, setMode] = useState<'revalue' | 'buy' | 'sell'>('revalue');
+  const [tradeQty, setTradeQty] = useState('');
+  const [tradePrice, setTradePrice] = useState('');
+  const [tradeCosts, setTradeCosts] = useState('');
+  const [tradeDate, setTradeDate] = useState(today());
+  /** '' = just record, no cash leg; otherwise the sleeve's account id. */
+  const [tradeCashId, setTradeCashId] = useState('');
+
+  /**
+   * Trades are offered only when the holding prices in the ACCOUNT's own
+   * currency — the event lane's invariant (events carry account money). A
+   * foreign-priced holding records its trades through Add a holding, where
+   * the FX machinery lives.
+   */
+  const canTrade =
+    (onBuyMore !== undefined || onSell !== undefined) &&
+    (accountCurrency === undefined || accountCurrency === holding.currency);
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -118,9 +170,171 @@ export default function HoldingRegisterModal({
     }
   }, [holding.currency, holding.symbol, load, onPricesChanged, revalueDate, revaluePrice]);
 
+  /** Parse a typed figure; null when it is not a plain non-negative number. */
+  const parsed = (raw: string, { allowZero = true } = {}): DecimalInstance | null => {
+    const text = raw.trim();
+    if (text === '' || Number.isNaN(Number(text)) || Number(text) < 0) return null;
+    const value = toDecimal(text);
+    if (!allowZero && value.isZero()) return null;
+    return value;
+  };
+
+  const submitTrade = useCallback(async (): Promise<void> => {
+    const quantity = parsed(tradeQty, { allowZero: false });
+    const price = parsed(tradePrice);
+    const costs = tradeCosts.trim() === '' ? toDecimal('0') : parsed(tradeCosts);
+    if (quantity === null || price === null || costs === null) {
+      setSaveError('Units, price and charges must be plain numbers; units above zero.');
+      return;
+    }
+    if (mode === 'sell' && quantity.greaterThan(holding.quantity)) {
+      setSaveError(`Only ${holding.quantity.toString()} units are held.`);
+      return;
+    }
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const date = new Date(`${tradeDate}T00:00:00`);
+      if (mode === 'buy' && onBuyMore) {
+        await onBuyMore({
+          quantity,
+          price,
+          charges: costs,
+          date,
+          fundingAccountId: tradeCashId === '' ? null : tradeCashId
+        });
+      } else if (mode === 'sell' && onSell) {
+        const fullySold = await onSell({
+          quantity,
+          price,
+          fees: costs,
+          date,
+          destinationAccountId: tradeCashId === '' ? null : tradeCashId
+        });
+        if (fullySold) {
+          onClose();
+          return;
+        }
+      }
+      setTradeQty('');
+      setTradeCosts('');
+      await load();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'The trade could not be recorded.');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [holding.quantity, load, mode, onBuyMore, onClose, onSell, tradeCashId, tradeCosts, tradeDate, tradePrice, tradeQty]);
+
+  /** The sale's realised preview — pooled basis, same maths the page writes. */
+  const sellPreview = useMemo(() => {
+    if (mode !== 'sell') return null;
+    const quantity = parsed(tradeQty, { allowZero: false });
+    const price = parsed(tradePrice);
+    const fees = tradeCosts.trim() === '' ? toDecimal('0') : parsed(tradeCosts);
+    if (quantity === null || price === null || fees === null) return null;
+    if (quantity.greaterThan(holding.quantity)) return null;
+    const proceeds = quantity.times(price).minus(fees);
+    return { proceeds, realised: proceeds.minus(holding.averageCost.times(quantity)) };
+  }, [holding.averageCost, holding.quantity, mode, tradeCosts, tradePrice, tradeQty]);
+
+  const fieldClass =
+    'px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg text-gray-900 dark:text-white';
+
+  const tradeForm = (kind: 'buy' | 'sell'): React.JSX.Element => (
+    <div className="mt-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="block">
+          <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Units</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={tradeQty}
+            onChange={(e) => setTradeQty(e.target.value)}
+            placeholder={kind === 'sell' ? holding.quantity.toString() : '0'}
+            className={`w-28 ${fieldClass}`}
+          />
+        </label>
+        <label className="block">
+          <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+            Price per unit ({holding.currency})
+          </span>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={tradePrice}
+            onChange={(e) => setTradePrice(e.target.value)}
+            placeholder="0.00"
+            className={`w-32 ${fieldClass}`}
+          />
+        </label>
+        <label className="block">
+          <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+            {kind === 'buy' ? 'Charges' : 'Fees'}
+          </span>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={tradeCosts}
+            onChange={(e) => setTradeCosts(e.target.value)}
+            placeholder="0.00"
+            className={`w-24 ${fieldClass}`}
+          />
+        </label>
+        <label className="block">
+          <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">On</span>
+          <input
+            type="date"
+            value={tradeDate}
+            max={today()}
+            onChange={(e) => setTradeDate(e.target.value)}
+            className={fieldClass}
+          />
+        </label>
+        <label className="block">
+          <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+            {kind === 'buy' ? 'Paid from' : 'Proceeds to'}
+          </span>
+          <select
+            value={tradeCashId}
+            onChange={(e) => setTradeCashId(e.target.value)}
+            className={fieldClass}
+          >
+            <option value="">Just record the trade</option>
+            {fundingAccounts.map((account) => (
+              <option key={account.id} value={account.id}>{account.name}</option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          onClick={() => void submitTrade()}
+          disabled={isSaving}
+          className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50"
+        >
+          {isSaving ? 'Saving…' : kind === 'buy' ? 'Record buy' : 'Record sale'}
+        </button>
+      </div>
+      {kind === 'sell' && sellPreview && (
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          Proceeds {formatCurrency(sellPreview.proceeds, holding.currency)} · Realised{' '}
+          {formatCurrency(sellPreview.realised, holding.currency)} on the pooled cost.
+        </p>
+      )}
+      {saveError && (
+        <p role="alert" className="mt-2 text-body text-red-700 dark:text-red-400">{saveError}</p>
+      )}
+      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+        {kind === 'buy'
+          ? 'Records the buy in this register; a chosen cash account writes the transfer too.'
+          : 'Records the sale: proceeds to the chosen cash account, and the realised result as income.'}
+      </p>
+    </div>
+  );
+
   const revalueForm = (
-    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-      <p className="text-body font-medium text-gray-900 dark:text-white mb-2">Revalue</p>
+    <div>
+      <p className="sr-only">Revalue</p>
       <div className="flex flex-wrap items-end gap-3">
         <label className="block">
           <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
@@ -164,6 +378,41 @@ export default function HoldingRegisterModal({
     </div>
   );
 
+  /** The register's actions: Revalue always; Buy more / Sell when offered. */
+  const modeButton = (value: 'revalue' | 'buy' | 'sell', label: string): React.JSX.Element => (
+    <button
+      type="button"
+      onClick={() => { setMode(value); setSaveError(null); }}
+      aria-pressed={mode === value}
+      className={
+        mode === value
+          ? 'px-3 py-1.5 rounded-lg bg-[#1a2332] text-white text-body'
+          : 'px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-body text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors'
+      }
+    >
+      {label}
+    </button>
+  );
+
+  const actionArea = (
+    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        {modeButton('revalue', 'Revalue')}
+        {canTrade && modeButton('buy', 'Buy more')}
+        {canTrade && modeButton('sell', 'Sell')}
+      </div>
+      {!canTrade && (onBuyMore !== undefined || onSell !== undefined) && (
+        <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+          This holding prices in {holding.currency}, not the portfolio&rsquo;s own currency — record
+          its trades through Add a holding, where the conversion machinery lives.
+        </p>
+      )}
+      {mode === 'revalue' && revalueForm}
+      {mode === 'buy' && canTrade && tradeForm('buy')}
+      {mode === 'sell' && canTrade && tradeForm('sell')}
+    </div>
+  );
+
   return (
     <Modal isOpen onClose={onClose} title={`${holding.symbol} — register`} size="lg">
       <ModalBody>
@@ -183,7 +432,7 @@ export default function HoldingRegisterModal({
               currency={holding.currency}
               symbol={holding.symbol}
             />
-            {revalueForm}
+            {actionArea}
           </>
         )}
 
@@ -243,7 +492,7 @@ export default function HoldingRegisterModal({
               )}
             </div>
 
-            {revalueForm}
+            {actionArea}
           </>
         )}
       </div>

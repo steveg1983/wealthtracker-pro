@@ -22,7 +22,10 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { CHROME_HAS_PRICE_HISTORY } from '@chrome';
-import HoldingRegisterModal from '../components/HoldingRegisterModal';
+import HoldingRegisterModal, {
+  type LiveBuyDetails,
+  type LiveSellDetails
+} from '../components/HoldingRegisterModal';
 import PortfolioTradingHistory from '../components/PortfolioTradingHistory';
 import { useInvestmentValuation } from '../hooks/useInvestmentValuation';
 import { netWorthPointToken } from '../utils/netWorthSeries';
@@ -108,6 +111,8 @@ function InvestmentsView() {
     // The purchase's cash half: the out leg is an ordinary transaction and the
     // far side is minted and linked by the same machinery every transfer uses.
     addTransaction, createTransferCounterpart,
+    // For the sale's income leg: find-or-create the Realised gains category.
+    addCategory,
   } = useApp();
   const { formatCurrency, displayCurrency } = useCurrencyDecimal();
   /**
@@ -466,6 +471,178 @@ function InvestmentsView() {
       await reloadHoldings();
     },
     [reloadHoldings]
+  );
+
+  /**
+   * The sale's income leg needs a home. Find the owner's own category first
+   * (any income category whose name says realised gains); create the
+   * standard one only when none exists — a person who already files these
+   * under their own name keeps their tree.
+   */
+  const realisedGainsCategoryId = useCallback(async (): Promise<string> => {
+    const existing = categories.find(
+      (c) => c.type === 'income' && c.isActive !== false && /realised gain/i.test(c.name)
+    );
+    if (existing) return existing.id;
+    const anchor = categories.find((c) => c.level === 'type' && c.type === 'income');
+    const created = await addCategory({
+      name: 'Realised gains',
+      type: 'income',
+      level: 'sub',
+      parentId: anchor?.id ?? null,
+      isSystem: false
+    });
+    return created.id;
+  }, [categories, addCategory]);
+
+  /**
+   * BUY MORE (slice 4): extend a live position from its register. Same
+   * write order as the add — cash truth first, then the event, then the
+   * snapshot — and each failure names what IS saved. The register modal
+   * only offers the form when the holding's currency is the account's, so
+   * the event-currency invariant holds by construction.
+   */
+  const handleBuyMore = useCallback(
+    async (holding: InvestmentHolding, trade: LiveBuyDetails): Promise<void> => {
+      const accountId = holding.accountId;
+      if (accountId === null) throw new Error('This holding names no account.');
+      const amount = trade.quantity.times(trade.price).plus(trade.charges);
+      // A date string, not-a-charted-series (the slice-count census).
+      const day = trade.date.toISOString().slice(0, 10);
+
+      if (trade.fundingAccountId !== null) {
+        const outLeg = await addTransaction({
+          accountId: trade.fundingAccountId,
+          amount: -Math.abs(amount.toNumber()),
+          type: 'transfer',
+          date: trade.date,
+          description: `Buy ${formatDecimal(trade.quantity, 4)} ${holding.symbol}`,
+          category: transferCategoryIdFor(categories, accountId, -Math.abs(amount.toNumber())),
+          cleared: false,
+        });
+        await createTransferCounterpart(outLeg.id, accountId);
+      }
+
+      try {
+        await dataPort.recordInvestmentEvent({
+          accountId,
+          symbol: holding.symbol,
+          securityName: holding.name,
+          date: day,
+          kind: 'buy',
+          quantity: trade.quantity.toString(),
+          price: trade.price.toString(),
+          fees: trade.charges.greaterThan(0) ? trade.charges.toString() : null,
+          amount: amount.toString(),
+          currency: holding.currency
+        });
+        await dataPort.recordTradePrices([
+          { symbol: holding.symbol, date: day, price: trade.price.toString(), currency: holding.currency }
+        ]);
+      } catch (error) {
+        throw new Error(
+          'The transfer was written, but the buy could not be recorded in the register' +
+          `${error instanceof Error ? ` (${error.message})` : ''}. Try recording it again.`
+        );
+      }
+
+      // The snapshot row: pooled quantity and average — fees in, as always.
+      const newQuantity = holding.quantity.plus(trade.quantity);
+      await dataPort.updateInvestment(holding.id, {
+        quantity: newQuantity,
+        averageCost: holding.costBasis.plus(amount).dividedBy(newQuantity)
+      });
+      await reloadHoldings();
+    },
+    [addTransaction, categories, createTransferCounterpart, reloadHoldings]
+  );
+
+  /**
+   * SELL (slice 4, the owner's spec translated to the cost ledger): the
+   * investment account's ledger holds pooled COST, so the sale writes the
+   * proceeds OUT by transfer to the paired sleeve and the realised gain IN
+   * as income — the account nets exactly the cost of the units sold, cash
+   * receives the proceeds, the gain is visible as income, and nothing
+   * double-counts. The derived valuation term zeroes as the pool empties,
+   * so net worth is exact through the trade.
+   *
+   * Returns true when the position is fully sold — the row is removed and
+   * the caller closes the register.
+   */
+  const handleSell = useCallback(
+    async (holding: InvestmentHolding, trade: LiveSellDetails): Promise<boolean> => {
+      const accountId = holding.accountId;
+      if (accountId === null) throw new Error('This holding names no account.');
+      if (trade.quantity.greaterThan(holding.quantity)) {
+        throw new Error(`Only ${holding.quantity.toString()} units are held.`);
+      }
+      const proceeds = trade.quantity.times(trade.price).minus(trade.fees);
+      const costOut = holding.averageCost.times(trade.quantity);
+      const realised = proceeds.minus(costOut);
+      // A date string, not-a-charted-series (the slice-count census).
+      const day = trade.date.toISOString().slice(0, 10);
+
+      if (trade.destinationAccountId !== null) {
+        const outLeg = await addTransaction({
+          accountId,
+          amount: -Math.abs(proceeds.toNumber()),
+          type: 'transfer',
+          date: trade.date,
+          description: `Sell ${formatDecimal(trade.quantity, 4)} ${holding.symbol}`,
+          category: transferCategoryIdFor(categories, trade.destinationAccountId, -Math.abs(proceeds.toNumber())),
+          cleared: false,
+        });
+        await createTransferCounterpart(outLeg.id, trade.destinationAccountId);
+      }
+
+      // The realised leg — skipped when zero, a zero row is noise.
+      if (!realised.isZero()) {
+        await addTransaction({
+          accountId,
+          amount: realised.toNumber(),
+          type: realised.greaterThan(0) ? 'income' : 'expense',
+          date: trade.date,
+          description: `Realised ${realised.greaterThan(0) ? 'gain' : 'loss'} — ${holding.symbol}`,
+          category: await realisedGainsCategoryId(),
+          cleared: false,
+        });
+      }
+
+      try {
+        await dataPort.recordInvestmentEvent({
+          accountId,
+          symbol: holding.symbol,
+          securityName: holding.name,
+          date: day,
+          kind: 'sell',
+          quantity: trade.quantity.toString(),
+          price: trade.price.toString(),
+          fees: trade.fees.greaterThan(0) ? trade.fees.toString() : null,
+          amount: proceeds.toString(),
+          currency: holding.currency
+        });
+        await dataPort.recordTradePrices([
+          { symbol: holding.symbol, date: day, price: trade.price.toString(), currency: holding.currency }
+        ]);
+      } catch (error) {
+        throw new Error(
+          'The cash was written, but the sale could not be recorded in the register' +
+          `${error instanceof Error ? ` (${error.message})` : ''}. Try recording it again.`
+        );
+      }
+
+      const fullySold = trade.quantity.greaterThanOrEqualTo(holding.quantity);
+      if (fullySold) {
+        await dataPort.deleteInvestment(holding.id);
+      } else {
+        await dataPort.updateInvestment(holding.id, {
+          quantity: holding.quantity.minus(trade.quantity)
+        });
+      }
+      await reloadHoldings();
+      return fullySold;
+    },
+    [addTransaction, categories, createTransferCounterpart, realisedGainsCategoryId, reloadHoldings]
   );
 
   const holdingsByAccount = useMemo(() => {
@@ -2410,13 +2587,31 @@ function InvestmentsView() {
         </div>
       )}
 
-      {registerHolding && (
-        <HoldingRegisterModal
-          holding={registerHolding}
-          onClose={() => setRegisterHolding(null)}
-          onPricesChanged={() => void reloadHoldings()}
-        />
-      )}
+      {registerHolding && (() => {
+        /* The LIVE row, so a buy-more in this very modal updates the sell
+           form's ceiling; the captured object would go stale on reload. */
+        const live = holdings.find(h => h.id === registerHolding.id) ?? registerHolding;
+        const portfolioAccount = live.accountId === null
+          ? undefined
+          : historicalAccounts.find(a => a.id === live.accountId);
+        return (
+          <HoldingRegisterModal
+            holding={live}
+            onClose={() => setRegisterHolding(null)}
+            onPricesChanged={() => void reloadHoldings()}
+            accountCurrency={portfolioAccount?.currency}
+            // The portfolio's OWN nested cash — the Paid-from ruling, again.
+            fundingAccounts={openAccounts
+              .filter(a =>
+                a.parentAccountId === live.accountId &&
+                a.currency === (portfolioAccount?.currency ?? live.currency))
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map(a => ({ id: a.id, name: a.name }))}
+            onBuyMore={(trade: LiveBuyDetails) => handleBuyMore(live, trade)}
+            onSell={(trade: LiveSellDetails) => handleSell(live, trade)}
+          />
+        );
+      })()}
 
     </PageWrapper>
   );

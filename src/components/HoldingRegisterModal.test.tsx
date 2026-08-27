@@ -146,3 +146,82 @@ describe('HoldingRegisterModal — the events derivation (slice 4)', () => {
     expect(screen.getByRole('button', { name: 'Record price' })).toBeInTheDocument();
   });
 });
+
+describe('HoldingRegisterModal — live trades (slice 4)', () => {
+  const tradeProps = () => ({
+    holding: holding(),
+    onClose: vi.fn(),
+    onPricesChanged: vi.fn(),
+    accountCurrency: 'GBP',
+    fundingAccounts: [{ id: 'sleeve-1', name: 'Broker ISA (Cash)' }],
+    onBuyMore: vi.fn().mockResolvedValue(undefined),
+    onSell: vi.fn().mockResolvedValue(false)
+  });
+
+  beforeEach(() => {
+    mockListPrices.mockResolvedValue([]);
+    mockListEvents.mockResolvedValue([]);
+  });
+
+  it('submits a buy with parsed figures and the chosen sleeve', async () => {
+    const props = tradeProps();
+    render(<HoldingRegisterModal {...props} />);
+    await screen.findByText('Buy');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Buy more' }));
+    fireEvent.change(screen.getByLabelText('Units'), { target: { value: '50' } });
+    fireEvent.change(screen.getByLabelText(/Price per unit/), { target: { value: '11' } });
+    fireEvent.change(screen.getByLabelText('Charges'), { target: { value: '9.95' } });
+    fireEvent.change(screen.getByLabelText('Paid from'), { target: { value: 'sleeve-1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Record buy' }));
+
+    await waitFor(() => expect(props.onBuyMore).toHaveBeenCalledTimes(1));
+    const trade = props.onBuyMore.mock.calls[0][0];
+    expect(trade.quantity.toString()).toBe('50');
+    expect(trade.price.toString()).toBe('11');
+    expect(trade.charges.toString()).toBe('9.95');
+    expect(trade.fundingAccountId).toBe('sleeve-1');
+  });
+
+  it('refuses to sell more than is held, without calling the handler', async () => {
+    const props = tradeProps();
+    render(<HoldingRegisterModal {...props} />);
+    await screen.findByText('Buy');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sell' }));
+    fireEvent.change(screen.getByLabelText('Units'), { target: { value: '150' } });
+    fireEvent.change(screen.getByLabelText(/Price per unit/), { target: { value: '11' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Record sale' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Only 100 units are held/);
+    expect(props.onSell).not.toHaveBeenCalled();
+  });
+
+  it('previews the realised result on the pooled cost, and closes on a full sale', async () => {
+    const props = tradeProps();
+    props.onSell.mockResolvedValue(true); // fully sold
+    render(<HoldingRegisterModal {...props} />);
+    await screen.findByText('Buy');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sell' }));
+    fireEvent.change(screen.getByLabelText('Units'), { target: { value: '100' } });
+    fireEvent.change(screen.getByLabelText(/Price per unit/), { target: { value: '12' } });
+    fireEvent.change(screen.getByLabelText('Fees'), { target: { value: '10' } });
+
+    // 100×12 − 10 = 1190 proceeds; pool cost 100×10 = 1000 → realised 190.
+    expect(await screen.findByText(/Proceeds £1,190\.00 · Realised £190\.00/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Record sale' }));
+    await waitFor(() => expect(props.onSell).toHaveBeenCalledTimes(1));
+    expect(props.onClose).toHaveBeenCalled();
+  });
+
+  it('offers no trade forms when the holding prices in another currency, and says why', async () => {
+    const props = { ...tradeProps(), accountCurrency: 'USD' };
+    render(<HoldingRegisterModal {...props} />);
+    await screen.findByText('Buy');
+
+    expect(screen.queryByRole('button', { name: 'Buy more' })).not.toBeInTheDocument();
+    expect(screen.getByText(/record\s+its trades through Add a holding/i)).toBeInTheDocument();
+  });
+});
