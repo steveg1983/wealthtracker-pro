@@ -229,6 +229,14 @@ export class InvestmentService {
     const client = requireClient('these prices');
 
     let updated = 0;
+    const priceHistory: Array<{
+      user_id: string;
+      symbol: string;
+      price_date: string;
+      price: string;
+      currency: string;
+      source: 'quote';
+    }> = [];
     for (const quote of quotes) {
       const { data, error } = await client
         .from('investments')
@@ -239,13 +247,53 @@ export class InvestmentService {
         })
         .eq('user_id', userId)
         .eq('symbol', quote.symbol)
-        .select('id');
+        // currency too: the history row below records the price in the
+        // SECURITY's currency, and the holding row is the authority on what
+        // that is — the quote reply is not asked, so the two cannot disagree.
+        .select('id, currency');
 
       if (error) {
         this.logger.error('Failed to store price', error);
         throw new Error(handleSupabaseError(error));
       }
       updated += data?.length ?? 0;
+
+      // ── The price becomes HISTORY, not just the current snapshot ──────────
+      // current_price above is overwritten on every refresh, which is why the
+      // app could never answer "what was this worth on the 3rd of June?".
+      // Each refresh now also files the day's price in investment_prices —
+      // the table the owner's own Microsoft Money file models (SP: 249 price
+      // rows against 140 security transactions; value is shares × price-as-at
+      // -date, measured 27 Aug 2026). One row per (user, symbol, day); a
+      // second refresh the same day REPLACES, because the day's price is one
+      // fact. Only symbols that matched a holding are recorded — a stray
+      // quote for something the user no longer holds is not their history.
+      const currency = data?.[0]?.currency;
+      if ((data?.length ?? 0) > 0) {
+        priceHistory.push({
+          user_id: userId,
+          symbol: quote.symbol,
+          // The UTC date of the quote. asOf is full ISO 8601; the date part
+          // is what a price series keys on, exactly as Money's SP.dt did.
+          price_date: quote.asOf.slice(0, 10),
+          price: quote.price,
+          currency: typeof currency === 'string' && currency.trim() !== '' ? currency : 'GBP',
+          source: 'quote'
+        });
+      }
+    }
+
+    if (priceHistory.length > 0) {
+      const { error } = await client
+        .from('investment_prices')
+        .upsert(priceHistory, { onConflict: 'user_id,symbol,price_date' });
+      if (error) {
+        // Loud, not silent: the snapshots above already landed, so a retry is
+        // safe and idempotent — but a history that quietly failed to record
+        // would surface months later as a gap nobody can explain.
+        this.logger.error('Failed to record price history', error);
+        throw new Error(handleSupabaseError(error));
+      }
     }
     return updated;
   }
