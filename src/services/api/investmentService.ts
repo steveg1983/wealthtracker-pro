@@ -508,6 +508,57 @@ export class InvestmentService {
     return events;
   }
 
+  /**
+   * EVERY quantity event the user has, oldest first — what the net-worth
+   * valuation folds. One query, not one per account: the walks value all
+   * accounts at once, and the owner has over a hundred closed ones.
+   */
+  static async listAllEvents(userId: string): Promise<InvestmentEvent[]> {
+    const client = requireClient('this trading history');
+    const { data, error } = await client
+      .from('investment_events')
+      .select(
+        'id, account_id, symbol, security_name, event_date, kind, quantity, price, fees, amount, currency, source'
+      )
+      .eq('user_id', userId)
+      .order('event_date', { ascending: true });
+    if (error) {
+      this.logger.error('Failed to read trading history', error);
+      throw new Error(handleSupabaseError(error));
+    }
+    const events: InvestmentEvent[] = [];
+    for (const row of data ?? []) {
+      const event = toInvestmentEvent(row);
+      if (event !== null) events.push(event);
+    }
+    return events;
+  }
+
+  /**
+   * EVERY dated price the user has, with its symbol and currency — the other
+   * half of the valuation fold. The per-symbol read stays for the registers.
+   */
+  static async listAllPrices(
+    userId: string
+  ): Promise<Array<{ symbol: string; date: string; price: string; currency: string }>> {
+    const client = requireClient('this price history');
+    const { data, error } = await client
+      .from('investment_prices')
+      .select('symbol, price_date, price, currency')
+      .eq('user_id', userId)
+      .order('price_date', { ascending: true });
+    if (error) {
+      this.logger.error('Failed to read price history', error);
+      throw new Error(handleSupabaseError(error));
+    }
+    return (data ?? []).map((row) => ({
+      symbol: String(row.symbol),
+      date: String(row.price_date),
+      price: String(row.price),
+      currency: String(row.currency ?? 'GBP')
+    }));
+  }
+
   private static async findOne(userId: string, id: string): Promise<InvestmentHolding | null> {
     if (!supabase) return null;
 

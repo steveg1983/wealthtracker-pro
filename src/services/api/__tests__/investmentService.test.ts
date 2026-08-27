@@ -635,3 +635,61 @@ describe('listEvents', () => {
     await expect(InvestmentService.listEvents(USER, 'acct-1')).rejects.toThrow();
   });
 });
+
+describe('listAllEvents / listAllPrices — the valuation reads', () => {
+  it('reads every event user-wide, scoped by user alone', async () => {
+    outcomes = {
+      select: [
+        ok([
+          {
+            id: 'e-1',
+            account_id: 'acct-1',
+            symbol: 'ABC.L',
+            security_name: 'Alphabet Soup Holdings',
+            event_date: '2013-05-01',
+            kind: 'buy',
+            quantity: '500',
+            price: '2.5',
+            fees: null,
+            amount: '1250',
+            currency: 'GBP',
+            source: 'import'
+          }
+        ])
+      ]
+    };
+
+    const events = await InvestmentService.listAllEvents(USER);
+
+    const select = lastCall('select');
+    expect(select.table).toBe('investment_events');
+    expect(select.filters).toEqual([['user_id', USER]]);
+    expect(events).toHaveLength(1);
+    expect(events[0].accountId).toBe('acct-1');
+  });
+
+  it('reads every price with its symbol and currency, scoped by user alone', async () => {
+    outcomes = {
+      select: [
+        ok([{ symbol: 'ABC.L', price_date: '2013-06-01', price: '2.6', currency: 'GBP' }])
+      ]
+    };
+
+    const prices = await InvestmentService.listAllPrices(USER);
+
+    const select = lastCall('select');
+    expect(select.table).toBe('investment_prices');
+    expect(select.filters).toEqual([['user_id', USER]]);
+    expect(prices).toEqual([
+      { symbol: 'ABC.L', date: '2013-06-01', price: '2.6', currency: 'GBP' }
+    ]);
+  });
+
+  it('throws when either read fails', async () => {
+    outcomes = { select: [fails('permission denied')] };
+    await expect(InvestmentService.listAllEvents(USER)).rejects.toThrow();
+
+    outcomes = { select: [fails('permission denied')] };
+    await expect(InvestmentService.listAllPrices(USER)).rejects.toThrow();
+  });
+});

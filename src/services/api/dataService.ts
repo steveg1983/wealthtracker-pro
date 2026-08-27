@@ -149,7 +149,7 @@ type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
  * file.
  */
 type InvestmentServiceLike = Pick<typeof import('./investmentService').InvestmentService,
-  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory' | 'listPrices' | 'recordManualPrice' | 'importEvents' | 'listEvents'>;
+  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory' | 'listPrices' | 'recordManualPrice' | 'importEvents' | 'listEvents' | 'listAllEvents' | 'listAllPrices'>;
 type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
 /**
@@ -3139,6 +3139,24 @@ class DataServiceImpl implements DataPort {
     return [];
   }
 
+  async listAllInvestmentEvents(): Promise<InvestmentEvent[]> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).listAllEvents(userId);
+    }
+    return [];
+  }
+
+  async listAllInvestmentPrices(): Promise<
+    Array<{ symbol: string; date: string; price: string; currency: string }>
+  > {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).listAllPrices(userId);
+    }
+    return [];
+  }
+
   /**
    * Create a category.
    *
@@ -3792,6 +3810,16 @@ export class DataService {
 
   static listInvestmentEvents(accountId: string): Promise<InvestmentEvent[]> {
     return this.service.listInvestmentEvents(accountId);
+  }
+
+  static listAllInvestmentEvents(): Promise<InvestmentEvent[]> {
+    return this.service.listAllInvestmentEvents();
+  }
+
+  static listAllInvestmentPrices(): Promise<
+    Array<{ symbol: string; date: string; price: string; currency: string }>
+  > {
+    return this.service.listAllInvestmentPrices();
   }
 
   static createCategory(category: Omit<Category, 'id'>): Promise<Category> {
