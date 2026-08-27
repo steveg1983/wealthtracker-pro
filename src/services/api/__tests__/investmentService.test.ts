@@ -16,13 +16,15 @@ import { toDecimal } from '../../../utils/decimal';
  */
 
 type Outcome = { data: unknown; error: { message: string; code?: string } | null };
-type Operation = 'select' | 'insert' | 'update' | 'delete';
+type Operation = 'select' | 'insert' | 'update' | 'delete' | 'upsert';
 
 interface Recorded {
   table: string;
   op: Operation;
   columns?: string;
-  payload?: Record<string, unknown>;
+  payload?: Record<string, unknown> | Array<Record<string, unknown>>;
+  /** upsert only: the onConflict option, so a spec can pin the conflict key. */
+  onConflict?: string;
   filters: Array<[string, unknown]>;
 }
 
@@ -76,8 +78,14 @@ const nextOutcome = (op: Operation): Outcome => {
   return queue.length === 1 ? queue[0] : (queue.shift() as Outcome);
 };
 
-const build = (table: string, op: Operation, payload?: Record<string, unknown>): QueryDouble => {
+const build = (
+  table: string,
+  op: Operation,
+  payload?: Record<string, unknown> | Array<Record<string, unknown>>,
+  onConflict?: string
+): QueryDouble => {
   const record: Recorded = { table, op, payload, filters: [] };
+  if (onConflict !== undefined) record.onConflict = onConflict;
   calls.push(record);
   return new QueryDouble(nextOutcome(op), record);
 };
@@ -87,6 +95,8 @@ const supabaseDouble = {
     select: (columns: string) => build(table, 'select', undefined).select(columns),
     insert: (payload: Record<string, unknown>) => build(table, 'insert', payload),
     update: (payload: Record<string, unknown>) => build(table, 'update', payload),
+    upsert: (payload: Array<Record<string, unknown>>, options?: { onConflict?: string }) =>
+      build(table, 'upsert', payload, options?.onConflict),
     delete: () => build(table, 'delete')
   })
 };
@@ -372,6 +382,62 @@ describe('applyQuotes', () => {
     // Counted, not assumed: a symbol that matched nothing must not read as
     // success.
     expect(updated).toBe(2);
+  });
+
+  it('files the day\'s price as history, in the holding\'s own currency', async () => {
+    // current_price is a snapshot that every refresh overwrites — which is
+    // why the app could never answer "what was this worth on the 3rd of
+    // June?". Every refresh now also lands one row per (user, symbol, day)
+    // in investment_prices, the table the owner's Microsoft Money file
+    // models (SP — measured 27 Aug 2026). Same-day refreshes REPLACE via
+    // onConflict, because the day's price is one fact.
+    outcomes = { update: [ok([{ id: 'inv-1', currency: 'USD' }])] };
+
+    await InvestmentService.applyQuotes(USER, [
+      { symbol: 'AAPL', price: '232.50', asOf: '2026-08-27T14:30:00.000Z' }
+    ]);
+
+    const upsert = lastCall('upsert');
+    expect(upsert.table).toBe('investment_prices');
+    expect(upsert.onConflict).toBe('user_id,symbol,price_date');
+    expect(upsert.payload).toEqual([
+      {
+        user_id: USER,
+        symbol: 'AAPL',
+        price_date: '2026-08-27',
+        price: '232.50',
+        // The HOLDING row's currency, not a guess: prices live in the
+        // security's currency, exactly as Money stored a measured sale in
+        // the security's USD against a GBP register.
+        currency: 'USD',
+        source: 'quote'
+      }
+    ]);
+  });
+
+  it('records no history for a quote that matched no holding', async () => {
+    // A stray quote for something the user no longer holds is not their
+    // history.
+    outcomes = { update: [ok([])] };
+
+    await InvestmentService.applyQuotes(USER, [
+      { symbol: 'GONE.L', price: '1.00', asOf: '2026-08-27T14:30:00.000Z' }
+    ]);
+
+    expect(calls.filter(c => c.op === 'upsert')).toHaveLength(0);
+  });
+
+  it('throws when the history write fails — the gap would surface months later', async () => {
+    outcomes = {
+      update: [ok([{ id: 'inv-1', currency: 'GBP' }])],
+      upsert: [fails('permission denied')]
+    };
+
+    await expect(
+      InvestmentService.applyQuotes(USER, [
+        { symbol: 'SHEL.L', price: '32.775', asOf: '2026-08-27T14:30:00.000Z' }
+      ])
+    ).rejects.toThrow();
   });
 
   it('does nothing, and asks nothing, for an empty list', async () => {
