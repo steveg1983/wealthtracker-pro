@@ -25,9 +25,15 @@
  * the no-silent-caps rule.
  */
 
-import { decryptMny } from './mnyDecrypt';
-import { Buffer } from 'buffer';
+// Installs Buffer + process shims BEFORE mdb-reader's dependency subtree
+// evaluates — must stay the first import, and Buffer is then used as a GLOBAL,
+// exactly as mnyReader.ts does and documents. The first draft imported Buffer
+// from 'buffer' and skipped the shim; Node masked both (its resolver hands
+// back the real Buffer and a real process), and Safari answered the owner
+// with "Can't find variable: process" on the first click.
+import './nodeGlobalsShim';
 import MDBReader from 'mdb-reader';
+import { decryptMny } from './mnyDecrypt';
 
 type Row = Record<string, unknown>;
 
