@@ -298,6 +298,47 @@ export class InvestmentService {
     return updated;
   }
 
+  /**
+   * File another program's price history — Money's SP table, typically.
+   *
+   * ON CONFLICT DO NOTHING, not update: 'import' is the WEAKEST provenance.
+   * A day already priced by a quote fetch, a typed figure or a trade keeps
+   * what it has; the import fills gaps and only gaps. That also makes a
+   * re-run of the same file a clean no-op rather than a rewrite.
+   *
+   * Returns how many rows were actually written, so the door can say
+   * "131 imported, 4 already present" instead of claiming the batch.
+   */
+  static async importPriceHistory(
+    userId: string,
+    rows: readonly { symbol: string; date: string; price: string; currency: string }[]
+  ): Promise<number> {
+    if (rows.length === 0) return 0;
+    const client = requireClient('this price history');
+
+    let inserted = 0;
+    for (let start = 0; start < rows.length; start += 500) {
+      const chunk = rows.slice(start, start + 500).map((row) => ({
+        user_id: userId,
+        symbol: row.symbol,
+        price_date: row.date,
+        price: row.price,
+        currency: row.currency,
+        source: 'import' as const
+      }));
+      const { data, error } = await client
+        .from('investment_prices')
+        .upsert(chunk, { onConflict: 'user_id,symbol,price_date', ignoreDuplicates: true })
+        .select('id');
+      if (error) {
+        this.logger.error('Failed to import price history', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      inserted += data?.length ?? 0;
+    }
+    return inserted;
+  }
+
   private static async findOne(userId: string, id: string): Promise<InvestmentHolding | null> {
     if (!supabase) return null;
 

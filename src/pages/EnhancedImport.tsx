@@ -6,6 +6,7 @@ import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
 import { LoadingState } from '../components/loading/LoadingState';
 import { dataPort, type ImportProgress, type MsMoneyImportResult } from '@data';
+import { CHROME_HAS_PRICE_HISTORY } from '@chrome';
 import {
   UploadIcon,
   FolderIcon,
@@ -26,6 +27,7 @@ import {
 const BatchImportModal = lazyWithRecovery(() => import('../components/BatchImportModal'));
 const ImportRulesManager = lazyWithRecovery(() => import('../components/ImportRulesManager'));
 const MsMoneyImportModal = lazyWithRecovery(() => import('../components/MsMoneyImportModal'));
+const MnyPriceImportCard = lazyWithRecovery(() => import('../components/MnyPriceImportCard'));
 const DataMigrationWizard = lazyWithRecovery(() => import('../components/DataMigrationWizard'));
 const CSVImportWizard = lazyWithRecovery(() => import('../components/CSVImportWizard'));
 const OFXImportModal = lazyWithRecovery(() => import('../components/OFXImportModal'));
@@ -142,6 +144,16 @@ export default function EnhancedImport(): React.JSX.Element {
             </span>
           </span>
         </button>
+
+        {/* Price history alone — the non-destructive sibling of the migration
+            above. Gated on the edition fact: the ledger file cannot hold price
+            history yet, and a door that could only apologise is not printed
+            (the bank-feeds lesson). */}
+        {CHROME_HAS_PRICE_HISTORY && (
+          <Suspense fallback={null}>
+            <MnyPriceImportCard />
+          </Suspense>
+        )}
 
         {/* ── Restore a whole backup ───────────────────────────────────
             Sits directly under the Money migration because it is the other

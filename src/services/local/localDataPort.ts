@@ -1665,6 +1665,17 @@ export class LocalDataPort implements DataPort {
     return countOf(field(answer, 'answer'), 'apply_investment_prices', 'repriced');
   }
 
+  async importInvestmentPriceHistory(): Promise<number> {
+    // The ledger file has no price-history table yet — that is a schema and a
+    // verb in the core, its own gated lane. The UI never offers this door on
+    // the device edition (CHROME_HAS_PRICE_HISTORY is false), so this
+    // refusal is the belt under that brace, with a sentence rather than a
+    // crash for whoever reaches it anyway.
+    throw new Error(
+      'This ledger file cannot hold price history yet. Import it in the cloud edition for now.'
+    );
+  }
+
   /**
    * A write verb's answer as the app's holding.
    *

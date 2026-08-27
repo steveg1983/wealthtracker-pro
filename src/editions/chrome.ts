@@ -120,3 +120,17 @@ export type ChromeQuickAddTransaction = ComponentType<QuickAddTransactionProps>;
  * false, and the compiler holds both to this declaration.
  */
 export type ChromeHasBankFeeds = boolean;
+
+/**
+ * WHETHER THIS EDITION CAN HOLD PRICE HISTORY — a fact, not furniture.
+ *
+ * The cloud stores dated prices in investment_prices (27 Aug); the ledger
+ * file does not have the table or the verb yet — that is a schema change in
+ * the Rust core, its own gated lane, and it arrives with the manual-revalue
+ * flow that gives the device edition its first price writer. Until then, a
+ * door offering "import your Money price history" on the desktop could only
+ * apologise, and the bank-feeds lesson (owner, 26 Aug, item 4) says such a
+ * door is not stubbed — it is NOT PRINTED. Callers ask this fact before
+ * drawing their own controls, exactly as ChromeHasBankFeeds is asked.
+ */
+export type ChromeHasPriceHistory = boolean;

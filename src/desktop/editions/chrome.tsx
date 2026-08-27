@@ -55,6 +55,7 @@ import { forwardRef, useImperativeHandle, type ReactElement } from 'react';
 import { currentDeviceIdentity } from '../../services/local/deviceIdentity';
 import type {
   ChromeHasBankFeeds,
+  ChromeHasPriceHistory,
   ChromeGlobalSearch,
   ChromeOrnament,
   ChromeQuickAddTransaction
@@ -141,3 +142,10 @@ export const OfflineQuickAdd: ChromeOrnament = () => null;
 
 /** No server, no tokens, no sync — see editions/chrome.ts. */
 export const CHROME_HAS_BANK_FEEDS: ChromeHasBankFeeds = false;
+
+/**
+ * The ledger file has no price-history table or verb yet — its own gated
+ * lane in the Rust core, arriving with the manual-revalue flow. Until then
+ * the import door is NOT PRINTED here (the bank-feeds lesson).
+ */
+export const CHROME_HAS_PRICE_HISTORY: ChromeHasPriceHistory = false;
