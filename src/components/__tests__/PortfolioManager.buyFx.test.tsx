@@ -90,7 +90,7 @@ const renderManager = () =>
 
 /** Open the add form and fill in a 10-unit buy of a dollar-priced instrument. */
 const fillDollarBuy = async (): Promise<void> => {
-  fireEvent.click(screen.getByRole('button', { name: /Add Your First Holding/ }));
+  fireEvent.click(screen.getByRole('button', { name: /add your first holding/i }));
   fireEvent.click(await screen.findByRole('button', { name: 'pick a synthetic instrument' }));
   // The quote resolves and sets the instrument's currency to USD.
   await waitFor(() => {
@@ -229,7 +229,7 @@ describe('PortfolioManager — a buy across a currency boundary', () => {
     // because the STORED cost derives through it.
     renderManager();
 
-    fireEvent.click(screen.getByRole('button', { name: /Add Your First Holding/ }));
+    fireEvent.click(screen.getByRole('button', { name: /add your first holding/i }));
     fireEvent.click(await screen.findByRole('button', { name: 'pick a synthetic instrument' }));
     await waitFor(() => expect(screen.getByLabelText('Priced in')).toHaveValue('USD'));
     fireEvent.change(screen.getByLabelText('Enter figures in'), {
@@ -261,7 +261,7 @@ describe('PortfolioManager — a buy across a currency boundary', () => {
   it('shows no rate box at all when the instrument counts in the account’s own currency', async () => {
     renderManager();
 
-    fireEvent.click(screen.getByRole('button', { name: /Add Your First Holding/ }));
+    fireEvent.click(screen.getByRole('button', { name: /add your first holding/i }));
     fireEvent.click(await screen.findByRole('button', { name: 'pick a synthetic instrument' }));
     await waitFor(() => expect(screen.getByLabelText('Priced in')).toHaveValue('USD'));
     // Put the instrument back into sterling: nothing to convert, so the cost

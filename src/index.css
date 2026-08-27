@@ -130,6 +130,61 @@ input[type="range"] {
   accent-color: var(--color-border-focus, #1a2332);
 }
 
+/* THE APP OWNS ITS FORM CONTROLS (Design, 27 Aug — Add-a-holding §1).
+   --------------------------------------------------------------------------
+   Every `<select>` in the app drew the operating system's double chevron, and
+   every number input drew the OS stepper. Around them sat the design system —
+   hairline, radius 6, house type — so on any dialog with both, four controls
+   were visibly foreign. On a dark ground it was worse than a mismatch: a
+   native select brings its OWN greys, so the selects read lighter than the
+   text inputs beside them.
+
+   ELEMENT SELECTORS, DELIBERATELY, AND NO !important. `select` scores 0,0,1,
+   so any Tailwind utility (0,1,0) still wins. That is the point: this sets the
+   floor for the forty-two files that never asked for anything, and a component
+   that needs different padding or a different ground simply says so. The
+   index.css rules that became component bugs are all `!important` ones that
+   nothing downstream could beat — this must not join them.
+
+   THE CHEVRON IS A BACKGROUND IMAGE, not a pseudo-element: `select` cannot
+   host ::after in any engine. `currentColor` is not available inside a data
+   URI, so it is drawn in the house slate and dark mode restates it.
+
+   `appearance: none` IS THE ONLY THING THAT REMOVES EITHER ORNAMENT. No
+   border, colour or background rule will do it, and WebKit needs its own
+   pseudo-element for the spinner — Chrome can look correct while Safari and
+   the Tauri webview still show arrows, so all three grounds are worth a look
+   after any change here. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  /* Room for the chevron so a long option cannot run underneath it — the
+     reason `GBP — British Pound` was colliding with the arrow at narrow
+     widths. */
+  padding-right: 2.25rem;
+}
+
+.dark select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* A stepper on a quantity that can be 0.4137 units is not usable, and the
+   field's own caption already says fractional units are fine. */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 @media (hover: hover) and (pointer: fine) {
   input[type="checkbox"],
   input[type="radio"] {

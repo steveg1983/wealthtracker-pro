@@ -91,8 +91,11 @@ describe('Investments — the add-a-holding door', () => {
     await waitFor(() => {
       expect(screen.getByRole('dialog', { name: /Add a holding/ })).toBeInTheDocument();
     });
-    // And it is the chosen sleeve's manager that opened, not the other one.
-    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
+    // And it is the chosen sleeve's panel that opened, not the other one.
+    // The control says what it does — it is a disclosure, so it closes with
+    // "Hide holdings" rather than "Done", which was the vocabulary of an
+    // action (Design, 27 Aug §3).
+    expect(screen.getByRole('button', { name: 'Hide holdings' })).toBeInTheDocument();
   });
 
   it('goes straight through when there is only one sleeve — one account is not a question', async () => {
