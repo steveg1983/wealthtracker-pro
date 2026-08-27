@@ -1665,6 +1665,19 @@ export class LocalDataPort implements DataPort {
     return countOf(field(answer, 'answer'), 'apply_investment_prices', 'repriced');
   }
 
+  async listInvestmentPrices(): Promise<Array<{ date: string; price: string; source: 'quote' | 'manual' | 'trade' | 'import' }>> {
+    // No price table in the ledger file yet (see importInvestmentPriceHistory
+    // below). An empty series is the honest READ answer — the register then
+    // shows the buy line alone, which is true of what this file knows.
+    return [];
+  }
+
+  async recordInvestmentPrice(): Promise<void> {
+    throw new Error(
+      'This ledger file cannot hold price history yet. Revalue in the cloud edition for now.'
+    );
+  }
+
   async importInvestmentPriceHistory(): Promise<number> {
     // The ledger file has no price-history table yet — that is a schema and a
     // verb in the core, its own gated lane. The UI never offers this door on

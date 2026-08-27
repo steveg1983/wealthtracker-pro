@@ -1301,6 +1301,25 @@ export interface DataPortInvestmentWrites {
   importInvestmentPriceHistory(
     rows: readonly { symbol: string; date: string; price: string; currency: string }[]
   ): Promise<number>;
+
+  /**
+   * A symbol's dated price series, oldest first. The holding register derives
+   * its revaluation lines from consecutive points of this — stored nowhere,
+   * per the owner's ruling, so a corrected price corrects the register.
+   */
+  listInvestmentPrices(
+    symbol: string
+  ): Promise<Array<{ date: string; price: string; source: 'quote' | 'manual' | 'trade' | 'import' }>>;
+
+  /**
+   * The owner types a price — Revalue, in the register. Manual is the
+   * STRONGEST provenance and overwrites its day; the current-price snapshot
+   * follows only when this is the symbol's newest date, so restating a
+   * historical day cannot stamp an old figure over today's.
+   */
+  recordInvestmentPrice(
+    entry: { symbol: string; date: string; price: string; currency: string }
+  ): Promise<void>;
 }
 
 export interface DataPortDismissalWrites {

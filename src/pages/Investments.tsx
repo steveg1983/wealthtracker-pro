@@ -21,6 +21,8 @@ import { Tooltip } from 'recharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { CHROME_HAS_PRICE_HISTORY } from '@chrome';
+import HoldingRegisterModal from '../components/HoldingRegisterModal';
 import { normaliseSecuredIds } from '../utils/accountSecuring';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
@@ -457,6 +459,22 @@ function InvestmentsView() {
    * that is correct: the app cannot invent a pairing nobody has recorded. The
    * remedy for those is Account Settings → "Part of investment account".
    */
+  /** The holding whose register is open, or null. Cloud-only door — the
+      device edition has no price series yet, so rows there stay plain. */
+  const [registerHolding, setRegisterHolding] = useState<InvestmentHolding | null>(null);
+
+  /**
+   * Closed portfolios, on request (owner, 27 Aug): his imported price history
+   * belongs to securities held in portfolios that are now closed, and "look
+   * back at what was in there" is the whole point of importing it. Off by
+   * default — the everyday page shows the money that exists today — and
+   * remembered, like every other arrangement choice.
+   */
+  const [showClosedPortfolios, setShowClosedPortfolios] = useLocalStorage<boolean>(
+    'wt_portfolio_show_closed',
+    false
+  );
+
   const portfolioRootAccounts = useMemo(() => {
     const topLevelIdByAccountId = buildTopLevelIdByAccountId(openAccounts);
     return investmentAccounts
@@ -484,6 +502,19 @@ function InvestmentsView() {
    * £0), which is what makes the contributions attribution sum true.
    */
   const historicalAccounts = useHistoricalAccounts(openAccounts);
+
+  /** Closed investment roots. Derived unconditionally — the toggle's label
+      wants the count even while they are hidden, and the render gates the
+      cards. */
+  const closedPortfolioRootAccounts = useMemo(() => {
+    const topLevelIdByAccountId = buildTopLevelIdByAccountId(historicalAccounts);
+    return historicalAccounts
+      .filter(acc => acc.type === 'investment' && acc.isActive === false)
+      .filter(acc => topLevelIdByAccountId.get(acc.id) === acc.id)
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, 'en-GB', { sensitivity: 'base' }));
+  }, [historicalAccounts]);
+
   /**
    * ONE conversion source for the whole chain (the Investments chain,
    * 23 Aug): balances at today's factors, valuations and flows at their own
@@ -763,7 +794,7 @@ function InvestmentsView() {
    * the same reason the actions toggle is: an arrangement chosen once should
    * survive a refresh.
    */
-  const [holdingsSort, setHoldingsSort] = useLocalStorage<'default' | 'name' | 'name-desc' | 'value' | 'value-asc'>(
+  const [holdingsSort, setHoldingsSort] = useLocalStorage <'default' | 'name' | 'name-desc' | 'value' | 'value-asc'>(
     'wt_holdings_sort',
     'default'
   );
@@ -2181,6 +2212,7 @@ function InvestmentsView() {
                 <InvestmentMarketView
                   holdings={accountHoldings}
                   holdingsPanelOpen={managingAccountId === account.id}
+                  onOpenRegister={CHROME_HAS_PRICE_HISTORY ? setRegisterHolding : undefined}
                   fallbackCurrency={account.currency}
                   onUpdateQuotes={() =>
                     void updateQuotes(
@@ -2228,9 +2260,71 @@ function InvestmentsView() {
               </div>
             );
           })}
+
+          {showClosedPortfolios && closedPortfolioRootAccounts.map((account) => {
+            const accountHoldings = holdingsByAccount.get(account.id) ?? [];
+            return (
+              <div key={account.id} className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
+                <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+                  <h3 className="text-card font-semibold text-gray-900 dark:text-white">
+                    {account.name}
+                    {/* Sentence-case pill, quiet: a closed portfolio is history,
+                        not a warning. */}
+                    <span className="ml-2 align-middle text-xs font-normal px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                      Closed
+                    </span>
+                  </h3>
+                </div>
+                {accountHoldings.length === 0 ? (
+                  <p className="text-body text-gray-500 dark:text-gray-400">
+                    No holdings were recorded for this portfolio. Its transactions are still in its
+                    register, reachable from Closed Accounts on the Accounts page.
+                  </p>
+                ) : (
+                  <InvestmentMarketView
+                    holdings={accountHoldings}
+                    onOpenRegister={CHROME_HAS_PRICE_HISTORY ? setRegisterHolding : undefined}
+                    fallbackCurrency={account.currency}
+                    onUpdateQuotes={() =>
+                      void updateQuotes(
+                        account.id,
+                        accountHoldings.map((holding) => holding.symbol)
+                      )
+                    }
+                    isUpdating={isUpdatingQuotes && quotedAccountId === account.id}
+                    updateError={quotedAccountId === account.id ? quoteError : null}
+                    symbolErrors={quotedAccountId === account.id ? symbolErrors : undefined}
+                  />
+                )}
+              </div>
+            );
+          })}
+
+          {/* At the BOTTOM, where the owner asked for it: the everyday page is
+              about the money that exists today, and history is opted into.
+              A quiet text control, not a primary — it changes what is listed,
+              not what is true. */}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowClosedPortfolios(!showClosedPortfolios)}
+              className="text-body text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+            >
+              {showClosedPortfolios
+                ? 'Hide closed portfolios'
+                : `Show closed portfolios${closedPortfolioRootAccounts.length > 0 ? ` (${closedPortfolioRootAccounts.length})` : ''}`}
+            </button>
+          </div>
         </div>
       )}
 
+      {registerHolding && (
+        <HoldingRegisterModal
+          holding={registerHolding}
+          onClose={() => setRegisterHolding(null)}
+          onPricesChanged={() => void reloadHoldings()}
+        />
+      )}
 
     </PageWrapper>
   );
