@@ -381,7 +381,18 @@ export default function PortfolioManager({
   };
 
   const handleDelete = async (holding: InvestmentHolding): Promise<void> => {
-    if (!confirm(`Remove ${holding.symbol} from this account's holdings?`)) return;
+    // The trades are erased with the record; the CASH is not — a purchase
+    // transfer is a ledger row, and the ledger is never deleted silently.
+    // Said here, so the register's leftover row is a known consequence and
+    // not a surprise (the owner's find, 27 Aug). Linking the buy to its
+    // transfer so this can OFFER the deletion is queued follow-up work.
+    if (!confirm(
+      `Remove ${holding.symbol} from this account's holdings?
+
+` +
+      'Its recorded trades are removed too. Any purchase transfer stays in ' +
+      'the registers — delete it there if it was part of the mistake.'
+    )) return;
     setListError('');
     setDeletingId(holding.id);
     try {

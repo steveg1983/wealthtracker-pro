@@ -142,6 +142,13 @@ export class InvestmentService {
         quantity: draft.quantity.toString(),
         cost_basis: costBasis.toString(),
         purchase_price: draft.averageCost.toString(),
+        // Born priced: the buy is a price observation, and "Not priced" on a
+        // share bought at a known figure reads as a fault (the owner, 27
+        // Aug). A later quote refresh overwrites, as it always did.
+        current_price: draft.currentPrice !== undefined ? draft.currentPrice.toString() : null,
+        last_updated: draft.currentPrice !== undefined && draft.purchaseDate
+          ? draft.purchaseDate.toISOString()
+          : null,
         purchase_date: draft.purchaseDate ? draft.purchaseDate.toISOString().slice(0, 10) : null,
         currency: draft.currency,
         asset_type: draft.assetType ?? 'stock',

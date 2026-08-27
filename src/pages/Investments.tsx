@@ -346,6 +346,8 @@ function InvestmentsView() {
         name: values.name,
         quantity: values.quantity,
         averageCost,
+        // The raw dealt price, charges out — the born-priced snapshot.
+        currentPrice: values.averageCost,
         currency: values.currency,
         assetType: values.assetType,
         purchaseDate: purchase.date,
