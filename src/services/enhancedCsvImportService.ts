@@ -1393,13 +1393,33 @@ export class EnhancedCsvImportService {
     }
 
     // Description mapping
-    const descPatterns = ['description', 'desc', 'memo', 'details', 'transaction'];
+    const descPatterns = ['description', 'desc', 'memo', 'details', 'transaction', 'merchant', 'payee', 'narrative'];
     const descIndex = this.findBestMatch(normalizedHeaders, descPatterns, claimed);
     if (descIndex >= 0) {
       claimed.add(descIndex);
       mappings.push({
         sourceColumn: headers[descIndex],
         targetField: 'description'
+      });
+    }
+
+    // THE INDICATOR COLUMN, before the amount hunt: a name saying both
+    // debit AND credit ("Debit or Credit", "Debit/Credit") holds DBIT/CRDT
+    // cells that give an unsigned amount its direction. It is suggested as
+    // the TYPE — the row builder signs the magnitude from it — and claimed,
+    // so the amount hunt below cannot mistake it for money (which is how
+    // the owner's card statement died row by row, 28 Aug).
+    const indicatorIndex = headers.findIndex((header, index) => {
+      if (claimed.has(index)) return false;
+      const name = header.toLowerCase();
+      return OUTFLOW_COLUMN_KEYWORDS.some(k => name.includes(k)) &&
+        INFLOW_COLUMN_KEYWORDS.some(k => name.includes(k));
+    });
+    if (indicatorIndex >= 0) {
+      claimed.add(indicatorIndex);
+      mappings.push({
+        sourceColumn: headers[indicatorIndex],
+        targetField: 'type'
       });
     }
 
@@ -1502,9 +1522,23 @@ export class EnhancedCsvImportService {
   private calculateSimilarity(str1: string, str2: string): number {
     const longer = str1.length > str2.length ? str1 : str2;
     const shorter = str1.length > str2.length ? str2 : str1;
-    
+
     if (longer.length === 0) return 1.0;
-    
+
+    // An exact match outranks any containment — "Description" must beat a
+    // column that merely CONTAINS a synonym, whatever order they arrive in.
+    if (str1 === str2) return 1.0;
+
+    // CONTAINMENT AS A WHOLE WORD IS A MATCH, whatever the edit distance
+    // says: "Billing Amount" IS an amount column, but fourteen characters
+    // against six scored 0.43 and lost to the 0.6 bar — so the owner's card
+    // statement suggested no amount at all and every column needed mapping
+    // by hand (28 Aug). Word-bounded, so "category" does not contain "cat".
+    if (shorter.length >= 3) {
+      const boundary = new RegExp(`(^|[^a-z0-9])${shorter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^a-z0-9])`);
+      if (boundary.test(longer)) return 0.9;
+    }
+
     const editDistance = this.levenshteinDistance(longer, shorter);
     return (longer.length - editDistance) / longer.length;
   }
@@ -1560,8 +1594,15 @@ export class EnhancedCsvImportService {
    */
   private classifyAmountColumn(sourceColumn: string): 'outflow' | 'inflow' | 'signed' {
     const name = sourceColumn.toLowerCase();
-    if (OUTFLOW_COLUMN_KEYWORDS.some(keyword => name.includes(keyword))) return 'outflow';
-    if (INFLOW_COLUMN_KEYWORDS.some(keyword => name.includes(keyword))) return 'inflow';
+    const looksOutflow = OUTFLOW_COLUMN_KEYWORDS.some(keyword => name.includes(keyword));
+    const looksInflow = INFLOW_COLUMN_KEYWORDS.some(keyword => name.includes(keyword));
+    // A name that says BOTH — "Debit or Credit", "Debit/Credit" — is an
+    // INDICATOR column (DBIT/CRDT cells that give the amount its direction),
+    // not an amount column of either orientation. Claiming it as one parsed
+    // DBIT as money and killed every row of the owner's card statement.
+    if (looksOutflow && looksInflow) return 'signed';
+    if (looksOutflow) return 'outflow';
+    if (looksInflow) return 'inflow';
     return 'signed';
   }
 
@@ -1571,12 +1612,20 @@ export class EnhancedCsvImportService {
    * fall back to sign-derived classification.
    */
   private normalizeTypeCell(value: string): Transaction['type'] | null {
+    // 'dbit'/'crdt'/'dr'/'cr': the ISO-flavoured indicator vocabulary card
+    // statements use — the owner's file says DBIT/CRDT (28 Aug), and DR/CR
+    // appear in older UK exports. Exact matches only: a description column
+    // mapped here by mistake stays unrecognized and falls back to the sign.
     switch (value.trim().toLowerCase()) {
       case 'debit':
+      case 'dbit':
+      case 'dr':
       case 'withdrawal':
       case 'expense':
         return 'expense';
       case 'credit':
+      case 'crdt':
+      case 'cr':
       case 'deposit':
       case 'income':
         return 'income';

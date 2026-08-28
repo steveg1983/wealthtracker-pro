@@ -456,6 +456,15 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
   const updateMapping = (index: number, field: keyof ColumnMapping, value: string | ((value: string) => string | number | boolean | null)) => {
     const newMappings = [...mappings];
     newMappings[index] = { ...newMappings[index], [field]: value };
+    // A TRANSFORM BELONGS TO THE PAIRING THAT CREATED IT. The suggester
+    // attaches parseAmount to an amount mapping; when the person points that
+    // column somewhere else (or points the mapping at another column), the
+    // old closure must not ride along — the owner's "Debit or Credit"
+    // column, corrected from amount to type, still ran parseAmount('DBIT')
+    // and every row died with a DecimalError (28 Aug).
+    if (field === 'targetField' || field === 'sourceColumn') {
+      delete newMappings[index].transform;
+    }
     setMappings(newMappings);
   };
 
