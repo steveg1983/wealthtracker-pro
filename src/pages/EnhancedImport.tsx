@@ -155,7 +155,7 @@ export default function EnhancedImport(): React.JSX.Element {
           </Suspense>
         )}
 
-        {/* ── Restore a whole backup ───────────────────────────────────
+        {/* ── Full restore ────────────────────────────────────────────
             Sits directly under the Money migration because it is the other
             whole-dataset operation, and because this is the page people come to
             with a backup file in their downloads folder. The copy has to do two
@@ -164,7 +164,8 @@ export default function EnhancedImport(): React.JSX.Element {
             data" warning above — the Money import overwrites for you, a restore
             refuses to and makes you erase the login yourself first. */}
         <Section
-          title="Restore a whole backup"
+          prominent
+          title="Full restore"
           description="Your own backup file, read back in. This is not another statement import."
         >
           {/* Named as the button actually reads on the Export page, and as the
@@ -184,8 +185,8 @@ export default function EnhancedImport(): React.JSX.Element {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <ActionButton
               icon={UploadIcon}
-              title="Restore from a backup file"
-              description="A full JSON backup — into an empty login only"
+              title="Restore full backup (JSON)"
+              description="Into an empty login only"
               onClick={() => setShowRestoreBackup(true)}
             />
           </div>
@@ -374,12 +375,20 @@ export default function EnhancedImport(): React.JSX.Element {
 }
 
 /** A titled card that groups related import options — the one section shell. */
-function Section({ title, description, children }: {
+function Section({ title, description, children, prominent = false }: {
   title: string; description: string; children: React.ReactNode;
+  /**
+   * The full-restore card wears the same weight as Full backup on the
+   * Export page (owner, 28 Aug): the two are one operation seen from its
+   * two ends, and a reader who has found one should recognise the other.
+   */
+  prominent?: boolean;
 }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
-      <h3 className="text-card font-semibold text-gray-900 dark:text-white">{title}</h3>
+      <h3 className={prominent
+        ? 'text-page font-bold text-gray-900 dark:text-white'
+        : 'text-card font-semibold text-gray-900 dark:text-white'}>{title}</h3>
       <p className="text-body text-gray-500 dark:text-gray-400 mb-4">{description}</p>
       <div className="space-y-3">{children}</div>
     </div>
