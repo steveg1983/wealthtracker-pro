@@ -1187,4 +1187,69 @@ describe('EnhancedCsvImportService (deterministic)', () => {
       ).toEqual([]);
     });
   });
+
+
+describe('the debit/credit INDICATOR column — the owner\'s card statement (28 Aug)', () => {
+  // The measured shape: one always-positive Billing Amount column, and a
+  // "Debit or Credit" column whose DBIT/CRDT cells carry the direction.
+  const header = ['Transaction Date', 'Billing Amount', 'Merchant', 'Debit or Credit'];
+  const rows = [
+    ['2026-08-13', '18.14', 'HONEST MOBILE', 'DBIT'],
+    ['2026-08-07', '25.00', 'PAYMENT DD - THANK YOU', 'CRDT'],
+    ['2026-08-02', '0.28', 'NON-STERLING TRANS FEE', 'DBIT']
+  ];
+
+  it('suggests the indicator as TYPE and never as an amount column', () => {
+    const service = createService();
+    const mappings = service.suggestMappings(header);
+
+    const indicator = mappings.find(m => m.sourceColumn === 'Debit or Credit');
+    expect(indicator?.targetField).toBe('type');
+    // No parseAmount transform riding on it — DBIT is not money.
+    expect(indicator?.transform).toBeUndefined();
+    const amount = mappings.find(m => m.targetField === 'amount');
+    expect(amount?.sourceColumn).toBe('Billing Amount');
+  });
+
+  it('signs the unsigned amounts from DBIT/CRDT — spend negative, payment positive', () => {
+    const service = createService();
+    const mappings: ColumnMapping[] = [
+      { sourceColumn: 'Transaction Date', targetField: 'date' },
+      { sourceColumn: 'Billing Amount', targetField: 'amount' },
+      { sourceColumn: 'Merchant', targetField: 'description' },
+      { sourceColumn: 'Debit or Credit', targetField: 'type' }
+    ];
+
+    const preview = service.generatePreview(header, rows, mappings);
+
+    expect(preview.transactions).toHaveLength(3);
+    expect(preview.transactions[0]).toMatchObject({ amount: -18.14, type: 'expense' });
+    expect(preview.transactions[1]).toMatchObject({ amount: 25, type: 'income' });
+    expect(preview.transactions[2]).toMatchObject({ amount: -0.28, type: 'expense' });
+  });
+
+  it('understands DR/CR too, and leaves unknown vocab to the sign fallback', () => {
+    const service = createService();
+    const mappings: ColumnMapping[] = [
+      { sourceColumn: 'Transaction Date', targetField: 'date' },
+      { sourceColumn: 'Billing Amount', targetField: 'amount' },
+      { sourceColumn: 'Debit or Credit', targetField: 'type' }
+    ];
+    const preview = service.generatePreview(
+      header,
+      [
+        ['2026-08-13', '10.00', 'x', 'DR'],
+        ['2026-08-14', '20.00', 'x', 'CR'],
+        ['2026-08-15', '30.00', 'x', 'MYSTERY']
+      ],
+      mappings
+    );
+
+    expect(preview.transactions[0]).toMatchObject({ amount: -10, type: 'expense' });
+    expect(preview.transactions[1]).toMatchObject({ amount: 20, type: 'income' });
+    // Unrecognized indicator: the positive sign stands, classified income —
+    // visible in the preview rather than invented.
+    expect(preview.transactions[2]).toMatchObject({ amount: 30, type: 'income' });
+  });
+});
 });
