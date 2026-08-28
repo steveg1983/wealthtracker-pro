@@ -26,7 +26,7 @@ type TransactionCacheLike = {
 };
 type SupabaseClientLike = typeof supabase;
 type SupabaseConfiguredChecker = () => boolean;
-type Logger = Pick<Console, 'error'>;
+type Logger = Pick<Console, 'error' | 'warn'>;
 type UuidGenerator = () => string;
 type DateProvider = () => Date;
 type FetchLike = typeof fetch;
@@ -36,7 +36,7 @@ export interface TransactionServiceOptions {
   supabaseClient?: SupabaseClientLike;
   isSupabaseConfigured?: SupabaseConfiguredChecker;
   storageAdapter?: StorageAdapterLike;
-  logger?: Logger;
+  logger?: Pick<Logger, 'error'> & Partial<Pick<Logger, 'warn'>>;
   now?: DateProvider;
   uuid?: UuidGenerator;
   fetchImpl?: FetchLike;
@@ -427,7 +427,8 @@ class TransactionServiceImpl {
     const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
     const noop = () => {};
     this.logger = {
-      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop)
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop),
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop)
     };
     this.nowProvider = options.now ?? (() => new Date());
     this.uuid = options.uuid ?? (() => {
@@ -1791,6 +1792,12 @@ class TransactionServiceImpl {
       });
 
       if (error) {
+        // Already gone is already done — same idempotency as the API path
+        // above, so both routes heal a ghost instead of stranding it.
+        if (error.message?.includes('transaction_not_found')) {
+          this.logger.warn(`deleteTransaction: ${id} was already gone — treating as deleted`);
+          return;
+        }
         this.logger.error('Error deleting transaction:', error);
         throw new Error(handleSupabaseError(error));
       }
@@ -1820,6 +1827,17 @@ class TransactionServiceImpl {
     });
 
     if (response.ok) {
+      return true;
+    }
+
+    // A ROW ALREADY GONE IS A DELETE ALREADY DONE. The owner hit this live
+    // (28 Aug): a pair-delete removed both legs server-side, a ghost of one
+    // stayed in client state, and every retry got this 404 and ERRORED —
+    // stranding the ghost until a hard refresh. Treating not-found as
+    // success lets the caller's state update run and the ghost heal itself
+    // on the first retry. The DELETE is the goal, not the finding.
+    if (response.status === 404) {
+      this.logger.warn(`deleteTransaction: ${id} was already gone — treating as deleted`);
       return true;
     }
 
