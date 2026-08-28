@@ -241,7 +241,7 @@ export default function EnhancedImport(): React.JSX.Element {
             </p>
             <button
               onClick={() => setShowRulesManager(true)}
-              className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              className="shrink-0 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover transition-colors"
             >
               <SettingsIcon size={16} />
               Manage Rules

@@ -1,9 +1,6 @@
-import type { ImportRule, ImportRuleCondition, ImportRuleAction, ImportRuleTest } from '../types/importRules';
+import type { ImportRule, ImportRuleTest } from '../types/importRules';
 import type { Transaction } from '../types';
-
-interface TransactionWithSkip extends Partial<Transaction> {
-  __skip?: boolean;
-}
+import { applyRules, checkCondition } from './importRules/engine';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 type Logger = Pick<Console, 'error'>;
@@ -133,175 +130,8 @@ export class ImportRulesService {
     return changed;
   }
 
-  private checkCondition(condition: ImportRuleCondition, transaction: Partial<Transaction>): boolean {
-    let fieldValue: string | number | Date | null;
-    
-    switch (condition.field) {
-      case 'description':
-        fieldValue = transaction.description || '';
-        break;
-      case 'amount':
-        fieldValue = Math.abs(transaction.amount || 0);
-        break;
-      case 'accountId':
-        fieldValue = transaction.accountId || '';
-        break;
-      case 'date':
-        fieldValue = transaction.date ? new Date(transaction.date) : null;
-        break;
-    }
-
-    if (fieldValue === null || fieldValue === undefined) return false;
-
-    switch (condition.operator) {
-      case 'contains':
-        if (typeof fieldValue !== 'string') return false;
-        return condition.caseSensitive 
-          ? fieldValue.includes(condition.value as string)
-          : fieldValue.toLowerCase().includes((condition.value as string).toLowerCase());
-      
-      case 'equals':
-        if (condition.field === 'amount' && typeof fieldValue === 'number') {
-          return Math.abs(fieldValue - (condition.value as number)) < 0.01;
-        }
-        return condition.caseSensitive
-          ? fieldValue === condition.value
-          : fieldValue.toString().toLowerCase() === condition.value.toString().toLowerCase();
-      
-      case 'startsWith':
-        if (typeof fieldValue !== 'string') return false;
-        return condition.caseSensitive
-          ? fieldValue.startsWith(condition.value as string)
-          : fieldValue.toLowerCase().startsWith((condition.value as string).toLowerCase());
-      
-      case 'endsWith':
-        if (typeof fieldValue !== 'string') return false;
-        return condition.caseSensitive
-          ? fieldValue.endsWith(condition.value as string)
-          : fieldValue.toLowerCase().endsWith((condition.value as string).toLowerCase());
-      
-      case 'greaterThan':
-        if (typeof fieldValue !== 'number') return false;
-        return fieldValue > (condition.value as number);
-      
-      case 'lessThan':
-        if (typeof fieldValue !== 'number') return false;
-        return fieldValue < (condition.value as number);
-      
-      case 'between':
-        if (typeof fieldValue !== 'number') return false;
-        return fieldValue >= (condition.value as number) && 
-               fieldValue <= (condition.value2 as number);
-      
-      case 'regex':
-        if (typeof fieldValue !== 'string') return false;
-        try {
-          const regex = new RegExp(condition.value as string, condition.caseSensitive ? '' : 'i');
-          return regex.test(fieldValue);
-        } catch {
-          return false;
-        }
-      
-      default:
-        return false;
-    }
-  }
-
-  private applyAction(action: ImportRuleAction, transaction: Partial<Transaction>): TransactionWithSkip {
-    const result: TransactionWithSkip = { ...transaction };
-
-    switch (action.type) {
-      case 'setCategory':
-        if (action.value) {
-          result.category = action.value;
-          // A rule is a standing instruction the user wrote themselves —
-          // "anything matching TESCO is Groceries" — so the category it sets is
-          // their decision, not the app guessing. It must also OVERRIDE a
-          // suggestion the categoriser had already pencilled in, because rules
-          // run last and win: leaving the row marked as a guess would ask the
-          // user to re-confirm the rule they authored.
-          result.categoryConfirmed = true;
-        }
-        break;
-      
-      case 'addTag':
-        if (action.value) {
-          result.tags = result.tags || [];
-          if (!result.tags.includes(action.value)) {
-            result.tags.push(action.value);
-          }
-        }
-        break;
-      
-      case 'modifyDescription':
-        if (result.description && action.modification) {
-          switch (action.modification) {
-            case 'replace':
-              result.description = action.value || '';
-              break;
-            case 'prepend':
-              result.description = (action.value || '') + result.description;
-              break;
-            case 'append':
-              result.description = result.description + (action.value || '');
-              break;
-            case 'regex':
-              if (action.pattern) {
-                try {
-                  const regex = new RegExp(action.pattern, 'g');
-                  result.description = result.description.replace(regex, action.replacement || '');
-                } catch {
-                  // Invalid regex, skip
-                }
-              }
-              break;
-          }
-        }
-        break;
-      
-      case 'setAccount':
-        if (action.value) {
-          result.accountId = action.value;
-        }
-        break;
-      
-      case 'skip':
-        // Mark transaction to be skipped
-        result.__skip = true;
-        break;
-    }
-
-    return result;
-  }
-
   applyRules(transaction: Partial<Transaction>): Partial<Transaction> | null {
-    let result: TransactionWithSkip = { ...transaction };
-    const enabledRules = this.rules
-      .filter(rule => rule.enabled)
-      .sort((a, b) => a.priority - b.priority);
-
-    for (const rule of enabledRules) {
-      // Check if all conditions match
-      const allConditionsMatch = rule.conditions.every(condition => 
-        this.checkCondition(condition, result)
-      );
-
-      if (allConditionsMatch) {
-        // Apply all actions
-        for (const action of rule.actions) {
-          result = this.applyAction(action, result);
-          
-          // If transaction should be skipped, return null
-          if (result.__skip) {
-            return null;
-          }
-        }
-      }
-    }
-
-    // Remove temporary skip flag if it exists
-    delete result.__skip;
-    return result;
+    return applyRules(transaction, this.rules);
   }
 
   testRule(rule: ImportRule, testData: ImportRuleTest): boolean {
@@ -312,9 +142,7 @@ export class ImportRulesService {
       date: testData.date || this.nowProvider()
     };
 
-    return rule.conditions.every(condition => 
-      this.checkCondition(condition, transaction)
-    );
+    return rule.conditions.every(condition => checkCondition(condition, transaction));
   }
 
   // Get suggested rules based on existing transactions
