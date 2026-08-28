@@ -24,6 +24,7 @@ import { fetchCardTransactions, fetchTransactions } from '../_lib/truelayer.js';
 import { cardAmountToAppSigned } from '../../src/services/banking/cardNormalization.js';
 import { resolveIdChurn, type ExistingBankRow } from '../../src/services/banking/idChurn.js';
 import { resolveTransferAdoption } from '../../src/services/banking/transferAdoption.js';
+import { partitionOfferedRows } from '../../src/services/banking/ownerDeletions.js';
 import { syncWindowStart } from '../../src/services/banking/syncWindow.js';
 
 const coerceIsoDateTime = (value: string, endOfDay: boolean): string | null => {
@@ -331,7 +332,59 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const unknownIdCandidates = uniquePrepared.filter((row) => !existingIds.has(row.external_transaction_id));
+    // ── DELETED ON PURPOSE ──────────────────────────────────────────────────
+    //
+    // The exact-id pass above answers "do I already have this?" by looking at
+    // rows that EXIST. A row the owner deleted does not, so its id reads as
+    // new and the feed re-creates it. Reported live on 28 Aug: a £8,321.54
+    // card payment, deleted because the same money was already recorded as a
+    // transfer from his current account, came back on the next sync and
+    // credited the card twice. A delete that guarantees a return is not a
+    // delete.
+    //
+    // The tombstones are written by a trigger on `transactions`, so this holds
+    // for every delete path there is or ever will be — see migration
+    // 20260828140000. Scoped by connection because an external id is unique to
+    // a provider, not to the world.
+    const deletedIds = new Set<string>();
+    if (externalIds.length > 0) {
+      for (const idChunk of chunk(externalIds, 500)) {
+        const deletedResult = await supabase
+          .from('deleted_feed_transactions')
+          .select('external_transaction_id')
+          .eq('user_id', auth.userId)
+          .eq('connection_id', connection.id)
+          .in('external_transaction_id', idChunk);
+
+        if (deletedResult.error) {
+          // A missing table means the migration has not been applied yet. That
+          // must not take the whole sync down — the ledger is better off with
+          // yesterday's known flaw than with no sync at all — but it is not
+          // something to swallow either, so it is logged loudly and the run
+          // continues with the old behaviour.
+          if (isSchemaMismatchError(deletedResult.error)) {
+            console.warn(
+              '[sync-transactions] deleted_feed_transactions is missing; deleted rows may return until migration 20260828140000 is applied'
+            );
+            break;
+          }
+          throw new Error(`Failed to load deleted transaction ids: ${deletedResult.error.message}`);
+        }
+
+        (deletedResult.data ?? []).forEach((row) => {
+          if (typeof row.external_transaction_id === 'string') {
+            deletedIds.add(row.external_transaction_id);
+          }
+        });
+      }
+    }
+
+    // One partition rather than three filters, because the sync's counts are a
+    // claim to the owner and they have to add up — partitionOfferedRows's
+    // header argues it, and its test pins the total.
+    const offered = partitionOfferedRows(uniquePrepared, existingIds, deletedIds);
+    const deletedByOwnerSkipped = offered.deletedByOwner.length;
+    const unknownIdCandidates = offered.unseen;
 
     // Id churn (observed live, Aug 2026, a cheque deposit): the provider can re-issue the SAME
     // transaction under a new external id between syncs, which sails past the
@@ -509,7 +562,11 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Adopted rows are neither imports nor duplicates — they are the same
     // transaction keeping its ledger row, so they leave both other counts.
-    const duplicatesSkipped = prepared.length - insertedCount - idChurnRepaired - transfersAdopted;
+    // Rows the owner deleted are neither imports nor duplicates: they are a
+    // decision being honoured, and they leave the duplicate count alone so the
+    // three numbers still add up to what the bank offered.
+    const duplicatesSkipped =
+      prepared.length - insertedCount - idChurnRepaired - transfersAdopted - deletedByOwnerSkipped;
 
     await markConnectionSyncSuccess(supabase, connection.id, auth.userId);
     await supabase.from('sync_history').insert({
@@ -525,7 +582,8 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       transactionsImported: insertedCount,
       duplicatesSkipped,
       ...(idChurnRepaired > 0 ? { idChurnRepaired } : {}),
-      ...(transfersAdopted > 0 ? { transfersAdopted } : {})
+      ...(transfersAdopted > 0 ? { transfersAdopted } : {}),
+      ...(deletedByOwnerSkipped > 0 ? { deletedByOwnerSkipped } : {})
     };
     return res.status(200).json(response);
   } catch (error) {
