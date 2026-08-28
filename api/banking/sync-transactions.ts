@@ -25,6 +25,7 @@ import { cardAmountToAppSigned } from '../../src/services/banking/cardNormalizat
 import { resolveIdChurn, type ExistingBankRow } from '../../src/services/banking/idChurn.js';
 import { resolveTransferAdoption } from '../../src/services/banking/transferAdoption.js';
 import { partitionOfferedRows } from '../../src/services/banking/ownerDeletions.js';
+import { applyFeedRules } from '../../src/services/banking/feedRules.js';
 import { syncWindowStart } from '../../src/services/banking/syncWindow.js';
 
 const coerceIsoDateTime = (value: string, endOfDay: boolean): string | null => {
@@ -511,6 +512,44 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // ── THE OWNER'S RULES, ON A FEED ────────────────────────────────────────
+    //
+    // He asked on 28 Aug whether import rules apply to automatic bank imports.
+    // They did not — the engine lived inside a service that read rules from a
+    // browser, so no server could run one. Rules now live in the account and
+    // the engine is shared, so the same rule that categorises a CSV row
+    // categorises this one.
+    //
+    // Applied to INSERTS only. An adopted or duplicate row is already in the
+    // ledger with whatever the owner has since made of it, and re-running a
+    // rule over it would overwrite his own corrections on every sync.
+    //
+    // `skip` and `setAccount` are dropped before the engine sees them —
+    // feedRules' header carries his ruling and the reasoning.
+    let rulesApplied = 0;
+    if (insertCandidates.length > 0) {
+      const rulesResult = await supabase
+        .from('import_rules')
+        .select('id, name, enabled, priority, conditions, actions')
+        .eq('user_id', auth.userId)
+        .eq('enabled', true)
+        .order('priority', { ascending: true });
+
+      if (rulesResult.error) {
+        // Rules are an enhancement, not a precondition. A sync that cannot
+        // read them should still deliver the money — uncategorised is a state
+        // the register already knows how to show, and a missed sync is not.
+        console.warn('[sync-transactions] could not read import rules', rulesResult.error.message);
+      } else if ((rulesResult.data ?? []).length > 0) {
+        const rules = (rulesResult.data ?? []) as unknown as Parameters<typeof applyFeedRules>[1];
+        insertCandidates = insertCandidates.map(row => {
+          const { row: ruled, changed } = applyFeedRules(row, rules);
+          if (changed) rulesApplied += 1;
+          return ruled;
+        });
+      }
+    }
+
     let insertedCount = 0;
     for (const insertChunk of chunk(insertCandidates, 200)) {
       if (insertChunk.length === 0) {
@@ -583,7 +622,8 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       duplicatesSkipped,
       ...(idChurnRepaired > 0 ? { idChurnRepaired } : {}),
       ...(transfersAdopted > 0 ? { transfersAdopted } : {}),
-      ...(deletedByOwnerSkipped > 0 ? { deletedByOwnerSkipped } : {})
+      ...(deletedByOwnerSkipped > 0 ? { deletedByOwnerSkipped } : {}),
+      ...(rulesApplied > 0 ? { rulesApplied } : {})
     };
     return res.status(200).json(response);
   } catch (error) {

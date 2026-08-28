@@ -16,6 +16,7 @@ import {
   ArrowDownIcon
 } from './icons';
 import type { ImportRule, ImportRuleCondition, ImportRuleAction } from '../types/importRules';
+import { isFeedSafeAction, hasActionAFeedIgnores } from '../services/banking/feedRules';
 import type { Category, Account } from '../types';
 import { isTransferFiling } from '../utils/transferCoherence';
 
@@ -222,9 +223,34 @@ export default function ImportRulesManager() {
                           <li key={i} className="text-gray-600 dark:text-gray-400">
                             • {action.type}
                             {action.value && `: "${action.value}"`}
+                            {!isFeedSafeAction(action) && (
+                              <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                                — files only, not bank feeds
+                              </span>
+                            )}
                           </li>
                         ))}
                       </ul>
+                      {hasActionAFeedIgnores(rule) && (
+                        /*
+                         * Said on the rule itself, beside the action it is
+                         * about, because the alternative is a rule that reads
+                         * as enabled and quietly does less than it says on the
+                         * path the owner cares most about. Skipping and
+                         * re-homing a transaction a bank reported are the two
+                         * things a feed refuses — services/banking/feedRules.ts
+                         * carries the reasoning.
+                         *
+                         * Stated plainly rather than as a warning: nothing is
+                         * wrong, and a rule doing its other half on a feed is
+                         * working as intended.
+                         */
+                        <p className="ml-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          On a bank feed this rule does everything above except the
+                          marked steps — a fed transaction is never dropped or moved
+                          to another account, so it keeps matching your statement.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
