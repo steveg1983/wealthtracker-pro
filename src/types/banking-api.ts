@@ -153,6 +153,11 @@ export interface SyncTransactionsResponse {
    * nor a duplicate; present only when non-zero.
    */
   idChurnRepaired?: number;
+  /**
+   * Hand-made transfer legs adopted by feed rows this sync — the same
+   * payment recorded by the owner before the feed delivered it (28 Aug).
+   */
+  transfersAdopted?: number;
   error?: string;
 }
 
