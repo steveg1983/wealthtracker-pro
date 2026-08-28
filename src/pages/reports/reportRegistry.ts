@@ -24,7 +24,7 @@ import type { ReportViewProps } from './types';
  * report, so it PERSISTS as the user moves between them.
  */
 
-export type ReportGroupId = 'what-i-have' | 'spending' | 'custom';
+export type ReportGroupId = 'what-i-have' | 'spending' | 'investments' | 'custom';
 
 export interface ReportGroup {
   id: ReportGroupId;
@@ -53,6 +53,11 @@ export const REPORT_GROUPS: ReportGroup[] = [
     title: 'Spending',
     description: 'Where the money goes, when it goes, and who it goes to.',
     note: 'A transaction with no category is left out of these totals, so nothing is counted under the wrong heading. Each report lists those rows for filing.',
+  },
+  {
+    id: 'investments',
+    title: 'Investments',
+    description: 'What you hold, what it cost, and what it did.',
   },
   {
     id: 'custom',
@@ -108,6 +113,20 @@ export interface ReportDefinition {
 }
 
 export const REPORTS: ReportDefinition[] = [
+  {
+    id: 'holdings',
+    title: 'Holdings',
+    description: 'Every holding as at a date — what it cost, what it is worth, and its register.',
+    group: 'investments',
+    icon: TrendingUpIcon,
+    // The as-at day is the period's END, so "this month" is today and a
+    // custom window shows what was held when it closed.
+    usesPeriod: true,
+    // Positions are stated in their own money and totalled per currency —
+    // no rate is applied, so the hub's conversion line would be wrong here.
+    currency: 'self',
+    component: lazyWithRecovery(() => import('./HoldingsReport')),
+  },
   {
     id: 'net-worth',
     title: 'Net worth',

@@ -52,6 +52,7 @@ describe('ReportsHub gallery', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Reports' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'What I have' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Spending' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Investments' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Custom reports' })).toBeInTheDocument();
 
     // Titles are matched exactly, so "Net worth" cannot be satisfied by
@@ -66,6 +67,7 @@ describe('ReportsHub gallery', () => {
       'Income and spending over time',
       'Spending by payee',
       'This period vs last',
+      'Holdings',
     ]) {
       expect(screen.getByText(title)).toBeInTheDocument();
     }
@@ -82,6 +84,10 @@ describe('ReportsHub gallery', () => {
       '/reports/income-and-spending-over-time',
       '/reports/spending-by-payee',
       '/reports/period-comparison',
+      // Investments — its own group since 28 Aug, and the rest of the
+      // owner's list (realised gains, performance, trading activity) lands
+      // beside this one.
+      '/reports/holdings',
       '/reports/custom-reports',
     ]);
   });
