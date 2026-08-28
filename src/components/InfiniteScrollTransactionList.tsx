@@ -51,6 +51,25 @@ interface InfiniteScrollTransactionListProps {
    * its filter are, which is the account register, and nowhere else.
    */
   markNewArrivals?: boolean;
+  /**
+   * Which END of the list is the one worth opening on.
+   *
+   * `'start'` is the ordinary answer and the default: the first row is the one
+   * you want, so the list opens at the top and older rows arrive as you scroll
+   * down.
+   *
+   * `'end'` is for a register ordered oldest-first, which is how a ledger and
+   * Microsoft Money both read: the NEWEST line is the last one, and that is
+   * the line you want when the account opens. The desktop register has always
+   * done this by scrolling to the foot. The phone could not, because a list
+   * that loads downward from the top has no foot to scroll to — so the owner
+   * choosing "Date — oldest first" landed on 2008 and would have scrolled
+   * through eleven thousand rows to reach this month (29 Aug).
+   *
+   * With `'end'` the batches are taken from the BOTTOM and grow upward, so the
+   * newest is on screen immediately and older rows arrive as you scroll up.
+   */
+  anchor?: 'start' | 'end';
 }
 
 /**
@@ -74,7 +93,8 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
   isLoading = false,
   emptyContent,
   itemsPerBatch = 20,
-  markNewArrivals = false
+  markNewArrivals = false,
+  anchor = 'start'
   // `| null` is the 200ms rule in the type: a load too short to be worth
   // explaining renders NOTHING, which is not an element.
 }: InfiniteScrollTransactionListProps): React.JSX.Element | null {
@@ -88,21 +108,75 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
   const showSkeleton = useDelayedFlag(isLoading && transactions.length === 0);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  /**
+   * Growing UPWARD moves everything already on screen down by the height of
+   * whatever was added, so the reader is thrown backwards mid-scroll unless
+   * the position is corrected. The document's height before the batch is what
+   * that correction is measured against.
+   */
+  const containerRef = useRef<HTMLDivElement>(null);
+  const heightBeforeGrowth = useRef<number | null>(null);
+  const openedAtEnd = useRef(false);
 
   const loadMoreItems = useCallback(() => {
     setIsLoadingMore(true);
+    if (anchor === 'end') {
+      heightBeforeGrowth.current = document.body.scrollHeight;
+    }
     
     // Simulate network delay for smooth UX
     setTimeout(() => {
       setDisplayedItems(prev => Math.min(prev + itemsPerBatch, transactions.length));
       setIsLoadingMore(false);
     }, 300);
-  }, [itemsPerBatch, transactions.length]);
+  }, [anchor, itemsPerBatch, transactions.length]);
 
   // Reset displayed items when transactions change (e.g., filtering)
   useEffect(() => {
     setDisplayedItems(itemsPerBatch);
+    openedAtEnd.current = false;
   }, [transactions, itemsPerBatch]);
+
+  // ── Opening on the newest, and staying put while older rows arrive ────────
+  //
+  // Two different jobs, both only for an end-anchored list:
+  //
+  //   * ONCE, when the rows first exist, put the newest on screen. The desktop
+  //     register does the same thing by scrolling to its foot.
+  //   * EVERY TIME a batch is prepended, undo the jump it causes. Rows added
+  //     above the viewport push the content down by exactly their height, so
+  //     the reader's place is restored by scrolling down by the difference in
+  //     document height. Without it, reading backwards through a year would
+  //     throw you forwards every twenty rows.
+  useEffect(() => {
+    if (anchor !== 'end' || transactions.length === 0) return;
+
+    // BOTH frames are cancelled on the way out. A frame that outlives its
+    // component is not a tidiness problem: it runs after the reader has
+    // navigated somewhere else and scrolls THAT page instead, and under a test
+    // runner it reaches for a `window` that has already been torn down —
+    // which is how this was caught rather than shipped.
+    let frame = 0;
+
+    if (!openedAtEnd.current) {
+      openedAtEnd.current = true;
+      // After paint, or the height being scrolled to is the height before the
+      // rows were in it.
+      frame = requestAnimationFrame(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' });
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+
+    const before = heightBeforeGrowth.current;
+    if (before === null) return;
+    heightBeforeGrowth.current = null;
+    frame = requestAnimationFrame(() => {
+      const grew = document.body.scrollHeight - before;
+      if (grew > 0) window.scrollBy({ top: grew, behavior: 'auto' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [anchor, displayedItems, transactions.length]);
 
   // Set up Intersection Observer for infinite scroll
   useEffect(() => {
@@ -166,17 +240,49 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
     return <>{emptyContent}</>;
   }
 
-  const visibleTransactions = transactions.slice(0, displayedItems);
+  // End-anchored takes its batch from the bottom, so the newest rows are the
+  // ones that exist first and older ones are added above them.
+  const visibleTransactions = anchor === 'end'
+    ? transactions.slice(Math.max(0, transactions.length - displayedItems))
+    : transactions.slice(0, displayedItems);
   const hasMore = displayedItems < transactions.length;
 
+  /*
+   * The sentinel sits at whichever end the NEXT batch will come from — the
+   * bottom when the list grows downward, the top when it grows upward. Left at
+   * the bottom of an end-anchored list it would sit next to rows that are
+   * already the last ones there are, and never come into view.
+   */
+  const loadMoreTrigger = hasMore ? (
+    <div ref={loadMoreRef} className="py-8 flex justify-center">
+      {isLoadingMore ? (
+        <div className="flex flex-col items-center gap-2">
+          <LoadingSpinner size="sm" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Loading {anchor === 'end' ? 'earlier' : 'more'} transactions...
+          </p>
+        </div>
+      ) : (
+        <button
+          onClick={loadMoreItems}
+          className="px-4 py-2 text-sm text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+        >
+          {anchor === 'end' ? 'Load earlier' : 'Load More'}
+        </button>
+      )}
+    </div>
+  ) : null;
+
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       {/* Transaction count indicator */}
       <div className="sticky top-0 z-10 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 px-4 py-2">
         <p className="text-sm text-gray-600 dark:text-gray-400">
           Showing {visibleTransactions.length} of {transactions.length} transactions
         </p>
       </div>
+
+      {anchor === 'end' && loadMoreTrigger}
 
       {/* Transaction list */}
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -202,29 +308,7 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
         })}
       </div>
 
-      {/* Load more trigger */}
-      {hasMore && (
-        <div 
-          ref={loadMoreRef}
-          className="py-8 flex justify-center"
-        >
-          {isLoadingMore ? (
-            <div className="flex flex-col items-center gap-2">
-              <LoadingSpinner size="sm" />
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Loading more transactions...
-              </p>
-            </div>
-          ) : (
-            <button
-              onClick={loadMoreItems}
-              className="px-4 py-2 text-sm text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-            >
-              Load More
-            </button>
-          )}
-        </div>
-      )}
+      {anchor === 'start' && loadMoreTrigger}
 
       {/* End of list indicator */}
       {!hasMore && transactions.length > itemsPerBatch && (

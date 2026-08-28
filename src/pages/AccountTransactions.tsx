@@ -3686,6 +3686,20 @@ export default function AccountTransactions() {
       >
         <InfiniteScrollTransactionList
           transactions={phoneListRows}
+          /*
+           * OLDEST-FIRST OPENS ON THE NEWEST, exactly as the desktop register
+           * does by scrolling to its foot.
+           *
+           * `phoneListRows` above already reverses date-ascending rows while
+           * the owner has not chosen an order, so the untouched phone shows
+           * the newest at the top. The moment he chooses "Date — oldest
+           * first" that reversal stands down and the list is a ledger again —
+           * and a ledger's newest line is its last one. Loading downward from
+           * the top of that put him on 2008 with eleven thousand rows between
+           * him and this month (29 Aug). Anchoring to the end is what makes
+           * the choice mean on a phone what it means on a desk.
+           */
+          anchor={sortField === 'date' && sortDirection === 'asc' ? 'end' : 'start'}
           accounts={[]}
           categories={categories}
           // A phone is still looking at the REGISTER, with the same To Review

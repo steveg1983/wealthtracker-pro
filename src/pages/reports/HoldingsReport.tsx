@@ -24,6 +24,7 @@ import type { InvestmentEvent } from '../../services/investments/events';
 import type { InvestmentHolding } from '../../services/investments/holding';
 import type { SymbolPricePoint } from '../../services/investments/investmentValuation';
 import SecurityHistoryModal from '../../components/SecurityHistoryModal';
+import { ChevronDownIcon } from '../../components/icons';
 import { formatCurrency, formatUnitPrice } from '../../utils/currency-decimal';
 import { toDecimal, type DecimalInstance } from '../../utils/decimal';
 import { buildTopLevelIdByAccountId } from '../../utils/accountNesting';
@@ -46,6 +47,7 @@ export default function HoldingsReport({ picker }: ReportViewProps): React.JSX.E
   const [prices, setPrices] = useState<SymbolPricePoint[]>([]);
   const [sort, setSort] = useState<SortKey>('value');
   const [chosenAccounts, setChosenAccounts] = useState<ReadonlySet<string>>(new Set());
+  const [portfolioMenuOpen, setPortfolioMenuOpen] = useState(false);
   const [openPosition, setOpenPosition] = useState<HeldPosition | null>(null);
 
   useEffect(() => {
@@ -122,6 +124,26 @@ export default function HoldingsReport({ picker }: ReportViewProps): React.JSX.E
     return [...byCurrency.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [rows]);
 
+  /**
+   * What the closed control says, which is the whole reason it can be closed.
+   *
+   * An empty set means every portfolio, and the summary says so in words
+   * rather than leaving a blank that reads as "none". Few enough chosen and
+   * it names them, because a name is what the owner is checking for; past
+   * that a count is the only honest summary — three names and an ellipsis
+   * would hide the very one he is looking for.
+   */
+  const portfolioSummary = useMemo(() => {
+    if (chosenAccounts.size === 0 || chosenAccounts.size === portfolios.length) {
+      return 'All';
+    }
+    const chosen = portfolios.filter(a => chosenAccounts.has(a.id));
+    if (chosen.length <= 2) {
+      return chosen.map(a => a.name).join(', ');
+    }
+    return `${chosen.length} of ${portfolios.length}`;
+  }, [chosenAccounts, portfolios]);
+
   const toggleAccount = (id: string): void => {
     setChosenAccounts(current => {
       const next = new Set(current);
@@ -154,32 +176,83 @@ export default function HoldingsReport({ picker }: ReportViewProps): React.JSX.E
       </div>
 
       {portfolios.length > 1 && (
+        /*
+         * A LIST BEHIND ONE CONTROL, not twenty-three buttons across four rows.
+         *
+         * The owner has twenty-three investment accounts, and as pills they
+         * filled the width four times over: "It looks just like a jumbled
+         * list" (29 Aug). They were alphabetical, which is the only reason it
+         * was navigable at all, and being alphabetical is not the same as
+         * being readable — a wall of equal-weight buttons gives the eye
+         * nothing to aim at, and the ones already chosen are lost among the
+         * ones that are not.
+         *
+         * So the summary is the control: it says how many are chosen and
+         * names them while there are few enough to name. Opening it gives one
+         * column with checkboxes, which is the shape a list of choices is
+         * supposed to have — and it can hold twenty-three names or a hundred
+         * without changing anything about the page around it.
+         */
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-body text-gray-500 dark:text-gray-400 mr-1">Portfolios:</span>
+          <div className="relative inline-block w-full sm:w-auto sm:min-w-[22rem]">
             <button
               type="button"
-              onClick={() => setChosenAccounts(new Set())}
-              aria-pressed={chosenAccounts.size === 0}
-              className={chosenAccounts.size === 0
-                ? 'px-3 py-1.5 rounded-lg bg-[#1a2332] text-white text-body'
-                : 'px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-body text-gray-700 dark:text-gray-300'}
+              onClick={() => setPortfolioMenuOpen(open => !open)}
+              aria-expanded={portfolioMenuOpen}
+              aria-haspopup="listbox"
+              className="flex w-full items-center justify-between gap-3 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-body text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
-              All
+              <span className="min-w-0 text-left">
+                <span className="text-gray-500 dark:text-gray-400">Portfolios: </span>
+                <span className="font-medium">{portfolioSummary}</span>
+              </span>
+              <ChevronDownIcon size={16} className="shrink-0 text-gray-400" aria-hidden="true" />
             </button>
-            {portfolios.map(account => (
-              <button
-                key={account.id}
-                type="button"
-                onClick={() => toggleAccount(account.id)}
-                aria-pressed={chosenAccounts.has(account.id)}
-                className={chosenAccounts.has(account.id)
-                  ? 'px-3 py-1.5 rounded-lg bg-[#1a2332] text-white text-body'
-                  : 'px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-body text-gray-700 dark:text-gray-300'}
+
+            {portfolioMenuOpen && (
+              <div
+                role="listbox"
+                aria-label="Portfolios"
+                className="absolute z-20 mt-1 w-full max-h-80 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg"
               >
-                {account.name}
-              </button>
-            ))}
+                {/* Both, and always both: "select all" on its own leaves the
+                    way back to everything as an unticking chore. */}
+                <div className="flex items-center gap-4 px-3 py-2 border-b border-gray-100 dark:border-gray-700">
+                  <button
+                    type="button"
+                    onClick={() => setChosenAccounts(new Set(portfolios.map(a => a.id)))}
+                    className="text-body font-medium text-primary hover:text-secondary"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChosenAccounts(new Set())}
+                    className="text-body font-medium text-primary hover:text-secondary"
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                {portfolios.map(account => {
+                  const chosen = chosenAccounts.size === 0 || chosenAccounts.has(account.id);
+                  return (
+                    <label
+                      key={account.id}
+                      className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={chosen}
+                        onChange={() => toggleAccount(account.id)}
+                        className="h-4 w-4 rounded border-gray-300 dark:border-gray-600"
+                      />
+                      <span className="text-body text-gray-700 dark:text-gray-300">{account.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
