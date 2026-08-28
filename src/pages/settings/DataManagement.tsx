@@ -3,7 +3,7 @@ import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { readDuplicateSweepSession, type DuplicateSweepSession } from '../../utils/duplicateSweepSession';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, SearchIcon, XCircleIcon, RefreshCwIcon, type IconProps } from '../../components/icons';
+import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, XCircleIcon, RefreshCwIcon, type IconProps } from '../../components/icons';
 import { LoadingState } from '../../components/loading/LoadingState';
 import { createScopedLogger } from '../../loggers/scopedLogger';
 import { parseBankingOpsUrlState, replaceBrowserSearch, withBankingOpsUrlState } from '../../utils/bankingOpsUrlState';
@@ -258,13 +258,6 @@ export default function DataManagementSettings() {
               : 'Read a backup file back in — only into an empty device'}
             onClick={() => setShowRestoreBackup(true)}
           />
-        </div>
-      </Section>
-
-      {/* ── Tools ──────────────────────────────────────────────── */}
-      <Section title="Tools" description="Tidy up your data.">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <ActionButton icon={SearchIcon} title="Find Duplicates" description="The same payment recorded twice" onClick={() => setShowDuplicateSweep(true)} />
         </div>
       </Section>
 

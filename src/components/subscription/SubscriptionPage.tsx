@@ -13,8 +13,6 @@ import { useUser, useSession } from '@clerk/clerk-react';
 import StripeService from '../../services/stripeService';
 import PricingPlans from './PricingPlans';
 import BillingDashboard from './BillingDashboard';
-import SyncSubscriptionButton from './SyncSubscriptionButton';
-import StripeStatusButton from './StripeStatusButton';
 import type { SubscriptionPlan, SubscriptionProduct, UserSubscription } from '../../types/subscription';
 import { ArrowLeftIcon, CheckCircleIcon } from '../icons';
 
@@ -220,13 +218,6 @@ export default function SubscriptionPage({
               Current plan: <span className="font-medium">{getCurrentTier()}</span>
             </p>
             <div className="flex items-center gap-4">
-              <SyncSubscriptionButton onSync={() => {
-                if (session) {
-                  session.getToken().then(token => {
-                    if (token) loadCurrentSubscription(token);
-                  });
-                }
-              }} />
               <button
                 onClick={() => setCurrentView('plans')}
                 className="text-blue-700 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
@@ -245,15 +236,6 @@ export default function SubscriptionPage({
       case 'plans':
         return (
           <>
-            <div className="mb-6 flex justify-end">
-              <SyncSubscriptionButton onSync={() => {
-                if (session) {
-                  session.getToken().then(token => {
-                    if (token) loadCurrentSubscription(token);
-                  });
-                }
-              }} />
-            </div>
             <PricingPlans
               currentTier={getCurrentTier()}
               onSelectPlan={handleSelectPlan}
@@ -270,7 +252,6 @@ export default function SubscriptionPage({
       case 'billing':
         return (
           <div className="space-y-6">
-            <StripeStatusButton />
             <BillingDashboard />
           </div>
         );
@@ -344,9 +325,15 @@ export default function SubscriptionPage({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {renderHeader()}
         
+        {/* A FAILED CHECK IS NOT A FREE PLAN (owner, 28 Aug: "what it says
+            there is not true"). The consequence first, then the remedy —
+            and never a tier claimed on the back of a request that failed. */}
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-            <p className="text-red-800 dark:text-red-200">{error}</p>
+            <p className="text-red-800 dark:text-red-200">
+              Your plan could not be checked just now, so what is shown below may not be your real
+              plan. Nothing has changed about your subscription. Reload to try again.
+            </p>
             <button
               onClick={() => setError(null)}
               className="text-red-600 dark:text-red-400 underline text-sm mt-1 hover:no-underline"

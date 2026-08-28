@@ -314,16 +314,20 @@ describe('Layout — the Plan menu and split triggers', () => {
     expect(hrefs).toContain('/find');
   });
 
-  it('orders Manage as Categories, Payees, Tags — and no longer keeps Investments', () => {
+  it('orders Manage as Categories, Payees, Duplicates, Tags — and no longer keeps Investments', () => {
     renderWithProviders(<Layout />);
 
     // Manage is data admin. Investments is not admin, and Tags was standing in
     // front of Payees, which is the one people open most. Transfer Links
     // joined 20 Aug (owner: "a page under 'Manage' just like Payees") —
-    // beside its fellow tidy-up chores, before the data doors.
+    // beside its fellow tidy-up chores, before the data doors. Duplicates
+    // joined 28 Aug, in the owner's own order: it was a tool under Data
+    // Management, beside backups and the danger zone, which is not where a
+    // tidying job lives.
     expect(openMenuItems('Manage')).toEqual([
       'Categories',
       'Payees',
+      'Duplicates',
       'Tags',
       'Transfer Links',
       'Import Data',

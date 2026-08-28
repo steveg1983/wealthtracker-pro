@@ -221,6 +221,7 @@ export const DESKTOP_ROUTES = [
   { path: 'tags', at: 'settings/tags', title: 'Tags' },
   { path: 'payees', at: 'settings/payees', title: 'Payees' },
   { path: 'data', at: 'settings/data', title: 'Data' },
+  { path: 'duplicates', at: 'settings/duplicates', title: 'Duplicates' },
   { path: 'security', at: 'settings/security', title: 'Security' },
   { path: 'security/audit-logs', at: 'settings/security/audit-logs', title: 'Audit log' },
   { path: 'forecasting', at: 'forecasting', title: 'Budget' },

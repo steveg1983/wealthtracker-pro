@@ -60,6 +60,7 @@ const CustomReports = lazyWithPreload(() => import(/* webpackChunkName: "custom-
 const SettingsPage = lazyWithPreload(() => import(/* webpackChunkName: "settings" */ './pages/Settings'));
 const AppSettings = lazyWithPreload(() => import(/* webpackChunkName: "app-settings" */ './pages/settings/AppSettings'));
 const DataManagement = lazyWithPreload(() => import(/* webpackChunkName: "data-management" */ './pages/settings/DataManagement'));
+const Duplicates = lazyWithPreload(() => import(/* webpackChunkName: "duplicates" */ './pages/settings/Duplicates'));
 const Categories = lazyWithPreload(() => import(/* webpackChunkName: "categories" */ './pages/settings/Categories'));
 const Tags = lazyWithPreload(() => import(/* webpackChunkName: "tags" */ './pages/settings/Tags'));
 const PayeeCleanup = lazyWithPreload(() => import(/* webpackChunkName: "payee-cleanup" */ './pages/settings/PayeeCleanup'));
@@ -351,6 +352,11 @@ function App(): React.JSX.Element {
                     <Route path="data" element={
                       <ProtectedSuspense>
                         <DataManagement />
+                      </ProtectedSuspense>
+                    } />
+                    <Route path="duplicates" element={
+                      <ProtectedSuspense>
+                        <Duplicates />
                       </ProtectedSuspense>
                     } />
                     <Route path="categories" element={

@@ -92,6 +92,7 @@ const FinancialSummaries = lazyWithPreload(() => import(/* webpackChunkName: "fi
 const Investments = lazyWithPreload(() => import(/* webpackChunkName: "investments" */ '../pages/Investments'));
 const EnhancedImport = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-import" */ '../pages/EnhancedImport'));
 const DataManagement = lazyWithPreload(() => import(/* webpackChunkName: "data-management" */ '../pages/settings/DataManagement'));
+const Duplicates = lazyWithPreload(() => import(/* webpackChunkName: "duplicates" */ '../pages/settings/Duplicates'));
 const ExportManager = lazyWithPreload(() => import(/* webpackChunkName: "export-manager" */ '../pages/ExportManager'));
 const Documents = lazyWithPreload(() => import(/* webpackChunkName: "documents" */ '../pages/Documents'));
 const SettingsPage = lazyWithPreload(() => import(/* webpackChunkName: "settings" */ '../pages/Settings'));
@@ -267,6 +268,7 @@ export default function MountedLedger(): ReactElement {
     tags: page(<Tags />),
     payees: page(<PayeeCleanup />),
     data: page(<DataManagement />),
+    duplicates: page(<Duplicates />),
     security: page(<SecuritySettings />),
     'security/audit-logs': page(<AuditLogs />),
     forecasting: <RedirectWithSearch to="/budget" />,

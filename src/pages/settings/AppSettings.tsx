@@ -72,20 +72,18 @@ export default function AppSettings() {
           is the ledger FILE, and the @identity seam deliberately refuses to
           answer "what is this called". */}
 
-      {/* Locale & Date Format */}
-      <LocaleSelector />
-
-      {/* Base Currency */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <GlobeIcon className="text-gray-600 dark:text-gray-400" size={20} />
-          <h2 className="text-card font-semibold text-theme-heading dark:text-white">Base Currency</h2>
-        </div>
-        <p className="text-gray-600 dark:text-gray-400 mb-4">
-          Choose your preferred base currency for displaying your net worth and performing currency conversions
-        </p>
+      {/* Region & Date Format — and Base Currency inside it (owner, 28 Aug):
+          where you are and what you count in are one decision, and they were
+          two cards saying "Choose your preferred…" one after the other. */}
+      <LocaleSelector>
+        <label htmlFor="base-currency" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Base Currency
+        </label>
+        {/* No aria-label: the visible <label> IS the name, and an aria-label
+            saying something else ("Default currency") makes the accessible
+            name disagree with the words on screen — label-in-name. */}
         <select
-          aria-label="Default currency"
+          id="base-currency"
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
           className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:border-transparent dark:text-white"
@@ -96,7 +94,10 @@ export default function AppSettings() {
             </option>
           ))}
         </select>
-      </div>
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          Your net worth and every conversion are stated in this currency.
+        </p>
+      </LocaleSelector>
 
       {/* Appearance */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
