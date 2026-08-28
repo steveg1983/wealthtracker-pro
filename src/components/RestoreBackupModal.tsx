@@ -369,7 +369,9 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Restore from backup"
+      // "Full restore", as the page that opens it now names it (owner, 28
+      // Aug) — the button, the card and this dialog say one thing.
+      title="Full restore"
       size="lg"
       closeOnBackdrop={phase !== 'restoring' && phase !== 'wiping'}
       showCloseButton={phase !== 'restoring' && phase !== 'wiping'}

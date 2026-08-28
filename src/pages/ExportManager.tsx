@@ -517,8 +517,7 @@ export default function ExportManager(): React.JSX.Element {
                     ? 'Every record we hold for you, straight from the database — accounts, transactions, splits, categories, budgets, goals, investments and the rest.'
                     : 'Everything this browser is holding — accounts, transactions, splits, categories, budgets and goals. Nothing here has been sent anywhere, so this file is the only copy that exists.'}
                   {' '}This is the only export that can be restored: Manage &rarr; Import Data
-                  &rarr; Restore from a backup file reads it back. It also satisfies a
-                  data-portability request.
+                  &rarr; Full restore reads it back. It also satisfies a data-portability request.
                 </p>
 
                 {/* CONDITIONAL, and that is Claude Design's ruling rather than a
