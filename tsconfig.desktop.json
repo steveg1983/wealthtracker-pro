@@ -49,6 +49,7 @@
       "@chrome": ["./src/desktop/editions/chrome.tsx"],
       "@identity": ["./src/desktop/editions/identity.ts"],
       "@prefs-store": ["./src/desktop/editions/preferencesStore.ts"],
+      "@rules-store": ["./src/desktop/editions/rulesStore.ts"],
       "@telemetry": ["./src/desktop/editions/telemetry.ts"],
       "@session": ["./src/desktop/editions/session.ts"],
       "@service": ["./src/desktop/editions/service.ts"],

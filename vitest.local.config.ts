@@ -35,6 +35,7 @@ export default defineConfig({
       '@chrome': path.resolve(process.cwd(), './src/desktop/editions/chrome'),
       '@identity': path.resolve(process.cwd(), './src/desktop/editions/identity'),
       '@prefs-store': path.resolve(process.cwd(), './src/desktop/editions/preferencesStore'),
+      '@rules-store': path.resolve(process.cwd(), './src/desktop/editions/rulesStore'),
       '@telemetry': path.resolve(process.cwd(), './src/desktop/editions/telemetry'),
       '@session': path.resolve(process.cwd(), './src/desktop/editions/session'),
       '@service': path.resolve(process.cwd(), './src/desktop/editions/service')

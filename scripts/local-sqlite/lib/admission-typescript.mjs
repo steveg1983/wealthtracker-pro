@@ -94,6 +94,19 @@ export class TypeScriptOracle {
       target: 'node22',
       outfile,
       logLevel: 'silent',
+      // The edition seams, resolved to their DEVICE halves — this oracle is
+      // the local edition's, so a specifier must answer here the way it
+      // answers in a desktop window.
+      //
+      // esbuild resolves bare specifiers as packages, so an unaliased seam
+      // fails the whole build with "Could not resolve", which is what
+      // `@rules-store` did on 28 Aug when import rules gained one. Nothing
+      // else declares aliases for this bundle, so a new seam reachable from
+      // the oracle's graph must be added here as well as to the six configs
+      // `editions/__tests__/editionAliases.test.ts` counts.
+      alias: {
+        '@rules-store': path.join(this.#repo, 'src', 'desktop', 'editions', 'rulesStore.ts'),
+      },
     });
     const bundleMs = performance.now() - started;
     this.#module = await import(pathToFileURL(outfile).href);

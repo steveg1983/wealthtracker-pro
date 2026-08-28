@@ -40,6 +40,7 @@
       "@chrome": ["./src/editions/cloud/chrome.tsx"],
       "@identity": ["./src/editions/cloud/identity.ts"],
       "@prefs-store": ["./src/editions/cloud/preferencesStore.ts"],
+      "@rules-store": ["./src/editions/cloud/rulesStore.ts"],
       "@telemetry": ["./src/editions/cloud/telemetry.ts"],
       /* The mount slice's second half: the state layer's preamble, and the
          three settings panels that are about the hosted service. */

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { useApp } from '../contexts/AppContextSupabase';
 import { importRulesService } from '../services/importRulesService';
@@ -58,7 +58,21 @@ export default function EnhancedImport(): React.JSX.Element {
   const [showQIFImportModal, setShowQIFImportModal] = useState(false);
   const [showRestoreBackup, setShowRestoreBackup] = useState(false);
 
+  // Rules may live in the account now, so they must be fetched before this
+  // page can say how many are active — and before the CSV wizard reached from
+  // here applies them. A no-op on desktop and when signed out, where the
+  // browser's own copy is already the answer.
+  const [rulesLoaded, setRulesLoaded] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void importRulesService.hydrate().finally(() => {
+      if (!cancelled) setRulesLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const activeRules = importRulesService.getRules().filter(rule => rule.enabled);
+  void rulesLoaded; // re-render trigger: the count above is read from memory
 
   // The MS Money migration REPLACES everything, so the modal offers a one-click
   // JSON snapshot first. Same payload as the Export page's full-data export.

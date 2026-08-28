@@ -26,6 +26,7 @@
  * silently.
  */
 import { supabase, handleSupabaseError } from '../api/supabaseClient';
+import { userIdService } from '../userIdService';
 import type { ImportRule } from '../../types/importRules';
 
 interface ImportRuleRow {
@@ -49,14 +50,21 @@ const requireClient = (action: string) => {
   return supabase;
 };
 
-/** A rule the table would reject is a rule that would misbehave. */
-export function isWellFormed(rule: Partial<ImportRule>): boolean {
-  return Boolean(
-    rule.name?.trim() &&
-    Array.isArray(rule.conditions) && rule.conditions.length > 0 &&
-    Array.isArray(rule.actions) && rule.actions.length > 0
-  );
-}
+/**
+ * Whose rules these are.
+ *
+ * Resolved here rather than passed in, because this file is the CLOUD half of
+ * the seam and identity is a cloud idea. The shared service that calls it must
+ * not import `userIdService` — a desktop build reaching identity was one of
+ * the three violations the seam guard caught on the first attempt.
+ */
+const requireOwner = (): string => {
+  const owner = userIdService.getCurrentDatabaseUserId();
+  if (!owner) {
+    throw new Error('Not signed in — rules could not be read or saved.');
+  }
+  return owner;
+};
 
 export function toRule(row: ImportRuleRow): ImportRule {
   return {
@@ -72,8 +80,9 @@ export function toRule(row: ImportRuleRow): ImportRule {
   };
 }
 
-export async function listRules(userId: string): Promise<ImportRule[]> {
+export async function listRules(): Promise<ImportRule[]> {
   const client = requireClient('these rules');
+  const userId = requireOwner();
   const { data, error } = await client
     .from('import_rules')
     .select(SELECTED_COLUMNS)
@@ -86,10 +95,10 @@ export async function listRules(userId: string): Promise<ImportRule[]> {
 }
 
 export async function insertRule(
-  userId: string,
   rule: Omit<ImportRule, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<ImportRule> {
   const client = requireClient('this rule');
+  const userId = requireOwner();
   const { data, error } = await client
     .from('import_rules')
     .insert({
@@ -109,11 +118,11 @@ export async function insertRule(
 }
 
 export async function updateRuleRow(
-  userId: string,
   id: string,
   updates: Partial<Omit<ImportRule, 'id' | 'createdAt'>>
 ): Promise<void> {
   const client = requireClient('this change');
+  const userId = requireOwner();
   const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (updates.name !== undefined) payload.name = updates.name;
   if (updates.description !== undefined) payload.description = updates.description ?? null;
@@ -131,8 +140,9 @@ export async function updateRuleRow(
   if (error) throw new Error(handleSupabaseError(error));
 }
 
-export async function deleteRuleRow(userId: string, id: string): Promise<void> {
+export async function deleteRuleRow(id: string): Promise<void> {
   const client = requireClient('this deletion');
+  const userId = requireOwner();
   const { error } = await client
     .from('import_rules')
     .delete()
