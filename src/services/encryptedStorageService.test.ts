@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { encryptedStorage, EncryptedStorageService, STORAGE_KEYS } from './encryptedStorageService';
 import { indexedDBService } from './indexedDBService';
+import CryptoJS from '../security/cryptoSuite';
 
 // Mock indexedDBService
 vi.mock('./indexedDBService', () => ({
@@ -584,6 +585,125 @@ describe('EncryptedStorageService', () => {
       // The reader adopts the persisted key and reads the data — no purge.
       expect(result).toEqual({ fresh: 'write' });
       expect(indexedDBService.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * The tag that turned "probably the wrong key" into "definitely".
+   *
+   * A real CI failure on 28 Aug 2026: the self-heal spec above decrypts with
+   * a deliberately wrong key and expects null, and it got the NUMBER 9 — AES
+   * garbage that happened to decode as UTF-8 and parse as valid JSON. The
+   * test was flaky because the service was probabilistic. That is not only a
+   * test problem: a caller handed a fabricated 9 in place of its own data has
+   * been told something false about someone's money, silently.
+   *
+   * Measuring the rate mattered, because it decides what a guard has to look
+   * like. Encrypting under one key and decrypting under another until the
+   * result parsed found a hit after 847 attempts — so a spec that repeats the
+   * wrong-key read even 300 times passes comfortably WITHOUT the fix. A first
+   * draft of these specs did exactly that and proved nothing; deleting it was
+   * the point of measuring.
+   *
+   * What replaced it is the 847th ciphertext itself, pinned below. It is a
+   * fact, not a sample: that string decrypts under 'wrong-key' to 7, every
+   * run, on every machine. With the MAC it is rejected; without it, 7 is
+   * returned as though it were the caller's data. Removing the tag check
+   * fails this spec deterministically — verified by doing it.
+   */
+  describe('Authenticated encryption (encrypt-then-MAC)', () => {
+    // Written under 'right-key'; decodes under 'wrong-key' to the JSON `7`.
+    const LUCKY_CIPHERTEXT = 'U2FsdGVkX1+Xsd+k1esuioZiqL0j7cOG0oPXVlUqIK8=';
+    const RIGHT_KEY = 'right-key';
+    const WRONG_KEY = 'wrong-key';
+
+    const memStorage = (initial: Record<string, string> = {}) => {
+      const map = new Map(Object.entries(initial));
+      return {
+        getItem: (k: string) => map.get(k) ?? null,
+        setItem: (k: string, v: string) => { map.set(k, v); },
+        removeItem: (k: string) => { map.delete(k); },
+        map,
+      };
+    };
+    const serviceWithKey = (key: string) =>
+      new EncryptedStorageService({
+        localStorage: memStorage({ wt_enc_key: key }),
+        sessionStorage: null,
+        logger: { error: vi.fn(), warn: vi.fn() },
+      });
+    const write = async (service: EncryptedStorageService, value: unknown) => {
+      await service.setItem('probe', value);
+      return vi.mocked(indexedDBService.put).mock.calls.at(-1)![1] as {
+        data: string; timestamp: number; encrypted: boolean; compressed: boolean;
+      };
+    };
+    const read = async (service: EncryptedStorageService, record: object) => {
+      vi.mocked(indexedDBService.get).mockResolvedValueOnce(record);
+      return service.getItem('probe');
+    };
+    const recordOf = (data: string) => ({ data, timestamp: 0, encrypted: true, compressed: false });
+    // Exactly what a RIGHT_KEY writer emits for that ciphertext.
+    const envelopeFor = (ciphertext: string, key: string) =>
+      `wt1:${CryptoJS.HmacSHA256(ciphertext, CryptoJS.SHA256(`${key}:mac`).toString()).toString()}:${ciphertext}`;
+
+    it('round-trips a value through the authenticated envelope', async () => {
+      const record = await write(serviceWithKey(RIGHT_KEY), { balance: '123.45', nested: [1, 'two'] });
+
+      expect(record.data.startsWith('wt1:')).toBe(true);
+      await expect(read(serviceWithKey(RIGHT_KEY), record)).resolves.toEqual({
+        balance: '123.45',
+        nested: [1, 'two'],
+      });
+    });
+
+    it('rejects the ciphertext that fooled CI — the wrong key is now detected, not guessed', async () => {
+      const record = recordOf(envelopeFor(LUCKY_CIPHERTEXT, RIGHT_KEY));
+
+      await expect(read(serviceWithKey(WRONG_KEY), record)).resolves.toBeNull();
+    });
+
+    it('opens that same ciphertext under the key that wrote it', async () => {
+      // Its TRUE plaintext — the 847th of the search that found it. The 7 is
+      // purely what the wrong key fabricates; the two together are what make
+      // the fixture meaningful, and the spec below pins the 7.
+      const record = recordOf(envelopeFor(LUCKY_CIPHERTEXT, RIGHT_KEY));
+
+      await expect(read(serviceWithKey(RIGHT_KEY), record)).resolves.toEqual({ i: 846 });
+    });
+
+    it('detects a tampered tag', async () => {
+      const record = await write(serviceWithKey(RIGHT_KEY), { balance: '100.00' });
+      const [marker, tag, ...rest] = record.data.split(':');
+      const forged = `${tag.slice(0, -1)}${tag.slice(-1) === '0' ? '1' : '0'}`;
+
+      await expect(
+        read(serviceWithKey(RIGHT_KEY), recordOf(`${marker}:${forged}:${rest.join(':')}`))
+      ).resolves.toBeNull();
+    });
+
+    it('rejects a record whose envelope has no tag at all', async () => {
+      await expect(
+        read(serviceWithKey(RIGHT_KEY), recordOf(`wt1:${LUCKY_CIPHERTEXT}`))
+      ).resolves.toBeNull();
+    });
+
+    it('still opens records written before the envelope existed', async () => {
+      // Bare AES, no marker, no tag. On the device edition IndexedDB is not a
+      // cache — it is the ledger — so a record already on disk must open.
+      const legacy = recordOf(CryptoJS.AES.encrypt(JSON.stringify({ legacy: true }), RIGHT_KEY).toString());
+      expect(legacy.data.startsWith('wt1:')).toBe(false);
+
+      await expect(read(serviceWithKey(RIGHT_KEY), legacy)).resolves.toEqual({ legacy: true });
+      expect(indexedDBService.delete).not.toHaveBeenCalled();
+    });
+
+    it('cannot protect a legacy record — the old flaw, stated rather than implied', async () => {
+      // The honest boundary: a record written before today carries no tag, so
+      // the wrong key can still get lucky on it exactly as CI did. Nothing can
+      // retro-fit authentication onto bytes already written. It stops
+      // happening for that record when it is next written.
+      await expect(read(serviceWithKey(WRONG_KEY), recordOf(LUCKY_CIPHERTEXT))).resolves.toBe(7);
     });
   });
 

@@ -123,11 +123,68 @@ export class EncryptedStorageService {
     }
   }
 
+  /**
+   * A record written by THIS key, provably — encrypt-then-MAC.
+   *
+   * ── WHY THIS EXISTS ────────────────────────────────────────────────────
+   *
+   * Without a tag, "was this written with my key?" could only be answered by
+   * decrypting and hoping the result parsed. Decrypting with the WRONG key
+   * yields garbage bytes, and garbage USUALLY fails JSON.parse — usually, not
+   * always. On 28 Aug 2026 CI caught the gap for real: the self-heal spec,
+   * which decrypts a record with a deliberately wrong key and expects null,
+   * got the number 9 — garbage that happened to be valid JSON. The test was
+   * flaky because the SERVICE was probabilistic. Measured afterwards, one
+   * wrong-key read in roughly 850 decodes to something JSON.parse accepts.
+   *
+   * That is not only a test problem. A wrong-key read that happens to parse
+   * hands a caller fabricated data in place of their own, which in a ledger
+   * is the worst failure available: not an error, an untruth.
+   *
+   * So a record now carries a MAC over its ciphertext. Verification is a
+   * fact, not a guess: the tag matches or it does not, and a mismatch is
+   * reported as a failed decrypt exactly as an unparseable one always was.
+   *
+   * ── THE ORDER, AND THE SEPARATE KEY ────────────────────────────────────
+   *
+   * ENCRYPT-THEN-MAC: the tag covers the CIPHERTEXT, so a tampered or
+   * foreign record is rejected without decrypting it at all. The MAC key is
+   * derived from the encryption key rather than being it — one secret must
+   * not drive two primitives.
+   *
+   * ── OLD RECORDS STILL OPEN ─────────────────────────────────────────────
+   *
+   * The envelope is VERSIONED and reads are backward compatible, because on
+   * the device edition this store is not a cache — it is the ledger. Records
+   * written before today have no tag and take the legacy path unchanged,
+   * with its old probabilistic behaviour, which is the best that can be said
+   * of data already on disk — each becomes checkable when next written.
+   * Nothing legacy can be MISTAKEN for the new form: crypto-js emits
+   * OpenSSL-style base64, so a bare ciphertext always begins 'U2FsdGVk'.
+   */
+  private static readonly ENVELOPE_V1 = 'wt1:';
+
+  private macKeyFor(key: string): string {
+    return CryptoJS.SHA256(`${key}:mac`).toString();
+  }
+
+  /** Length-safe, early-exit-free comparison of two hex tags. */
+  private tagsMatch(a: string, b: string): boolean {
+    if (a.length !== b.length) return false;
+    let difference = 0;
+    for (let i = 0; i < a.length; i += 1) {
+      difference |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+    return difference === 0;
+  }
+
   // Encrypt data. Takes `unknown` because that is what JSON.stringify takes —
   // narrowing it to JsonValue only forced every caller to cast back.
   private encrypt(data: unknown): string {
     const jsonString = JSON.stringify(data);
-    return CryptoJS.AES.encrypt(jsonString, this.encryptionKey).toString();
+    const ciphertext = CryptoJS.AES.encrypt(jsonString, this.encryptionKey).toString();
+    const tag = CryptoJS.HmacSHA256(ciphertext, this.macKeyFor(this.encryptionKey)).toString();
+    return `${EncryptedStorageService.ENVELOPE_V1}${tag}:${ciphertext}`;
   }
 
   // Decrypt data. Throws on failure — getItem treats an undecryptable entry
@@ -135,7 +192,25 @@ export class EncryptedStorageService {
   // under the legacy session-scoped key are expected casualties, and a log
   // storm on every load helps nobody).
   private decrypt(encryptedData: string): JsonValue {
-    const bytes = CryptoJS.AES.decrypt(encryptedData, this.encryptionKey);
+    let payload = encryptedData;
+
+    if (encryptedData.startsWith(EncryptedStorageService.ENVELOPE_V1)) {
+      const body = encryptedData.slice(EncryptedStorageService.ENVELOPE_V1.length);
+      const separator = body.indexOf(':');
+      if (separator === -1) {
+        throw new Error('Failed to decrypt data');
+      }
+      const tag = body.slice(0, separator);
+      payload = body.slice(separator + 1);
+      const expected = CryptoJS.HmacSHA256(payload, this.macKeyFor(this.encryptionKey)).toString();
+      if (!this.tagsMatch(tag, expected)) {
+        // Not written by this key — decided, not guessed. No amount of
+        // lucky garbage can get past this line.
+        throw new Error('Failed to decrypt data');
+      }
+    }
+
+    const bytes = CryptoJS.AES.decrypt(payload, this.encryptionKey);
     const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
     if (decryptedString === '') {
       throw new Error('Failed to decrypt data');
