@@ -5,6 +5,12 @@ import { CalendarIcon, GlobeIcon } from '../icons';
 
 interface LocaleSelectorProps {
   onLocaleChange?: (locale: string) => void;
+  /**
+   * Rendered inside this card, under the date-format note: Base Currency
+   * belongs WITH region, not in a card of its own (owner, 28 Aug) — what
+   * money you count in is the same kind of decision as where you are.
+   */
+  children?: React.ReactNode;
 }
 
 const SUPPORTED_LOCALES = [
@@ -18,7 +24,7 @@ const SUPPORTED_LOCALES = [
   { code: 'en-ZA', name: 'English (South Africa)', dateFormat: 'dd/mm/yyyy', example: '31/12/2024' },
 ];
 
-export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps): React.JSX.Element {
+export default function LocaleSelector({ onLocaleChange, children }: LocaleSelectorProps): React.JSX.Element {
   const [currentLocale, setCurrentLocale] = useState(getUserLocale());
   const [showPreview, setShowPreview] = useState(false);
   const [previewDate] = useState(new Date());
@@ -61,11 +67,14 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
       <div className="flex items-center gap-3 mb-4">
         <GlobeIcon size={24} className="text-blue-700 dark:text-blue-400" />
         <div>
+          {/* "Region & Date Format" — the card's own first control says
+              "Select Your Region", and a heading should name what is inside
+              it (owner, 28 Aug). */}
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Locale & Date Format
+            Region & Date Format
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Choose your preferred date format and regional settings
+            Choose your region, date format and base currency
           </p>
         </div>
       </div>
@@ -169,6 +178,10 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
             </div>
           </div>
         </div>
+
+        {children && (
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">{children}</div>
+        )}
       </div>
     </div>
   );

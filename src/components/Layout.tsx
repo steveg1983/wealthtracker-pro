@@ -427,13 +427,17 @@ export default function Layout(): React.JSX.Element {
               items={[
                 { to: '/settings/categories', icon: TagIcon, label: 'Categories' },
                 { to: '/settings/payees', icon: UsersIcon, label: 'Payees' },
+                // Duplicates joins the things you go and MANAGE (owner, 28
+                // Aug) — it was a tool under Data Management, beside backups
+                // and the danger zone, which is not where a tidying job lives.
+                { to: '/settings/duplicates', icon: SearchIcon, label: 'Duplicates' },
                 { to: '/settings/tags', icon: HashIcon, label: 'Tags' },
                 { to: '/transfer-links', icon: ArrowRightLeftIcon, label: 'Transfer Links' },
                 { to: '/enhanced-import', icon: UploadIcon, label: 'Import Data' },
                 { to: '/export-manager', icon: DownloadIcon, label: 'Export Data' },
                 { to: '/documents', icon: FolderIcon, label: 'Documents' },
               ]}
-              activePaths={['/settings/categories', '/settings/tags', '/settings/payees', '/enhanced-import', '/export-manager', '/documents', '/transfer-links']}
+              activePaths={['/settings/categories', '/settings/tags', '/settings/payees', '/settings/duplicates', '/enhanced-import', '/export-manager', '/documents', '/transfer-links']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />

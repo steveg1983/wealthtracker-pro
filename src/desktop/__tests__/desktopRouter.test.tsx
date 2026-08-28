@@ -188,7 +188,11 @@ describe('the desktop router', () => {
     // FORTY-FOUR: `transfer-links` joined on 20 Aug — the audit-trail chore
     // as its own Manage page (the sweep it opens reads the open file's rows,
     // closed accounts included).
-    expect(mounted.length).toBe(44);
+    // FORTY-FIVE: `duplicates` joined on 28 Aug — the same sweep as a Manage
+    // page in its own right (owner). It reads the open file's rows, exactly
+    // as it did when it was a Data Management tool, so a device window
+    // serves it unchanged.
+    expect(mounted.length).toBe(45);
 
     // EMPTY, and the list is kept rather than deleted — `routes.ts` says why:
     // this is one of three ANSWERS a route can have, not an exception to a rule,
