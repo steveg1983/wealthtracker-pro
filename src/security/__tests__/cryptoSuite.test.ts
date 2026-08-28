@@ -1,5 +1,5 @@
 /**
- * `cryptoSuite` narrows crypto-js from its full index down to the five
+ * `cryptoSuite` narrows crypto-js from its full index down to the three
  * algorithms this codebase actually calls, which removed ~140 KB of unused
  * ciphers from the entry chunk. The saving is only worth having if the object
  * it produces is INDISTINGUISHABLE from the one the index produced — a stored
@@ -12,6 +12,8 @@
  * test files are never bundled.
  */
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import FullCryptoJS from 'crypto-js';
 import cryptoSuite from '../cryptoSuite';
@@ -27,9 +29,7 @@ describe('cryptoSuite — the narrowed crypto-js surface', () => {
       ['AES', () => cryptoSuite.AES],
       ['SHA256', () => cryptoSuite.SHA256],
       ['HmacSHA256', () => cryptoSuite.HmacSHA256],
-      ['PBKDF2', () => cryptoSuite.PBKDF2],
       ['algo.SHA256', () => cryptoSuite.algo.SHA256],
-      ['enc.Base64', () => cryptoSuite.enc.Base64],
       ['enc.Utf8', () => cryptoSuite.enc.Utf8],
       ['lib.WordArray', () => cryptoSuite.lib.WordArray],
       ['lib.CipherParams', () => cryptoSuite.lib.CipherParams],
@@ -37,6 +37,40 @@ describe('cryptoSuite — the narrowed crypto-js surface', () => {
       ['pad.Pkcs7', () => cryptoSuite.pad.Pkcs7]
     ])('%s is present', (_name, read) => {
       expect(read()).toBeDefined();
+    });
+
+  });
+
+  /**
+   * The other half of the point: what the suite must NOT drag in.
+   *
+   * PBKDF2 and enc.Base64 were imported until 2026-08-28, for
+   * `encryption-enhanced.ts` — a 401-line service no production module ever
+   * imported. Retiring it let both go. cryptoSuite is on the boot path, so
+   * anything added back is downloaded by every user before the first paint.
+   *
+   * This reads the SOURCE, which looks crude until you try the obvious
+   * version. `expect(cryptoSuite.PBKDF2).toBeUndefined()` fails right here —
+   * every crypto-js module augments one shared `core` singleton, and the file
+   * you are reading imports the full barrel two lines up to prove parity. The
+   * barrel puts PBKDF2 back on the very object under test. Runtime absence is
+   * therefore unobservable in-process once anything, anywhere in the run, has
+   * touched the index; the import list is the only honest place to assert it.
+   */
+  describe('keeps the boot path narrow', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/security/cryptoSuite.ts'), 'utf8');
+
+    it.each([
+      ['crypto-js/pbkdf2'],
+      ['crypto-js/enc-base64']
+    ])('does not import %s', (specifier) => {
+      expect(source).not.toContain(specifier);
+    });
+
+    it('imports exactly the algorithms it declares', () => {
+      const imported = [...source.matchAll(/from 'crypto-js\/([a-z0-9-]+)'/g)].map((m) => m[1]);
+
+      expect(imported.sort()).toEqual(['aes', 'core', 'hmac-sha256', 'sha256']);
     });
   });
 
@@ -63,8 +97,9 @@ describe('cryptoSuite — the narrowed crypto-js surface', () => {
     });
 
     it('round-trips through an explicit CBC/Pkcs7 configuration', () => {
-      // encryption-enhanced.ts pins mode and padding explicitly rather than
-      // relying on the defaults, so pin them here too.
+      // Nothing pins mode and padding explicitly today — AES's defaults are
+      // CBC/Pkcs7 — but a stored ledger was written under them, so their
+      // behaviour is pinned here rather than assumed.
       const key = cryptoSuite.enc.Utf8.parse('0123456789abcdef0123456789abcdef');
       const iv = cryptoSuite.enc.Utf8.parse('0123456789abcdef');
 
@@ -85,24 +120,14 @@ describe('cryptoSuite — the narrowed crypto-js surface', () => {
       expect(recovered).toBe(PLAINTEXT);
     });
 
-    it('yields identical SHA256, HmacSHA256 and PBKDF2 output', () => {
+    it('yields identical SHA256 and HmacSHA256 output', () => {
       expect(cryptoSuite.SHA256(PLAINTEXT).toString())
         .toBe(FullCryptoJS.SHA256(PLAINTEXT).toString());
 
+      // Both of these now carry a stored record's authentication tag, so a
+      // divergence here would make every existing record unreadable.
       expect(cryptoSuite.HmacSHA256(PLAINTEXT, PASSPHRASE).toString())
         .toBe(FullCryptoJS.HmacSHA256(PLAINTEXT, PASSPHRASE).toString());
-
-      const salt = cryptoSuite.enc.Utf8.parse('a-fixed-salt');
-      const derive = (lib: typeof FullCryptoJS): string =>
-        lib.PBKDF2(PASSPHRASE, salt, { keySize: 256 / 32, iterations: 100, hasher: lib.algo.SHA256 }).toString();
-
-      expect(derive(cryptoSuite)).toBe(derive(FullCryptoJS));
-    });
-
-    it('encodes Base64 identically', () => {
-      const words = cryptoSuite.enc.Utf8.parse(PLAINTEXT);
-      expect(words.toString(cryptoSuite.enc.Base64))
-        .toBe(words.toString(FullCryptoJS.enc.Base64));
     });
   });
 
