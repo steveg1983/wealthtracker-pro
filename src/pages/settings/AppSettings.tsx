@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, GlobeIcon, MoonIcon, SunIcon, MonitorIcon, ClockIcon } from '../../components/icons';
+import { ArrowLeftIcon, MoonIcon, SunIcon, MonitorIcon, ClockIcon } from '../../components/icons';
 import { useNavigate } from 'react-router-dom';
 import { usePreferences } from '../../contexts/PreferencesContext';
 import PageWrapper from '../../components/PageWrapper';
