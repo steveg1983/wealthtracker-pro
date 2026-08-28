@@ -167,3 +167,40 @@ describe('StripeService feature limits', () => {
     expect(StripeService.isWithinLimits('free', 6, 'accounts')).toBe(false);
   });
 });
+
+describe('StripeService — where the API lives', () => {
+  afterEach(() => {
+    StripeService.resetForTesting();
+  });
+
+  it('addresses the API relatively when no base is configured', async () => {
+    // The default was 'http://localhost:3000' — a URL meaning "this
+    // developer's own machine" in every browser that loaded it, which
+    // pointed the whole billing surface at a server the user does not run
+    // (measured 28 Aug: zero requests reached the deployment while the
+    // owner's Pro plan displayed as Free). A relative path is same-origin
+    // in production and proxied in dev.
+    const fetchSpy = vi.fn(async () =>
+      createJsonResponse({ data: { hasSubscription: false, planType: 'free' } })
+    );
+
+    StripeService.configure({ fetch: fetchSpy, apiBaseUrl: '' });
+    await StripeService.getCurrentSubscription('token-abc');
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/subscriptions/status',
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer token-abc' }) })
+    );
+  });
+
+  it('still honours an explicitly configured base', async () => {
+    const fetchSpy = vi.fn(async () =>
+      createJsonResponse({ data: { hasSubscription: false, planType: 'free' } })
+    );
+
+    StripeService.configure({ fetch: fetchSpy, apiBaseUrl: 'https://api.test' });
+    await StripeService.getCurrentSubscription('token-abc');
+
+    expect(fetchSpy).toHaveBeenCalledWith('https://api.test/api/subscriptions/status', expect.anything());
+  });
+});

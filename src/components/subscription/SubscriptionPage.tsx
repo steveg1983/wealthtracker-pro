@@ -216,6 +216,14 @@ export default function SubscriptionPage({
           <div className="flex items-center justify-between mt-4">
             <p className="text-gray-600 dark:text-gray-400">
               Current plan: <span className="font-medium">{getCurrentTier()}</span>
+              {/* A COMPED PLAN SAYS SO. The owner's own row is tier 'pro',
+                  status 'active', with no Stripe subscription and no period
+                  end (28 Aug) — there is nothing to renew and no card to
+                  manage, and a page implying either would be inventing a
+                  billing relationship that does not exist. */}
+              {currentSubscription && !currentSubscription.stripeSubscriptionId && (
+                <span className="ml-2 text-sm">— complimentary, with nothing to pay</span>
+              )}
             </p>
             <div className="flex items-center gap-4">
               <button

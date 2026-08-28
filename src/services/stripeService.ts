@@ -84,7 +84,27 @@ export class StripeService {
     return {
       fetch: globalFetch,
       loadStripe,
-      apiBaseUrl: env.VITE_API_BASE_URL ?? env.VITE_API_URL ?? 'http://localhost:3000',
+      /**
+       * SAME ORIGIN by default — a RELATIVE '/api/…', exactly as every other
+       * service in this app addresses the API.
+       *
+       * It defaulted to 'http://localhost:3000', which is a URL that means
+       * "this developer's own machine" in every browser that loads it. In
+       * production that pointed the WHOLE billing surface — the subscription
+       * status, the checkout, the cancel, Manage Billing — at a server the
+       * user does not run: the request never reached Vercel (measured, 28
+       * Aug: zero requests to /api/subscriptions/status in eighteen hours
+       * while the owner's page failed to load his plan), and the owner, who
+       * is Pro in the database, was shown Free with an error above it.
+       *
+       * The dev server proxies /api to the deployed app (vite.config.ts), so
+       * a relative path is correct there too. VITE_API_BASE_URL still wins
+       * where somebody genuinely points at another host; the localhost
+       * fallback survives only where there is no window to be relative to
+       * (node, tests).
+       */
+      apiBaseUrl: env.VITE_API_BASE_URL ?? env.VITE_API_URL ??
+        (typeof window !== 'undefined' ? '' : 'http://localhost:3000'),
       locationOrigin,
       publishableKey: env.VITE_STRIPE_PUBLISHABLE_KEY ?? '',
       premiumPriceId: env.VITE_STRIPE_PREMIUM_PRICE_ID ?? env.STRIPE_PREMIUM_PRICE_ID ?? '',
@@ -179,6 +199,10 @@ export class StripeService {
         interval: 'month',
         stripePriceId: this.dependencies.premiumPriceId || '',
         features: [
+          // Each paid plan names what it BUILDS ON (owner, 28 Aug) — Pro
+          // already said "Everything in Premium"; Premium said nothing, so
+          // the ladder read as three unrelated lists.
+          'Everything in Free',
           'Unlimited accounts',
           'Unlimited transactions',
           'Unlimited budgets',
