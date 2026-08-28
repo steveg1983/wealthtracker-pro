@@ -44,6 +44,32 @@ const isModificationType = (value: string): value is NonNullable<ImportRuleActio
 
 export default function ImportRulesManager() {
   const { categories, accounts, transactions } = useApp();
+
+  /**
+   * What an action's value should SAY, rather than what it stores.
+   *
+   * A setCategory action holds a category id, and rightly so — an id survives
+   * the category being renamed, which a name would not. But the list was
+   * printing the id itself, so a rule the owner wrote read
+   * `setCategory: "2abe1e51-c5c9-42e0-b40d-9cd2367a4157"` and told him nothing
+   * about what it does (28 Aug). The edit dialog had always resolved it; only
+   * this summary did not.
+   *
+   * An id with no matching category is shown as it is. That case means the
+   * category was deleted without the rule being re-pointed, and inventing a
+   * label like "Unknown" would hide the one detail that makes it fixable.
+   */
+  const describeActionValue = (action: ImportRuleAction): string => {
+    if (action.type !== 'setCategory' || !action.value) return action.value ?? '';
+
+    const category = categories.find(c => c.id === action.value);
+    if (!category) return action.value;
+
+    const parent = category.parentId
+      ? categories.find(c => c.id === category.parentId)
+      : undefined;
+    return parent ? `${parent.name} > ${category.name}` : category.name;
+  };
   const [rules, setRules] = useState<ImportRule[]>([]);
   const [editingRule, setEditingRule] = useState<ImportRule | null>(null);
   const [showAddRule, setShowAddRule] = useState(false);
@@ -222,7 +248,7 @@ export default function ImportRulesManager() {
                         {rule.actions.map((action, i) => (
                           <li key={i} className="text-gray-600 dark:text-gray-400">
                             • {action.type}
-                            {action.value && `: "${action.value}"`}
+                            {action.value && `: "${describeActionValue(action)}"`}
                             {!isFeedSafeAction(action) && (
                               <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                                 — files only, not bank feeds
