@@ -1,9 +1,9 @@
 import { useState, Suspense, useEffect, useMemo } from 'react';
 import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { readDuplicateSweepSession, type DuplicateSweepSession } from '../../utils/duplicateSweepSession';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, XCircleIcon, RefreshCwIcon, type IconProps } from '../../components/icons';
+import { DeleteIcon, AlertCircleIcon, DatabaseIcon, XCircleIcon, RefreshCwIcon } from '../../components/icons';
 import { LoadingState } from '../../components/loading/LoadingState';
 import { createScopedLogger } from '../../loggers/scopedLogger';
 import { parseBankingOpsUrlState, replaceBrowserSearch, withBankingOpsUrlState } from '../../utils/bankingOpsUrlState';
@@ -38,7 +38,6 @@ const DuplicateSweepModal = lazyWithRecovery(() => import('../../components/Dupl
 // Backups", on by default, generated a key, encrypted with it and threw it
 // away, making its own output unreadable by anyone, forever. What replaces it
 // is a real export (Manage → Export) and a real restore (below).
-const RestoreBackupModal = lazyWithRecovery(() => import('../../components/RestoreBackupModal'));
 const LoadTestDataModal = lazyWithRecovery(() => import('../../components/LoadTestDataModal'));
 const dataManagementLogger = createScopedLogger('DataManagementPage');
 
@@ -76,7 +75,7 @@ export default function DataManagementSettings() {
   // whether a backup is a second copy of rows a database holds or the only copy
   // there is, and whether a restore goes into a login or into this device.
   // Nothing on this page branches on it — the wipe and the restore ask the seam.
-  const { accounts, transactions, budgets, resetLoadedData, capabilities } = useApp();
+  const { accounts, transactions, budgets, resetLoadedData } = useApp();
   const initialBankingOpsUrlState = useMemo(
     () => parseBankingOpsUrlState(typeof window !== 'undefined' ? window.location.search : ''),
     []
@@ -84,7 +83,6 @@ export default function DataManagementSettings() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showTestDataConfirm, setShowTestDataConfirm] = useState(false);
   const [showDuplicateSweep, setShowDuplicateSweep] = useState(false);
-  const [showRestoreBackup, setShowRestoreBackup] = useState(false);
   const [showBankConnections, setShowBankConnections] = useState(initialBankingOpsUrlState.modalOpen);
   const [showBankConnectionsWithCriticalFilter, setShowBankConnectionsWithCriticalFilter] = useState(initialBankingOpsUrlState.onlyAboveThreshold);
   const [showBankConnectionsWithOpsEventType, setShowBankConnectionsWithOpsEventType] = useState(initialBankingOpsUrlState.eventType);
@@ -237,30 +235,6 @@ export default function DataManagementSettings() {
           offers Manage. */}
 
       {/* ── Backup & restore ───────────────────────────────────── */}
-      <Section
-        title="Backup and restore"
-        description="A backup is defined by its restore. Download the file from Manage → Export, and bring it back here."
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <LinkCard
-            to="/export-manager"
-            icon={DownloadIcon}
-            title="Download a backup"
-            description={capabilities.edition === 'cloud'
-              ? 'Every record, straight from the database, as plain JSON'
-              : 'Everything this browser holds, as plain JSON — the only copy there is'}
-          />
-          <ActionButton
-            icon={UploadIcon}
-            title="Restore from backup"
-            description={capabilities.edition === 'cloud'
-              ? 'Read a backup file back in — only into an empty login'
-              : 'Read a backup file back in — only into an empty device'}
-            onClick={() => setShowRestoreBackup(true)}
-          />
-        </div>
-      </Section>
-
       {/* ── Archive ────────────────────────────────────────────── */}
       <Section title="Archive" description="Keep the live register fast by hiding older, reconciled transactions. Nothing is deleted — balances and reports stay exact.">
         <Suspense fallback={<LoadingState />}>
@@ -438,16 +412,6 @@ export default function DataManagementSettings() {
         </Suspense>
       )}
 
-      {/* Restore from backup */}
-      {showRestoreBackup && (
-        <Suspense fallback={<LoadingState />}>
-          <RestoreBackupModal
-            isOpen={showRestoreBackup}
-            onClose={() => setShowRestoreBackup(false)}
-          />
-        </Suspense>
-      )}
-
       {/* Bank Connections Modal */}
       {showBankConnections && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -497,45 +461,5 @@ function Section({ title, description, children }: {
   );
 }
 
-/** The one action-button style: neutral outline, icon tile, title + hint. */
-function ActionButton({ icon: Icon, title, description, onClick }: {
-  icon: React.ComponentType<IconProps>; title: string; description: string; onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full text-left rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#1a2332]/30 dark:hover:border-blue-500/40 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors p-3 flex items-center gap-3"
-    >
-      <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#1a2332] dark:text-blue-400">
-        <Icon size={18} />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-medium text-gray-900 dark:text-white">{title}</span>
-        <span className="block text-xs text-gray-500 dark:text-gray-400">{description}</span>
-      </span>
-    </button>
-  );
-}
 
-/** Signpost to a page that used to live here — same shape as ActionButton but navigates. */
-function LinkCard({ to, icon: Icon, title, description }: {
-  to: string; icon: React.ComponentType<IconProps>; title: string; description: string;
-}) {
-  return (
-    <Link
-      to={to}
-      // No tinted wash: a wash behind a call to action is decoration under
-      // P2 — the hairline and the icon's primary fill say it (Design
-      // ruling, 23 Aug §8).
-      className="w-full text-left rounded-xl border border-line dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors p-4 flex items-center gap-3"
-    >
-      <span className="shrink-0 grid place-items-center h-10 w-10 rounded-lg bg-primary-action text-on-primary-action">
-        <Icon size={20} />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold text-gray-900 dark:text-white">{title}</span>
-        <span className="block text-xs text-gray-500 dark:text-gray-400">{description}</span>
-      </span>
-    </Link>
-  );
-}
+

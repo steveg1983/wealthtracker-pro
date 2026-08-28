@@ -56,21 +56,33 @@ export default function BillingDashboard({
     setError(null);
     
     try {
-      const [subscriptionData, billingData] = await Promise.all([
-        StripeService.getCurrentSubscription(),
-        StripeService.getBillingHistory()
-      ]);
-      
+      const subscriptionData = await StripeService.getCurrentSubscription();
       setSubscription(subscriptionData);
-      setBillingHistory({
-        invoices: billingData?.invoices ?? [],
-        paymentMethods: billingData?.paymentMethods ?? [],
-        nextBillingDate: billingData?.nextBillingDate ?? null,
-        totalPaid: billingData?.totalPaid
-      });
+
+      /**
+       * NO INVOICES IS NOT AN ERROR. A comped plan has no Stripe
+       * subscription, so there is nothing to invoice and no card on file —
+       * and the history endpoint does not exist yet in any case. Failing
+       * the WHOLE page for it hid a plan the owner does hold behind "Error
+       * Loading Billing Information" (28 Aug). The subscription is what
+       * this page is about; the history is an extra, and an extra that
+       * cannot be fetched is simply empty.
+       */
+      try {
+        const billingData = await StripeService.getBillingHistory();
+        setBillingHistory({
+          invoices: billingData?.invoices ?? [],
+          paymentMethods: billingData?.paymentMethods ?? [],
+          nextBillingDate: billingData?.nextBillingDate ?? null,
+          totalPaid: billingData?.totalPaid
+        });
+      } catch {
+        setBillingHistory({ invoices: [], paymentMethods: [], nextBillingDate: null });
+      }
     } catch (err) {
+      // Only the SUBSCRIPTION failing is a failure worth the page.
       console.error('Error loading billing data:', err);
-      setError('Failed to load billing information');
+      setError('Your plan could not be checked just now. Nothing about it has changed.');
     } finally {
       setIsLoading(false);
     }
@@ -194,7 +206,7 @@ export default function BillingDashboard({
           <AlertTriangleIcon size={20} className="text-red-600 dark:text-red-400" />
           <div>
             <h3 className="text-red-800 dark:text-red-200 font-medium">
-              Error Loading Billing Information
+              Your plan could not be checked
             </h3>
             <p className="text-red-700 dark:text-red-300 text-sm mt-1">
               {error}

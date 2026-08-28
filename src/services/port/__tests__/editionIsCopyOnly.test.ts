@@ -107,10 +107,16 @@ describe('capabilities().edition is copy, and only copy', () => {
     // The companion assertion, and not a formality: the rule above is
     // vacuously true of a codebase that stopped saying "login" or "device"
     // altogether. It is satisfied today by the Export page's full-backup card
-    // and the two backup cards in Data Management — the three sentences that
-    // tell somebody whether the file they are about to download is a second
-    // copy or the only one.
-    expect(references().length).toBeGreaterThanOrEqual(3);
+    // — the sentence that tells somebody whether the file they are about to
+    // download is a second copy or the only one — and the desktop window's
+    // own edition line.
+    //
+    // It was THREE until 28 Aug: Data Management held two backup cards that
+    // said the same thing, and they went when backup and restore stopped
+    // living in two places (a backup is an export, so it lives with Export).
+    // The floor follows the honest count; what it protects is unchanged —
+    // this file must not pass by describing a codebase that says nothing.
+    expect(references().length).toBeGreaterThanOrEqual(2);
   });
 
   it('is never destructured out of the descriptor', () => {
