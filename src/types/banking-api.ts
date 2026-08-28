@@ -158,6 +158,17 @@ export interface SyncTransactionsResponse {
    * payment recorded by the owner before the feed delivered it (28 Aug).
    */
   transfersAdopted?: number;
+  /**
+   * Rows the bank offered that the owner had DELETED, and which were
+   * therefore not re-imported (28 Aug: a card payment he had already recorded
+   * as a transfer came back on the next sync and credited the card twice).
+   *
+   * Reported separately from duplicatesSkipped because they are a different
+   * sentence. A duplicate is the app noticing it already has something; this
+   * is the app honouring a decision the owner made. Silence would make a
+   * count of 40 offered and 39 stored unanswerable.
+   */
+  deletedByOwnerSkipped?: number;
   error?: string;
 }
 
