@@ -730,6 +730,9 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
           {
             skipDuplicates: showDuplicates,
             duplicateThreshold,
+            // The transfer rule needs to know which register these rows are
+            // joining — the file itself names no account.
+            destinationAccountId,
             categories: categories || [],
             autoCategorize: true,
             categoryConfidenceThreshold: 0.7,
