@@ -4,7 +4,8 @@
  * quietly drops one has destroyed work nobody can get back.
  */
 import { describe, it, expect } from 'vitest';
-import { isWellFormed, toRule } from './importRulesStore';
+import { toRule } from './importRulesStore';
+import { isWellFormed } from './ruleShape';
 import type { ImportRule } from '../../types/importRules';
 
 const complete = (over: Partial<ImportRule> = {}): Partial<ImportRule> => ({

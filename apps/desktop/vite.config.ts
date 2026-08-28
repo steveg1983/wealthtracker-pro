@@ -39,6 +39,7 @@ export default defineConfig({
       '@chrome': path.join(REPO, 'src', 'desktop', 'editions', 'chrome'),
       '@identity': path.join(REPO, 'src', 'desktop', 'editions', 'identity'),
       '@prefs-store': path.join(REPO, 'src', 'desktop', 'editions', 'preferencesStore'),
+      '@rules-store': path.join(REPO, 'src', 'desktop', 'editions', 'rulesStore'),
       '@telemetry': path.join(REPO, 'src', 'desktop', 'editions', 'telemetry'),
       // THE MOUNT SLICE'S SECOND HALF, pointed at what a device answers: a
       // preamble that already happened when the file was opened, and three

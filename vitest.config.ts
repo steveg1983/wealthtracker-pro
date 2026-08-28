@@ -17,6 +17,7 @@ export default createVitestReactConfig({
     '@chrome': path.resolve(process.cwd(), './src/editions/cloud/chrome'),
     '@identity': path.resolve(process.cwd(), './src/editions/cloud/identity'),
     '@prefs-store': path.resolve(process.cwd(), './src/editions/cloud/preferencesStore'),
+    '@rules-store': path.resolve(process.cwd(), './src/editions/cloud/rulesStore'),
     '@telemetry': path.resolve(process.cwd(), './src/editions/cloud/telemetry'),
     '@session': path.resolve(process.cwd(), './src/editions/cloud/session'),
     '@service': path.resolve(process.cwd(), './src/editions/cloud/service'),

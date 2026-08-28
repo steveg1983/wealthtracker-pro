@@ -1,5 +1,5 @@
 /**
- * THE FOUR SEAMS ARE SUBSTITUTIONS, and this is what keeps them ones.
+ * THE EDITION SEAMS ARE SUBSTITUTIONS, and this is what keeps them ones.
  *
  * `services/__tests__/dataAlias.test.ts` makes this argument for `@data` and
  * makes it well; everything it says applies here four more times, so the prose
@@ -17,8 +17,8 @@
  * The declarations are checked for the blunter reason `dataAlias.test.ts` gives:
  * an alias one config knows about and another does not fails as *"Cannot find
  * module"* in whichever command is run next by whoever is least expecting it.
- * There are now seven specifiers and six configs, which is forty-two mappings
- * that have to agree.
+ * There are now eight specifiers and six configs, which is forty-eight
+ * mappings that have to agree.
  *
  * ── WHY IT READS THE FILES AS TEXT ──────────────────────────────────────────
  *
@@ -43,9 +43,9 @@ interface Seam {
 }
 
 /**
- * The mount slice's six. `@data` is not here — it has its own test, with its
- * own argument about why an ENGINE is a different kind of thing to swap than a
- * component, a hook or a sink.
+ * The mount slice's six, plus the rules store. `@data` is not here — it has its
+ * own test, with its own argument about why an ENGINE is a different kind of
+ * thing to swap than a component, a hook or a sink.
  */
 const SEAMS: readonly Seam[] = [
   {
@@ -77,6 +77,14 @@ const SEAMS: readonly Seam[] = [
     specifier: '@telemetry',
     web: 'src/editions/cloud/telemetry.ts',
     device: 'src/desktop/editions/telemetry.ts'
+  },
+  {
+    // Added 28 Aug, when the owner asked whether import rules could be "cloud
+    // based for the main app but local for the local download version". They
+    // can, and this is the seam that makes it so.
+    specifier: '@rules-store',
+    web: 'src/editions/cloud/rulesStore.ts',
+    device: 'src/desktop/editions/rulesStore.ts'
   }
 ];
 
@@ -171,7 +179,7 @@ describe('the edition seams', () => {
     }
   });
 
-  it('knows about every seam the web build declares, so an eighth cannot arrive untested', () => {
+  it('knows about every seam the web build declares, so a ninth cannot arrive untested', () => {
     // The one check that is about this FILE rather than about the seams. A
     // specifier added to `vite.config.ts` and to five other configs, wired
     // through a component, and never listed here would have no substitution
@@ -186,6 +194,7 @@ describe('the edition seams', () => {
       '@data',
       '@identity',
       '@prefs-store',
+      '@rules-store',
       '@service',
       '@session',
       '@telemetry'

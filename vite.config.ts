@@ -72,6 +72,7 @@ export default defineConfig({
       '@chrome': path.resolve(__dirname, './src/editions/cloud/chrome'),
       '@identity': path.resolve(__dirname, './src/editions/cloud/identity'),
       '@prefs-store': path.resolve(__dirname, './src/editions/cloud/preferencesStore'),
+      '@rules-store': path.resolve(__dirname, './src/editions/cloud/rulesStore'),
       '@telemetry': path.resolve(__dirname, './src/editions/cloud/telemetry'),
       // THE MOUNT SLICE'S SECOND HALF. `@session` is whose ledger this is and
       // what must happen before it can be read; `@service` is the three
