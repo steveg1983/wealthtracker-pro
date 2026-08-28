@@ -1252,4 +1252,51 @@ describe('the debit/credit INDICATOR column — the owner\'s card statement (28 
     expect(preview.transactions[2]).toMatchObject({ amount: 30, type: 'income' });
   });
 });
+
+describe('the transfer rule — a statement row and a hand-made transfer leg are one payment (28 Aug)', () => {
+  const cardLeg = {
+    id: 'leg-1',
+    accountId: 'card-1',
+    date: '2026-08-02',
+    // The counterpart the owner made from his current account, renamed.
+    description: 'VIRGIN MONEY',
+    amount: 12.61,
+    type: 'transfer',
+    category: 'transfer-cat',
+    cleared: true,
+    linkedTransferId: 'leg-0'
+  } as never;
+
+  const statementRow = {
+    date: '2026-08-02',
+    description: 'PAYMENT DD - THANK YOU',
+    amount: 12.61,
+    type: 'income' as const
+  };
+
+  it('is decisive on the SAME account: amount + date + transfer leg, whatever the words', async () => {
+    const service = createService();
+    const check = await service.checkDuplicateTransaction(statementRow, [cardLeg], 'card-1');
+
+    // The words scored nothing ("VIRGIN MONEY" vs "PAYMENT DD - THANK YOU"),
+    // which is exactly how the payment imported twice on three cards.
+    expect(check.confidence).toBeGreaterThanOrEqual(95);
+    expect(check.isDuplicate).toBe(true);
+  });
+
+  it('does NOT fire for a transfer leg on a different account', async () => {
+    const service = createService();
+    const check = await service.checkDuplicateTransaction(statementRow, [cardLeg], 'other-card');
+
+    expect(check.confidence).toBeLessThan(90);
+  });
+
+  it('does NOT fire for an ordinary same-amount transaction — words still matter there', async () => {
+    const service = createService();
+    const ordinary = { ...cardLeg, type: 'income', linkedTransferId: undefined } as never;
+    const check = await service.checkDuplicateTransaction(statementRow, [ordinary], 'card-1');
+
+    expect(check.confidence).toBeLessThan(90);
+  });
+});
 });

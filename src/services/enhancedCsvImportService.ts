@@ -1795,11 +1795,22 @@ export class EnhancedCsvImportService {
    */
   async checkDuplicateTransaction(
     transaction: Partial<Transaction>,
-    existingTransactions: Transaction[]
+    existingTransactions: Transaction[],
+    /**
+     * The account this import lands in, when the file itself names none —
+     * the wizard's destination. The transfer rule below needs to know which
+     * register the row is joining.
+     */
+    targetAccountId?: string
   ): Promise<DuplicateCheckResult> {
     const matches: DuplicateCheckResult['matches'] = [];
     let highestConfidence = 0;
-    
+
+    const effectiveAccountId =
+      typeof transaction.accountId === 'string' && transaction.accountId !== 'default'
+        ? transaction.accountId
+        : targetAccountId;
+
     for (const existing of existingTransactions) {
       // Check date proximity (within 3 days)
       const dateDiff = Math.abs(
@@ -1824,7 +1835,25 @@ export class EnhancedCsvImportService {
       if (amountMatch) confidence += 40;
       if (dateProximity) confidence += 30;
       if (descSimilarity > 0.8) confidence += 30;
-      
+
+      // AN EXISTING TRANSFER LEG IS THE SAME MONEY WHATEVER THE WORDS. The
+      // owner pays his card from his current account, makes the transfer,
+      // and the counterpart lands on the card as "VIRGIN MONEY"; the card's
+      // statement calls the same payment "PAYMENT DD - THANK YOU". Amount
+      // and date scored 70, the words scored nothing, and the payment
+      // imported twice — on all three of his cards (28 Aug). A statement
+      // row and a hand-made transfer leg on the SAME account, for the same
+      // amount, within the window, cannot both be true: decisive, above any
+      // sensible threshold.
+      const sameAccount =
+        effectiveAccountId !== undefined && existing.accountId === effectiveAccountId;
+      const isTransferLeg =
+        existing.type === 'transfer' ||
+        (typeof existing.linkedTransferId === 'string' && existing.linkedTransferId !== '');
+      if (amountMatch && dateProximity && sameAccount && isTransferLeg) {
+        confidence = Math.max(confidence, 95);
+      }
+
       if (confidence >= 70) {
         matches.push({
           id: existing.id,
@@ -1865,6 +1894,8 @@ export class EnhancedCsvImportService {
       dateFormat?: CsvDateFormat;
       /** Where the heading row is, when it is not where detection put it. */
       headerLine?: number;
+      /** The wizard's chosen destination — see checkDuplicateTransaction. */
+      destinationAccountId?: string;
     } = {}
   ): Promise<ImportResult> {
     const { headers, data, lines } = this.parseCSV(csvContent, { headerLine: options.headerLine });
@@ -1932,7 +1963,8 @@ export class EnhancedCsvImportService {
         if (options.skipDuplicates !== false) {
           const duplicateCheck = await this.checkDuplicateTransaction(
             transaction,
-            existingTransactions
+            existingTransactions,
+            options.destinationAccountId
           );
           
           if (duplicateCheck.confidence >= (options.duplicateThreshold || 90)) {
