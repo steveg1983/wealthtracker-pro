@@ -16,13 +16,26 @@
  * disk are unchanged, so anything encrypted by a previous build still decrypts.
  *
  * The algorithms below are the complete set used across
- * `encryptedStorageService`, `csrf-protection` and `encryption-enhanced`:
+ * `encryptedStorageService` and `csrf-protection`:
  *
- *   AES        — encryptedStorageService, encryption-enhanced
- *   SHA256     — csrf-protection, encryption-enhanced (also `algo.SHA256`)
- *   HmacSHA256 — encryption-enhanced
- *   PBKDF2     — encryption-enhanced
- *   enc.Base64 — encryption-enhanced
+ *   AES        — encryptedStorageService
+ *   SHA256     — csrf-protection, encryptedStorageService (MAC key derivation)
+ *   HmacSHA256 — encryptedStorageService (record authentication)
+ *
+ * PBKDF2 and enc.Base64 were here too, until 2026-08-28. Both existed for
+ * `encryption-enhanced.ts`, a 401-line service with no production consumer —
+ * only its own test imported it. It was retired, and these two went with it.
+ * Nothing else in the app derives a key or base64-encodes through crypto-js:
+ * the backup file format uses Web Crypto's PBKDF2 and AES-GCM instead
+ * (`services/backup/encryption.ts`), which authenticates natively.
+ *
+ * Measured, that removal was worth 0.2 KB gzipped and left the entry chunk
+ * unchanged at 323.9 KB — the retired service itself had no importers, so
+ * Rollup had never bundled a byte of it, and only these two imports were ever
+ * real weight. Recorded because the 242 KB figure above makes this file look
+ * like a place where large savings live; it is not. It is a place where the
+ * BOOT PATH's contents are decided, which is why the import list is pinned by
+ * a test even when the bytes at stake are small.
  *
  * `enc.Utf8`, `enc.Hex` and `lib.WordArray` live in core itself; `mode.CBC`,
  * `pad.Pkcs7` and `lib.CipherParams` arrive with `cipher-core`, which `aes`
@@ -34,8 +47,6 @@ import CryptoJS from 'crypto-js/core';
 import AES from 'crypto-js/aes';
 import SHA256 from 'crypto-js/sha256';
 import HmacSHA256 from 'crypto-js/hmac-sha256';
-import PBKDF2 from 'crypto-js/pbkdf2';
-import Base64 from 'crypto-js/enc-base64';
 
 // This build declares node_modules side-effect free (`treeshake.moduleSideEffects:
 // 'no-external'` in vite.config.ts), so a bare `import 'crypto-js/aes'` would be
@@ -47,9 +58,7 @@ import Base64 from 'crypto-js/enc-base64';
 const requiredAlgorithms: ReadonlyArray<readonly [string, unknown]> = [
   ['AES', AES],
   ['SHA256', SHA256],
-  ['HmacSHA256', HmacSHA256],
-  ['PBKDF2', PBKDF2],
-  ['enc.Base64', Base64]
+  ['HmacSHA256', HmacSHA256]
 ];
 
 const missingAlgorithms = requiredAlgorithms
