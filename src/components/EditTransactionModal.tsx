@@ -1729,28 +1729,40 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 {ownAccountJump.label}
               </button>
             )}
-            {/* WRAPS on a phone (owner, 17 Aug): five buttons in a
-                non-wrapping row compressed until "Delete" and "Cancel"
-                overflowed their own boxes and "Save Changes" broke mid-word.
-                whitespace-nowrap keeps each label whole so a button wraps as
-                a UNIT onto the next line; the tighter phone padding buys the
-                common case one row. */}
-            <div className="flex flex-wrap justify-between gap-2 sm:gap-3 w-full">
+            {/* ONE ROW ON A PHONE, ALWAYS — and the labels wrap inside their
+                own boxes instead.
+
+                The August fix let the ROW wrap: each button kept its label
+                whole and moved down as a unit. That trades a broken word for a
+                worse problem, which the owner hit on 29 Aug: the second row
+                sits below the fold, so the modal showed nothing but "Delete"
+                and a reader had to guess that scrolling inside the footer
+                would reveal Save. He found it by accident; nobody else would.
+                A destructive action alone on screen where the primary action
+                should be is the worst possible arrangement of these five.
+
+                So the row cannot wrap. Each button is an equal column that
+                grows to fit, `whitespace-normal` lets "Save Changes" take two
+                lines inside its box, and the taller minimum height keeps every
+                box the same size whether its label wrapped or not. Above `sm`
+                nothing changes: the labels fit on one line and the buttons
+                size to their content as before. */}
+            <div className="flex items-stretch gap-2 sm:gap-3 w-full">
               {transaction && (
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="px-3 sm:px-4 py-2 whitespace-nowrap bg-red-500 text-white rounded-lg hover:bg-red-600"
+                  className="flex-1 sm:flex-none px-2 sm:px-4 py-2 min-h-[3.25rem] sm:min-h-0 text-sm leading-tight whitespace-normal sm:whitespace-nowrap bg-red-500 text-white rounded-lg hover:bg-red-600"
                 >
                   Delete
                 </button>
               )}
 
-              <div className="flex flex-wrap justify-end gap-2 sm:gap-3 ml-auto">
+              <div className="flex items-stretch justify-end gap-2 sm:gap-3 flex-[3] sm:flex-none sm:ml-auto">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-3 sm:px-4 py-2 whitespace-nowrap border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="flex-1 sm:flex-none px-2 sm:px-4 py-2 min-h-[3.25rem] sm:min-h-0 text-sm leading-tight whitespace-normal sm:whitespace-nowrap border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   Cancel
                 </button>
@@ -1759,7 +1771,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                     type="submit"
                     disabled={isSubmitting || splitValidationMessage !== null}
                     onClick={() => { advanceDirectionRef.current = 'previous'; }}
-                    className="px-3 sm:px-4 py-2 whitespace-nowrap bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 sm:flex-none px-2 sm:px-4 py-2 min-h-[3.25rem] sm:min-h-0 text-sm leading-tight whitespace-normal sm:whitespace-nowrap bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Save this transaction and move to the previous one in the list"
                   >
                     Previous
@@ -1768,7 +1780,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 <button
                   type="submit"
                   disabled={isSubmitting || splitValidationMessage !== null}
-                  className="px-3 sm:px-4 py-2 whitespace-nowrap bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 sm:flex-none px-2 sm:px-4 py-2 min-h-[3.25rem] sm:min-h-0 text-sm leading-tight whitespace-normal sm:whitespace-nowrap bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Saving…' : transaction ? 'Save Changes' : 'Add Transaction'}
                 </button>
@@ -1777,7 +1789,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                     type="submit"
                     disabled={isSubmitting || splitValidationMessage !== null}
                     onClick={() => { advanceDirectionRef.current = 'next'; }}
-                    className="px-3 sm:px-4 py-2 whitespace-nowrap bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 sm:flex-none px-2 sm:px-4 py-2 min-h-[3.25rem] sm:min-h-0 text-sm leading-tight whitespace-normal sm:whitespace-nowrap bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Save this transaction and move to the next one in the list"
                   >
                     Save &amp; Next
