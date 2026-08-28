@@ -13,14 +13,13 @@
  *
  * Nothing in this file may reach for storage, a network, or a clock.
  */
-import type { ImportRule, ImportRuleCondition, ImportRuleAction } from '../../types/importRules';
-import type { Transaction } from '../../types';
+import type { ImportRule, ImportRuleCondition, ImportRuleAction, RuleTarget } from '../../types/importRules.js';
 
-export interface TransactionWithSkip extends Partial<Transaction> {
+export interface TransactionWithSkip extends RuleTarget {
   __skip?: boolean;
 }
 
-export function checkCondition(condition: ImportRuleCondition, transaction: Partial<Transaction>): boolean {
+export function checkCondition(condition: ImportRuleCondition, transaction: RuleTarget): boolean {
   let fieldValue: string | number | Date | null;
   
   switch (condition.field) {
@@ -94,7 +93,7 @@ export function checkCondition(condition: ImportRuleCondition, transaction: Part
   }
 }
 
-export function applyAction(action: ImportRuleAction, transaction: Partial<Transaction>): TransactionWithSkip {
+export function applyAction(action: ImportRuleAction, transaction: RuleTarget): TransactionWithSkip {
   const result: TransactionWithSkip = { ...transaction };
 
   switch (action.type) {
@@ -161,10 +160,10 @@ export function applyAction(action: ImportRuleAction, transaction: Partial<Trans
   return result;
 }
 
-export function applyRules(
-transaction: Partial<Transaction>,
-rules: readonly ImportRule[]
-): Partial<Transaction> | null {
+export function applyRules<T extends RuleTarget>(
+  transaction: T,
+  rules: readonly ImportRule[]
+): T | null {
   let result: TransactionWithSkip = { ...transaction };
   const enabledRules = rules
     .filter(rule => rule.enabled)
@@ -191,5 +190,8 @@ rules: readonly ImportRule[]
 
   // Remove temporary skip flag if it exists
   delete result.__skip;
-  return result;
+  // Generic in, generic out: a caller keeps whatever shape it passed, which is
+  // how one engine serves a CSV row (the app's Transaction) and a feed row
+  // (database columns) without either learning about the other.
+  return result as T;
 }

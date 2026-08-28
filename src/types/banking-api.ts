@@ -169,6 +169,15 @@ export interface SyncTransactionsResponse {
    * count of 40 offered and 39 stored unanswerable.
    */
   deletedByOwnerSkipped?: number;
+  /**
+   * Rows one of the owner's import rules categorised, tagged or renamed on the
+   * way in (28 Aug, his ruling: "the sync should say what it did rather than
+   * transforming things invisibly").
+   *
+   * Counts rows actually CHANGED, not rows a rule was run against — a number
+   * nobody can check is worse than no number.
+   */
+  rulesApplied?: number;
   error?: string;
 }
 
