@@ -23,6 +23,7 @@ import type { TrueLayerTransaction } from '../_lib/truelayer.js';
 import { fetchCardTransactions, fetchTransactions } from '../_lib/truelayer.js';
 import { cardAmountToAppSigned } from '../../src/services/banking/cardNormalization.js';
 import { resolveIdChurn, type ExistingBankRow } from '../../src/services/banking/idChurn.js';
+import { resolveTransferAdoption } from '../../src/services/banking/transferAdoption.js';
 import { syncWindowStart } from '../../src/services/banking/syncWindow.js';
 
 const coerceIsoDateTime = (value: string, endOfDay: boolean): string | null => {
@@ -395,6 +396,68 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Hand-made transfer legs (the owner pays his card and records the
+    // transfer; the feed then delivers the SAME payment under a bank id, and
+    // id-keyed dedup cannot see a row that has no id — all three of his
+    // cards, 28 Aug). The matching leg is ADOPTED: stamped with the
+    // candidate's external id AND this connection, so every future sync
+    // recognises it in the exact-id pass. resolveTransferAdoption's header
+    // carries the matching rules and the ambiguity-inserts stance.
+    let transfersAdopted = 0;
+    if (insertCandidates.length > 0) {
+      const candidateAccountIds = [...new Set(insertCandidates.map((row) => row.account_id))];
+      const widen = (day: string, days: number): string => {
+        const d = new Date(`${day}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + days);
+        return d.toISOString().slice(0, 10);
+      };
+      const legsResult = await supabase
+        .from('transactions')
+        .select('id, account_id, date, amount, metadata')
+        .eq('user_id', auth.userId)
+        .eq('type', 'transfer')
+        .is('external_transaction_id', null)
+        .in('account_id', candidateAccountIds)
+        .gte('date', widen(dateRange.from.slice(0, 10), -3))
+        .lte('date', widen(dateRange.to.slice(0, 10), 3));
+      if (legsResult.error) {
+        throw new Error(`Failed to load transfer legs for adoption check: ${legsResult.error.message}`);
+      }
+      const legs = (legsResult.data ?? []) as Array<{
+        id: string; account_id: string; date: string; amount: number;
+        metadata: Record<string, unknown> | null;
+      }>;
+      const legMetadataById = new Map(legs.map((row) => [row.id, row.metadata]));
+      const adoptionResolution = resolveTransferAdoption(insertCandidates, legs);
+      insertCandidates = adoptionResolution.inserts;
+
+      for (const adoption of adoptionResolution.adoptions) {
+        const previousMetadata = legMetadataById.get(adoption.existingRowId) ?? {};
+        const previousHistory = Array.isArray(previousMetadata?.['feedTransferAdoptions'])
+          ? previousMetadata['feedTransferAdoptions']
+          : [];
+        const updateResult = await supabase
+          .from('transactions')
+          .update({
+            external_transaction_id: adoption.candidate.external_transaction_id,
+            connection_id: connection.id,
+            metadata: {
+              ...(previousMetadata ?? {}),
+              feedTransferAdoptions: [
+                ...previousHistory,
+                { adoptedAt: new Date().toISOString() }
+              ]
+            }
+          })
+          .eq('id', adoption.existingRowId)
+          .eq('user_id', auth.userId);
+        if (updateResult.error) {
+          throw new Error(`Failed to adopt transfer leg: ${updateResult.error.message}`);
+        }
+        transfersAdopted += 1;
+      }
+    }
+
     let insertedCount = 0;
     for (const insertChunk of chunk(insertCandidates, 200)) {
       if (insertChunk.length === 0) {
@@ -446,7 +509,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Adopted rows are neither imports nor duplicates — they are the same
     // transaction keeping its ledger row, so they leave both other counts.
-    const duplicatesSkipped = prepared.length - insertedCount - idChurnRepaired;
+    const duplicatesSkipped = prepared.length - insertedCount - idChurnRepaired - transfersAdopted;
 
     await markConnectionSyncSuccess(supabase, connection.id, auth.userId);
     await supabase.from('sync_history').insert({
@@ -461,7 +524,8 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       success: true,
       transactionsImported: insertedCount,
       duplicatesSkipped,
-      ...(idChurnRepaired > 0 ? { idChurnRepaired } : {})
+      ...(idChurnRepaired > 0 ? { idChurnRepaired } : {}),
+      ...(transfersAdopted > 0 ? { transfersAdopted } : {})
     };
     return res.status(200).json(response);
   } catch (error) {
