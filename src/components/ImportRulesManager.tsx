@@ -137,14 +137,14 @@ export default function ImportRulesManager() {
         <div className="flex gap-2">
           <button
             onClick={generateSuggestions}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
             <MagicWandIcon size={16} />
             Suggest Rules
           </button>
           <button
             onClick={() => setShowAddRule(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover transition-colors"
           >
             <PlusIcon size={16} />
             Add Rule
