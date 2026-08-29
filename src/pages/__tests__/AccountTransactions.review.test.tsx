@@ -197,8 +197,8 @@ describe('Account register — a row that has just arrived', () => {
 
     // Bold is a visual cue and nothing else — invisible to a screen reader, and
     // to anyone reading one row at a time in a magnifier (WCAG 1.4.1).
-    expect(within(row('Marsh Lane Grocer')).getByText(/new, not reviewed yet/)).toBeInTheDocument();
-    expect(within(row('Portway Hardware')).queryByText(/new, not reviewed yet/)).not.toBeInTheDocument();
+    expect(within(row('Marsh Lane Grocer')).getByText(/awaiting review/)).toBeInTheDocument();
+    expect(within(row('Portway Hardware')).queryByText(/awaiting review/)).not.toBeInTheDocument();
   });
 });
 

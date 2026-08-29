@@ -98,7 +98,7 @@ interface InfiniteScrollTransactionListProps {
    * SwipeableTransactionRow: the mark belongs where the To Review counter and
    * its filter are, which is the account register, and nowhere else.
    */
-  markNewArrivals?: boolean;
+  markAwaitingReview?: boolean;
   /**
    * Which END of the list is the one worth opening on.
    *
@@ -152,7 +152,7 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
   isLoading = false,
   emptyContent,
   itemsPerBatch = 20,
-  markNewArrivals = false,
+  markAwaitingReview = false,
   anchor = 'start',
   newestEnd
   // `| null` is the 200ms rule in the type: a load too short to be worth
@@ -543,7 +543,7 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
               onView={onView}
               isSelected={isSelected}
               onToggleSelection={onSelectionChange ? handleToggleSelection : undefined}
-              markNewArrivals={markNewArrivals}
+              markAwaitingReview={markAwaitingReview}
             />
           );
         })}

@@ -2780,7 +2780,7 @@ export default function AccountTransactions() {
                 stated in words — off-screen, because on-screen it would be a
                 second marker for one fact and the whole point of the bold is
                 that it costs the row no space. */}
-            {awaitingReview && <span className="sr-only">— new, not reviewed yet</span>}
+            {awaitingReview && <span className="sr-only">— awaiting review</span>}
           </div>
         );
       },
@@ -3754,7 +3754,7 @@ export default function AccountTransactions() {
           // box above it and the same filter, so it gets the same bold. A list
           // that offers neither — a report, a Find result — gets the default
           // and says nothing.
-          markNewArrivals
+          markAwaitingReview
           // THE SAME NODE THE DESKTOP TABLE GETS. The phone used to answer both
           // kinds of nothing with one sentence that told a user with an empty
           // register to adjust filters and a user with a filter to add

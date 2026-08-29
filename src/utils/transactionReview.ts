@@ -1,5 +1,5 @@
 /**
- * Review state — "has anybody looked at this row since it arrived?"
+ * Review state — "does this row still want somebody's eyes?"
  *
  * ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
  * Microsoft Money printed a freshly downloaded transaction in bold and kept it
@@ -12,49 +12,81 @@
  * View menu that both states the size of the job and filters the list down to
  * it.
  *
- * This is category provenance (src/utils/categoryProvenance.ts) widened from
- * one field to the whole row. Provenance asks "did a human vouch for this
- * CATEGORY?"; review asks "did a human look at this ROW?" — and the two are
- * genuinely different questions, because a row can arrive with a perfectly good
- * category the file itself stated and still be a transaction nobody has laid
- * eyes on.
+ * ── THE RULE, IN ONE PLACE — WIDENED 29 AUGUST 2026 ─────────────────────────
+ * A row awaits review when EITHER:
  *
- * ── THE RULE, IN ONE PLACE ──────────────────────────────────────────────────
- * `needsReview === true` means "this arrived from an import and nobody has
- * saved it since". EVERY other value — false, undefined, missing — means
- * reviewed. That asymmetry is deliberate and load-bearing, and it is the mirror
- * image of the one in categoryProvenance:
+ *   * `needsReview === true` — it arrived from an import and nobody has saved
+ *     it since; or
+ *   * it is UNFILED — it has no category. The owner's ruling of 29 August:
+ *     "whether the info was injected via bank connection or manually, if there
+ *     is a transaction without a category it should flag as needing
+ *     reviewing." Unfiled money is never done, however it arrived and however
+ *     long ago — which also means saving a row WITHOUT filing it keeps it
+ *     flagged, deliberately.
  *
- *   * The column is `NOT NULL DEFAULT false`, so any writer that has never
- *     heard of review produces a reviewed row. Only the import paths say true.
- *   * `undefined` is what every row carries on a database that has not had the
- *     migration applied yet, and on the local/demo store. Reading that as "new"
- *     would print the owner's entire fifty-one thousand row history in bold on
- *     the day of the deploy.
- *   * The migration leaves existing history at false for the same reason: the
- *     flag starts meaning something from the next import onward, which is where
- *     the problem actually is.
+ * The unfiled arm has two exclusions, each argued rather than convenient:
+ *
+ *   * TRANSFERS take no category — moving money between your own accounts is
+ *     not spending or earning, and the Money model this register follows never
+ *     asked for one. A transfer is filed by being a transfer.
+ *   * SPLIT PARENTS file through their lines, and a register row cannot bold
+ *     one line of itself. An unfiled split LINE remains the categorise rung's
+ *     work — useAttentionLadder subtracts exactly what this predicate counts,
+ *     so the two rungs partition the unfiled backlog rather than both claiming
+ *     it.
+ *
+ * A DANGLING category id (the category was since deleted) is NOT review work
+ * either: this predicate is deliberately row-local and cheap — it is asked per
+ * row in render paths — and "your filing broke" is a data-health finding
+ * (categoryHealth), not a row nobody has looked at.
+ *
+ * The flag's asymmetry is unchanged and still load-bearing: `needsReview ===
+ * true` means new, and EVERY other value — false, undefined, missing — means
+ * reviewed, because the column is `NOT NULL DEFAULT false` and a database
+ * without the migration returns no key at all. The unfiled arm does not
+ * disturb that guarantee in practice: it was measured against the owner's real
+ * ledger before shipping, and of fifty-one thousand rows exactly ten were
+ * unfiled — every one already flagged by the feed. The day-one bold flood this
+ * file has always guarded against does not occur, because a ledger kept the
+ * Money way is a ledger that is already filed.
  *
  * Nothing here is money and nothing here is a date, so there is no Decimal and
- * no boundary conversion to get wrong: it is one boolean, read the same way by
- * every surface that asks.
+ * no boundary conversion to get wrong: two booleans and a string emptiness
+ * check, read the same way by every surface that asks.
  */
 
 import type { Transaction } from '../types';
 
 /** Enough of a transaction to judge whether it still wants looking at. */
-export type ReviewableRow = Pick<Transaction, 'needsReview'>;
+export type ReviewableRow = Pick<
+  Transaction,
+  'needsReview' | 'category' | 'type' | 'isSplit'
+>;
 
 /**
- * A row that arrived from an import and has not been saved since.
+ * The unfiled arm alone: no category, on a row that takes one.
  *
- * Note the `=== true`: see the asymmetry above. This is the ONE predicate every
- * surface asks — the register's bold, the register's counter, the register's
- * filter and the Accounts list's column — so that four places cannot drift into
- * four slightly different answers to one question.
+ * Exported for useAttentionLadder, which must subtract THIS EXACT population
+ * from the categorise rung — a predicate restated there would drift into
+ * double-counting or a gap the day one copy changed.
+ */
+export function isUnfiled(row: ReviewableRow): boolean {
+  if (row.type === 'transfer') return false;
+  if (row.isSplit === true) return false;
+  return !row.category || row.category.trim() === '';
+}
+
+/**
+ * A row that still wants somebody's eyes: arrived and never saved, or saved
+ * but never filed.
+ *
+ * This is the ONE predicate every surface asks — the register's bold, the
+ * register's counter, the register's filter, the Accounts list's column and
+ * the attention ladder's review rung — so that five places cannot drift into
+ * five slightly different answers to one question.
  */
 export function isAwaitingReview(row: ReviewableRow): boolean {
-  return row.needsReview === true;
+  return row.needsReview === true || isUnfiled(row);
 }
 
 /** How many of these rows are still waiting. */
