@@ -6,6 +6,11 @@ import type { CategoryTreeGroup } from '../utils/categoryTreeImport';
  * Curated by the owner (2026-08-05) from the classic Microsoft Money (UK)
  * set, with the personal and household-specific entries removed — a fresh
  * account gets a neutral, sensible UK tree it can immediately file against.
+ * Revised by the owner 2026-08-29, round-tripped through the editable
+ * spreadsheet: Vehicles (né Cars & Bikes), Government Benefits, Allowance,
+ * Subscriptions, Takeaways and Nursery / Schooling in; Gross Pay, Buying &
+ * Selling Costs and Consumables out; the Investment Income leaves named so
+ * none of them reads as a catch-all for the group.
  * Every group carries an Other/Misc catch-all by design. Existing users are
  * never touched by this list: it only seeds accounts with no categories yet.
  *
@@ -20,17 +25,17 @@ export const DEFAULT_CATEGORY_TREE: CategoryTreeGroup[] = [
   {
     name: 'Investment Income',
     type: 'income',
-    children: ['Bank Interest', 'Capital Gains', 'Dividends', 'Interest', 'Mortgage Income', 'Other Income'],
+    children: ['Bank Interest', 'Capital Gains', 'Dividends', 'Other Interest', 'Mortgage Income', 'Other Investment Income'],
   },
   {
     name: 'Other Income',
     type: 'income',
-    children: ['Child Benefit', 'Rental Income'],
+    children: ['Government Benefits', 'Rental Income', 'Allowance'],
   },
   {
     name: 'Wages & Salary',
     type: 'income',
-    children: ['Gross Pay', 'Net Pay', 'Consultancy', 'Other/Misc'],
+    children: ['Net Pay', 'Consultancy', 'Other/Misc'],
   },
 
   // ── Expense ────────────────────────────────────────────────────────────────
@@ -46,13 +51,14 @@ export const DEFAULT_CATEGORY_TREE: CategoryTreeGroup[] = [
       'Council Tax',
       'Gas & Electricity',
       'Mobile Phone',
+      'Subscriptions',
       'Telephone/Broadband/Sky/Tv Licence',
       'Water & Sewerage',
       'Other/Misc',
     ],
   },
   {
-    name: 'Cars & Bikes',
+    name: 'Vehicles',
     type: 'expense',
     children: [
       'Financing & Leasing Charges',
@@ -66,12 +72,12 @@ export const DEFAULT_CATEGORY_TREE: CategoryTreeGroup[] = [
   {
     name: 'Child Costs',
     type: 'expense',
-    children: ['Clothes', 'Days Out', 'School Related', 'Other/Misc'],
+    children: ['Clothes', 'Days Out', 'Nursery / Schooling', 'Other/Misc'],
   },
   {
     name: 'Food Related Costs',
     type: 'expense',
-    children: ['Dining Out', 'Food Shopping', 'Coffee Shops', 'Other/Misc'],
+    children: ['Dining Out', 'Food Shopping', 'Coffee Shops', 'Takeaways', 'Other/Misc'],
   },
   {
     name: 'Gifts',
@@ -92,9 +98,7 @@ export const DEFAULT_CATEGORY_TREE: CategoryTreeGroup[] = [
     name: 'Household',
     type: 'expense',
     children: [
-      'Buying & Selling Costs',
       'Cleaning Costs',
-      'Consumables',
       'Furnishings',
       'Improvements',
       'Insurance',
