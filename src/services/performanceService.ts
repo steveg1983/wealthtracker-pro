@@ -23,7 +23,6 @@ interface PerformanceReport {
 interface WindowRef extends Partial<Window> {
   PerformanceObserver?: typeof PerformanceObserver;
   PerformanceEventTiming?: typeof PerformanceEventTiming;
-  gtag?: (...args: unknown[]) => void;
 }
 
 interface DocumentRef extends Partial<Document> {
@@ -348,17 +347,12 @@ export class PerformanceService {
     }
   }
 
-  // Send metrics to analytics service
+  // Hand a metric to whoever registered an interest. This used to try
+  // window.gtag first — a Google Analytics hook that could never fire (no GA
+  // snippet loads, and the CSP admits no Google analytics host) but sat as a
+  // live branch waiting for someone to paste a tag. The landing page says no
+  // analytics are sold on; the code should not keep a socket for one.
   private sendToAnalytics(metric: PerformanceMetric) {
-    // Send to Google Analytics if available
-    if (this.windowRef?.gtag) {
-      this.windowRef.gtag('event', 'performance', {
-        metric_name: metric.name,
-        metric_value: metric.value,
-        metric_rating: metric.rating,
-      });
-    }
-
     // Custom callback
     if (this.reportCallback) {
       const report: PerformanceReport = {

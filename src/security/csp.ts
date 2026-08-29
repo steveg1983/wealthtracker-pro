@@ -40,7 +40,6 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       'data:',
       'blob:',
       'https:',
-      'https://logo.clearbit.com', // Logo service
     ],
     
     // Fonts: self and Google Fonts

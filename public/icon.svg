@@ -1,12 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="WealthTracker">
   <rect width="512" height="512" rx="112" fill="#1a2332"/>
-  <!-- Rising trend line: the app's one idea, wealth over time -->
+  <!-- Rising trend line: the app's one idea, wealth over time. Its green is
+       income-fill (#0d9f6f), the app's own chart-series green measured for
+       dark grounds — not Tailwind's stock green-400, which sat here until the
+       29 Aug design handover named this the most visible surface in the
+       product for a stock colour to sit on. -->
   <polyline points="112,344 208,248 288,312 400,168"
-            fill="none" stroke="#4ade80" stroke-width="34"
+            fill="none" stroke="#0d9f6f" stroke-width="34"
             stroke-linecap="round" stroke-linejoin="round"/>
   <!-- Arrow head closing the trend -->
   <polyline points="330,168 400,168 400,238"
-            fill="none" stroke="#4ade80" stroke-width="34"
+            fill="none" stroke="#0d9f6f" stroke-width="34"
             stroke-linecap="round" stroke-linejoin="round"/>
   <!-- Baseline -->
   <line x1="112" y1="400" x2="400" y2="400"

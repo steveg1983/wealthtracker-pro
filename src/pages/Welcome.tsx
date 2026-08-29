@@ -45,10 +45,11 @@ export default function Welcome(): React.JSX.Element {
     }
   }, [isSignedIn, navigate]);
 
-  // Brief interstitial while the redirect above runs.
+  // Brief interstitial while the redirect above runs. Full-page now that this
+  // route renders outside Layout — there is no chrome behind it to fill in.
   if (isSignedIn) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center text-center">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           Welcome back
         </h1>
@@ -60,7 +61,39 @@ export default function Welcome(): React.JSX.Element {
   const year = new Date().getFullYear();
 
   return (
-    <div className="mx-auto max-w-5xl py-2 md:py-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* A signed-out page carries its own header (design handover 29 Aug,
+          §5.1): wordmark and the two account actions, nothing else. This page
+          used to render inside the app's Layout, which put nine controls —
+          six nav sections, search, a bell, help — in front of a visitor who
+          could use none of them. `Create an account` yields to the hero's own
+          CTA below ~640px rather than crowding the bar. */}
+      <header className="mx-auto max-w-5xl px-4 sm:px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-gray-900 dark:text-white">
+          <WalletIcon size={20} />
+          <span className="text-sm font-semibold uppercase tracking-wider">WealthTracker</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <SignInButton mode="modal">
+            <button
+              type="button"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              Sign in
+            </button>
+          </SignInButton>
+          <SignUpButton mode="modal">
+            <button
+              type="button"
+              className="hidden sm:inline-flex px-4 py-2 text-sm font-medium text-white bg-nav-bg dark:bg-white dark:text-nav-bg rounded-lg hover:opacity-90 transition-opacity"
+            >
+              Create an account
+            </button>
+          </SignUpButton>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 pb-6 py-2 md:py-6">
       {/* Hero — the app's own dark slate, so the landing page and the product
           read as one thing. */}
       <section
@@ -148,6 +181,7 @@ export default function Welcome(): React.JSX.Element {
           </a>
         </nav>
       </footer>
+      </div>
     </div>
   );
 }
