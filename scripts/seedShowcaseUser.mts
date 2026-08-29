@@ -24,6 +24,13 @@
  *    £1,150 → £1,500 a month.
  *  - Two credit cards carrying the day-to-day (fuel, dining, coffee, shops),
  *    paid in full every month, always.
+ *  - THE COMMITMENTS A VISITOR RECOGNISES (his note of 29 Aug, after the
+ *    recurring report showed car finance and a coffee shop): Netflix, Sky,
+ *    Amazon Prime, Disney+, Paramount+, Spotify, iCloud, the council, the
+ *    water, the TV licence, the mobile, the gym, two insurers and a monthly
+ *    charity donation — each holding its price to the penny and stepping on a
+ *    plausible date, because that is both how a subscription behaves and what
+ *    the detector reads. See SUBSCRIPTIONS.
  *  - Lifestyle spending is the RESIDUAL: whatever the salary leaves after the
  *    commitments above, spent on running a life — his instruction was to
  *    work it out and see where the total lands.
@@ -175,6 +182,144 @@ const PENSION_INSTRUMENTS: Instrument[] = [
   { symbol: 'PENGEQ', name: 'Global Equity Pension Fund', assetType: 'mutual_fund', startPrice: 3.12, beta: 1.05, alpha: 0.01, seed: 21, weight: 0.60 },
   { symbol: 'PENUKE', name: 'UK Equity Income Pension Fund', assetType: 'mutual_fund', startPrice: 2.05, beta: 0.9, alpha: -0.01, seed: 22, weight: 0.25 },
   { symbol: 'PENBND', name: 'Sterling Bond Pension Fund', assetType: 'mutual_fund', startPrice: 1.48, beta: 0.3, alpha: 0.0, seed: 23, weight: 0.15 },
+];
+
+// ── The commitments, and what they cost over ten years ──────────────────────
+//
+// The owner, 29 Aug: the recurring report showed car finance and a coffee
+// shop, where a visitor should recognise their own life — "Netflix, Sky,
+// Council Tax, Amazon Prime, Paramount". Two things follow, and both are
+// about honesty as much as recognition:
+//
+//  * A SUBSCRIPTION HOLDS ITS PRICE. The detector qualifies a pattern on runs
+//    of identical amounts, because that is what tells a subscription from a
+//    supermarket — so a jittered Netflix is invisible to it, and rightly.
+//  * A PRICE THAT NEVER MOVES IS ALSO A LIE. Ten years of streaming is a
+//    decade of increases, so each carries a schedule, and the report's
+//    price-change line — dated, with the annual impact — has something true
+//    to say.
+//
+// Services that did not exist in 2016 START when they launched (Disney+ in
+// March 2020, Paramount+ in June 2022), which is why the schedules are keyed
+// to absolute months rather than offsets. Every figure is a plausible public
+// price, not a bill anybody actually paid.
+
+/** Month index of a calendar month, from the window's start (Sep 2016 = 0). */
+const mi = (y: number, m: number): number => (y - 2016) * 12 + (m - 9);
+
+type PriceStep = readonly [from: number, price: number];
+
+/** The price in force in month `i`, or null before the first step. */
+const subscriptionPrice = (steps: readonly PriceStep[], i: number): number | null => {
+  let price: number | null = null;
+  for (const [from, step] of steps) if (i >= from) price = step;
+  return price;
+};
+
+interface Subscription {
+  day: number;
+  payee: string;
+  category: string;
+  account: string;
+  steps: readonly PriceStep[];
+}
+
+const SUBSCRIPTIONS: readonly Subscription[] = [
+  // Household direct debits — the council, the water, the licence.
+  {
+    day: 1, payee: 'ELMBRIDGE BOROUGH COUNCIL', category: 'Council Tax', account: 'current',
+    // Rises every April, as a council tax bill does.
+    steps: [
+      [0, 198.42], [mi(2017, 4), 207.33], [mi(2018, 4), 216.65], [mi(2019, 4), 226.40],
+      [mi(2020, 4), 236.58], [mi(2021, 4), 247.23], [mi(2022, 4), 258.35], [mi(2023, 4), 269.98],
+      [mi(2024, 4), 282.13], [mi(2025, 4), 294.82], [mi(2026, 4), 308.09],
+    ],
+  },
+  {
+    day: 5, payee: 'THAMES WATER', category: 'Water & Sewerage', account: 'current',
+    steps: [
+      [0, 42.16], [mi(2018, 4), 45.30], [mi(2020, 4), 48.75], [mi(2022, 4), 53.10],
+      [mi(2024, 4), 61.40], [mi(2025, 4), 74.85],
+    ],
+  },
+  {
+    day: 2, payee: 'TV LICENCE MONTHLY', category: 'Telephone/Broadband/Sky/Tv Licence', account: 'current',
+    steps: [
+      [0, 12.13], [mi(2017, 4), 12.25], [mi(2018, 4), 12.54], [mi(2019, 4), 12.88],
+      [mi(2020, 4), 13.13], [mi(2021, 4), 13.25], [mi(2024, 4), 14.13], [mi(2025, 4), 14.54],
+    ],
+  },
+  // Connectivity.
+  {
+    day: 7, payee: 'SKY Q TV & BROADBAND', category: 'Telephone/Broadband/Sky/Tv Licence', account: 'current',
+    steps: [
+      [0, 62.00], [mi(2018, 6), 68.00], [mi(2020, 6), 74.00], [mi(2022, 6), 81.00],
+      [mi(2024, 6), 89.00], [mi(2026, 6), 96.00],
+    ],
+  },
+  {
+    day: 9, payee: 'EE MOBILE', category: 'Mobile Phone', account: 'current',
+    steps: [
+      [0, 35.00], [mi(2019, 3), 40.00], [mi(2022, 3), 46.00], [mi(2024, 3), 52.00],
+      [mi(2026, 3), 58.00],
+    ],
+  },
+  // Streaming — the recognisable heart of the report, each starting when it
+  // actually launched in the UK and rising the way it actually rose.
+  {
+    day: 13, payee: 'NETFLIX.COM', category: 'Subscriptions', account: 'amex',
+    steps: [
+      [0, 7.49], [mi(2019, 6), 8.99], [mi(2021, 4), 9.99], [mi(2023, 3), 10.99],
+      [mi(2025, 2), 12.99],
+    ],
+  },
+  {
+    day: 14, payee: 'SPOTIFY UK', category: 'Subscriptions', account: 'amex',
+    steps: [[0, 9.99], [mi(2023, 4), 10.99], [mi(2024, 5), 11.99]],
+  },
+  {
+    day: 16, payee: 'AMAZON PRIME MEMBERSHIP', category: 'Subscriptions', account: 'amex',
+    steps: [[0, 7.99], [mi(2022, 9), 8.99]],
+  },
+  {
+    day: 17, payee: 'DISNEY PLUS', category: 'Subscriptions', account: 'amex',
+    steps: [[mi(2020, 4), 5.99], [mi(2021, 2), 7.99], [mi(2023, 11), 8.99], [mi(2025, 10), 10.99]],
+  },
+  {
+    day: 18, payee: 'PARAMOUNT PLUS', category: 'Subscriptions', account: 'amex',
+    steps: [[mi(2022, 7), 6.99], [mi(2024, 8), 7.99]],
+  },
+  {
+    day: 19, payee: 'APPLE.COM/BILL ICLOUD', category: 'Subscriptions', account: 'amex',
+    steps: [[0, 2.49], [mi(2021, 5), 6.99], [mi(2023, 11), 8.99]],
+  },
+  // The rest of a life.
+  {
+    day: 15, payee: 'DAVID LLOYD CLUBS', category: 'Subscriptions', account: 'current',
+    steps: [
+      [0, 85.00], [mi(2018, 9), 95.00], [mi(2021, 9), 110.00], [mi(2023, 9), 128.00],
+      [mi(2025, 9), 145.00],
+    ],
+  },
+  {
+    day: 11, payee: 'AVIVA HOME INSURANCE', category: 'Insurance', account: 'current',
+    // Renews each September, as an annual policy paid monthly does.
+    steps: [
+      [0, 41.20], [mi(2018, 9), 44.60], [mi(2020, 9), 49.80], [mi(2022, 9), 58.40],
+      [mi(2024, 9), 68.90], [mi(2025, 9), 74.20],
+    ],
+  },
+  {
+    day: 12, payee: 'ADMIRAL MULTICAR', category: 'Insurance-V', account: 'current',
+    steps: [
+      [0, 88.50], [mi(2018, 3), 94.20], [mi(2020, 3), 102.60], [mi(2022, 3), 121.40],
+      [mi(2024, 3), 148.30], [mi(2026, 3), 162.75],
+    ],
+  },
+  {
+    day: 22, payee: 'CANCER RESEARCH UK', category: 'Gifts', account: 'current',
+    steps: [[0, 20.00], [mi(2021, 1), 25.00], [mi(2024, 1), 30.00]],
+  },
 ];
 
 // ── The ledger being built ───────────────────────────────────────────────────
@@ -427,24 +572,49 @@ for (let i = 0; i < MONTHS; i += 1) {
 
   // ── Bills and life, era-scaled ─────────────────────────────────────────────
   const scale = lerp(1, 1.9, i);            // prices roughly double over the decade
-  const bill = (day: number, payee: string, base: number, catName: string, acct = 'current'): void => {
-    const amt = -jitter(base * scale, 0.06);
+  const post = (day: number, payee: string, amount: number, catName: string, acct: string): void => {
+    const amt = -amount;
     add(acct, monthDate(i, day), payee, amt, `CAT:${catName}`);
     if (acct === 'current') currentBal += amt;
     else if (acct === 'amex') amexOwed -= amt;
     else visaOwed -= amt;
   };
+  /** Genuinely variable spending: a shop, a tank of fuel, a restaurant. */
+  const bill = (day: number, payee: string, base: number, catName: string, acct = 'current'): void =>
+    post(day, payee, jitter(base * scale, 0.06), catName, acct);
+  /** A commitment at its exact price — see the note by SUBSCRIPTIONS. */
+  const fixedBill = (day: number, payee: string, price: number, catName: string, acct = 'current'): void =>
+    post(day, payee, price, catName, acct);
 
-  bill(1, 'ELMBRIDGE BOROUGH COUNCIL', 210, 'Council Tax');
-  bill(3, 'OCTOPUS ENERGY', 160, 'Gas & Electricity');
-  bill(5, 'THAMES WATER', 48, 'Water & Sewerage');
-  bill(7, 'SKY Q & BROADBAND', 78, 'Telephone/Broadband/Sky/Tv Licence');
-  bill(9, 'EE MOBILE', 55, 'Mobile Phone');
-  bill(11, 'AVIVA HOME INSURANCE', 62, 'Insurance');
-  bill(12, 'ADMIRAL MULTICAR', 98, 'Insurance-V');
-  bill(13, 'NETFLIX.COM', 11, 'Subscriptions');
-  bill(14, 'SPOTIFY UK', 10, 'Subscriptions');
-  bill(15, 'DAVID LLOYD CLUBS', 89, 'Subscriptions');
+  // ── The commitments everybody recognises ───────────────────────────────────
+  // Each holds its price TO THE PENNY and steps on a plausible date, because
+  // that is both how a subscription behaves and what the detector reads: it
+  // qualifies a pattern on runs of identical amounts, which is how it tells a
+  // subscription from a supermarket (utils/recurringDetection). Jittering
+  // these — as the first cut did — produced a recurring report showing car
+  // finance and nothing else, because Netflix never charged the same figure
+  // twice. Stepping prices also feed the detector's most useful output: the
+  // price CHANGE, dated, with its annual impact.
+  for (const s of SUBSCRIPTIONS) {
+    const price = subscriptionPrice(s.steps, i);
+    if (price === null) continue;   // the service did not exist yet
+    fixedBill(s.day, s.payee, price, s.category, s.account);
+  }
+
+  // Energy is the honest exception: it genuinely varies by season, and spiked
+  // through 2022. Left variable on purpose — a utility that wanders is what
+  // the report's Confirm button exists for.
+  {
+    const { m: month } = ym(i);
+    // Cheapest in July, dearest in January; the 2021-23 crisis on top. Posted
+    // through `post` rather than `bill` deliberately: `bill` applies the
+    // decade's price scale, and this figure already carries its own drift —
+    // stacking the two put a £649 energy bill in the ledger.
+    const winter = 1 + 0.42 * Math.cos(((month - 1) / 12) * 2 * Math.PI);
+    const crisis = i >= mi(2021, 10) && i <= mi(2023, 6) ? 1.75 : 1;
+    post(3, 'OCTOPUS ENERGY', jitter(lerp(120, 185, i) * winter * crisis, 0.05),
+      'Gas & Electricity', 'current');
+  }
 
   // Cards: the day-to-day, always on plastic (owner's spec).
   bill(dayNear(4), 'SHELL WEYBRIDGE', 55, 'Fuel Costs', 'amex');
