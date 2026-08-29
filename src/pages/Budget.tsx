@@ -16,6 +16,7 @@ import SpendingAlerts from '../components/SpendingAlerts';
 import type { Budget } from '../types';
 import { getEffectiveBudgetAmount } from '../utils/budgetAmounts';
 import PageWrapper from '../components/PageWrapper';
+import BudgetSetupModal from '../components/BudgetSetupModal';
 import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
 import PageTip from '../components/PageTip';
 import EmptyState from '../components/EmptyState';
@@ -47,6 +48,8 @@ function BudgetView() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  /** The evidence-first setup screen (owner's spec, 29 Aug). */
+  const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   /**
    * §12 (owner, 23 Aug): ONE budgeting approach — the traditional page IS
@@ -302,6 +305,19 @@ function BudgetView() {
     <PageWrapper
       title="Budget"
       rightContent={
+        <div className="flex items-center gap-2">
+        {/* The evidence-first way in (owner, 29 Aug): a budget set against
+            what you actually spent beats one guessed at a blank box. Offered
+            BESIDE the single-budget button rather than instead of it — the
+            two answer different questions, "set them all up" and "add this
+            one". */}
+        <button
+          onClick={() => setIsSetupOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 border border-line dark:border-gray-600 text-gray-700 dark:text-gray-200 text-body font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          title="Set budgets from your spending"
+        >
+          Set from my spending
+        </button>
         <button
           onClick={() => setIsModalOpen(true)}
           className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white text-body font-medium rounded-lg hover:bg-[#2d3a4d] transition-colors shadow-sm"
@@ -315,6 +331,7 @@ function BudgetView() {
               were two primaries in two cases on one page. */}
           Create a budget
         </button>
+        </div>
       }
     >
 
@@ -572,6 +589,8 @@ function BudgetView() {
           ))}
         </div>
       )}
+
+      <BudgetSetupModal isOpen={isSetupOpen} onClose={() => setIsSetupOpen(false)} />
 
       <BudgetModal
         isOpen={isModalOpen}
