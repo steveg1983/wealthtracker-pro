@@ -7,7 +7,6 @@ import { VirtualizedTable, type Column } from '../../components/VirtualizedTable
 import EmptyState from '../../components/EmptyState';
 import FilteredEmptyState from '../../components/FilteredEmptyState';
 import RenamePayeesModal from '../../components/RenamePayeesModal';
-import DismissSuggestionPrompt from '../../components/sweeps/DismissSuggestionPrompt';
 import DismissedPayeeSuggestions from '../../components/DismissedPayeeSuggestions';
 import { SearchIcon, XIcon } from '../../components/icons';
 import {
@@ -175,17 +174,19 @@ const SuggestionRow = React.memo(function SuggestionRow({
   );
 });
 
-interface DismissPrompt {
+/**
+ * A refusal, written the moment it is made. There is no "and never again?"
+ * follow-up any more (owner, 29 Aug: refusing IS the judgment) — safe as one
+ * step because every refusal is its own restorable row in "Dismissed
+ * suggestions" at the foot of this page.
+ */
+interface RefusalBatch {
   kind: DismissalKind;
   /**
    * One key per refusal to save: one for the two single-subject kinds, and one
    * per ticked payee when a selection is being taken off the page.
    */
   subjectKeys: string[];
-  /** Reads mid-sentence: "Do you want … eliminated from this report in future?" */
-  subject: string;
-  /** What answering No leaves behind. */
-  keepingMeans: string;
   /** Said once the refusal is saved — the consequence, not the count. */
   success: string;
   /**
@@ -270,14 +271,16 @@ export default function PayeeCleanup(): React.JSX.Element {
    */
   const [sortField, setSortField] = useState<PayeeSortField>('count');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  /** Refused for this sitting only — the answer to "No, just this once". */
+  /**
+   * Refused this sitting — the bridge between the click and the persisted
+   * refusal arriving back through suggestionDismissals (and, if the write
+   * failed, what keeps the refusal honoured on screen while the failure note
+   * says it was not saved).
+   */
   const [sittingMerchants, setSittingMerchants] = useState<ReadonlySet<string>>(new Set());
   const [sittingLines, setSittingLines] = useState<ReadonlySet<string>>(new Set());
   const [sittingHidden, setSittingHidden] = useState<ReadonlySet<string>>(new Set());
-  const [prompt, setPrompt] = useState<DismissPrompt | null>(null);
   const [savingDismissal, setSavingDismissal] = useState(false);
-  /** How far through a batch the save is, for the button that is waiting on it. */
-  const [savedSoFar, setSavedSoFar] = useState(0);
   const [saveFailure, setSaveFailure] = useState<SaveFailure | null>(null);
   const [restoringKey, setRestoringKey] = useState<string | null>(null);
 
@@ -425,10 +428,69 @@ export default function PayeeCleanup(): React.JSX.Element {
   }, []);
 
   /**
-   * Refusing a whole suggested merchant. It goes out of sight immediately —
-   * that much is this sitting's decision either way — and the prompt then asks
-   * whether to remember it. The members are unticked with it: refusing the
-   * grouping is not the same as leaving it queued up for a rename.
+   * Write a batch of refusals, one row each, and report exactly what got
+   * through. Sequential rather than in parallel: these are small batches, the
+   * order is the user's own, and a burst of inserts that half-fails is far
+   * harder to say anything true about afterwards.
+   *
+   * Never throws. The caller needs the partial result — which keys are saved
+   * and which are not — far more than it needs an exception.
+   */
+  const saveRefusals = useCallback(async (
+    kind: DismissalKind,
+    keys: string[]
+  ): Promise<SaveOutcome> => {
+    let saved = 0;
+    const failedKeys: string[] = [];
+    let reason = '';
+    for (const key of keys) {
+      try {
+        // No transaction ids, deliberately: this refusal is about payee text,
+        // which outlives any particular row — re-import a statement and the same
+        // wording arrives on brand new transactions.
+        await dismissSuggestion(kind, key, []);
+        saved += 1;
+      } catch (error) {
+        failedKeys.push(key);
+        // The first reason is the one shown: a batch that fails fails for one
+        // cause (no connection, a constraint), and repeating it per row would
+        // bury the consequence under the same sentence forty times.
+        if (reason === '') reason = reasonFrom(error);
+      }
+    }
+    return { saved, failedKeys, reason };
+  }, [dismissSuggestion]);
+
+  /** Write a refusal the moment it is made — see RefusalBatch. */
+  const persistRefusals = useCallback(async (batch: RefusalBatch): Promise<void> => {
+    setSavingDismissal(true);
+    try {
+      const outcome = await saveRefusals(batch.kind, batch.subjectKeys);
+      if (outcome.failedKeys.length === 0) {
+        showSuccess(batch.success, 'Refused — remembered');
+        return;
+      }
+      // Said on the page rather than only in a toast: the payees are already
+      // out of the list, so the screen looks saved whether it saved or not.
+      setSaveFailure({
+        kind: batch.kind,
+        subjectKeys: outcome.failedKeys,
+        saved: outcome.saved,
+        ifNotSaved: batch.ifNotSaved,
+        success: batch.success,
+        reason: outcome.reason,
+      });
+      showError(new Error('That could not be saved — see the note on the page.'));
+    } finally {
+      setSavingDismissal(false);
+    }
+  }, [saveRefusals, showSuccess, showError]);
+
+  /**
+   * Refusing a whole suggested merchant. It goes out of sight immediately and
+   * the refusal is written in the same breath — see RefusalBatch. The members
+   * are unticked with it: refusing the grouping is not the same as leaving it
+   * queued up for a rename.
    */
   const refuseMerchant = useCallback((cluster: PayeeCluster): void => {
     const subjectKey = payeeMerchantDismissalKey(cluster.key);
@@ -436,32 +498,28 @@ export default function PayeeCleanup(): React.JSX.Element {
     untick(cluster.members.map(m => m.description));
     setActiveKey(null);
     setQuery('');
-    setPrompt({
+    void persistRefusals({
       kind: 'payee-merchant',
       subjectKeys: [subjectKey],
-      subject: `the “${cluster.key}” suggestion`,
-      keepingMeans: 'it drops off the suggestions for now',
       success: `“${cluster.key}” will not be suggested again. Nothing was renamed and no payee `
         + 'is hidden — bring it back any time from “Dismissed suggestions” at the foot of this page.',
       ifNotSaved: 'it will be suggested again the next time this page opens',
     });
-  }, [untick]);
+  }, [untick, persistRefusals]);
 
   /** Refusing one payee's place in a suggestion. The payee itself stays listed. */
   const refuseLine = useCallback((merchantKey: string, payee: PayeeSummary): void => {
     const subjectKey = payeeLineDismissalKey(merchantKey, payee.description);
     setSittingLines(prev => new Set(prev).add(subjectKey));
     untick([payee.description]);
-    setPrompt({
+    void persistRefusals({
       kind: 'payee-line',
       subjectKeys: [subjectKey],
-      subject: `“${payee.description}” under “${merchantKey}”`,
-      keepingMeans: 'it drops out of this suggestion for now',
       success: `“${payee.description}” will stay out of the “${merchantKey}” suggestion. `
         + 'Nothing was renamed and the payee is still in the list below.',
       ifNotSaved: 'it will be part of that suggestion again the next time this page opens',
     });
-  }, [untick]);
+  }, [untick, persistRefusals]);
 
   /**
    * The widest refusal, and the one the owner asked for: the ticked payees come
@@ -488,19 +546,9 @@ export default function PayeeCleanup(): React.JSX.Element {
     setSaveFailure(null);
 
     const many = descriptions.length > 1;
-    // A SINGULAR phrase even for a batch ("this selection of 12 payees"): the
-    // prompt reads it mid-sentence three times, twice as the subject of a verb,
-    // and "these 12 payees is remembered as refused" is not a sentence.
-    const named = many
-      ? `this selection of ${descriptions.length.toLocaleString()} payees`
-      : `“${descriptions[0]}”`;
-    setPrompt({
+    void persistRefusals({
       kind: 'payee-hidden',
       subjectKeys,
-      subject: named,
-      keepingMeans: many
-        ? 'the selection drops off this page for now'
-        : 'it drops off this page for now',
       success: many
         ? `${descriptions.length.toLocaleString()} payees will not be listed or suggested here `
           + 'again. Nothing was renamed and no transaction changed — bring any of them back from '
@@ -512,74 +560,11 @@ export default function PayeeCleanup(): React.JSX.Element {
         ? 'they will be back in the list the next time this page opens'
         : 'it will be back in the list the next time this page opens',
     });
-  }, [selectedPayees, untick]);
-
-  /**
-   * Write a batch of refusals, one row each, and report exactly what got
-   * through. Sequential rather than in parallel: these are small batches, the
-   * order is the user's own, and a burst of inserts that half-fails is far
-   * harder to say anything true about afterwards.
-   *
-   * Never throws. The caller needs the partial result — which keys are saved
-   * and which are not — far more than it needs an exception.
-   */
-  const saveRefusals = useCallback(async (
-    kind: DismissalKind,
-    keys: string[]
-  ): Promise<SaveOutcome> => {
-    let saved = 0;
-    const failedKeys: string[] = [];
-    let reason = '';
-    for (const key of keys) {
-      try {
-        // No transaction ids, deliberately: this refusal is about payee text,
-        // which outlives any particular row — re-import a statement and the same
-        // wording arrives on brand new transactions.
-        await dismissSuggestion(kind, key, []);
-        saved += 1;
-        setSavedSoFar(saved);
-      } catch (error) {
-        failedKeys.push(key);
-        // The first reason is the one shown: a batch that fails fails for one
-        // cause (no connection, a constraint), and repeating it per row would
-        // bury the consequence under the same sentence forty times.
-        if (reason === '') reason = reasonFrom(error);
-      }
-    }
-    return { saved, failedKeys, reason };
-  }, [dismissSuggestion]);
-
-  const confirmDismissal = useCallback(async (): Promise<void> => {
-    if (!prompt) return;
-    setSavingDismissal(true);
-    setSavedSoFar(0);
-    try {
-      const outcome = await saveRefusals(prompt.kind, prompt.subjectKeys);
-      setPrompt(null);
-      if (outcome.failedKeys.length === 0) {
-        showSuccess(prompt.success, 'Left out in future');
-        return;
-      }
-      // Said on the page rather than only in a toast: the payees are already
-      // out of the list, so the screen looks saved whether it saved or not.
-      setSaveFailure({
-        kind: prompt.kind,
-        subjectKeys: outcome.failedKeys,
-        saved: outcome.saved,
-        ifNotSaved: prompt.ifNotSaved,
-        success: prompt.success,
-        reason: outcome.reason,
-      });
-      showError(new Error('That could not be saved — see the note on the page.'));
-    } finally {
-      setSavingDismissal(false);
-    }
-  }, [prompt, saveRefusals, showSuccess, showError]);
+  }, [selectedPayees, untick, persistRefusals]);
 
   const retrySave = useCallback(async (): Promise<void> => {
     if (!saveFailure) return;
     setSavingDismissal(true);
-    setSavedSoFar(0);
     try {
       const outcome = await saveRefusals(saveFailure.kind, saveFailure.subjectKeys);
       if (outcome.failedKeys.length === 0) {
@@ -1089,23 +1074,6 @@ export default function PayeeCleanup(): React.JSX.Element {
         onRenamed={() => setSelected(new Set())}
       />
 
-      {prompt && (
-        <DismissSuggestionPrompt
-          isOpen
-          subject={prompt.subject}
-          keepingMeans={prompt.keepingMeans}
-          saving={savingDismissal}
-          // A batch of refusals is a batch of writes, and a button that says
-          // only "Saving…" for forty of them looks stuck rather than busy.
-          savingLabel={
-            prompt.subjectKeys.length > 1
-              ? `Saving ${savedSoFar.toLocaleString()} of ${prompt.subjectKeys.length.toLocaleString()}…`
-              : undefined
-          }
-          onKeep={() => setPrompt(null)}
-          onDismiss={() => void confirmDismissal()}
-        />
-      )}
     </PageWrapper>
   );
 }

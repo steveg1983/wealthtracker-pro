@@ -25,7 +25,6 @@ import {
   strandedDismissalKey,
   strandedDismissalSubjectIds,
 } from '../utils/suggestionDismissals';
-import DismissSuggestionPrompt from './sweeps/DismissSuggestionPrompt';
 import DismissedSuggestionsSection from './sweeps/DismissedSuggestionsSection';
 import { useAccountNames } from '../hooks/useAccountNames';
 import { AlertTriangleIcon, ArrowRightIcon } from './icons';
@@ -71,15 +70,16 @@ type StrandedSortKey = 'date' | 'account' | 'problem' | 'amount';
 const SWEEP_KINDS: readonly DismissalKind[] = ['transfer-pair', 'transfer-leg', 'stranded'];
 
 /**
- * A refusal waiting on the "and never again?" answer. Carries what to write if
- * the answer is yes, and the two sentences the question is asked with.
+ * A refusal, written the moment it is made. There is no "and never again?"
+ * follow-up any more (owner, 29 Aug: refusing a suggestion IS the judgment,
+ * and the no-commitment path is closing the dialog without answering) — safe
+ * as one step because every refusal is its own restorable row in "Dismissed
+ * suggestions" at the foot of this window.
  */
-interface PendingDismissal {
+interface RefusalToWrite {
   kind: DismissalKind;
   subjectKey: string;
   subjectIds: string[];
-  subject: string;
-  keepingMeans: string;
 }
 
 /** Case-insensitive, so "BARCLAYS" and "Barclays" sit together, not in two blocks. */
@@ -309,13 +309,9 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
   const [reviewing, setReviewing] = useState<StrandedFinding | null>(null);
   const [resolving, setResolving] = useState(false);
   // "Leave it" answered NO to the follow-up: a decision for this sitting only.
-  // The finding drops out of the list now and comes back next time if the data
-  // still looks that way. Answering YES writes a suggestion_dismissals row
-  // instead, and that one never comes back until it is restored.
+  // Refused findings, keyed — the bridge between the click and the persisted
+  // refusal arriving back through suggestionDismissals.
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-  // The refusal waiting on that follow-up, and the writes it can cause.
-  const [dismissPrompt, setDismissPrompt] = useState<PendingDismissal | null>(null);
-  const [savingDismissal, setSavingDismissal] = useState(false);
   const [restoringKey, setRestoringKey] = useState<string | null>(null);
   // A leg in a CLOSED account can't open a register directly — this prompt
   // offers the Money-style way through: re-open the account, then jump to
@@ -506,26 +502,26 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
     f.kind === 'claimed' || f.kind === 'one-sided';
 
   /**
-   * Answering the "and never again?" question with yes. Failures are surfaced
-   * and the prompt stays open: a refusal the user believes was remembered, and
-   * was not, is the bug this whole feature exists to fix.
+   * Write the refusal the moment it is made — see RefusalToWrite. A failed
+   * write is told with its consequence, because the item is already out of
+   * this sitting's view either way: the screen looks decided whether the
+   * decision saved or not, and a refusal the user believes was remembered,
+   * and was not, is the bug this whole feature exists to fix.
    */
-  const handleDismiss = async (): Promise<void> => {
-    if (!dismissPrompt) return;
-    setSavingDismissal(true);
+  const persistRefusal = async (refusal: RefusalToWrite): Promise<void> => {
     try {
-      await dismissSuggestion(
-        dismissPrompt.kind, dismissPrompt.subjectKey, dismissPrompt.subjectIds
-      );
+      await dismissSuggestion(refusal.kind, refusal.subjectKey, refusal.subjectIds);
       showSuccess(
         'It will not be offered again. Bring it back any time from “Dismissed suggestions” at the foot of this list.',
-        'Left out in future'
+        'Refused — remembered'
       );
-      setDismissPrompt(null);
     } catch (error) {
       showError(error);
-    } finally {
-      setSavingDismissal(false);
+      showError(
+        new Error(
+          'That refusal was NOT saved — it stays out of this sitting, but it will be offered again the next time you run this.'
+        )
+      );
     }
   };
 
@@ -1214,14 +1210,12 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                   const next = new Set(effectiveSelected);
                   next.delete(keyOf(inspecting));
                   setSelected(next);
-                  setDismissPrompt({
+                  setInspecting(null);
+                  void persistRefusal({
                     kind: 'transfer-pair',
                     subjectKey: pairDismissalKey(inspecting),
                     subjectIds: pairDismissalSubjectIds(inspecting),
-                    subject: 'this pairing',
-                    keepingMeans: 'it stays in the list below, unticked, until you close this window',
                   });
-                  setInspecting(null);
                 }}
                 className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
@@ -1283,14 +1277,12 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                   const next = new Set(effectiveSelected);
                   next.delete(keyOfLeg(inspectingLeg));
                   setSelected(next);
-                  setDismissPrompt({
+                  setInspectingLeg(null);
+                  void persistRefusal({
                     kind: 'transfer-leg',
                     subjectKey: legDismissalKey(inspectingLeg),
                     subjectIds: legDismissalSubjectIds(inspectingLeg),
-                    subject: 'this line match',
-                    keepingMeans: 'it stays in the list below, unticked, until you close this window',
                   });
-                  setInspectingLeg(null);
                 }}
                 className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
@@ -1415,14 +1407,12 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                 disabled={resolving}
                 onClick={() => {
                   setDismissed(prev => new Set(prev).add(keyOfFinding(reviewing)));
-                  setDismissPrompt({
+                  setReviewing(null);
+                  void persistRefusal({
                     kind: 'stranded',
                     subjectKey: strandedDismissalKey(reviewing),
                     subjectIds: strandedDismissalSubjectIds(reviewing),
-                    subject: 'this row',
-                    keepingMeans: 'it drops off the list for now',
                   });
-                  setReviewing(null);
                 }}
                 className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
@@ -1439,19 +1429,6 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
             </div>
           </ModalFooter>
         </Modal>
-      )}
-
-      {/* Every refusal above is followed by the same question: and never
-          again? Answering No leaves today's behaviour exactly as it was. */}
-      {dismissPrompt && (
-        <DismissSuggestionPrompt
-          isOpen
-          subject={dismissPrompt.subject}
-          keepingMeans={dismissPrompt.keepingMeans}
-          saving={savingDismissal}
-          onKeep={() => setDismissPrompt(null)}
-          onDismiss={() => void handleDismiss()}
-        />
       )}
 
       {/* The closed-account way through: closed accounts have no register
