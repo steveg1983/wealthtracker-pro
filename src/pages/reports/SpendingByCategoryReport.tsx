@@ -75,7 +75,7 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
         totals,
         entry => entry.value,
         entry => entry.name,
-        count => `${count} smaller categories`
+        'categories'
       ).map(({ name, value, source }) => ({ categoryId: source?.key, name, value })),
     [totals]
   );

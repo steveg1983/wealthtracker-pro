@@ -186,12 +186,12 @@ describe('capSeriesWithRemainder — the fold a capped chart answers clicks with
     { id: 'g', total: 25 },
   ];
   const cap = (list: typeof items) =>
-    capSeriesWithRemainder(list, i => i.total, i => i.id, count => `${count} smaller`);
+    capSeriesWithRemainder(list, i => i.total, i => i.id, 'things');
 
   it('folds everything past the ceiling into one named remainder', () => {
     const rows = cap(items);
     expect(rows.length).toBe(MAX_CATEGORICAL_SERIES);
-    expect(rows[rows.length - 1]).toMatchObject({ name: '3 smaller', value: 175 });
+    expect(rows[rows.length - 1]).toMatchObject({ name: '3 smaller things', value: 175 });
   });
 
   it('carries the caller’s own datum on every real slice, and none on the fold', () => {
@@ -206,5 +206,83 @@ describe('capSeriesWithRemainder — the fold a capped chart answers clicks with
     const rows = cap(items.slice(0, 3));
     expect(rows.map(r => r.name)).toEqual(['a', 'b', 'c']);
     expect(rows.every(r => r.source !== undefined)).toBe(true);
+  });
+
+  /**
+   * THE OWNER'S REPORT, 29 August, in the shape he met it.
+   *
+   * His Asset Allocation legend read "Rathbones Share ISA 10.05%, NS&I 0.02%,
+   * IG Index 3.82%, Outward LLP 7.38%, 2 smaller accounts 78.73%" — his own
+   * question: "at 78.73%, there are not '2 smaller accounts', they are the
+   * bulk of the assets?". `buildPortfolioSummary` hands its lines over in
+   * ACCOUNT order, and this function took the first four of whatever it was
+   * given, so the fold was "the last two in the caller's array" and his two
+   * largest happened to sit there.
+   */
+  describe('ranks before it folds — the fold is the tail, not whatever was last', () => {
+    // The two biggest sit LAST, exactly as they did in his account list.
+    const unranked = [
+      { id: 'small-a', total: 1000 },
+      { id: 'sliver', total: 2 },
+      { id: 'small-b', total: 380 },
+      { id: 'small-c', total: 740 },
+      // Ascending at the end on purpose: an unranked fold would come out in
+      // this order too, so "largest first" below is testing something.
+      { id: 'second', total: 3878 },
+      { id: 'biggest', total: 4000 },
+    ];
+
+    it('keeps the four LARGEST as slices of their own, whatever order they arrive in', () => {
+      const rows = cap(unranked);
+      expect(rows.slice(0, -1).map(r => r.source?.id)).toEqual([
+        'biggest', 'second', 'small-a', 'small-c',
+      ]);
+    });
+
+    it('folds only what is smaller than every slice it is drawn beside', () => {
+      const rows = cap(unranked);
+      const fold = rows[rows.length - 1];
+      const named = rows.slice(0, -1).map(r => r.value);
+      // 380 + 2 — the two the reader would never have missed, not the 7,878
+      // that was the bulk of the portfolio.
+      expect(fold).toMatchObject({ name: '2 smaller things', value: 382 });
+      for (const member of fold.folded ?? []) {
+        expect(Math.min(...named)).toBeGreaterThan(member.value);
+      }
+    });
+
+    it('its count and its value describe exactly what is inside it', () => {
+      const fold = cap(unranked)[MAX_CATEGORICAL_SERIES - 1];
+      const inside = fold.folded ?? [];
+      // The three claims a fold row makes: how many, how much, and — since it
+      // is what the reader opens — which ones.
+      expect(inside.map(m => m.source.id)).toEqual(['small-b', 'sliver']);
+      expect(inside.length).toBe(2);
+      expect(inside.reduce((sum, m) => sum + m.value, 0)).toBe(fold.value);
+      expect(fold.name.startsWith(`${inside.length} `)).toBe(true);
+    });
+
+    it('lists what it folded largest first, so opening it reads like the legend', () => {
+      const fold = cap(unranked)[MAX_CATEGORICAL_SERIES - 1];
+      const values = (fold.folded ?? []).map(m => m.value);
+      expect(values).toEqual([...values].sort((a, b) => b - a));
+    });
+
+    it('leaves the caller’s own array alone', () => {
+      const order = unranked.map(i => i.id);
+      cap(unranked);
+      expect(unranked.map(i => i.id)).toEqual(order);
+    });
+  });
+
+  it('does not call a fold “smaller” when it outweighs the biggest named slice', () => {
+    // A long flat tail: sixteen equals behind four equals. Every folded item
+    // IS smaller than every named one, so "smaller" is true of each of them
+    // and a lie about the group — which is the same sentence the owner was
+    // asked to believe, arrived at from the other direction.
+    const flat = Array.from({ length: 20 }, (_unused, i) => ({ id: `x${i}`, total: 5 }));
+    const fold = cap(flat)[MAX_CATEGORICAL_SERIES - 1];
+    expect(fold.value).toBeGreaterThan(5);
+    expect(fold.name).toBe('16 other things');
   });
 });

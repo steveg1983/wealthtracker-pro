@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import {
   ResponsiveContainer,
+  AreaChart,
+  Area,
   LineChart,
   Line,
   XAxis,
@@ -14,7 +16,7 @@ import {
 import { useApp } from '../../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../../hooks/useCurrencyDecimal';
 import { categoricalColor, MAX_CATEGORICAL_SERIES, useCategoricalRamp, SEMANTIC_SERIES, useChartTooltipStyle, useChartTooltipItemStyle } from '../../charts/chartColors';
-import { singlePointDot } from '../../charts/singlePointDots';
+import { lineMarkers, seriesWash, seriesWashFill } from '../../charts/richLine';
 import { buildMonthlyTrend } from '../../../utils/monthlyTrend';
 import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthPointToken, netWorthValueAxis } from '../../../utils/netWorthSeries';
 import { useInvestmentValuation } from '../../../hooks/useInvestmentValuation';
@@ -75,6 +77,8 @@ const compactTick = (value: number): string => {
 };
 
 const NET_WORTH_TITLE = 'Net Worth Over Time';
+/** Names this card's wash in the document — stated once, used twice. */
+const NET_WORTH_CHART_KEY = 'dashboard-net-worth';
 
 export function NetWorthWidget({ picker, pin }: {
   picker: UsePeriodResult;
@@ -184,7 +188,7 @@ export function NetWorthWidget({ picker, pin }: {
               3px ring that reads as an empty plot — see
               charts/singlePointDots for the measurement. The click still
               comes from the chart, so that case needs nothing extra here.) */}
-          <LineChart
+          <AreaChart
             data={snapshots}
             style={{ cursor: 'pointer' }}
             onClick={(state) => {
@@ -192,6 +196,7 @@ export function NetWorthWidget({ picker, pin }: {
               if (snapshot) open(netWorthPointToken(snapshot.date));
             }}
           >
+            {seriesWash(NET_WORTH_CHART_KEY, lineStroke)}
             {/* Years for a multi-year window, months within one — the tick
                 format follows the span (Design, 17 Aug §2.3). */}
             <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 10 }} minTickGap={32} {...netWorthAxisTicks(snapshots)} />
@@ -207,8 +212,24 @@ export function NetWorthWidget({ picker, pin }: {
               {...netWorthValueAxis(snapshots.map(s => s.netWorth))}
             />
             <Tooltip contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": " formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
-            <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke={lineStroke} strokeWidth={2} dot={singlePointDot(snapshots, lineStroke)} isAnimationActive={false} />
-          </LineChart>
+            {/* ONE series, so it may take the wash (charts/richLine): a
+                gradient of its own stroke colour fading to nothing gives the
+                card the body an investment platform's charts have, without
+                spending a second colour on it. `lineStroke` is ground-aware,
+                and the wash is derived from it rather than pinned, so the card
+                does not keep a light-mode navy after dusk. */}
+            <Area
+              type="monotone"
+              dataKey="netWorth"
+              name="Net Worth"
+              stroke={lineStroke}
+              strokeWidth={2}
+              fill={seriesWashFill(NET_WORTH_CHART_KEY, lineStroke)}
+              fillOpacity={1}
+              {...lineMarkers(snapshots, lineStroke)}
+              isAnimationActive={false}
+            />
+          </AreaChart>
         </ResponsiveContainer>
       </div>
       )}
@@ -295,8 +316,12 @@ export function IncomeExpenseTrendWidget({ picker, pin }: {
             <XAxis dataKey="month" tick={{ fill: '#6B7280', fontSize: 10 }} minTickGap={32} />
             <YAxis tick={{ fill: '#6B7280', fontSize: 10 }} tickFormatter={compactTick} width={44} />
             <Tooltip contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": " formatter={(v: number | string) => formatCurrency(typeof v === 'number' ? v : Number(v))} />
-            <Line type="monotone" dataKey="income" name="Income" stroke={SEMANTIC_SERIES.income} strokeWidth={2} dot={singlePointDot(data, SEMANTIC_SERIES.income)} isAnimationActive={false} />
-            <Line type="monotone" dataKey="expenses" name="Expenses" stroke={SEMANTIC_SERIES.expense} strokeWidth={2} dot={singlePointDot(data, SEMANTIC_SERIES.expense)} isAnimationActive={false} />
+            {/* No wash on these two (charts/richLine): income and expenses
+                cross, and two translucent fills over each other make a third
+                colour — on the one pair a colour-blind reader already cannot
+                separate. They take the marks half of the idiom and stop. */}
+            <Line type="monotone" dataKey="income" name="Income" stroke={SEMANTIC_SERIES.income} strokeWidth={2} {...lineMarkers(data, SEMANTIC_SERIES.income)} isAnimationActive={false} />
+            <Line type="monotone" dataKey="expenses" name="Expenses" stroke={SEMANTIC_SERIES.expense} strokeWidth={2} {...lineMarkers(data, SEMANTIC_SERIES.expense)} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>

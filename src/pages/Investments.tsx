@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { preserveDemoParam } from '../utils/navigation';
 import { Modal, ModalBody } from '../components/common/Modal';
 import { formatDate } from '../utils/dateFormatter';
@@ -12,12 +12,13 @@ import { allInAverageCost } from '../services/investments/purchaseMath';
 import { transferCategoryIdFor } from '../utils/transferRepoint';
 import StockWatchlist from '../components/StockWatchlist';
 // Use optimized lazy-loaded charts to reduce bundle size
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from '../components/charts/OptimizedCharts';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from '../components/charts/OptimizedCharts';
 // Tooltip comes from recharts ITSELF, not the lazy barrel: recharts identifies
 // a chart's Tooltip child by component type, and the lazy stand-in is a type
 // it has never met — which is how this page's ring tooltips stayed unthemed
 // (16 August). A real Tooltip inside the (equally real) chart type-matches.
 import { Tooltip } from 'recharts';
+import { lineMarkers, seriesWash, seriesWashFill } from '../components/charts/richLine';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -66,6 +67,14 @@ import { fetchQuotes } from '../services/stockPriceService';
 import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp, useChartTooltipStyle, useChartTooltipItemStyle } from '../components/charts/chartColors';
 import { resolvePeriod } from '../hooks/usePeriod';
 import DatePicker from '../components/common/DatePicker';
+
+/**
+ * Names this page's Portfolio Performance wash in the document. Stated once
+ * because the id is built from it twice — in the `<defs>` and in the `fill`
+ * that references it — and two literals that must agree is how a wash silently
+ * becomes no wash. See charts/richLine.
+ */
+const PERFORMANCE_CHART_KEY = 'investments-performance';
 
 /**
  * The windows this chart offers, in the app's own words.
@@ -164,6 +173,7 @@ function InvestmentsView() {
    * four times.
    */
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   /**
@@ -1034,15 +1044,61 @@ function InvestmentsView() {
    * twelve rows long. The remainder is NAMED with its count so the total is
    * still accounted for — a share that does not add up is the one thing a
    * finance chart may not do.
+   *
+   * WHICH four are the largest is now `capSeriesWithRemainder`'s job and not
+   * this line's: `summary.lines` comes back in ACCOUNT order, so the fold used
+   * to take whichever accounts sat last in that list. On the owner's ledger
+   * that folded his two biggest into "2 smaller accounts · 78.73%" (29
+   * August). The utility ranks before it folds; nothing here has to remember.
    */
   const allocationData = useMemo(
     () => capSeriesWithRemainder(
       summary.lines.filter(line => line.value.greaterThan(0)),
       line => line.value.toNumber(),
       line => line.name,
-      count => `${count} smaller accounts`
+      'accounts'
     ),
     [summary.lines]
+  );
+
+  /**
+   * IS THE FOLD OPEN — the honest answer to "what is in it" (owner, 29
+   * August: "I cannot click on any of the 5 legends to drill in").
+   *
+   * A fold summarises; opening it should show what it summarised, not send
+   * the reader somewhere else. So the folded accounts list themselves UNDER
+   * their own legend row, one step in, each a door to its register — while
+   * the RING keeps its five wedges. That last part is deliberate: the ramp
+   * has five colours and cycles past them (see chartColors), so a ring that
+   * drew every account would paint the sixth like the first, which is the
+   * exact defect the cap exists to prevent. The legend can be long; the ring
+   * cannot.
+   */
+  const [allocationFoldOpen, setAllocationFoldOpen] = useState(false);
+
+  /** The register a portfolio line keeps its money in. */
+  const registerPathFor = useCallback(
+    (accountId: string): string => preserveDemoParam(`/accounts/${accountId}`, location.search),
+    [location.search]
+  );
+
+  /**
+   * A WEDGE ANSWERS THE SAME CLICK ITS LEGEND ROW DOES.
+   *
+   * A named slice is an account, and an account's detail is its register —
+   * the destination every other account-shaped thing on this page already
+   * links to. The fold is not a place, so it opens instead: the reader asked
+   * what is inside it, and the answer is inside it.
+   */
+  const openAllocationSlice = useCallback(
+    (slice: (typeof allocationData)[number]): void => {
+      if (slice.folded) {
+        setAllocationFoldOpen(true);
+        return;
+      }
+      if (slice.source) navigate(registerPathFor(slice.source.accountId));
+    },
+    [navigate, registerPathFor]
   );
 
   // The LEDGER lines, one per investment account. Named for what they are:
@@ -1109,7 +1165,7 @@ function InvestmentsView() {
       holdingAllocation.slices,
       slice => slice.value.toNumber(),
       slice => slice.label,
-      count => `${count} smaller holdings`
+      'holdings'
     ),
     [holdingAllocation.slices]
   );
@@ -1922,7 +1978,7 @@ function InvestmentsView() {
 
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart
+            <AreaChart
               data={performanceData}
               style={{ cursor: 'pointer' }}
               onClick={(state) => {
@@ -1930,6 +1986,7 @@ function InvestmentsView() {
                 if (point) setDrillDate(point.date);
               }}
             >
+              {seriesWash(PERFORMANCE_CHART_KEY, ramp[0])}
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis dataKey="label" stroke="#9CA3AF" />
               {/* £8m, not £2000k (owner, 21 Aug) — the house compact
@@ -1947,15 +2004,27 @@ function InvestmentsView() {
                   carrying the recharts documentation colour, on a page whose
                   Asset Allocation ring beside it uses the ramp correctly.
                   A single series takes ramp[0], the same rule DashboardCharts'
-                  BarChart follows. */}
-              <Line
+                  BarChart follows.
+
+                  THE OWNER'S "load of dots" (29 Aug) WAS THIS SERIES: it asked
+                  for a filled mark on every point, and a portfolio history runs
+                  to hundreds of them, so the marks touched and the line
+                  vanished under its own dots. `lineMarkers` is the house answer
+                  — bare while you read it, one mark under the pointer — and
+                  it keeps `singlePointDot`'s exception for a window holding a
+                  single valuation. The wash is the same series colour at
+                  WASH_TOP_OPACITY, so it follows the ramp onto a dark ground
+                  rather than pinning a light-mode navy. See charts/richLine. */}
+              <Area
                 type="monotone"
                 dataKey="value"
                 stroke={ramp[0]}
                 strokeWidth={2}
-                dot={{ fill: ramp[0] }}
+                fill={seriesWashFill(PERFORMANCE_CHART_KEY, ramp[0])}
+                fillOpacity={1}
+                {...lineMarkers(performanceData, ramp[0])}
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         </div>
         </div>
@@ -2191,13 +2260,21 @@ function InvestmentsView() {
         <div className="space-y-6">
         {/* Allocation Chart */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6">
-          <h2 className="text-card font-semibold mb-4 text-theme-heading dark:text-white">Asset Allocation</h2>
+          <h2 className="text-card font-semibold mb-1 text-theme-heading dark:text-white">Asset Allocation</h2>
           {portfolioLines.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
               No data to display
             </p>
           ) : (
             <>
+              {/* SAYS THE DOOR IS THERE. The owner could not tell that the
+                  ring or its legend led anywhere (29 August: "I cannot click
+                  on any of the 5 legends to drill in"), and an affordance
+                  nobody finds is not one — the spending donut's card names
+                  its own click for the same reason. */}
+              <p className="text-body text-gray-500 dark:text-gray-400 mb-4">
+                Click an account to open its register.
+              </p>
               {/* h-44, not h-64: this ring carried a twelve-row legend when it
                   was sized, and carries five now. The height it was keeping is
                   what "Allocation by holding" moved into. */}
@@ -2220,6 +2297,7 @@ function InvestmentsView() {
                     data={allocationData}
                     innerRadius={true}
                     colors={ramp}
+                    onClick={openAllocationSlice}
                     formatter={(value: number) => formatCurrency(toDecimal(value))}
                     aria-label="Ring chart of asset allocation by account"
                   />
@@ -2230,36 +2308,104 @@ function InvestmentsView() {
                     `portfolioLines` while the ring walked `allocationData`, so
                     the two could differ in length and did — twelve rows beside
                     a five-colour ring. One source now, so a row and a wedge
-                    cannot disagree about what exists. */}
-                {allocationData.map((slice, index) => (
-                  <div key={slice.name} className="flex items-center justify-between text-body">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: categoricalColor(ramp, index) }}
-                      />
-                      {/* The ACCOUNT, which is what the slice is. This read
-                          `line.institution || 'N/A'` — so a portfolio held at
-                          one bank showed the same word against four different
-                          slices, and every account with no institution on file
-                          was labelled "N/A". The legend is the only thing
-                          identifying a slice (the ramp is one hue walked, and
-                          it cycles), so naming it wrongly leaves the chart
-                          unreadable rather than merely untidy. */}
-                      <span className="text-gray-700 dark:text-gray-300">{slice.name}</span>
-                    </div>
-                    {/* The share is of THE RING, so the rows add to 100% — the
-                        same rule the Dashboard's donut states. Taken from the
-                        slice rather than from `line.allocation`, which was a
-                        share of every account including the ones now folded
-                        into the remainder, and so would no longer sum. */}
-                    <span className="text-gray-900 dark:text-white font-medium">
-                      {allocationTotal > 0
-                        ? `${((slice.value / allocationTotal) * 100).toFixed(2)}%`
-                        : '0.00%'}
-                    </span>
-                  </div>
-                ))}
+                    cannot disagree about what exists.
+
+                    EVERY ROW IS AN ELEMENT THAT TAKES A CLICK, not a div that
+                    listens for one: an account row is a Link — the same door
+                    the Holdings list opens, so a register is reached the same
+                    way from both — and the fold is a <button> that opens
+                    itself. Both are focusable and both answer the keyboard
+                    without this page teaching it how. No focus styles are
+                    declared: the app has one ring, `*:focus-visible`. */}
+                {allocationData.map((slice, index) => {
+                  // The share is of THE RING, so the rows add to 100% — the
+                  // same rule the Dashboard's donut states. Taken from the
+                  // slice rather than from `line.allocation`, which was a
+                  // share of every account including the ones now folded into
+                  // the remainder, and so would no longer sum. The folded rows
+                  // below use the same denominator, so opening the fold cannot
+                  // produce a second arithmetic.
+                  const share = allocationTotal > 0
+                    ? `${((slice.value / allocationTotal) * 100).toFixed(2)}%`
+                    : '0.00%';
+                  const swatch = (
+                    <span
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: categoricalColor(ramp, index) }}
+                    />
+                  );
+
+                  if (slice.folded) {
+                    return (
+                      <div key={slice.name}>
+                        <button
+                          type="button"
+                          onClick={() => setAllocationFoldOpen(open => !open)}
+                          aria-expanded={allocationFoldOpen}
+                          className="w-full flex items-center justify-between gap-3 text-body rounded px-2 -mx-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        >
+                          <span className="flex items-center gap-2 min-w-0">
+                            {swatch}
+                            {allocationFoldOpen
+                              ? <ChevronDownIcon size={14} className="text-gray-400 dark:text-gray-500 shrink-0" />
+                              : <ChevronRightIcon size={14} className="text-gray-400 dark:text-gray-500 shrink-0" />}
+                            <span className="text-gray-700 dark:text-gray-300 truncate">{slice.name}</span>
+                          </span>
+                          <span className="text-gray-900 dark:text-white font-medium tabular-nums shrink-0">{share}</span>
+                        </button>
+                        {/* WHAT IS ACTUALLY IN IT. One step in, on the same
+                            right-hand column as the rows above, so the shares
+                            still read down the card as one list. */}
+                        {allocationFoldOpen && (
+                          <div className="mt-2 ml-5 pl-3 space-y-2 border-l border-line dark:border-gray-700">
+                            {slice.folded.map(inner => (
+                              <Link
+                                key={inner.source.accountId}
+                                to={registerPathFor(inner.source.accountId)}
+                                title={`${inner.name} — open this account's register`}
+                                className="flex items-center justify-between gap-3 text-dense rounded px-2 -mx-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                              >
+                                <span className="text-gray-500 dark:text-gray-400 truncate">{inner.name}</span>
+                                <span className="text-gray-500 dark:text-gray-400 tabular-nums shrink-0">
+                                  {allocationTotal > 0
+                                    ? `${((inner.value / allocationTotal) * 100).toFixed(2)}%`
+                                    : '0.00%'}
+                                </span>
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  // Only the fold is sourceless, and it returned above; the
+                  // guard is what tells the type system so.
+                  if (!slice.source) return null;
+
+                  return (
+                    <Link
+                      key={slice.name}
+                      to={registerPathFor(slice.source.accountId)}
+                      title={`${slice.name} — open this account's register`}
+                      className="flex items-center justify-between gap-3 text-body rounded px-2 -mx-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        {swatch}
+                        {/* The ACCOUNT, which is what the slice is. This read
+                            `line.institution || 'N/A'` — so a portfolio held at
+                            one bank showed the same word against four different
+                            slices, and every account with no institution on file
+                            was labelled "N/A". The legend is the only thing
+                            identifying a slice (the ramp is one hue walked, and
+                            it cycles), so naming it wrongly leaves the chart
+                            unreadable rather than merely untidy. */}
+                        <span className="text-gray-700 dark:text-gray-300 truncate">{slice.name}</span>
+                      </span>
+                      <span className="text-gray-900 dark:text-white font-medium tabular-nums shrink-0">{share}</span>
+                    </Link>
+                  );
+                })}
               </div>
             </>
           )}

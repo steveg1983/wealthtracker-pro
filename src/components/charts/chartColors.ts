@@ -128,6 +128,32 @@ const RAMP_ON_DARK = ['#94a3b8', '#cdd4e0', '#8095b6', '#b1bccc', '#6b86b3'] as 
  */
 export const MAX_CATEGORICAL_SERIES = 5;
 
+/** One real slice: the caller's own datum, with the two things a chart needs. */
+export type CappedSeriesSlice<T> = {
+  name: string;
+  value: number;
+  source: T;
+};
+
+/**
+ * A row of a capped series: either a real slice (it has a `source`) or the one
+ * fold (it has `folded`, listing what is inside it). Never both.
+ *
+ * A `type`, not an `interface`, and the difference is load-bearing: recharts
+ * types a chart's `data` as `Record<string, unknown>`, and TypeScript grants an
+ * implicit index signature to an anonymous object type but never to an
+ * interface. As an interface this stops being passable to the chart it exists
+ * to feed.
+ */
+export type CappedSeriesEntry<T> = {
+  name: string;
+  value: number;
+  /** The caller's own datum, on every real slice. Absent on the fold. */
+  source?: T;
+  /** On the fold only: the slices inside it, largest first. */
+  folded?: readonly CappedSeriesSlice<T>[];
+};
+
 /**
  * The slices a chart may draw, with everything past the ceiling folded into one
  * named remainder.
@@ -137,10 +163,34 @@ export const MAX_CATEGORICAL_SERIES = 5;
  * report viewer's pie each drew more series than the ramp has colours, so the
  * sixth slice was painted like the first.
  *
+ * ─ RANK FIRST. THE FOLD IS THE TAIL, NEVER "WHATEVER WAS LAST" ─────────────
+ * This used to take the first four items in whatever order the caller handed
+ * them over, which is a fold only if the caller happened to have sorted them.
+ * The Investments ring did not: `buildPortfolioSummary` returns one line per
+ * account in ACCOUNT order, so the ring folded the two accounts that happened
+ * to sit last in that list — which on the owner's ledger were his two largest,
+ * 78.73% of the portfolio, hidden behind the words "2 smaller accounts" while
+ * a 0.02% sliver had a legend row of its own (owner, 29 August: "at 78.73%,
+ * there are not '2 smaller accounts', they are the bulk of the assets").
+ *
+ * The ranking therefore lives HERE rather than at each call site, because a
+ * fold that depends on the caller remembering to sort is a fold that will be
+ * wrong again: two of the four call sites sorted, two did not, and nothing
+ * said which was required. Sorting descending also puts the fold LAST, which
+ * is where the ramp's quietest step is (see the ramp notes above).
+ *
+ * ─ THE NAME MUST BE TRUE OF WHAT IS IN IT ──────────────────────────────────
  * The remainder is NAMED WITH ITS COUNT ("8 smaller accounts") rather than
  * called "Other", for two reasons: "Other" is a real category in some ledgers
  * and would collide, and a reader who can see how many things were folded can
  * tell whether the fold hid something worth looking at.
+ *
+ * "Smaller" is true of each folded item — every one of them is smaller than
+ * every named slice, now that the ranking guarantees it — but a long tail can
+ * still ADD UP to more than the largest named slice, and a row reading "40
+ * smaller categories · 61%" tells the same lie the ordering bug did. When the
+ * fold outweighs the biggest thing it sits beside it is called "N other
+ * <noun>" instead: still counted, no longer claiming to be small.
  *
  * Callers must draw the ring AND the legend from the returned array. Drawing
  * the ring from the raw data and the legend from this is precisely the bug it
@@ -150,22 +200,33 @@ export function capSeriesWithRemainder<T>(
   items: readonly T[],
   value: (item: T) => number,
   name: (item: T) => string,
-  remainderLabel: (count: number) => string
-): Array<{ name: string; value: number; source?: T }> {
+  /** What the folded things ARE: "accounts", "categories", "holdings". */
+  remainderNoun: string
+): Array<CappedSeriesEntry<T>> {
   // `source` carries the caller's own datum on every REAL slice, so a capped
   // chart can still answer a click (drill by id, open the account) — the
   // remainder has no single source and carries none, which is also how a
   // caller tells the fold apart from a slice.
-  const all = items.map((item) => ({ name: name(item), value: value(item), source: item }));
+  //
+  // `.map` already copies, so sorting it cannot disturb the caller's array.
+  const all: Array<CappedSeriesSlice<T>> = items
+    .map((item) => ({ name: name(item), value: value(item), source: item }))
+    .sort((a, b) => b.value - a.value);
   if (all.length <= MAX_CATEGORICAL_SERIES) return all;
 
   const shown = all.slice(0, MAX_CATEGORICAL_SERIES - 1);
-  const rest = all.slice(MAX_CATEGORICAL_SERIES - 1);
+  const folded = all.slice(MAX_CATEGORICAL_SERIES - 1);
+  const foldedTotal = folded.reduce((sum, entry) => sum + entry.value, 0);
+  // `shown[0]` is the largest slice on the chart, the list being ranked.
+  const largestShown = shown[0]?.value ?? 0;
   return [
     ...shown,
     {
-      name: remainderLabel(rest.length),
-      value: rest.reduce((sum, entry) => sum + entry.value, 0)
+      name: `${folded.length} ${foldedTotal > largestShown ? 'other' : 'smaller'} ${remainderNoun}`,
+      value: foldedTotal,
+      // What is inside, so a caller can open the fold without re-deriving the
+      // boundary this function just decided.
+      folded
     }
   ];
 }
