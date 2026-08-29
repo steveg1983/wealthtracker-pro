@@ -94,14 +94,6 @@ const hideButton = (): HTMLElement =>
 const chip = (): HTMLElement => screen.getByRole('button', { name: /^AMAZON\.CO\.UK/ });
 const noChip = (): HTMLElement | null => screen.queryByRole('button', { name: /^AMAZON\.CO\.UK/ });
 
-const answerYes = (): void => {
-  fireEvent.click(screen.getByRole('button', { name: 'Yes — never offer it again' }));
-};
-
-const answerNo = (): void => {
-  fireEvent.click(screen.getByRole('button', { name: 'No — just this once' }));
-};
-
 beforeEach(() => {
   toast.showSuccess.mockClear();
   toast.showError.mockClear();
@@ -132,7 +124,6 @@ describe('Payee cleanup — the bulk action is the selection, and only the selec
     tick(THIRD);
     tick('BOOTS');
     fireEvent.click(hideButton());
-    answerYes();
 
     await waitFor(() => expect(dismissSuggestion).toHaveBeenCalledTimes(2));
     // Per payee, so each is undone on its own — and with no transaction ids,
@@ -155,12 +146,14 @@ describe('Payee cleanup — the bulk action is the selection, and only the selec
 
     tick('BOOTS');
     fireEvent.click(hideButton());
-    answerNo();
 
-    // Off the page for this sitting — that much is this sitting's decision
-    // either way — and nothing saved.
+    // Off the page and written down in one press (owner, 29 Aug: refusing IS
+    // the judgment) — restorable from "Dismissed suggestions".
     await waitFor(() => expect(isListed('BOOTS')).toBe(false));
-    expect(dismissSuggestion).not.toHaveBeenCalled();
+    await waitFor(() => expect(dismissSuggestion).toHaveBeenCalledTimes(1));
+    expect(dismissSuggestion).toHaveBeenCalledWith(
+      'payee-hidden', payeeHiddenDismissalKey('BOOTS'), []
+    );
   });
 });
 
@@ -174,7 +167,6 @@ describe('Payee cleanup — a hidden payee is hidden from everything on the page
 
     tick(THIRD);
     fireEvent.click(hideButton());
-    answerYes();
 
     // The row is gone…
     await waitFor(() => expect(screen.queryByText(THIRD)).not.toBeInTheDocument());
@@ -196,7 +188,6 @@ describe('Payee cleanup — a hidden payee is hidden from everything on the page
     tick(THIRD);
     tick(SECOND);
     fireEvent.click(hideButton());
-    answerYes();
 
     // One payee is not a cleanup: the guess has nothing left to offer.
     await waitFor(() => expect(noChip()).not.toBeInTheDocument());
@@ -283,7 +274,6 @@ describe('Payee cleanup — hiding is undone from the foot of the page', () => {
 
     tick('BOOTS');
     fireEvent.click(hideButton());
-    answerYes();
     await waitFor(() => expect(isListed('BOOTS')).toBe(false));
 
     const section = screen.getByText('Dismissed suggestions').closest('section');
@@ -313,7 +303,6 @@ describe('Payee cleanup — a refusal that could not be saved says so', () => {
     tick(THIRD);
     tick('BOOTS');
     fireEvent.click(hideButton());
-    answerYes();
 
     const banner = await screen.findByRole('alert');
     expect(banner).toHaveTextContent(
@@ -339,7 +328,6 @@ describe('Payee cleanup — a refusal that could not be saved says so', () => {
     tick(THIRD);
     tick('BOOTS');
     fireEvent.click(hideButton());
-    answerYes();
 
     const banner = await screen.findByRole('alert');
     expect(banner).toHaveTextContent(

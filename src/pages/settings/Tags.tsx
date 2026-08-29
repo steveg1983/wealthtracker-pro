@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { HashIcon, AlertCircleIcon } from '../../components/icons';
-import { PlusIcon, EditIcon, DeleteIcon, XIcon, CheckIcon } from '../../components/icons';
+import { EditIcon, DeleteIcon, XIcon, CheckIcon } from '../../components/icons';
 import { IconButton } from '../../components/icons/IconButton';
 import type { Tag } from '../../contexts/AppContextSupabase';
 import PageWrapper from '../../components/PageWrapper';
@@ -37,7 +37,6 @@ const PREDEFINED_COLOURS = [
 
 export default function Tags() {
   const { tags, addTag, updateTag, deleteTag, getTagUsageCount, getAllUsedTags } = useApp();
-  const [showAddForm, setShowAddForm] = useState(false);
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [formData, setFormData] = useState<TagFormData>({
     name: '',
@@ -105,7 +104,6 @@ export default function Tags() {
       color: DEFAULT_TAG_COLOUR,
       description: ''
     });
-    setShowAddForm(false);
     setEditingTag(null);
   };
 
@@ -116,7 +114,6 @@ export default function Tags() {
       description: tag.description || ''
     });
     setEditingTag(tag.id);
-    setShowAddForm(true);
   };
 
   const handleDelete = (tagId: string) => {
@@ -139,7 +136,6 @@ export default function Tags() {
       color: DEFAULT_TAG_COLOUR,
       description: ''
     });
-    setShowAddForm(false);
     setEditingTag(null);
     setErrors({});
   };
@@ -147,22 +143,12 @@ export default function Tags() {
   const predefinedColors = PREDEFINED_COLOURS;
 
   return (
-    <PageWrapper 
-      title="Tags"
-      rightContent={
-        <IconButton
-          onClick={() => setShowAddForm(true)}
-          icon={<PlusIcon size={16} />}
-          variant="ghost"
-          size="sm"
-          className="text-red-500 hover:text-red-700"
-          title="Add Tag"
-        />
-      }
-    >
+    <PageWrapper title="Tags">
 
-      {/* Add/Edit Form */}
-      {showAddForm && (
+      {/* Add/Edit form — always present. The page's one job is making tags,
+          so the form does not hide behind a control (owner, 29 Aug: the old
+          top-right + read as dead, because this section already showed). */}
+      {(
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6 mb-6">
           {/* A heading is not a link and not a state, so it takes the page's
               ink rather than a hue (stock-blue ruling, 28 Aug 2026). */}

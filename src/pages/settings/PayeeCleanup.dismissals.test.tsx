@@ -93,29 +93,17 @@ describe('Payee cleanup — refusing a whole suggested merchant', () => {
     expect(screen.getByRole('button', { name: 'Not the same merchant' })).toBeInTheDocument();
   });
 
-  it('answering No changes nothing that is written down', async () => {
+  it('refusing IS the judgment: dropped and recorded in one press, with no rows attached', async () => {
+    // No follow-up question (owner, 29 Aug) — safe as one step because the
+    // refusal is restorable from "Dismissed suggestions".
     const dismissSuggestion = vi.fn(async () => {});
     __setAppContextValue({ transactions: REGISTER, dismissSuggestion });
     render(<PayeeCleanup />);
 
     fireEvent.click(chip());
     fireEvent.click(screen.getByRole('button', { name: 'Not the same merchant' }));
-    fireEvent.click(screen.getByRole('button', { name: 'No — just this once' }));
 
-    // Gone for this sitting — the answer either way — and nothing saved.
     await waitFor(() => expect(noChip()).not.toBeInTheDocument());
-    expect(dismissSuggestion).not.toHaveBeenCalled();
-  });
-
-  it('answering Yes records it against the merchant, with no rows attached', async () => {
-    const dismissSuggestion = vi.fn(async () => {});
-    __setAppContextValue({ transactions: REGISTER, dismissSuggestion });
-    render(<PayeeCleanup />);
-
-    fireEvent.click(chip());
-    fireEvent.click(screen.getByRole('button', { name: 'Not the same merchant' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Yes — never offer it again' }));
-
     await waitFor(() => expect(dismissSuggestion).toHaveBeenCalledTimes(1));
     // No subject ids: this refusal is about payee text, and has to outlive the
     // rows it was drawn from — a re-import brings the same wording back.
@@ -166,14 +154,13 @@ describe('Payee cleanup — leaving one payee out of a suggestion', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('answering Yes records the payee and the merchant it was refused under', async () => {
+  it('leaving a payee out records it under the merchant it was refused from, at once', async () => {
     const dismissSuggestion = vi.fn(async () => {});
     __setAppContextValue({ transactions: REGISTER, dismissSuggestion });
     render(<PayeeCleanup />);
 
     fireEvent.click(chip());
     fireEvent.click(leaveOut());
-    fireEvent.click(screen.getByRole('button', { name: 'Yes — never offer it again' }));
 
     await waitFor(() => expect(dismissSuggestion).toHaveBeenCalledTimes(1));
     expect(dismissSuggestion).toHaveBeenCalledWith('payee-line', LINE_KEY, []);
@@ -187,7 +174,6 @@ describe('Payee cleanup — leaving one payee out of a suggestion', () => {
     expect(chip()).toHaveTextContent('3 payees · 3 transactions');
 
     fireEvent.click(leaveOut());
-    fireEvent.click(screen.getByRole('button', { name: 'No — just this once' }));
 
     // The suggestion is still worth making, and what it says about itself is
     // true: two payees, two transactions.

@@ -176,41 +176,23 @@ describe('TransferSweepModal — refusing a clean pair', () => {
     __setAppContextValue({ transactions: CLEAN_PAIR, categories: CATEGORIES });
   });
 
-  it('asks whether to leave it out in future, and says what each answer does', () => {
-    renderModal();
-    fireEvent.click(screen.getByTitle('See both sides of this pair'));
-    fireEvent.click(screen.getByRole('button', { name: 'Not a pair — leave it' }));
-
-    expect(screen.getByText(/Do you want this pairing eliminated from this report in future\?/)).toBeInTheDocument();
-    expect(screen.getByText(/it stays in the list below, unticked, until you close this window/)).toBeInTheDocument();
-  });
-
-  it('answering No leaves today\'s behaviour exactly as it was', async () => {
+  it('refusing IS the judgment: one press, remembered, against a key that does not depend on leg order', async () => {
+    // No follow-up question (owner, 29 Aug) — safe as one step because the
+    // refusal is restorable from "Dismissed suggestions".
     const dismissSuggestion = vi.fn(async () => {});
     __setAppContextValue({ dismissSuggestion });
     renderModal();
     fireEvent.click(screen.getByTitle('See both sides of this pair'));
     fireEvent.click(screen.getByRole('button', { name: 'Not a pair — leave it' }));
-    fireEvent.click(screen.getByRole('button', { name: 'No — just this once' }));
-
-    await waitFor(() => expect(screen.getByText('0 of 1 selected')).toBeInTheDocument());
-    // Still listed, just unticked — the pre-existing "leave it" behaviour.
-    expect(screen.getByTitle('See both sides of this pair')).toBeInTheDocument();
-    expect(dismissSuggestion).not.toHaveBeenCalled();
-  });
-
-  it('answering Yes records it against a key that does not depend on leg order', async () => {
-    const dismissSuggestion = vi.fn(async () => {});
-    __setAppContextValue({ dismissSuggestion });
-    renderModal();
-    fireEvent.click(screen.getByTitle('See both sides of this pair'));
-    fireEvent.click(screen.getByRole('button', { name: 'Not a pair — leave it' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Yes — never offer it again' }));
 
     await waitFor(() => expect(dismissSuggestion).toHaveBeenCalledTimes(1));
     expect(dismissSuggestion).toHaveBeenCalledWith(
       'transfer-pair', 'pair-in|pair-out', ['pair-out', 'pair-in']
     );
+    // The pair stays listed, unticked — refusing the pairing is not hiding
+    // the rows, and the refusal takes hold on the next scan.
+    await waitFor(() => expect(screen.getByText('0 of 1 selected')).toBeInTheDocument());
+    expect(screen.getByTitle('See both sides of this pair')).toBeInTheDocument();
   });
 });
 
@@ -219,28 +201,16 @@ describe('TransferSweepModal — refusing a stranded finding', () => {
     __setAppContextValue({ transactions: CLAIMED_TWIN, categories: CATEGORIES });
   });
 
-  it('answering No drops it for this sitting and writes nothing', async () => {
+  it('refusing drops it and records the finding AND every row that makes its case', async () => {
     const dismissSuggestion = vi.fn(async () => {});
     __setAppContextValue({ dismissSuggestion });
     renderModal();
     fireEvent.click(screen.getByTitle('Look at the evidence for this row'));
     fireEvent.click(screen.getByRole('button', { name: 'Leave the existing pair alone' }));
-    fireEvent.click(screen.getByRole('button', { name: 'No — just this once' }));
 
     await waitFor(() =>
       expect(screen.queryByTitle('Look at the evidence for this row')).not.toBeInTheDocument()
     );
-    expect(dismissSuggestion).not.toHaveBeenCalled();
-  });
-
-  it('answering Yes records the finding AND every row that makes its case', async () => {
-    const dismissSuggestion = vi.fn(async () => {});
-    __setAppContextValue({ dismissSuggestion });
-    renderModal();
-    fireEvent.click(screen.getByTitle('Look at the evidence for this row'));
-    fireEvent.click(screen.getByRole('button', { name: 'Leave the existing pair alone' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Yes — never offer it again' }));
-
     await waitFor(() => expect(dismissSuggestion).toHaveBeenCalledTimes(1));
     expect(dismissSuggestion).toHaveBeenCalledWith(
       'stranded',

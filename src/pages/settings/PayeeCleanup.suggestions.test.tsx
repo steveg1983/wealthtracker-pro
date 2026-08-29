@@ -219,7 +219,6 @@ describe('Payee cleanup — the total tells the truth about the filters', () => 
 
     fireEvent.click(rowFor('GOLF.CO.UK'));
     fireEvent.click(screen.getByRole('button', { name: 'Not the same merchant' }));
-    fireEvent.click(screen.getByRole('button', { name: 'No — just this once' }));
 
     // The owner's exact experience, now with a number attached to it: the
     // suggestion goes, the next one does NOT quietly take its place in a list
@@ -236,7 +235,6 @@ describe('Payee cleanup — the total tells the truth about the filters', () => 
     // ALPHA has exactly two payees, so hiding one leaves nothing to merge.
     fireEvent.click(screen.getByLabelText('Select REF*0B ALPHA.CO.UK'));
     fireEvent.click(screen.getByRole('button', { name: "Don't offer these again" }));
-    fireEvent.click(screen.getByRole('button', { name: 'No — just this once' }));
 
     await waitFor(() => expect(heading()).toHaveTextContent('11 groups look like the same merchant'));
     expect(listedKeys()).not.toContain('ALPHA.CO.UK');
@@ -255,7 +253,6 @@ describe('Payee cleanup — the total tells the truth about the filters', () => 
     fireEvent.click(
       screen.getByRole('button', { name: 'Leave out REF*1B BRAVO.CO.UK from the BRAVO.CO.UK suggestion' })
     );
-    fireEvent.click(screen.getByRole('button', { name: 'No — just this once' }));
 
     await waitFor(() => expect(heading()).toHaveTextContent('11 groups look like the same merchant'));
   });

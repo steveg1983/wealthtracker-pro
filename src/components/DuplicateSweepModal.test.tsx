@@ -264,7 +264,6 @@ describe('DuplicateSweepModal — the pair whose payee was renamed', () => {
 
     // Leave that pair alone and open the next one.
     fireEvent.click(screen.getByRole('button', { name: 'Not a duplicate — leave both' }));
-    fireEvent.click(screen.getByRole('button', { name: 'No — just this once' }));
     fireEvent.click(screen.getByTitle('Look at both copies of this'));
 
     expect(screen.getByLabelText(CONFIRMATION)).not.toBeChecked();
@@ -503,41 +502,15 @@ describe('DuplicateSweepModal — refusing a suggestion', () => {
     __setAppContextValue({ transactions: [FEED, IMPORTED], categories: CATEGORIES });
   });
 
-  it('asks whether to leave it out in future, saying what each answer does', () => {
-    renderModal();
-    openReview();
-    fireEvent.click(screen.getByRole('button', { name: 'Not a duplicate — leave both' }));
-
-    // "this pairing", singular — the prompt reads the subject mid-sentence
-    // ("… is remembered as refused"), and the plural it used to be handed
-    // produced the "these two rows is" the owner screenshotted (29 Aug).
-    expect(screen.getByText(/Do you want this pairing eliminated from this report in future\?/)).toBeInTheDocument();
-    expect(screen.getByText(/no sweep will offer it again/)).toBeInTheDocument();
-    expect(screen.getByText(/it drops off the list for now/)).toBeInTheDocument();
-  });
-
-  it('answering No keeps today\'s behaviour: gone for this sitting, nothing written', async () => {
+  it('refusing IS the judgment: one press, remembered, against a canonical key', async () => {
+    // No follow-up question (owner, 29 Aug: "under what circumstance would
+    // you say it's not a duplicate but ask me again?"). Safe as one step
+    // because the refusal is restorable from "Dismissed suggestions".
     const dismissSuggestion = vi.fn(async () => {});
     __setAppContextValue({ dismissSuggestion });
     renderModal();
     openReview();
     fireEvent.click(screen.getByRole('button', { name: 'Not a duplicate — leave both' }));
-    fireEvent.click(screen.getByRole('button', { name: 'No — just this once' }));
-
-    await waitFor(() =>
-      expect(screen.queryByTitle('Look at both copies of this')).not.toBeInTheDocument()
-    );
-    expect(dismissSuggestion).not.toHaveBeenCalled();
-    expect(screen.getByText(/Nothing looks like the same payment twice/)).toBeInTheDocument();
-  });
-
-  it('answering Yes records the refusal against a canonical key', async () => {
-    const dismissSuggestion = vi.fn(async () => {});
-    __setAppContextValue({ dismissSuggestion });
-    renderModal();
-    openReview();
-    fireEvent.click(screen.getByRole('button', { name: 'Not a duplicate — leave both' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Yes — never offer it again' }));
 
     await waitFor(() => expect(dismissSuggestion).toHaveBeenCalledTimes(1));
     expect(dismissSuggestion).toHaveBeenCalledWith(
@@ -547,6 +520,21 @@ describe('DuplicateSweepModal — refusing a suggestion', () => {
       'feed|import',
       ['feed', 'import']
     );
+    // And the pair is gone from the sitting's list in the same breath.
+    expect(screen.queryByTitle('Look at both copies of this')).not.toBeInTheDocument();
+    expect(screen.getByText(/Nothing looks like the same payment twice/)).toBeInTheDocument();
+  });
+
+  it('closing the review without answering decides nothing', async () => {
+    // The no-commitment path: the X. Nothing written, nothing dropped.
+    const dismissSuggestion = vi.fn(async () => {});
+    __setAppContextValue({ dismissSuggestion });
+    renderModal();
+    openReview();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Close modal' })[1]);
+
+    expect(dismissSuggestion).not.toHaveBeenCalled();
+    expect(screen.getByTitle('Look at both copies of this')).toBeInTheDocument();
   });
 });
 
@@ -570,39 +558,24 @@ describe('DuplicateSweepModal — one judgment covers the repeated payment, not 
     });
   });
 
-  it('says what the wider judgment covers before asking to keep it', () => {
-    renderModal();
-    fireEvent.click(screen.getAllByTitle('Look at both copies of this')[0]);
-    fireEvent.click(screen.getByRole('button', { name: 'Not a duplicate — leave both' }));
-
-    expect(screen.getByText(/Do you want this repeated payment eliminated from this report in future\?/)).toBeInTheDocument();
-    expect(screen.getByText(/all 2 of its suggestions drop off the list for now/)).toBeInTheDocument();
-  });
-
-  it('answering No drops every pairing of those rows for the sitting — the unrelated pair stays', async () => {
+  it('one refusal drops and remembers every pairing of those rows — the unrelated pair stays', async () => {
+    const dismissSuggestion = vi.fn(async () => {});
+    __setAppContextValue({ dismissSuggestion });
     renderModal();
     // Two coffee pairings (tap-1/tap-2, tap-1/tap-3) and one gym pairing.
     expect(screen.getAllByTitle('Look at both copies of this')).toHaveLength(3);
 
     fireEvent.click(screen.getAllByTitle('Look at both copies of this')[0]);
     fireEvent.click(screen.getByRole('button', { name: 'Not a duplicate — leave both' }));
-    fireEvent.click(screen.getByRole('button', { name: 'No — just this once' }));
 
+    // Both coffee pairings are gone from the sitting at once…
     await waitFor(() =>
       expect(screen.getAllByTitle('Look at both copies of this')).toHaveLength(1)
     );
     expect(screen.getByText('DD FITNESS GROUP')).toBeInTheDocument();
     expect(screen.queryByText('Coffee kiosk')).not.toBeInTheDocument();
-  });
 
-  it('answering Yes writes one restorable refusal per pairing in the cluster', async () => {
-    const dismissSuggestion = vi.fn(async () => {});
-    __setAppContextValue({ dismissSuggestion });
-    renderModal();
-    fireEvent.click(screen.getAllByTitle('Look at both copies of this')[0]);
-    fireEvent.click(screen.getByRole('button', { name: 'Not a duplicate — leave both' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Yes — never offer it again' }));
-
+    // …and each is its own restorable refusal in the store.
     await waitFor(() => expect(dismissSuggestion).toHaveBeenCalledTimes(2));
     expect(dismissSuggestion).toHaveBeenCalledWith('duplicate', 'tap-1|tap-2', ['tap-1', 'tap-2']);
     expect(dismissSuggestion).toHaveBeenCalledWith('duplicate', 'tap-1|tap-3', ['tap-1', 'tap-3']);
