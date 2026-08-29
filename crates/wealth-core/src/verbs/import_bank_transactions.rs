@@ -20,8 +20,9 @@
 //! # What it is a port OF
 //!
 //! The **live** definition,
-//! `supabase/migrations/20260808100000_category_provenance.sql:552-724`. Traced
-//! by grep across every migration; four definitions:
+//! `supabase/migrations/20260829170000_a_backfill_is_the_syncs_decision_not_each_chunks.sql`.
+//! Traced by grep across every migration — the resolution
+//! `src/test/feedImportLatestDefinition.test.ts` performs mechanically:
 //!
 //! | migration | change |
 //! | --- | --- |
@@ -31,6 +32,9 @@
 //! | `20260807180000` | `is_cleared` false — the feed does not pre-clear |
 //! | `20260808100000:552` | provenance: a payee-memory guess is `category_confirmed = false` |
 //! | `20260810090000:604` | `needs_review` true — *"nobody has seen this row; it did not exist until now"* |
+//! | `20260828180000` | `category` and `tags` from a rule-stamped row — but patched from the WRONG base, reverting the three rows above |
+//! | `20260829120000` | the repair: the current body restated from the right base, plus `tags` |
+//! | `20260829170000` | the caller's `backfill` stamp outranks the per-call table look; contradictions refuse |
 //!
 //! `20260725120000:253` only re-grants it, and `20260808150000:67-71` says in as
 //! many words that it does not touch either import RPC.
@@ -79,6 +83,19 @@
 //! * **The existence test is not scoped by user.** It asks about the ACCOUNT.
 //!   Under the composite ownership key an account's rows all share its owner, so
 //!   the two readings coincide; it is written the cloud's way anyway.
+//!
+//! Since `20260829170000` a row may also carry the CALLER's verdict as a
+//! `backfill` boolean, which outranks the table. The reason is the cloud's
+//! chunking: its handler splits a sync into 200-row calls, and the per-call
+//! table answer is right for chunk 1 and wrong for every chunk after — their
+//! rows are equally embodied in the provider's snapshot, but by then the
+//! account has feed history and the self-decide arm reads INCREMENTAL,
+//! drifting the balance by those chunks' sum. The handler now asks the
+//! table's question once for the whole sync and stamps every row; a stamp
+//! that contradicts the arm already chosen for the account in one call is
+//! refused whole (`backfill_stamp_conflict`, both engines — pinned by
+//! `f-a-caller-stamp-outranks-the-accounts-own-history` and its siblings).
+//! Unstamped rows behave exactly as this section describes.
 //!
 //! ## The precondition, which is TS-F7 and is NOT satisfied by the feed
 //!
@@ -280,6 +297,16 @@ pub struct BankRow {
     /// arrives with is not this function's guess.
     #[serde(default)]
     pub category: Option<String>,
+    /// `r->'backfill'` (20260829170000): the CALLER's backfill verdict,
+    /// decided once for the sync it split into chunks. Present, it outranks
+    /// the table — the caller saw the whole sync, this call sees one chunk of
+    /// it. Contradicting the arm already chosen for the account in this call
+    /// refuses the whole call (`backfill_stamp_conflict`); the cloud also
+    /// refuses a non-boolean stamp by name (`backfill_stamp_not_boolean`),
+    /// where this ledger's refusal is serde's type error — the crate-wide
+    /// malformed-type divergence every field carries.
+    #[serde(default)]
+    pub backfill: Option<bool>,
 }
 
 /// What the verb hands back.
@@ -309,7 +336,9 @@ pub struct FeedAnswer {
 
 /// What one account accumulated during the loop.
 struct AccountEffect {
-    /// Decided BEFORE this account's first insert, and not revisited.
+    /// Decided BEFORE this account's first insert, and not revisited — from
+    /// the row's `backfill` stamp when the caller sent one, from the table
+    /// when it did not. A later stamp may only agree.
     backfill: bool,
     /// Σ of the amounts that actually landed.
     sum: i64,
@@ -376,18 +405,8 @@ pub fn import_bank_transactions(
         let account_id = row.account_id.clone().unwrap_or_default();
 
         // Backfill detection MUST precede the account's first insert of this
-        // call: "no previously imported bank transaction exists for this
-        // account".
-        if !effects.contains_key(&account_id) {
-            effects.insert(
-                account_id.clone(),
-                AccountEffect {
-                    backfill: !has_feed_history(&write, &account_id)?,
-                    sum: 0,
-                    landed_any: false,
-                },
-            );
-        }
+        // call — the whole story is on `decide_backfill`.
+        decide_backfill(&write, &mut effects, &account_id, row.backfill)?;
 
         // Account-scoped dedupe. The handler pre-filters per connection; this
         // also catches re-imports after a reconnect under a new connection_id,
@@ -469,6 +488,50 @@ pub fn import_bank_transactions(
         audit_seq: last.as_ref().map(|entry| entry.seq),
         audit_row_hash: last.map(|entry| entry.row_hash),
     })
+}
+
+/// The arm this account's batch takes — decided BEFORE its first insert of
+/// the call, defended against contradiction on every row after.
+///
+/// "No previously imported bank transaction exists for this account" is the
+/// table's answer, and it is only asked when the row carries no verdict of
+/// its own. A row may stamp the CALLER's verdict as `backfill`
+/// (20260829170000) — the caller saw the WHOLE sync, this call sees one
+/// chunk of it, and the cloud's handler splits at 200 rows, which is how a
+/// first sync used to rebase its first chunk and then drift the balance by
+/// every later one. A stamp outranks the table; a stamp that contradicts the
+/// arm already chosen for this account in this call is the split-batch bug
+/// itself, refused whole rather than landed quietly.
+fn decide_backfill(
+    write: &rusqlite::Transaction<'_>,
+    effects: &mut BTreeMap<String, AccountEffect>,
+    account_id: &str,
+    stamp: Option<bool>,
+) -> CoreResult<()> {
+    if let Some(effect) = effects.get(account_id) {
+        if let Some(stamp) = stamp {
+            if stamp != effect.backfill {
+                return Err(CoreError::refuse(
+                    "backfill_stamp_conflict",
+                    "backfill_stamp_conflict",
+                ));
+            }
+        }
+        return Ok(());
+    }
+    let backfill = match stamp {
+        Some(stamp) => stamp,
+        None => !has_feed_history(write, account_id)?,
+    };
+    effects.insert(
+        account_id.to_owned(),
+        AccountEffect {
+            backfill,
+            sum: 0,
+            landed_any: false,
+        },
+    );
+    Ok(())
 }
 
 /// Does this account already hold a row the feed wrote?
@@ -757,6 +820,37 @@ mod tests {
             assert_eq!(spelling.trim().to_uppercase(), SENTINEL_DESCRIPTION, "{spelling}");
         }
         assert_ne!("Bank transactions".trim().to_uppercase(), SENTINEL_DESCRIPTION);
+    }
+
+    #[test]
+    fn a_backfill_stamp_reads_as_a_boolean_and_absent_as_none() {
+        let stamped: BankRow = serde_json::from_value(json!({
+            "user_id": "u", "account_id": "a", "description": "Shop", "amount": "-1.00",
+            "type": "expense", "date": "2024-05-01", "backfill": false,
+        }))
+        .expect("a boolean stamp deserialises");
+        assert_eq!(stamped.backfill, Some(false));
+
+        let unstamped: BankRow = serde_json::from_value(json!({
+            "user_id": "u", "account_id": "a", "description": "Shop", "amount": "-1.00",
+            "type": "expense", "date": "2024-05-01",
+        }))
+        .expect("the stamp is optional");
+        assert_eq!(unstamped.backfill, None);
+    }
+
+    #[test]
+    fn a_backfill_stamp_that_is_not_a_boolean_is_refused_as_a_type_error() {
+        // The cloud refuses this by name (backfill_stamp_not_boolean); here it
+        // is serde's type error — the crate-wide malformed-type divergence.
+        let error = serde_json::from_value::<BankRow>(json!({
+            "user_id": "u", "account_id": "a", "description": "Shop", "amount": "-1.00",
+            "type": "expense", "date": "2024-05-01", "backfill": "true",
+        }))
+        .expect_err("a string is not a verdict");
+        // serde's sentence, not the cloud's name — from_value reports the type
+        // without the field's path.
+        assert!(error.to_string().contains("expected a boolean"), "{error}");
     }
 
     #[test]

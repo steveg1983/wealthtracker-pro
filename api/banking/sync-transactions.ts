@@ -26,6 +26,7 @@ import { resolveIdChurn, type ExistingBankRow } from '../../src/services/banking
 import { resolveTransferAdoption } from '../../src/services/banking/transferAdoption.js';
 import { partitionOfferedRows } from '../../src/services/banking/ownerDeletions.js';
 import { applyFeedRules } from '../../src/services/banking/feedRules.js';
+import { stampBackfillDecision } from '../../src/services/banking/backfillStamp.js';
 import { syncWindowStart } from '../../src/services/banking/syncWindow.js';
 
 const coerceIsoDateTime = (value: string, endOfDay: boolean): string | null => {
@@ -550,17 +551,53 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // ── THE BACKFILL VERDICT, ONCE FOR THE WHOLE SYNC ───────────────────────
+    //
+    // The RPC below is called per 200-row chunk, and when a row does not say,
+    // it decides backfill-vs-incremental from the table per CALL. On a first
+    // sync larger than one chunk that answer flips after chunk 1 — its own
+    // rows make the account "already fed" — and the balance drifts by every
+    // later chunk's sum (20260829170000 tells the whole story). This handler
+    // is the only party that sees every chunk, so the table's question is
+    // asked here, once per account, before anything is sent, and the verdict
+    // rides on each row. It is the SAME question the RPC would ask, asked
+    // before any chunk has muddied it — which is also why it runs after the
+    // transfer adoptions above: an adopted row is feed history, exactly as
+    // the first chunk's self-decide would have seen it.
+    const candidateAccountIds = Array.from(
+      new Set(insertCandidates.map((row) => row.account_id))
+    );
+    const accountsWithFeedHistory = new Set<string>();
+    for (const accountId of candidateAccountIds) {
+      const historyResult = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('account_id', accountId)
+        .not('external_transaction_id', 'is', null)
+        .limit(1);
+      if (historyResult.error) {
+        throw new Error(
+          `Failed to read feed history for the backfill decision: ${historyResult.error.message}`
+        );
+      }
+      if ((historyResult.data ?? []).length > 0) {
+        accountsWithFeedHistory.add(accountId);
+      }
+    }
+    const stampedCandidates = stampBackfillDecision(insertCandidates, accountsWithFeedHistory);
+
     let insertedCount = 0;
-    for (const insertChunk of chunk(insertCandidates, 200)) {
+    for (const insertChunk of chunk(stampedCandidates, 200)) {
       if (insertChunk.length === 0) {
         continue;
       }
       // Atomic import RPC (audit finding #2/#13): each chunk's inserts, the
       // account balance effect, and the financial_audit_log rows commit in ONE
       // database transaction — bank imports can no longer create money without
-      // moving the ledger balance or leaving an audit trail. The RPC also
-      // handles the backfill-vs-incremental distinction (see the migration's
-      // invariant doc) and re-dedupes account-scoped as a race backstop.
+      // moving the ledger balance or leaving an audit trail. Every row carries
+      // the sync-wide backfill verdict stamped above; the RPC honours it over
+      // its own per-call look at the table, and re-dedupes account-scoped as a
+      // race backstop.
       const importResult = await supabase.rpc('import_bank_transactions_atomic', {
         p_user_id: auth.userId,
         p_rows: insertChunk
