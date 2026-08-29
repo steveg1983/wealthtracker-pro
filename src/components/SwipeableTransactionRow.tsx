@@ -33,11 +33,11 @@ interface SwipeableTransactionRowProps {
    * ignore the marking on the screen where it matters.
    *
    * The account register earns it: it carries that counter and that filter, so
-   * a row marked new there leads somewhere. Anything else that lists
+   * a row marked there leads somewhere. Anything else that lists
    * transactions (a report, a Find result, a dashboard card) gets the default
    * and says nothing.
    */
-  markNewArrivals?: boolean;
+  markAwaitingReview?: boolean;
 }
 
 export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
@@ -53,10 +53,10 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
   onToggleFavorite,
   isSelected = false,
   onToggleSelection,
-  markNewArrivals = false
+  markAwaitingReview = false
 }: SwipeableTransactionRowProps): React.JSX.Element {
   const formattedDate = useFormattedDate(transaction.date);
-  const isNewArrival = markNewArrivals && isAwaitingReview(transaction);
+  const awaitingReview = markAwaitingReview && isAwaitingReview(transaction);
   const { trigger: triggerHaptic } = useHapticFeedback();
   const [offset, setOffset] = useState(0);
   const [isRevealed, setIsRevealed] = useState<'left' | 'right' | null>(null);
@@ -223,18 +223,18 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
                   bold and the date darkens with it. Anything heavier would
                   fight the amount, which uses weight for money. */}
               <p className={`text-gray-900 dark:text-white truncate ${
-                isNewArrival ? 'font-bold' : 'font-medium'
+                awaitingReview ? 'font-bold' : 'font-medium'
               }`}>
                 {transaction.description}
                 {/* Weight is a visual cue and nothing else (WCAG 1.4.1) — see
                     the identical clause in the register's own column. */}
-                {isNewArrival && <span className="sr-only">— new, not reviewed yet</span>}
+                {awaitingReview && <span className="sr-only">— awaiting review</span>}
               </p>
               {/* One truncating line, and the category by NAME — the raw
                   field is the category's id, which on a phone read as a
                   jumble of letters and numbers. */}
               <p className={`text-sm truncate ${
-                isNewArrival
+                awaitingReview
                   ? 'font-semibold text-gray-700 dark:text-gray-300'
                   : 'text-gray-500 dark:text-gray-400'
               }`}>

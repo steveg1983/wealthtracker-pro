@@ -1749,7 +1749,7 @@ function AccountsList() {
                                 label="To Review"
                                 count={toReviewByAccount.get(account.id) ?? 0}
                                 to={reviewHref(account.id)}
-                                openLabel={`Review new transactions in ${account.name}`}
+                                openLabel={`Review transactions in ${account.name}`}
                               />
                               {/* ─ FIVE FIXED SLOTS, ON THEIR OWN LINE ─────
                                   MEASURED at 375px: the four stat cells and
@@ -1971,7 +1971,7 @@ function AccountsList() {
                               label="To Review"
                               count={toReviewByAccount.get(child.id) ?? 0}
                               to={reviewHref(child.id)}
-                              openLabel={`Review new transactions in ${child.name}`}
+                              openLabel={`Review transactions in ${child.name}`}
                             />
                             {/* Portfolio, feed and settings: not this row's to
                                 offer. The slots stay so the Reconcile button
@@ -2991,16 +2991,17 @@ function AccountsList() {
                 the step you are on, the alternative in a plain control. */}
             {(reviewTotal > 0 || reconcileAccountCount > 0) && (() => {
               const nextJob: 'review' | 'reconcile' = reviewTotal > 0 ? 'review' : 'reconcile';
-              // "NEW", because this count answers a different question from
-              // Categorisation's (owner, 24 Aug — he compared 29 here with 30
-              // there and reasonably expected them to agree). This is "arrived
-              // and nobody has looked at it since", over OPEN accounts;
-              // Categorisation counts "has no category" and "the category was
-              // guessed", over every account including closed ones. Three
-              // populations, overlapping, none a subset of another — so the
-              // word has to carry the difference.
+              // "NEW" was the word here from 24 Aug, when this count was only
+              // arrivals and had to be told apart from Categorisation's
+              // (owner — he compared 29 here with 30 there and reasonably
+              // expected them to agree). His ruling of 29 Aug widened review
+              // to include unfiled rows however they arrived, so the count is
+              // no longer only new things and the word came off. The two
+              // counts still differ — Categorisation adds guessed categories,
+              // split lines and closed accounts — but "review" now names this
+              // job exactly: rows that still want somebody's eyes.
               const label = nextJob === 'review'
-                ? `Review ${reviewTotal} new transaction${reviewTotal === 1 ? '' : 's'}`
+                ? `Review ${reviewTotal} transaction${reviewTotal === 1 ? '' : 's'}`
                 : `Reconcile ${reconcileAccountCount} account${reconcileAccountCount === 1 ? '' : 's'}`;
               // Was "no feed trouble and not focused" — this page reasoning
               // about one other page's rung. It asks the ladder for its own

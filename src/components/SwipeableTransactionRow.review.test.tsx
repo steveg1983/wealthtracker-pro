@@ -51,13 +51,13 @@ describe('SwipeableTransactionRow — a row that has just arrived', () => {
         {...handlers}
         transaction={card({ needsReview: true })}
         categoryName="Groceries"
-        markNewArrivals
+        markAwaitingReview
       />
     );
 
     expect(descriptionLine().className).toContain('font-bold');
     // Words as well as weight, for anyone who cannot see the difference.
-    expect(screen.getByText(/new, not reviewed yet/)).toBeInTheDocument();
+    expect(screen.getByText(/awaiting review/)).toBeInTheDocument();
   });
 
   it('leaves a row that has been dealt with at its ordinary weight', () => {
@@ -66,7 +66,7 @@ describe('SwipeableTransactionRow — a row that has just arrived', () => {
         {...handlers}
         transaction={card({ needsReview: false })}
         categoryName="Groceries"
-        markNewArrivals
+        markAwaitingReview
       />
     );
 
@@ -80,7 +80,7 @@ describe('SwipeableTransactionRow — a row that has just arrived', () => {
         {...handlers}
         transaction={card()}
         categoryName="Groceries"
-        markNewArrivals
+        markAwaitingReview
       />
     );
 
@@ -97,6 +97,6 @@ describe('SwipeableTransactionRow — a row that has just arrived', () => {
     );
 
     expect(descriptionLine().className).not.toContain('font-bold');
-    expect(screen.queryByText(/new, not reviewed yet/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/awaiting review/)).not.toBeInTheDocument();
   });
 });

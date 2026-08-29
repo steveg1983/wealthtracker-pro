@@ -534,7 +534,7 @@ export default function Find(): React.JSX.Element {
                             so the fact is said in words too — off-screen,
                             because on screen it would cost the row space to say
                             twice. The register says it in the same words. */}
-                        {awaitingReview && <span className="sr-only"> — new, not reviewed yet</span>}
+                        {awaitingReview && <span className="sr-only"> — awaiting review</span>}
                       </td>
                       <td className="py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
                         {categoryLabel(transaction) || <span className="italic text-gray-400">{UNCATEGORISED_LABEL}</span>}

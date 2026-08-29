@@ -202,7 +202,7 @@ describe('Find — what it matches', () => {
     expect(within(row('Halberd Ironmongers')).getByText('Everyday Current')).toBeInTheDocument();
     // A row that arrived and has not been reviewed is bold, and says so in
     // words for anyone who cannot see weight.
-    expect(within(row('Wexford Bakery')).getByText(/new, not reviewed yet/)).toBeInTheDocument();
+    expect(within(row('Wexford Bakery')).getByText(/awaiting review/)).toBeInTheDocument();
   });
 
   it('marks a row that is ticked but not reconciled with C', async () => {

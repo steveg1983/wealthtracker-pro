@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useBankConnectionSnapshot } from './useBankConnectionSnapshot';
 import { useReconciliation } from './useReconciliation';
-import { countAwaitingReview } from '../utils/transactionReview';
+import { countAwaitingReview, isUnfiled } from '../utils/transactionReview';
 import { computeCategoryHealth } from '../utils/categoryHealth';
 import { computeIncomeExpense } from '../utils/incomeExpense';
 import { expandSplitTransactions } from '../utils/transactionSplits';
@@ -66,11 +66,22 @@ export function useAttentionLadder(): AttentionLadder {
     // CATEGORISE IS ONE RUNG ACROSS TWO SURFACES (Design's ruling): the
     // unfiled backlog and the data-health findings are the same kind of
     // work, so they are summed into one rung rather than competing as two.
+    //
+    // MINUS WHAT REVIEW NOW OWNS (the owner's ruling of 29 Aug 2026): a plain
+    // unfiled row awaits review — the register bolds it and the review filter
+    // lists it — so counting it here too would be two rungs claiming one
+    // condition, the exact double-count the one-rung-per-kind ruling forbids.
+    // The subtraction uses the SAME predicate review counts by (isUnfiled),
+    // so the two rungs partition the unfiled backlog by construction. What
+    // remains this rung's: unfiled split LINES (a register row cannot bold
+    // one line of itself — they carry the unassigned bucket's id, so isUnfiled
+    // leaves them here), rows whose category id dangles (data health: "your
+    // filing broke", not "nobody has looked"), and the findings themselves.
     const rows = expandSplitTransactions(transactions, transactionSplits);
     const flows = computeIncomeExpense(rows, [], categories);
     const health = computeCategoryHealth(transactions, transactionSplits, categories);
     const categorise =
-      flows.uncategorizedRows.length +
+      flows.uncategorizedRows.filter((row) => !isUnfiled(row)).length +
       health.emptyCategoryCount +
       health.transferFilingMismatchCount;
 

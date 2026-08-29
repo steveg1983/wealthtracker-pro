@@ -142,7 +142,15 @@ const columnInOrder = (header: string): string[] => {
   const index = columnIndex(header);
   return dataRows().map(el => {
     const cell = el.querySelectorAll('[role="gridcell"]')[index];
-    return (cell?.textContent ?? '').trim();
+    if (!cell) return '';
+    // These are tests about ORDER, so screen-reader-only annotations (the
+    // register's "— awaiting review" on a bold row) are stripped rather than
+    // baked into every expectation: the fixtures' blank-category rows flag
+    // under the 29 Aug ruling, and the wording of the mark must be free to
+    // change without pretending the sort moved.
+    const clone = cell.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('.sr-only').forEach(node => node.remove());
+    return (clone.textContent ?? '').trim();
   });
 };
 
