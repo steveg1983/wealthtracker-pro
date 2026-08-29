@@ -16,10 +16,15 @@ import {
  * the notifications bell. Mounted once in Layout beside the other floating
  * surfaces, so every page is "whatever page you are on".
  *
- * In your face, but not in your way: a floating card, never a modal — it
- * takes no focus, traps nothing, and the page behind it keeps working. It is
- * also entirely self-inflicted: it exists only on the schedule the user set
- * in Settings → App Settings, which is off until they say otherwise.
+ * CENTRE of the screen, over a scrim — the owner's correction after the
+ * first version floated bottom-right and he "didn't even see it at first",
+ * which for a card whose whole brief is being seen is the one failure that
+ * matters. Still not a modal in behaviour: it takes no focus and traps
+ * nothing, and its three buttons are the ways out (the scrim deliberately
+ * answers no clicks — a silent click-away would either write state nobody
+ * chose or bring the card straight back). It is entirely self-inflicted:
+ * it exists only on the schedule the user set in Settings → App Settings,
+ * which is off until they say otherwise.
  *
  * Three answers, each honest about what it does:
  *   Update balances — go to Accounts, and the job is taken as being done
@@ -58,11 +63,12 @@ export default function BalanceReminderCard(): React.JSX.Element | null {
   };
 
   return (
-    <div
-      role="status"
-      aria-label="Balance reminder"
-      className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-96 z-50 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-line dark:border-gray-600 p-4"
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div
+        role="status"
+        aria-label="Balance reminder"
+        className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-line dark:border-gray-600 p-5"
+      >
       <div className="flex items-start gap-3">
         <BellIcon size={18} className="mt-0.5 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />
         <div className="min-w-0">
@@ -103,6 +109,7 @@ export default function BalanceReminderCard(): React.JSX.Element | null {
         >
           Update balances
         </button>
+        </div>
       </div>
     </div>
   );
