@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { computeIncomeExpense } from '../../utils/incomeExpense';
 import { preserveDemoParam } from '../../utils/navigation';
 import { preferences } from '../../services/preferencesService';
 import { CheckCircleIcon, XIcon } from '../icons';
@@ -24,25 +23,34 @@ import { CheckCircleIcon, XIcon } from '../icons';
  *
  * ─ EVERY TICK IS DERIVED, NEVER STORED ─────────────────────────────────
  * A step is complete when the DATA says so — an account exists, a
- * transaction exists, nothing is left unfiled — the same rule as the
+ * transaction exists, a transaction has been filed — the same rule as the
  * save-as-default tick and for the same reason: stored progress can lie,
  * derived progress cannot. It also means no "new user" flag exists
  * anywhere: a seasoned ledger derives all three ticks and the card stands
  * down by itself, and restoring a backup onto a fresh browser is
  * recognised as the seasoned ledger it is.
  *
+ * ─ A FIRST STEP IS TAKEN ONCE (owner, 29 Aug) ──────────────────────────
+ * The categorise tick used to demand ZERO unfiled rows, which read a
+ * seasoned ledger with a working backlog as a beginner who had never
+ * categorised anything — the owner, fifty thousand filed rows deep, was
+ * shown "Categorise them" as still outstanding over ten new arrivals. A
+ * first step asks "have you done this thing?", and one filed row answers
+ * it. The BACKLOG is the attention ladder's job (and since the same day's
+ * ruling, unfiled rows are review work with their own amber) — two
+ * surfaces nagging the same rows would be two rungs claiming one
+ * condition. So: at least one filed non-transfer row completes the step,
+ * and this card is out of the backlog business entirely.
+ *
  * The one stored bit is the DISMISSAL, because a dismissal is a choice,
  * not a fact about the ledger (the PageTip rule). In preferences rather
  * than localStorage so the choice travels with the user.
- *
- * The categorise step reads `uncategorizedRows.length` and no money figure
- * — the census's 'counts-only' state, recorded in its ledger.
  */
 
 const DISMISSED_KEY = 'firstStepsDismissed';
 
 export default function FirstSteps(): React.JSX.Element | null {
-  const { accounts, transactions, transactionSplits, categories } = useApp();
+  const { accounts, transactions } = useApp();
   const location = useLocation();
   const [dismissed, setDismissed] = useState(
     () => preferences.getItem(DISMISSED_KEY) === 'true'
@@ -51,13 +59,16 @@ export default function FirstSteps(): React.JSX.Element | null {
   const hasAccount = accounts.length > 0;
   const hasTransactions = transactions.length > 0;
 
-  // Counts only — see the header. Skipped entirely until there is anything
-  // to count, so an empty ledger pays nothing for this.
-  const allFiled = useMemo(() => {
-    if (!hasTransactions) return false;
-    return computeIncomeExpense(transactions, transactionSplits, categories)
-      .uncategorizedRows.length === 0;
-  }, [hasTransactions, transactions, transactionSplits, categories]);
+  // One filed row proves the step taken — see the header. Transfers are not
+  // filing (they take no category), so they cannot tick this by existing.
+  const hasFiled = useMemo(
+    () =>
+      hasTransactions &&
+      transactions.some(
+        (t) => t.type !== 'transfer' && typeof t.category === 'string' && t.category.trim() !== ''
+      ),
+    [hasTransactions, transactions]
+  );
 
   const steps = [
     {
@@ -73,7 +84,7 @@ export default function FirstSteps(): React.JSX.Element | null {
       to: '/import',
     },
     {
-      done: allFiled,
+      done: hasFiled,
       label: 'Categorise them',
       detail: 'A transaction with no category is left out of every total.',
       to: '/categorisation',

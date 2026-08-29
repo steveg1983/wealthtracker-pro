@@ -95,9 +95,11 @@ const LEDGER: Record<string, Partial<Record<(typeof PRIMITIVES)[number], Status>
   // `uncategorizedRows.length` — never a total. Its answer is a rung name,
   // so no exchange rate could change it.
   'src/hooks/useAttentionLadder.ts': { computeIncomeExpense: 'counts-only' },
-  // First-steps checklist: reads uncategorizedRows.length to derive its
-  // "categorise them" tick — a count, never a total.
-  'src/components/dashboard/FirstSteps.tsx': { computeIncomeExpense: 'counts-only' },
+  // The first-steps checklist USED to sit here (counts-only, reading
+  // uncategorizedRows.length for its "categorise them" tick). Since 29 Aug a
+  // first step is proven by ONE filed row — transactions.some(), no
+  // aggregation primitive at all — so it left the census the honest way:
+  // by no longer summing anything.
 };
 
 const SRC = join(process.cwd(), 'src');

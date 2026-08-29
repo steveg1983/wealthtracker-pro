@@ -9,6 +9,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  candidatesSharingRows,
   deleteBlockOf,
   deleteRefusalFor,
   findDuplicateCandidates,
@@ -450,5 +451,46 @@ describe('deleteBlockOf', () => {
 
   it('refuses a split parent — its lines, and any leg among them, go with it', () => {
     expect(deleteBlockOf(txn({ id: 'parent', isSplit: true }))).toBe('split-parent');
+  });
+});
+
+describe('candidatesSharingRows — the cluster one judgment covers', () => {
+  // Bare pair literals: the helper reads only a/b, and building these through
+  // the scanner would test the scanner twice. Every id is invented.
+  const pair = (aId: string, bId: string): DuplicateCandidate => ({
+    a: txn({ id: aId }),
+    b: txn({ id: bId }),
+    score: 100,
+    daysApart: 0,
+    basis: 'description-agrees',
+  });
+
+  it('follows shared rows TRANSITIVELY — a chain is one repeated payment', () => {
+    // (A,B) and (B,C) share only row B, and (A,C) was never itself offered.
+    // Refusing (A,B) as "both real" still has to cover (B,C): B just got
+    // vouched for, and C is the same money with the same wording.
+    const ab = pair('row-a', 'row-b');
+    const bc = pair('row-b', 'row-c');
+    const unrelated = pair('row-d', 'row-e');
+
+    const cluster = candidatesSharingRows([ab, bc, unrelated], ab);
+
+    expect(cluster).toHaveLength(2);
+    expect(cluster[0]).toBe(ab);
+    expect(cluster).toContain(bc);
+    expect(cluster).not.toContain(unrelated);
+  });
+
+  it('a pair sharing no row is a different question, whatever its amount', () => {
+    const ab = pair('row-a', 'row-b');
+    const cd = pair('row-c', 'row-d');
+    expect(candidatesSharingRows([ab, cd], ab)).toEqual([ab]);
+  });
+
+  it('the refused pair leads its own cluster even when the list omits it', () => {
+    // The caller passes the LIVE list; if filtering raced the click, the
+    // judgment still covers at least the pair that was answered.
+    const ab = pair('row-a', 'row-b');
+    expect(candidatesSharingRows([], ab)).toEqual([ab]);
   });
 });

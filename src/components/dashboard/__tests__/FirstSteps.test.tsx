@@ -79,11 +79,32 @@ describe('the first-steps card', () => {
     expect(screen.getByRole('link', { name: 'Add or import transactions' })).toBeInTheDocument();
   });
 
-  it('counts an unfiled transaction against the categorise step', () => {
-    setLedger({ accounts: [account], transactions: [txn('t1', 'det-food'), txn('t2', '')] });
+  it('a ledger that has never filed anything is asked to categorise', () => {
+    setLedger({ accounts: [account], transactions: [txn('t2', '')] });
     renderCard();
     expect(screen.getByRole('link', { name: 'Categorise them' }))
       .toHaveAttribute('href', '/categorisation');
+  });
+
+  it('one filed row completes the step — a backlog belongs to the ladder, not the checklist', () => {
+    // The owner, 29 Aug: fifty thousand filed rows deep, shown "Categorise
+    // them" as outstanding over a handful of new arrivals. A first step asks
+    // "have you done this thing?", and one filed row answers it; what remains
+    // unfiled is the attention ladder's business (and, since the same day's
+    // ruling, the review flag's). With all three steps proven the card is
+    // gone entirely.
+    setLedger({ accounts: [account], transactions: [txn('t1', 'det-food'), txn('t2', '')] });
+    renderCard();
+    expect(screen.queryByTestId('first-steps')).toBeNull();
+  });
+
+  it('a transfer is not filing — it cannot tick the categorise step by existing', () => {
+    setLedger({
+      accounts: [account],
+      transactions: [{ ...txn('t3', 'transfer-out'), type: 'transfer' }],
+    });
+    renderCard();
+    expect(screen.getByRole('link', { name: 'Categorise them' })).toBeInTheDocument();
   });
 
   it('stands down by itself when the ledger is under way — no stored flag', () => {

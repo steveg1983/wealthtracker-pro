@@ -6,6 +6,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useAccountNames } from '../hooks/useAccountNames';
 import {
+  candidatesSharingRows,
   deleteBlockOf,
   deleteRefusalFor,
   findDuplicateCandidates,
@@ -156,8 +157,17 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
   const [confirmedSame, setConfirmedSame] = useState(false);
   const [deleting, setDeleting] = useState(false);
   // A refusal that has not yet been answered "and never again?".
-  const [dismissPrompt, setDismissPrompt] = useState<DuplicateCandidate | null>(null);
+  /**
+   * The CLUSTER being refused — the pair the user answered plus every live
+   * pair chained to it by shared rows (owner, 29 Aug: refusing one pair of a
+   * repeated payment and being offered the next pair of the same rows is the
+   * system re-litigating the judgment it was just given). The refused pair is
+   * first; the prompt and the toast say when siblings ride along.
+   */
+  const [dismissPrompt, setDismissPrompt] = useState<DuplicateCandidate[] | null>(null);
   const [savingDismissal, setSavingDismissal] = useState(false);
+  /** How many of the cluster's refusals have been written, for the button. */
+  const [dismissalProgress, setDismissalProgress] = useState(0);
   const [restoringKey, setRestoringKey] = useState<string | null>(null);
   // "Not a duplicate" answered No to the follow-up: gone for this sitting only.
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -389,16 +399,24 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
   };
 
   const handleDismiss = async (): Promise<void> => {
-    if (!dismissPrompt) return;
+    if (!dismissPrompt || dismissPrompt.length === 0) return;
     setSavingDismissal(true);
+    setDismissalProgress(0);
     try {
-      await dismissSuggestion(
-        'duplicate',
-        duplicateDismissalKey(dismissPrompt.a, dismissPrompt.b),
-        duplicateDismissalSubjectIds(dismissPrompt.a, dismissPrompt.b)
-      );
+      // One stored refusal PER PAIR, so each is individually restorable from
+      // "Dismissed suggestions" — the cluster is one judgment but not one row.
+      for (const pair of dismissPrompt) {
+        await dismissSuggestion(
+          'duplicate',
+          duplicateDismissalKey(pair.a, pair.b),
+          duplicateDismissalSubjectIds(pair.a, pair.b)
+        );
+        setDismissalProgress(previous => previous + 1);
+      }
       showSuccess(
-        'These two will not be offered again. Bring them back any time from “Dismissed suggestions” at the foot of this list.',
+        dismissPrompt.length === 1
+          ? 'These two will not be offered again. Bring them back any time from “Dismissed suggestions” at the foot of this list.'
+          : `That repeated payment will not be offered again — all ${dismissPrompt.length} suggestions made of its rows are remembered as refused. Bring any of them back from “Dismissed suggestions” at the foot of this list.`,
         'Left out in future'
       );
       setDismissPrompt(null);
@@ -856,9 +874,20 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
                 type="button"
                 disabled={deleting}
                 onClick={() => {
-                  const key = duplicateDismissalKey(reviewing.a, reviewing.b);
-                  setDismissed(prev => new Set(prev).add(key));
-                  setDismissPrompt(reviewing);
+                  // "Leave both" is a judgment about a repeated payment, not
+                  // about one pairing of it — so the WHOLE cluster of live
+                  // pairs chained to this one by shared rows drops with it
+                  // (owner, 29 Aug). Pairs sharing no row are untouched: a
+                  // different repeated payment is a different question.
+                  const cluster = candidatesSharingRows(live, reviewing);
+                  setDismissed(prev => {
+                    const next = new Set(prev);
+                    for (const pair of cluster) {
+                      next.add(duplicateDismissalKey(pair.a, pair.b));
+                    }
+                    return next;
+                  });
+                  setDismissPrompt(cluster);
                   setReviewing(null);
                   setChosenId(null);
                   setConfirmedSame(false);
@@ -883,9 +912,22 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
       {dismissPrompt && (
         <DismissSuggestionPrompt
           isOpen
-          subject="these two rows"
-          keepingMeans="they drop off the list for now"
+          // Singular phrases, because the prompt reads them mid-sentence
+          // ("«subject» is remembered as refused") — "these two rows is" was
+          // shipped grammar the owner screenshotted, 29 Aug. When siblings
+          // ride along, the subject says what the judgment actually covers.
+          subject={dismissPrompt.length === 1 ? 'this pairing' : 'this repeated payment'}
+          keepingMeans={
+            dismissPrompt.length === 1
+              ? 'it drops off the list for now'
+              : `all ${dismissPrompt.length} of its suggestions drop off the list for now`
+          }
           saving={savingDismissal}
+          savingLabel={
+            dismissPrompt.length > 1
+              ? `Saving ${Math.min(dismissalProgress + 1, dismissPrompt.length)} of ${dismissPrompt.length}…`
+              : undefined
+          }
           onKeep={() => setDismissPrompt(null)}
           onDismiss={() => void handleDismiss()}
         />

@@ -157,8 +157,34 @@ export function washTopOpacity(isDarkGround: boolean): number {
   return isDarkGround ? WASH_TOP_OPACITY.dark : WASH_TOP_OPACITY.light;
 }
 
-/** …fading to nothing at the foot of the plot. */
-export const WASH_BOTTOM_OPACITY = 0;
+/**
+ * …fading towards the foot of the plot — but no longer to NOTHING.
+ *
+ * ─ THE OWNER'S 29 AUG EVENING NOTE, AND WHERE THE HEADROOM ACTUALLY WAS ────
+ * "I think it could be a bit more 'visible' than it is?" — said of charts whose
+ * TOP constant was already at its measured ceiling (the morning's work, above:
+ * #6b86b3 binds both grounds at ~3.0:1, and the ceiling is the ceiling). What
+ * that measurement binds is the LINE against its own wash, and the two only
+ * meet at the TOP of the gradient. The foot was fading to zero, which threw
+ * away most of the body over most of the plot's height for free: on a chart
+ * whose y-axis starts at £0 — which is most of them — the lower two-thirds of
+ * the fill was effectively invisible. So the visibility is spent where the
+ * measurement leaves it free: the floor rises from 0 to roughly a third of
+ * each ground's own peak, which lifts the fill's average ink by ~40% while the
+ * strongest point — the only point the contrast guard measures, because it is
+ * the only point the line touches — does not move. The dark floor is higher
+ * than the light one for the reason the dark peak is: the same lightness step
+ * is harder to see at the near-black end.
+ *
+ * Still a wash, not an area fill: it fades, visibly, and never approaches
+ * opacity — richLine.test.tsx pins floor < peak on both grounds.
+ */
+export const WASH_BOTTOM_OPACITY = { light: 0.05, dark: 0.08 } as const;
+
+/** The floor for the ground being drawn on — same contract as washTopOpacity. */
+export function washBottomOpacity(isDarkGround: boolean): number {
+  return isDarkGround ? WASH_BOTTOM_OPACITY.dark : WASH_BOTTOM_OPACITY.light;
+}
 
 /**
  * The hover mark's radius — the same 4 `singlePointDot` gives a lone point,
@@ -262,7 +288,10 @@ export function seriesWash(chartKey: string, colour: string, isDarkGround: boole
     <defs>
       <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stopColor={colour} stopOpacity={washTopOpacity(isDarkGround)} />
-        <stop offset="100%" stopColor={colour} stopOpacity={WASH_BOTTOM_OPACITY} />
+        {/* The floor is a pure function of the ground, and the two grounds'
+            TOP strengths already differ — so the id above, which encodes the
+            top, stays a complete function of this definition. */}
+        <stop offset="100%" stopColor={colour} stopOpacity={washBottomOpacity(isDarkGround)} />
       </linearGradient>
     </defs>
   );

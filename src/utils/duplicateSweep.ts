@@ -355,3 +355,47 @@ export function findDuplicateCandidates(
   }
   return candidates;
 }
+
+/**
+ * Every candidate that is part of the SAME repeated payment as `pair` — the
+ * transitive closure over shared rows among the candidates given (pass the
+ * LIVE list, after dismissal filtering, so refusals already honoured are not
+ * dragged back in).
+ *
+ * Why this exists (owner, 29 Aug): four identical rows — four real coffee
+ * taps on holiday — produce several overlapping pairs, and each pair is its
+ * own line in the sweep. Refusing one pair as "not a duplicate — leave both"
+ * and being offered the next pair OF THE SAME ROWS is the system re-litigating
+ * a judgment it was just given. The unit of that judgment is the cluster:
+ * pairs chained together by the rows they share. Pairs that share no row with
+ * the refused one — a different repeated payment, even at the same amount —
+ * are a genuinely separate question and are NOT in the closure.
+ *
+ * The given pair is always in its own cluster, listed first.
+ */
+export function candidatesSharingRows(
+  candidates: readonly DuplicateCandidate[],
+  pair: DuplicateCandidate
+): DuplicateCandidate[] {
+  const inCluster = new Set<string>([pair.a.id, pair.b.id]);
+  const cluster: DuplicateCandidate[] = [pair];
+  const remaining = candidates.filter(c => c !== pair);
+
+  // Fixed point: each pass adopts candidates touching the cluster, whose rows
+  // then extend it. Terminates because `remaining` only ever shrinks.
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (let i = remaining.length - 1; i >= 0; i -= 1) {
+      const candidate = remaining[i];
+      if (inCluster.has(candidate.a.id) || inCluster.has(candidate.b.id)) {
+        inCluster.add(candidate.a.id);
+        inCluster.add(candidate.b.id);
+        cluster.push(candidate);
+        remaining.splice(i, 1);
+        grew = true;
+      }
+    }
+  }
+  return cluster;
+}
