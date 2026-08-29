@@ -41,10 +41,22 @@
  *   npx tsx scripts/seedShowcaseUser.mts --email demo@example.com --password 'S3cret!' [--env .env.local]
  *     → creates/reuses the Clerk user and seeds the lot. REFUSES to run on a
  *       user that already has categories, accounts or transactions.
+ *   … --email demo@example.com --user-id <users.id uuid> [--replace]
+ *     → seeds an EXISTING users row directly, no Clerk call at all. This is
+ *       the mode for accounts whose Clerk identity lives on a different
+ *       instance from the env file's key — the trap that bit on 29 Aug, when
+ *       a dev-instance CLERK_SECRET_KEY resolved a production account to a
+ *       ghost and nearly minted a second users row. The email must match the
+ *       row: an id is easy to mistype, and a wrong one must not seed.
+ *       --replace lifts the refuse-to-reseed guard by DELETING the user's
+ *       financial data first, table by table with counts — for the
+ *       re-photograph loop, where the ledger is regenerated whole.
  *
  * Same safety construction as scripts/seedDemoUser.mts, which this extends in
- * spirit: every write scoped to the freshly created user id; re-running
- * cannot duplicate; pointing it at a lived-in account cannot touch the data.
+ * spirit: every write scoped to one user id; re-running cannot duplicate
+ * (without --replace, which says exactly what it removed); pointing it at a
+ * lived-in account cannot touch the data unless --replace says so twice over
+ * (the flag AND a matching email).
  */
 import { randomUUID } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
@@ -548,7 +560,9 @@ if (DRY_RUN) {
 // ── Insert mode ──────────────────────────────────────────────────────────────
 
 const EMAIL = flag('email') ?? fail('--email is required (or use --dry-run)');
-const PASSWORD = flag('password') ?? fail('--password is required');
+const USER_ID = flag('user-id');
+const REPLACE = args.includes('--replace');
+const PASSWORD = USER_ID ? undefined : (flag('password') ?? fail('--password is required (unless --user-id)'));
 const envPath = flag('env') ?? '.env.local';
 if (!existsSync(envPath)) fail(`env file not found: ${envPath}`);
 const env = Object.fromEntries(readFileSync(envPath, 'utf8').split('\n')
@@ -596,13 +610,43 @@ async function findOrCreateDbUser(clerkId: string): Promise<string> {
   return inserted.id;
 }
 
-const clerkId = await findOrCreateClerkUser();
-const USER = await findOrCreateDbUser(clerkId);
+let USER: string;
+if (USER_ID) {
+  const { data, error } = await sb.from('users').select('id, email').eq('id', USER_ID).maybeSingle();
+  if (error) fail(`users read: ${error.message}`);
+  if (!data) fail(`no users row with id ${USER_ID}`);
+  if ((data.email ?? '').toLowerCase() !== EMAIL.toLowerCase()) {
+    fail(`users row ${USER_ID} has email ${data.email}, not ${EMAIL} — refusing (the email is the second key)`);
+  }
+  console.log(`seeding existing user ${USER_ID} (${data.email}) — Clerk untouched`);
+  USER = data.id;
+} else {
+  const clerkId = await findOrCreateClerkUser();
+  USER = await findOrCreateDbUser(clerkId);
+}
+
+if (REPLACE) {
+  // The re-photograph loop: remove this user's financial data, in
+  // FK-dependency order, saying exactly what went. The users row, its
+  // preferences and its layouts stay — identity and taste are not ledger.
+  const WIPE_ORDER = [
+    'deleted_feed_transactions', 'suggestion_dismissals', 'import_rules',
+    'recurring_transactions', 'transactions',
+    'investment_transactions', 'investment_prices', 'investments',
+    'budgets', 'bank_connections', 'accounts', 'categories',
+  ] as const;
+  for (const table of WIPE_ORDER) {
+    const { count, error } = await sb.from(table)
+      .delete({ count: 'exact' }).eq('user_id', USER);
+    if (error) fail(`--replace wipe of ${table}: ${error.message}`);
+    if ((count ?? 0) > 0) console.log(`  wiped ${table}: ${count}`);
+  }
+}
 
 for (const table of ['categories', 'accounts', 'transactions'] as const) {
   const { count, error } = await sb.from(table).select('id', { count: 'exact', head: true }).eq('user_id', USER);
   if (error) fail(`${table} count: ${error.message}`);
-  if ((count ?? 0) > 0) fail(`user ${USER} already has ${count} ${table} — refusing to seed twice`);
+  if ((count ?? 0) > 0) fail(`user ${USER} already has ${count} ${table} — refusing to seed twice (--replace overrides)`);
 }
 
 // Categories: the SHIPPING starter tree (so screenshots match what a new user
