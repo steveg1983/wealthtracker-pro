@@ -10,11 +10,15 @@
  *    the current account, each followed by a £400 government top-up recorded
  *    as an Account Adjustment, the whole pot growing at ~6.5%/yr TWR.
  *  - A Hargreaves Lansdown Stocks & Shares ISA opening at just over £210k:
- *    £3,000/month in, deployed in quarterly purchases — index funds tracking
- *    the FTSE 100 and S&P 500 carrying most of it, with smaller single-stock
- *    positions (Apple, Alphabet, Microsoft, Rolls-Royce, Shell, Rio Tinto).
+ *    the FULL ISA allowance in each tax year (owner's correction of 29 Aug,
+ *    after the first cut fed it £3k/month — £36k/yr against a £20k limit):
+ *    £15,240/yr to April 2017, £20,000/yr since, monthly. Deployed in
+ *    quarterly purchases — index funds tracking the FTSE 100 and S&P 500
+ *    carrying most of it, with smaller single-stock positions (Apple,
+ *    Alphabet, Microsoft, Rolls-Royce, Shell, Rio Tinto).
  *  - Instant-access savings from £50k to ~£100k (calibrated below).
- *  - Net salary rising fairly linearly from £180k/yr to £300k/yr.
+ *  - Net salary rising fairly linearly from £144k/yr to £240k/yr (the
+ *    owner's second cut; the first said £180k → £300k).
  *  - A leased car whose payment steps every three years: £500 → £850 →
  *    £1,150 → £1,500 a month.
  *  - Two credit cards carrying the day-to-day (fuel, dining, coffee, shops),
@@ -120,7 +124,10 @@ function marketPath(annualTwr: number): number[] {
   return raw.map(x => Math.exp(Math.log(1 + x) + adjust) - 1);
 }
 
-const MARKET = marketPath(0.065);           // the pension's specified 6.5% TWR
+// The pension's specified TWR — 4.5% since the owner's tweak of 29 Aug
+// (first cut ran at his original 6.5% and compounded the whole ledger to
+// nearly twice the aspiration).
+const MARKET = marketPath(0.045);
 
 /** An instrument's own monthly path: the market, leveraged by beta, plus its own story. */
 function instrumentPath(beta: number, annualAlpha: number, seed: number): number[] {
@@ -323,9 +330,9 @@ for (let i = 0; i < MONTHS; i += 1) {
   const { y, m } = ym(i);
   const isCurrentMonth = i === MONTHS - 1;
 
-  // Salary: £15,000 → £25,000 net/month, stepping each April.
+  // Salary: £12,000 → £20,000 net/month, stepping each April.
   const aprils = Math.floor((i + (START.m - 4 + 12) % 12) / 12);
-  const salary = pounds(15000 + (25000 - 15000) * (aprils / 10) + jitter(0, 0) );
+  const salary = pounds(12000 + (20000 - 12000) * (aprils / 10));
   add('current', monthDate(i, 25), 'MERIDIAN CAPITAL LLP — SALARY', salary, 'CAT:Net Pay');
   currentBal += salary;
 
@@ -336,9 +343,12 @@ for (let i = 0; i < MONTHS; i += 1) {
   add('pension', monthDate(i, 3), 'HMRC TAX RELIEF AT SOURCE', 400, 'CAT:Account Adjustment');
   pensionState.cash += 400;
 
-  // ISA: £3,000 in.
-  addTransfer('current', 'isa', monthDate(i, 2), 'STANDING ORDER — HL ISA', 3000);
-  currentBal -= 3000; isaState.cash += 3000;
+  // ISA: the tax year's full allowance, monthly — £15,240/yr until April
+  // 2017, £20,000/yr since (raised at Budget 2017, frozen ever after).
+  const isaAllowance = (y < 2017 || (y === 2017 && m < 4)) ? 15240 : 20000;
+  const isaIn = pounds(isaAllowance / 12);
+  addTransfer('current', 'isa', monthDate(i, 2), 'STANDING ORDER — HL ISA', isaIn);
+  currentBal -= isaIn; isaState.cash += isaIn;
 
   // Saver top-up (calibrated) and monthly interest.
   addTransfer('current', 'saver', monthDate(i, 4), 'STANDING ORDER — INSTANT SAVER', SAVER_TOPUP);
@@ -378,7 +388,7 @@ for (let i = 0; i < MONTHS; i += 1) {
       st.cash = pounds(st.cash - spent);
     }
     const newValue = pounds(st.cash + holdingsValue(st.holdings, i));
-    const cashflows = (key === 'isa' ? 3000 : 2400);
+    const cashflows = (key === 'isa' ? isaIn : 2400);
     const reval = pounds(newValue - st.value - cashflows);
     if (Math.abs(reval) >= 0.01) {
       const r = add(key, monthDate(i, 27), 'MARKET VALUE UPDATE', reval, 'CAT:Market Value Change');
