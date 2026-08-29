@@ -155,7 +155,7 @@ export default function DocumentManager({
 
   const getFileIcon = (mimeType: string) => {
     if (mimeType.startsWith('image/')) {
-      return <ImageIcon size={20} className="text-blue-600" />;
+      return <ImageIcon size={20} className="text-gray-600 dark:text-gray-400" />;
     }
     if (mimeType === 'application/pdf') {
       return <FileTextIcon size={20} className="text-red-600" />;
@@ -165,8 +165,11 @@ export default function DocumentManager({
 
   const getTypeColor = (type: Document['type']) => {
     switch (type) {
-      case 'receipt': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-      case 'invoice': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+      // Receipt and invoice both wore the stock blue, so the hue was never
+      // telling them apart — the chip's own word was. Neutral (stock-blue
+      // ruling, 28 Aug 2026); purple and orange remain the family's real hues.
+      case 'receipt': return 'bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200';
+      case 'invoice': return 'bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200';
       case 'statement': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
       case 'contract': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400';
@@ -326,7 +329,7 @@ export default function DocumentManager({
             {filterTags.map(tag => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full text-sm"
+                className="inline-flex items-center gap-1 px-2 py-1 bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200 rounded-full text-sm"
               >
                 <TagIcon size={12} />
                 {tag}
@@ -424,8 +427,11 @@ export default function DocumentManager({
                     <span className={`px-2 py-0.5 rounded-full text-xs ${getTypeColor(doc.type)}`}>
                       {doc.type}
                     </span>
+                    {/* A document that has been read is a settled fact about it,
+                        not something to act on, so it needs no colour
+                        (stock-blue ruling, 28 Aug 2026). */}
                     {doc.extractedData && (
-                      <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                      <span className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
                         <CheckCircleIcon size={12} />
                         OCR
                       </span>
@@ -466,7 +472,7 @@ export default function DocumentManager({
                       setSelectedDocument(doc);
                       setShowViewer(true);
                     }}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    className="text-primary hover:text-secondary text-sm font-medium"
                   >
                     View
                   </button>

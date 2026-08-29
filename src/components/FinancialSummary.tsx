@@ -64,7 +64,7 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
         </div>
         <button
           onClick={() => setShowDetails(!showDetails)}
-          className="text-sm text-blue-700 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+          className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
         >
           {showDetails ? 'Hide' : 'Show'} Details
         </button>
@@ -122,8 +122,12 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
 
         {/* Net Income */}
         <div className={`rounded-xl p-4 ${
+          // Income's green and Expenses' red beside this tile are the money-sign
+          // law. A net that is not negative is the settled case and asks for
+          // nothing (stock-blue ruling, 28 Aug 2026); the orange is kept because
+          // a net below zero genuinely does need attention.
           summary.netIncome.greaterThanOrEqualTo(0)
-            ? 'bg-blue-50 dark:bg-blue-900/20'
+            ? 'bg-gray-50 dark:bg-gray-700/50'
             : 'bg-orange-50 dark:bg-orange-900/20'
         }`}>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Net Income</p>

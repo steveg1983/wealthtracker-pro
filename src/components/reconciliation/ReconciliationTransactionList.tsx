@@ -86,6 +86,35 @@ interface ReconciliationTransactionListProps {
 const RECONCILED_ROW_TITLE =
   'Reconciled in a finished reconciliation. Un-tick it in the account register if it is wrong.';
 
+/**
+ * THE C/R CHIP'S COLOURS — Claude Design's stock-blue ruling, 28 Aug 2026 §4.
+ *
+ * `C` wore a filled `blue-600` badge on every marked row: 7,240 of them at once
+ * on the owner's ledger, which is the 13 August "29 blue All reconciled pills"
+ * finding at 250× scale. The ruling then applies unchanged now — **the C/R
+ * letters are law, their colour never was.** The letter carries the meaning, so
+ * under P2 there is nothing left for colour to add, and a badge on 100% of rows
+ * marks nothing at all.
+ *
+ * Both marked states therefore take the neutral chip the ruling names: #f1f3f7
+ * ground, #475569 letter (6.82:1 measured), with a gray-700/gray-200 counterpart
+ * on dark from the same family.
+ *
+ * R KEEPS A DISTINCTION FROM C, but as a deeper ground out of that same family
+ * rather than as the `navy-400` the ruling offered as an option. That token
+ * measures 3.32:1 as a letter on #f1f3f7 and 3.69:1 as a ground under white —
+ * both fail AA at this chip's `text-xs` size, and the previous R (`gray-400`
+ * under white, 2.54:1) failed it worse. The letters are what tell the two apart;
+ * the ground only has to stop them reading as one control.
+ *
+ * Neither state may reach for a hue again. A chip that appears on every row is
+ * the definition of a resting state, and colour marks what needs attention.
+ */
+const CHIP_MARKED =
+  'bg-[#f1f3f7] border-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:border-gray-700 dark:text-gray-200';
+const CHIP_RECONCILED =
+  'bg-[#e2e6ed] border-[#e2e6ed] text-[#475569] dark:bg-gray-600 dark:border-gray-600 dark:text-gray-100';
+
 export default function ReconciliationTransactionList({
   transactions,
   categories,
@@ -295,8 +324,14 @@ export default function ReconciliationTransactionList({
                 <div
                   key={t.id}
                   onClick={() => onRowClick(t)}
+                  /* NO `title` HERE (Design, 28 Aug §7). "Click to edit this
+                     transaction" floated a stock dark tooltip mid-row, on every
+                     row, restating what `cursor-pointer` and the row's own hover
+                     state already say — the same disqualification the tile hint
+                     earned. There is nothing for assistive tech to lose either:
+                     this is a generic div with no role and no tab stop, so the
+                     attribute was never announced, only drawn. */
                   className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 md:grid-cols-[100px_50px_1fr_180px_120px_120px] md:gap-2 px-4 py-3 md:py-2 hover:bg-gray-50 dark:hover:bg-gray-750 md:items-center text-sm cursor-pointer"
-                  title="Click to edit this transaction"
                 >
                   {/* Date */}
                   <div className="text-gray-700 dark:text-gray-300">
@@ -317,9 +352,9 @@ export default function ReconciliationTransactionList({
                       disabled={reconciled || (pendingClearedIds?.has(t.id) ?? false)}
                       className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors text-xs font-semibold disabled:cursor-not-allowed ${
                         reconciled
-                          ? 'bg-gray-400 border-gray-400 text-white dark:bg-gray-500 dark:border-gray-500'
+                          ? CHIP_RECONCILED
                           : t.cleared
-                          ? 'bg-blue-600 border-blue-600 text-white disabled:opacity-60 disabled:cursor-wait'
+                          ? `${CHIP_MARKED} disabled:opacity-60 disabled:cursor-wait`
                           : 'border-gray-300 dark:border-gray-500 hover:border-primary disabled:opacity-60 disabled:cursor-wait'
                       }`}
                       title={

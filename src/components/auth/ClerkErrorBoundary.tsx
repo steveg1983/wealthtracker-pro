@@ -2,6 +2,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangleIcon, RefreshCwIcon, HomeIcon, ChromeIcon } from '../icons';
 import { handleClerkSafariError } from '../../utils/clerkSafarifix';
 import { isSafari } from '../../utils/safariCompat';
+import { LINK_CLASS } from '../../design-system/linkBlue';
 
 interface Props {
   children: ReactNode;
@@ -153,11 +154,16 @@ export class ClerkErrorBoundary extends Component<Props, State> {
                       For the best experience, try using:
                     </p>
                     <div className="flex gap-2">
+                      {/* It leaves the app for a browser tab this app does not
+                          control, so the INK is the one blue left standing —
+                          but the ground it sat on was never a link colour, and
+                          is now the house neutral chip (stock-blue ruling,
+                          28 Aug 2026). */}
                       <a
                         href="https://www.google.com/chrome/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-3 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/40 transition-colors text-sm"
+                        className={`flex items-center gap-2 px-3 py-2 bg-[#f1f3f7] dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm ${LINK_CLASS}`}
                       >
                         <ChromeIcon size={16} />
                         Chrome

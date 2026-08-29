@@ -275,7 +275,7 @@ const TableHeader = memo(function TableHeader<T>({
               setOverKey(null);
             } : undefined}
             onDragEnd={reorderable ? () => { setDragKey(null); setOverKey(null); } : undefined}
-            className={`relative px-3 py-2 ${headerCellClassName} ${headerClassName ? '' : 'text-gray-700 dark:text-gray-300'} ${column.headerClassName || ''} ${reorderable ? 'cursor-move select-none' : ''} ${isDropTarget ? 'border-l-2 border-blue-400' : ''} ${dragKey === column.key ? 'opacity-50' : ''}`}
+            className={`relative px-3 py-2 ${headerCellClassName} ${headerClassName ? '' : 'text-gray-700 dark:text-gray-300'} ${column.headerClassName || ''} ${reorderable ? 'cursor-move select-none' : ''} ${isDropTarget ? 'border-l-2 border-primary' : ''} ${dragKey === column.key ? 'opacity-50' : ''}`}
             style={{ width: column.width }}
           >
             {column.sortable && onSort ? (
@@ -303,7 +303,7 @@ const TableHeader = memo(function TableHeader<T>({
                 onMouseDown={(e) => startResize(e, column.key)}
                 onClick={(e) => e.stopPropagation()}
                 draggable={false}
-                className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400/50"
+                className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-gray-400/50"
                 aria-hidden="true"
               />
             )}

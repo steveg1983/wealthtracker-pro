@@ -55,8 +55,11 @@ export const OfflineIndicator: React.FC = () => {
               </>
             ) : (
               <>
-                <WifiIcon className="h-5 w-5 text-blue-600" />
-                <span className="font-medium text-blue-700 dark:text-blue-400">
+                {/* Online is the SETTLED state and needs no colour — offline,
+                    which does need attention, keeps the red (stock-blue
+                    ruling, 28 Aug 2026). */}
+                <WifiIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                <span className="font-medium text-gray-700 dark:text-gray-300">
                   Online
                 </span>
               </>
@@ -115,7 +118,7 @@ export const OfflineIndicator: React.FC = () => {
           <>
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="mt-3 text-xs text-blue-700 dark:text-blue-400 hover:underline"
+              className="mt-3 text-xs text-primary hover:text-secondary hover:underline"
             >
               {showDetails ? 'Hide' : 'Show'} details
             </button>
@@ -135,7 +138,7 @@ export const OfflineIndicator: React.FC = () => {
                         >
                           <span>{conflict.entity} conflict</span>
                           <button
-                            className="text-blue-700 dark:text-blue-400 hover:underline"
+                            className="text-primary hover:text-secondary hover:underline"
                             onClick={() => {
                               // Open conflict resolution modal
                               window.dispatchEvent(

@@ -467,7 +467,11 @@ export default function BankingOpsAlertStatsCard({
               void handleSendTestAlert();
             }}
             disabled={isSendingTestAlert}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-blue-300 dark:border-blue-700 text-xs font-medium text-blue-700 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50"
+            /* The red sibling below is destructive and has earned its colour;
+               this one only sends a test, so it is the house quiet outline
+               (stock-blue ruling, 28 Aug 2026 — a resting control spends no
+               colour). */
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
             title="Send test alert webhook"
           >
             <SendIcon size={13} className={isSendingTestAlert ? 'animate-pulse' : ''} />
@@ -748,7 +752,7 @@ export default function BankingOpsAlertStatsCard({
         <button
           type="submit"
           disabled={isLoading}
-          className="self-end px-3 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          className="self-end px-3 py-2 rounded-md bg-primary-action text-on-primary-action hover:bg-primary-action-hover text-sm font-medium disabled:opacity-50"
         >
           Apply
         </button>

@@ -10,6 +10,7 @@ import {
   CodeIcon,
   QuoteIcon
 } from './icons';
+import { LINK_CLASS } from '../design-system/linkBlue';
 
 interface MarkdownEditorProps {
   value: string;
@@ -49,7 +50,9 @@ export default function MarkdownEditor({
       .replace(/`([^`]+)`/gim, '<code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm">$1</code>')
       
       // Links
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-700 dark:text-blue-400 hover:underline">$1</a>')
+      // A markdown link opens a tab this app does not control, so it is the one
+      // place the stock blue survives (stock-blue ruling, 28 Aug 2026).
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, `<a href="$2" target="_blank" rel="noopener noreferrer" class="${LINK_CLASS}">$1</a>`)
       
       // Lists
       .replace(/^\* (.+)$/gim, '<li class="ml-4">• $1</li>')
@@ -158,8 +161,12 @@ export default function MarkdownEditor({
               type="button"
               onClick={() => setIsPreviewMode(false)}
               className={`p-1.5 rounded text-sm ${
-                !isPreviewMode 
-                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' 
+                !isPreviewMode
+                  /* Which of two modes is chosen is a selected state, not a link:
+                     the ruled selected wash plus the deep ink (stock-blue ruling,
+                     28 Aug 2026). The wash needs a dark counterpart of its own —
+                     navy at 10% over this gray-800 toolbar is the toolbar. */
+                  ? 'bg-primary/10 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >
@@ -169,8 +176,8 @@ export default function MarkdownEditor({
               type="button"
               onClick={() => setIsPreviewMode(true)}
               className={`p-1.5 rounded text-sm ${
-                isPreviewMode 
-                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' 
+                isPreviewMode
+                  ? 'bg-primary/10 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >

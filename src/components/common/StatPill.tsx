@@ -53,7 +53,13 @@ const TONE_CLASS: Record<StatTone, string> = {
   neutral: 'text-gray-900 dark:text-white',
   positive: 'text-green-600 dark:text-green-400',
   negative: 'text-red-600 dark:text-red-400',
-  settled: 'text-blue-600 dark:text-blue-400',
+  // `Difference £0.00` and `Cleared Balance` are the two figures this tone was
+  // written for, and both are named in the stock-blue ruling of 28 Aug 2026 as
+  // the case it exists to end: colour marks what needs attention, and a figure
+  // that says "agreed, nothing outstanding" needs none. The tone stays in the
+  // vocabulary — a caller still says what a figure MEANS — it simply reads as
+  // the plain figure it is.
+  settled: 'text-gray-900 dark:text-white',
 };
 
 /** How large the figure is. Hierarchy is carried by SIZE, never by colour. */

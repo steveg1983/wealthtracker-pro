@@ -32,7 +32,7 @@ import InvestmentBasisNote from '../components/InvestmentBasisNote';
 import { useArrivalAction } from '../hooks/useArrivalFocus';
 import { resolveEffectiveOpeningDates } from '../utils/openingDates';
 import { TrendingUpIcon, ChevronRightIcon } from '../components/icons';
-import { useDecompositionSeries, useChartTooltipStyle, useChartTooltipItemStyle } from '../components/charts/chartColors';
+import { decompositionSeries, useDecompositionSeries, useIsDarkGround, useChartTooltipStyle, useChartTooltipItemStyle } from '../components/charts/chartColors';
 import type { DecompositionSeries } from '../components/charts/chartColors';
 import PeriodBar from '../components/PeriodBar';
 import ReportPeriodDefaultToggle from '../components/reports/ReportPeriodDefaultToggle';
@@ -143,7 +143,10 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
   // for the same measured reason: the light navies are 1.08:1 on a dark card.
   const chartTooltipStyle = useChartTooltipStyle();
   const chartTooltipItemStyle = useChartTooltipItemStyle();
-  const decomposition = useDecompositionSeries();
+  // ONE reading of the ground per render: the series colours come from it and
+  // so does the wash's strength, so the two cannot disagree about the theme.
+  const isDark = useIsDarkGround();
+  const decomposition = decompositionSeries(isDark);
   const navigate = useNavigate();
   const location = useLocation();
   const [drillDate, setDrillDate] = useState<Date | null>(null);
@@ -673,7 +676,7 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                 }}
                 style={{ cursor: 'pointer' }}
               >
-                {!showDetail && chartType !== 'bar' && seriesWash(NET_WORTH_CHART_KEY, decomposition.total.color)}
+                {!showDetail && chartType !== 'bar' && seriesWash(NET_WORTH_CHART_KEY, decomposition.total.color, isDark)}
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.2)" />
                 {/* Years for a multi-year window (§2.3) — same helper as the
                     Dashboard widget, so card and report tick identically. */}
@@ -744,7 +747,7 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                     name="Net Worth"
                     stroke={decomposition.total.color}
                     strokeWidth={decomposition.total.width}
-                    fill={seriesWashFill(NET_WORTH_CHART_KEY, decomposition.total.color)}
+                    fill={seriesWashFill(NET_WORTH_CHART_KEY, decomposition.total.color, isDark)}
                     fillOpacity={1}
                     {...lineMarkers(snapshots, decomposition.total.color)}
                     isAnimationActive={false}

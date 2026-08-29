@@ -78,7 +78,10 @@ export default function PricingPlans({
     }
     
     if (plan.isPopular) {
-      return 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700';
+      // The recommended plan's button is a PRIMARY ACTION, and the app has one
+      // fill for that on both grounds — the gradient was decoration standing in
+      // for it (stock-blue ruling, 28 Aug 2026).
+      return 'bg-primary-action text-on-primary-action hover:bg-primary-action-hover';
     }
     
     return 'bg-white text-gray-900 border border-gray-300 hover:bg-gray-50';
@@ -158,14 +161,25 @@ export default function PricingPlans({
             key={plan.id}
             className={`relative rounded-2xl border-2 transition-all duration-200 ${
               plan.isPopular
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/10 scale-105'
+                /* The recommended plan is a SELECTED state, and takes the
+                   selection token index.css remaps to #94a3b8 on dark
+                   (stock-blue ruling, 28 Aug 2026). */
+                ? 'border-primary bg-primary/10 dark:bg-gray-700/50 scale-105'
                 : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
             } ${plan.tier === currentTier ? 'ring-2 ring-green-500' : ''}`}
           >
             {/* Popular Badge */}
             {plan.isPopular && (
               <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1 rounded-full text-sm font-medium flex items-center gap-1">
+                {/* THE ONE CHIP IN THE APP THAT NEEDS A BORDER. The neutral
+                    chip's #f1f3f7 fill is designed to sit on a white card,
+                    where it reads; this pill floats at -top-4 over the page
+                    ground (#f8f9fb), against which the same fill measures
+                    ~1.05:1 and the pill's SHAPE all but disappears. The letters
+                    are unaffected (6.82:1) — it is the badge that stops looking
+                    like a badge. A border restores the outline without
+                    reintroducing a hue. */}
+                <div className="bg-[#f1f3f7] text-[#475569] border border-[#e2e6ed] dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 px-4 py-1 rounded-full text-sm font-medium flex items-center gap-1">
                   <StarIcon size={14} />
                   Most Popular
                 </div>

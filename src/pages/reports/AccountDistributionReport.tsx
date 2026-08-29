@@ -259,9 +259,17 @@ export default function AccountDistributionReport(): React.JSX.Element {
                           style={{ backgroundColor: sliceColours.get(entry.id) ?? 'transparent' }}
                           aria-hidden="true"
                         />
+                        {/* In-app navigation, so NOT link blue (that is for
+                            leaving) — and not `text-primary
+                            hover:text-secondary` either: `.text-primary` is
+                            `!important` and would overrule the row's declared
+                            ink, while `hover:text-secondary` escapes index.css's
+                            `.dark .text-secondary` lift and would go navy on a
+                            gray-800 card. The underline is the whole hover, as
+                            on the Accounts rows. */}
                         <Link
                           to={transactionsHref(entry.id)}
-                          className="text-body text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
+                          className="text-body text-gray-900 dark:text-white hover:underline rounded"
                           title={`${entry.name} — view these transactions`}
                         >
                           {entry.name}

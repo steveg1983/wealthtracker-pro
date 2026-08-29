@@ -1,7 +1,17 @@
 /**
  * Accessible Color Palette
  * All color combinations meet WCAG 2.1 AA standards
+ *
+ * ⚠️ THE `primary` HEX BLOCK BELOW IS A MEASUREMENT TABLE, NOT THIS APP'S
+ * PRIMARY. Its blues predate the palette: WealthTracker's primary is the brand
+ * navy (`--color-primary`, rgb 26 35 50) and its primary ACTION is the
+ * ground-aware `primary-action` token pair in `tailwind.config.js`. Nothing
+ * reads this block today, and nothing new should — the ratios it records are
+ * true, the role it claims is not. `SEMANTIC_CLASSES` at the foot of the file
+ * is the part that names real utility classes, and it has been brought onto the
+ * tokens (stock-blue ruling, 28 August 2026).
  */
+import { LINK_CLASS } from './linkBlue';
 
 export const accessibleColors = {
   // Primary colors with guaranteed contrast
@@ -221,11 +231,19 @@ export const accessibleColorClasses = {
   'text-error': 'text-red-700 dark:text-red-300',
   'text-warning': 'text-amber-700 dark:text-amber-300',
   'text-success': 'text-green-700 dark:text-green-300',
-  'text-info': 'text-blue-800 dark:text-blue-300',
-  
+  // INFO IS NEUTRAL (stock-blue ruling, 28 Aug 2026). Information is the
+  // resting state by definition — if it needed attention it would be a warning,
+  // and this app spends colour only on what needs attention.
+  'text-info': 'text-gray-800 dark:text-gray-200',
+
   // Interactive colors
-  'text-link': 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300',
-  'btn-primary': 'bg-blue-600 hover:bg-blue-700 text-white',
+  // The one blue left. It is not spelled out here: `linkBlue.ts` owns it, and
+  // a second copy of a colour is how the previous five stock blues survived
+  // being ruled on individually.
+  'text-link': LINK_CLASS,
+  // The primary ACTION pair, ground-aware — never `bg-blue-600`. index.css
+  // inverts the triple under `.dark`, so this one string paints both grounds.
+  'btn-primary': 'bg-primary-action hover:bg-primary-action-hover text-on-primary-action',
   'btn-secondary': 'bg-gray-200 hover:bg-gray-300 text-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100',
   'btn-danger': 'bg-red-600 hover:bg-red-700 text-white'
 };

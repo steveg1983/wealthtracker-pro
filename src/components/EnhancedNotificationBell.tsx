@@ -134,16 +134,19 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
 
   const getActivityIcon = (activity: ActivityItem): React.JSX.Element => {
     switch (activity.type) {
+      // Transaction, account and sync all wore the same stock blue, so the hue
+      // told them apart from nothing — the glyph does that (stock-blue ruling,
+      // 28 Aug 2026). Budget's purple and goal's orange are the family's hues.
       case 'transaction':
-        return <CreditCardIcon size={16} className="text-blue-500" />;
+        return <CreditCardIcon size={16} className="text-gray-500 dark:text-gray-400" />;
       case 'account':
-        return <PiggyBankIcon size={16} className="text-blue-600" />;
+        return <PiggyBankIcon size={16} className="text-gray-500 dark:text-gray-400" />;
       case 'budget':
         return <TargetIcon size={16} className="text-purple-500" />;
       case 'goal':
         return <TrendingUpIcon size={16} className="text-orange-500" />;
       case 'sync':
-        return <CheckCircleIcon size={16} className="text-blue-600" />;
+        return <CheckCircleIcon size={16} className="text-gray-500 dark:text-gray-400" />;
       case 'system':
         return <InfoIcon size={16} className="text-gray-500" />;
       default:
@@ -152,7 +155,10 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
   };
 
   const getActivityColor = (activity: ActivityItem): string => {
-    if (!activity.read) return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800';
+    // Unread is a COUNT-shaped fact, ruled neutral on the badge above for the
+    // same reason (stock-blue ruling, 28 Aug 2026): the lifted ground and the
+    // dot are what mark the row, not a hue.
+    if (!activity.read) return 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-700';
     return 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700';
   };
 
@@ -302,7 +308,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
                   {counts.unread > 0 && (
                     <button
                       onClick={markAllAsRead}
-                      className="text-xs text-blue-700 dark:text-blue-400 hover:underline"
+                      className="text-xs text-primary hover:underline"
                     >
                       Mark all as read
                     </button>
@@ -330,7 +336,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
                     onClick={() => setFilter(tab.value)}
                     className={`px-3 py-1 text-xs rounded-full transition-colors whitespace-nowrap ${
                       filter === tab.value
-                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                        ? 'bg-primary/10 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100'
                         : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                   >
@@ -395,7 +401,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
                               </div>
 
                               {!activity.read && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                                <div className="w-2 h-2 bg-slate-400 dark:bg-gray-400 rounded-full mt-2"></div>
                               )}
                             </div>
                           </button>

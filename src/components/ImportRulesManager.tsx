@@ -179,8 +179,8 @@ export default function ImportRulesManager() {
         </div>
       </div>
 
-      <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-        <p className="text-sm text-blue-800 dark:text-blue-200">
+      <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+        <p className="text-sm text-gray-800 dark:text-gray-200">
           Import rules automatically transform transactions during import. Rules are applied in priority order (lower numbers first).
         </p>
       </div>

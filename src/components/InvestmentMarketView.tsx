@@ -190,9 +190,9 @@ export default function InvestmentMarketView({
 
       {/* The double-counting warning is part of the feature, not decoration:
           without it a reader has two "portfolio" numbers and no idea which. */}
-      <div className="flex items-start gap-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3">
-        <InfoIcon size={16} className="mt-0.5 shrink-0 text-blue-700 dark:text-blue-400" aria-hidden="true" />
-        <p className="text-sm text-blue-800 dark:text-blue-200">
+      <div className="flex items-start gap-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 p-3">
+        <InfoIcon size={16} className="mt-0.5 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />
+        <p className="text-sm text-gray-800 dark:text-gray-200">
           These are market values, shown alongside the account&rsquo;s ledger balance — not added
           to it. Portfolio Value on the Overview tab is the ledger figure, and it already includes
           the money these holdings were bought with.

@@ -13,7 +13,12 @@ export function OfflineStatus(): React.JSX.Element | null {
     <div className="fixed bottom-4 right-4 z-50">
       <div className={`
         flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg backdrop-blur-sm
-        ${isOffline ? 'bg-orange-500/90' : isSyncing ? 'bg-blue-500/90' : 'bg-green-500/90'}
+        ${/* Work in progress is not a warning and not a success — it is the one
+             state here that needs no colour, and the spinning icon already says
+             it (stock-blue ruling, 28 Aug 2026). A neutral ground also keeps the
+             hard-coded white label legible, which the progress token's near-white
+             dark value would not. */
+          isOffline ? 'bg-orange-500/90' : isSyncing ? 'bg-gray-700/90' : 'bg-green-500/90'}
         text-white transition-all duration-300
       `}>
         {isOffline ? (

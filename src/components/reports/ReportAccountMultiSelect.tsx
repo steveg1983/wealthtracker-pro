@@ -123,8 +123,11 @@ export default function ReportAccountMultiSelect({
     if (next instanceof Node && !containerRef.current?.contains(next)) setOpen(false);
   };
 
+  // `text-primary` alone: index.css already gives it a dark counterpart
+  // (#f9fafb), so the stock-blue override it carried was both off-palette and
+  // redundant (stock-blue ruling, 28 Aug 2026).
   const actionClass =
-'text-xs font-medium text-primary dark:text-blue-400 rounded px-1 hover:underline';
+'text-xs font-medium text-primary hover:text-secondary rounded px-1 hover:underline';
 
   return (
     <div className="flex items-center gap-2">

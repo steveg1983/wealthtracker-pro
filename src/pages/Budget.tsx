@@ -416,9 +416,16 @@ function BudgetView() {
               <div className="flex gap-3">
                 <button
                   onClick={() => void handleToggleActive(budget.id, budget.isActive)}
+                  /* Two neutral grounds one step apart, the pair the C/R chips
+                     already use — not a hue against a grey. Active is the
+                     resting default of every budget on this page and a mark
+                     worn by nearly all of them marks nothing; the word in the
+                     chip is what says which state it is, and the ground only
+                     has to stop the two reading as one control (stock-blue
+                     ruling, 28 Aug §4). */
                   className={`px-3 py-1 text-body rounded ${
                     budget.isActive !== false
-                      ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                      ? 'bg-[#e2e6ed] text-[#475569] dark:bg-gray-600 dark:text-gray-100'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                 >

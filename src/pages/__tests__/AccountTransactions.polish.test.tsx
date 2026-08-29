@@ -287,17 +287,26 @@ describe('Account register — the highlighted row is one colour', () => {
   });
 
   it('fills it with the SAME colour the strip beneath it carries', () => {
-    // blue-50/80 and blue-900/30 — the two values QuickEditActionStrip sets on
-    // itself with `bg-blue-50/80 dark:bg-blue-900/30`. Row and strip are one
-    // card with a join across the middle; two shades would draw a line there.
-    expect(ruleFor('.selected-transaction-row')).toContain('rgba(239, 246, 255, 0.8)');
-    expect(ruleFor('.dark .selected-transaction-row')).toContain('rgba(30, 58, 138, 0.3)');
+    // navy-400 at 10% and 25% — rgb(107 134 179), the two values
+    // QuickEditActionStrip sets on itself with `bg-navy-400/10
+    // dark:bg-navy-400/25`. Row and strip are one card with a join across the
+    // middle; two shades would draw a line there.
+    //
+    // The PAIR is what this test pins, and the pair is why it survives the
+    // stock-blue ruling of 28 August 2026 unchanged in intent. Both halves were
+    // blue-50/80 and blue-900/30 until that sweep; the CSS half was raw `rgba()`
+    // that no lint rule and no class-name grep could see, so this assertion was
+    // the only instrument in the repo standing over it. Keeping the two sides
+    // named in one test is the whole point — the failure mode is not a wrong
+    // colour, it is two right ones.
+    expect(ruleFor('.selected-transaction-row')).toContain('rgba(107, 134, 179, 0.1)');
+    expect(ruleFor('.dark .selected-transaction-row')).toContain('rgba(107, 134, 179, 0.25)');
 
     const strip = readFileSync(
       path.resolve(__dirname, '../../components/QuickEditRow.tsx'),
       'utf8'
     );
-    expect(strip).toContain('bg-blue-50/80 dark:bg-blue-900/30');
+    expect(strip).toContain('bg-navy-400/10 dark:bg-navy-400/25');
   });
 });
 

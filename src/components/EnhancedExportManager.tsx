@@ -506,7 +506,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                         onClick={() => handleTemplateSelect(template.id)}
                         className={`p-4 rounded-lg border-2 transition-all text-left ${
                           selectedTemplate === template.id
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            ? 'border-primary bg-primary/10 dark:bg-gray-700/50'
                             : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
                         }`}
                       >
@@ -539,7 +539,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                     onClick={() => setOptions(prev => ({ ...prev, format: 'pdf' }))}
                     className={`flex-1 justify-center p-3 rounded-lg border-2 transition-all ${
                       options.format === 'pdf'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        ? 'border-primary bg-primary/10 dark:bg-gray-700/50'
                         : 'border-gray-200 dark:border-gray-700'
                     }`}
                   >
@@ -552,7 +552,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                     onClick={() => setOptions(prev => ({ ...prev, format: 'excel' }))}
                     className={`flex-1 justify-center p-3 rounded-lg border-2 transition-all ${
                       options.format === 'excel'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        ? 'border-primary bg-primary/10 dark:bg-gray-700/50'
                         : 'border-gray-200 dark:border-gray-700'
                     }`}
                   >
@@ -565,11 +565,15 @@ export default function EnhancedExportManager(): React.JSX.Element {
                     onClick={() => setOptions(prev => ({ ...prev, format: 'csv' }))}
                     className={`flex-1 justify-center p-3 rounded-lg border-2 transition-all ${
                       options.format === 'csv'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        ? 'border-primary bg-primary/10 dark:bg-gray-700/50'
                         : 'border-gray-200 dark:border-gray-700'
                     }`}
                   >
-                    <FilePlusIcon size={24} className="mx-auto mb-2 text-blue-500" />
+                    {/* PDF's red and Excel's green are the two formats with a
+                        colour the world already agrees on. CSV has none, and a
+                        borrowed blue is not one (stock-blue ruling, 28 Aug
+                        2026) — the word beneath the icon is what names it. */}
+                    <FilePlusIcon size={24} className="mx-auto mb-2 text-gray-600 dark:text-gray-400" />
                     <p className="text-sm font-medium">CSV</p>
                     <p className="text-xs text-gray-500 mt-1">Universal format</p>
                   </button>
@@ -588,7 +592,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                       onClick={() => setOptions(prev => ({ ...prev, dateRange: range }))}
                       className={`px-4 py-2 rounded-lg border transition-all ${
                         options.dateRange === range
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
+                          ? 'border-primary bg-primary/10 dark:bg-gray-700/50 text-gray-900 dark:text-white'
                           : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
                       }`}
                     >

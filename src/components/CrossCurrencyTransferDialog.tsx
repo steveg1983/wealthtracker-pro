@@ -231,7 +231,9 @@ export default function CrossCurrencyTransferDialog({
         className="bg-white dark:bg-gray-800 rounded-xl shadow-overlay p-6 w-full max-w-lg mx-4"
       >
         <div className="flex items-center gap-3 mb-2">
-          <ArrowRightLeftIcon size={20} className="text-primary dark:text-blue-400" />
+          {/* The `dark:text-blue-400` that was here never painted: index.css
+              gives `.dark .text-primary` an `!important` rule of its own. */}
+          <ArrowRightLeftIcon size={20} className="text-primary" />
           <h3 id="cross-currency-title" className="text-card font-semibold text-gray-900 dark:text-white">
             These accounts hold different currencies
           </h3>

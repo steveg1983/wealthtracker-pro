@@ -153,8 +153,13 @@ export default function ReconciliationFinalizationModal({
         {isBalanced ? (
           /* Balanced — success */
           <div className="text-center py-6">
-            <CheckCircleIcon size={48} className="mx-auto text-blue-600 mb-3" />
-            <h3 className="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-1">
+            {/* The tick keeps a colour, the heading does not (Design, 28 Aug §5,
+                third pile). A success tick is the app's settled answer for "this
+                worked" — the green the OFX import already uses — while a heading
+                in link blue was a stock hue standing in for emphasis the weight
+                already supplies. */}
+            <CheckCircleIcon size={48} className="mx-auto text-green-700 dark:text-green-400 mb-3" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
               Account Balanced!
             </h3>
             {/* Says what pressing this DOES, in rows, because that is the part
@@ -169,7 +174,7 @@ export default function ReconciliationFinalizationModal({
               onClick={onFinalize}
               disabled={finalizing}
               aria-busy={finalizing}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-60 disabled:cursor-wait"
+              className="px-6 py-2 bg-primary-action text-on-primary-action rounded-lg hover:bg-primary-action-hover transition-colors font-medium disabled:opacity-60 disabled:cursor-wait"
             >
               {finalizing ? 'Completing…' : 'Complete Reconciliation'}
             </button>

@@ -76,12 +76,24 @@ export default function ReportGallery(): React.JSX.Element {
                         work. The same reduction the Accounts page made when it
                         dropped its per-row type icons (#281): one icon per
                         KIND, never one per row. */}
+                    {/* THE BORDER IS THE WHOLE HOVER (stock-blue ruling, 28 Aug
+                        2026). The card used to say it twice — the border went
+                        navy AND the title did — with a `dark:` blue under each,
+                        because a `hover:`-prefixed class does not match
+                        index.css's `.dark .border-primary` / `.dark
+                        .text-primary` remaps and so stays near-black navy on a
+                        gray-800 card. On light the title's half was navy over
+                        gray-900: a change of five hex points, doing nothing.
+                        So the title keeps its resting ink on both grounds, and
+                        the border names the dark slate the remap would have
+                        given it (#94a3b8, the same one a selected tile and the
+                        focus ring wear). */}
                     <Link
                       to={preserveDemoParam(`/reports/${report.id}`, location.search)}
-                      className="group h-full flex items-start gap-3 bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 hover:border-primary dark:hover:border-blue-500 transition-colors duration-state"
+                      className="group h-full flex items-start gap-3 bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 hover:border-primary dark:hover:border-[#94a3b8] transition-colors duration-state"
                     >
                       <span className="min-w-0 flex-1">
-                        <span className="block text-body font-semibold text-gray-900 dark:text-white group-hover:text-primary dark:group-hover:text-blue-400">
+                        <span className="block text-body font-semibold text-gray-900 dark:text-white">
                           {report.title}
                         </span>
                         <span className="mt-1 block text-body text-gray-500 dark:text-gray-400">

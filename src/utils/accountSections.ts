@@ -27,63 +27,48 @@ export { sectionTypeForAccount } from './accountGrouping';
 
 export interface AccountTypeSection extends AccountSectionDefinition {
   icon: ComponentType<IconProps>;
-  color: string;
-  bgColor: string;
-  borderColor: string;
 }
 
-/** Icon + colours per section type — the header dressing, keyed by section. */
+/**
+ * Icon per section type — the header dressing, keyed by section.
+ *
+ * This record used to carry three colour fields beside the icon — `color`,
+ * `bgColor`, `borderColor`, a seven-hue categorical family with blue as one
+ * member. Nothing anywhere read them; they were dressing for a header that
+ * never wore it. The 29 August stock-blue sweep flagged the blue member, and
+ * the honest question it raised — revive the dead set or delete it — was
+ * answered by what the fields already were: dead. Deleted 29 Aug 2026, which
+ * also retired three lint suppressions that existed only to hold a dead blue
+ * past the stock-blue rule. A section's colour, should one ever be wanted,
+ * is a fresh Design question, not a resurrection.
+ */
 const SECTION_STYLES: Record<string, Omit<AccountTypeSection, 'type' | 'title'>> = {
   current: {
     icon: WalletIcon,
-    color: 'text-blue-700 dark:text-blue-400',
-    bgColor: 'bg-blue-200 dark:bg-blue-900/20',
-    borderColor: 'border-blue-200 dark:border-blue-800',
   },
   savings: {
     icon: PiggyBankIcon,
-    color: 'text-green-600 dark:text-green-400',
-    bgColor: 'bg-green-200 dark:bg-green-900/20',
-    borderColor: 'border-green-200 dark:border-green-800',
   },
   credit: {
     icon: CreditCardIcon,
-    color: 'text-orange-600 dark:text-orange-400',
-    bgColor: 'bg-orange-200 dark:bg-orange-900/20',
-    borderColor: 'border-orange-200 dark:border-orange-800',
   },
   loan: {
     icon: TrendingDownIcon,
-    color: 'text-red-600 dark:text-red-400',
-    bgColor: 'bg-red-200 dark:bg-red-900/20',
-    borderColor: 'border-red-200 dark:border-red-800',
   },
   investment: {
     icon: TrendingUpIcon,
-    color: 'text-purple-600 dark:text-purple-400',
-    bgColor: 'bg-purple-200 dark:bg-purple-900/20',
-    borderColor: 'border-purple-200 dark:border-purple-800',
   },
   asset: {
     icon: HomeIcon,
-    color: 'text-indigo-600 dark:text-indigo-400',
-    bgColor: 'bg-indigo-200 dark:bg-indigo-900/20',
-    borderColor: 'border-indigo-200 dark:border-indigo-800',
   },
   liability: {
     icon: TrendingDownIcon,
-    color: 'text-gray-600 dark:text-gray-400',
-    bgColor: 'bg-gray-200 dark:bg-gray-900/20',
-    borderColor: 'border-gray-200 dark:border-gray-800',
   },
 };
 
 /** A section with no style of its own still renders — grey, like the catch-all. */
 const FALLBACK_STYLE: Omit<AccountTypeSection, 'type' | 'title'> = {
   icon: PackageIcon,
-  color: 'text-gray-600 dark:text-gray-400',
-  bgColor: 'bg-gray-200 dark:bg-gray-900/20',
-  borderColor: 'border-gray-200 dark:border-gray-800',
 };
 
 const withStyle = (section: AccountSectionDefinition): AccountTypeSection => ({

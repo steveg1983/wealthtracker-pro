@@ -60,11 +60,15 @@ export default function UsageLimitWarning({
           progress: 'bg-orange-500'
         };
       default:
+        // The lowest rung is INFORMATION, not an alarm: it says how much of a
+        // free plan is used, which needs no colour. The two rungs above it keep
+        // theirs, and that is what makes them read as rungs (stock-blue ruling,
+        // 28 Aug 2026).
         return {
-          bg: 'bg-blue-50 dark:bg-blue-900/20',
-          border: 'border-blue-200 dark:border-blue-800',
-          text: 'text-blue-800 dark:text-blue-200',
-          progress: 'bg-blue-500'
+          bg: 'bg-gray-50 dark:bg-gray-700/50',
+          border: 'border-gray-200 dark:border-gray-700',
+          text: 'text-gray-800 dark:text-gray-200',
+          progress: 'bg-navy-400 dark:bg-primary-action'
         };
     }
   };
@@ -145,7 +149,7 @@ export default function UsageLimitWarning({
             
             <button
               onClick={() => window.location.href = '/subscription'}
-              className="text-blue-700 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm underline"
+              className="text-primary hover:text-secondary text-sm underline"
             >
               View Plans
             </button>
@@ -187,7 +191,7 @@ export function UpgradeBenefits({ feature, className = '' }: UpgradeBenefitsProp
   const featureBenefits = benefits[feature as keyof typeof benefits] || [];
 
   return (
-    <div className={`bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-6 ${className}`}>
+    <div className={`bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 ${className}`}>
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
         Unlock Premium Features
       </h3>
@@ -195,7 +199,7 @@ export function UpgradeBenefits({ feature, className = '' }: UpgradeBenefitsProp
       <div className="grid grid-cols-1 gap-3 mb-6">
         {featureBenefits.map((benefit, index) => (
           <div key={index} className="flex items-center gap-3">
-            <CheckIcon size={16} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
+            <CheckIcon size={16} className="text-gray-600 dark:text-gray-400 flex-shrink-0" />
             <span className="text-gray-700 dark:text-gray-300 text-sm">
               {benefit}
             </span>
@@ -206,14 +210,14 @@ export function UpgradeBenefits({ feature, className = '' }: UpgradeBenefitsProp
       <div className="flex flex-col sm:flex-row gap-3">
         <button
           onClick={() => window.location.href = '/subscription'}
-          className="flex-1 justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium"
+          className="flex-1 justify-center px-6 py-3 bg-primary-action text-on-primary-action rounded-lg hover:bg-primary-action-hover transition-all duration-200 font-medium"
         >
           Start Free Trial
         </button>
         
         <button
           onClick={() => window.location.href = '/subscription'}
-          className="px-6 py-3 text-blue-700 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
+          className="px-6 py-3 text-primary hover:text-secondary text-sm font-medium"
         >
           Compare Plans
         </button>

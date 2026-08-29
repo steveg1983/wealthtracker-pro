@@ -339,6 +339,11 @@ export const demoCategories = [
 
   { id: 'cat-groceries', name: 'Groceries', color: '#10b981', icon: '🛒', type: 'expense', level: 'sub', parentId: 'type-expense' },
   { id: 'cat-restaurants', name: 'Restaurants', color: '#f59e0b', icon: '🍽️', type: 'expense', level: 'sub', parentId: 'type-expense' },
+  // A CATEGORY'S OWN COLOUR IS DATA, not chrome — the same field the category
+  // editor lets anyone set to anything, seeded here as one of nine distinct
+  // hues. The stock-blue ruling retires a blue that stood in for a design
+  // decision; it does not reach into a row the user owns.
+  // eslint-disable-next-line no-restricted-syntax -- see above: seeded user data, not a UI colour
   { id: 'cat-transportation', name: 'Transportation', color: '#3b82f6', icon: '🚗', type: 'expense', level: 'sub', parentId: 'type-expense' },
   { id: 'cat-entertainment', name: 'Entertainment', color: '#8b5cf6', icon: '🎬', type: 'expense', level: 'sub', parentId: 'type-expense' },
   { id: 'cat-shopping', name: 'Shopping', color: '#ec4899', icon: '🛍️', type: 'expense', level: 'sub', parentId: 'type-expense' },

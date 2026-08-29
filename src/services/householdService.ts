@@ -495,8 +495,15 @@ class HouseholdService {
   }
 
   // Generate member color
+  //
+  // A PERSON'S AVATAR COLOUR IS DATA, not chrome. These six are dealt round a
+  // household so two members are told apart at a glance, and blue is one member
+  // of the set rather than a stock blue standing in for a design decision —
+  // the distinction the 28 August ruling turns on. Neutralising one of six
+  // would leave five colours and a grey.
   private generateMemberColor(index: number): string {
     const colors = [
+      // eslint-disable-next-line no-restricted-syntax -- see above: one hue of a per-person set, not a UI colour
       '#3B82F6', // blue
       '#10B981', // green
       '#F59E0B', // amber

@@ -82,7 +82,10 @@ export default function UncategorisedReviewBand({
             );
           })()}
         </span>
-        <span className="ml-auto text-xs text-blue-700 dark:text-blue-400">
+        {/* The one link colour is the app's OWN in-app link ink, not the stock
+            blue it borrowed — these three go to another screen inside the app,
+            which is what `text-primary` is for (stock-blue ruling, 28 Aug 2026). */}
+        <span className="ml-auto text-xs text-primary">
           Click to review and categorise
         </span>
       </button>
@@ -91,14 +94,14 @@ export default function UncategorisedReviewBand({
         <button
           type="button"
           onClick={() => setShowTransferSweep(true)}
-          className="text-sm text-blue-700 dark:text-blue-400 hover:underline text-left"
+          className="text-sm text-primary hover:text-secondary hover:underline text-left"
         >
           Or match transfers automatically — find equal-and-opposite pairs and link them in one go
         </button>
         <button
           type="button"
           onClick={() => setShowBulkCategorize(true)}
-          className="text-sm text-blue-700 dark:text-blue-400 hover:underline text-left"
+          className="text-sm text-primary hover:text-secondary hover:underline text-left"
         >
           Or categorise by payee — file a whole merchant at once and teach future imports
         </button>

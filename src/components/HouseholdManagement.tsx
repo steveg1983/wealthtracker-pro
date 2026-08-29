@@ -148,8 +148,12 @@ export default function HouseholdManagement() {
   const getRoleIcon = (role: HouseholdMember['role']) => {
     switch (role) {
       case 'owner': return <ShieldIcon size={16} className="text-purple-600" />;
-      case 'admin': return <UserIcon size={16} className="text-blue-600" />;
-      case 'member': return <UserIcon size={16} className="text-blue-600" />;
+      // Admin and member shared one blue and one glyph, so the hue distinguished
+      // nothing; the badge beside it carries the role in words (stock-blue
+      // ruling, 28 Aug 2026). Owner keeps purple — it is the one role that is
+      // genuinely singular.
+      case 'admin': return <UserIcon size={16} className="text-gray-600 dark:text-gray-400" />;
+      case 'member': return <UserIcon size={16} className="text-gray-600 dark:text-gray-400" />;
       case 'viewer': return <UserIcon size={16} className="text-gray-600" />;
     }
   };
@@ -157,8 +161,8 @@ export default function HouseholdManagement() {
   const getRoleBadgeColor = (role: HouseholdMember['role']) => {
     switch (role) {
       case 'owner': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
-      case 'admin': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
-      case 'member': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+      case 'admin': return 'bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200';
+      case 'member': return 'bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200';
       case 'viewer': return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
     }
   };
@@ -557,8 +561,12 @@ export default function HouseholdManagement() {
                 </div>
                 <div className="text-right">
                   <p className="font-medium">
+                    {/* Paired against the red below it, this is the money-sign
+                        law and nothing else: money in is this app's green, and
+                        it was only ever blue because nobody said so
+                        (stock-blue ruling, 28 Aug 2026). */}
                     {contribution.netContribution >= 0 ? (
-                      <span className="text-blue-600 dark:text-blue-400">
+                      <span className="text-green-600 dark:text-green-400">
                         +{formatCurrency(contribution.netContribution)}
                       </span>
                     ) : (
@@ -576,7 +584,7 @@ export default function HouseholdManagement() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Income:</span>
-                  <span className="font-medium text-blue-600 dark:text-blue-400">
+                  <span className="font-medium text-green-600 dark:text-green-400">
                     {formatCurrency(contribution.totalIncome)}
                   </span>
                 </div>

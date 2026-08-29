@@ -49,9 +49,19 @@ import { getDateLocale } from '../utils/dateFormatter';
  */
 
 /**
- * The look of the row the keyboard is on: the same blue wash and #6B86B3 ring
- * the register's active row wears (.selected-transaction-row in index.css), and
- * the same one the Accounts list echoes (ACCOUNT_ROW_SELECTED_CLASS).
+ * The look of the row the keyboard is on: the same wash and #6B86B3 ring the
+ * register's active row wears (.selected-transaction-row in index.css), and the
+ * same one the Accounts list echoes (ACCOUNT_ROW_SELECTED_CLASS).
+ *
+ * The wash is that class's own pair, not a stock blue (stock-blue ruling,
+ * 28 Aug): `bg-primary/10` is the brand navy at a tenth. `--color-primary` does
+ * not invert on dark — a tenth of a near-black navy over a gray-800 table is no
+ * wash at all — so dark takes the house counterpart, a lifted grey. Solid
+ * `gray-700` rather than the account rows' half-strength one, because an
+ * unselected row here HOVERS to `gray-700/50`: the two would have been the same
+ * ground, and "where the keyboard is" cannot look like "where the pointer
+ * happens to be". The ring stays #6B86B3 — that is `navy-400`, a token this app
+ * owns and named for this job, and it draws the outline the wash alone cannot.
  *
  * Utilities rather than that class, and the ring drawn on the CELLS rather than
  * the row, for the reasons the CSS table model forces: `margin` and
@@ -67,7 +77,7 @@ import { getDateLocale } from '../utils/dateFormatter';
  * looking straight at it.
  */
 export const FIND_ROW_SELECTED_CLASS =
-  'bg-blue-50/80 dark:bg-blue-900/30 ' +
+  'bg-primary/10 dark:bg-gray-700 ' +
   '[&>td]:border-y [&>td]:border-[#6B86B3]/50 dark:[&>td]:border-[#6B86B3]/70 ' +
   '[&>td:first-child]:border-l [&>td:last-child]:border-r';
 
@@ -500,7 +510,12 @@ export default function Find(): React.JSX.Element {
                       </td>
                       <td className="py-2 px-2 text-center text-sm">
                         {isReconciled(transaction) ? (
-                          <span className="text-blue-600 dark:text-blue-400 font-semibold" title="Reconciled">R</span>
+                          /* The letters are law; their colour never was. R keeps
+                             its distinction from C as a deeper ink in the one
+                             neutral family — the register's C/R column and the
+                             reconciliation chips read the same way (stock-blue
+                             ruling, 28 Aug §4). */
+                          <span className="text-gray-700 dark:text-gray-200 font-semibold" title="Reconciled">R</span>
                         ) : isMarkedAwaitingFinalize(transaction) ? (
                           <span
                             className="text-gray-500 dark:text-gray-400 font-semibold"

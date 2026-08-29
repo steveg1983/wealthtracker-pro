@@ -58,7 +58,10 @@ export const clerkConfig = {
   appearance: {
     // Brand colors
     variables: {
-      colorPrimary: '#3B82F6',           // Blue-500
+      // The brand navy (--color-primary), not a stock blue-500: the sign-in
+      // card is the first surface of this app and it may as well be this app.
+      // Clerk derives its own hover and label from this one value.
+      colorPrimary: '#1a2332',
       colorDanger: '#EF4444',            // Red-500
       colorSuccess: '#10B981',           // Green-500
       colorWarning: '#F59E0B',           // Yellow-500
@@ -74,7 +77,9 @@ export const clerkConfig = {
       rootBox: 'w-full',
       
       // Buttons
-      formButtonPrimary: 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg',
+      // Flat, and on the app's primary-action token pair. The gradient was
+      // two stock blues doing the work one token does (28 Aug ruling, §5).
+      formButtonPrimary: 'bg-primary-action text-on-primary-action hover:bg-primary-action-hover shadow-lg',
       socialButtonsBlockButton: 'border-2 hover:bg-gray-50 dark:hover:bg-gray-800',
       
       // Inputs
@@ -82,10 +87,15 @@ export const clerkConfig = {
       formFieldLabel: 'text-gray-700 dark:text-gray-300 font-medium',
       
       // Links
-      footerActionLink: 'text-blue-600 hover:text-blue-700 font-medium',
+      // In-app navigation ("sign up instead"), so the navy — link blue is for
+      // an <a> that hands the reader to a tab this app does not control.
+      footerActionLink: 'text-primary hover:text-secondary font-medium',
       
       // Passkey button
-      alternativeMethodsBlockButton: 'bg-gradient-to-r from-green-500 to-blue-600 text-white hover:from-green-600 hover:to-blue-700',
+      // A second way in is a lesser action than the primary one: the quiet
+      // bordered secondary, not a green-to-blue gradient louder than the
+      // button it sits under.
+      alternativeMethodsBlockButton: 'border-2 border-gray-300 text-gray-800 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-800',
     },
 
     // Layout

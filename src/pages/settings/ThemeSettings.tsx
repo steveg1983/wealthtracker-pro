@@ -141,8 +141,13 @@ export default function ThemeSettings() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
+              {/* The moon is neutral and the sun keeps its yellow (stock-blue
+                  ruling, 28 Aug §5). They look like a matched pair, but only one
+                  of them was a decision: yellow IS daylight, while blue on a
+                  moon was the stock hue standing in for "night" — which the
+                  glyph already says on its own. */}
               {getCurrentTheme() === 'dark' ? (
-                <MoonIcon size={20} className="text-blue-700 dark:text-blue-400" />
+                <MoonIcon size={20} className="text-gray-600 dark:text-gray-300" />
               ) : (
                 <SunIcon size={20} className="text-yellow-600 dark:text-yellow-400" />
               )}
@@ -157,7 +162,7 @@ export default function ThemeSettings() {
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
-              <ClockIcon size={20} className="text-blue-600 dark:text-blue-400" />
+              <ClockIcon size={20} className="text-gray-600 dark:text-gray-400" />
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Active Schedule</p>
                 <p className="font-semibold text-gray-900 dark:text-white">
@@ -253,14 +258,14 @@ export default function ThemeSettings() {
                     key={schedule.id}
                     className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border-2 ${
                       schedule.isActive
-                        ? 'border-blue-600 dark:border-blue-400'
+                        ? 'border-primary'
                         : 'border-transparent'
                     }`}
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div className={`w-3 h-3 rounded-full ${
-                          schedule.isActive ? 'bg-blue-600' : 'bg-gray-400'
+                          schedule.isActive ? 'bg-primary' : 'bg-gray-400'
                         }`} />
                         <div>
                           <h4 className="font-semibold text-gray-900 dark:text-white">
@@ -277,7 +282,7 @@ export default function ThemeSettings() {
                           className={`p-2 rounded ${
                             schedule.isActive
                               ? 'text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300'
-                              : 'text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300'
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                           }`}
                           title={schedule.isActive ? 'Deactivate schedule' : 'Activate schedule'}
                         >
@@ -285,7 +290,7 @@ export default function ThemeSettings() {
                         </button>
                         <button
                           onClick={() => setEditingSchedule(schedule)}
-                          className="p-2 text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+                          className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                           title="Edit schedule"
                         >
                           <EditIcon size={16} />
@@ -377,7 +382,7 @@ export default function ThemeSettings() {
                       <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
                         {preset.name}
                         {!preset.isCustom && (
-                          <span className="ml-2 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200 px-2 py-1 rounded">
+                          <span className="ml-2 text-xs bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200 px-2 py-1 rounded">
                             Default
                           </span>
                         )}
@@ -388,7 +393,7 @@ export default function ThemeSettings() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        className="p-2 text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                         title="Preview preset"
                       >
                         <EyeIcon size={16} />

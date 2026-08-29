@@ -38,7 +38,9 @@ import { singlePointDot, type SinglePointDot } from './singlePointDots';
  *    that is actually being drawn, so it follows whatever the ground chose —
  *    `chartColors` picks different navies per theme, and a wash pinned to a
  *    light-mode constant would have been the decomposition chart's dark-mode
- *    ghost all over again.
+ *    ghost all over again. Its STRENGTH follows the ground too, and is passed
+ *    in rather than sniffed: every washing function takes the same
+ *    `isDarkGround` boolean the caller's stroke colour came from.
  *
  * 3. NOTHING ABOUT THE CURVE. Every line series in the app was already
  *    `type="monotone"`; there was no `"linear"` left to smooth and no step
@@ -66,37 +68,94 @@ import { singlePointDot, type SinglePointDot } from './singlePointDots';
  */
 
 /**
- * The wash at its strongest, immediately under the line — and this number was
- * MEASURED, not chosen.
+ * The wash at its strongest, immediately under the line — ONE NUMBER PER
+ * GROUND, and both were MEASURED, not chosen.
  *
  * A wash changes the ground its own line is drawn on, and every contrast figure
  * in `chartColors.ts` is taken against the bare card. So the real question is
  * what a series colour measures against a tint of ITSELF over that card, and
  * the answer is decided by the weakest colour the ramp can hand a chart. The
- * first draft was 0.18, and this is what the repo's own harness said (WCAG
- * 1.4.11's 3:1 bar for a graphical object, dimmest card of each ground):
+ * repo's own harness, at WCAG 1.4.11's 3:1 bar for a graphical object, against
+ * the dimmest card each ground uses (`#f8f9fb` light, `#1f2937` dark):
  *
- *                       bare    0.14    0.15    0.18
- *     #6b86b3 on light  3.51    3.03    3.00    2.90 ✗   <- the ceiling
- *     #8095b6 on dark   4.82    3.89    3.83    3.66
- *     #556c8f on light  5.08    4.23    4.19    4.03
- *     #2d3a4d on light 10.93    8.55    8.39    7.96
- *     #cdd4e0 on dark   9.85    6.94    6.73    6.23
+ *     over #f8f9fb      bare    0.14    0.15    0.18
+ *       #6b86b3         3.51    3.03    3.00    2.90 ✗   <- the light ceiling
+ *       #556c8f         5.08    4.23    4.19    4.03
+ *       #41526e         7.50    6.07    5.98    5.69
+ *       #2d3a4d        10.93    8.55    8.39    7.96
+ *       #1a2332        14.98   11.39   11.17   10.43
  *
- * The ramp's lightest step is only 3.51:1 bare — it is the one deliberately
- * chosen to RECEDE (chartColors: the remainder slice) — so it has almost no
- * headroom to give, and at 0.18 a chart drawn in it would have dropped below
- * the bar. 0.15 lands exactly on 3.00, which is not a margin. 0.14 clears every
- * step of both ramps with room, which buys a rule that has no exceptions to
- * remember: ANY series colour the app can draw may carry a wash.
+ *     over #1f2937      bare    0.14    0.20    0.22
+ *       #6b86b3         3.97    3.31    3.03    2.97 ✗   <- the dark ceiling
+ *       #8095b6         4.82    3.89    3.51    3.40
+ *       #94a3b8         5.72    4.49    4.03    3.85
+ *       #b1bccc         7.64    5.65    4.97    4.74
+ *       #cdd4e0         9.85    6.94    5.91    5.58
+ *
+ * THE SAME COLOUR SETS BOTH CEILINGS, which is not a coincidence: #6b86b3 is
+ * the one step of the axis legible on both grounds (chartColors), so it is the
+ * lowest-contrast step of BOTH ramps — and it is deliberately so, being where a
+ * capped series puts its folded remainder. It has the least headroom to give on
+ * either ground, and both constants are the point where it lands on 3.03:1: one
+ * notch further (light 0.15 → 3.00, dark 0.205 → 3.02, 0.21 → below) is not a
+ * margin. So the rule still has no exceptions to remember: ANY series colour
+ * the app can draw may carry a wash, on either ground.
+ *
+ * ─ WHY DARK NEEDED ITS OWN NUMBER (owner, 29 Aug) ──────────────────────────
+ * "In dark mode, the shaded area below the line isn't as visible." He is
+ * looking at the same 0.14 on both grounds, and the honest reading of the
+ * measurements is that the arithmetic was never wrong — in CIE L*, how far the
+ * wash moves its own card:
+ *
+ *                          weakest step   strongest step
+ *     light @0.14           5.72 ΔL*       10.54 ΔL*
+ *     dark  @0.14           6.03 ΔL*       10.91 ΔL*     <- already the larger
+ *     dark  @0.20           8.66 ΔL*       15.33 ΔL*
+ *
+ * The dark wash at 0.14 already moved its ground FURTHER than the light one
+ * moves its own. What differs is the eye, not the number: the same lightness
+ * step is harder to see at the near-black end, and a screen in a lit room adds
+ * a flare that compresses that end further. Nothing in a contrast ratio reports
+ * that. So the remedy is not a correction, it is spending the headroom the dark
+ * ground actually has — all of it, up to its own measured ceiling.
+ *
+ * ─ THE OWNER'S OTHER SUGGESTION, MEASURED AND DECLINED ─────────────────────
+ * "…a lighter grey / white sort of shade?" A neutral wash was measured the same
+ * way — white over #1f2937, then every dark series read against that composite
+ * ground. Its ceiling is α 0.090 (#6b86b3 at 3.02; 0.095 fails at 2.97), giving
+ * ΔL* 8.73 — the SAME 8.73 for every chart, because the ground no longer
+ * depends on the series. Against the stroke-derived wash at 0.20 that is a
+ * dead heat on the weakest step (8.66) and a loss everywhere the app actually
+ * draws one: #94a3b8 gets 10.91 and #cdd4e0 15.33, 25% and 76% more movement
+ * for the same compliance. So the numbers say what the idiom already said —
+ * a neutral fill under a coloured line is a second instrument, and here it is
+ * also the dimmer one. The wash stays the line's own colour.
+ *
+ * ─ ONE MORE MEASURED FACT, RECORDED WHERE IT MATTERS ───────────────────────
+ * The semantic pair has no dark headroom worth the name: `expense` (#d94052)
+ * is 3.36:1 bare on a dark card, 3.01 at the light constant — over the bar by a
+ * hundredth, which is not a margin — and 2.82 at the dark one. The two-series
+ * charts already decline the wash for the reason at the top of this file; this
+ * is why they could not have taken it on a dark ground regardless.
  *
  * The strength suits the house besides. An area chart claims the quantity is an
  * AREA — a total accumulating — and these are balances and valuations, which
  * are levels; a wash says "this line has a body", which is all it is being
- * asked to say. `richLine.test.tsx` re-measures the whole table, so raising
- * this fails there with the reason attached.
+ * asked to say. `richLine.test.tsx` re-measures both tables against the live
+ * ramps, so raising either constant — or adding a series colour with less
+ * headroom than #6b86b3 — fails there, by name, with the reason attached.
  */
-export const WASH_TOP_OPACITY = 0.14;
+export const WASH_TOP_OPACITY = { light: 0.14, dark: 0.2 } as const;
+
+/**
+ * The wash strength for the ground being drawn on. Takes the flag rather than
+ * reading the `dark` class itself, so that the wash and the stroke it is
+ * derived from come from ONE reading of the ground per render — the caller
+ * already has that boolean, because its stroke colour was chosen with it.
+ */
+export function washTopOpacity(isDarkGround: boolean): number {
+  return isDarkGround ? WASH_TOP_OPACITY.dark : WASH_TOP_OPACITY.light;
+}
 
 /** …fading to nothing at the foot of the plot. */
 export const WASH_BOTTOM_OPACITY = 0;
@@ -159,23 +218,30 @@ function safe(part: string): string {
  * The id of the gradient a given series fills with.
  *
  * Derived, never random: `Math.random()` would give one chart a new id on every
- * render, and two charts on one page must not collide. Both halves matter —
- * the colour because that is what the gradient IS, the chart key because two
- * pages' worth of charts share one document and a reader looking at the DOM
- * should be able to tell which wash belongs to which picture.
+ * render, and two charts on one page must not collide. Every half matters —
+ * the colour and the opacity because together they are what the gradient IS,
+ * the chart key because two pages' worth of charts share one document and a
+ * reader looking at the DOM should be able to tell which wash belongs to which
+ * picture.
  *
- * Two charts that pass the same key and the same colour DO produce one id
- * twice, and that is harmless by construction: the id is a function of the
- * definition, so the duplicate is a duplicate of an identical `<linearGradient>`
- * and `url(#id)` resolves to the same thing either way.
+ * THE OPACITY IS IN THE ID BECAUSE THE ID IS A FUNCTION OF THE DEFINITION, and
+ * since 29 Aug the definition depends on the ground. Without it a chart whose
+ * stroke colour does NOT change with the theme — the custom report builder can
+ * store a `borderColor` with a dataset — would ask for the same id after dusk,
+ * find the light-ground gradient already in the document, and keep drawing the
+ * weaker wash. Same key, same colour, same ground still produces one id twice,
+ * and that stays harmless for the original reason: the duplicate is a duplicate
+ * of an identical `<linearGradient>`, so `url(#id)` resolves to the same thing
+ * either way.
  */
-export function seriesWashId(chartKey: string, colour: string): string {
-  return `wt-wash-${safe(chartKey)}-${safe(colour.replace('#', '').toLowerCase())}`;
+export function seriesWashId(chartKey: string, colour: string, isDarkGround: boolean): string {
+  const strength = safe(String(washTopOpacity(isDarkGround)));
+  return `wt-wash-${safe(chartKey)}-${safe(colour.replace('#', '').toLowerCase())}-${strength}`;
 }
 
 /** What to hand a series' `fill`, once its wash is in the chart's `<defs>`. */
-export function seriesWashFill(chartKey: string, colour: string): string {
-  return `url(#${seriesWashId(chartKey, colour)})`;
+export function seriesWashFill(chartKey: string, colour: string, isDarkGround: boolean): string {
+  return `url(#${seriesWashId(chartKey, colour, isDarkGround)})`;
 }
 
 /**
@@ -185,13 +251,17 @@ export function seriesWashFill(chartKey: string, colour: string): string {
  * in the same position is a child type recharts has no rule for. Measured in
  * `richLine.test.tsx` through a real chart, so this stays a fact rather than a
  * belief about the library.
+ *
+ * `isDarkGround` is REQUIRED rather than defaulted: a wash that quietly assumed
+ * a light ground is exactly the bug being fixed, and a required argument makes
+ * the compiler name every chart that draws one.
  */
-export function seriesWash(chartKey: string, colour: string): React.JSX.Element {
-  const id = seriesWashId(chartKey, colour);
+export function seriesWash(chartKey: string, colour: string, isDarkGround: boolean): React.JSX.Element {
+  const id = seriesWashId(chartKey, colour, isDarkGround);
   return (
     <defs>
       <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor={colour} stopOpacity={WASH_TOP_OPACITY} />
+        <stop offset="0%" stopColor={colour} stopOpacity={washTopOpacity(isDarkGround)} />
         <stop offset="100%" stopColor={colour} stopOpacity={WASH_BOTTOM_OPACITY} />
       </linearGradient>
     </defs>

@@ -142,7 +142,11 @@ export default function BulkDeleteTransactionsConfirm({
           )}
 
           {plan.excluded.length > 0 && (
-            <div className="mb-4 text-sm text-blue-900 dark:text-blue-200 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2">
+            /* Amber above is a real warning — something is left stranded.
+               This box says the opposite: rows are being PROTECTED. A
+               protection is not a warning and takes no colour of its own
+               (stock-blue ruling, 28 Aug 2026). */
+            <div className="mb-4 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
               <p className="font-semibold">
                 {plan.excluded.length === 1
                   ? 'One row is being left alone:'

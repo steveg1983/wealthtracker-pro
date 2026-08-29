@@ -181,7 +181,7 @@ export default function SubscriptionPage({
     return (
       <div className={`flex items-center justify-center py-12 ${className}`}>
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-8 h-8 border-2 border-line-strong dark:border-[#94a3b8] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading subscription information...</p>
         </div>
       </div>
@@ -201,7 +201,7 @@ export default function SubscriptionPage({
         {(currentView === 'payment' || currentView === 'success') && (
           <button
             onClick={handleBackToPricing}
-            className="flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mb-4"
+            className="flex items-center gap-2 text-primary hover:text-secondary mb-4"
           >
             <ArrowLeftIcon size={16} />
             Back to Plans
@@ -228,7 +228,7 @@ export default function SubscriptionPage({
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setCurrentView('plans')}
-                className="text-blue-700 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                className="text-primary hover:text-secondary"
               >
                 Change Plan
               </button>
@@ -267,8 +267,11 @@ export default function SubscriptionPage({
       case 'success':
         return (
           <div className="max-w-2xl mx-auto text-center py-12">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircleIcon size={32} className="text-blue-600" />
+            {/* An activated subscription is a SUCCESS, and the app has a token
+                for that — the same green disc a finished import wears
+                (stock-blue ruling, 28 Aug 2026). */}
+            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircleIcon size={32} className="text-green-700 dark:text-green-400" />
             </div>
             
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
@@ -297,24 +300,24 @@ export default function SubscriptionPage({
             </div>
 
             {/* Features Preview */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-300 mb-4">
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
                 What's Next?
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                <div className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
                   <CheckCircleIcon size={16} />
                   <span>Unlimited accounts & transactions</span>
                 </div>
-                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                <div className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
                   <CheckCircleIcon size={16} />
                   <span>Advanced analytics & reports</span>
                 </div>
-                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                <div className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
                   <CheckCircleIcon size={16} />
                   <span>CSV export functionality</span>
                 </div>
-                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                <div className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
                   <CheckCircleIcon size={16} />
                   <span>Investment portfolio tracking</span>
                 </div>

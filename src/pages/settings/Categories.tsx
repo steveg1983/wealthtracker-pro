@@ -984,10 +984,13 @@ export default function CategoriesSettings() {
         <div className={`border rounded-2xl p-4 mb-6 ${
           isDeleteMode
             ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-            : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+            : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-700'
         }`}>
+          {/* Delete mode keeps its red — that is the mode that can lose you
+              something. Edit and merge are instructions, not warnings, so they
+              take the neutral panel (stock-blue ruling, 28 Aug 2026). */}
           <div className={`text-sm space-y-2 ${
-            isDeleteMode ? 'text-red-800 dark:text-red-200' : 'text-blue-800 dark:text-blue-200'
+            isDeleteMode ? 'text-red-800 dark:text-red-200' : 'text-gray-800 dark:text-gray-200'
           }`}>
             <p><strong>{isDeleteMode ? 'Delete Mode Active:' : isMergeMode ? 'Merge Mode Active:' : 'Edit Mode Active:'}</strong></p>
             <ul className="list-disc list-inside space-y-1 ml-2">

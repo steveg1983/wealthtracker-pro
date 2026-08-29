@@ -20,7 +20,10 @@ import type {
 } from '../../types/subscription';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { toDecimal } from '../../utils/decimal';
-import { 
+// The invoice PDF is hosted by Stripe: an `<a href>` that hands the reader to a
+// tab this app does not control is the one thing link blue is still for.
+import { LINK_CLASS } from '../../design-system/linkBlue';
+import {
   CreditCardIcon, 
   DownloadIcon,
   EditIcon,
@@ -120,9 +123,12 @@ export default function BillingDashboard({
   };
 
   const getStatusBadge = (status: string) => {
+    // A plan that is simply RUNNING needs no colour; past_due keeps the red,
+    // because that is the state asking to be acted on (stock-blue ruling,
+    // 28 Aug 2026).
     const statusConfig = {
-      active: { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200', icon: CheckCircleIcon },
-      trialing: { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200', icon: CheckCircleIcon },
+      active: { color: 'bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200', icon: CheckCircleIcon },
+      trialing: { color: 'bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200', icon: CheckCircleIcon },
       past_due: { color: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200', icon: AlertTriangleIcon },
       cancelled: { color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200', icon: AlertTriangleIcon },
     };
@@ -192,7 +198,7 @@ export default function BillingDashboard({
     return (
       <div className={`flex items-center justify-center py-12 ${className}`}>
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-8 h-8 border-2 border-line-strong dark:border-[#94a3b8] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading billing information...</p>
         </div>
       </div>
@@ -294,14 +300,14 @@ export default function BillingDashboard({
 
             {/* Trial Warning */}
             {subscription.status === 'trialing' && subscription.trialEnd && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                 <div className="flex items-start gap-3">
-                  <CheckCircleIcon size={20} className="text-blue-700 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                  <CheckCircleIcon size={20} className="text-gray-600 dark:text-gray-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="text-blue-900 dark:text-blue-300 font-medium">
+                    <h4 className="text-gray-900 dark:text-gray-100 font-medium">
                       Free Trial Active
                     </h4>
-                    <p className="text-blue-800 dark:text-blue-200 text-sm mt-1">
+                    <p className="text-gray-800 dark:text-gray-200 text-sm mt-1">
                       Your trial ends on {formatDate(subscription.trialEnd)}. 
                       Your subscription will automatically continue unless you cancel.
                     </p>
@@ -390,7 +396,7 @@ export default function BillingDashboard({
                     </p>
                   </div>
                   {method.isDefault && (
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                    <span className="text-xs bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200 px-2 py-1 rounded-full">
                       Default
                     </span>
                   )}
@@ -452,8 +458,8 @@ export default function BillingDashboard({
                     </td>
                     <td className="py-4">
                       <span className={`text-xs px-2 py-1 rounded-full ${
-                        invoice.status === 'paid' 
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200'
+                        invoice.status === 'paid'
+                          ? 'bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200'
                           : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200'
                       }`}>
                         {invoice.status}
@@ -465,7 +471,7 @@ export default function BillingDashboard({
                           href={invoice.invoicePdf}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-700 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                          className={LINK_CLASS}
                         >
                           <DownloadIcon size={16} />
                         </a>

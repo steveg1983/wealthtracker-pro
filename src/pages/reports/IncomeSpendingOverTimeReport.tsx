@@ -155,7 +155,10 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
     <button
       type="button"
       onClick={onClick}
-      className={`w-full justify-end text-right rounded px-1 -mx-1 tabular-nums hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:underline ${colour}`}
+      // The hover wash is the house neutral, not a stock blue (ruling of
+      // 28 Aug 2026): a figure you can open is not a link, and the underline
+      // beside it is already saying the row is live.
+      className={`w-full justify-end text-right rounded px-1 -mx-1 tabular-nums hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:underline ${colour}`}
       title={`${label} — view these transactions`}
     >
       {formatCurrency(value)}

@@ -754,7 +754,7 @@ export default function Reconciliation() {
               now the only thing left to do.
               It wore the yellow in the OTHER state until the owner tested it:
               two amber controls at once read as two refusals, and left the
-              user's actual next step — Confirm, in quiet blue on the bar — the
+              user's actual next step — Confirm, a quiet outline on the bar — the
               least visible thing on the screen. One yellow, one meaning, and it
               points at the step you are on.
               The refusal is still never carried by colour: the disabled

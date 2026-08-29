@@ -80,6 +80,121 @@ afterEach(() => {
   __resetAppContextValue();
 });
 
+/**
+ * HOW FAR A LEGEND ROW'S RIGHT-HAND CONTENT SITS INSIDE ITS COLUMN, in pixels,
+ * worked out from the row's own classes.
+ *
+ * jsdom lays nothing out — every box in it is 0×0 — so the owner's complaint
+ * (29 August: the fold's "3.84%" out of line with the shares above it) cannot
+ * be MEASURED here. What can be pinned is the arithmetic that decides it, and
+ * for a block box in a column it is three lines:
+ *
+ *   width auto          →  inset = marginRight + paddingRight   (the box grows)
+ *   width + border-box  →  inset = column - marginLeft - width + paddingRight
+ *   width + content-box →  inset = column - marginLeft - paddingLeft - width
+ *
+ * The app's rows all bleed their hover background outwards with `px-2 -mx-2`,
+ * which nets to an inset of ZERO — the text ends on the column's own edge and
+ * the padding hangs outside it. A row that states `w-full` under the border-box
+ * Tailwind's preflight gives everything takes that 1rem out of the ROW instead,
+ * and its right-hand content lands 16px in. That was the bug, and it is why
+ * the middle line above exists in this helper at all.
+ *
+ * The column's width cancels out of the auto case, which is what lets a row
+ * inside the fold's indented container be compared with one outside it: both
+ * are measured from THEIR OWN container's right edge, and those edges are the
+ * same edge — indenting moves a left edge.
+ */
+const NOMINAL_COLUMN = 400;
+const SPACING_STEP = 4;
+
+const rightInset = (element: Element): number => {
+  let marginLeft = 0;
+  let marginRight = 0;
+  let paddingLeft = 0;
+  let paddingRight = 0;
+  let width: number | null = null;
+  // Tailwind's preflight puts every element in border-box; a row leaves it
+  // deliberately or not at all.
+  let borderBox = true;
+
+  for (const token of element.className.split(/\s+/)) {
+    // Only the classes that decide the box. Anything else — colour, display,
+    // the hover state — cannot move an edge.
+    if (!/^-?(?:[mp][xylrtb]?-|w-|box-)/.test(token)) continue;
+    if (token === 'box-content') { borderBox = false; continue; }
+    if (token === 'box-border') { borderBox = true; continue; }
+    if (token === 'w-full') { width = NOMINAL_COLUMN; continue; }
+
+    const spacing = /^(-)?([mp])([xlr])-(\d+)$/.exec(token);
+    if (spacing) {
+      const size = (spacing[1] ? -1 : 1) * Number(spacing[4]) * SPACING_STEP;
+      const axis = spacing[3];
+      if (spacing[2] === 'm') {
+        if (axis !== 'r') marginLeft = size;
+        if (axis !== 'l') marginRight = size;
+      } else {
+        if (axis !== 'r') paddingLeft = size;
+        if (axis !== 'l') paddingRight = size;
+      }
+      continue;
+    }
+    // Vertical spacing moves nothing horizontally.
+    if (/^-?[mp][ytb]-\d+$/.test(token)) continue;
+
+    // A box class this helper does not model would be silently ignored, and a
+    // guard that quietly stops watching is worse than none.
+    throw new Error(`legend row carries a box class this test cannot resolve: ${token}`);
+  }
+
+  if (width === null) return marginRight + paddingRight;
+  return borderBox
+    ? NOMINAL_COLUMN - marginLeft - width + paddingRight
+    : NOMINAL_COLUMN - marginLeft - paddingLeft - width;
+};
+
+/** The share at the end of a legend row — the last thing in it. */
+const shareCell = (row: Element): Element => {
+  const cell = row.lastElementChild;
+  if (!cell) throw new Error('a legend row with nothing in it');
+  return cell;
+};
+
+describe('Investments — the allocation legend’s percentages are one column', () => {
+  it('lands the fold’s share on the same edge as the named accounts’', async () => {
+    const card = within(await allocationCard());
+
+    const named = card.getByRole('link', { name: /Partnership/ });
+    const fold = card.getByRole('button', { name: /smaller accounts/ });
+
+    // Zero: the column's own right edge, with the hover padding hanging
+    // outside it. His fold row sat 16px in — a <button> that had to state a
+    // width, stating it against the wrong box.
+    expect(rightInset(named)).toBe(0);
+    expect(rightInset(fold)).toBe(rightInset(named));
+
+    // And the same treatment, or two numbers in one column would still not
+    // read as one: same weight, same colour, same tabular figures.
+    expect(shareCell(fold).className).toBe(shareCell(named).className);
+    expect(shareCell(fold).className).toContain('tabular-nums');
+  });
+
+  it('keeps the folded accounts on that edge too when the fold opens', async () => {
+    // The rows inside the fold are indented and quieter, but their shares are
+    // read down the SAME column — which is also what makes the fix above
+    // load-bearing rather than merely symmetrical. A row that states its width
+    // against the wrong box moves away from these, not with them.
+    const card = within(await allocationCard());
+    fireEvent.click(card.getByRole('button', { name: /smaller accounts/ }));
+
+    const inner = card.getByRole('link', { name: /Spread Account/ });
+    const named = card.getByRole('link', { name: /Partnership/ });
+
+    expect(rightInset(inner)).toBe(0);
+    expect(rightInset(inner)).toBe(rightInset(named));
+  });
+});
+
 describe('Investments — the allocation ring folds the tail, not the bulk', () => {
   it('names the four LARGEST accounts, whatever order they arrive in', async () => {
     const card = within(await allocationCard());

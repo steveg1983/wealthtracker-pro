@@ -153,7 +153,7 @@ export default function MerchantEnrichment({ onDataChange: _onDataChange }: Merc
       {/* Header */}
       <div>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          <SearchIcon size={20} className="text-blue-700 dark:text-blue-400" />
+          <SearchIcon size={20} className="text-gray-500 dark:text-gray-400" />
           Merchant Enrichment
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -209,7 +209,7 @@ export default function MerchantEnrichment({ onDataChange: _onDataChange }: Merc
                 <p className="text-sm text-gray-600 dark:text-gray-400">Tags:</p>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {enrichmentResult.suggestedTags.map((tag, index) => (
-                    <span key={index} className="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200 rounded">
+                    <span key={index} className="px-2 py-1 text-xs bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200 rounded">
                       {tag}
                     </span>
                   ))}
@@ -226,11 +226,14 @@ export default function MerchantEnrichment({ onDataChange: _onDataChange }: Merc
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Merchants</p>
-              <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">
+              {/* A count needs no colour; the siblings' green and amber say
+                  something about confidence, a total says nothing
+                  (stock-blue ruling, 28 Aug 2026). */}
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {merchants.length}
               </p>
             </div>
-            <BuildingIcon size={24} className="text-blue-500" />
+            <BuildingIcon size={24} className="text-gray-500 dark:text-gray-400" />
           </div>
         </div>
 
@@ -404,10 +407,13 @@ export default function MerchantEnrichment({ onDataChange: _onDataChange }: Merc
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
+                        {/* Row actions, not navigation: they stay on this page,
+                            so they take the neutral action ink rather than the
+                            link colour (stock-blue ruling, 28 Aug 2026). */}
+                        <button className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
                           <EyeIcon size={16} />
                         </button>
-                        <button className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
+                        <button className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
                           <EditIcon size={16} />
                         </button>
                       </div>

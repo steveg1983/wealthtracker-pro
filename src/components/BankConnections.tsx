@@ -643,7 +643,10 @@ export default function BankConnections({
             disabled={isLoading}
             className="w-full justify-center p-3 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
-            Don&rsquo;t see your bank or card? <span className="font-medium text-primary dark:text-blue-400">Browse all providers</span>
+            {/* `dark:text-blue-400` came off and nothing moved: index.css gives
+                `.dark .text-primary` its own `!important` rule (#f9fafb), so
+                the blue had already been losing that cascade. */}
+            Don&rsquo;t see your bank or card? <span className="font-medium text-primary">Browse all providers</span>
           </button>
         </div>
       </Modal>

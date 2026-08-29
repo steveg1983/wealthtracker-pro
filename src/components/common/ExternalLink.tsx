@@ -1,5 +1,6 @@
 import React from 'react';
 import { ExternalLinkIcon } from '../icons';
+import { LINK_CLASS } from '../../design-system/linkBlue';
 
 interface ExternalLinkProps {
   href: string;
@@ -18,7 +19,7 @@ interface ExternalLinkProps {
 export function ExternalLink({ 
   href, 
   children, 
-  className = 'text-blue-700 dark:text-blue-400 hover:underline',
+  className = LINK_CLASS,
   showIcon = true 
 }: ExternalLinkProps): React.JSX.Element {
   return (

@@ -90,7 +90,10 @@ export default function LoadTestDataModal({ isOpen, onClose }: Props): React.JSX
         {phase === 'confirm' && (
           <div className="space-y-4">
             <div className="flex items-start gap-3">
-              <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#1a2332] dark:text-blue-400">
+              {/* The tile's ink is the brand navy on light; on dark it needs a
+                  neutral of the same WEIGHT, not a second hue (stock-blue
+                  ruling, 28 Aug 2026). */}
+              <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#1a2332] dark:text-gray-300">
                 <DatabaseIcon size={18} />
               </span>
               <p className="text-sm text-gray-600 dark:text-gray-400">

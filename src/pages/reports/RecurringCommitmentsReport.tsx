@@ -332,7 +332,10 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
                 `/accounts/${detection.accountId}?recurringPayee=${encodeURIComponent(detection.payeeKeys.join('|'))}`,
                 location.search
               )}
-              className="hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
+              // In-app navigation takes no link blue (that colour is for
+              // LEAVING — stock-blue ruling, 28 Aug 2026). It inherits the
+              // paragraph's ink and the underline is the whole hover.
+              className="hover:underline rounded"
               title={account ? `${account} — this pattern's payments in the register` : 'This pattern’s payments in the register'}
             >
               {detection.description}
@@ -611,7 +614,7 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
                             `/accounts/${d.accountId}?recurringPayee=${encodeURIComponent(d.payeeKeys.join('|'))}`,
                             location.search
                           )}
-                          className="hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
+                          className="hover:underline rounded"
                         >
                           {d.description}
                         </Link>

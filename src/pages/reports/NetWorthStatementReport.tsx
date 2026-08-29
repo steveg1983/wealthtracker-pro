@@ -146,7 +146,9 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
                       className="flex flex-col items-start text-left rounded"
                       title={`${row.name} — view these transactions`}
                     >
-                      <span className="block text-sm text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline">
+                      {/* The underline is the whole hover (stock-blue ruling,
+                          28 Aug 2026): the name already has its resting ink. */}
+                      <span className="block text-sm text-gray-900 dark:text-white hover:underline">
                         {row.name}
                       </span>
                       {/* mt-0.5: a long name wraps to the line above this

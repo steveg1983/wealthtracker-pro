@@ -85,7 +85,7 @@ export default function TransferRepointDialog({
     >
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 w-full max-w-lg mx-4 shadow-xl">
         <div className="flex items-center gap-3 mb-3">
-          <ArrowRightLeftIcon size={22} className="text-blue-600 dark:text-blue-400" />
+          <ArrowRightLeftIcon size={22} className="text-gray-500 dark:text-gray-400" />
           <h3 id="repoint-title" className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
             What should happen to the other side?
           </h3>
@@ -115,7 +115,12 @@ export default function TransferRepointDialog({
             type="button"
             onClick={() => onChoose('release')}
             disabled={busy}
-            className="block w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            /* Neutral on hover, in the same shape as the destructive option
+               below: only one of these two choices is the dangerous one, and
+               being "not red" is not a colour (stock-blue ruling, 28 Aug 2026).
+               The dark half is named because a `dark:` border beats a plain
+               `hover:` one in the emitted sheet. */
+            className="block w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="block font-medium text-gray-900 dark:text-white">
               Leave it where it is

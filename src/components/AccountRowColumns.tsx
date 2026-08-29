@@ -98,7 +98,12 @@ export const ACCOUNT_ROW_COLUMNS_CLASS =
  * decide and not ours to depend on.
  */
 export const ACCOUNT_ROW_SELECTED_CLASS =
-  'relative z-10 bg-blue-50/80 dark:bg-blue-900/30 border-transparent ' +
+  // The wash is the SELECTED state's own token, not a stock blue (stock-blue
+  // ruling, 28 Aug 2026): `bg-primary/10` is the brand navy at a tenth, the
+  // same tint AddAccountModal's selected tile wears. `--color-primary` does
+  // not invert on dark — a tenth of a near-black navy on a gray-800 card is no
+  // wash at all — so dark keeps the house counterpart, a lifted grey surface.
+  'relative z-10 bg-primary/10 dark:bg-gray-700/50 border-transparent ' +
   // ─ ONE STROKE WHEN THE KEYBOARD IS DRIVING ─────────────────────────────────
   // `focus-visible:ring-0` because otherwise an arrowed-to row wears TWO
   // concentric strokes: this SELECTION ring, and — 2px further out — the
@@ -126,6 +131,10 @@ export const ACCOUNT_ROW_SELECTED_CLASS =
   // selection indicator on the SAME element, three classes to its left, which
   // is §6 law and stays. Delete this and a selected, arrowed-to row wears both
   // strokes again, which is the exact bug that was reported.
+  //
+  // (The wash this paragraph calls "blue" is the navy tint above since the
+  // 28 Aug 2026 stock-blue ruling; the argument about the two strokes is
+  // unchanged — a selected row still reads as selected by wash and lift.)
   'ring-1 ring-[#6B86B3]/50 dark:ring-[#6B86B3]/70 focus-visible:ring-0 ' +
   'shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_10px_15px_-3px_rgba(0,0,0,0.1)] ' +
   'dark:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3),0_10px_15px_-3px_rgba(0,0,0,0.3)]';
@@ -189,9 +198,24 @@ export const ACCOUNT_ROW_NAME_LINK_CLASS =
   // spends no layout to do it. `font-semibold` because he asked for both to be
   // bold — the name and the figure are one statement, and the name was the
   // quieter half at 500 against the balance's 600.
+  //
+  // ─ THE HOVER IS AN UNDERLINE AND NOTHING ELSE ──────────────────────────────
+  // It used to add `hover:text-blue-600 dark:hover:text-blue-400`, the stock
+  // blue this app retired on 28 Aug 2026. The ruling's answer for in-app
+  // navigation is the PAIR `text-primary hover:text-secondary` — but this link
+  // deliberately declines a resting colour (see above: a nested cash row is
+  // drawn quieter than the card it sits in, and `.text-primary` carries
+  // `!important`, so naming it here would overrule both callers' ink). The
+  // hover half alone cannot be taken either: `.dark .text-secondary`'s lift is
+  // on the resting class, so `hover:text-secondary` would darken a near-white
+  // name to navy on a gray-800 card on hover.
+  //
+  // So the underline is the whole hover, which is what it was carrying anyway —
+  // an underline IS the link (see design-system/linkBlue.ts), and a colour
+  // change on top of one is decoration.
   'block w-fit max-w-full truncate rounded transition-colors font-semibold ' +
   'min-h-0 touch-target-small ' +
-  'hover:text-blue-600 dark:hover:text-blue-400 hover:underline';
+  'hover:underline';
 
 /** The column heading over a figure — small, quiet, and the same for every row. */
 const CELL_LABEL_CLASS = 'text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500';
