@@ -7,10 +7,10 @@
  *    £195k mortgage; the mortgage amortises to ~£50k over the ten years while
  *    the house revalues to ~£690k (the owner's third cut — the first said
  *    £600k → £1m, which helped compound the whole ledger past its target).
- *  - A personal pension opening at £100k: £2,000/month transferred in from
+ *  - A personal pension opening at £110k: £2,000/month transferred in from
  *    the current account, each followed by a £400 government top-up recorded
  *    as an Account Adjustment, the whole pot growing at ~6.5%/yr TWR.
- *  - A Hargreaves Lansdown Stocks & Shares ISA opening at £75k:
+ *  - A Hargreaves Lansdown Stocks & Shares ISA opening at £83k:
  *    the FULL ISA allowance in each tax year (owner's correction of 29 Aug,
  *    after the first cut fed it £3k/month — £36k/yr against a £20k limit):
  *    £15,240/yr to April 2017, £20,000/yr since, monthly. Deployed in
@@ -117,6 +117,9 @@ const monthDate = (i: number, d: number): string => { const { y, m } = ym(i); re
 const lerp = (from: number, to: number, i: number): number => from + (to - from) * (i / (MONTHS - 1));
 const pounds = (n: number): number => Math.round(n * 100) / 100;
 
+/** Month index of a calendar month, from the window's start (Sep 2016 = 0). */
+const mi = (y: number, m: number): number => (y - 2016) * 12 + (m - 9);
+
 // ── The market: one path, shared by everything that floats ───────────────────
 // Monthly log-returns with the decade's shape — the 2018 wobble, the 2020
 // crash and rebound, the 2022 drawdown — then NORMALISED so the whole path
@@ -125,11 +128,33 @@ const pounds = (n: number): number => Math.round(n * 100) / 100;
 // pension funds all breathe together the way real portfolios do.
 
 function marketPath(annualTwr: number): number[] {
+  // THE DECADE'S ACTUAL SHAPE, month by month (owner, 30 Aug: the net-worth
+  // line "looks too straight a line … I want to see some slight downticks
+  // because of market volatility"). The first cut had shocks so shallow that
+  // steady contributions ironed them flat.
+  //
+  // These follow the real sequence of events an equity investor lived
+  // through — the Q4 2018 selloff, the Covid crash and its V, the grinding
+  // 2022 bear, the August 2024 unwind, a 2025 correction — at roughly their
+  // real DEPTHS. What is not real is the average: the S&P returned about
+  // 13% a year over this window and the owner set 4.5%, so the whole series
+  // is normalised down afterwards. Keeping the drawdowns at full depth and
+  // taking the difference out of the good months is the honest way to do
+  // that, and it is what a balanced portfolio with bonds in it actually
+  // looks like: real falls, gentler recoveries.
+  //
+  // Month indices are from September 2016 = 0, so `mi` reads them by date.
   const shocks = new Map<number, number>([
-    // month-index → extra log-return that month (the decade's events)
-    [27, -0.06], [28, -0.04],               // late-2018 wobble
-    [41, -0.10], [42, -0.13], [43, 0.07], [44, 0.05], // spring 2020
-    [65, -0.05], [66, -0.04], [68, -0.05], [70, 0.03], // 2022 drawdown
+    [mi(2018, 10), -0.052], [mi(2018, 11), -0.031], [mi(2018, 12), -0.061], // Q4 2018
+    [mi(2019, 1), 0.068],                                                   // and its snap-back
+    [mi(2020, 2), -0.085], [mi(2020, 3), -0.152],                           // Covid
+    [mi(2020, 4), 0.108], [mi(2020, 5), 0.045], [mi(2020, 6), 0.028],       // the V
+    [mi(2022, 1), -0.048], [mi(2022, 2), -0.031],                           // 2022, the long one
+    [mi(2022, 4), -0.079], [mi(2022, 6), -0.076], [mi(2022, 9), -0.088],
+    [mi(2022, 10), 0.071], [mi(2023, 1), 0.055],
+    [mi(2024, 8), -0.049], [mi(2024, 9), 0.038],                            // the August unwind
+    [mi(2025, 4), -0.087], [mi(2025, 5), 0.052],                            // a 2025 correction
+    [mi(2026, 2), -0.037],                                                  // and a wobble since
   ]);
   const r = mulberry32(65537);
   const raw: number[] = [];
@@ -203,9 +228,6 @@ const PENSION_INSTRUMENTS: Instrument[] = [
 // March 2020, Paramount+ in June 2022), which is why the schedules are keyed
 // to absolute months rather than offsets. Every figure is a plausible public
 // price, not a bill anybody actually paid.
-
-/** Month index of a calendar month, from the window's start (Sep 2016 = 0). */
-const mi = (y: number, m: number): number => (y - 2016) * 12 + (m - 9);
 
 type PriceStep = readonly [from: number, price: number];
 
@@ -362,8 +384,8 @@ const ACCOUNTS: AccountSeed[] = [
   { key: 'saver', name: 'Instant Access Saver', type: 'savings', initial: 50000, institution: 'Marcus by Goldman Sachs' },
   { key: 'amex', name: 'Platinum Cashback Card', type: 'credit', initial: 0, institution: 'American Express', linked: true },
   { key: 'visa', name: 'Rewards Visa', type: 'credit', initial: 0, institution: 'Barclaycard', linked: true },
-  { key: 'pension', name: 'Personal Pension — SIPP', type: 'investment', initial: 100000, institution: 'Scottish Widows' },
-  { key: 'isa', name: 'Stocks & Shares ISA', type: 'investment', initial: 75000, institution: 'Hargreaves Lansdown' },
+  { key: 'pension', name: 'Personal Pension — SIPP', type: 'investment', initial: 110000, institution: 'Scottish Widows' },
+  { key: 'isa', name: 'Stocks & Shares ISA', type: 'investment', initial: 83000, institution: 'Hargreaves Lansdown' },
   { key: 'house', name: 'Home — 14 Orchard Lane', type: 'asset', initial: 450000, institution: 'Property' },
   { key: 'mortgage', name: 'Mortgage — 14 Orchard Lane', type: 'mortgage', initial: -195000, institution: 'Nationwide' },
 ];
@@ -472,10 +494,10 @@ const holdingsValue = (hs: Holding[], i: number): number =>
 // Opening deployment: the opening balances are already-invested portfolios.
 {
   // "before the window": buy at month-0 prices, cost basis = opening value.
-  buy(isaHoldings, 'isa', 0, 75000 * 0.97, 1);
-  isaState.cash = pounds(75000 - isaHoldings.reduce((s, h) => s + h.cost, 0));
-  buy(pensionHoldings, 'pension', 0, 100000 * 0.98, 1);
-  pensionState.cash = pounds(100000 - pensionHoldings.reduce((s, h) => s + h.cost, 0));
+  buy(isaHoldings, 'isa', 0, 83000 * 0.97, 1);
+  isaState.cash = pounds(83000 - isaHoldings.reduce((s, h) => s + h.cost, 0));
+  buy(pensionHoldings, 'pension', 0, 110000 * 0.98, 1);
+  pensionState.cash = pounds(110000 - pensionHoldings.reduce((s, h) => s + h.cost, 0));
   isaState.value = pounds(isaState.cash + holdingsValue(isaHoldings, 0));
   pensionState.value = pounds(pensionState.cash + holdingsValue(pensionHoldings, 0));
 }
@@ -503,6 +525,8 @@ let currentBal = 4200;
 let amexOwed = 0;   // this month's spending, paid next month
 let visaOwed = 0;
 const yearly: Array<Record<string, number>> = [];
+/** Every month's net worth — what the chart actually draws. */
+const monthlyNetWorth: Array<{ date: string; value: number }> = [];
 
 // The last weeks stay unfinished on purpose — the Reconciliation and To
 // Review screenshots need work to show.
@@ -722,11 +746,20 @@ for (let i = 0; i < MONTHS; i += 1) {
     currentBal -= visaOwed; visaOwed = 0;
   }
 
+  {
+    const netWorthNow = houseVal + mortgageBal + pensionState.value
+      + isaState.value + saverBal + currentBal - amexOwed - visaOwed;
+    monthlyNetWorth.push({ date: monthDate(i, 28), value: pounds(netWorthNow) });
+  }
+
   if (m === 12 || isCurrentMonth) {
+    const netWorth = houseVal + mortgageBal + pensionState.value
+      + isaState.value + saverBal + currentBal - amexOwed - visaOwed;
     yearly.push({
       year: y,
       house: houseVal, mortgage: mortgageBal, pension: pensionState.value,
       isa: isaState.value, saver: saverBal, current: pounds(currentBal),
+      netWorth: pounds(netWorth),
     });
   }
 }
@@ -751,14 +784,41 @@ for (const [acct, date, desc, amt] of REVIEW_ROWS) {
 const fmt = (n: number): string => `£${Math.round(n).toLocaleString('en-GB')}`;
 console.log(`\nTHE SHOWCASE LEDGER — ${txns.length.toLocaleString()} transactions over ten years`);
 console.log(`saver standing order calibrated to £${SAVER_TOPUP}/mo\n`);
-console.log('year   house      mortgage   pension    ISA        saver     current');
+console.log('year   house      mortgage   pension    ISA        saver     current    NET WORTH');
 for (const r of yearly) {
   console.log(
-    `${r.year}   ${fmt(r.house).padEnd(10)} ${fmt(r.mortgage).padEnd(10)} ${fmt(r.pension).padEnd(10)} ${fmt(r.isa).padEnd(10)} ${fmt(r.saver).padEnd(9)} ${fmt(r.current)}`
+    `${r.year}   ${fmt(r.house).padEnd(10)} ${fmt(r.mortgage).padEnd(10)} ${fmt(r.pension).padEnd(10)} ${fmt(r.isa).padEnd(10)} ${fmt(r.saver).padEnd(9)} ${fmt(r.current).padEnd(10)} ${fmt(r.netWorth)}`
   );
 }
 const last = yearly[yearly.length - 1];
 const netWorth = last.house + last.mortgage + last.pension + last.isa + last.saver + last.current;
+// The owner's question of 30 Aug, answered in the report rather than by
+// squinting at a chart: where does the line actually go DOWN, and how far?
+{
+  const dips: Array<{ from: string; to: string; drop: number; pct: number }> = [];
+  let peak = monthlyNetWorth[0];
+  let trough = monthlyNetWorth[0];
+  for (const point of monthlyNetWorth) {
+    if (point.value >= peak.value) {
+      if (trough.value < peak.value) {
+        dips.push({
+          from: peak.date, to: trough.date,
+          drop: pounds(peak.value - trough.value),
+          pct: (peak.value - trough.value) / peak.value,
+        });
+      }
+      peak = point; trough = point;
+    } else if (point.value < trough.value) {
+      trough = point;
+    }
+  }
+  const worst = dips.sort((a, b) => b.drop - a.drop).slice(0, 5);
+  console.log('\nthe line goes DOWN here — deepest falls in monthly net worth:');
+  for (const d of worst) {
+    console.log(`  ${d.from.slice(0, 7)} → ${d.to.slice(0, 7)}   −${fmt(d.drop)}  (${(d.pct * 100).toFixed(1)}%)`);
+  }
+}
+
 console.log(`\nNET WORTH TODAY: ${fmt(netWorth)}  (owner's band: £1.72m–£1.75m — the third cut landed £1.73m)`);
 console.log('\nISA holdings today:');
 for (const h of isaHoldings) {
