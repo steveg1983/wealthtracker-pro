@@ -175,6 +175,24 @@ describe(`the latest definition of ${FUNCTION_NAME}`, () => {
     );
   });
 
+  it('still honours a caller backfill stamp, and refuses a contradictory one (20260829170000)', () => {
+    // The chunked-backfill drift: the handler splits a sync into 200-row calls,
+    // and a per-call decision rebases chunk 1 then drifts the balance by every
+    // later chunk's sum. The caller is the only party that saw the whole sync,
+    // so its stamp outranks the table — and a stamp disagreeing with the arm
+    // already chosen is the bug itself, refused rather than landed.
+    const { file, body } = latestDefinition();
+    expect(body, `${file} no longer reads the caller's backfill stamp`).toContain(
+      "r ? 'backfill'"
+    );
+    expect(body, `${file} no longer refuses a contradictory stamp`).toContain(
+      'backfill_stamp_conflict'
+    );
+    expect(body, `${file} no longer refuses a non-boolean stamp`).toContain(
+      'backfill_stamp_not_boolean'
+    );
+  });
+
   it('still refuses rows belonging to another user, and keeps its search_path pinned', () => {
     const { file, body } = latestDefinition();
     expect(body, `${file} lost the per-row user check`).toContain(

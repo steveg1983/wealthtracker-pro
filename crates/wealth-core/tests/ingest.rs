@@ -94,6 +94,20 @@ fn feed_row(description: &str, amount: &str, external: &str) -> serde_json::Valu
     })
 }
 
+/// A feed row carrying the caller's backfill verdict (20260829170000).
+fn stamped_feed_row(
+    description: &str,
+    amount: &str,
+    external: &str,
+    backfill: bool,
+) -> serde_json::Value {
+    json!({
+        "user_id": OWNER, "account_id": FED, "description": description, "amount": amount,
+        "type": "expense", "date": "2024-05-01", "external_transaction_id": external,
+        "backfill": backfill,
+    })
+}
+
 fn scalar(connection: &Connection, sql: &str) -> i64 {
     connection.query_row(sql, [], |row| row.get(0)).expect("read")
 }
@@ -597,6 +611,70 @@ fn a_second_sync_moves_the_balance_and_leaves_the_opening_figure_alone() {
 
     assert_eq!(balances(&connection, FED), (9200, 11200));
     assert_eq!(identity(&connection, FED), 0);
+}
+
+#[test]
+fn a_false_stamp_outranks_a_fresh_accounts_own_history() {
+    // The chunk-2 shape (20260829170000): to the table this account looks like
+    // a first import, but the caller — who saw the whole sync — says the
+    // rebase already happened in an earlier chunk. The stamp wins: the batch
+    // takes the incremental arm and the opening figure does not move.
+    let mut connection = fixture();
+    feed_import(
+        &mut connection,
+        json!([
+            stamped_feed_row("A", "-12.00", "n-1", false),
+            stamped_feed_row("B", "-8.00", "n-2", false),
+        ]),
+    )
+    .expect("import");
+
+    assert_eq!(balances(&connection, FED), (8000, 10000));
+    assert_eq!(identity(&connection, FED), 0);
+}
+
+#[test]
+fn a_true_stamp_outranks_a_fed_accounts_history() {
+    // The other direction, so the pair proves the stamp is READ rather than
+    // one arm being hard-wired: the account has feed history, the caller says
+    // this chunk still belongs to the first sync, and the batch rebases.
+    let mut connection = fixture();
+    feed_import(&mut connection, json!([feed_row("A", "-12.00", "n-1")])).expect("first");
+    assert_eq!(balances(&connection, FED), (10000, 11200));
+
+    feed_import(
+        &mut connection,
+        json!([stamped_feed_row("B", "-8.00", "n-2", true)]),
+    )
+    .expect("second");
+
+    assert_eq!(balances(&connection, FED), (10000, 12000));
+    assert_eq!(identity(&connection, FED), 0);
+}
+
+#[test]
+fn a_stamp_that_contradicts_the_calls_decision_loses_the_whole_sync() {
+    // Row 1, unstamped, decides BACKFILL from the table; row 2 stamps
+    // incremental. A batch split across both arms is the drift the stamp
+    // exists to end, so it refuses whole — same all-or-nothing property the
+    // owner-mismatch refusal shows above.
+    let mut connection = fixture();
+    let error = feed_import(
+        &mut connection,
+        json!([
+            feed_row("Good", "-1.00", "n-1"),
+            stamped_feed_row("Contradiction", "-2.00", "n-2", false),
+        ]),
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), "backfill_stamp_conflict");
+    assert_eq!(
+        scalar(&connection, "SELECT COUNT(*) FROM transactions WHERE account_id = 'a0000000-0000-0000-0000-0000000000fe'"),
+        0
+    );
+    assert_eq!(scalar(&connection, "SELECT COUNT(*) FROM financial_audit_log"), 0);
+    assert_eq!(balances(&connection, FED), (10000, 10000));
 }
 
 #[test]

@@ -1602,15 +1602,16 @@ being visible.
 | | count | oracle | where it runs |
 | --- | --- | --- | --- |
 | constraint specs (`run.mjs`) | 67 | the cloud's Postgres schema | nightly (needs the cluster) |
-| verb specs (`verbs.mjs`) | 474 | the live Postgres RPCs | nightly (needs the cluster) |
+| verb specs (`verbs.mjs`) | 501 | the live Postgres RPCs | nightly (needs the cluster) |
 | admission specs (`admission.mjs`) | 109 | the TypeScript modules that ship today | **every PR** |
-| crate tests (`cargo test`) | 468 | — | **every PR** |
+| crate tests (`cargo test`) | 526 | — | **every PR** |
 
-**650 specs and 30 declared divergences, every divergence pinned from both
-sides.** Of the 650, **626 actually compare two implementations**: the other 24
+**677 specs and 33 declared divergences, every divergence pinned from both
+sides.** Of the 677, **651 actually compare two implementations**: the other 26
 are `verify_integrity`'s, which run on one engine because the cloud has no such
 function, and they are counted separately by their own runner for exactly that
-reason.
+reason. (Figures re-measured 2026‑08‑29, when the backfill-stamp trio joined the
+verb lane and the table above had already drifted by a slice's worth.)
 
 The fourth column is slice 30's, and the split in it is by COST, never by
 importance — `docs/edition-gating.md` argues it out. The two lanes that need a

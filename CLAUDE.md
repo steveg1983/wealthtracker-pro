@@ -31,11 +31,11 @@ Every one of them refuses to run without what it needs rather than skipping.
 
 | Check | Command | Status | Notes |
 | --- | --- | --- | --- |
-| Ledger core | `cargo test --manifest-path crates/Cargo.toml --all-features` | ✅ | 468 tests, 24 suites. The money lints (`unwrap_used`, `panic`, `float_arithmetic`, …) are `deny` in `Cargo.toml`; clippy is what enforces them |
-| Contract | `npm run test:local-contract` | ✅ | 127 checks, 5 files — the real crate against real SQLite files through `DataPort` |
+| Ledger core | `cargo test --manifest-path crates/Cargo.toml --all-features` | ✅ | 526 tests, 26 suites. The money lints (`unwrap_used`, `panic`, `float_arithmetic`, …) are `deny` in `Cargo.toml`; clippy is what enforces them |
+| Contract | `npm run test:local-contract` | ✅ | 144 checks, 5 files — the real crate against real SQLite files through `DataPort` |
 | Admission | `npm run test:local-admission` | ✅ | 109 specs: the shipping TypeScript against the Rust port of it |
 | Constraint parity | `npm run test:local-sqlite` | ✅ | 67 specs, 16 declared divergences. **Needs `bash scripts/local-db/up.sh`** |
-| Verb parity | `npm run test:local-verbs` | ✅ | 474 specs, 26 declared divergences, 24 single-engine. Same cluster |
+| Verb parity | `npm run test:local-verbs` | ✅ | 501 specs, 29 declared divergences, 26 single-engine. Same cluster |
 
 **Where they run.** The desktop renderer trio, the Rust core suites, contract
 and admission are on **every PR**. The two differential lanes and
