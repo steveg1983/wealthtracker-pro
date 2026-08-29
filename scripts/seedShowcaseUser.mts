@@ -375,6 +375,13 @@ const ACCOUNTS: AccountSeed[] = [
 const MORTGAGE_RATE_M = 0.03 / 12;
 const MORTGAGE_PAYMENT = 1525;
 
+// School fees per TERM, for two children, one school year per entry — the
+// window's first entry is 2016/17. Rising about 5.5% a year, which is what
+// they have done. Three terms a year: September, January, April.
+const SCHOOL_FEES_PER_TERM = [
+  8500, 8950, 9450, 9950, 10500, 11100, 11700, 12400, 13150, 13950, 14800,
+] as const;
+
 // Car lease eras — every three years, the payment the owner named.
 const LEASES = [
   { until: 36, amount: 500, payee: 'BMW FINANCIAL SERVICES' },
@@ -616,6 +623,20 @@ for (let i = 0; i < MONTHS; i += 1) {
       'Gas & Electricity', 'current');
   }
 
+  // School fees, three terms a year — the owner's own suggestion (29 Aug)
+  // when he caught £53k of clothing: at this income the money goes on the
+  // children, not on coats. Two at a Surrey prep, billed each September,
+  // January and April, rising the way school fees actually rise. The window
+  // opens in September, so the school year IS the twelve months from each
+  // year's month 0, and a term is month 0, 4 or 7 within it.
+  {
+    const termInYear = i % 12;
+    if (termInYear === 0 || termInYear === 4 || termInYear === 7) {
+      const fee = SCHOOL_FEES_PER_TERM[Math.min(Math.floor(i / 12), SCHOOL_FEES_PER_TERM.length - 1)];
+      post(6, 'OAKFIELD PREP SCHOOL — FEES', fee, 'Nursery / Schooling', 'current');
+    }
+  }
+
   // Cards: the day-to-day, always on plastic (owner's spec).
   bill(dayNear(4), 'SHELL WEYBRIDGE', 55, 'Fuel Costs', 'amex');
   bill(dayNear(18), 'BP CONNECT COBHAM', 52, 'Fuel Costs', 'amex');
@@ -634,17 +655,19 @@ for (let i = 0; i < MONTHS; i += 1) {
 
   // Seasonal: December gifts, summer holiday, February ski trip most years.
   if (m === 12) bill(dayNear(10), 'JOHN LEWIS & PARTNERS', 260, 'Gifts', 'visa');
+  // The family's year away — raised on the owner's instruction of 29 Aug
+  // ("increase the holiday spending"), and rising with everything else,
+  // because `bill` carries the decade's price scale. Booked where a family
+  // books it: flights in the spring, the hotel in the summer, half-terms in
+  // February and October, and a long-haul Christmas every third year.
+  if (m === 2) bill(dayNear(12), 'CRYSTAL SKI HOLIDAYS', 3400, 'Family Holidays', 'amex');
+  if (m === 5) bill(dayNear(6), 'BRITISH AIRWAYS', 2600, 'Family Holidays', 'amex');
   if (m === 7) {
-    const holiday = -jitter(2600 * scale, 0.12);
-    add('amex', monthDate(i, dayNear(8)), 'BRITISH AIRWAYS', holiday * 0.45, 'CAT:Family Holidays');
-    add('amex', monthDate(i, dayNear(9)), 'MARRIOTT RESORTS', holiday * 0.55, 'CAT:Family Holidays');
-    amexOwed -= holiday;
+    bill(dayNear(8), 'MARRIOTT RESORTS', 4200, 'Family Holidays', 'amex');
+    bill(dayNear(14), 'HERTZ ITALIA', 620, 'Family Holidays', 'amex');
   }
-  if (m === 2 && y % 2 === 0) {
-    const ski = -jitter(1400 * scale, 0.1);
-    add('amex', monthDate(i, dayNear(12)), 'CRYSTAL SKI HOLIDAYS', ski, 'CAT:Family Holidays');
-    amexOwed -= ski;
-  }
+  if (m === 10) bill(dayNear(20), 'CENTER PARCS LONGLEAT', 1750, 'Family Holidays', 'visa');
+  if (m === 12 && y % 3 === 0) bill(dayNear(2), 'EMIRATES', 6800, 'Family Holidays', 'amex');
   // The residual spender: whatever the month's committed flows leave behind
   // beyond a modest cushion goes on living (the owner's instruction) — split
   // across the categories a card statement actually carries.
@@ -656,23 +679,34 @@ for (let i = 0; i < MONTHS; i += 1) {
     const cushion = 6000 + (currentBal - 6000) * 0.06; // drift gently toward ~£6k
     let left = pounds(currentBal - amexOwed - visaOwed - cushion);
     if (left > 400) {
-      const chunks: Array<[string, string, string, number]> = [
-        ['SELFRIDGES & CO', 'Clothing', 'amex', 0.14],
-        ['HARRODS', 'Clothing', 'visa', 0.08],
-        ['APPLE STORE REGENT ST', 'Other/Misc-P', 'visa', 0.08],
-        ['THE PETERSHAM RICHMOND', 'Dining Out', 'amex', 0.10],
-        ['CENTRE COURT GARDEN CO', 'Maintenance, Repairs & Gardening', 'visa', 0.12],
-        ['BUPA DENTAL CARE', 'Dental', 'current', 0.05],
-        ['SECRET ESCAPES', 'Family Holidays', 'amex', 0.14],
-        ['WATCHES OF SWITZERLAND', 'Gifts', 'amex', 0.07],
-        ['PC RICHARDSON INTERIORS', 'Furnishings', 'visa', 0.12],
-        ['CHILDS FARM DAY NURSERY', 'Nursery / Schooling', 'current', 0.10],
+      // Each outlet has a MONTHLY CEILING, because a residual that simply
+      // divides what is left produces the figure the owner caught on 29 Aug:
+      // £53,494 a year on clothing, which nobody spends. Clothing also
+      // appeared TWICE in the old list — two shops, one category, a third of
+      // the surplus between them. The ceilings are what a household at this
+      // income plausibly spends on each thing, in 2016 money; `scale` carries
+      // them through the decade. Anything still left when every ceiling is
+      // full simply stays in the current account, which is what actually
+      // happens to money nobody has a plan for.
+      const chunks: Array<{ payee: string; category: string; account: string; ceiling: number }> = [
+        { payee: 'SELFRIDGES & CO', category: 'Clothing', account: 'amex', ceiling: 340 },
+        { payee: 'MOLLY MAID SURREY', category: 'Cleaning Costs', account: 'current', ceiling: 320 },
+        { payee: 'CENTRE COURT GARDEN CO', category: 'Maintenance, Repairs & Gardening', account: 'visa', ceiling: 400 },
+        { payee: 'SECRET ESCAPES', category: 'Family Holidays', account: 'amex', ceiling: 180 },
+        { payee: 'PC RICHARDSON INTERIORS', category: 'Furnishings', account: 'visa', ceiling: 300 },
+        { payee: 'THE PETERSHAM RICHMOND', category: 'Dining Out', account: 'amex', ceiling: 260 },
+        { payee: 'APPLE STORE REGENT ST', category: 'Other/Misc-P', account: 'visa', ceiling: 220 },
+        { payee: 'SURREY SPORTS CLUB — KIDS', category: 'Days Out', account: 'current', ceiling: 260 },
+        { payee: 'WATCHES OF SWITZERLAND', category: 'Gifts', account: 'amex', ceiling: 190 },
+        { payee: 'BUPA DENTAL CARE', category: 'Dental', account: 'current', ceiling: 130 },
+        { payee: 'HALFORDS AUTOCENTRE', category: 'Servicing, Maintenance & Repairs', account: 'visa', ceiling: 170 },
       ];
-      for (const [payee, catName, acctKey, share] of chunks) {
+      for (const chunk of chunks) {
         if (left < 120) break;
-        const amt = pounds(Math.min(left, left * 0.9 * jitter(share * 2.4, 0.3)));
+        const ceiling = chunk.ceiling * scale;
+        const amt = pounds(Math.min(left * 0.9, jitter(ceiling, 0.28)));
         if (amt < 40) continue;
-        bill(dayNear(15), payee, amt / scale, catName, acctKey);
+        bill(dayNear(15), chunk.payee, amt / scale, chunk.category, chunk.account);
         left = pounds(left - amt);
       }
     }

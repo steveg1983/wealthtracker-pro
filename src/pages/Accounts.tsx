@@ -533,15 +533,53 @@ function AccountsList() {
    * all"); the summary above the account list was the surface still breaking it.
    */
   /**
-   * The valuation term (slice 3b) joins the CARD's figures only: the three
-   * headline numbers must match the dashboard trio and the reports (the
-   * one-net-worth ruling), so today's derived investment value rides each
-   * account's balance into the sum. The ROWS below keep their ledger
-   * balances untouched — an account row states its register, and the
-   * register's bottom line must be findable on the page that links to it.
+   * The valuation term (slice 3b) joined the CARD's figures only, so that
+   * the three headline numbers matched the dashboard trio and the reports —
+   * while the rows kept their ledger balances, on the reasoning that an
+   * account row states its register and the register's bottom line must be
+   * findable on the page that links to it.
+   *
+   * ── THE OWNER'S CORRECTION, 29 AUGUST 2026 ────────────────────────────────
+   * That left a page whose rows do not sum to its own headline. On a ledger
+   * with a real portfolio the gap is enormous — measured on the showcase
+   * data, rows summing to £1,409,684.92 under a net worth of £1,726,008.70,
+   * the whole £316,323.78 being unrealised gain — and his verdict was the
+   * one that matters: "the account balances do not add up to anywhere near
+   * that … users looking at this will think the figures are wrong". He is
+   * right, and a total nobody can reconstruct from what is on screen is worse
+   * than either figure alone.
+   *
+   * Both halves of the old reasoning were sound, so the fix keeps both rather
+   * than choosing: the ROW NOW STATES WHAT THE ACCOUNT IS WORTH — which is
+   * what its group and the headline sum, so the arithmetic closes — and an
+   * account whose worth differs from its register says so underneath, naming
+   * the register figure and the unrealised gain that separates them. Two
+   * numbers that differ are not a problem to hide; the problem was showing
+   * one and totalling the other.
+   *
+   * What does NOT move: reconciliation and the register's running balance
+   * stay ledger, always. You reconcile against a statement, and a statement
+   * knows nothing of unrealised gains.
    */
   const valuation = useInvestmentValuation();
   const valuationDayKey = netWorthPointToken(new Date());
+  /**
+   * What an account is WORTH today: its register, plus the market's opinion
+   * of the holdings inside it. Zero delta for every account without holdings,
+   * so this is the ledger balance for all but investment accounts.
+   */
+  const computeValuedBalance = useCallback(
+    (accountId: string): number =>
+      toDecimal(computeAccountBalance(accountId))
+        .plus(valuation.deltaAt(accountId, valuationDayKey))
+        .toNumber(),
+    [computeAccountBalance, valuation, valuationDayKey]
+  );
+  /** The unrealised gain alone — what separates the two figures, when it does. */
+  const unrealisedGain = useCallback(
+    (accountId: string): number => valuation.deltaAt(accountId, valuationDayKey).toNumber(),
+    [valuation, valuationDayKey]
+  );
   const netWorthEntries = useMemo(
     () => openAccounts.map(a => ({
       balance: toDecimal(computeAccountBalance(a.id)).plus(valuation.deltaAt(a.id, valuationDayKey)),
@@ -605,11 +643,16 @@ function AccountsList() {
   // the same figure the net-worth bar shows, never floating-point arithmetic.
   const totalForBand = useCallback((bandAccounts: readonly Account[]): DecimalInstance => {
     const ids = new Set(bandAccounts.map(a => a.id));
-    return calculateTotalBalance(
-      decimalAccounts.filter(a => ids.has(topLevelIdByAccountId.get(a.id) ?? a.id)),
-      decimalTransactions
+    const counted = decimalAccounts.filter(a => ids.has(topLevelIdByAccountId.get(a.id) ?? a.id));
+    // The ledger sum, plus what the market says the holdings inside it are
+    // worth — so a band total equals the rows under it, and the bands equal
+    // the headline above them (the owner's correction, 29 Aug — see the note
+    // by `computeValuedBalance`).
+    return counted.reduce(
+      (sum, a) => sum.plus(valuation.deltaAt(a.id, valuationDayKey)),
+      calculateTotalBalance(counted, decimalTransactions)
     );
-  }, [decimalAccounts, decimalTransactions, topLevelIdByAccountId]);
+  }, [decimalAccounts, decimalTransactions, topLevelIdByAccountId, valuation, valuationDayKey]);
 
   /**
    * The same band total as above, split into one line per currency HELD.
@@ -731,13 +774,16 @@ function AccountsList() {
       if (sortMode === 'name-desc') sorted.reverse();
     } else {
       sorted.sort((a, b) => {
-        const comparison = toDecimal(computeAccountBalance(a.id))
-          .comparedTo(toDecimal(computeAccountBalance(b.id)));
+        // Ranked by what the ROW shows, which since 29 Aug is what the
+        // account is worth — sorting by a figure the page does not print
+        // would look like a broken sort.
+        const comparison = toDecimal(computeValuedBalance(a.id))
+          .comparedTo(toDecimal(computeValuedBalance(b.id)));
         return sortMode === 'balance-desc' ? -comparison : comparison;
       });
     }
     return sorted;
-  }, [sortMode, computeAccountBalance]);
+  }, [sortMode, computeValuedBalance]);
 
   const handleClose = (accountId: string) => {
     if (window.confirm('Close this account? It moves to the Closed Accounts section — every transaction is preserved and you can reopen it at any time. Its transfer category is hidden from transaction dropdowns while closed.')) {
@@ -1589,7 +1635,7 @@ function AccountsList() {
                               stats row's copy hides below sm to avoid saying
                               it twice. */}
                           <span className="sm:hidden shrink-0 text-base font-semibold tabular-nums text-gray-900 dark:text-white">
-                            {formatDisplayCurrency(computeAccountBalance(account.id), account.currency)}
+                            {formatDisplayCurrency(computeValuedBalance(account.id), account.currency)}
                           </span>
                         </div>
                         {/* THE INSTITUTION LINE IS GONE (owner, 16 August).
@@ -1728,9 +1774,24 @@ function AccountsList() {
                               />
                               <AccountBalanceCell
                                 label="Account Bal"
-                                value={formatDisplayCurrency(computeAccountBalance(account.id), account.currency)}
+                                value={formatDisplayCurrency(computeValuedBalance(account.id), account.currency)}
                                 smOnly
                               />
+                              {/* WHERE THE TWO FIGURES DIFFER, BOTH ARE SAID.
+                                  An investment account is worth its market
+                                  value, which is what the row and every total
+                                  above it now show — but its register still
+                                  has a bottom line, and somebody reconciling
+                                  or reading the transactions needs to find
+                                  it. Only rendered when there is something to
+                                  explain: every account without holdings has
+                                  a zero gain and shows nothing extra. */}
+                              {Math.abs(unrealisedGain(account.id)) >= 0.01 && (
+                                <AccountBalanceCell
+                                  label="In the register"
+                                  value={formatDisplayCurrency(computeAccountBalance(account.id), account.currency)}
+                                />
+                              )}
                               <AccountCountCell
                                 label="Unreconciled"
                                 count={getUnreconciledCount(account.id)}
@@ -1940,7 +2001,7 @@ function AccountsList() {
                                 the parent card does it, because the Account Bal
                                 column is off at that width. */}
                             <span className="sm:hidden shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
-                              {formatDisplayCurrency(computeAccountBalance(child.id), child.currency)}
+                              {formatDisplayCurrency(computeValuedBalance(child.id), child.currency)}
                             </span>
                           </div>
                           <AccountRowColumns>
@@ -1955,7 +2016,7 @@ function AccountsList() {
                             <AccountRowEmptyCell />
                             <AccountBalanceCell
                               label="Account Bal"
-                              value={formatDisplayCurrency(computeAccountBalance(child.id), child.currency)}
+                              value={formatDisplayCurrency(computeValuedBalance(child.id), child.currency)}
                               smOnly
                             />
                             <AccountCountCell
