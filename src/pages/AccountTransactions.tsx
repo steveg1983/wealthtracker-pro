@@ -1274,6 +1274,19 @@ export default function AccountTransactions() {
   }, [sortField, account?.name]);
 
   /**
+   * Is the phone DISPLAYING the register oldest-first?
+   *
+   * The state order and the displayed order are not the same thing, and this
+   * is the one place that knows it: `phoneListRows` below reverses the state
+   * order whenever the owner has not chosen one, so the only way a phone shows
+   * oldest-first is when he asked for it. Anything downstream that cares which
+   * end is which — the anchor, the jump control's label — asks THIS, not
+   * `sortDirection`.
+   */
+  const phoneShowsOldestFirst =
+    phoneSortChosen && sortField === 'date' && sortDirection === 'asc';
+
+  /**
    * NEWEST FIRST on a phone (owner, 17 Aug: opening on a row from years ago
    * read as starting at the wrong end). The desktop table keeps Money's
    * chronology and opens AT the foot; a page-scrolled infinite list cannot
@@ -1291,6 +1304,19 @@ export default function AccountTransactions() {
       : transactionsWithBalance),
     [transactionsWithBalance, sortField, sortDirection, phoneSortChosen]
   );
+
+  /**
+   * Which end of the displayed list holds the NEWEST transaction, when that is
+   * a question with an answer at all.
+   *
+   * Sorted by date, it always has one: oldest-first puts the newest last,
+   * every other date order puts it first. Sorted by description or amount it
+   * does not — the ends are "A" and "Z", or largest and smallest — so this is
+   * `undefined` and the jump control falls back to naming a direction rather
+   * than inventing a chronology.
+   */
+  const phoneNewestEnd: 'start' | 'end' | undefined =
+    sortField === 'date' ? (phoneShowsOldestFirst ? 'end' : 'start') : undefined;
 
   // ── Opening at the foot of the register ────────────────────────────────────
   // Money's register is ordered oldest-first with the NEWEST transaction on the
@@ -3688,18 +3714,29 @@ export default function AccountTransactions() {
           transactions={phoneListRows}
           /*
            * OLDEST-FIRST OPENS ON THE NEWEST, exactly as the desktop register
-           * does by scrolling to its foot.
+           * does by scrolling to its foot. The anchor follows the DISPLAYED
+           * order, which is why it asks `phoneShowsOldestFirst` and not the
+           * sort state.
            *
-           * `phoneListRows` above already reverses date-ascending rows while
-           * the owner has not chosen an order, so the untouched phone shows
-           * the newest at the top. The moment he chooses "Date — oldest
-           * first" that reversal stands down and the list is a ledger again —
-           * and a ledger's newest line is its last one. Loading downward from
-           * the top of that put him on 2008 with eleven thousand rows between
-           * him and this month (29 Aug). Anchoring to the end is what makes
-           * the choice mean on a phone what it means on a desk.
+           * THE FIRST VERSION OF THIS LINE READ THE STATE ORDER, and shipped:
+           * `sortField === 'date' && sortDirection === 'asc' ? 'end' : 'start'`.
+           * Those are the register's defaults, so the untouched phone matched
+           * it — but `phoneListRows` above REVERSES exactly that case into
+           * newest-first, and an anchor of 'end' on a newest-first list opens
+           * on its last row. Owner, 29 Aug: "The register now opens at the
+           * bottom, which is the oldest transaction." The precise opposite of
+           * what the line was for, on the one view every phone gets by
+           * default.
+           *
+           * The reversal is part of the displayed order. Anything choosing an
+           * END has to account for it, which is what the derivation beside
+           * `phoneListRows` now exists to make impossible to forget.
            */
-          anchor={sortField === 'date' && sortDirection === 'asc' ? 'end' : 'start'}
+          anchor={phoneShowsOldestFirst ? 'end' : 'start'}
+          /* Which end is the newest, so the jump control can say where it
+             goes rather than which way it scrolls. Undefined under a
+             description or amount sort, where neither end is "newest". */
+          newestEnd={phoneNewestEnd}
           accounts={[]}
           categories={categories}
           // A phone is still looking at the REGISTER, with the same To Review

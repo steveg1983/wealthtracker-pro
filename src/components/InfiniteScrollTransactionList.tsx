@@ -18,6 +18,24 @@ const CARD_SKELETON_COLUMNS: TableSkeletonColumn[] = [
 /** `p-4` over the card's two lines — measured at 375px in the running app. */
 const CARD_HEIGHT = 77;
 
+/**
+ * What the jump button tells a screen reader it does.
+ *
+ * "Top" and "bottom" are facts about a scrollbar; "newest" and "oldest" are
+ * facts about the register, and they are what somebody is actually looking
+ * for. The caller is the only one who can say which end is which — the phone
+ * register reverses its own default order before handing the rows over — so
+ * without that answer the label stays with the direction rather than guessing
+ * a chronology a list sorted by amount does not have.
+ */
+const jumpLabelFor = (jumpTo: 'top' | 'bottom', newestEnd?: 'start' | 'end'): string => {
+  if (newestEnd === undefined) {
+    return jumpTo === 'top' ? 'Jump to the top of the list' : 'Jump to the bottom of the list';
+  }
+  const arrivingAt = jumpTo === 'top' ? 'start' : 'end';
+  return arrivingAt === newestEnd ? 'Jump to newest' : 'Jump to oldest';
+};
+
 interface InfiniteScrollTransactionListProps {
   transactions: Transaction[];
   accounts: Account[];
@@ -70,6 +88,17 @@ interface InfiniteScrollTransactionListProps {
    * newest is on screen immediately and older rows arrive as you scroll up.
    */
   anchor?: 'start' | 'end';
+  /**
+   * Which end of the list the NEWEST transaction sits at, if either does.
+   *
+   * Only the caller can know: it holds the sort, and on a phone the register
+   * also reverses its own default before handing the rows over. Supplied, the
+   * jump control names a destination a person recognises — "Jump to newest" —
+   * instead of a direction they have to translate. Left out (a list sorted by
+   * amount, where neither end is newest anything) it says top and bottom,
+   * which is at least true.
+   */
+  newestEnd?: 'start' | 'end';
 }
 
 /**
@@ -94,7 +123,8 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
   emptyContent,
   itemsPerBatch = 20,
   markNewArrivals = false,
-  anchor = 'start'
+  anchor = 'start',
+  newestEnd
   // `| null` is the 200ms rule in the type: a load too short to be worth
   // explaining renders NOTHING, which is not an element.
 }: InfiniteScrollTransactionListProps): React.JSX.Element | null {
@@ -177,6 +207,55 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
     });
     return () => cancelAnimationFrame(frame);
   }, [anchor, displayedItems, transactions.length]);
+
+  // ── Getting from one end of a long register to the other ─────────────────
+  //
+  // Owner, 29 Aug: "I need a way to quickly get to the newest… whether a 'to
+  // top' button that appears as you scroll up, or a 'To bottom' if you scroll
+  // down, or some other way of quickly navigating from one end to the other in
+  // mobile view." BOTH ends of this page are somewhere to be — Quick Add sits
+  // under the last row, the filters sit above the first — and no thumb flicks
+  // past eleven thousand rows to reach either.
+  //
+  // ONE control, always offering the FAR end: in the top half of the page it
+  // goes down, in the bottom half it goes up. Where the viewport is has to be
+  // MEASURED rather than remembered, because the page grows under the reader
+  // every time a batch lands.
+  //
+  // `null` while the page is shorter than about two screens. A register whose
+  // other end is a flick away does not need a shortcut to it, and a floating
+  // button over four rows is clutter sitting on top of one of them.
+  const [jumpTo, setJumpTo] = useState<'top' | 'bottom' | null>(null);
+  useEffect(() => {
+    // rAF-throttled: a listener that measures on every scroll event does its
+    // layout reads at the precise moment the phone is busiest.
+    let frame = 0;
+    const measure = (): void => {
+      frame = 0;
+      const furthest = document.body.scrollHeight - window.innerHeight;
+      if (furthest < window.innerHeight) {
+        setJumpTo(null);
+        return;
+      }
+      setJumpTo(window.scrollY < furthest / 2 ? 'bottom' : 'top');
+    };
+    const onScroll = (): void => {
+      if (frame !== 0) return;
+      frame = requestAnimationFrame(measure);
+    };
+    measure();
+    // Passive, because this listener never calls preventDefault — saying so is
+    // what keeps it off the critical path of the scroll it is watching.
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+    // Re-measured whenever the list grows: a batch changes the page's height,
+    // and with it whether there is a far end worth offering at all.
+  }, [displayedItems, transactions.length]);
 
   // Set up Intersection Observer for infinite scroll
   useEffect(() => {
@@ -319,16 +398,43 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
         </div>
       )}
 
-      {/* Scroll to top button */}
-      {visibleTransactions.length > 10 && (
+      {/*
+        THE FAR END, one tap away — replacing a button that only ever went to
+        the top. Two floating controls would have been two things to aim at
+        with the same thumb, and one of them would always be offering the end
+        you are already standing on.
+        ─────────────────────────────────────────────────────────────────────
+        WHAT A JUMP CAN HONESTLY REACH. Only the loaded rows are in the page,
+        twenty of them to begin with, so on an end-anchored register "up" means
+        the top of what IS loaded — which is exactly where the "Load earlier"
+        control sits, so the next batch is one tap from where you land. It does
+        not reach 2008, and it would be a lie dressed as a feature to scroll
+        somebody to a place where thousands of rows are not in the DOM.
+        ─────────────────────────────────────────────────────────────────────
+        It keeps the old button's place in the corner — clear of the floating
+        nav pill, which starts at `calc(0.75rem + safe-area)` — and its 44px:
+        `p-3` around a 20px icon is exactly that, and the `min-*` pair says so
+        outright rather than leaving it to arithmetic somebody has to redo.
+        Phone-only comes from the ancestor: the register mounts this list
+        inside an `lg:hidden` panel, so a desktop never paints the button.
+      */}
+      {jumpTo && (
         <button
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed z-20 p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-shadow"
+          onClick={() => window.scrollTo({
+            top: jumpTo === 'top' ? 0 : document.body.scrollHeight,
+            behavior: 'smooth'
+          })}
+          className="fixed z-20 flex items-center justify-center min-w-[44px] min-h-[44px] p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-shadow"
           style={{ right: '1rem', bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
-          aria-label="Scroll to top"
+          aria-label={jumpLabelFor(jumpTo, newestEnd)}
         >
-          <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d={jumpTo === 'top' ? 'M5 10l7-7m0 0l7 7m-7-7v18' : 'M19 14l-7 7m0 0l-7-7m7 7V3'}
+            />
           </svg>
         </button>
       )}
