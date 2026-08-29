@@ -59,8 +59,12 @@ export const DEFAULT_REMINDER_PREFS: BalanceReminderPrefs = {
   monthDay: 1,
 };
 
-const PREFS_KEY = 'balanceReminders.prefs.v1';
-const STATE_KEY = 'balanceReminders.state.v1';
+// gitleaks:allow — names of entries in the preferences document, not
+// credentials. The scanner's generic-api-key rule fires on KEY plus a dotted
+// string with enough entropy; its sibling bankAutoSync.prefs.v1 ducks the
+// same rule by two hundredths of a bit.
+const PREFS_KEY = 'balanceReminders.prefs.v1'; // gitleaks:allow
+const STATE_KEY = 'balanceReminders.state.v1'; // gitleaks:allow
 
 const isValidTime = (t: unknown): t is string =>
   typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
