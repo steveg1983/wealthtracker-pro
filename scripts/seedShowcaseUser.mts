@@ -287,11 +287,29 @@ function buy(holdings: Holding[], accountKey: string, i: number, cash: number, d
   return pounds(spent);
 }
 
-// The investment engine keeps the register and the holdings in ONE identity:
-//   account value = uninvested cash + Σ(qty × price)
-// and each month's Market Value Change row is exactly the value change the
-// cashflows don't explain. B-1 holds by construction, which is the whole
-// discipline of this file.
+// ── HOW AN INVESTMENT ACCOUNT IS VALUED, AND THE TRAP IT SETS ────────────────
+//
+// The app splits the job in two (services/investments/investmentValuation):
+//
+//   what the surfaces show = ledger balance + Σ(units × price − pooled cost)
+//                            └ money in/out ┘  └ the unrealised gain ────┘
+//
+// So an investment account's REGISTER carries contributions AT COST, and the
+// holdings plus their price series carry the gain. Writing "Market Value
+// Update" rows into such an account as well counts that gain TWICE — measured
+// on the first seed of this ledger: the app showed £2,036,616 where the
+// balances summed to £1,720,293, and the £316,323.78 difference was exactly
+// Σ(market value − cost basis). The app was right; the data was wrong.
+//
+// Hence: NO revaluation rows for accounts that have holdings. The house keeps
+// its own — a property has no holdings, so there the register IS the only
+// source of its value, and the same arithmetic reads it correctly.
+//
+// The trade history goes to investment_events (what the valuation walks to
+// know what was held WHEN) as well as investment_transactions (the older
+// table the Investments screens read). Without events, a position is treated
+// as held in full since its purchase date, which would lift the early years
+// of the net-worth curve into a shape nobody lived.
 interface InvestState { cash: number; holdings: Holding[]; value: number }
 const isaState: InvestState = { cash: 0, holdings: isaHoldings, value: 0 };
 const pensionState: InvestState = { cash: 0, holdings: pensionHoldings, value: 0 };
@@ -400,14 +418,11 @@ for (let i = 0; i < MONTHS; i += 1) {
       const spent = buy(st.holdings, key, i, st.cash - 500, 10);
       st.cash = pounds(st.cash - spent);
     }
-    const newValue = pounds(st.cash + holdingsValue(st.holdings, i));
-    const cashflows = (key === 'isa' ? isaIn : 2400);
-    const reval = pounds(newValue - st.value - cashflows);
-    if (Math.abs(reval) >= 0.01) {
-      const r = add(key, monthDate(i, 27), 'MARKET VALUE UPDATE', reval, 'CAT:Market Value Change');
-      r.type = reval >= 0 ? 'income' : 'expense';
-    }
-    st.value = newValue;
+    // No revaluation row: the holdings carry the gain — see the note above.
+    // st.value is tracked as the VALUED figure (cash + market value), which
+    // is what the app will show, so the dry run reports what the screenshots
+    // will say rather than the at-cost ledger underneath it.
+    st.value = pounds(st.cash + holdingsValue(st.holdings, i));
   }
 
   // ── Bills and life, era-scaled ─────────────────────────────────────────────
@@ -761,6 +776,7 @@ for (const a of ACCOUNTS) {
 {
   const invRows: object[] = [];
   const tradeRows: object[] = [];
+  const eventRows: object[] = [];
   const priceRows: object[] = [];
   for (const [key, holdings] of [['isa', isaHoldings], ['pension', pensionHoldings]] as const) {
     for (const h of holdings) {
@@ -782,6 +798,16 @@ for (const a of ACCOUNTS) {
           transaction_type: 'buy', quantity: b.qty, price: b.price,
           total_amount: b.total, date: b.date,
         });
+        // The same purchase as an EVENT — what the valuation walks to know
+        // what was held when. Without these the early years of the net-worth
+        // curve would value today's whole position from its first purchase.
+        eventRows.push({
+          id: randomUUID(), user_id: USER, account_id: acct(key),
+          symbol: h.inst.symbol, security_name: h.inst.name,
+          event_date: b.date, kind: 'buy',
+          quantity: b.qty, price: b.price, fees: 0, amount: b.total,
+          currency: 'GBP', source: 'import',
+        });
       }
       for (let q = 0; q < MONTHS; q += 3) {
         priceRows.push({
@@ -795,7 +821,7 @@ for (const a of ACCOUNTS) {
       });
     }
   }
-  for (const [table, rows] of [['investments', invRows], ['investment_transactions', tradeRows], ['investment_prices', priceRows]] as const) {
+  for (const [table, rows] of [['investments', invRows], ['investment_transactions', tradeRows], ['investment_events', eventRows], ['investment_prices', priceRows]] as const) {
     for (let i = 0; i < rows.length; i += 200) {
       const { error } = await sb.from(table).insert(rows.slice(i, i + 200));
       if (error) fail(`${table} insert: ${error.message}`);
