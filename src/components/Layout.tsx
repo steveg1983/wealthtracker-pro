@@ -28,6 +28,7 @@ import { PageTransition, NavigationProgress } from './layout/SimplePageTransitio
 import { EnhancedSkipLinks, FocusIndicator, RouteAnnouncer } from './layout/AccessibilityImprovements';
 import PullToRefreshIndicator from './PullToRefreshIndicator';
 import OfflineIndicator from './OfflineIndicator';
+import BalanceReminderCard from './BalanceReminderCard';
 import { OfflineStatus } from './OfflineStatus';
 import { SyncConflictResolver } from './SyncConflictResolver';
 import PWAInstallPrompt from './PWAInstallPrompt';
@@ -872,6 +873,10 @@ export default function Layout(): React.JSX.Element {
       </main>
       
       <ViewportDebugOverlay />
+
+      {/* The balance reminder, on whatever page you are on (owner, 29 Aug) —
+          Layout is what makes that sentence true. */}
+      <BalanceReminderCard />
 
       {/* Offline Indicator */}
       <OfflineIndicator />

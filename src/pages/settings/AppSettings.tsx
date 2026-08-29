@@ -9,6 +9,9 @@ import ShowTipsAgain from '../../components/settings/ShowTipsAgain';
 // Through the seam: a refresh schedule is a thing a SERVER keeps.
 // See src/editions/service.ts.
 import { BankFeedRefreshSettings } from '@service';
+// Directly, no seam: a balance reminder is the app talking to its own owner —
+// no bank, no server, both editions alike.
+import BalanceReminderSettings from '../../components/settings/BalanceReminderSettings';
 
 export default function AppSettings() {
   const navigate = useNavigate();
@@ -61,6 +64,8 @@ export default function AppSettings() {
       }
     >
       <BankFeedRefreshSettings />
+
+      <BalanceReminderSettings />
 
       {/* Personal Information retired 2026-08-26. The field held a first name
           whose caption made two claims the app could not keep — it named a

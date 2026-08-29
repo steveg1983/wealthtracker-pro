@@ -17,6 +17,13 @@ regexes = [
   'example\.com',
   'localhost',
   'PLACEHOLDER',
+  # Names of entries in the user-preferences document — storage keys, not
+  # credentials. The generic-api-key rule fires on a constant called *_KEY
+  # holding a dotted string with enough entropy; balanceReminders.prefs.v1
+  # cleared the entropy bar its sibling bankAutoSync.prefs.v1 ducks under by
+  # hundredths of a bit. Narrow on purpose: this allowlists these names, not
+  # the pattern of dotted strings in general.
+  'balanceReminders\.(prefs|state)\.v\d+',
 ]
 
 # Paths are matched relative to the repository root. The previous entries were
