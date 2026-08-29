@@ -508,9 +508,12 @@ describe('DuplicateSweepModal — refusing a suggestion', () => {
     openReview();
     fireEvent.click(screen.getByRole('button', { name: 'Not a duplicate — leave both' }));
 
-    expect(screen.getByText(/Do you want these two rows eliminated from this report in future\?/)).toBeInTheDocument();
+    // "this pairing", singular — the prompt reads the subject mid-sentence
+    // ("… is remembered as refused"), and the plural it used to be handed
+    // produced the "these two rows is" the owner screenshotted (29 Aug).
+    expect(screen.getByText(/Do you want this pairing eliminated from this report in future\?/)).toBeInTheDocument();
     expect(screen.getByText(/no sweep will offer it again/)).toBeInTheDocument();
-    expect(screen.getByText(/they drop off the list for now/)).toBeInTheDocument();
+    expect(screen.getByText(/it drops off the list for now/)).toBeInTheDocument();
   });
 
   it('answering No keeps today\'s behaviour: gone for this sitting, nothing written', async () => {
@@ -543,6 +546,69 @@ describe('DuplicateSweepModal — refusing a suggestion', () => {
       // later scan reaches them.
       'feed|import',
       ['feed', 'import']
+    );
+  });
+});
+
+describe('DuplicateSweepModal — one judgment covers the repeated payment, not one pairing of it', () => {
+  // Three identical taps — the owner's Alicante coffees (29 Aug). The scan
+  // seeds a group and emits overlapping pairs of the SAME rows; refusing one
+  // pair and being offered the next was the system re-litigating a judgment
+  // it had just been given. Every figure is invented: this repo is public.
+  const TAP_1 = txn({ id: 'tap-1', amount: -1.29, description: 'Coffee kiosk' });
+  const TAP_2 = txn({ id: 'tap-2', amount: -1.29, description: 'Coffee kiosk' });
+  const TAP_3 = txn({ id: 'tap-3', amount: -1.29, description: 'Coffee kiosk' });
+  // A different repeated payment in the same account: no shared row, so the
+  // judgment about the coffees must not touch it.
+  const GYM_A = txn({ id: 'gym-a', amount: -32, description: 'DD FITNESS GROUP' });
+  const GYM_B = txn({ id: 'gym-b', amount: -32, description: 'DD FITNESS GROUP' });
+
+  beforeEach(() => {
+    __setAppContextValue({
+      transactions: [TAP_1, TAP_2, TAP_3, GYM_A, GYM_B],
+      categories: CATEGORIES,
+    });
+  });
+
+  it('says what the wider judgment covers before asking to keep it', () => {
+    renderModal();
+    fireEvent.click(screen.getAllByTitle('Look at both copies of this')[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Not a duplicate — leave both' }));
+
+    expect(screen.getByText(/Do you want this repeated payment eliminated from this report in future\?/)).toBeInTheDocument();
+    expect(screen.getByText(/all 2 of its suggestions drop off the list for now/)).toBeInTheDocument();
+  });
+
+  it('answering No drops every pairing of those rows for the sitting — the unrelated pair stays', async () => {
+    renderModal();
+    // Two coffee pairings (tap-1/tap-2, tap-1/tap-3) and one gym pairing.
+    expect(screen.getAllByTitle('Look at both copies of this')).toHaveLength(3);
+
+    fireEvent.click(screen.getAllByTitle('Look at both copies of this')[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Not a duplicate — leave both' }));
+    fireEvent.click(screen.getByRole('button', { name: 'No — just this once' }));
+
+    await waitFor(() =>
+      expect(screen.getAllByTitle('Look at both copies of this')).toHaveLength(1)
+    );
+    expect(screen.getByText('DD FITNESS GROUP')).toBeInTheDocument();
+    expect(screen.queryByText('Coffee kiosk')).not.toBeInTheDocument();
+  });
+
+  it('answering Yes writes one restorable refusal per pairing in the cluster', async () => {
+    const dismissSuggestion = vi.fn(async () => {});
+    __setAppContextValue({ dismissSuggestion });
+    renderModal();
+    fireEvent.click(screen.getAllByTitle('Look at both copies of this')[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Not a duplicate — leave both' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes — never offer it again' }));
+
+    await waitFor(() => expect(dismissSuggestion).toHaveBeenCalledTimes(2));
+    expect(dismissSuggestion).toHaveBeenCalledWith('duplicate', 'tap-1|tap-2', ['tap-1', 'tap-2']);
+    expect(dismissSuggestion).toHaveBeenCalledWith('duplicate', 'tap-1|tap-3', ['tap-1', 'tap-3']);
+    // The gym pair was never part of the judgment.
+    expect(dismissSuggestion).not.toHaveBeenCalledWith(
+      'duplicate', 'gym-a|gym-b', expect.anything()
     );
   });
 });

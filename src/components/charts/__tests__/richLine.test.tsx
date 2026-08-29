@@ -27,6 +27,7 @@ import { AreaChart, Area, XAxis, YAxis } from 'recharts';
 import {
   HOVER_MARKER_RADIUS,
   WASH_BOTTOM_OPACITY,
+  washBottomOpacity,
   WASH_TOP_OPACITY,
   hoverMarker,
   lineMarkers,
@@ -138,12 +139,12 @@ describe('what recharts actually renders', () => {
     }
   });
 
-  it('the gradient is the series own colour at its GROUND strength, fading to nothing', () => {
+  it('the gradient is the series own colour, GROUND strength at the top, GROUND floor at the foot', () => {
     for (const isDark of [ON_LIGHT, ON_DARK]) {
       const drawn = draw(THREE_MONTHS, 'measured', COLOUR, isDark);
       expect(drawn.stops).toEqual([
         { colour: COLOUR, opacity: String(washTopOpacity(isDark)) },
-        { colour: COLOUR, opacity: String(WASH_BOTTOM_OPACITY) },
+        { colour: COLOUR, opacity: String(washBottomOpacity(isDark)) },
       ]);
     }
   });
@@ -276,9 +277,19 @@ describe('a line still clears the graphics bar over its own wash', () => {
     expect(overOwnWash(SEMANTIC_SERIES.expense, ON_DARK)).toBeLessThan(AA_GRAPHICS);
   });
 
-  it('the wash is a wash: it never approaches an opaque fill', () => {
+  it('the wash is a wash: it never approaches an opaque fill, and it still fades', () => {
     expect(WASH_TOP_OPACITY.light).toBeLessThan(0.25);
     expect(WASH_TOP_OPACITY.dark).toBeLessThan(0.25);
-    expect(WASH_BOTTOM_OPACITY).toBe(0);
+    // The floor rose from 0 on 29 Aug (the owner's evening note: "could be a
+    // bit more visible") — spent at the FOOT because the contrast ceiling
+    // binds only where the line touches its own wash, which is the TOP. A
+    // floor at or above its peak would stop being a fade and start being an
+    // area fill, which this idiom measured its way out of claiming.
+    expect(WASH_BOTTOM_OPACITY.light).toBeGreaterThan(0);
+    expect(WASH_BOTTOM_OPACITY.dark).toBeGreaterThan(0);
+    expect(WASH_BOTTOM_OPACITY.light).toBeLessThan(WASH_TOP_OPACITY.light);
+    expect(WASH_BOTTOM_OPACITY.dark).toBeLessThan(WASH_TOP_OPACITY.dark);
+    // Same eye, same reason as the peaks: the near-black end compresses.
+    expect(WASH_BOTTOM_OPACITY.dark).toBeGreaterThan(WASH_BOTTOM_OPACITY.light);
   });
 });
