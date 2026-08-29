@@ -51,15 +51,25 @@ const lastFullMonth = (() => {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), 0);
 })();
-const TRANSACTIONS: Transaction[] = Array.from({ length: 12 }, (_, i) => ({
-  id: `t-${i}`,
+const monthlySpend = (
+  idPrefix: string,
+  category: string,
+  amount: number
+): Transaction[] => Array.from({ length: 12 }, (_, i) => ({
+  id: `${idPrefix}-${i}`,
   accountId: 'acc-1',
-  description: 'Supermarket',
-  amount: -100,
+  description: 'Synthetic row',
+  amount: -amount,
   type: 'expense' as const,
-  category: 'det-shop',
+  category,
   date: new Date(lastFullMonth.getFullYear(), lastFullMonth.getMonth() - i, 10),
 }));
+
+/** Two categories with real spending, so an ORDER is observable at all. */
+const TRANSACTIONS: Transaction[] = [
+  ...monthlySpend('shop', 'det-shop', 100),      // £1,200 a year
+  ...monthlySpend('dine', 'det-dining', 50),     // £600 a year
+];
 
 const addBudget = vi.fn(async () => {});
 const updateBudget = vi.fn(async () => {});
@@ -134,6 +144,40 @@ describe('BudgetSetupModal — typing one figure and seeing the other', () => {
     fireEvent.click(within(row).getByRole('button', { name: 'use my actual' }));
     expect(within(row).getByLabelText('Monthly budget for Food Shopping')).toHaveValue(100);
     expect(addBudget).not.toHaveBeenCalled();
+  });
+});
+
+describe('BudgetSetupModal — the order the rows come in', () => {
+  /** The category names on screen, in the order the list presents them. */
+  const namesInOrder = (): string[] =>
+    screen.getAllByRole('row')
+      .map(row => row.textContent ?? '')
+      .flatMap(text =>
+        ['Food Shopping', 'Dining Out'].filter(name => text.startsWith(name)));
+
+  it('leads with the biggest spend, because that is where the decisions are', () => {
+    renderModal();
+    expect(namesInOrder()).toEqual(['Food Shopping', 'Dining Out']);
+  });
+
+  it('reverses on request — least spent first', () => {
+    renderModal();
+    fireEvent.change(screen.getByLabelText('Order'), { target: { value: 'lowest' } });
+    expect(namesInOrder()).toEqual(['Dining Out', 'Food Shopping']);
+  });
+
+  it('sorts A–Z on request', () => {
+    renderModal();
+    fireEvent.change(screen.getByLabelText('Order'), { target: { value: 'az' } });
+    expect(namesInOrder()).toEqual(['Dining Out', 'Food Shopping']);
+  });
+
+  it("offers the owner's four orders and nothing invented", () => {
+    renderModal();
+    const select = screen.getByLabelText('Order');
+    for (const label of ['Most spent first', 'Least spent first', 'By category group', 'A–Z']) {
+      expect(within(select).getByRole('option', { name: label })).toBeInTheDocument();
+    }
   });
 });
 
