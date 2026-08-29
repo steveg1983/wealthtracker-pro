@@ -3,13 +3,14 @@
  * generated for landing-page screenshots (owner's spec, 29 Aug 2026).
  *
  * The story, as specified:
- *  - A house bought before the window opens: worth £600k at the start with a
+ *  - A house bought before the window opens: worth £450k at the start with a
  *    £195k mortgage; the mortgage amortises to ~£50k over the ten years while
- *    the house revalues to ~£1m.
- *  - A personal pension opening at £250k: £2,000/month transferred in from
+ *    the house revalues to ~£690k (the owner's third cut — the first said
+ *    £600k → £1m, which helped compound the whole ledger past its target).
+ *  - A personal pension opening at £100k: £2,000/month transferred in from
  *    the current account, each followed by a £400 government top-up recorded
  *    as an Account Adjustment, the whole pot growing at ~6.5%/yr TWR.
- *  - A Hargreaves Lansdown Stocks & Shares ISA opening at just over £210k:
+ *  - A Hargreaves Lansdown Stocks & Shares ISA opening at £75k:
  *    the FULL ISA allowance in each tax year (owner's correction of 29 Aug,
  *    after the first cut fed it £3k/month — £36k/yr against a £20k limit):
  *    £15,240/yr to April 2017, £20,000/yr since, monthly. Deployed in
@@ -204,9 +205,9 @@ const ACCOUNTS: AccountSeed[] = [
   { key: 'saver', name: 'Instant Access Saver', type: 'savings', initial: 50000, institution: 'Marcus by Goldman Sachs' },
   { key: 'amex', name: 'Platinum Cashback Card', type: 'credit', initial: 0, institution: 'American Express', linked: true },
   { key: 'visa', name: 'Rewards Visa', type: 'credit', initial: 0, institution: 'Barclaycard', linked: true },
-  { key: 'pension', name: 'Personal Pension — SIPP', type: 'investment', initial: 250000, institution: 'Scottish Widows' },
-  { key: 'isa', name: 'Stocks & Shares ISA', type: 'investment', initial: 210400, institution: 'Hargreaves Lansdown' },
-  { key: 'house', name: 'Home — 14 Orchard Lane', type: 'asset', initial: 600000, institution: 'Property' },
+  { key: 'pension', name: 'Personal Pension — SIPP', type: 'investment', initial: 100000, institution: 'Scottish Widows' },
+  { key: 'isa', name: 'Stocks & Shares ISA', type: 'investment', initial: 75000, institution: 'Hargreaves Lansdown' },
+  { key: 'house', name: 'Home — 14 Orchard Lane', type: 'asset', initial: 450000, institution: 'Property' },
   { key: 'mortgage', name: 'Mortgage — 14 Orchard Lane', type: 'mortgage', initial: -195000, institution: 'Nationwide' },
 ];
 
@@ -289,10 +290,10 @@ const holdingsValue = (hs: Holding[], i: number): number =>
 // Opening deployment: the opening balances are already-invested portfolios.
 {
   // "before the window": buy at month-0 prices, cost basis = opening value.
-  buy(isaHoldings, 'isa', 0, 210400 * 0.97, 1);
-  isaState.cash = pounds(210400 - isaHoldings.reduce((s, h) => s + h.cost, 0));
-  buy(pensionHoldings, 'pension', 0, 250000 * 0.98, 1);
-  pensionState.cash = pounds(250000 - pensionHoldings.reduce((s, h) => s + h.cost, 0));
+  buy(isaHoldings, 'isa', 0, 75000 * 0.97, 1);
+  isaState.cash = pounds(75000 - isaHoldings.reduce((s, h) => s + h.cost, 0));
+  buy(pensionHoldings, 'pension', 0, 100000 * 0.98, 1);
+  pensionState.cash = pounds(100000 - pensionHoldings.reduce((s, h) => s + h.cost, 0));
   isaState.value = pounds(isaState.cash + holdingsValue(isaHoldings, 0));
   pensionState.value = pounds(pensionState.cash + holdingsValue(pensionHoldings, 0));
 }
@@ -305,7 +306,7 @@ const HOUSE_PATH = ((): number[] => {
     const yearish = i / 12;
     raw.push(yearish < 3.5 ? 0.004 : yearish < 4.6 ? 0.0 : yearish < 6.2 ? 0.008 : 0.0028);
   }
-  const targetLog = Math.log(1000000 / 600000);
+  const targetLog = Math.log(690000 / 450000);
   const currentLog = raw.reduce((s, x) => s + Math.log(1 + x), 0);
   const adjust = (targetLog - currentLog) / MONTHS;
   return raw.map(x => Math.exp(Math.log(1 + x) + adjust) - 1);
@@ -314,7 +315,7 @@ const HOUSE_PATH = ((): number[] => {
 // ── Simulate the ten years ───────────────────────────────────────────────────
 
 let mortgageBal = -195000;
-let houseVal = 600000;
+let houseVal = 450000;
 let saverBal = 50000;
 let currentBal = 4200;
 let amexOwed = 0;   // this month's spending, paid next month
@@ -373,7 +374,7 @@ for (let i = 0; i < MONTHS; i += 1) {
   const growth = pounds(houseVal * HOUSE_PATH[i]);
   houseVal = pounds(houseVal + growth);
   if (m % 3 === 0) {
-    const quarter = pounds(houseVal - 600000 - txns
+    const quarter = pounds(houseVal - 450000 - txns
       .filter(t => t.account === 'house')
       .reduce((s, t) => s + t.amount, 0));
     const reval = add('house', monthDate(i, 15), 'PROPERTY VALUE UPDATE — LOCAL SOLD PRICES', quarter, 'CAT:Market Value Change');
@@ -527,7 +528,7 @@ for (const r of yearly) {
 }
 const last = yearly[yearly.length - 1];
 const netWorth = last.house + last.mortgage + last.pension + last.isa + last.saver + last.current;
-console.log(`\nNET WORTH TODAY: ${fmt(netWorth)}  (owner's aspiration: £1.7m — tweak from here)`);
+console.log(`\nNET WORTH TODAY: ${fmt(netWorth)}  (owner's band: £1.72m–£1.75m — the third cut landed £1.73m)`);
 console.log('\nISA holdings today:');
 for (const h of isaHoldings) {
   const price = priceAt(h, MONTHS - 1);
