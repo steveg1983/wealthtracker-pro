@@ -188,14 +188,19 @@ export default function InvestmentMarketView({
         </div>
       </div>
 
-      {/* The double-counting warning is part of the feature, not decoration:
-          without it a reader has two "portfolio" numbers and no idea which. */}
+      {/* SAYING WHICH NUMBER IS WHICH is part of the feature, not decoration:
+          without it a reader has two "portfolio" figures and no idea which.
+          The words changed on 29 Aug 2026, when the Accounts page stopped
+          showing registers under a headline that valued holdings at market —
+          this note still told the old story ("not added to it"), and a note
+          that contradicts the page it explains is worse than none. */}
       <div className="flex items-start gap-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 p-3">
         <InfoIcon size={16} className="mt-0.5 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />
         <p className="text-sm text-gray-800 dark:text-gray-200">
-          These are market values, shown alongside the account&rsquo;s ledger balance — not added
-          to it. Portfolio Value on the Overview tab is the ledger figure, and it already includes
-          the money these holdings were bought with.
+          These are market values. What this account is <strong>worth</strong> — the figure on the
+          Accounts page and in your net worth — is the money paid in, plus the gain or loss these
+          holdings have made since. The register&rsquo;s own bottom line is shown beside it there,
+          because that is the figure you reconcile against.
         </p>
       </div>
 

@@ -53,6 +53,21 @@ import {
  * the page. Said on screen.
  */
 
+/**
+ * The unit ONE payment is made in — "a month", "a week" — so a price change
+ * can be stated in the same terms as the two figures beside it. An irregular
+ * pattern has no honest per-payment unit, so it says "a payment" rather than
+ * inventing a rhythm the detection has already declined to claim.
+ */
+function perPaymentUnit(cadence: RecurringCadence): string {
+  switch (cadence) {
+    case 'weekly': return 'a week';
+    case 'monthly': return 'a month';
+    case 'annual': return 'a year';
+    default: return 'a payment';
+  }
+}
+
 const CADENCE_BANDS: ReadonlyArray<{ cadence: RecurringCadence; title: string }> = [
   { cadence: 'monthly', title: 'Monthly' },
   { cadence: 'weekly', title: 'Weekly' },
@@ -359,6 +374,21 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
             {detection.relaxed && <> · every payment counted because you marked this recurring</>}
           </p>
           {detection.priceChange && (
+            /* THREE FIGURES, TWO UNITS, AND THE OWNER READING IT TWICE
+               (29 Aug 2026). This line said "£294.82 → £308.09 in Apr 2026 ·
+               +£159.24 a year", and every number in it was right: the first
+               two are what one payment cost before and after, and the third
+               is what the rise costs over a year. But nothing SAID that the
+               third had changed both its unit and its subject, so it read as
+               a total that would not reconcile with either its neighbours or
+               the annual figure to its right — "a little confusing to read",
+               which for a line whose whole job is a price rise is the only
+               verdict that matters.
+
+               So the rise is now stated FIRST in the unit of the figures
+               beside it ("£13.27 a month more"), and the annual consequence
+               follows in words that name it as a consequence ("£159.24 a
+               year"). Same numbers, in an order that explains itself. */
             <p className="text-dense text-gray-500 dark:text-gray-400">
               {formatCurrency(detection.priceChange.from, displayCurrency)} →{' '}
               {formatCurrency(detection.priceChange.to, displayCurrency)} in{' '}
@@ -369,9 +399,15 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
               <span className={detection.priceChange.annualDelta.greaterThan(0)
                 ? 'text-red-600 dark:text-red-400'
                 : 'text-green-600 dark:text-green-400'}>
-                {detection.priceChange.annualDelta.greaterThan(0) ? '+' : '−'}
-                {formatCurrency(detection.priceChange.annualDelta.abs(), displayCurrency)} a year
+                {formatCurrency(
+                  detection.priceChange.to.minus(detection.priceChange.from).abs(),
+                  displayCurrency
+                )}{' '}
+                {perPaymentUnit(detection.cadence)}{' '}
+                {detection.priceChange.annualDelta.greaterThan(0) ? 'more' : 'less'}
               </span>
+              {' — '}
+              {formatCurrency(detection.priceChange.annualDelta.abs(), displayCurrency)} a year
             </p>
           )}
         </div>
