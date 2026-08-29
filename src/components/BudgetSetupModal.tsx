@@ -67,6 +67,15 @@ export default function BudgetSetupModal({ isOpen, onClose }: Props): React.JSX.
   const [typed, setTyped] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [showUnspent, setShowUnspent] = useState(false);
+  /**
+   * WHAT ORDER THE ROWS COME IN (owner, 29 Aug, of both this list and the
+   * budget grid: "sortable by category list, or the option by value high/low
+   * or reverse"). Biggest spend first is the default because it is the order
+   * the decisions matter in — the categories worth budgeting are the ones
+   * with money in them — but a list nobody can rearrange is a list you have
+   * to read all of to find one row.
+   */
+  const [order, setOrder] = useState<'highest' | 'lowest' | 'group' | 'az'>('highest');
 
   const summary = useMemo(
     () => summariseCategorySpend(transactions, transactionSplits, categories, { kind: windowKind }),
@@ -97,11 +106,26 @@ export default function BudgetSetupModal({ isOpen, onClose }: Props): React.JSX.
       };
     };
     const all = leaves.map(build);
-    return {
-      spent: all.filter(r => r.annual > 0 || r.existing).sort((a, b) => b.annual - a.annual),
-      unspent: all.filter(r => r.annual === 0 && !r.existing),
+    const byName = (a: Row, b: Row): number =>
+      a.category.name.localeCompare(b.category.name, undefined, { sensitivity: 'base' });
+    const sortRows = (rows: Row[]): Row[] => {
+      switch (order) {
+        case 'lowest': return rows.sort((a, b) => a.annual - b.annual || byName(a, b));
+        case 'az': return rows.sort(byName);
+        case 'group':
+          // Group A–Z then leaf A–Z, the same arrangement the budget grid
+          // and the category tree use; a leaf with no group sorts last.
+          return rows.sort((a, b) =>
+            (a.groupName || '\uffff').localeCompare(b.groupName || '\uffff',
+              undefined, { sensitivity: 'base' }) || byName(a, b));
+        default: return rows.sort((a, b) => b.annual - a.annual || byName(a, b));
+      }
     };
-  }, [categories, summary, budgets]);
+    return {
+      spent: sortRows(all.filter(r => r.annual > 0 || r.existing)),
+      unspent: sortRows(all.filter(r => r.annual === 0 && !r.existing)),
+    };
+  }, [categories, summary, budgets, order]);
 
   /** The figure in the box for a row, as a string in the current rhythm. */
   const valueFor = (row: Row): string => {
@@ -269,6 +293,22 @@ export default function BudgetSetupModal({ isOpen, onClose }: Props): React.JSX.
             >
               <option value="full-months">The last 12 full months</option>
               <option value="to-yesterday">The 12 months to yesterday</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="budget-setup-order" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+              Order
+            </label>
+            <select
+              id="budget-setup-order"
+              value={order}
+              onChange={e => setOrder(e.target.value as typeof order)}
+              className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              <option value="highest">Most spent first</option>
+              <option value="lowest">Least spent first</option>
+              <option value="group">By category group</option>
+              <option value="az">A–Z</option>
             </select>
           </div>
           <button

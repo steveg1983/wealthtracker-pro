@@ -171,12 +171,69 @@ function BudgetView() {
     return map;
   }, [categories]);
 
+  /**
+   * WHAT ORDER THE CARDS COME IN (owner, 29 Aug: "They just look like a
+   * jumbled mess. Either they have to be alphabetically as a minimum, or the
+   * option to sort by category group?").
+   *
+   * They were in creation order, which is the order the rows happened to be
+   * written and no order at all to read — on a page of twenty cards it makes
+   * finding one a scan of the whole grid.
+   *
+   * Grouped is the DEFAULT because it is how the rest of the app arranges
+   * categories, and because a budget is a property of its category: Food
+   * Related Costs' budgets sit together, the way they do in the tree and on
+   * the setup screen. Within a group, and everywhere else, A–Z. The other
+   * two orders answer questions the grid cannot otherwise: which am I
+   * closest to blowing, and which is the biggest commitment.
+   */
+  const [budgetOrder, setBudgetOrder] = useState<'group' | 'az' | 'used' | 'largest'>('group');
+
+  /** A leaf's group name, for ordering — '' for anything with no parent. */
+  const groupNameOfCategory = useCallback((categoryId: string): string => {
+    const category = categories.find(c => c.id === categoryId);
+    if (!category?.parentId) return '';
+    return categories.find(c => c.id === category.parentId)?.name ?? '';
+  }, [categories]);
+
   type BudgetWithLegacyCategory = Budget & { category?: string };
   const getBudgetCategoryLabel = useCallback((budget: Budget) => {
     const legacyCategory = (budget as BudgetWithLegacyCategory).category;
     const categoryKey = budget.categoryId ?? legacyCategory ?? '';
     return categoryNameById.get(categoryKey) ?? budget.name ?? (categoryKey || 'Budget');
   }, [categoryNameById]);
+
+  /**
+   * The cards in the chosen order — see `budgetOrder`. Sorted on a COPY, so
+   * the memo above stays the single computation of what each budget has
+   * spent and this only ever rearranges it.
+   */
+  const orderedBudgets = useMemo(() => {
+    const label = (b: Budget): string => getBudgetCategoryLabel(b).toLocaleLowerCase();
+    const byName = (a: Budget, b: Budget): number => label(a).localeCompare(label(b));
+    const rows = [...budgetsWithSpent];
+    switch (budgetOrder) {
+      case 'az':
+        return rows.sort(byName);
+      case 'used':
+        // Most-spent first: the one about to overflow is the one to see.
+        return rows.sort((a, b) => (b.percentage - a.percentage) || byName(a, b));
+      case 'largest':
+        return rows.sort((a, b) =>
+          b.effectiveAmount.comparedTo(a.effectiveAmount) || byName(a, b));
+      default: {
+        // Group A–Z, then leaf A–Z inside it. A budget whose category has no
+        // group sorts last rather than first: an unplaceable row belongs at
+        // the end of a list, not at the head of it.
+        const group = (b: Budget): string => {
+          const legacy = (b as BudgetWithLegacyCategory).category;
+          const name = groupNameOfCategory(b.categoryId ?? legacy ?? '');
+          return name === '' ? '\uffff' : name.toLocaleLowerCase();
+        };
+        return rows.sort((a, b) => group(a).localeCompare(group(b)) || byName(a, b));
+      }
+    }
+  }, [budgetsWithSpent, budgetOrder, getBudgetCategoryLabel, groupNameOfCategory]);
 
   // Set loading to false when data is loaded
   useEffect(() => {
@@ -335,7 +392,27 @@ function BudgetView() {
       }
     >
 
-      <div className="flex justify-end mb-2">
+      <div className="flex flex-wrap items-center justify-end gap-3 mb-2">
+        {/* Only worth offering once there is a grid to arrange. One card in
+            an order is not an order. */}
+        {budgetsWithSpent.length > 1 && (
+          <div className="flex items-center gap-2 mr-auto">
+            <label htmlFor="budget-order" className="text-dense text-gray-500 dark:text-gray-400">
+              Order
+            </label>
+            <select
+              id="budget-order"
+              value={budgetOrder}
+              onChange={e => setBudgetOrder(e.target.value as typeof budgetOrder)}
+              className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              <option value="group">By category group</option>
+              <option value="az">A–Z</option>
+              <option value="used">Most used first</option>
+              <option value="largest">Largest budget first</option>
+            </select>
+          </div>
+        )}
         <WholePoundsToggle />
       </div>
       {/* The budgets — the page itself. */}
@@ -410,7 +487,7 @@ function BudgetView() {
             <SkeletonCard className="h-48" />
             <SkeletonCard className="h-48" />
           </>
-        ) : budgetsWithSpent.map(budget => budget && (
+        ) : orderedBudgets.map(budget => budget && (
           <div
             key={budget.id}
             className={`bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6 ${
