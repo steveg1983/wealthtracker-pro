@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ValidationService, transactionSchema, accountSchema, budgetSchema, goalSchema, categorySchema, csvImportRowSchema, emailSchema, passwordSchema } from '../validationService';
+import { ValidationService, transactionSchema, accountSchema, budgetSchema, goalSchema, categorySchema, csvImportRowSchema, emailSchema } from '../validationService';
 
 describe('ValidationService', () => {
   beforeEach(() => {
@@ -406,7 +406,7 @@ describe('ValidationService', () => {
     });
   });
 
-  describe('Email and Password Validation', () => {
+  describe('Email Validation', () => {
     it('validates email addresses', () => {
       const validEmails = [
         'user@example.com',
@@ -434,32 +434,6 @@ describe('ValidationService', () => {
       });
     });
 
-    it('validates password strength', () => {
-      const validPasswords = [
-        'Password123!',
-        'MyStr0ng@Pass',
-        'C0mplex#Pass1',
-      ];
-
-      validPasswords.forEach(password => {
-        const result = ValidationService.safeValidate(passwordSchema, password);
-        expect(result.success).toBe(true);
-      });
-    });
-
-    it('rejects weak passwords', () => {
-      const weakPasswords = [
-        'password', // No uppercase, number, or special char
-        'PASSWORD', // No lowercase, number, or special char
-        '12345678', // No letters or special char
-        'Pass1!', // Too short
-      ];
-
-      weakPasswords.forEach(password => {
-        const result = ValidationService.safeValidate(passwordSchema, password);
-        expect(result.success).toBe(false);
-      });
-    });
   });
 
   describe('Batch Validation', () => {

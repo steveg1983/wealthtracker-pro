@@ -16,7 +16,7 @@ import BillingDashboard from './BillingDashboard';
 import type { SubscriptionPlan, SubscriptionProduct, UserSubscription } from '../../types/subscription';
 import { ArrowLeftIcon, CheckCircleIcon } from '../icons';
 
-type ViewMode = 'plans' | 'payment' | 'billing' | 'success';
+type ViewMode = 'plans' | 'billing' | 'success';
 
 interface SubscriptionPageProps {
   defaultView?: ViewMode;
@@ -191,14 +191,13 @@ export default function SubscriptionPage({
   const renderHeader = () => {
     const titles = {
       plans: 'Choose Your Plan',
-      payment: `Upgrade to ${selectedPlan?.name}`,
       billing: 'Billing & Subscription',
       success: 'Welcome to Premium!'
     };
 
     return (
       <div className="mb-8">
-        {(currentView === 'payment' || currentView === 'success') && (
+        {currentView === 'success' && (
           <button
             onClick={handleBackToPricing}
             className="flex items-center gap-2 text-primary hover:text-secondary mb-4"
@@ -251,11 +250,6 @@ export default function SubscriptionPage({
             />
           </>
         );
-
-      case 'payment':
-        // We don't use this view anymore - we redirect to Stripe Checkout
-        setCurrentView('plans');
-        return null;
 
       case 'billing':
         return (
