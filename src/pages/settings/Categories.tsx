@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useToast } from '../../contexts/ToastContext';
 import { DEFAULT_CATEGORY_TREE } from '../../data/defaultCategoryTree';
+import { planCategoryTreeImport } from '../../utils/categoryTreeImport';
+import { Modal } from '../../components/common/Modal';
 import { expandSplitTransactions } from '../../utils/transactionSplits';
 import CategoryCreationModal from '../../components/CategoryCreationModal';
 import EditCategoryModal from '../../components/EditCategoryModal';
@@ -273,25 +275,59 @@ export default function CategoriesSettings() {
     transfer: categories.find(c => c.level === 'type' && c.type === 'both')?.id ?? 'type-transfer',
   }), [categories]);
 
-  const handleImportDefaultSet = async () => {
-    if (isImporting) return;
-    if (!window.confirm(
-      'Switch to the standard starter category set? The default tree is imported and unused default categories are removed. Categories that transactions use, transfer categories, and system categories are always kept.'
-    )) {
-      return;
+  /**
+   * The starter set, offered as a MERGE and never a replacement (owner,
+   * 29 Aug 2026: "merge not replace"). The modal below IS the consent — it
+   * shows the whole example tree with what is new marked, and states the
+   * consequence before the button: only the missing entries are added, and
+   * nothing the user already has is changed, renamed or removed. The context
+   * API still carries replace semantics (`pruneOthers`) for callers that need
+   * them; this surface deliberately does not pass it.
+   */
+  const [showStarterSetModal, setShowStarterSetModal] = useState(false);
+
+  /**
+   * The diff the modal previews — the SAME planner the import runs, so the
+   * preview cannot promise something the import would not do. Null until the
+   * type anchors have loaded (the planner refuses to misfile a tree).
+   */
+  const starterPlan = useMemo(() => {
+    try {
+      return planCategoryTreeImport(categories, DEFAULT_CATEGORY_TREE);
+    } catch {
+      return null;
     }
+  }, [categories]);
+  const starterMissingCount = starterPlan
+    ? starterPlan.totalCount - starterPlan.skippedCount
+    : 0;
+
+  // Which tree entries the plan would create, keyed the way the planner
+  // matches (case-insensitive, per parent), so each row of the preview can
+  // say "new" or stay quiet.
+  const starterNewKeys = useMemo(() => {
+    const keys = new Set<string>();
+    if (!starterPlan) return keys;
+    for (const sub of starterPlan.subsToCreate) {
+      keys.add(`${sub.type}:${sub.name.trim().toLowerCase()}`);
+    }
+    for (const detail of starterPlan.detailsToCreate) {
+      keys.add(
+        `${detail.type}:${detail.subName.trim().toLowerCase()}:${detail.category.name.trim().toLowerCase()}`
+      );
+    }
+    return keys;
+  }, [starterPlan]);
+
+  const handleAddStarterSet = async () => {
+    if (isImporting) return;
     setIsImporting(true);
     try {
-      const result = await importCategoryTree(DEFAULT_CATEGORY_TREE, { pruneOthers: true });
-      const parts: string[] = [];
-      if (result.created > 0) parts.push(`added ${result.created}`);
-      if (result.pruned > 0) parts.push(`removed ${result.pruned} unused defaults`);
-      if (result.keptForTransactions > 0) parts.push(`kept ${result.keptForTransactions} in use by transactions`);
+      const result = await importCategoryTree(DEFAULT_CATEGORY_TREE);
+      setShowStarterSetModal(false);
       showSuccess(
-        parts.length > 0
-          ? `Categories updated: ${parts.join(', ')}.`
-          : 'Your categories already match the standard starter set.',
-        'Starter set applied'
+        `Added ${result.created} categor${result.created === 1 ? 'y' : 'ies'}. Everything you already had is untouched.`,
+        'Starter set added'
       );
     } catch (error) {
       showError(error);
@@ -299,7 +335,8 @@ export default function CategoriesSettings() {
       setIsImporting(false);
     }
   };
-  
+
+
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [isDeleteMode, setIsDeleteMode] = useState(false);
@@ -1026,27 +1063,124 @@ export default function CategoriesSettings() {
           item, Edit Mode, explains itself in the panel above the moment the
           mode is entered, which is where an instruction belongs. */}
 
-      {/* Starter set import */}
+      {/* The starter set, offered as a merge (owner, 29 Aug: never replace) */}
       {!isEditMode && !isDeleteMode && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-              Standard category set
+              Starter category set
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Switch to the standard starter category tree. Unused default categories
-              are removed; anything your transactions use is kept.
+              {starterMissingCount > 0
+                ? 'See the example tree and add what yours is missing. Nothing you already have is changed.'
+                : 'Your categories already include the whole starter set.'}
             </p>
           </div>
           <button
-            onClick={() => void handleImportDefaultSet()}
-            disabled={isImporting}
+            onClick={() => setShowStarterSetModal(true)}
+            disabled={starterPlan === null}
             className="px-4 py-2 text-sm font-medium bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap self-start sm:self-auto"
           >
-            {isImporting ? 'Importing…' : 'Import starter set'}
+            See the starter set
           </button>
         </div>
       )}
+
+      <Modal
+        isOpen={showStarterSetModal}
+        onClose={() => setShowStarterSetModal(false)}
+        title="The starter category set"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {starterMissingCount > 0 ? (
+              <>
+                Adding this set creates the{' '}
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {starterMissingCount} entr{starterMissingCount === 1 ? 'y' : 'ies'} marked new
+                </span>{' '}
+                under your existing categories. Nothing you already have is
+                changed, renamed or removed.
+              </>
+            ) : (
+              'Your categories already include every group and category below — there is nothing to add.'
+            )}
+          </p>
+
+          <div className="max-h-[50vh] overflow-y-auto space-y-4 pr-1">
+            {(['income', 'expense'] as const).map((type) => (
+              <section key={type}>
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                  {type === 'income' ? 'Income' : 'Expense'}
+                </h4>
+                <ul className="space-y-3">
+                  {DEFAULT_CATEGORY_TREE.filter((group) => group.type === type).map((group) => {
+                    const groupKey = `${group.type}:${group.name.trim().toLowerCase()}`;
+                    const leaves = group.children.length > 0 ? group.children : [group.name];
+                    return (
+                      <li key={groupKey}>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white flex items-baseline gap-2">
+                          {group.name}
+                          {starterNewKeys.has(groupKey) && (
+                            <span className="text-xs font-normal text-gray-500 dark:text-gray-400 border border-line dark:border-gray-600 rounded px-1">
+                              new
+                            </span>
+                          )}
+                        </div>
+                        <ul className="mt-1 ml-4 space-y-0.5">
+                          {leaves.map((leaf) => {
+                            const isNew = starterNewKeys.has(
+                              `${groupKey}:${leaf.trim().toLowerCase()}`
+                            );
+                            return (
+                              <li
+                                key={leaf}
+                                className="text-sm text-gray-600 dark:text-gray-300 flex items-baseline gap-2"
+                              >
+                                {leaf}
+                                {isNew ? (
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 border border-line dark:border-gray-600 rounded px-1">
+                                    new
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                                    already yours
+                                  </span>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-line dark:border-gray-700">
+            <button
+              onClick={() => setShowStarterSetModal(false)}
+              className="px-4 py-2 text-sm font-medium border border-line dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              {starterMissingCount > 0 ? 'Cancel' : 'Close'}
+            </button>
+            {starterMissingCount > 0 && (
+              <button
+                onClick={() => void handleAddStarterSet()}
+                disabled={isImporting}
+                className="px-4 py-2 text-sm font-medium bg-primary-action text-on-primary-action rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isImporting
+                  ? 'Adding…'
+                  : `Add ${starterMissingCount} categor${starterMissingCount === 1 ? 'y' : 'ies'}`}
+              </button>
+            )}
+          </div>
+        </div>
+      </Modal>
 
       {/* Data health — where the category data is weak (renders nothing when
           clean). Every line it shows carries an action, and both of the actions
