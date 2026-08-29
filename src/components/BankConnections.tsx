@@ -83,11 +83,15 @@ export default function BankConnections({
   const [configKnown, setConfigKnown] = useState(true);
   const [linkingConnectionId, setLinkingConnectionId] = useState<string | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
-  // What an incomplete sync could not do. It used to go to the console only,
+  // What an incomplete action could not do. It used to go to the console only,
   // so a sync that (for example) added no accounts because the bank never
   // reported a balance to open them with left the user staring at a connection
   // with nothing under it and no reason given.
-  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  //
+  // The heading travels with the message because this now reports two
+  // different unfinished jobs, and "Bank sync incomplete" over a message about
+  // an authorisation still standing at the bank would name the wrong thing.
+  const [notice, setNotice] = useState<{ title: string; body: string } | null>(null);
 
   const { getToken } = useClerkAuth();
 
@@ -244,7 +248,7 @@ export default function BankConnections({
       const result = await bankConnectionService.syncConnection(connectionId);
 
       if (result.success) {
-        setSyncNotice(null);
+        setNotice(null);
         void loadConnections();
         onAccountsLinked?.();
       } else {
@@ -255,10 +259,12 @@ export default function BankConnections({
         // a failing sync means one call did not land, and the owner's audit
         // log is weeks of exactly that (accounts fine, transactions flaky)
         // being misread as a dead feed.
-        setSyncNotice(
-          'Some transactions didn’t come through, so this account may be behind. ' +
-          'The connection itself is fine — syncing again usually completes it.'
-        );
+        setNotice({
+          title: 'Bank sync incomplete',
+          body:
+            'Some transactions didn’t come through, so this account may be behind. ' +
+            'The connection itself is fine — syncing again usually completes it.'
+        });
         // Reload so a status change from the failed sync (e.g. reauth_required)
         // surfaces immediately — otherwise the Reauthorize CTA wouldn't appear
         // until the next manual refresh.
@@ -299,8 +305,26 @@ export default function BankConnections({
 
   const handleDisconnect = async (connectionId: string) => {
     if (confirm('Are you sure you want to disconnect this bank? This will stop automatic syncing.')) {
-      await bankConnectionService.disconnect(connectionId);
+      const outcome = await bankConnectionService.disconnect(connectionId);
       void loadConnections();
+      // Removing the connection and revoking it at the bank are two different
+      // things, and this panel used to report only the first while implying
+      // both. The row goes either way — a connection left standing is what
+      // recreates the accounts — so a provider that refused is not a failure
+      // to disconnect; it is an authorisation the user still has out and does
+      // not know about.
+      //
+      // `=== false` rather than falsy: a response without the field has told
+      // us nothing, and silence must not be reported as a refusal.
+      if (outcome.revokedAtProvider === false) {
+        setNotice({
+          title: 'Your bank may still hold this authorisation',
+          body:
+            'The feed is removed here and won’t sync again, but the bank didn’t confirm that it ' +
+            'had dropped WealthTracker’s access. Remove it in your bank’s own app or online ' +
+            'banking, under connected apps or third-party access.'
+        });
+      }
     }
   };
 
@@ -393,23 +417,24 @@ export default function BankConnections({
         </div>
       )}
 
-      {/* A sync that ran but could not finish the job — most often because the
-          bank would not report a balance, in which case accounts were left out
-          rather than opened at a figure nobody gave. Amber, not red: the
-          connection works, and syncing again usually completes it. */}
-      {syncNotice && (
+      {/* An action that ran but could not finish the job — a sync the bank
+          would not report a balance for (accounts left out rather than opened
+          at a figure nobody gave), or a disconnect the provider would not
+          revoke. Amber, not red: the panel is working and there is a next step
+          the reader can take. */}
+      {notice && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
           <div className="flex items-start gap-3">
             <AlertCircleIcon className="text-amber-600 dark:text-amber-400 mt-0.5" size={20} />
             <div className="flex-1">
               <p className="font-medium text-amber-800 dark:text-amber-200">
-                Bank sync incomplete
+                {notice.title}
               </p>
-              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{syncNotice}</p>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{notice.body}</p>
             </div>
             <button
               type="button"
-              onClick={() => setSyncNotice(null)}
+              onClick={() => setNotice(null)}
               className="text-sm text-amber-700 dark:text-amber-300 underline"
             >
               Dismiss

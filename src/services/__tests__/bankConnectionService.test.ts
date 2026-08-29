@@ -238,17 +238,49 @@ describe('BankConnectionService', () => {
       }
     ];
     fetchMock.mockResolvedValueOnce(jsonResponse(connectionsResponse));
-    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true }));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true, revokedAtProvider: true }));
     const { service } = createService(fetchMock);
 
     await service.refreshConnections();
-    const removed = await service.disconnect('conn_abc');
+    const outcome = await service.disconnect('conn_abc');
 
-    expect(removed).toBe(true);
+    expect(outcome.removed).toBe(true);
+    expect(outcome.revokedAtProvider).toBe(true);
     expect(service.getConnections()).toEqual([]);
     expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/banking/disconnect');
     expect(fetchMock.mock.calls[1]?.[1]?.method).toBe('POST');
     expect(getJsonBody(fetchMock.mock.calls[1]?.[1])).toEqual({ connectionId: 'conn_abc' });
+  });
+
+  it('reports a revocation the provider REFUSED, rather than swallowing it', async () => {
+    // The bug this pins: `disconnect` used to discard the response and return
+    // a bare `true`, so a TrueLayer that would not drop the consent reached
+    // the user as a clean disconnection. The row still goes — a connection
+    // left standing is what recreates the accounts on the next sync — so the
+    // two facts have to travel separately.
+    const fetchMock = createFetchMock();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true, revokedAtProvider: false }));
+    const { service } = createService(fetchMock);
+
+    const outcome = await service.disconnect('conn_abc');
+
+    expect(outcome.removed).toBe(true);
+    expect(outcome.revokedAtProvider).toBe(false);
+  });
+
+  it('leaves the revocation UNKNOWN when the endpoint did not say', async () => {
+    // "This deployment did not send the field" is not "the bank refused", and
+    // only the second is worth alarming somebody with. Coercing the absence to
+    // false would put a warning about a standing bank authorisation in front
+    // of every user of an older deployment.
+    const fetchMock = createFetchMock();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true }));
+    const { service } = createService(fetchMock);
+
+    const outcome = await service.disconnect('conn_abc');
+
+    expect(outcome.removed).toBe(true);
+    expect(outcome.revokedAtProvider).toBeUndefined();
   });
 
   it('identifies connections requiring reauthorization by status or expiry', async () => {
