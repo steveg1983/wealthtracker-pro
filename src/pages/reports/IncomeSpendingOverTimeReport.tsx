@@ -226,6 +226,15 @@ export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportVi
                   }
                 />
                 <Legend formatter={legendText} />
+                {/* ─ WHY THIS CHART IS NOT ROUTED THROUGH richLine ─────────
+                    It reached the same idiom first and is where the shared one
+                    was generalised FROM: no mark per point, one mark on hover.
+                    Two things keep it spelled out here. Its hover mark is a
+                    CLICK TARGET (it opens the transactions behind the point),
+                    so r:6 is a size decision richLine's reading mark does not
+                    make; and its two series cross, so neither may take a wash —
+                    stacked washes mix into a third colour, on the one pair a
+                    colour-blind reader already cannot separate. */}
                 {chartType === 'bar' ? (
                   <Bar dataKey="income" name={incomeSeriesName} fill={SEMANTIC_SERIES.income} radius={[3, 3, 0, 0]} cursor="pointer" isAnimationActive={false} onClick={handlePointClick('income')} />
                 ) : (

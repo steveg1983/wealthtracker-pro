@@ -4,6 +4,7 @@ import {
   ResponsiveContainer,
   ComposedChart,
   Line,
+  Area,
   Bar,
   XAxis,
   YAxis,
@@ -16,6 +17,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Modal, ModalBody } from '../components/common/Modal';
 import NetWorthSummary from '../components/NetWorthSummary';
 import { singlePointDot } from '../components/charts/singlePointDots';
+import { lineMarkers, seriesWash, seriesWashFill } from '../components/charts/richLine';
 import { toDecimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { preserveDemoParam } from '../utils/navigation';
@@ -104,6 +106,9 @@ function DecompositionLegend({ payload }: { payload?: readonly { value?: string 
     </ul>
   );
 }
+
+/** Names this report's wash in the document — stated once, used twice. */
+const NET_WORTH_CHART_KEY = 'net-worth-report';
 
 const compactTick = (value: number): string => {
   const abs = Math.abs(value);
@@ -668,6 +673,7 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                 }}
                 style={{ cursor: 'pointer' }}
               >
+                {!showDetail && chartType !== 'bar' && seriesWash(NET_WORTH_CHART_KEY, decomposition.total.color)}
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.2)" />
                 {/* Years for a multi-year window (§2.3) — same helper as the
                     Dashboard widget, so card and report tick identically. */}
@@ -704,7 +710,7 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                   // Money-style bar view: net worth as bars, assets/liabilities
                   // as context lines. Same data, same click-to-drill.
                   <Bar dataKey="netWorth" name="Net Worth" fill={decomposition.total.color} radius={[3, 3, 0, 0]} cursor="pointer" />
-                ) : (
+                ) : showDetail ? (
                   <Line
                     type="monotone"
                     dataKey="netWorth"
@@ -713,6 +719,34 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                     strokeWidth={decomposition.total.width}
                     dot={singlePointDot(snapshots, decomposition.total.color)}
                     activeDot={{ r: 5 }}
+                    isAnimationActive={false}
+                  />
+                ) : (
+                  /* ─ THE WASH, AND WHY ONLY HERE (charts/richLine, 29 Aug) ──
+                     The parts are off by default, so this is the chart most
+                     readers see: one line, and nothing else drawn in the plot.
+                     A wash of its own colour is safe in exactly that state.
+
+                     It stands down the moment Assets and Liabilities come on,
+                     and the ruling above `decompositionSeries` is why. That
+                     ruling separates three series by SHAPE in one hue, on the
+                     strength of contrast figures measured against the CARD
+                     (#f8f9fb / #1f2937). A fill under the total would put the
+                     two dashed parts on a different ground than the one those
+                     figures describe — the measurement would stop being true
+                     without anything failing. With one series there is nothing
+                     to separate and no other line's ground to change, so the
+                     ruling has no quarrel with it. `richLine.test.tsx` measures
+                     this line over its own wash on both grounds. */
+                  <Area
+                    type="monotone"
+                    dataKey="netWorth"
+                    name="Net Worth"
+                    stroke={decomposition.total.color}
+                    strokeWidth={decomposition.total.width}
+                    fill={seriesWashFill(NET_WORTH_CHART_KEY, decomposition.total.color)}
+                    fillOpacity={1}
+                    {...lineMarkers(snapshots, decomposition.total.color)}
                     isAnimationActive={false}
                   />
                 )}

@@ -1,8 +1,9 @@
 import React from 'react';
 import {
   ResponsiveContainer,
-  LineChart,
+  ComposedChart,
   Line,
+  Area,
   BarChart,
   Bar,
   PieChart as RechartsPieChart,
@@ -17,6 +18,7 @@ import {
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp, useChartTooltipStyle, useChartTooltipItemStyle } from './charts/chartColors';
 import { legendText } from './charts/ChartLegendText';
+import { lineMarkers, seriesWash, seriesWashFill } from './charts/richLine';
 import { formatDecimal } from '../utils/decimal-format';
 import type { CustomReport, ReportComponent } from './CustomReportBuilder';
 import { getDateLocale } from '../utils/dateFormatter';
@@ -41,6 +43,15 @@ interface ChartSeries {
   labels: string[];
   datasets: Array<{ label: string; data: number[]; borderColor?: string; backgroundColor?: string }>;
 }
+
+/**
+ * Namespaces a custom report's washes, since a generated report renders every
+ * component on one page and each wash lands in the same document. The
+ * component id completes it; the builder can seed an EMPTY id, which is
+ * harmless here — the gradient's identity is its colour, so two components
+ * that collide collide on an identical definition (charts/richLine).
+ */
+const CHART_KEY_PREFIX = 'custom-report-';
 
 const compactTick = (value: number): string => {
   const abs = Math.abs(value);
@@ -122,28 +133,52 @@ export default function CustomReportViewer({
         if (!series.labels?.length) return <p className="text-sm text-gray-400">No data</p>;
         const rows = toRows(series);
         const isLine = component.type === 'line-chart';
+        // A dataset may carry its own colour from the builder; otherwise it
+        // takes its step of the shared ramp. Read through one function so the
+        // stroke and the wash derived from it cannot disagree.
+        const seriesColour = (index: number): string =>
+          series.datasets[index]?.borderColor ?? categoricalColor(ramp, index);
+        const washed = isLine && series.datasets.length === 1;
         return (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               {isLine ? (
-                <LineChart data={rows}>
+                /* ComposedChart rather than LineChart because a report with a
+                   SINGLE series draws it washed (charts/richLine), and a wash
+                   is an <Area>. Two or more series keep the bare line: stacked
+                   washes mix into a colour the ramp never ruled on, and the
+                   ramp's own contrast figures are taken against the card. */
+                <ComposedChart data={rows}>
+                  {washed && seriesWash(`${CHART_KEY_PREFIX}${component.id}`, seriesColour(0))}
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.2)" />
                   <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 11 }} minTickGap={24} />
                   <YAxis tick={{ fill: '#6B7280', fontSize: 11 }} tickFormatter={compactTick} width={56} />
                   <Tooltip formatter={money} contentStyle={chartTooltipStyle} itemStyle={chartTooltipItemStyle} separator=": " />
                   <Legend formatter={legendText} />
-                  {series.datasets.map((ds, i) => (
+                  {series.datasets.map((ds, i) => washed ? (
+                    <Area
+                      key={ds.label}
+                      type="monotone"
+                      dataKey={ds.label}
+                      stroke={seriesColour(i)}
+                      strokeWidth={2}
+                      fill={seriesWashFill(`${CHART_KEY_PREFIX}${component.id}`, seriesColour(i))}
+                      fillOpacity={1}
+                      {...lineMarkers(rows, seriesColour(i))}
+                      isAnimationActive={false}
+                    />
+                  ) : (
                     <Line
                       key={ds.label}
                       type="monotone"
                       dataKey={ds.label}
-                      stroke={ds.borderColor ?? categoricalColor(ramp, i)}
+                      stroke={seriesColour(i)}
                       strokeWidth={2}
-                      dot={false}
+                      {...lineMarkers(rows, seriesColour(i))}
                       isAnimationActive={false}
                     />
                   ))}
-                </LineChart>
+                </ComposedChart>
               ) : (
                 <BarChart data={rows}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.2)" />
@@ -178,7 +213,7 @@ export default function CustomReportViewer({
           pie.labels.map((name, i) => ({ name, value: pie.data[i] ?? 0 })),
           (row) => row.value,
           (row) => row.name,
-          (count) => `${count} smaller`
+          'slices'
         );
         return (
           <div className="h-64 flex items-center gap-4">

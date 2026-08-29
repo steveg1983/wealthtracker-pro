@@ -71,6 +71,42 @@ const monthYear = (date: Date): string =>
 const dayMonth = (date: Date): string =>
   date.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short' });
 
+/**
+ * THE VERDICT CONTROLS ARE BUTTONS, NOT TEXT (owner, 29 Aug: "The 'confirm'
+ * or 'non recurring' buttons are hard to see as they are the same colour and
+ * size as the text around them. We need to make them more prominent for the
+ * user to see at a glance.").
+ *
+ * They shipped as text-coloured links inside the same 12px grey run as the
+ * evidence line and the per-payment figure, divided by a middle dot — which
+ * made a row's one decision the least visible thing in the row, and left the
+ * whole verdict pipeline looking like more metadata. Chrome is what tells a
+ * control apart from a figure at a glance, so the controls get chrome.
+ *
+ * The split follows what each control IS. Confirm is the row's primary
+ * decision — it is what lets a detection feed the calendar and the forecast,
+ * where an unanswered one feeds nothing — so it wears the app's
+ * primary-action token pair, the same one Accounts' "Add Account" and the
+ * sweeps' commit buttons wear. Not recurring, Undo and Restore are the
+ * quieter alternatives and wear the bordered secondary that partners it
+ * everywhere else in the app.
+ *
+ * None of them wears amber, red or green. Amber's monopoly on "your next
+ * action" still holds and there are twenty of these on a page; more
+ * generally, this app reserves the hues for things needing attention, and a
+ * routine decision about a correct detection is not a warning.
+ *
+ * No focus styles are declared: the app has one focus ring, and it is global.
+ */
+const PRIMARY_ACTION_BUTTON =
+  'px-3 py-1.5 text-sm font-medium rounded-lg bg-primary-action text-on-primary-action ' +
+  'hover:bg-primary-action-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+
+const SECONDARY_ACTION_BUTTON =
+  'px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 ' +
+  'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ' +
+  'disabled:opacity-50 disabled:cursor-not-allowed';
+
 export default function RecurringCommitmentsReport(): React.JSX.Element {
   const {
     accounts, transactions, isLoading,
@@ -344,46 +380,47 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
           <p className="text-dense tabular-nums text-gray-500 dark:text-gray-400">
             {formatCurrency(detection.amount, displayCurrency)} {detection.cadenceLabel}
           </p>
-          {/* THE TWO QUIET CONTROLS (§5). Confirm is deliberately NOT amber —
-              there are twenty of these on a page, and amber's monopoly on
-              "your next action" holds. Confirming is what lets this pattern
-              feed the calendar and the forecast; unanswered, it stays an
-              opinion and feeds nothing. */}
+          {/* THE TWO CONTROLS (§5), now wearing chrome — see the note above
+              PRIMARY_ACTION_BUTTON for why, and for why neither is amber. */}
           {answersReady && (
             storedKeyOf(detection, confirmedKeys) !== null ? (
-              <p className="text-dense text-gray-500 dark:text-gray-400">
-                Confirmed
+              /* "Confirmed" is a STATE and stays text; only the clickable
+                 thing beside it is drawn as a control. */
+              <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+                <span className="text-dense text-gray-500 dark:text-gray-400">Confirmed</span>
                 <button
                   type="button"
                   onClick={() => void withdrawVerdict(detection, 'recurring-confirmed')}
                   disabled={savingKey === answerKeyOf(detection)}
-                  className="ml-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:underline disabled:opacity-50"
+                  className={SECONDARY_ACTION_BUTTON}
+                  title="Withdraw the confirmation — the pattern goes back to being the app's opinion"
                 >
                   Undo
                 </button>
-              </p>
+              </div>
             ) : (
-              <p className="text-dense">
+              /* The gap is the separator: two buttons hold themselves apart,
+                 so the middle dot that used to divide two text links is gone. */
+              <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => void giveVerdict(detection, 'recurring-confirmed')}
                   disabled={savingKey === answerKeyOf(detection)}
-                  className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline disabled:opacity-50"
+                  className={PRIMARY_ACTION_BUTTON}
                   title="Yes, this is a real commitment — confirmed items can feed the calendar and the forecast"
                 >
                   Confirm
                 </button>
-                <span className="mx-1.5 text-gray-300 dark:text-gray-600">·</span>
                 <button
                   type="button"
                   onClick={() => void giveVerdict(detection, 'recurring-not')}
                   disabled={savingKey === answerKeyOf(detection)}
-                  className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline disabled:opacity-50"
+                  className={SECONDARY_ACTION_BUTTON}
                   title="A coincidence, not a commitment — it moves to the band at the foot of the page, where it can be restored"
                 >
                   Not recurring
                 </button>
-              </p>
+              </div>
             )
           )}
         </div>
@@ -619,11 +656,14 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
                     {accountName.get(d.accountId) && <> · {accountName.get(d.accountId)}</>}
                   </p>
                 </div>
+                {/* The same bordered secondary the row's own quiet actions
+                    wear: this is the way back out of a mis-tap, and it should
+                    not be harder to spot than the mistake was to make. */}
                 <button
                   type="button"
                   onClick={() => void withdrawVerdict(d, 'recurring-not')}
                   disabled={savingKey === answerKeyOf(d)}
-                  className="text-dense text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline disabled:opacity-50 shrink-0"
+                  className={`${SECONDARY_ACTION_BUTTON} shrink-0`}
                 >
                   Restore
                 </button>

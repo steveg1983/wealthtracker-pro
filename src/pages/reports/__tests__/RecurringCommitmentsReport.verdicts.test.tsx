@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PreferencesProvider } from '../../../contexts/PreferencesContext';
 import { ToastProvider } from '../../../contexts/ToastContext';
@@ -168,6 +168,65 @@ describe('Recurring commitments — the two verdicts', () => {
     await waitFor(() => {
       expect(restoreSuggestion).toHaveBeenCalledWith('recurring-not', ANSWER_KEY);
     });
+  });
+
+  it('the verdict controls are real buttons, and they look like controls', () => {
+    /*
+     * Owner, 29 Aug: "The 'confirm' or 'non recurring' buttons are hard to
+     * see as they are the same colour and size as the text around them."
+     * They were text-coloured links in the row's 12px grey run, divided by a
+     * middle dot. What follows pins the shape of the fix rather than an exact
+     * palette: both verdicts are reachable BY ROLE, they carry the app's two
+     * button idioms — the primary-action token pair for the row's primary
+     * decision, the bordered secondary for its quieter alternative — and the
+     * middle dot is gone, because two buttons separate themselves.
+     */
+    renderReport();
+
+    const confirm = screen.getByRole('button', { name: 'Confirm' });
+    const notRecurring = screen.getByRole('button', { name: 'Not recurring' });
+
+    expect(confirm).toHaveClass('bg-primary-action', 'text-on-primary-action');
+    expect(notRecurring).toHaveClass('border', 'border-gray-300');
+    // The quieter one must NOT wear the fill: the split is what makes the
+    // primary decision readable at a glance.
+    expect(notRecurring).not.toHaveClass('bg-primary-action');
+
+    // Neither is a warning. This page reserves the hues for things needing
+    // attention, and a routine decision about a correct detection is not one.
+    for (const control of [confirm, notRecurring]) {
+      expect(control.className).not.toMatch(/amber|red|green|yellow/);
+    }
+
+    // The separator is the gap between the buttons, not a character.
+    const actions = confirm.parentElement as HTMLElement;
+    expect(actions).toContainElement(notRecurring);
+    expect(actions.textContent).not.toContain('\u00b7');
+  });
+
+  it('Undo and Restore are buttons in the same quiet idiom', () => {
+    /*
+     * A confirmed row swaps the pair for a STATE plus one action: "Confirmed"
+     * stays text because it is not clickable, and only Undo becomes a
+     * control. Restore, the way back out of a mis-tap in the foot band, wears
+     * the same idiom — the escape hatch should not be harder to spot than the
+     * mistake was to make.
+     */
+    renderReport([verdictRow('recurring-confirmed')]);
+
+    // The state is text, not a control.
+    expect(screen.getByText('Confirmed').tagName).not.toBe('BUTTON');
+    expect(screen.queryByRole('button', { name: 'Confirmed' })).not.toBeInTheDocument();
+
+    const undo = screen.getByRole('button', { name: 'Undo' });
+    expect(undo).toHaveClass('border', 'border-gray-300');
+    expect(undo).not.toHaveClass('bg-primary-action');
+
+    cleanup();
+    renderReport([verdictRow('recurring-not')]);
+    const band = screen.getByText('Not recurring').closest('details') as HTMLElement;
+    const restore = within(band).getByRole('button', { name: 'Restore' });
+    expect(restore).toHaveClass('border', 'border-gray-300');
   });
 
   it('giving the opposite verdict withdraws the standing one first', async () => {
