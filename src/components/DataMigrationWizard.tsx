@@ -153,8 +153,11 @@ export default function DataMigrationWizard({ isOpen, onClose, onOpenTool }: Dat
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {SOURCES.map(s => (
                 <button key={s.id} onClick={() => setSource(s)}
-                  className="text-left rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#1a2332]/30 dark:hover:border-blue-500/40 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors p-3 flex items-center gap-3">
-                  <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#1a2332] dark:text-blue-400">
+                  className="text-left rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#1a2332]/30 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors p-3 flex items-center gap-3">
+                  {/* Hover is an affordance, not a category, so it takes the
+                      neutral this app already uses on dark grounds; the tile's
+                      ink follows it (stock-blue ruling, 28 Aug 2026). */}
+                  <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#1a2332] dark:text-gray-300">
                     <s.icon size={18} />
                   </span>
                   <span className="min-w-0">
@@ -187,7 +190,7 @@ export default function DataMigrationWizard({ isOpen, onClose, onOpenTool }: Dat
                 <div className="space-y-2">
                   {source.tools.map(t => (
                     <button key={t.tool} onClick={() => openTool(t.tool)}
-                      className="w-full text-left rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#1a2332]/30 dark:hover:border-blue-500/40 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors p-3 flex items-center justify-between gap-3">
+                      className="w-full text-left rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#1a2332]/30 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors p-3 flex items-center justify-between gap-3">
                       <span className="min-w-0">
                         <span className="block text-sm font-medium text-gray-900 dark:text-white">{t.label}</span>
                         <span className="block text-xs text-gray-500 dark:text-gray-400">{t.hint}</span>

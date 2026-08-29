@@ -89,14 +89,19 @@ describe('the uncategorised review band is information, not an alarm', () => {
     expect(zero.className).not.toMatch(/border|amber|red|green/);
   });
 
-  it('all three routes to filing speak in the one link colour', () => {
+  // The colour changed under this test on 29 Aug 2026 and its POINT did not:
+  // all three routes still speak in one voice, and that voice is now the app's
+  // own navy rather than a stock blue. Link blue survives only on an `<a>` that
+  // leaves the app (`design-system/linkBlue.ts`); in-app navigation has always
+  // had `text-primary`, which index.css gives a dark counterpart.
+  it('all three routes to filing speak in the one in-app link colour', () => {
     bandFor(unfiled);
     const review = screen.getByText('Click to review and categorise');
     const sweep = screen.getByText(/match transfers automatically/);
     const payee = screen.getByText(/categorise by payee/);
-    expect(review.className).toContain('text-blue-700');
+    expect(review.className).toContain('text-primary');
     for (const route of [sweep, payee]) {
-      expect(route.className).toContain('text-blue-700');
+      expect(route.className).toContain('text-primary');
     }
   });
 

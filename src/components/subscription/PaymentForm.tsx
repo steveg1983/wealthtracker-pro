@@ -184,14 +184,14 @@ export default function PaymentForm({
         </div>
 
         {/* Trial Info */}
-        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+        <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
           <div className="flex items-start gap-2">
-            <CheckIcon size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
+            <CheckIcon size={16} className="text-gray-600 dark:text-gray-400 mt-0.5 flex-shrink-0" />
             <div className="text-sm">
-              <p className="text-blue-900 dark:text-blue-300 font-medium">
+              <p className="text-gray-900 dark:text-gray-100 font-medium">
                 14-day free trial included
               </p>
-              <p className="text-blue-700 dark:text-blue-400 mt-1">
+              <p className="text-gray-700 dark:text-gray-300 mt-1">
                 You won't be charged until {new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString()}
               </p>
             </div>

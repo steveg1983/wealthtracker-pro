@@ -207,7 +207,11 @@ export default function Categorisation(): React.JSX.Element {
         // the shared component, which the owner centred app-wide on 15 August.
         <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700">
           <EmptyState
-            icon={<CheckCircleIcon size={32} className="text-blue-600 dark:text-blue-400" />}
+            /* Nothing left to file IS a success, and the app has a token for
+               that — the stock blue was a colour standing in for a semantic one
+               that already exists (stock-blue ruling, 28 Aug; the same
+               substitution OFXImportModal's finished import took). */
+            icon={<CheckCircleIcon size={32} className="text-green-700 dark:text-green-400" />}
             title="Everything is filed"
             description={
               suggestedCount === 0
@@ -434,7 +438,11 @@ function ActionCard({
       className="text-left bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary hover:shadow-md transition-all p-4 flex flex-col gap-2 min-h-[48px]"
     >
       <span className="flex items-center gap-2 text-gray-900 dark:text-white font-semibold">
-        <span className="text-primary dark:text-blue-400">{icon}</span>
+        {/* `text-primary` ALONE, on purpose: index.css gives it a dark
+            counterpart (#f9fafb) with `!important`, so the `dark:text-blue-400`
+            that used to sit here was a stock blue invented for a ground the
+            token already answers for (stock-blue ruling, 28 Aug). */}
+        <span className="text-primary">{icon}</span>
         {title}
       </span>
       <span className="text-sm text-gray-500 dark:text-gray-400">{body}</span>

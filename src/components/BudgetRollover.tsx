@@ -436,21 +436,28 @@ export default function BudgetRollover() {
         {/* Status */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${rolloverSettings.enabled ? 'bg-blue-600' : 'bg-gray-400'}`} />
+            {/* An ON dot is the same job as a toggle track, so it takes the
+                same pair (stock-blue ruling, 28 Aug 2026). Not the selected
+                slate: #94a3b8 beside this dot's own OFF grey (#9ca3af) would
+                make the two states indistinguishable, which is the one thing
+                the dot exists to do. */}
+            <div className={`w-2 h-2 rounded-full ${rolloverSettings.enabled ? 'bg-navy-400 dark:bg-primary-action' : 'bg-gray-400'}`} />
             <span className="text-sm text-gray-700 dark:text-gray-300">
               Rollover {rolloverSettings.enabled ? 'Enabled' : 'Disabled'}
             </span>
           </div>
           {rolloverSettings.autoApply && (
             <div className="flex items-center gap-2">
-              <RepeatIcon size={14} className="text-blue-500" />
-              <span className="text-sm text-blue-700 dark:text-blue-400">Auto-apply</span>
+              {/* A setting that is simply on needs no colour; it now reads in
+                  the same ink as "Rollover Enabled" beside it. */}
+              <RepeatIcon size={14} className="text-gray-600 dark:text-gray-400" />
+              <span className="text-sm text-gray-700 dark:text-gray-300">Auto-apply</span>
             </div>
           )}
         </div>
 
         {alreadyAppliedForPeriod && (
-          <p className="mt-3 text-sm text-blue-700 dark:text-blue-400">
+          <p className="mt-3 text-sm text-gray-700 dark:text-gray-300">
             {alreadyAppliedMessage}
           </p>
         )}
@@ -492,11 +499,16 @@ export default function BudgetRollover() {
               </p>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-              <p className="text-xs text-blue-700 dark:text-blue-300">
+            {/* Green and red beside this tile are the app's surplus and
+                deficit. "Carried into …" is neither — it is a figure, not a
+                verdict — so it joins the two neutral tiles at the head of this
+                row rather than inventing a third meaning in blue (stock-blue
+                ruling, 28 Aug 2026). */}
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+              <p className="text-xs text-gray-600 dark:text-gray-400">
                 Carried into {getMonthName(currentMonth)}
               </p>
-              <p className="text-lg font-semibold text-blue-700 dark:text-blue-300">
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">
                 {formatCurrency(currentCarry)}
               </p>
             </div>
@@ -516,8 +528,12 @@ export default function BudgetRollover() {
               >
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium text-gray-900 dark:text-white">{data.categoryName}</h4>
+                  {/* "This one will roll over" is a settled fact about a card,
+                      not something that needs attention and not an event that
+                      just succeeded — so the tick is neutral ink, and it now
+                      has the dark counterpart it never had. */}
                   {data.willRollover && (
-                    <CheckCircleIcon size={16} className="text-blue-600" />
+                    <CheckCircleIcon size={16} className="text-gray-600 dark:text-gray-400" />
                   )}
                 </div>
                 

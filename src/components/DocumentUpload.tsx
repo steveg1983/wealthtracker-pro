@@ -148,7 +148,7 @@ export default function DocumentUpload({
 
   const getFileIcon = (mimeType: string) => {
     if (mimeType.startsWith('image/')) {
-      return <ImageIcon size={20} className="text-blue-600" />;
+      return <ImageIcon size={20} className="text-gray-600 dark:text-gray-400" />;
     }
     if (mimeType === 'application/pdf') {
       return <FileTextIcon size={20} className="text-red-600" />;
@@ -264,7 +264,7 @@ export default function DocumentUpload({
               {tags.map(tag => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full text-sm"
+                  className="inline-flex items-center gap-1 px-2 py-1 bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200 rounded-full text-sm"
                 >
                   <TagIcon size={12} />
                   {tag}
@@ -381,13 +381,13 @@ export default function DocumentUpload({
       {uploadedDocs.length > 0 && (
         <div className="space-y-2">
           <h3 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-            <CheckIcon size={16} className="text-blue-600" />
+            <CheckIcon size={16} className="text-green-700 dark:text-green-400" />
             Uploaded Documents ({uploadedDocs.length})
           </h3>
           {uploadedDocs.map(doc => (
             <div
               key={doc.id}
-              className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700"
+              className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700"
             >
               <div className="flex items-center gap-3">
                 {getFileIcon(doc.mimeType)}
@@ -403,7 +403,9 @@ export default function DocumentUpload({
                   )}
                 </div>
               </div>
-              <CheckIcon size={20} className="text-blue-600" />
+              {/* The tick is the success; the row it sits on is settled and
+                  needs no ground of its own (stock-blue ruling, 28 Aug 2026). */}
+              <CheckIcon size={20} className="text-green-700 dark:text-green-400" />
             </div>
           ))}
         </div>

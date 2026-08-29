@@ -494,7 +494,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
                           <button
                             type="button"
                             onClick={() => drillIntoCategory(row, 'current')}
-                            className="w-full justify-end text-right rounded px-1 -mx-1 tabular-nums text-gray-900 dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:underline"
+                            className="w-full justify-end text-right rounded px-1 -mx-1 tabular-nums text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:underline"
                             title={`${labelOf(row)}, this period — view these transactions`}
                           >
                             {money(row.current)}
@@ -504,7 +504,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
                           <button
                             type="button"
                             onClick={() => drillIntoCategory(row, 'previous')}
-                            className="w-full justify-end text-right rounded px-1 -mx-1 tabular-nums text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:underline"
+                            className="w-full justify-end text-right rounded px-1 -mx-1 tabular-nums text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:underline"
                             title={`${labelOf(row)}, comparison period — view these transactions`}
                           >
                             {money(row.previous)}

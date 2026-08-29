@@ -64,7 +64,7 @@ import { buildHoldingAllocation } from '../utils/holdingAllocation';
 import { dataPort } from '@data';
 import type { InvestmentHolding } from '@data';
 import { fetchQuotes } from '../services/stockPriceService';
-import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp, useChartTooltipStyle, useChartTooltipItemStyle } from '../components/charts/chartColors';
+import { capSeriesWithRemainder, categoricalColor, categoricalRamp, useIsDarkGround, useChartTooltipStyle, useChartTooltipItemStyle } from '../components/charts/chartColors';
 import { resolvePeriod } from '../hooks/usePeriod';
 import DatePicker from '../components/common/DatePicker';
 
@@ -75,6 +75,31 @@ import DatePicker from '../components/common/DatePicker';
  * becomes no wash. See charts/richLine.
  */
 const PERFORMANCE_CHART_KEY = 'investments-performance';
+
+/**
+ * ONE BOX FOR EVERY ASSET ALLOCATION LEGEND ROW, named and folded alike.
+ *
+ * The percentages down the right of that legend are a COLUMN, and a column is
+ * only a column while every row's content ends at the same x. Owner, 29
+ * August: the fold's "3.84%" sat out of line with the shares above it.
+ *
+ * WHY IT DID. Both kinds of row bleed their hover background outwards with the
+ * app's usual `px-2 -mx-2`. A named row is a <Link>, so its width is auto and
+ * the box simply grows by the 1rem the negative margins ask for — the padding
+ * lands OUTSIDE the column and the text still ends on the column's edge. The
+ * fold row is a <button>, and a button cannot be trusted to fill its parent on
+ * `display: flex` alone, so it stated `w-full` — which under the border-box
+ * every element in this app inherits took that 1rem out of the ROW instead,
+ * pulling its right-hand content 16px inwards. Nothing about the percentage
+ * itself was wrong; the box around it was a rem narrower.
+ *
+ * `box-content` is the fix and the reason it is shared: with it, `w-full` means
+ * "the column's width, and the hover bleed sits outside it" — the same box the
+ * Link works out for itself. Stated once so the two cannot drift apart again,
+ * which is the only way this stays fixed.
+ */
+const ALLOCATION_LEGEND_ROW =
+  'w-full box-content flex items-center justify-between gap-3 text-body rounded px-2 -mx-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50';
 
 /**
  * The windows this chart offers, in the app's own words.
@@ -1207,7 +1232,11 @@ function InvestmentsView() {
   // The shared ramp. The array that stood here claimed to be "consistent
   // colors" while being the only one of the app's palettes to differ from its
   // twin — positions seven and eight had drifted to a cyan and a lime.
-  const ramp = useCategoricalRamp();
+  // ONE reading of the ground per render: the ramp picks the performance
+  // chart's stroke and the wash picks its strength from the same boolean, so
+  // they cannot disagree about the theme (charts/richLine).
+  const isDark = useIsDarkGround();
+  const ramp = categoricalRamp(isDark);
   const chartTooltipStyle = useChartTooltipStyle();
   const chartTooltipItemStyle = useChartTooltipItemStyle();
 
@@ -1816,7 +1845,7 @@ function InvestmentsView() {
 
                   <Link
                     to={preserveDemoParam(`/accounts/${drillLine.cash[0]?.accountId ?? drillLine.accountId}`, location.search)}
-                    className="inline-block mt-4 text-body text-gray-500 dark:text-gray-400 underline decoration-dotted underline-offset-2 hover:text-blue-600 dark:hover:text-blue-400"
+                    className="inline-block mt-4 text-body text-gray-500 dark:text-gray-400 underline decoration-dotted underline-offset-2"
                   >
                     Open the register these sit in
                   </Link>
@@ -1986,7 +2015,7 @@ function InvestmentsView() {
                 if (point) setDrillDate(point.date);
               }}
             >
-              {seriesWash(PERFORMANCE_CHART_KEY, ramp[0])}
+              {seriesWash(PERFORMANCE_CHART_KEY, ramp[0], isDark)}
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis dataKey="label" stroke="#9CA3AF" />
               {/* £8m, not £2000k (owner, 21 Aug) — the house compact
@@ -2020,7 +2049,7 @@ function InvestmentsView() {
                 dataKey="value"
                 stroke={ramp[0]}
                 strokeWidth={2}
-                fill={seriesWashFill(PERFORMANCE_CHART_KEY, ramp[0])}
+                fill={seriesWashFill(PERFORMANCE_CHART_KEY, ramp[0], isDark)}
                 fillOpacity={1}
                 {...lineMarkers(performanceData, ramp[0])}
               />
@@ -2148,7 +2177,7 @@ function InvestmentsView() {
                         <p className="ml-5 mb-1 flex justify-between text-dense text-gray-500 dark:text-gray-400">
                           <Link
                             to={preserveDemoParam(`/accounts/${line.accountId}`, location.search)}
-                            className="hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
+                            className="hover:underline rounded"
                             title={`${line.name} — open this account's register`}
                           >
                             Investments
@@ -2159,7 +2188,7 @@ function InvestmentsView() {
                           <p className="ml-5 mb-2 flex justify-between text-dense text-gray-500 dark:text-gray-400">
                             <Link
                               to={preserveDemoParam(`/accounts/${line.cash[0].accountId}`, location.search)}
-                              className="hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
+                              className="hover:underline rounded"
                               title={`${accountsById.get(line.cash[0].accountId)?.name ?? 'Cash'} — open this account's register`}
                             >
                               Cash
@@ -2171,7 +2200,7 @@ function InvestmentsView() {
                           <p key={cashLine.accountId} className="ml-5 mb-1 last:mb-2 flex justify-between text-dense text-gray-500 dark:text-gray-400">
                             <Link
                               to={preserveDemoParam(`/accounts/${cashLine.accountId}`, location.search)}
-                              className="min-w-0 truncate hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
+                              className="min-w-0 truncate hover:underline rounded"
                               title={`${accountsById.get(cashLine.accountId)?.name ?? 'Cash'} — open this account's register`}
                             >
                               {accountsById.get(cashLine.accountId)?.name ?? 'Cash'}
@@ -2229,7 +2258,7 @@ function InvestmentsView() {
                                     that respective account register"). */}
                                 <Link
                                   to={preserveDemoParam(`/accounts/${debt.id}`, location.search)}
-                                  className="min-w-0 truncate hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
+                                  className="min-w-0 truncate hover:underline rounded"
                                   title={`${debt.name} — open this account's register`}
                                 >
                                   {debt.name}
@@ -2342,7 +2371,7 @@ function InvestmentsView() {
                           type="button"
                           onClick={() => setAllocationFoldOpen(open => !open)}
                           aria-expanded={allocationFoldOpen}
-                          className="w-full flex items-center justify-between gap-3 text-body rounded px-2 -mx-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                          className={ALLOCATION_LEGEND_ROW}
                         >
                           <span className="flex items-center gap-2 min-w-0">
                             {swatch}
@@ -2388,7 +2417,7 @@ function InvestmentsView() {
                       key={slice.name}
                       to={registerPathFor(slice.source.accountId)}
                       title={`${slice.name} — open this account's register`}
-                      className="flex items-center justify-between gap-3 text-body rounded px-2 -mx-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      className={ALLOCATION_LEGEND_ROW}
                     >
                       <span className="flex items-center gap-2 min-w-0">
                         {swatch}

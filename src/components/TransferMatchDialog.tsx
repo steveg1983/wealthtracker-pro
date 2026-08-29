@@ -91,7 +91,7 @@ export default function TransferMatchDialog({
     >
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 w-full max-w-lg mx-4 shadow-xl">
         <div className="flex items-center gap-3 mb-3">
-          <ArrowRightLeftIcon size={22} className="text-blue-600 dark:text-blue-400" />
+          <ArrowRightLeftIcon size={22} className="text-gray-500 dark:text-gray-400" />
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
             Make this a transfer
           </h3>
@@ -128,7 +128,12 @@ export default function TransferMatchDialog({
                     onClick={() => setSelectedId(t.id)}
                     className={`w-full text-left p-3 rounded-lg border transition-colors ${
                       isSelected
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        /* The selected side wears the selection's own token —
+                           navy at a tenth on light, and on dark the ring
+                           index.css remaps to the house slate, because a tenth
+                           of a near-black navy is no wash on a gray-800 modal
+                           (stock-blue ruling, 28 Aug 2026). */
+                        ? 'border-primary bg-primary/10 dark:bg-gray-700/50'
                         : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}
                   >

@@ -458,7 +458,7 @@ export default function SpendingAlerts() {
             {alertStats.unreadAlerts > 0 && (
               <button
                 onClick={markAllAsRead}
-                className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-700"
+                className="flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
               >
                 <CheckCircleIcon size={16} />
                 Mark All Read
@@ -479,12 +479,16 @@ export default function SpendingAlerts() {
             </p>
           </div>
           
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+          {/* The other three tiles are a severity ladder — neutral, warning,
+              critical. Unread is a read-state count, not a rung on it, so it
+              takes the same neutral treatment "Total Alerts" already has; a
+              count needs no colour (stock-blue ruling, 28 Aug 2026). */}
+          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
             <div className="flex items-center gap-2 mb-1">
-              <InfoIcon size={16} className="text-blue-500" />
-              <span className="text-xs text-blue-700 dark:text-blue-300">Unread</span>
+              <InfoIcon size={16} className="text-gray-500" />
+              <span className="text-xs text-gray-600 dark:text-gray-400">Unread</span>
             </div>
-            <p className="text-xl font-semibold text-blue-900 dark:text-blue-100">
+            <p className="text-xl font-semibold text-gray-900 dark:text-white">
               {alertStats.unreadAlerts}
             </p>
           </div>
@@ -550,7 +554,11 @@ export default function SpendingAlerts() {
           <div
             key={alert.id}
             className={`bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-100 dark:border-gray-700 p-4 transition-all ${
-              !alert.isRead ? 'border-l-4 border-l-blue-500' : ''
+              /* The unread rail is a marker, so it takes the marker token —
+                 navy-400, which needs no dark counterpart because it reads on
+                 both grounds, unlike `border-l-primary` (navy on a gray-800
+                 card is no rail at all). Stock-blue ruling, 28 Aug 2026. */
+              !alert.isRead ? 'border-l-4 border-l-navy-400' : ''
             }`}
             onClick={() => markAsRead(alert.id)}
           >

@@ -144,7 +144,10 @@ export default function RenamePayeesModal({
               type="button"
               onClick={() => setNewName(sharedMerchant)}
               disabled={renaming}
-              className="mt-2 text-xs text-blue-700 dark:text-blue-400 hover:underline disabled:opacity-50"
+              /* Link-shaped but it navigates nowhere — it fills the field above.
+                 The underline is the affordance; the colour was borrowed
+                 (stock-blue ruling, 28 Aug 2026). */
+              className="mt-2 text-xs text-gray-700 dark:text-gray-300 hover:underline disabled:opacity-50"
             >
               use {sharedMerchant}
             </button>

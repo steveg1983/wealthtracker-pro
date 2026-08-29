@@ -56,7 +56,7 @@ export class LazyErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
           {staleChunk ? (
-            <DownloadIcon className="w-12 h-12 text-blue-600 dark:text-blue-400 mb-4" aria-hidden="true" />
+            <DownloadIcon className="w-12 h-12 text-gray-600 dark:text-gray-400 mb-4" aria-hidden="true" />
           ) : (
             <AlertCircleIcon className="w-12 h-12 text-red-500 mb-4" aria-hidden="true" />
           )}

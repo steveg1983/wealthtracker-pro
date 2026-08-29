@@ -185,7 +185,9 @@ export default function BulkEditPanel({
           <div className="space-y-3">
             <button
               onClick={() => setShowPreview(!showPreview)}
-              className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400 hover:text-blue-800"
+              /* A disclosure toggle goes nowhere, so it is not a link (ruling,
+                 28 Aug 2026): neutral ink that firms up on hover. */
+              className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
             >
               <EyeIcon size={16} />
               {showPreview ? 'Hide' : 'Show'} preview of changes

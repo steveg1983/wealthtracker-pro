@@ -599,17 +599,17 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
             </div>
             
             {/* Info Box */}
-            <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="mt-6 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
               <div className="flex items-start gap-3">
-                <InfoIcon className="text-blue-700 dark:text-blue-400 mt-0.5" size={20} />
+                <InfoIcon className="text-gray-500 dark:text-gray-400 mt-0.5" size={20} />
                 <div className="text-sm">
-                  <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-1">
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
                     About OFX Files
                   </h4>
-                  <p className="text-blue-800 dark:text-blue-200 mb-2">
+                  <p className="text-gray-800 dark:text-gray-200 mb-2">
                     OFX (Open Financial Exchange) files contain standardized financial data exported from banks and credit card companies.
                   </p>
-                  <ul className="text-blue-700 dark:text-blue-300 space-y-1">
+                  <ul className="text-gray-700 dark:text-gray-300 space-y-1">
                     {/* The old bullet promised detection "using transaction IDs",
                         and that is exactly all it did — so every row that arrived
                         from a bank feed, from Money or by hand, none of which
@@ -659,14 +659,17 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
               </label>
 
               {parseResult.matchedAccount ? (
-                <div className="p-4 mb-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                /* A match that worked is a settled state and needs no colour;
+                   the amber sibling below is the one that wants attention
+                   (stock-blue ruling, 28 Aug 2026). */
+                <div className="p-4 mb-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div className="flex items-start gap-3">
-                    <LinkIcon className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
+                    <LinkIcon className="text-gray-600 dark:text-gray-400 mt-0.5" size={20} />
                     <div>
-                      <p className="font-medium text-blue-900 dark:text-blue-300">
+                      <p className="font-medium text-gray-900 dark:text-gray-100">
                         Automatically matched to: {parseResult.matchedAccount.name}
                       </p>
-                      <p className="text-sm text-blue-800 dark:text-blue-200 mt-1">
+                      <p className="text-sm text-gray-800 dark:text-gray-200 mt-1">
                         {parseResult.matchConfidence === 'identifier'
                           ? `Its recorded bank details are the ones in this file (account ending ${fileLastFour}).`
                           : `A best guess from the account's name and type — nothing recorded on your accounts matches account ending ${fileLastFour}, so check this is right.`}

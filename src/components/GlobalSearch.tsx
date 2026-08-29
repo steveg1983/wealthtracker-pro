@@ -337,7 +337,12 @@ const GlobalSearch = forwardRef<GlobalSearchHandle, GlobalSearchProps>(
                   <button
                     type="button"
                     onClick={handleSeeAll}
-                    className="w-full px-4 py-2.5 text-left text-sm font-medium text-[#1a2332] dark:text-blue-300 hover:bg-[#c5cfdf] dark:hover:bg-gray-700/70 transition-colors"
+                    // This one NAVIGATES — it hands the reader to Find — so it
+                    // takes the app's own navigation ink, whose dark
+                    // counterpart index.css already provides. Its hover is a
+                    // ground, as on every other row in this list, so there is
+                    // no hover ink to state (stock-blue ruling, 28 Aug 2026).
+                    className="w-full px-4 py-2.5 text-left text-sm font-medium text-primary hover:bg-[#c5cfdf] dark:hover:bg-gray-700/70 transition-colors"
                   >
                     See all {resultCount} result{resultCount !== 1 ? 's' : ''} in Find
                   </button>

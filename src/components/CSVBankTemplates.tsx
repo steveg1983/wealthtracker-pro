@@ -126,9 +126,16 @@ export default function CSVBankTemplates({
                         // account rows — an element selector cannot be beaten
                         // by `block` on the children, only by stating the
                         // direction on the flex container itself.
+                        // The selected tile takes the app's selection tokens
+                        // (stock-blue ruling, 28 Aug 2026): `ring-primary`,
+                        // which index.css turns to the ruled #94a3b8 on dark.
+                        // The wash needs its own dark value because
+                        // `--color-primary` does not invert — and it has to be
+                        // a step ABOVE the unselected gray-700, or selected and
+                        // unselected would paint the same on dark.
                         className={`w-full flex flex-col items-start text-left px-3 py-2 rounded-lg transition-colors ${
                           isSelected
-                            ? 'bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-400'
+                            ? 'bg-primary/10 dark:bg-gray-600 ring-1 ring-primary'
                             : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
                         }`}
                       >

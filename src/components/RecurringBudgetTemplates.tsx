@@ -74,7 +74,12 @@ export default function RecurringBudgetTemplates() {
         name: categoryName,
         amount: budget.amount,
         categoryIds: [budget.categoryId],
-        color: '#3B82F6', // Default color
+        // The dot beside each item's name. Every item gets this same value, so
+        // the colour distinguishes nothing — it was the stock blue spent on a
+        // resting state (ruling, 28 Aug 2026). The app's slate instead: one
+        // literal, and it has to read on both grounds because this is an inline
+        // style with no dark counterpart available to it.
+        color: '#94a3b8',
         priority: 'medium' as const
       };
     });
@@ -364,7 +369,7 @@ export default function RecurringBudgetTemplates() {
                 className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm ${
                   applyingTemplateId !== null
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-primary-action text-on-primary-action hover:bg-primary-action-hover'
                 }`}
               >
                 <PlayIcon size={14} />
@@ -470,12 +475,12 @@ export default function RecurringBudgetTemplates() {
                 </select>
               </div>
 
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Template Preview</h4>
-                <p className="text-sm text-blue-800 dark:text-blue-200">
+              <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Template Preview</h4>
+                <p className="text-sm text-gray-800 dark:text-gray-200">
                   This template will include {budgets.length} budget items with a total of {formatCurrency(budgets.reduce((sum, b) => sum.plus(toDecimal(b.amount)), toDecimal(0)))}
                 </p>
-                <p className="mt-2 text-xs text-blue-800 dark:text-blue-200">
+                <p className="mt-2 text-xs text-gray-800 dark:text-gray-200">
                   Applying a template sets the amount for the categories it names. Budgets for other
                   categories are left untouched.
                 </p>

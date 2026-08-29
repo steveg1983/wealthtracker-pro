@@ -119,6 +119,98 @@ const CLOUD_IMPORTS = [
  */
 const DATA_LAYER_ONLY = ['**/services/preferencesService', '**/preferencesService']
 
+// ────────────────────────────────────────────────────────────────────────────
+// THE STOCK BLUE. A rule, because five sweeps were not enough.
+//
+// Claude Design's ruling of 28 August 2026: **the stock blue is retired; links
+// keep it, nothing else does.** The colour is roughly #2563eb — Tailwind
+// `blue-600` — and it is in no palette this app owns.
+//
+// What made it a RULE rather than a sixth cleanup is its history. It had
+// already been ruled on individually five times: the dark-mode primaries, the
+// progress fills, the ToggleSwitch track, the two donut legend labels, and then
+// 7,240 reconciliation chips. Four of those five were invisible on the ground
+// they broke. A colour that comes back five times is not an oversight, it is a
+// missing rule — the same conclusion the `!important` globals reached, where
+// the fault was never the instance but that nothing prevented the next one.
+//
+// The question that decides the shape of the fix: once the hits are cleared, is
+// there any legitimate reason for a stock Tailwind blue to enter this codebase
+// again? Outside a link, no. So the rule bans the colour everywhere and
+// `src/design-system/linkBlue.ts` is the single exemption — one file, which
+// owns `LINK_CLASS` and says in its header what a link is. A rule that fails
+// the build costs one commit; a sweep that has to be repeated has cost five.
+//
+// WHAT REPLACES IT, so the error message can say so: the `primary-action` token
+// pair for the press being invited, `#94a3b8` (`border-primary` / `ring-primary`,
+// which index.css remaps under `.dark`) for selected and on states, and NOTHING
+// for a resting state — colour marks what needs attention, and a zero, a count,
+// a settled row and a success need none.
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A Tailwind blue UTILITY, in any variant stack.
+ *
+ * Anchored on the utility root rather than on `blue-` alone, so that a palette
+ * declaration (`blue: { 500: '#3b82f6' }` in `tokens.ts`) and a measurement
+ * table (`tailwindColors.blue[600]` in the contrast checker) are not swept up
+ * with the class names. Those files DEFINE the scale; nothing is painted by
+ * them. The preceding-character class covers the three places a utility can
+ * start: the beginning of the string, after a space in a class list, and after
+ * the colon of a variant (`dark:`, `hover:`, `focus-visible:`, `md:`).
+ *
+ * THE SIDE SUFFIXES ARE NOT DECORATION EITHER. `border-l-blue-500` is a
+ * different class from `border-blue-500`, and the first version of this pattern
+ * matched only the second — a `border-l-blue-500` rail in `SpendingAlerts.tsx`
+ * passed lint while the sweep was actively removing its siblings. One optional
+ * group per family that has sides, which is `border` and `divide`.
+ */
+const STOCK_BLUE_UTILITY =
+  '(^|[\\s:])(bg|text|border(-[trblxyse])?|ring(-offset)?|divide-[xy]|from|via|to|fill|stroke|decoration|outline|shadow|placeholder|accent|caret)-blue-[0-9]'
+
+/**
+ * …and the same colour spelled out, which is how a class-name rule gets routed
+ * around: `dark:bg-[#2563eb]` is `dark:bg-blue-600` with the lint rule filed
+ * off. These are Tailwind's blue-400 → blue-900 ramp plus its tints.
+ */
+const STOCK_BLUE_HEX =
+  '#(2563eb|3b82f6|1d4ed8|60a5fa|93c5fd|bfdbfe|dbeafe|eff6ff|1e40af|1e3a8a|172554)'
+
+
+const STOCK_BLUE_MESSAGE =
+  'The stock blue is retired (Claude Design, 28 August 2026). Links keep it and nothing else ' +
+  'does — and the one link colour lives in src/design-system/linkBlue.ts, so import LINK_CLASS ' +
+  'rather than spelling it again. Everything else has an answer already: a primary button takes ' +
+  '`bg-primary-action text-on-primary-action hover:bg-primary-action-hover` (ground-aware, one ' +
+  'trio for both themes); a selected or on state takes `border-primary` / `ring-primary`, which ' +
+  'index.css remaps to #94a3b8 on dark; a progress fill takes `bg-navy-400 dark:bg-primary-action`; ' +
+  'a focus ring takes NOTHING, because this app has one, declared globally. And if what you are ' +
+  'colouring is a resting state — a zero, a count, a settled row, a success — the answer is no ' +
+  'colour at all. This ruling had to be made five times before it became a rule; please do not ' +
+  'make it six.'
+
+/**
+ * The selectors, as one list.
+ *
+ * Both node types are needed and for the same reason twice: `className="…"` and
+ * `className={'…'}` are `Literal`s, while `` className={`… ${x}`} `` puts the
+ * static half in `TemplateElement`s that a `Literal` selector never sees. The
+ * blues that survived the earlier sweeps were disproportionately in template
+ * literals, because that is where the conditional — the selected state, the
+ * dark variant — gets written.
+ *
+ * CASE-INSENSITIVE, and that flag is not decoration. Without it the hex half
+ * read only lower case, and the sweep of 29 August found five `'#3B82F6'`
+ * literals in `pages/settings/Tags.tsx` sitting a single shift key away from
+ * the rule — passing lint while spelling the exact colour it bans. A rule that
+ * is satisfied by capitalisation is not a rule; it is a naming convention with
+ * a build failure attached.
+ */
+const stockBlueSelectors = (pattern) => [
+  { selector: `Literal[value=/${pattern}/i]`, message: STOCK_BLUE_MESSAGE },
+  { selector: `TemplateElement[value.raw=/${pattern}/i]`, message: STOCK_BLUE_MESSAGE }
+]
+
 /**
  * The whole edition rule for code that only ever runs in a window, given the
  * list of things that code may not reach.
@@ -213,6 +305,63 @@ export default tseslint.config([
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       'no-empty-pattern': 'off'
+    }
+  },
+  // ──────────────────────────────────────────────────────────────────────────
+  // THE STOCK BLUE BAN. See {@link STOCK_BLUE_UTILITY} for why it is a rule.
+  //
+  // Class names everywhere under `src/`; the spelled-out hexes everywhere
+  // except the three files whose JOB is to write a colour down. Splitting the
+  // two patterns is what lets `tokens.ts` keep declaring Tailwind's blue ramp
+  // (it is the scale `text-link` is drawn from) while no component may name a
+  // rung of it.
+  // ──────────────────────────────────────────────────────────────────────────
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: [
+      // The one home for the one blue. Its header is the ruling.
+      'src/design-system/linkBlue.ts',
+      // Tests name the colour in order to assert its ABSENCE, and the design
+      // guards measure it. A rule that fires on its own instruments teaches
+      // people to weaken the rule. `src/test/` is the third of those: shared
+      // fixtures and the a11y guards, which is test code that simply does not
+      // live under a `__tests__` directory.
+      '**/__tests__/**',
+      '**/*.test.{ts,tsx}',
+      'src/test/**',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...stockBlueSelectors(STOCK_BLUE_UTILITY),
+        ...stockBlueSelectors(STOCK_BLUE_HEX)
+      ]
+    }
+  },
+  {
+    // THE THREE FILES THAT WRITE A COLOUR DOWN AS DATA keep the hex half only.
+    //
+    // `tokens.ts` DECLARES Tailwind's blue ramp — it is the scale the link
+    // colour is drawn from; `accessible-colors.ts` records measured ratios
+    // against it; `color-contrast-checker.ts` is the instrument that measures.
+    // None of the three paints anything, and a rule that stopped the app from
+    // stating what #2563eb is would have stopped it measuring the colour it
+    // just banned.
+    //
+    // The UTILITY half still applies to all three, and that is the important
+    // half: `accessible-colors.ts` is exactly where a `'bg-blue-600'` string
+    // would go unnoticed — it had one, as `btn-primary`, until this sweep.
+    //
+    // Restated in full rather than spread by `off`, because flat config takes
+    // the LAST matching block's value for a rule: half a rule here would be no
+    // rule here.
+    files: [
+      'src/design-system/tokens.ts',
+      'src/design-system/accessible-colors.ts',
+      'src/utils/color-contrast-checker.ts'
+    ],
+    rules: {
+      'no-restricted-syntax': ['error', ...stockBlueSelectors(STOCK_BLUE_UTILITY)]
     }
   },
   // ──────────────────────────────────────────────────────────────────────────

@@ -1465,7 +1465,12 @@ function AccountsList() {
         // row rather than at the top of the list — see `registerLinkState`.
         { state: registerLinkState(account.id) }
       )}
-      className={`p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg relative group ${ROW_ACTION_REVEAL_CLASS}`}
+      /* A routine row action, so it wears the routine row action's ink — the
+         same neutral pair the Settings glyph beside it carries. The amber
+         reconnect and the red delete keep their hues because those two are the
+         ones that mean something; a stock blue on Reconcile meant only that a
+         colour was going spare (stock-blue ruling, 28 Aug). */
+      className={`p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg relative group ${ROW_ACTION_REVEAL_CLASS}`}
       title={`Reconcile ${account.name}`}
       aria-label={`Reconcile ${account.name}`}
     >
@@ -1658,8 +1663,23 @@ function AccountsList() {
                                      lets these read as what they are: words in a
                                      sentence. `min-h-0` for the same reason the row's
                                      name link carries it — the touch block floors every
-                                     button at 44px, which would space these out. */
-                                  className="inline text-left underline decoration-dotted underline-offset-2 hover:text-blue-600 dark:hover:text-blue-400 min-h-0"
+                                     button at 44px, which would space these out.
+
+                                     THE DOTTED UNDERLINE IS THE LINK. These
+                                     navigate, and the ruling's answer for in-app
+                                     navigation is the pair `text-primary
+                                     hover:text-secondary` — but this one
+                                     deliberately declines a resting colour (it
+                                     is a word inside a grey caption, and
+                                     `.text-primary` carries `!important`), and
+                                     the hover half cannot be taken alone because
+                                     `.dark .text-secondary`'s lift lives on the
+                                     resting class. Exactly the case
+                                     AccountRowColumns' name link already ruled
+                                     on. So the hover is the same neutral
+                                     emphasis this page's row glyphs use, and the
+                                     stock blue is gone (28 Aug). */
+                                  className="inline text-left underline decoration-dotted underline-offset-2 hover:text-gray-700 dark:hover:text-gray-200 min-h-0"
                                   title={`Go to ${target.name}`}
                                 >
                                   {target.name}
@@ -1805,7 +1825,9 @@ function AccountsList() {
                                       variant="ghost"
                                       size="md"
                                       disabled={syncing}
-                                      className="text-gray-500 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 min-w-[48px] min-h-[48px]"
+                                      /* Routine ink, as Settings and Reconcile
+                                         wear it (stock-blue ruling, 28 Aug). */
+                                      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 min-w-[48px] min-h-[48px]"
                                       title="Sync bank data"
                                     />
                                     <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
@@ -2028,8 +2050,11 @@ function AccountsList() {
                                      lets these read as what they are: words in a
                                      sentence. `min-h-0` for the same reason the row's
                                      name link carries it — the touch block floors every
-                                     button at 44px, which would space these out. */
-                                  className="inline text-left underline decoration-dotted underline-offset-2 hover:text-blue-600 dark:hover:text-blue-400 min-h-0"
+                                     button at 44px, which would space these out.
+                                     Dotted underline is the link and the hover is
+                                     colourless — see the "Secured against" twin
+                                     above for the whole argument. */
+                                  className="inline text-left underline decoration-dotted underline-offset-2 hover:text-gray-700 dark:hover:text-gray-200 min-h-0"
                               title={`Go to ${liability.name}`}
                             >
                               {liability.name}

@@ -252,8 +252,11 @@ function ConflictDetail({ conflict, onResolve, onBack }: ConflictDetailProps): R
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="space-y-4">
             <h3 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-              <span className="text-blue-500">Local Version</span>
-              <span className="text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+              {/* Neither side is the one to worry about — the two headings wore
+                  two indistinguishable blues, which encoded nothing. The words
+                  are what tell the sides apart (stock-blue ruling, 28 Aug 2026). */}
+              <span className="text-gray-900 dark:text-white">Local Version</span>
+              <span className="text-xs bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200 px-2 py-1 rounded">
                 Your Changes
               </span>
             </h3>
@@ -262,8 +265,8 @@ function ConflictDetail({ conflict, onResolve, onBack }: ConflictDetailProps): R
 
           <div className="space-y-4">
             <h3 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-              <span className="text-blue-600">Server Version</span>
-              <span className="text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+              <span className="text-gray-900 dark:text-white">Server Version</span>
+              <span className="text-xs bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200 px-2 py-1 rounded">
                 Latest from Server
               </span>
             </h3>

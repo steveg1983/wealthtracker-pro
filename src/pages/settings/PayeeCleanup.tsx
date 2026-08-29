@@ -153,14 +153,18 @@ const SuggestionRow = React.memo(function SuggestionRow({
         // scrolls: an outset focus ring would be clipped by the overflow.
         className={`w-full flex items-baseline gap-3 px-3 py-2 text-left text-xs transition-colors ${
           active
-            ? 'bg-blue-50 text-blue-900 dark:bg-blue-900/40 dark:text-blue-100'
+            // The selected wash is the house pair (stock-blue ruling, 28 Aug
+            // 2026): brand navy at a tenth on light, and a lifted grey surface
+            // on dark, where a tenth of a near-black navy is no wash at all.
+            // The same two ACCOUNT_ROW_SELECTED_CLASS wears.
+            ? 'bg-primary/10 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100'
             : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
         }`}
       >
         <span className="truncate font-medium" title={cluster.key}>{cluster.key}</span>
         <span
           className={`ml-auto shrink-0 tabular-nums ${
-            active ? 'text-blue-800 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400'
+            active ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500 dark:text-gray-400'
           }`}
         >
           {cluster.members.length.toLocaleString()} payees ·{' '}
@@ -829,12 +833,15 @@ export default function PayeeCleanup(): React.JSX.Element {
           {/* The refusals live here rather than on the rows: the decision only
               makes sense once the payees behind the guess are on screen. */}
           {activeCluster !== null && (
-            <div className="mt-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-900/20 px-3 py-2">
+            /* Neutral, not blue: this panel restates what the suggestion IS so
+               the two refusals below it can be told apart. It is not a warning
+               and it is not a link (stock-blue ruling, 28 Aug 2026). */
+            <div className="mt-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-3 py-2">
               <div className="flex flex-wrap items-center gap-3">
                 {/* What the SUGGESTION is, not what is ticked: the user is
                     free to untick rows, and this line must stay true when they
                     do. */}
-                <p className="text-sm text-blue-900 dark:text-blue-200">
+                <p className="text-sm text-gray-900 dark:text-gray-200">
                   <strong>{activeCluster.key}</strong> — {activeCluster.members.length.toLocaleString()}{' '}
                   payee{activeCluster.members.length === 1 ? '' : 's'},{' '}
                   {activeCluster.transactionCount.toLocaleString()} transaction
@@ -843,7 +850,7 @@ export default function PayeeCleanup(): React.JSX.Element {
                 <button
                   type="button"
                   onClick={() => refuseMerchant(activeCluster)}
-                  className="ml-auto px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                  className="ml-auto px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   Not the same merchant
                 </button>
@@ -851,7 +858,7 @@ export default function PayeeCleanup(): React.JSX.Element {
               {/* Three refusals, three consequences, said in the order they
                   narrow: the user has to be able to tell which one they are
                   invoking without learning any vocabulary. */}
-              <p className="mt-1 text-xs text-blue-800/80 dark:text-blue-300/80">
+              <p className="mt-1 text-xs text-gray-800/80 dark:text-gray-300/80">
                 Only some of them belong together? <strong>Leave out</strong> beside a payee keeps
                 just that one out of this grouping. <strong>Not the same merchant</strong> drops the
                 whole grouping. Both leave every payee in the list below — to take payees off this
@@ -1014,9 +1021,11 @@ export default function PayeeCleanup(): React.JSX.Element {
             sortDirection={sortDirection}
             className="h-full"
             // A ticked row drops its zebra stripe, so it needs a colour of its
-            // own or selection becomes invisible while scrolling.
+            // own or selection becomes invisible while scrolling. The house
+            // selected pair, not a stock blue (ruling, 28 Aug 2026): navy at a
+            // tenth on light, a lifted grey surface on dark.
             rowClassName={(payee: PayeeSummary) =>
-              selected.has(payee.description) ? 'bg-blue-50 dark:bg-blue-900/30' : ''
+              selected.has(payee.description) ? 'bg-primary/10 dark:bg-gray-700/50' : ''
             }
             // Three different nothings, and they are not interchangeable
             // (DESIGN_PASS §4): a ledger with no payees in it yet, a list whose

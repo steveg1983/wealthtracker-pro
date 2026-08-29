@@ -42,6 +42,37 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
 
 const FILES = sourceFiles(SRC);
 const CSS = readFileSync(join(SRC, 'index.css'), 'utf8');
+const TAILWIND_CONFIG = readFileSync(join(process.cwd(), 'tailwind.config.js'), 'utf8');
+
+/**
+ * How a colour token is DECLARED in `tailwind.config.js`, or `null` if there is
+ * no such top-level colour.
+ *
+ * Read as text, the way `semantic-contrast.test.ts` reads the same file two
+ * directories over: an instrument that parses the same characters the build
+ * parses cannot drift from it, and a `.js` config has no types to import.
+ *
+ * ANCHORED ON THE INDENT, and that is the fiddly part worth stating. The colour
+ * map's own entries sit at eight spaces (`primary:`, `secondary:`); the nested
+ * groups' entries sit deeper (`surface.tertiary:` at ten). Matching anywhere
+ * would let `surface`'s `tertiary` answer for a top-level `tertiary` that does
+ * not exist — a wrong reading that happens to give the right verdict today, and
+ * would give the wrong one the moment `surface.tertiary` changed shape. The
+ * non-vacuity test below fails if a reformat moves the map.
+ */
+function tokenDeclaration(token: string): string | null {
+  const match = TAILWIND_CONFIG.match(new RegExp(`^ {8}'?${token}'?:\\s*(.+?),\\s*$`, 'm'));
+  return match === null ? null : match[1];
+}
+
+/** Can `bg-${token}/50` compose an alpha, or does it emit nothing at all? */
+function carriesAlpha(token: string): boolean {
+  const declaration = tokenDeclaration(token);
+  return declaration !== null && declaration.includes('<alpha-value>');
+}
+
+/** The tokens this file's opacity rule was written about. */
+const ALPHA_CANDIDATES = ['primary', 'secondary', 'tertiary'] as const;
 
 /**
  * Comments blanked, line numbers preserved.
@@ -79,12 +110,52 @@ describe('dark-mode colours that silently do not apply', () => {
     expect(hits, `These classes emit no CSS:\n${hits.join('\n')}`).toEqual([]);
   });
 
-  it('never puts an opacity on a bare CSS variable', () => {
-    // `bg-primary/20`, `text-primary/70`. Tailwind cannot compose an alpha
-    // with `var(--x)`, so the whole declaration is dropped. The app's own
-    // `nav-bg` tokens are the supported way to ask for this.
-    const hits = findInSource(/\b(?:dark:)?(?:bg|text|border)-(?:primary|secondary|tertiary)\/\d+/);
-    expect(hits, `These emit no CSS (opacity on a bare var()):\n${hits.join('\n')}`).toEqual([]);
+  it('can still find the colour map it reads the alpha rule out of', () => {
+    // Non-vacuity for the assertion below, and the reason it is a test of its
+    // own: the indent anchor in `tokenDeclaration` is the fragile part, and if
+    // a reformat moved the map every token would read as "declares no
+    // <alpha-value>" and the ban would silently widen to cover the tokens the
+    // app now depends on. A guard that derives its own rule has to prove it
+    // can still read the source of it.
+    expect(tokenDeclaration('primary')).toContain('<alpha-value>');
+    expect(tokenDeclaration('secondary')).toContain('<alpha-value>');
+    // …and one that genuinely is not a top-level colour, so the filter has
+    // something to catch and the alternation is never empty.
+    expect(tokenDeclaration('tertiary')).toBeNull();
+  });
+
+  it('never puts an opacity on a token that cannot carry one', () => {
+    // `bg-primary/20`, `text-primary/70`. Tailwind cannot compose an alpha with
+    // a bare `var(--x)`, so the whole declaration is dropped.
+    //
+    // WHICH TOKENS THOSE ARE IS READ, NOT REMEMBERED — updated 29 Aug 2026, and
+    // the reason for the change is the whole point of writing it this way. This
+    // assertion used to name `primary|secondary|tertiary` as a fixed list, and
+    // by the time the stock-blue sweep needed `bg-primary/10` for a selected
+    // state that list had been wrong for months: `tailwind.config.js` had
+    // already moved both live tokens to `rgb(var(--…-rgb) / <alpha-value>)`,
+    // which is precisely the form that DOES compose an alpha. Measured before
+    // changing anything — `npx tailwindcss` on a stub emits
+    // `.bg-primary\/10 { background-color: rgb(var(--color-primary-rgb, 26 35 50) / 0.1) }`.
+    //
+    // A guard that remembers a fact outlives the fact. This one derives it, so
+    // reverting the alpha-value placeholder re-arms the ban by itself, and
+    // `tertiary` — which is not a top-level colour at all, so an opacity on it
+    // composes nothing — is caught for the right reason rather than by name.
+    const cannotCarryAlpha = ALPHA_CANDIDATES.filter(token => !carriesAlpha(token));
+
+    // The list must never be empty by accident: an empty alternation matches
+    // everything, so a `(?:)` here would fail on every colour utility in the
+    // app. Nothing to ban is a pass, and today `tertiary` keeps it non-empty.
+    if (cannotCarryAlpha.length === 0) return;
+
+    const hits = findInSource(
+      new RegExp(`\\b(?:dark:)?(?:bg|text|border)-(?:${cannotCarryAlpha.join('|')})\\/\\d+`)
+    );
+    expect(
+      hits,
+      `These emit no CSS (opacity on a token with no <alpha-value>: ${cannotCarryAlpha.join(', ')}):\n${hits.join('\n')}`
+    ).toEqual([]);
   });
 
   it('gives every !important colour utility a dark-mode counterpart', () => {

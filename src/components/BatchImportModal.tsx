@@ -197,7 +197,7 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
               {/* What pressing Start actually does, said before it happens. The
                   one-file-at-a-time dialogs are the point of this screen, not a
                   detail of it, so nobody should meet the first one by surprise. */}
-              <div className="mt-6 flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
+              <div className="mt-6 flex items-start gap-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 text-sm text-gray-800 dark:text-gray-200">
                 <AlertCircleIcon size={18} className="mt-0.5 flex-shrink-0" />
                 <p>
                   Each file opens in its own importer, one after another — the same
@@ -347,7 +347,10 @@ function BatchSummary({ queue }: { queue: QueuedFile[] }): React.JSX.Element {
   return (
     <div>
       <div className="text-center mb-6">
-        <CheckIcon size={40} className="mx-auto text-blue-600 dark:text-blue-400 mb-3" />
+        {/* The tick that says the run finished takes the app's success token,
+            not a stock blue (ruling, 28 Aug 2026 — same answer as
+            OFXImportModal's completed import). */}
+        <CheckIcon size={40} className="mx-auto text-green-700 dark:text-green-400 mb-3" />
         {/* Counts only the files that were opened, because that is the only
             number this screen is entitled to. The ones it could not read are
             named in the list below and again underneath it — never folded into

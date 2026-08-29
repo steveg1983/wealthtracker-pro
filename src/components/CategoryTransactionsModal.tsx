@@ -382,7 +382,13 @@ export default function CategoryTransactionsModal({
                           <span className="block font-medium text-gray-900 dark:text-white">
                             {transaction.description}
                             {transaction.isSplitLine && (
-                              <span className="ml-2 align-middle text-xs font-medium italic text-blue-600 dark:text-blue-400">
+                              /* "split" describes a settled row rather than
+                                 asking for anything, so it takes no colour
+                                 (ruling, 28 Aug 2026). Dark is gray-300, not
+                                 the status pair's gray-400: this row's ground
+                                 is a gray-700 card, where gray-400 measures
+                                 3.9:1 and this text is xs. */
+                              <span className="ml-2 align-middle text-xs font-medium italic text-gray-600 dark:text-gray-300">
                                 split
                               </span>
                             )}

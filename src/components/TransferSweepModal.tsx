@@ -649,7 +649,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
         title={accountIsOpen
           ? 'Open the transaction this line belongs to'
           : 'This account is closed — click to re-open it and view the transaction'}
-        className="flex flex-col items-start text-left rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-900/10 p-4 transition-all hover:border-primary hover:shadow-md cursor-pointer"
+        className="flex flex-col items-start text-left rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 p-4 transition-all hover:border-primary hover:shadow-md cursor-pointer"
       >
         <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">
           One line of a split
@@ -664,7 +664,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
           {new Date(parent.date).toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'long', year: 'numeric' })}
         </p>
-        <p className="mt-2 text-xs font-medium text-blue-700 dark:text-blue-300">
+        <p className="mt-2 text-xs font-medium text-gray-700 dark:text-gray-300">
           {formatCurrency(Math.abs(split.amount))} of the {formatCurrency(Math.abs(parent.amount))} in this split,
           {' '}moving to {accountName(leg.candidate.accountId)}
         </p>
@@ -862,15 +862,18 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                     </tr>
                   ) : (
                     /* A LINE match. Same columns, same ticking, same bulk
-                       apply — with the blue accent and the "split line" badge
+                       apply — with the left rule and the "split line" badge
                        saying that accepting it changes one line inside a
                        transaction, and with the line's own amount against the
                        parent's total, since those two differing is the whole
-                       point of the thing. */
+                       point of the thing. The rule is a neutral: it says which
+                       KIND of row this is, which the badge beside it already
+                       says in words, and a kind is not something to attend to
+                       (stock-blue ruling, 28 Aug 2026). */
                     <tr
                       key={row.key}
                       onClick={() => setInspectingLeg(row.leg)}
-                      className="border-b border-gray-50 dark:border-gray-700/50 border-l-2 border-l-blue-400 dark:border-l-blue-500 bg-blue-50/30 dark:bg-blue-900/10 cursor-pointer hover:bg-blue-50/60 dark:hover:bg-blue-900/20 transition-colors"
+                      className="border-b border-gray-50 dark:border-gray-700/50 border-l-2 border-l-gray-300 dark:border-l-gray-600 bg-gray-50 dark:bg-gray-700/30 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
                       title="See this split line and its match"
                     >
                       <td className="py-2 pl-1" onClick={(e) => e.stopPropagation()}>
@@ -900,7 +903,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                           </span>
                         </span>
                         <span
-                          className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200"
+                          className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200"
                           title="One line of a split transaction — not the whole row"
                         >
                           split line

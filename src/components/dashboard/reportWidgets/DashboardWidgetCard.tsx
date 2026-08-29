@@ -41,7 +41,11 @@ export default function DashboardWidgetCard({
         className={`flex items-center gap-2 text-left group ${subtitle === undefined ? 'mb-2' : 'mb-1'}`}
         title="Open the full report"
       >
-        <span className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+        {/* The hover is an underline and nothing else. The title is the way
+            into the full report, but it declines a resting colour — it is the
+            card's heading first — and an underline IS the link (stock-blue
+            ruling, 28 Aug 2026; same answer as ACCOUNT_ROW_NAME_LINK_CLASS). */}
+        <span className="text-sm font-semibold text-gray-900 dark:text-white group-hover:underline transition-colors">
           {title}
         </span>
         <ChevronRightIcon size={14} className="text-gray-400 ml-auto" aria-hidden="true" />

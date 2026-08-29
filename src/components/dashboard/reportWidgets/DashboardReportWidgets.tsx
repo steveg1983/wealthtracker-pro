@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 import { useApp } from '../../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../../hooks/useCurrencyDecimal';
-import { categoricalColor, MAX_CATEGORICAL_SERIES, useCategoricalRamp, SEMANTIC_SERIES, useChartTooltipStyle, useChartTooltipItemStyle } from '../../charts/chartColors';
+import { categoricalColor, categoricalRamp, MAX_CATEGORICAL_SERIES, useCategoricalRamp, useIsDarkGround, SEMANTIC_SERIES, useChartTooltipStyle, useChartTooltipItemStyle } from '../../charts/chartColors';
 import { lineMarkers, seriesWash, seriesWashFill } from '../../charts/richLine';
 import { buildMonthlyTrend } from '../../../utils/monthlyTrend';
 import { buildNetWorthSnapshots, netWorthAxisTicks, netWorthPointToken, netWorthValueAxis } from '../../../utils/netWorthSeries';
@@ -106,8 +106,10 @@ export function NetWorthWidget({ picker, pin }: {
    * ramp's most prominent step, and then it moves with the ramp instead of
    * needing its own dark-mode remembering.
    */
-  const ramp = useCategoricalRamp();
-  const lineStroke = categoricalColor(ramp, 0);
+  // ONE reading of the ground per render: the stroke comes from it and so does
+  // the wash's strength, so the two cannot disagree about the theme.
+  const isDark = useIsDarkGround();
+  const lineStroke = categoricalColor(categoricalRamp(isDark), 0);
 
   /**
    * OPEN AND CLOSED. This card draws the same series as the full report and
@@ -196,7 +198,7 @@ export function NetWorthWidget({ picker, pin }: {
               if (snapshot) open(netWorthPointToken(snapshot.date));
             }}
           >
-            {seriesWash(NET_WORTH_CHART_KEY, lineStroke)}
+            {seriesWash(NET_WORTH_CHART_KEY, lineStroke, isDark)}
             {/* Years for a multi-year window, months within one — the tick
                 format follows the span (Design, 17 Aug §2.3). */}
             <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 10 }} minTickGap={32} {...netWorthAxisTicks(snapshots)} />
@@ -224,7 +226,7 @@ export function NetWorthWidget({ picker, pin }: {
               name="Net Worth"
               stroke={lineStroke}
               strokeWidth={2}
-              fill={seriesWashFill(NET_WORTH_CHART_KEY, lineStroke)}
+              fill={seriesWashFill(NET_WORTH_CHART_KEY, lineStroke, isDark)}
               fillOpacity={1}
               {...lineMarkers(snapshots, lineStroke)}
               isAnimationActive={false}

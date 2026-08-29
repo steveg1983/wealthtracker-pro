@@ -397,7 +397,7 @@ export default function LinkBankAccountsModal({
                           </p>
                         )}
                         {isMatched && selectedId && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 mt-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200 mt-1">
                             Auto-matched
                           </span>
                         )}
@@ -432,7 +432,11 @@ export default function LinkBankAccountsModal({
                       {isMatched && selectedId && (() => {
                         const reason = getMatchReason(da, accounts);
                         return reason ? (
-                          <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
+                          /* The app filling a field in for you is a
+                             convenience, not something to attend to — it says
+                             so in the same voice as the label above it
+                             (stock-blue ruling, 28 Aug 2026). */
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                             Matched: {reason}
                           </p>
                         ) : null;

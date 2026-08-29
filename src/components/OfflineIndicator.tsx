@@ -39,7 +39,10 @@ export default function OfflineIndicator(): React.JSX.Element | null {
         className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
           isOffline
             ? 'bg-orange-500 text-white'
-            : 'bg-blue-600 text-white'
+            /* "Back online" is the app's it-worked message, so it takes the
+               established success green rather than a stock blue that only ever
+               meant "some other state" (stock-blue ruling, 28 Aug 2026). */
+            : 'bg-green-700 text-white'
         }`}
       >
         {isOffline ? (

@@ -1148,7 +1148,13 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   const colors = {
                     income: isActive ? 'bg-white dark:bg-gray-600 text-green-600 dark:text-green-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-green-600',
                     expense: isActive ? 'bg-white dark:bg-gray-600 text-red-600 dark:text-red-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-red-600',
-                    transfer: isActive ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-blue-600',
+                    // Green and red here are the app's money-sign law: in, and
+                    // out. A transfer is the one type where nothing enters or
+                    // leaves the household, so it is not a third hue in that
+                    // family — it is the case that needs no colour at all
+                    // (stock-blue ruling, 28 Aug 2026). Emphatic neutral still
+                    // says which of the three is chosen.
+                    transfer: isActive ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white',
                   };
                   return (
                     <button
@@ -1345,7 +1351,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                       a row in another account — so the fix is to say so, in the
                       gap between them, rather than to make one of them lie. */}
                   {pendingRepointName && (
-                    <p className="mt-2 text-xs text-blue-700 dark:text-blue-400">
+                    <p className="mt-2 text-xs text-gray-700 dark:text-gray-300">
                       Saving moves this transfer to {pendingRepointName}. Its other half goes with
                       it, unless it looks like a real transaction — then you will be asked what to
                       do with it first.
@@ -1481,7 +1487,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                               (or arriving from) a named account, not a category
                               — and exactly what saving will do about it. */}
                           {line.transferAccountId && (
-                            <p className="flex items-center gap-1.5 pl-1 text-xs text-blue-700 dark:text-blue-400">
+                            <p className="flex items-center gap-1.5 pl-1 text-xs text-gray-700 dark:text-gray-300">
                               <ArrowRightLeftIcon size={12} />
                               <span>
                                 {lockedLeg
@@ -1612,7 +1618,11 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   onChange={(e) => updateField('cleared', e.target.checked)}
                   className="rounded border-gray-300 dark:border-gray-600"
                 />
-                <CheckIcon2 size={16} className="text-blue-600 dark:text-blue-400" />
+                {/* Every icon in this Status column marks a SETTLED fact about
+                    the row — marked, linked, a transfer, a commitment. None of
+                    them asks for anything, so none of them takes colour
+                    (stock-blue ruling, 28 Aug 2026). */}
+                <CheckIcon2 size={16} className="text-gray-600 dark:text-gray-400" />
                 {/* "Marked", not "Reconciled": this box writes the WORKING flag
                     (Money's C), the same one the register's Space key and the
                     reconciliation checkbox write. Only finalizing a
@@ -1630,7 +1640,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   disabled
                   className="rounded border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <LinkIcon size={16} className="text-blue-700 dark:text-blue-400" />
+                <LinkIcon size={16} className="text-gray-600 dark:text-gray-400" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   Linked to bank statement
                 </span>
@@ -1659,7 +1669,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                     disabled
                     className="rounded border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
-                  <ArrowRightLeftIcon size={16} className="text-blue-700 dark:text-blue-400" />
+                  <ArrowRightLeftIcon size={16} className="text-gray-600 dark:text-gray-400" />
                   <span className="text-sm text-gray-700 dark:text-gray-300">
                     {transaction.linkedTransferId
                       ? (otherSide?.accountName
@@ -1671,7 +1681,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
               )}
 
               {transaction?.reconciledWith && transaction.reconciledWith !== 'manual' && (
-                <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400">
+                <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                   <LinkIcon size={16} />
                   <span>Reconciled with transaction ID: {transaction.reconciledWith}</span>
                 </div>
@@ -1692,7 +1702,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                       onChange={() => void toggleRecurringMark()}
                       className="rounded border-gray-300 dark:border-gray-600 disabled:opacity-50"
                     />
-                    <ClockIcon size={16} className="text-blue-600 dark:text-blue-400" />
+                    <ClockIcon size={16} className="text-gray-600 dark:text-gray-400" />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
                       This is a recurring payment
                     </span>

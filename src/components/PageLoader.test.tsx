@@ -45,7 +45,7 @@ describe('PageLoader', () => {
         'h-12',
         'w-12',
         'border-b-2',
-        'border-blue-600',
+        'border-primary',
         'mx-auto',
         'mb-4'
       );
@@ -58,11 +58,16 @@ describe('PageLoader', () => {
       expect(spinner).toHaveClass('h-12', 'w-12');
     });
 
-    it('has blue border color', () => {
+    // The ring is `border-primary`, not a stock blue (Claude Design's ruling of
+    // 28 Aug 2026, executed 29 Aug). The token is what lets ONE class serve both
+    // grounds: index.css remaps `.dark .border-primary` to #94a3b8, because the
+    // navy that reads on white is invisible on a gray-900 page.
+    it('draws its ring in the app’s own token, not a stock blue', () => {
       render(<PageLoader />);
-      
+
       const spinner = document.querySelector('.animate-spin');
-      expect(spinner).toHaveClass('border-blue-600');
+      expect(spinner).toHaveClass('border-primary');
+      expect(spinner?.className).not.toMatch(/blue/);
     });
 
     it('centers spinner horizontally', () => {
@@ -185,13 +190,15 @@ describe('PageLoader', () => {
       expect(text).toHaveClass('dark:text-gray-400');
     });
 
-    it('spinner color remains consistent in dark mode', () => {
+    it('names ONE ring class and lets the token answer for both grounds', () => {
       render(<PageLoader />);
-      
+
       const spinner = document.querySelector('.animate-spin');
-      // Border color stays blue-600 in both light and dark modes
-      expect(spinner).toHaveClass('border-blue-600');
-      expect(spinner).not.toHaveClass('dark:border-blue-400');
+      // No `dark:` variant here, and that is the point of the token rather than
+      // an omission: `.dark .border-primary` in index.css supplies #94a3b8, so
+      // a second class at this call site would be a colour decision made twice.
+      expect(spinner).toHaveClass('border-primary');
+      expect(spinner?.className).not.toMatch(/dark:border-/);
     });
   });
 

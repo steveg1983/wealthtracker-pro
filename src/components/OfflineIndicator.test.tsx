@@ -159,7 +159,7 @@ describe('OfflineIndicator', () => {
       expect(banner).toHaveClass('bg-orange-500', 'text-white');
     });
 
-    it('shows blue background when back online', () => {
+    it('shows a success background when back online', () => {
       setNavigatorOnline(true);
 
       render(<OfflineIndicator />);
@@ -169,11 +169,15 @@ describe('OfflineIndicator', () => {
       // Then come back online
       triggerOnlineEvent();
 
-      // "Back online" uses the theme accent blue (the app-wide green→blue sweep;
-      // the offline state stays orange, so the two states remain distinct).
-      const banner = screen.getByText('Back online').closest('.bg-blue-600');
+      // "Back online" is the app's it-worked message and wears its green. This
+      // assertion used to read `bg-blue-600`, and its comment named the cause:
+      // "the app-wide green→blue sweep" — the same sweep Claude Design retired
+      // on 28 Aug 2026. The banner has come back to the colour it started in.
+      // green-700 rather than green-500 because the label is hard-coded white.
+      // Offline stays orange, so the two states remain distinct.
+      const banner = screen.getByText('Back online').closest('.bg-green-700');
       expect(banner).toBeInTheDocument();
-      expect(banner).toHaveClass('bg-blue-600', 'text-white');
+      expect(banner).toHaveClass('bg-green-700', 'text-white');
     });
 
     it('displays WiFi off icon when offline', () => {

@@ -258,7 +258,14 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                             <button
                               type="button"
                               onClick={() => setDrillGroup(group)}
-                              className="text-sm text-gray-900 dark:text-white truncate max-w-[220px] lg:max-w-[340px] text-left underline decoration-dotted underline-offset-2 decoration-gray-300 dark:decoration-gray-600 hover:text-blue-700 dark:hover:text-blue-400"
+                              /* The resting ink here is deliberate and not
+                                 blue, so only the hover was (ruling, 28 Aug
+                                 2026). It cannot take `hover:text-secondary`:
+                                 index.css puts that lift on the RESTING class,
+                                 so on dark this name would hover from white to
+                                 navy. The dotted rule underneath is already the
+                                 affordance, so hovering firms it instead. */
+                              className="text-sm text-gray-900 dark:text-white truncate max-w-[220px] lg:max-w-[340px] text-left underline decoration-dotted underline-offset-2 decoration-gray-300 dark:decoration-gray-600 hover:decoration-gray-500 dark:hover:decoration-gray-400"
                               title={`See the ${group.count.toLocaleString()} transactions behind this payee`}
                             >
                               {group.displayName}
@@ -291,7 +298,11 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                               type="button"
                               onClick={() => setChoice(group, group.lastUsedCategoryId as string)}
                               disabled={applying}
-                              className="mt-1 text-xs text-blue-700 dark:text-blue-400 hover:underline disabled:opacity-50"
+                              /* "use last" files a category — it is an action,
+                                 not navigation, so it is not a link however
+                                 like one it reads (ruling, 28 Aug 2026). The
+                                 hover underline is kept as the affordance. */
+                              className="mt-1 text-xs text-gray-700 dark:text-gray-300 hover:underline disabled:opacity-50"
                             >
                               use last: {categoryName(group.lastUsedCategoryId)}
                             </button>

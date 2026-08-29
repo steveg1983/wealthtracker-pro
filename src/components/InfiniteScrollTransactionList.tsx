@@ -19,6 +19,36 @@ const CARD_SKELETON_COLUMNS: TableSkeletonColumn[] = [
 const CARD_HEIGHT = 77;
 
 /**
+ * How many rows a jump towards the growing end takes on each frame.
+ *
+ * STRIDES, NOT ONE LEAP. Setting `displayedItems` straight to
+ * `transactions.length` would render the owner's 1,842 cards in a single
+ * synchronous pass and block the main thread for the whole of it — and a
+ * blocked thread cannot honour the rule this pin is built around, that a
+ * reader who grabs the page mid-flight wins. Ten batches a frame hands the
+ * thread back between each stride, so the release listener still runs, each
+ * stride is bounded work, and his register arrives in nine frames. The
+ * ordinary path would have taken it in 86 batches behind a 300ms delay each:
+ * twenty-six seconds of arriving.
+ *
+ * It is deliberately not a fraction of the total. A register of 11,000 rows
+ * gets more strides rather than bigger ones, because the point of the number
+ * is the size of one frame's work, not the length of the journey.
+ */
+const PINNED_BATCH_SIZE = 200;
+
+/**
+ * The keys that scroll a page, and so mean "I am steering now".
+ *
+ * Space is in here and is also how a button is activated — harmlessly, because
+ * a button fires its click on the key UP, after this listener has already let
+ * go of a pin that was not yet set.
+ */
+const SCROLL_KEYS = new Set([
+  'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '
+]);
+
+/**
  * What the jump button tells a screen reader it does.
  *
  * "Top" and "bottom" are facts about a scrollbar; "newest" and "oldest" are
@@ -148,6 +178,32 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
   const heightBeforeGrowth = useRef<number | null>(null);
   const openedAtEnd = useRef(false);
 
+  // ── "TAKE ME TO THE END", AND MEANING THE TRUE ONE ───────────────────────
+  //
+  // Owner, 29 Aug, on the phone register (1,842 rows, 120 of them loaded):
+  // "when I press the down arrow, the screen briefly shows me the bottom and
+  // then ends up somewhere last year, and so I still have to continuously
+  // scroll… the up arrow works perfectly."
+  //
+  // THE CASCADE. The jump scrolled to `document.body.scrollHeight`, which is
+  // the foot of the rows that HAPPEN TO BE LOADED. Landing there brings the
+  // load-more sentinel into view, the observer fires, twenty more rows render
+  // BELOW the viewport — and the bottom he was just shown is now mid-list.
+  // Each further batch does it again. The up arrow worked because the top of a
+  // list that loads downward is a FIXED EDGE: nothing is ever added above it.
+  //
+  // So a jump towards the end the list GROWS FROM cannot be one scroll. It is
+  // a promise, kept until it is true: pin the viewport to that end, re-scroll
+  // after every stride, and let go only when there is nothing left to load —
+  // at which point the reader is at the end there actually is.
+  //
+  // `growingEnd` is what makes the two directions one piece of code. A list
+  // that loads downward grows at the bottom; an end-anchored register loading
+  // "Load earlier" grows at the top and cascades identically when you jump up
+  // it, so it gets the same promise rather than a mirrored copy of one.
+  const growingEnd: 'top' | 'bottom' = anchor === 'end' ? 'top' : 'bottom';
+  const [pinnedTo, setPinnedTo] = useState<'top' | 'bottom' | null>(null);
+
   const loadMoreItems = useCallback(() => {
     setIsLoadingMore(true);
     if (anchor === 'end') {
@@ -165,6 +221,9 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
   useEffect(() => {
     setDisplayedItems(itemsPerBatch);
     openedAtEnd.current = false;
+    // A filter is a new question, not a continuation of the journey somebody
+    // was on: the end they asked for is not the end that exists now.
+    setPinnedTo(null);
   }, [transactions, itemsPerBatch]);
 
   // ── Opening on the newest, and staying put while older rows arrive ────────
@@ -198,6 +257,15 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
       return () => cancelAnimationFrame(frame);
     }
 
+    // While a jump is pinned, the pin IS the scroll position. This correction
+    // exists to put a reader back where a batch found them, which is precisely
+    // what somebody who asked to be taken to the top is overriding — left in,
+    // the two would fight every stride and the pin would lose.
+    if (pinnedTo !== null) {
+      heightBeforeGrowth.current = null;
+      return;
+    }
+
     const before = heightBeforeGrowth.current;
     if (before === null) return;
     heightBeforeGrowth.current = null;
@@ -206,7 +274,7 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
       if (grew > 0) window.scrollBy({ top: grew, behavior: 'auto' });
     });
     return () => cancelAnimationFrame(frame);
-  }, [anchor, displayedItems, transactions.length]);
+  }, [anchor, displayedItems, transactions.length, pinnedTo]);
 
   // ── Getting from one end of a long register to the other ─────────────────
   //
@@ -257,6 +325,92 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
     // and with it whether there is a far end worth offering at all.
   }, [displayedItems, transactions.length]);
 
+  // ── KEEPING THE PROMISE ──────────────────────────────────────────────────
+  //
+  // One frame of the flight: put the viewport on the pinned end, then take the
+  // next stride — or, if there is no next stride, let go. The order inside the
+  // frame is the invariant: the release happens AFTER the scroll that made it
+  // true, so a pin never ends anywhere but at the true end.
+  //
+  // `behavior: 'auto'` rather than 'smooth' for the whole flight. A smooth
+  // animation towards a target that moves every stride is exactly the thing
+  // the owner described — "briefly shows me the bottom" — and cutting one
+  // short every 16ms is a stutter, not a glide. The one-scroll case below
+  // keeps its smoothness, because a fixed edge does not move.
+  //
+  // Driven by `displayedItems` rather than by the observer: the sentinel is
+  // what caused the cascade, and a promise that depends on it coming back into
+  // view is a promise made of the same material as the bug.
+  useEffect(() => {
+    if (pinnedTo === null) return;
+
+    let frame = requestAnimationFrame(() => {
+      frame = 0;
+      window.scrollTo({
+        top: pinnedTo === 'top' ? 0 : document.body.scrollHeight,
+        behavior: 'auto'
+      });
+      if (displayedItems < transactions.length) {
+        setDisplayedItems(prev => Math.min(prev + PINNED_BATCH_SIZE, transactions.length));
+        return;
+      }
+      setPinnedTo(null);
+    });
+
+    // Cancelled on the way out, as every frame in this file is: one that
+    // outlives its component scrolls whatever page replaced it.
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame);
+    };
+  }, [pinnedTo, displayedItems, transactions.length]);
+
+  // ── AND LETTING GO THE MOMENT SOMEBODY ELSE STEERS ───────────────────────
+  //
+  // A pin is a convenience, never a restraint. The reader reaching for the
+  // page mid-flight wins immediately — on iOS the touch itself halts a scroll
+  // in progress, so the stand-down has to be at the moment of CONTACT rather
+  // than at the first movement, or the phone and the pin spend a frame
+  // disagreeing about where the page is.
+  //
+  // Only real steering counts. `scroll` events are not in this list because
+  // the pin's own scrolling raises them, and a pin that released itself would
+  // be no pin at all.
+  useEffect(() => {
+    if (pinnedTo === null) return;
+
+    const release = (): void => setPinnedTo(null);
+    const releaseOnScrollKey = (event: KeyboardEvent): void => {
+      if (SCROLL_KEYS.has(event.key)) setPinnedTo(null);
+    };
+    window.addEventListener('wheel', release, { passive: true });
+    window.addEventListener('touchstart', release, { passive: true });
+    window.addEventListener('keydown', releaseOnScrollKey);
+    return () => {
+      window.removeEventListener('wheel', release);
+      window.removeEventListener('touchstart', release);
+      window.removeEventListener('keydown', releaseOnScrollKey);
+    };
+  }, [pinnedTo]);
+
+  const handleJump = useCallback((): void => {
+    if (jumpTo === null) return;
+
+    // Towards the growing end, with rows still to load: a promise, not a
+    // scroll. Everything already loaded and it is a fixed edge like any other.
+    if (jumpTo === growingEnd && displayedItems < transactions.length) {
+      setPinnedTo(jumpTo);
+      return;
+    }
+
+    // A tap the other way replaces whatever was in flight — the reader has
+    // changed their mind, and two destinations cannot both be honoured.
+    setPinnedTo(null);
+    window.scrollTo({
+      top: jumpTo === 'top' ? 0 : document.body.scrollHeight,
+      behavior: 'smooth'
+    });
+  }, [jumpTo, growingEnd, displayedItems, transactions.length]);
+
   // Set up Intersection Observer for infinite scroll
   useEffect(() => {
     if (!loadMoreRef.current) return;
@@ -270,7 +424,15 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
     observerRef.current = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
-        if (entry.isIntersecting && displayedItems < transactions.length && !isLoadingMore) {
+        // Not while a jump is pinned: the pin is already loading, faster and
+        // without the 300ms courtesy delay, and two loaders would step over
+        // each other's `heightBeforeGrowth` on an end-anchored list.
+        if (
+          entry.isIntersecting
+          && displayedItems < transactions.length
+          && !isLoadingMore
+          && pinnedTo === null
+        ) {
           loadMoreItems();
         }
       },
@@ -290,7 +452,7 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
         observerRef.current.disconnect();
       }
     };
-  }, [displayedItems, isLoadingMore, loadMoreItems, transactions.length]);
+  }, [displayedItems, isLoadingMore, loadMoreItems, transactions.length, pinnedTo]);
 
   const handleToggleSelection = useCallback((id: string) => {
     if (!onSelectionChange || !selectedTransactions) return;
@@ -344,7 +506,7 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
       ) : (
         <button
           onClick={loadMoreItems}
-          className="px-4 py-2 text-sm text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+          className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
         >
           {anchor === 'end' ? 'Load earlier' : 'Load More'}
         </button>
@@ -404,12 +566,12 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
         with the same thumb, and one of them would always be offering the end
         you are already standing on.
         ─────────────────────────────────────────────────────────────────────
-        WHAT A JUMP CAN HONESTLY REACH. Only the loaded rows are in the page,
-        twenty of them to begin with, so on an end-anchored register "up" means
-        the top of what IS loaded — which is exactly where the "Load earlier"
-        control sits, so the next batch is one tap from where you land. It does
-        not reach 2008, and it would be a lie dressed as a feature to scroll
-        somebody to a place where thousands of rows are not in the DOM.
+        WHAT A JUMP CAN HONESTLY REACH — and, since 29 August, it reaches the
+        END. It used to scroll to the foot of the rows that happened to be
+        loaded, which the arrival itself then invalidated by loading more
+        beneath it; a jump towards the growing end is now a pin that keeps
+        re-arriving until the whole register is in the page. See the pin above
+        for what that costs and why the reader can always take it back.
         ─────────────────────────────────────────────────────────────────────
         It keeps the old button's place in the corner — clear of the floating
         nav pill, which starts at `calc(0.75rem + safe-area)` — and its 44px:
@@ -420,10 +582,7 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
       */}
       {jumpTo && (
         <button
-          onClick={() => window.scrollTo({
-            top: jumpTo === 'top' ? 0 : document.body.scrollHeight,
-            behavior: 'smooth'
-          })}
+          onClick={handleJump}
           className="fixed z-20 flex items-center justify-center min-w-[44px] min-h-[44px] p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-shadow"
           style={{ right: '1rem', bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
           aria-label={jumpLabelFor(jumpTo, newestEnd)}

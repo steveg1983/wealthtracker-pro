@@ -258,7 +258,10 @@ export default function ArchiveManager() {
             : 'border-gray-200 dark:border-gray-700'
         }`}
       >
-        <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#1a2332] dark:text-blue-400">
+        {/* Only the DARK half of this pair was the stock blue (ruling, 28 Aug
+            2026); the light half is the brand navy and stays. A decorative
+            glyph on a chip is not a status, so dark takes the neutral ink. */}
+        <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#1a2332] dark:text-gray-400">
           <ArchiveIcon size={18} />
         </span>
         <div className="min-w-0 flex-1">

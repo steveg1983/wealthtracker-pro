@@ -441,10 +441,14 @@ export default function StockWatchlist(): React.JSX.Element {
                     const metrics = positionMetrics(item, quote.price.toString());
                     if (metrics === null) {
                       return (
+                        // Opens the form below, in place — it navigates nowhere,
+                        // so it is not a link (stock-blue ruling, 28 Aug 2026).
+                        // The hover is the same darkening the Cancel button
+                        // above already uses.
                         <button
                           type="button"
                           onClick={() => openPositionForm(item)}
-                          className="mt-3 text-xs text-gray-500 dark:text-gray-400 underline decoration-dotted underline-offset-2 hover:text-blue-600 dark:hover:text-blue-400"
+                          className="mt-3 text-xs text-gray-500 dark:text-gray-400 underline decoration-dotted underline-offset-2 hover:text-gray-700 dark:hover:text-gray-300"
                         >
                           Track a position
                         </button>
@@ -460,7 +464,7 @@ export default function StockWatchlist(): React.JSX.Element {
                           <button
                             type="button"
                             onClick={() => openPositionForm(item)}
-                            className="text-xs text-gray-400 dark:text-gray-500 underline decoration-dotted underline-offset-2 hover:text-blue-600 dark:hover:text-blue-400"
+                            className="text-xs text-gray-400 dark:text-gray-500 underline decoration-dotted underline-offset-2 hover:text-gray-700 dark:hover:text-gray-300"
                           >
                             Edit
                           </button>

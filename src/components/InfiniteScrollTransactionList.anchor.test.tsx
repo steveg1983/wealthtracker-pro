@@ -14,7 +14,7 @@
  * here — pretending to test it would be worse than saying so.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, act, fireEvent, cleanup } from '@testing-library/react';
 import { InfiniteScrollTransactionList } from './InfiniteScrollTransactionList';
 import type { Transaction } from '../types';
 
@@ -134,6 +134,22 @@ const scrollPageTo = async (position: number, pageHeight: number): Promise<void>
 
 const jumpButton = (): HTMLElement | null => screen.queryByRole('button', { name: /^Jump/ });
 
+/** Let `count` animation frames land, one act() at a time. */
+const runFrames = async (count: number): Promise<void> => {
+  for (let index = 0; index < count; index += 1) {
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 40));
+    });
+  }
+};
+
+const scrollToCalls = (): number => vi.mocked(window.scrollTo).mock.calls.length;
+
+const lastScrollTo = (): unknown => {
+  const calls = vi.mocked(window.scrollTo).mock.calls;
+  return calls[calls.length - 1]?.[0];
+};
+
 afterEach(() => {
   // Restore in reverse: the same property is stubbed more than once per test.
   for (const [target, property, descriptor] of geometry.reverse()) {
@@ -209,10 +225,153 @@ describe('getting from one end of a long register to the other', () => {
     vi.mocked(window.scrollTo).mockClear();
 
     fireEvent.click(screen.getByRole('button', { name: 'Jump to oldest' }));
+    await runFrames(3);
 
-    // The top of what is LOADED, where "Load earlier" sits — not 2008, which
-    // is not in the document at all.
-    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
-    expect(screen.getByRole('button', { name: 'Load earlier' })).toBeInTheDocument();
+    // WHAT "THE FAR END" MEANS, RESTATED — this assertion used to read "the
+    // top of what is LOADED, where 'Load earlier' sits", on the ruling that
+    // scrolling somebody to rows not in the DOM would be a lie dressed as a
+    // feature. The owner met the other half of that bargain on 29 August: the
+    // end of the loaded rows is not an end, it is a place the next batch
+    // moves. So the jump loads the rest on the way and arrives at 2008 for
+    // real — which is why there is no longer anything earlier to load.
+    expect(lastScrollTo()).toEqual({ top: 0, behavior: 'auto' });
+    expect(screen.getByText('OLDEST 2008')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load earlier' })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * THE JUMP THAT KEPT ARRIVING SOMEWHERE ELSE.
+ *
+ * The owner, 29 August, on the phone register — 1,842 rows, 120 of them
+ * loaded: "when I press the down arrow, the screen briefly shows me the bottom
+ * and then ends up somewhere last year, and so I still have to continuously
+ * scroll… the up arrow works perfectly."
+ *
+ * The cascade is in the component's own header. What these pin is the promise
+ * that replaced the single scroll: while a jump towards the GROWING end is in
+ * flight the list keeps loading and keeps re-arriving, and it lets go only
+ * when there is nothing left to load — or the moment the reader steers.
+ *
+ * WHAT JSDOM CANNOT PROVE, and is not pretended at here: there is no layout in
+ * it, so `document.body.scrollHeight` is whatever these tests say it is and
+ * nothing ever moves. The real physics — that landing at the foot brings the
+ * sentinel into view, that a smooth scroll and a growing page fight, that a
+ * touch halts a scroll on iOS — are browser behaviours. These pin the STATE
+ * MACHINE: which end is pinned, that growth continues to the full length while
+ * it is, that the last scroll before the pin lets go targets the true end, and
+ * that a gesture or an unmount stops everything.
+ */
+describe('a jump towards the growing end arrives at the END, not at the end of what is loaded', () => {
+  const PAGE = VIEWPORT * 4;
+
+  it('keeps loading and re-arriving until the whole register is in the page', async () => {
+    // The phone's default: newest first, loading downward, 500 rows of which
+    // 20 exist. His down arrow.
+    pinPage(PAGE);
+    renderList('start', 500, 'start');
+    vi.mocked(window.scrollTo).mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to oldest' }));
+    await runFrames(6);
+
+    // Every row there is — the "somewhere last year" was row 120 of 1,842.
+    expect(screen.getByText('Showing 500 of 500 transactions')).toBeInTheDocument();
+    // And the LAST thing it did was arrive, after the last rows landed.
+    expect(lastScrollTo()).toEqual({ top: PAGE, behavior: 'auto' });
+
+    // Then it let go: no further frame touches the page.
+    const settled = scrollToCalls();
+    await runFrames(3);
+    expect(scrollToCalls()).toBe(settled);
+  });
+
+  it('does the same thing upwards for a register that grows at the top', async () => {
+    // The mirror case: oldest-first, loading "Load earlier" upward. The
+    // cascade there is the same one — arriving at the top brings the sentinel
+    // into view — so it is the same promise, not a mirrored copy of one.
+    pinPage(PAGE);
+    renderList('end', 500, 'end');
+
+    await scrollPageTo(VIEWPORT * 2.5, PAGE);
+    vi.mocked(window.scrollTo).mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to oldest' }));
+    await runFrames(6);
+
+    expect(screen.getByText('Showing 500 of 500 transactions')).toBeInTheDocument();
+    expect(lastScrollTo()).toEqual({ top: 0, behavior: 'auto' });
+    expect(screen.getByText('OLDEST 2008')).toBeInTheDocument();
+  });
+
+  it('lets go the instant the reader grabs the page, and stays let go', async () => {
+    pinPage(PAGE);
+    renderList('start', 500, 'start');
+    vi.mocked(window.scrollTo).mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to oldest' }));
+    await runFrames(1);
+    // One stride in, and not at the end: this is mid-flight.
+    expect(screen.getByText('Showing 220 of 500 transactions')).toBeInTheDocument();
+
+    await act(async () => {
+      window.dispatchEvent(new Event('wheel'));
+    });
+    const atRelease = scrollToCalls();
+    await runFrames(4);
+
+    // The reader wins: no more rows arrive under them and nothing moves the
+    // page again.
+    expect(screen.getByText('Showing 220 of 500 transactions')).toBeInTheDocument();
+    expect(scrollToCalls()).toBe(atRelease);
+  });
+
+  it('lets go for a touch as well as a wheel — the phone is where this bug lives', async () => {
+    pinPage(PAGE);
+    renderList('start', 500, 'start');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to oldest' }));
+    await runFrames(1);
+
+    await act(async () => {
+      window.dispatchEvent(new Event('touchstart'));
+    });
+    await runFrames(4);
+
+    expect(screen.getByText('Showing 220 of 500 transactions')).toBeInTheDocument();
+  });
+
+  it('scrolls once, and loads nothing, towards the end that cannot move', async () => {
+    // The up arrow "works perfectly" because the top of a downward-loading
+    // list is a fixed edge. It must stay a single smooth scroll: pinning an
+    // edge nothing is added to would only be a slower way of standing still.
+    pinPage(PAGE);
+    renderList('start', 500, 'start');
+
+    await scrollPageTo(VIEWPORT * 2.5, PAGE);
+    vi.mocked(window.scrollTo).mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to newest' }));
+    await runFrames(4);
+
+    expect(window.scrollTo).toHaveBeenCalledTimes(1);
+    expect(lastScrollTo()).toEqual({ top: 0, behavior: 'smooth' });
+    expect(screen.getByText('Showing 20 of 500 transactions')).toBeInTheDocument();
+  });
+
+  it('takes its frame with it when the reader navigates away mid-flight', async () => {
+    // A frame that outlives its component scrolls whatever page replaced it.
+    pinPage(PAGE);
+    renderList('start', 500, 'start');
+    vi.mocked(window.scrollTo).mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to oldest' }));
+    await runFrames(1);
+    const beforeUnmount = scrollToCalls();
+
+    cleanup();
+    await runFrames(4);
+
+    expect(scrollToCalls()).toBe(beforeUnmount);
   });
 });

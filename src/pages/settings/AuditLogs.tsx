@@ -122,8 +122,12 @@ export default function AuditLogs() {
 
   const getActionColor = (action: string) => {
     switch (action) {
-      case 'create': return 'text-blue-600 dark:text-blue-400';
-      case 'update': return 'text-blue-700 dark:text-blue-400';
+      // A recorded creation or edit is a settled fact, not something asking to
+      // be looked at — so it takes no colour (stock-blue ruling, 28 Aug 2026).
+      // Deletions, logins and the rest keep theirs: those are the rows a reader
+      // scans an audit trail FOR.
+      case 'create': return 'text-gray-600 dark:text-gray-400';
+      case 'update': return 'text-gray-700 dark:text-gray-300';
       case 'delete': return 'text-red-600 dark:text-red-400';
       case 'login': return 'text-purple-600 dark:text-purple-400';
       case 'logout': return 'text-gray-600 dark:text-gray-400';

@@ -307,17 +307,17 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
             </div>
             
             {/* Info Box */}
-            <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="mt-6 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
               <div className="flex items-start gap-3">
-                <InfoIcon className="text-blue-700 dark:text-blue-400 mt-0.5" size={20} />
+                <InfoIcon className="text-gray-500 dark:text-gray-400 mt-0.5" size={20} />
                 <div className="text-sm">
-                  <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-1">
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
                     About QIF Files
                   </h4>
-                  <p className="text-blue-800 dark:text-blue-200 mb-2">
+                  <p className="text-gray-800 dark:text-gray-200 mb-2">
                     QIF (Quicken Interchange Format) is a simple text format for financial data.
                   </p>
-                  <ul className="text-blue-700 dark:text-blue-300 space-y-1">
+                  <ul className="text-gray-700 dark:text-gray-300 space-y-1">
                     <li>• Widely supported by UK banks and financial software</li>
                     <li>• Simple format but no unique transaction IDs</li>
                     <li>• Requires manual account selection</li>
@@ -453,8 +453,11 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
           <div className="text-center">
             {importResult.success ? (
               <>
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-4">
-                  <CheckIcon size={32} className="text-blue-600 dark:text-blue-400" />
+                {/* The same success disc OFXImportModal already wears: a
+                    completed import has a semantic colour, and it is not blue
+                    (stock-blue ruling, 28 Aug 2026). */}
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
+                  <CheckIcon size={32} className="text-green-700 dark:text-green-400" />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                   Import Successful!
@@ -476,7 +479,7 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
                 )}
 
                 {importResult.matchedCategories > 0 && (
-                  <p className="text-sm text-blue-600 dark:text-blue-400 mb-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                     Matched {importResult.matchedCategories.toLocaleString()} transaction{importResult.matchedCategories === 1 ? '' : 's'} to your existing categories
                   </p>
                 )}

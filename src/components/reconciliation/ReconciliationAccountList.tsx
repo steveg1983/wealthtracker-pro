@@ -335,7 +335,13 @@ export default function ReconciliationAccountList({
                           different figures, and the gap between them is
                           the Difference column — the thing reconciliation
                           exists to close. (Design ruling, 2026-08-12.) */}
-                      <span className="block text-[11px] font-medium text-primary dark:text-blue-400">
+                      {/* The dark half is the navy family's light slate, not a
+                          stock blue-400 (Design, 28 Aug §5). `text-primary` is
+                          the navy and is invisible on a gray-800 card, which is
+                          how a blue got in here; #94a3b8 is the token this app
+                          already uses wherever navy cannot be seen — the dark
+                          focus ring, the selected border. */}
+                      <span className="block text-[11px] font-medium text-primary dark:text-[#94a3b8]">
                         Enter closing balance
                       </span>
                     </>

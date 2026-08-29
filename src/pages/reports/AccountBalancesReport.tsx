@@ -164,10 +164,14 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
                   {group.rows.map(row => (
                     <tr key={row.accountId} className="border-t border-gray-50 dark:border-gray-700/50">
                       <th scope="row" className="px-3 py-2 text-left font-normal">
+                        {/* The underline is the whole hover (stock-blue ruling,
+                            28 Aug 2026, and ACCOUNT_ROW_NAME_LINK_CLASS before
+                            it): the row already declares its resting ink, and a
+                            colour change on top of an underline is decoration. */}
                         <button
                           type="button"
                           onClick={() => drillIntoAccount(row)}
-                          className="text-body text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
+                          className="text-body text-gray-900 dark:text-white hover:underline rounded"
                           title={`${row.name} — view these transactions`}
                         >
                           {row.name}

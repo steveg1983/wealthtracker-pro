@@ -854,11 +854,18 @@ export default function CategorySelector({
                           role="option"
                           aria-selected={selectedCategory === group.id}
                           data-highlighted-option={highlightedId === group.id ? instanceId : undefined}
+                          /* The chosen option takes the selection wash
+                             (stock-blue ruling, 28 Aug 2026). Dark needs its
+                             own value — `--color-primary` does not invert —
+                             and it has to sit BETWEEN the list's gray-700
+                             ground and the gray-600 the keyboard highlight
+                             already owns, or selected and highlighted stop
+                             being two different things. */
                           className={`px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 ${
                             highlightedId === group.id
                               ? 'bg-gray-100 dark:bg-gray-600'
                               : selectedCategory === group.id
-                              ? 'bg-blue-50 dark:bg-blue-900/20'
+                              ? 'bg-primary/10 dark:bg-gray-600/50'
                               : ''
                           }`}
                           onClick={() => handleCategorySelect(group.id)}
@@ -882,7 +889,7 @@ export default function CategorySelector({
                             highlightedId === category.id
                               ? 'bg-gray-100 dark:bg-gray-600'
                               : selectedCategory === category.id
-                              ? 'bg-blue-50 dark:bg-blue-900/20'
+                              ? 'bg-primary/10 dark:bg-gray-600/50'
                               : ''
                           }`}
                           onClick={() => handleCategorySelect(category.id)}
@@ -907,7 +914,7 @@ export default function CategorySelector({
                 {allowCreate && (
                   <div className="border-t border-gray-200 dark:border-gray-600">
                     <div
-                      className="px-3 py-2.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 text-primary dark:text-blue-400"
+                      className="px-3 py-2.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 text-primary"
                       onClick={() => {
                         setShowCreateForm(true);
                         if (searchTerm) {

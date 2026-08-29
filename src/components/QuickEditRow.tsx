@@ -1269,10 +1269,14 @@ export function QuickEditFieldCell({ field }: { field: QuickEditField }): React.
           title={transferMode
             ? 'Back to categories — the category you had is still there'
             : 'This row is a transfer: choose the account the money moved to instead of a category'}
+          /* aria-pressed is an ON state, and the app rules one colour for that:
+             the selected border, which index.css remaps to #94a3b8 on dark so
+             the ring is what reads there, the wash what reads on light
+             (stock-blue ruling, 28 Aug 2026). */
           className={`shrink-0 h-[28px] w-[28px] inline-flex items-center justify-center rounded-lg border transition-colors ${
             transferMode
-              ? 'border-blue-500 bg-blue-600 text-white'
-              : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-400'
+              ? 'border-primary bg-primary/10 text-gray-900 dark:text-gray-100'
+              : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-400 dark:hover:border-gray-500'
           }`}
         >
           <ArrowRightLeftIcon size={14} />
@@ -1382,9 +1386,23 @@ export function QuickEditActionStrip(): React.JSX.Element {
     // pulled up by the 4px vertical margin the selected row carries
     // (.selected-transaction-row) so the two meet rather than float apart.
     //
-    // bg-blue-50/80 and dark:bg-blue-900/30 are the SAME two values
-    // .selected-transaction-row fills the row with — one card, one colour,
-    // across the join and across the width. Change one and change the other.
+    // The wash and .selected-transaction-row's are ONE colour — one card, across
+    // the join and across the width. Change one and change the other.
+    //
+    // It is navy-400 now, not the stock blue (Claude Design, 28 Aug 2026). Which
+    // token: `bg-primary/10` is the ruled selected wash, but #1a2332 at 10% over
+    // white composites to #E8E9EA — a grey step the eye reads as a seam against
+    // the row above. navy-400 is #6B86B3, and it is already THIS card's
+    // selection colour twice over: the strip's own border-[#6B86B3]/60 below,
+    // and .selected-transaction-row's rgba(107,134,179,·) ring. At 10% it
+    // composites to #F0F3F7 against the row's #F2F8FF, which is no seam at all.
+    //
+    // The other half moved with it: `.selected-transaction-row` in index.css now
+    // carries `rgba(107,134,179,.1)` / `rgba(107,134,179,.25)`, the same two
+    // navy-400 alphas. It was the last live blue in the app and the hardest to
+    // find — raw rgba in a stylesheet, which the `no-restricted-syntax` ban
+    // cannot see (it reads TypeScript string literals) and no class-name grep
+    // matches. If this wash ever changes, that rule is the other half of it.
     <div
       ref={stripRef}
       data-quick-edit="actions"
@@ -1394,7 +1412,7 @@ export function QuickEditActionStrip(): React.JSX.Element {
         if (moveAlongStrip(e)) return;
         handleKeyDown(e);
       }}
-      className="relative z-20 -mt-1 h-full flex items-center justify-between gap-3 px-3 rounded-b-xl border-x border-b border-[#6B86B3]/60 bg-blue-50/80 dark:bg-blue-900/30 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.12)]"
+      className="relative z-20 -mt-1 h-full flex items-center justify-between gap-3 px-3 rounded-b-xl border-x border-b border-[#6B86B3]/60 bg-navy-400/10 dark:bg-navy-400/25 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.12)]"
     >
       {transferPrompt ? (
         /* The whole strip becomes the question, so nothing is competing with

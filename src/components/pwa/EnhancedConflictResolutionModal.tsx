@@ -131,10 +131,14 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
             <div 
               key={field}
               className={`border rounded-lg p-3 ${
-                isDifferent 
-                  ? isConflicting 
-                    ? 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20' 
-                    : 'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20'
+                isDifferent
+                  ? isConflicting
+                    ? 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20'
+                    /* A difference that MERGES CLEANLY needs no attention, so it
+                       needs no colour — the amber above is what is left to
+                       decide (stock-blue ruling, 28 Aug 2026). The faint ground
+                       still separates it from an identical field below. */
+                    : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-700/50'
                   : 'border-gray-200 dark:border-gray-700'
               }`}
             >
@@ -149,7 +153,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
                         Conflict
                       </span>
                     ) : (
-                      <span className="text-xs px-2 py-1 bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200 rounded">
+                      <span className="text-xs px-2 py-1 bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200 rounded">
                         Compatible
                       </span>
                     )}
@@ -166,9 +170,13 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
               </div>
               
               <div className="grid grid-cols-2 gap-2 text-sm">
+                {/* WHICH VERSION IS CHOSEN is a selected state, and the app has
+                    a token for it: the brand navy at a tenth with the selection
+                    ring index.css remaps to #94a3b8 on dark (stock-blue ruling,
+                    28 Aug 2026). */}
                 <div className={`p-2 rounded ${
                   currentSelection === 'client' && isDifferent
-                    ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-400'
+                    ? 'bg-primary/10 dark:bg-gray-700/50 ring-2 ring-primary'
                     : 'bg-gray-50 dark:bg-gray-800'
                 }`}>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Your Version</div>
@@ -179,7 +187,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
                 
                 <div className={`p-2 rounded ${
                   currentSelection === 'server' && isDifferent
-                    ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-400'
+                    ? 'bg-primary/10 dark:bg-gray-700/50 ring-2 ring-primary'
                     : 'bg-gray-50 dark:bg-gray-800'
                 }`}>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Server Version</div>
@@ -251,13 +259,13 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
       <div className="space-y-6">
         {/* Smart Resolution Header */}
         {analysis.canAutoResolve && (
-          <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <SparklesIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <SparklesIcon className="h-5 w-5 text-gray-600 dark:text-gray-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <h3 className="font-medium text-blue-900 dark:text-blue-100">
+              <h3 className="font-medium text-gray-900 dark:text-gray-100">
                 Smart Resolution Available
               </h3>
-              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+              <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
                 We can automatically merge these changes with {analysis.confidence}% confidence.
                 {analysis.conflictingFields.length > 0 && 
                   ` ${analysis.conflictingFields.length} field(s) have conflicts but can be resolved intelligently.`
@@ -288,7 +296,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
             <h4 className="font-medium">Resolution Strategy</h4>
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm text-blue-700 dark:text-blue-400 hover:underline"
+              className="text-sm text-primary hover:text-secondary hover:underline"
             >
               {showAdvanced ? 'Hide' : 'Show'} Advanced Options
             </button>
@@ -316,7 +324,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
               onClick={() => setSelectedResolution('client')}
               className={`p-3 rounded-lg border-2 transition-all ${
                 selectedResolution === 'client'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                  ? 'border-primary bg-primary/10 dark:bg-gray-700/50'
                   : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
               }`}
             >
@@ -331,7 +339,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
               onClick={() => setSelectedResolution('server')}
               className={`p-3 rounded-lg border-2 transition-all ${
                 selectedResolution === 'server'
-                  ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30'
+                  ? 'border-primary bg-primary/10 dark:bg-gray-700/50'
                   : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
               }`}
             >

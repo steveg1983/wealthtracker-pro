@@ -16,7 +16,7 @@ import {
   Legend,
 } from 'recharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp, useChartTooltipStyle, useChartTooltipItemStyle } from './charts/chartColors';
+import { capSeriesWithRemainder, categoricalColor, categoricalRamp, useIsDarkGround, useChartTooltipStyle, useChartTooltipItemStyle } from './charts/chartColors';
 import { legendText } from './charts/ChartLegendText';
 import { lineMarkers, seriesWash, seriesWashFill } from './charts/richLine';
 import { formatDecimal } from '../utils/decimal-format';
@@ -82,7 +82,10 @@ export default function CustomReportViewer({
   // One ramp for every chart in the app. The eight-colour array that used to
   // sit at the top of this file put an emerald and a red in a CATEGORICAL
   // list, inches from figures where those two hues mean income and expense.
-  const ramp = useCategoricalRamp();
+  // ONE reading of the ground per render: the ramp picks the strokes and the
+  // wash picks its strength from the same boolean, so they cannot disagree.
+  const isDark = useIsDarkGround();
+  const ramp = categoricalRamp(isDark);
   // The house tooltip surface — these three charts were the last still
   // showing recharts' bare white box (glaring on a dark card), with item
   // rows in whatever colour each series happened to be.
@@ -149,7 +152,7 @@ export default function CustomReportViewer({
                    washes mix into a colour the ramp never ruled on, and the
                    ramp's own contrast figures are taken against the card. */
                 <ComposedChart data={rows}>
-                  {washed && seriesWash(`${CHART_KEY_PREFIX}${component.id}`, seriesColour(0))}
+                  {washed && seriesWash(`${CHART_KEY_PREFIX}${component.id}`, seriesColour(0), isDark)}
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.2)" />
                   <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 11 }} minTickGap={24} />
                   <YAxis tick={{ fill: '#6B7280', fontSize: 11 }} tickFormatter={compactTick} width={56} />
@@ -162,7 +165,7 @@ export default function CustomReportViewer({
                       dataKey={ds.label}
                       stroke={seriesColour(i)}
                       strokeWidth={2}
-                      fill={seriesWashFill(`${CHART_KEY_PREFIX}${component.id}`, seriesColour(i))}
+                      fill={seriesWashFill(`${CHART_KEY_PREFIX}${component.id}`, seriesColour(i), isDark)}
                       fillOpacity={1}
                       {...lineMarkers(rows, seriesColour(i))}
                       isAnimationActive={false}

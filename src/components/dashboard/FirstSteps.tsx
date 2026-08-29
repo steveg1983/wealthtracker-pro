@@ -129,9 +129,14 @@ export default function FirstSteps(): React.JSX.Element | null {
                 </span>
               ) : (
                 <>
+                  {/* The underline is the whole hover: this link declines a
+                      resting colour on purpose (the step's ink is the page's),
+                      and an underline IS the link — see
+                      ACCOUNT_ROW_NAME_LINK_CLASS, which reached the same
+                      answer under the same ruling, 28 Aug 2026. */}
                   <Link
                     to={preserveDemoParam(step.to, location.search)}
-                    className="text-body font-medium text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded"
+                    className="text-body font-medium text-gray-900 dark:text-white hover:underline rounded"
                   >
                     {step.label}
                   </Link>

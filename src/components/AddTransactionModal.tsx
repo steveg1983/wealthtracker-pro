@@ -439,8 +439,15 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
                   type="button"
                   onClick={() => updateField('type', 'transfer')}
                   className={`px-4 py-2 min-h-[44px] rounded-lg font-medium transition-colors ${
+                    /* Green and red beside this one are SEMANTIC — the app's own
+                       income and expense. Blue was not: a transfer is neither
+                       kind and this product has no transfer hue, so the third
+                       fill was the stock blue standing in for a decision
+                       (stock-blue ruling, 28 Aug 2026). The chosen segment takes
+                       the ruled filled-control pair instead, which inverts on
+                       dark from one class. */
                     formData.type === 'transfer'
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-primary-action text-on-primary-action'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                   aria-label="Select transfer transaction type"

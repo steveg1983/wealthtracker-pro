@@ -218,7 +218,11 @@ export default function SharedBudgets() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleReviewApproval(approval.id, true)}
-                      className="p-2 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded hover:bg-blue-200"
+                      /* Approve and reject are a semantic pair; the reject half
+                         was already red, so the approve half takes the app's
+                         affirmative green rather than a stock blue standing in
+                         for it (stock-blue ruling, 28 Aug 2026). */
+                      className="p-2 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded hover:bg-green-200"
                     >
                       <CheckIcon size={16} />
                     </button>

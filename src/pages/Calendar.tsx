@@ -842,10 +842,17 @@ function CalendarView() {
                   handleDayClick(day);
                 }
               } : undefined}
+              /* THE CELL'S OWN TODAY-RING. The 24 Aug ruling moved the day
+                 NUMBER below to the primary-action pair and this stroke was
+                 missed beside it, so a stock blue outlived "the last blue fill
+                 outside links" by one selector. `ring-primary` is the house
+                 answer for a ring that marks a state, and index.css remaps it
+                 to the focus family's slate on dark, where the navy would be
+                 no ring at all. */
               className={`
                 min-h-[60px] sm:min-h-[100px] p-1 sm:p-2 border-b border-r border-gray-50 dark:border-gray-700/50
                 ${!day.isCurrentMonth ? 'bg-gray-50 dark:bg-gray-800/50 opacity-40' : 'bg-white dark:bg-gray-800'}
-                ${day.isToday ? 'ring-2 ring-inset ring-blue-500' : ''}
+                ${day.isToday ? 'ring-2 ring-inset ring-primary' : ''}
                 ${day.transactionCount > 0 ?'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50':''}
                 transition-colors
               `}

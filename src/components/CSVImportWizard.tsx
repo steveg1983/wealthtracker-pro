@@ -1432,9 +1432,12 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
               {prefillReport && (
                 <div
                   className={`mb-6 rounded-lg p-4 border ${
+                    /* Amber is earned — a template named columns this file has
+                       not got. The other branch is a template that simply
+                       worked, which needs no colour (ruling, 28 Aug 2026). */
                     prefillReport.fellBackToAutoDetect || prefillReport.notInFile.length > 0
                       ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
-                      : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                      : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-700'
                   }`}
                 >
                   <p className="text-sm text-gray-800 dark:text-gray-200">
@@ -1907,8 +1910,11 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
                 importResult.missingByAccount.length === 0 &&
                 importResult.unroutable.count === 0 ? (
                   <>
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-4">
-                      <CheckIcon size={32} className="text-blue-600 dark:text-blue-400" />
+                    {/* A finished import is a SUCCESS and the app has a token
+                        for that — the same disc OFXImportModal already wears
+                        (stock-blue ruling, 28 Aug 2026). */}
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
+                      <CheckIcon size={32} className="text-green-700 dark:text-green-400" />
                     </div>
                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                       Import Complete!
@@ -1930,14 +1936,17 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
 
               {/* Results Summary */}
               <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 text-center">
+                {/* Yellow and red beside this tile each name something that
+                    went wrong. This one is a plain count of what landed, and a
+                    count needs no colour (ruling, 28 Aug 2026). */}
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 text-center">
                   {/* What the WRITE confirmed. This tile used to show the
                       parser's tally, so a file that reached the database not at
                       all still read as a few hundred imported. */}
-                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">
                     {importResult.landed}
                   </p>
-                  <p className="text-sm text-blue-800 dark:text-blue-300">Imported</p>
+                  <p className="text-sm text-gray-800 dark:text-gray-200">Imported</p>
                 </div>
 
                 {/* "Skipped" said nothing about WHY. These rows were left out
@@ -2199,9 +2208,15 @@ function StepIndicator({
           <div className="absolute inset-0 w-10 h-10 rounded-full bg-[#1a2332]/20 animate-ping" />
         )}
         <div
+          /* The step you are ON keeps the brand gradient; the steps you have
+             FINISHED do not. A completed step is settled — it is already
+             carrying a tick, which is what tells it from an upcoming one — so
+             it takes a firmer grey than the steps still ahead and spends no
+             colour (stock-blue ruling, 28 Aug 2026). The tinted shadow went
+             with the gradient it was tinted to match. */
           className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
             isComplete
-              ? 'bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-lg shadow-blue-600/30 scale-105'
+              ? 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 shadow-lg scale-105'
               : isActive
               ? 'bg-gradient-to-br from-primary to-secondary text-white shadow-lg shadow-primary/30 scale-110'
               : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
@@ -2214,11 +2229,15 @@ function StepIndicator({
           )}
         </div>
       </div>
+      {/* One rung above an upcoming step, one below the active one. Not the
+          `text-gray-600 dark:text-gray-400` status ink: on dark that is the
+          same value as the upcoming label, which would flatten the ladder the
+          three states exist to draw. */}
       <span className={`text-xs mt-2 font-medium transition-colors duration-200 ${
         isComplete
-          ? 'text-blue-600 dark:text-blue-400'
-          : isActive 
-          ? 'text-primary' 
+          ? 'text-gray-700 dark:text-gray-300'
+          : isActive
+          ? 'text-primary'
           : 'text-gray-500 dark:text-gray-400'
       }`}>
         {label}

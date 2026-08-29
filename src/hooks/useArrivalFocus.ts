@@ -20,9 +20,17 @@ import { useCallback, useEffect, useRef } from 'react';
  * The look of the row a drill-down landed on. A tint plus an inset ring, so it
  * reads as "this one" against both table stripes and dark mode, and is not the
  * hover colour of the row next to it.
+ *
+ * IN THE APP'S OWN SELECTED COLOUR, not a stock blue (Design's stock-blue
+ * ruling, 28 Aug 2026 §5, second pile). "The row you were sent to" is a
+ * SELECTED state, and this app ruled on selected states in August: the navy
+ * `primary` on light, and `#94a3b8` on dark, which `index.css` gives
+ * `.ring-primary` for free — the same family the focus ring and the selected
+ * tile already belong to, instead of a second highlight colour that happens to
+ * be blue.
  */
 export const ARRIVAL_ROW_CLASS =
-  'bg-blue-50 dark:bg-blue-900/25 ring-1 ring-inset ring-blue-300 dark:ring-blue-700';
+  'bg-primary/5 dark:bg-white/[0.06] ring-1 ring-inset ring-primary';
 
 export interface ArrivalRowFocus {
   /** True for the row the drill-down pointed at, if any. */

@@ -514,7 +514,12 @@ export default function AccountSelector<T extends SelectableAccount>({
       highlightedId === optionId
         ? 'bg-gray-100 dark:bg-gray-600'
         : selectedAccountId === optionId
-          ? 'bg-blue-50 dark:bg-blue-900/20'
+          // The selection's own token, not a stock blue (ruling, 28 Aug 2026).
+          // Dark lifts off gray-600 rather than gray-700 because the menu's own
+          // ground IS gray-700 — the house counterpart would be no wash here —
+          // and it stays under the highlighted row's full gray-600 so the two
+          // states keep their order.
+          ? 'bg-primary/10 dark:bg-gray-600/50'
           : ''
     }`;
 
@@ -631,7 +636,11 @@ export default function AccountSelector<T extends SelectableAccount>({
           }
           className={rowClasses(
             createOption.value,
-            'pl-3 border-t border-gray-200 dark:border-gray-600 text-primary dark:text-blue-400'
+            // The dark override that used to sit beside `text-primary` here was
+            // never painting: `.dark .text-primary` in index.css carries
+            // `!important` and already gives this row its dark counterpart, so
+            // dropping the retired colour changes nothing on screen.
+            'pl-3 border-t border-gray-200 dark:border-gray-600 text-primary'
           )}
           onClick={() => handleSelect(createOption.value)}
         >

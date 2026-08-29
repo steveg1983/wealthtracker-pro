@@ -1246,11 +1246,16 @@ export function ImprovedDashboard() {
                   aria-valuemax={100}
                   aria-label={`${budget.categoryName} budget: ${Math.min(budget.percentUsed, 100).toFixed(0)}% used`}
                 >
-                  <div 
+                  <div
+                    // The fourth rung is a progress fill, not a severity: at
+                    // 60–80% used nothing is wrong yet. So it wears the app's
+                    // meter colour (LoadTestDataModal, MsMoneyImportModal,
+                    // ImportProgress) rather than a stock blue between the
+                    // yellow and the green (ruling, 28 Aug 2026).
                     className={`h-full transition-all duration-300 ${
                       budget.percentUsed > 100 ? 'bg-red-500' :
                       budget.percentUsed > 80 ? 'bg-yellow-500' :
-                      budget.percentUsed > 60 ? 'bg-blue-500' :
+                      budget.percentUsed > 60 ? 'bg-navy-400 dark:bg-primary-action' :
                       'bg-green-500'
                     }`}
                     style={{ width: `${Math.min(budget.percentUsed, 100)}%` }}
@@ -1260,9 +1265,13 @@ export function ImprovedDashboard() {
             ))}
             
             {metrics.budgetStatus.length > 3 && (
-              <button 
+              <button
                 onClick={() => navigate(preserveDemoParam('/budget', location.search))}
-                className="w-full justify-center mt-2 py-2 text-blue-700 dark:text-blue-400 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                // It takes you to another screen, and in-app navigation has had
+                // its own answer for months: the brand ink, which index.css
+                // gives a dark counterpart (stock-blue ruling, 28 Aug 2026).
+                // The hover ground carries the feedback and is a neutral.
+                className="w-full justify-center mt-2 py-2 text-primary hover:text-secondary text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 View All Budgets ({metrics.budgetStatus.length}) →
               </button>
@@ -1344,7 +1353,14 @@ export function ImprovedDashboard() {
                           onClick={() => toggleAccountSelection(account.id)}
                           className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${
                             isSelected
-                              ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700'
+                              /* The selection's own token: navy at a tenth on
+                                 light, and on dark the border index.css remaps
+                                 to the house slate. The dark GROUND stays the
+                                 tile's own gray-600 — this panel is gray-700
+                                 and there is no lift left above the unselected
+                                 tile — so the border and the navy tick beside
+                                 it are what say "chosen" (ruling, 28 Aug 2026). */
+                              ? 'bg-primary/10 dark:bg-gray-600 border border-primary'
                               : 'bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-550'
                           }`}
                           aria-pressed={isSelected ? 'true' : 'false'}
@@ -1535,7 +1551,11 @@ export function ImprovedDashboard() {
                     </span>
                   </span>
                 </span>
-                <span className="flex items-center gap-1 flex-shrink-0 text-sm font-medium text-blue-700 dark:text-blue-400">
+                {/* The row navigates, and the label is where it says so: the
+                    brand ink the app uses for in-app navigation, not the link
+                    blue that belongs to a tab this app does not own
+                    (stock-blue ruling, 28 Aug 2026). */}
+                <span className="flex items-center gap-1 flex-shrink-0 text-sm font-medium text-primary">
                   <span className="hidden sm:inline">{item.actionLabel}</span>
                   <ChevronRightIcon size={20} className="text-gray-400" aria-hidden="true" />
                 </span>

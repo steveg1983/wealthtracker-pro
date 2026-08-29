@@ -50,25 +50,30 @@ export function Toast({ toast, onDismiss }: ToastProps): React.JSX.Element {
     };
   }, [toast.duration, handleDismiss]);
 
+  // Three of these four say something about the state of the reader's money —
+  // it worked, it failed, look at this — and colour is how they say it. `info`
+  // says none of those: it is the app talking, and a remark that needs no
+  // attention gets no hue (stock-blue ruling, 28 Aug 2026). It keeps its icon,
+  // its ground and its border; what it loses is the claim.
   const icons = {
     success: <CheckCircleIcon size={20} className="text-green-500" />,
     error: <AlertCircleIcon size={20} className="text-red-500" />,
     warning: <AlertCircleIcon size={20} className="text-yellow-500" />,
-    info: <InfoIcon size={20} className="text-blue-500" />,
+    info: <InfoIcon size={20} className="text-gray-500 dark:text-gray-400" />,
   };
 
   const bgColors = {
     success: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
     error: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
     warning: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800',
-    info: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+    info: 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-700',
   };
 
   const textColors = {
     success: 'text-green-800 dark:text-green-200',
     error: 'text-red-800 dark:text-red-200',
     warning: 'text-yellow-800 dark:text-yellow-200',
-    info: 'text-blue-800 dark:text-blue-200',
+    info: 'text-gray-800 dark:text-gray-200',
   };
 
   return (

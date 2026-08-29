@@ -2731,7 +2731,13 @@ export default function AccountTransactions() {
       width: '35px',
       accessor: (transaction) => (
         isReconciled(transaction) ? (
-          <span className="text-blue-600 dark:text-blue-400 font-semibold" title="Reconciled">R</span>
+          /* The C/R letters are law; their colour never was (stock-blue ruling,
+             28 Aug §4 — the same finding that neutralised the reconciliation
+             list's chips). R wore the stock blue on every settled row, and a
+             mark carried by 7,240 rows at once marks nothing. R keeps its
+             distinction from C as a DEEPER ink in the one neutral family, not
+             as a hue: the letter is what tells them apart. */
+          <span className="text-gray-700 dark:text-gray-200 font-semibold" title="Reconciled">R</span>
         ) : transaction.cleared ? (
           <span
             className="text-gray-500 dark:text-gray-400 font-semibold"
@@ -3340,7 +3346,11 @@ export default function AccountTransactions() {
           <span className="sm:hidden">Filters</span>
           <span className="hidden sm:inline">Search &amp; filters</span>
           {(searchTerm || typeFilter !== 'all' || dateFrom || dateTo || recurringPayeeFilter) && (
-            <span className="w-2 h-2 rounded-full bg-blue-500" title="Filters active" />
+            /* The dot says this button is SWITCHED ON, so it wears the switched-on
+               colours this toolbar already declares — see TOOLBAR_QUIET_ACTIVE.
+               A stock blue here was a sixth invented highlight (stock-blue
+               ruling, 28 Aug). */
+            <span className="w-2 h-2 rounded-full bg-[#1a2332] dark:bg-[#94a3b8]" title="Filters active" />
           )}
           {showFilters ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
         </button>
@@ -3381,7 +3391,8 @@ export default function AccountTransactions() {
             <EyeIcon size={14} />
             View
             {archive.range !== 'all' && (
-              <span className="w-2 h-2 rounded-full bg-blue-500" title="Showing a limited date range" />
+              /* Same dot, same reason as the Filters one above. */
+              <span className="w-2 h-2 rounded-full bg-[#1a2332] dark:bg-[#94a3b8]" title="Showing a limited date range" />
             )}
             {showView ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
           </button>
@@ -3495,7 +3506,7 @@ export default function AccountTransactions() {
                 <button
                   type="button"
                   onClick={() => { setShowView(false); setShowShortcuts(true); }}
-                  className="w-full flex items-center gap-2 py-1 text-sm text-gray-700 dark:text-gray-200 hover:text-[#1a2332] dark:hover:text-blue-400"
+                  className="w-full flex items-center gap-2 py-1 text-sm text-gray-700 dark:text-gray-200 hover:text-[#1a2332] dark:hover:text-gray-100"
                 >
                   <KeyboardIcon size={14} />
                   Keyboard shortcuts
@@ -3879,15 +3890,24 @@ export default function AccountTransactions() {
           headerCellClassName="font-medium text-label uppercase"
           headerSortHoverClassName="hover:text-gray-900 dark:hover:text-gray-100"
           rowClassName={(row: DisplayRow) => {
+            // The opening balance is a PERMANENT fact of the account, not a
+            // state anyone acts on, so its wash is a neutral lift and the
+            // italic carries the rest (stock-blue ruling, 28 Aug: colour marks
+            // what needs attention, and a resting row needs none).
             if (isOpeningBalanceRow(row)) {
-              return 'bg-blue-50/60 dark:bg-blue-900/20 italic';
+              return 'bg-gray-50 dark:bg-gray-700/30 italic';
             }
             // Everything in the run reads as selected; the row the arrows are
             // actually on keeps the register's own highlight class on top, so
             // "where am I" stays answerable inside a nine-row selection.
             if (selectedTransactionId === row.id) return 'selected-transaction-row';
+            // The selected wash is the SELECTED state's own token, the same
+            // pair Accounts' rows wear (ACCOUNT_ROW_SELECTED_CLASS):
+            // `--color-primary` does not invert on dark, so a tenth of a
+            // near-black navy over a gray-800 table is no wash at all and dark
+            // takes the house counterpart, a lifted grey.
             return selectedIdSet.has(row.id)
-              ? 'bg-blue-100/70 dark:bg-blue-900/40'
+              ? 'bg-primary/10 dark:bg-gray-700/50'
               : '';
           }}
         />
@@ -3990,10 +4010,16 @@ export default function AccountTransactions() {
                 aria-label="Transaction type"
                 className="grid grid-flow-col auto-cols-fr sm:flex gap-0.5 items-center h-[38px] sm:h-[32px] bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5"
               >
+                {/* Red and green here are the app's money semantics — out and
+                    in. A transfer is NEITHER: nothing leaves the book, which is
+                    why it gets no direction anywhere else in the app either (see
+                    TrendArrow's no-direction-at-zero). It wore a stock blue only
+                    because the trio wanted a third fill; the honest third value
+                    is no hue (stock-blue ruling, 28 Aug). */}
                 {([
                   { value: 'expense', label: 'Exp', activeColor: 'text-red-600 dark:text-red-400' },
                   { value: 'income', label: 'Inc', activeColor: 'text-green-600 dark:text-green-400' },
-                  { value: 'transfer', label: 'Txfr', activeColor: 'text-blue-600 dark:text-blue-400' },
+                  { value: 'transfer', label: 'Txfr', activeColor: 'text-gray-700 dark:text-gray-200' },
                 ] as const).map(({ value, label, activeColor }) => (
                   <button
                     key={value}

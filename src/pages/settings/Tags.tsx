@@ -12,13 +12,36 @@ interface TagFormData {
   description: string;
 }
 
+/**
+ * A TAG'S COLOUR IS THE USER'S, NOT THE APP'S.
+ *
+ * This is the value written to `tags.color` in the database and shown in the
+ * swatch grid people pick from — the same class of thing as a category's
+ * colour, and outside the 28 August stock-blue ruling for the same reason: that
+ * ruling retires a stock blue standing in for a DESIGN decision, and nobody's
+ * saved tag colour is a design decision. Changing these would rewrite what new
+ * rows are stamped with and take a hue out of somebody's colour box, which is
+ * behaviour rather than colour.
+ *
+ * Named once so the lint suppression is written once, next to the reason,
+ * rather than five times next to nothing.
+ */
+// eslint-disable-next-line no-restricted-syntax -- see above: persisted user data, not chrome
+const DEFAULT_TAG_COLOUR = '#3B82F6';
+
+/** The ten hues the picker offers. One of them is blue because users like blue. */
+const PREDEFINED_COLOURS = [
+  DEFAULT_TAG_COLOUR, '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
+  '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6B7280'
+];
+
 export default function Tags() {
   const { tags, addTag, updateTag, deleteTag, getTagUsageCount, getAllUsedTags } = useApp();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [formData, setFormData] = useState<TagFormData>({
     name: '',
-    color: '#3B82F6',
+    color: DEFAULT_TAG_COLOUR,
     description: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -79,7 +102,7 @@ export default function Tags() {
     // Reset form
     setFormData({
       name: '',
-      color: '#3B82F6',
+      color: DEFAULT_TAG_COLOUR,
       description: ''
     });
     setShowAddForm(false);
@@ -89,7 +112,7 @@ export default function Tags() {
   const handleEdit = (tag: Tag) => {
     setFormData({
       name: tag.name,
-      color: tag.color || '#3B82F6',
+      color: tag.color || DEFAULT_TAG_COLOUR,
       description: tag.description || ''
     });
     setEditingTag(tag.id);
@@ -113,7 +136,7 @@ export default function Tags() {
   const handleCancel = () => {
     setFormData({
       name: '',
-      color: '#3B82F6',
+      color: DEFAULT_TAG_COLOUR,
       description: ''
     });
     setShowAddForm(false);
@@ -121,10 +144,7 @@ export default function Tags() {
     setErrors({});
   };
 
-  const predefinedColors = [
-    '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
-    '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6B7280'
-  ];
+  const predefinedColors = PREDEFINED_COLOURS;
 
   return (
     <PageWrapper 
@@ -144,7 +164,9 @@ export default function Tags() {
       {/* Add/Edit Form */}
       {showAddForm && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-6 mb-6">
-          <h2 className="text-card font-semibold text-blue-800 dark:text-white mb-4">
+          {/* A heading is not a link and not a state, so it takes the page's
+              ink rather than a hue (stock-blue ruling, 28 Aug 2026). */}
+          <h2 className="text-card font-semibold text-gray-900 dark:text-white mb-4">
             {editingTag ? 'Edit Tag' : 'Add New Tag'}
           </h2>
           
@@ -231,7 +253,7 @@ export default function Tags() {
       {/* Tags List */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-card font-semibold text-blue-800 dark:text-white">
+          <h2 className="text-card font-semibold text-gray-900 dark:text-white">
             All Tags ({tags.length})
           </h2>
         </div>
@@ -307,16 +329,20 @@ export default function Tags() {
             Tag Usage Statistics
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
-              <div className="text-page font-bold text-blue-700 dark:text-blue-400">
+            {/* A count of what exists and a count of what is in use need no
+                colour — they are not asking to be looked at (stock-blue ruling,
+                28 Aug 2026). The unused count keeps its amber: that one is the
+                only tile with anything to act on. */}
+            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl">
+              <div className="text-page font-bold text-gray-900 dark:text-white">
                 {tags.length}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 Total Tags
               </div>
             </div>
-            <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
-              <div className="text-page font-bold text-blue-600 dark:text-blue-400">
+            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl">
+              <div className="text-page font-bold text-gray-900 dark:text-white">
                 {tags.filter(tag => getTagUsageCount(tag.name) > 0).length}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">

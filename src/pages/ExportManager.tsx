@@ -436,8 +436,22 @@ export default function ExportManager(): React.JSX.Element {
                         className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${
                           interchange ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
                         } ${
+                          /* The checked skin is the SELECTED state's own token —
+                             `border-primary`, which index.css remaps to the
+                             focus family's slate on dark where the navy would be
+                             no border at all — over the tenth-strength wash the
+                             account rows already wear (stock-blue ruling,
+                             28 Aug).
+
+                             Dark takes `gray-600` rather than the account rows'
+                             `gray-700/50`, because THIS unchecked tile is
+                             already `gray-700` on a `gray-800` card: a
+                             half-strength gray-700 would land between the two
+                             and read as LESS lifted than the tile it is meant to
+                             outrank. One step deeper in the same family is the
+                             answer the C/R chips give to the same problem. */
                           checked
-                            ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700'
+                            ? 'bg-primary/10 dark:bg-gray-600 border border-primary'
                             : 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-650'
                         }`}
                       >
@@ -725,7 +739,7 @@ export default function ExportManager(): React.JSX.Element {
                           {/* A label, not a lock: these came with the app, and
                               they delete like any other. */}
                           {template.isStarter && (
-                            <span className="ml-2 text-dense bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200 px-2 py-1 rounded">
+                            <span className="ml-2 text-dense bg-[#f1f3f7] text-[#475569] dark:bg-gray-700 dark:text-gray-200 px-2 py-1 rounded">
                               Starter
                             </span>
                           )}
@@ -733,7 +747,9 @@ export default function ExportManager(): React.JSX.Element {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => handleUseTemplate(template)}
-                            className="p-1 text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+                            /* Routine ink. Red stays on the destructive twin
+                               beside it — that is the one colour is for. */
+                            className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                             title={`Use template ${template.name}`}
                             aria-label={`Use template ${template.name}`}
                           >

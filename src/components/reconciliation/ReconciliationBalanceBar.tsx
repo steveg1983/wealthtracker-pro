@@ -296,7 +296,12 @@ export default function ReconciliationBalanceBar({
               nothing. */}
           {displayBankBalance != null && !isEditingBankBalance && (
             balanceConfirmed ? (
-              <p className="mt-1 px-2 py-0.5 text-xs font-medium rounded border border-transparent text-blue-600 dark:text-blue-400">
+              /* A STATUS WORD, NOT A CONTROL (Design, 28 Aug §7). "Confirmed"
+                 sat in link blue one line under where "Confirm" had been a real
+                 button, so a past-tense fact invited a press that does nothing —
+                 the affordance rule, already ruled on twice. Neutral caption
+                 treatment: there is nothing here to do. */
+              <p className="mt-1 px-2 py-0.5 text-xs font-medium rounded border border-transparent text-gray-500 dark:text-gray-400">
                 Confirmed
               </p>
             ) : (
@@ -304,7 +309,11 @@ export default function ReconciliationBalanceBar({
                 type="button"
                 onClick={() => onConfirmBalance?.(displayBankBalance)}
                 title={CONFIRM_BALANCE_CONSEQUENCE}
-                className="mt-1 px-2 py-0.5 text-xs font-medium rounded border border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                /* The quiet bordered secondary. This is a real press, but not
+                   the page's primary one — Finalize is, and it wears the yellow
+                   thread. A blue outline here competed with it for a colour
+                   nobody chose. */
+                className="mt-1 px-2 py-0.5 text-xs font-medium rounded border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 Confirm
               </button>
@@ -320,21 +329,36 @@ export default function ReconciliationBalanceBar({
           </p>
         </div>
 
-        {/* Cleared Balance */}
+        {/* Cleared Balance — THE THIRD OF THE TRIO, IN THE TRIO'S COLOUR.
+            (Design, 28 Aug §3.) On a finished reconciliation this bar shows
+            `Closing £4,887.70 · Account £4,887.70 · Cleared £4,887.70`: the same
+            figure three times, and it used to render navy, navy and blue.
+
+            When three figures agree, the design's job is to make the agreement
+            VISIBLE — three matching figures in one weight and one colour read as
+            "these match" instantly, which is the entire question a reconciliation
+            screen answers. Colouring one of them differently actively obstructed
+            the only comparison the reader came here to make. */}
         <div className="text-center">
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Cleared Balance</p>
-          <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+          <p className="text-lg font-bold text-gray-900 dark:text-white">
             {formatCurrency(clearedBalance, currency)}
           </p>
         </div>
 
-        {/* Difference */}
+        {/* Difference — the expense token ONLY when there is a difference.
+            (Design, 28 Aug §2.) `Difference £0.00` rendered blue: the loudest
+            non-amber thing on a completed reconciliation, for the state that is
+            the reconciliation SUCCEEDING. It competed at rung 3 with Finalize,
+            which is the one control that ends the condition and correctly wears
+            the amber. A real difference is a real condition; zero is not, so
+            zero joins the trio and says nothing. */}
         <div className="text-center">
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Difference</p>
           {difference != null ? (
             <p className={`text-lg font-bold ${
               Math.abs(difference) < 0.005
-                ? 'text-blue-600 dark:text-blue-400'
+                ? 'text-gray-900 dark:text-white'
                 : 'text-red-600 dark:text-red-400'
             }`}>
               {formatCurrency(difference, currency)}

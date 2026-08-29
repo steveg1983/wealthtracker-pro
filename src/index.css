@@ -692,14 +692,27 @@ button.rounded-full:focus-visible,
    the left edge looked unhighlighted. A flat fill has nowhere to fade to.
 
    The value is deliberately the exact colour the action strip beneath it
-   carries (blue-50/80 and blue-900/30 — see QuickEditActionStrip): the row and
-   the strip are one card with a join across the middle, and two shades of blue
+   carries (navy-400 at 10% light / 25% dark — see QuickEditActionStrip): the
+   row and the strip are one card with a join across the middle, and two shades
    would draw a line where the card is supposed to be continuous. Change one and
    change the other. Alpha rather than a pre-mixed hex so both keep tracking the
-   table's own background if it ever moves. */
+   table's own background if it ever moves.
+
+   NAVY-400, NOT THE STOCK BLUE (Claude Design, 28 August 2026). This pair used
+   to be blue-50/80 and blue-900/30, and it was the last live blue in the app
+   that no instrument could see: raw `rgba()` in a stylesheet, invisible to the
+   `no-restricted-syntax` ban (which reads TypeScript string literals) and to
+   every class-name grep the sweep ran. It was found by reading the comment in
+   QuickEditRow.tsx that this one points at.
+
+   Why navy-400 and not the ruled `bg-primary/10` selected wash: #1a2332 at 10%
+   over white composites to #E8E9EA, a grey step the eye reads as a SEAM against
+   the row above. #6B86B3 is already this card's selection colour twice over —
+   the strip's `border-[#6B86B3]/60` and this rule's own ring and border below,
+   which were navy-400 all along. The wash simply joins them. */
 .selected-transaction-row {
   @apply relative z-30;
-  background: rgba(239, 246, 255, 0.8) !important;
+  background: rgba(107, 134, 179, 0.1) !important;
   border-radius: 12px !important;
   margin: 4px 0 !important;
   box-shadow: 
@@ -714,7 +727,7 @@ button.rounded-full:focus-visible,
 }
 
 .dark .selected-transaction-row {
-  background: rgba(30, 58, 138, 0.3) !important;
+  background: rgba(107, 134, 179, 0.25) !important;
   box-shadow: 
     0 4px 6px -1px rgba(0, 0, 0, 0.3),
     0 2px 4px -1px rgba(0, 0, 0, 0.2),

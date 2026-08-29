@@ -38,9 +38,15 @@ export function RealtimeStatusIndicator({
   const [showTooltip, setShowTooltip] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // A three-state health light, and its other two members are already semantic:
+  // amber while reconnecting, red when down. The healthy member of that family
+  // is green — the stock blue was standing in for a colour the app already owns
+  // (stock-blue ruling, 28 Aug 2026). Kept as a hue rather than neutralised
+  // because in the compact and navbar variants the dot has no label beside it,
+  // so colour is the only channel the state has.
   const getStatusColor = () => {
     if (connectionState.isConnected) {
-      return 'bg-blue-600';
+      return 'bg-green-500';
     } else if (connectionState.isReconnecting) {
       return 'bg-yellow-500 animate-pulse';
     } else {
@@ -101,7 +107,7 @@ export function RealtimeStatusIndicator({
               {!connectionState.isConnected && (
                 <button
                   onClick={handleReconnect}
-                  className="mt-2 text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-[#1a2332] transition-colors"
+                  className="mt-2 text-xs bg-primary-action text-on-primary-action px-2 py-1 rounded hover:bg-primary-action-hover transition-colors"
                 >
                   Reconnect
                 </button>
@@ -166,7 +172,7 @@ export function RealtimeStatusIndicator({
               <button
                 onClick={handleReconnect}
                 disabled={connectionState.isReconnecting}
-                className="w-full justify-center mt-2 text-xs bg-blue-500 text-white px-3 py-2 rounded hover:bg-[#1a2332] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full justify-center mt-2 text-xs bg-primary-action text-on-primary-action px-3 py-2 rounded hover:bg-primary-action-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {connectionState.isReconnecting ? 'Reconnecting...' : 'Reconnect'}
               </button>
@@ -190,7 +196,7 @@ export function RealtimeStatusDot(): React.JSX.Element {
     return <></>;
   }
 
-  const statusColor = connectionState.isConnected ? 'bg-blue-600' : 'bg-yellow-500 animate-pulse';
+  const statusColor = connectionState.isConnected ? 'bg-green-500' : 'bg-yellow-500 animate-pulse';
   const statusText = connectionState.isConnected ? 'Real-time sync active' : 'Reconnecting to real-time sync...';
 
   return (

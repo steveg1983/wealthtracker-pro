@@ -76,7 +76,12 @@ export default function CategoryDataHealthPanel({
   // Actions read as the links beside them, because they do the same job: the
   // difference between "go to that page" and "open that list here" is an
   // implementation detail the user should not have to see.
-  const actionClass = 'text-blue-700 dark:text-blue-400 hover:underline';
+  // …and they are in-app navigation, so they take the ink this app has used
+  // for that for months rather than the stock link blue, which is now reserved
+  // for an `<a href>` that LEAVES (ruling, 28 Aug 2026; design-system/linkBlue).
+  // index.css gives `.text-primary` its own dark counterpart, so one pair reads
+  // on both grounds; the underline stays because it is the affordance.
+  const actionClass = 'text-primary hover:text-secondary hover:underline';
 
   // Bound to a const so the null check below narrows it for the handler too —
   // the model promises an id whenever the bucket count is non-zero, and this is

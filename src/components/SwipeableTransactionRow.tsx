@@ -115,7 +115,11 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
                 setOffset(0);
                 setIsRevealed(null);
               }}
-              className="p-3 bg-blue-600 text-white rounded-lg"
+              // The swipe tray's fills are the app's own: red is the
+              // destructive one, and the press being invited wears the
+              // primary-action pair, which inverts on dark so one class trio
+              // paints both grounds (stock-blue ruling, 28 Aug 2026).
+              className="p-3 bg-primary-action text-on-primary-action rounded-lg"
               aria-label="Reconcile"
             >
               <CheckIcon size={20} />
@@ -162,7 +166,7 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
               setOffset(0);
               setIsRevealed(null);
             }}
-            className="p-3 bg-blue-500 text-white rounded-lg"
+            className="p-3 bg-primary-action text-on-primary-action rounded-lg"
             aria-label="Edit"
           >
             <EditIcon size={20} />
@@ -189,7 +193,7 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
       <div
         ref={ref as React.RefObject<HTMLDivElement>}
         className={`relative bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${
-          isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+          isSelected ? 'bg-primary/10 dark:bg-gray-700/50' : ''
         }`}
         style={{
           transform: `translateX(${offset}px)`,
@@ -256,8 +260,11 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
               <p className={`font-semibold ${amountClass}`}>
                 {formatCurrency(transaction.amount)}
               </p>
+              {/* A cleared row is settled, not celebrated: colour marks what
+                  needs attention and a settled row needs none (stock-blue
+                  ruling, 28 Aug 2026). The tick is the whole statement. */}
               {transaction.cleared && (
-                <CheckIcon size={16} className="text-blue-600 dark:text-blue-400 ml-auto mt-1" />
+                <CheckIcon size={16} className="text-gray-600 dark:text-gray-400 ml-auto mt-1" />
               )}
             </div>
           </div>

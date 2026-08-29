@@ -170,7 +170,10 @@ export default function MonthlyIncomeExpenseMatrix({
         <button
           type="button"
           onClick={() => drill(monthKey, value)}
-          className="w-full justify-end text-right rounded px-1 -mx-1 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:underline"
+          /* A neutral wash, one step darker than any of the three row grounds so
+             it reads on all of them — the underline is what says "this drills"
+             (stock-blue ruling, 28 Aug 2026). */
+          className="w-full justify-end text-right rounded px-1 -mx-1 hover:bg-gray-200 dark:hover:bg-gray-600 hover:underline"
           title={`${row.label} · ${labelOfMonth(monthKey)} — view these transactions`}
         >
           {money(value)}

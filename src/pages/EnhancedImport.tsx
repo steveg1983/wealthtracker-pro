@@ -271,17 +271,20 @@ export default function EnhancedImport(): React.JSX.Element {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {bankFormats.map(bank => (
               <div key={bank} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <GlobeIcon size={14} className="text-blue-700 dark:text-blue-400 flex-shrink-0" />
+                <GlobeIcon size={14} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 <span className="text-body text-gray-700 dark:text-gray-300 truncate">{bank}</span>
               </div>
             ))}
           </div>
           <div className="mt-4 p-4 bg-white dark:bg-gray-800 border border-line dark:border-gray-700 rounded-lg">
             <div className="flex items-start gap-3">
-              <AlertCircleIcon size={20} className="text-blue-700 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              {/* An offer of another route is not a warning and never was — the
+                  bordered outline is the whole panel and the ink is the page's
+                  ink (stock-blue ruling, 28 Aug). */}
+              <AlertCircleIcon size={20} className="text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5" />
               <div className="text-body">
-                <p className="text-blue-900 dark:text-blue-100 font-medium mb-1">Don't see your bank?</p>
-                <p className="text-blue-800 dark:text-blue-200">
+                <p className="text-gray-900 dark:text-gray-100 font-medium mb-1">Don't see your bank?</p>
+                <p className="text-gray-800 dark:text-gray-200">
                   Use CSV Import to map columns for any file, or create an import rule to transform data from any institution.
                 </p>
               </div>
@@ -416,9 +419,13 @@ function ActionButton({ icon: Icon, title, description, onClick }: {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#1a2332]/30 dark:hover:border-blue-500/40 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors p-3 flex items-center gap-3"
+      /* The hover stroke and the tile ink both wanted a dark counterpart for the
+         navy, and both reached for a stock blue rather than the one this app
+         states: the focus family's slate for a stroke, neutral ink for a glyph
+         (stock-blue ruling, 28 Aug). */
+      className="w-full text-left rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#1a2332]/30 dark:hover:border-[#94a3b8]/40 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors p-3 flex items-center gap-3"
     >
-      <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#1a2332] dark:text-blue-400">
+      <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#1a2332] dark:text-gray-100">
         <Icon size={18} />
       </span>
       <span className="min-w-0">
