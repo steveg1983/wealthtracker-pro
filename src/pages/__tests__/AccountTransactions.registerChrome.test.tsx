@@ -375,3 +375,59 @@ describe('a closed account reached from a report', () => {
     expect(screen.getByRole('button', { name: 'Back to Accounts' })).toBeInTheDocument();
   });
 });
+
+/**
+ * WHICH END THE PHONE REGISTER OPENS ON — and the bug that made it the wrong
+ * one for everybody.
+ *
+ * The anchor and the reversal are two halves of one decision. The reversal
+ * lives in `phoneListRows` (newest-first while the owner has not chosen an
+ * order); the anchor was written from `sortField`/`sortDirection`, which
+ * describe the order BEFORE that reversal. On the default view — date,
+ * ascending, unchosen — the two disagreed: the list displayed newest-first and
+ * was anchored to its end, so it opened on the oldest rows it had. Owner, 29
+ * Aug: "The register now opens at the bottom, which is the oldest
+ * transaction."
+ *
+ * These ask the page what the phone SHOWS in each of the two orders, which is
+ * the only place the disagreement is visible.
+ */
+describe('the phone register opens on the newest, in either order', () => {
+  // Enough rows that the list cannot show them all at once: the batch is 20,
+  // so which twenty exist is the question. Invented names and dates — this
+  // repo is public.
+  const LONG_LEDGER: Transaction[] = Array.from({ length: 25 }, (_, i) => row({
+    id: `long-${i}`,
+    date: new Date(Date.UTC(2024, 5, 1 + i)),
+    description: i === 0 ? 'Oldest row' : i === 24 ? 'Newest row' : `Filler ${i}`,
+    amount: -1 - i,
+  }));
+
+  it('shows the newest first, and loads DOWNWARD, on the default view', async () => {
+    renderRegister(LONG_LEDGER);
+    await screen.findByRole('heading', { level: 1, name: 'Synthetic Chrome' });
+
+    const phone = within(phoneList());
+    expect(phone.getByText('Newest row')).toBeInTheDocument();
+    // The complaint, in one assertion: under the state-order anchor this list
+    // held the oldest twenty and the newest row was nowhere in it.
+    expect(phone.queryByText('Oldest row')).not.toBeInTheDocument();
+    expect(phone.getByRole('button', { name: 'Load More' })).toBeInTheDocument();
+    expect(phone.queryByRole('button', { name: 'Load earlier' })).not.toBeInTheDocument();
+  });
+
+  it('keeps opening on the newest when oldest-first is CHOSEN, by loading upward', async () => {
+    renderRegister(LONG_LEDGER);
+    await screen.findByRole('heading', { level: 1, name: 'Synthetic Chrome' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    fireEvent.click(screen.getByRole('radio', { name: /oldest first/ }));
+
+    // Now the list really is a ledger — oldest at the top — so the newest line
+    // is its last one, and the batch is taken from that end.
+    const phone = within(phoneList());
+    expect(phone.getByText('Newest row')).toBeInTheDocument();
+    expect(phone.queryByText('Oldest row')).not.toBeInTheDocument();
+    expect(phone.getByRole('button', { name: 'Load earlier' })).toBeInTheDocument();
+  });
+});

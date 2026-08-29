@@ -207,7 +207,7 @@ export function Modal({
           events, and treating the last one as the whole gesture is what makes a
           control unusable in ways no test that fires `click` can see. */}
       <div
-        className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-16 pb-6 overflow-y-auto"
+        className="modal-viewport fixed inset-0 z-50 flex items-start justify-center px-4 pt-16 overflow-y-auto"
         onPointerDown={closeOnBackdrop ? (e) => { pressedOnBackdrop.current = e.target === e.currentTarget; } : undefined}
         onClick={closeOnBackdrop ? (e) => {
           if (e.target === e.currentTarget && pressedOnBackdrop.current) onClose();
@@ -216,19 +216,21 @@ export function Modal({
       >
         <div
           ref={modalRef}
-          // 100dvh AFTER 100vh, deliberately: on iOS 100vh is the LARGE
-          // viewport, taller than the glass, so a modal sized by it hangs its
-          // last row of buttons below the screen with the page scroll-locked —
-          // the owner's "only Delete, no Save" on the phone edit sheet
-          // (26 Aug, item 10). dvh tracks what is actually visible; a browser
-          // without it drops the invalid declaration and keeps the vh line.
+          // `modal-panel` is the height cap — one rule in index.css rather
+          // than a pair of Tailwind classes, because two classes are two rules
+          // of equal specificity and the STYLESHEET's order decides which
+          // wins, not the class list's. That is what silently disarmed the
+          // 26 Aug dvh fix for three days and left the owner's phone with an
+          // Edit Transaction dialog showing no footer at all; the rule carries
+          // the measurement and the full account. `modal-viewport` owns this
+          // container's bottom padding for the same reason — it is the other
+          // half of that rule's arithmetic and has to move with it.
           className={`
             bg-white dark:bg-gray-900
+            modal-panel
             rounded-2xl
             shadow-2xl
             w-full
-            max-h-[calc(100vh-5.5rem)]
-            max-h-[calc(100dvh-5.5rem)]
             ${sizeClasses[size]}
             overflow-hidden
             flex

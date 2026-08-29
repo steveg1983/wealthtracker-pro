@@ -11,6 +11,52 @@
    focus state at all. Mouse clicks show no outline (they don't match
    :focus-visible), so nothing "blue flashes" on ordinary clicking. */
 
+/* THE DIALOG'S HEIGHT, AND WHY IT IS ONE RULE HERE RATHER THAN TWO CLASSES.
+ *
+ * A dialog must be no taller than the screen a person is actually looking at,
+ * because its last row is where Save and Cancel live. On iOS `100vh` is the
+ * LARGE viewport — the height the page would have if the browser's toolbars
+ * were retracted — so a panel sized by it hangs its final rows below the glass
+ * while the page is scroll-locked and cannot be scrolled to reach them.
+ * `100dvh` is the height that is actually visible right now, which is what the
+ * question "can the reader see Save?" is really asking.
+ *
+ * The two-declaration ladder below is the standard way to say that: a browser
+ * that has never heard of `dvh` throws the second line away as invalid and
+ * keeps the first, and every browser that understands it takes the second.
+ * WITHIN ONE BLOCK THE LAST DECLARATION WINS, and that is the entire point of
+ * this rule existing.
+ *
+ * It used to be two Tailwind arbitrary utilities stacked in a className —
+ * `max-h-[calc(100vh-5.5rem)]` then `max-h-[calc(100dvh-5.5rem)]` — with a
+ * comment saying the dvh line came second "deliberately". It did not matter
+ * where they sat in the class list. Two classes are two SEPARATE rules of
+ * equal specificity, and which one wins is decided by the order Tailwind
+ * emits them into the stylesheet, not by the order they are written on the
+ * element. Measured in the generated CSS on 29 Aug: the `100dvh` rule is
+ * emitted at byte 17638 and the `100vh` rule at 17711 — Tailwind sorts
+ * arbitrary values as text, and "100dvh" sorts before "100vh". So the vh rule
+ * came LAST and won, and the dvh fix written on 26 Aug had never once been in
+ * force. It surfaced as the owner's phone showing an Edit Transaction dialog
+ * with no footer at all: the panel ran roughly 80px past the bottom of the
+ * glass, which was enough to swallow a one-row button strip whole. The same
+ * trap in a different costume as the `button:not(.toggle-switch)` rules below
+ * — a cascade the call site cannot see deciding what the call site meant.
+ *
+ * The `env()` term keeps the last row clear of the home indicator on a phone
+ * that has one, and it is subtracted from the panel's height because the
+ * viewport's own bottom padding adds it back — the two numbers below are a
+ * pair and must be changed together, exactly as `pt-16` (5.5rem's other half)
+ * and the 5.5rem here already are. */
+.modal-viewport {
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+.modal-panel {
+  max-height: calc(100vh - 5.5rem);
+  max-height: calc(100dvh - 5.5rem - env(safe-area-inset-bottom, 0px));
+}
+
 /* Touch Target Optimization */
 @media (hover: none) and (pointer: coarse) {
   /* Ensure all interactive elements have minimum touch target size.

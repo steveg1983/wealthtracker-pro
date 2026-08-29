@@ -1729,73 +1729,96 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 {ownAccountJump.label}
               </button>
             )}
-            {/* ONE ROW ON A PHONE, ALWAYS — and the labels wrap inside their
-                own boxes instead.
+            {/* EVERY BUTTON WHOLE, AND EVERY BUTTON ON THE SCREEN — which on a
+                phone is a question of WIDTH, not of the fold.
 
-                The August fix let the ROW wrap: each button kept its label
-                whole and moved down as a unit. That trades a broken word for a
-                worse problem, which the owner hit on 29 Aug: the second row
-                sits below the fold, so the modal showed nothing but "Delete"
-                and a reader had to guess that scrolling inside the footer
-                would reveal Save. He found it by accident; nobody else would.
-                A destructive action alone on screen where the primary action
-                should be is the worst possible arrangement of these five.
+                Two earlier attempts each fixed one of those and broke the
+                other. 17 Aug let the row wrap, and the owner reported seeing
+                nothing but "Delete". 29 Aug read that as "wrapping put Save
+                below the fold" and made the row unwrappable — five equal
+                columns, each label wrapping inside its own box — and he then
+                saw NO buttons at all.
 
-                So the row cannot wrap. Each button is an equal column that
-                grows to fit, `whitespace-normal` lets "Save Changes" take two
-                lines inside its box, and the taller minimum height keeps every
-                box the same size whether its label wrapped or not. Above `sm`
-                nothing changes: the labels fit on one line and the buttons
-                size to their content as before. */}
-            <div className="flex items-stretch gap-2 sm:gap-3 w-full">
+                Neither diagnosis was right. The footer was never below the
+                fold of the PANEL; the panel itself ran past the bottom of the
+                glass, because the dialog's height cap had silently been
+                sizing itself by `100vh` for three days (the whole account is
+                on `.modal-panel` in index.css). Wrapping was never the
+                culprit — the taller a wrapped footer got, the more of it
+                poked back up into view, which is exactly why "Delete" was the
+                one thing he could see. Shrinking the footer to a single row
+                pushed that last survivor down into the hidden band too.
+
+                And the unwrappable row had its own casualty, which the fold
+                was hiding: at 375px in the register's stepping mode the five
+                buttons needed 336px of the 293px the row has, so the last of
+                them left the panel by 19px and its `overflow-hidden` cut the
+                rest away. At 320px — a phone on Display Zoom — five cannot
+                share a line under ANY labelling: the 44px touch floor and the
+                gaps alone want 252px of the 240px there is.
+
+                So: ONE flat row that is allowed to wrap. Every button sizes
+                from its own label and then grows to fill whichever line it
+                lands on. There is no inner group any more, and that is
+                deliberate — a nested flex item refuses to shrink below its
+                contents' minimum, and that refusal is what put the 19px over
+                the edge. `ml-auto` on Cancel does the job the group's
+                `sm:ml-auto` used to: inert on a phone, where the buttons have
+                already taken up the free space, and the thing that pushes the
+                actions right above `sm`, where the row does not wrap and each
+                button sizes to its content as it always has.
+
+                Measured at 375px: three buttons make one row; four or five
+                put Delete, Cancel and Previous on the first line and the
+                primary action widest on the second, every box 44px tall and
+                no label leaving its box. */}
+            <div className="flex flex-wrap sm:flex-nowrap items-stretch gap-2 sm:gap-3 w-full">
               {transaction && (
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="flex-1 sm:flex-none px-2 sm:px-4 py-2 min-h-[3.25rem] sm:min-h-0 text-sm leading-tight whitespace-normal sm:whitespace-nowrap bg-red-500 text-white rounded-lg hover:bg-red-600"
+                  className="flex-none px-2 sm:px-4 py-2 text-sm leading-tight whitespace-normal sm:whitespace-nowrap bg-red-500 text-white rounded-lg hover:bg-red-600"
                 >
                   Delete
                 </button>
               )}
 
-              <div className="flex items-stretch justify-end gap-2 sm:gap-3 flex-[3] sm:flex-none sm:ml-auto">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex-1 sm:flex-none px-2 sm:px-4 py-2 min-h-[3.25rem] sm:min-h-0 text-sm leading-tight whitespace-normal sm:whitespace-nowrap border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  Cancel
-                </button>
-                {transaction && onSaveAndPrevious && (
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || splitValidationMessage !== null}
-                    onClick={() => { advanceDirectionRef.current = 'previous'; }}
-                    className="flex-1 sm:flex-none px-2 sm:px-4 py-2 min-h-[3.25rem] sm:min-h-0 text-sm leading-tight whitespace-normal sm:whitespace-nowrap bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Save this transaction and move to the previous one in the list"
-                  >
-                    Previous
-                  </button>
-                )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-auto ml-auto sm:flex-none px-2 sm:px-4 py-2 text-sm leading-tight whitespace-normal sm:whitespace-nowrap border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              {transaction && onSaveAndPrevious && (
                 <button
                   type="submit"
                   disabled={isSubmitting || splitValidationMessage !== null}
-                  className="flex-1 sm:flex-none px-2 sm:px-4 py-2 min-h-[3.25rem] sm:min-h-0 text-sm leading-tight whitespace-normal sm:whitespace-nowrap bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => { advanceDirectionRef.current = 'previous'; }}
+                  className="flex-auto sm:flex-none px-2 sm:px-4 py-2 text-sm leading-tight whitespace-normal sm:whitespace-nowrap bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Save this transaction and move to the previous one in the list"
                 >
-                  {isSubmitting ? 'Saving…' : transaction ? 'Save Changes' : 'Add Transaction'}
+                  Previous
                 </button>
-                {transaction && onSaveAndNext && (
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || splitValidationMessage !== null}
-                    onClick={() => { advanceDirectionRef.current = 'next'; }}
-                    className="flex-1 sm:flex-none px-2 sm:px-4 py-2 min-h-[3.25rem] sm:min-h-0 text-sm leading-tight whitespace-normal sm:whitespace-nowrap bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Save this transaction and move to the next one in the list"
-                  >
-                    Save &amp; Next
-                  </button>
-                )}
-              </div>
+              )}
+              <button
+                type="submit"
+                disabled={isSubmitting || splitValidationMessage !== null}
+                className="flex-auto sm:flex-none px-2 sm:px-4 py-2 text-sm leading-tight whitespace-normal sm:whitespace-nowrap bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? 'Saving…' : transaction ? 'Save Changes' : 'Add Transaction'}
+              </button>
+              {transaction && onSaveAndNext && (
+                <button
+                  type="submit"
+                  disabled={isSubmitting || splitValidationMessage !== null}
+                  onClick={() => { advanceDirectionRef.current = 'next'; }}
+                  className="flex-auto sm:flex-none px-2 sm:px-4 py-2 text-sm leading-tight whitespace-normal sm:whitespace-nowrap bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Save this transaction and move to the next one in the list"
+                >
+                  Save &amp; Next
+                </button>
+              )}
             </div>
           </ModalFooter>
         </form>

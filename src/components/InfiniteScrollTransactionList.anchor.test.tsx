@@ -13,8 +13,8 @@
  * does not model, and is called out in the component rather than asserted
  * here — pretending to test it would be worse than saying so.
  */
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import { InfiniteScrollTransactionList } from './InfiniteScrollTransactionList';
 import type { Transaction } from '../types';
 
@@ -38,7 +38,7 @@ const ledger = (count: number): Transaction[] =>
     cleared: false
   })) as unknown as Transaction[];
 
-const renderList = (anchor: 'start' | 'end', count = 60) =>
+const renderList = (anchor: 'start' | 'end', count = 60, newestEnd?: 'start' | 'end') =>
   render(
     <InfiniteScrollTransactionList
       transactions={ledger(count)}
@@ -51,6 +51,7 @@ const renderList = (anchor: 'start' | 'end', count = 60) =>
       emptyContent={<p>nothing</p>}
       itemsPerBatch={20}
       anchor={anchor}
+      newestEnd={newestEnd}
     />
   );
 
@@ -91,5 +92,127 @@ describe('which end of a register the phone opens on', () => {
     renderList('end');
 
     expect(screen.getByText('Showing 20 of 60 transactions')).toBeInTheDocument();
+  });
+});
+
+/**
+ * THE WAY BACK TO THE OTHER END.
+ *
+ * The owner, 29 Aug: "I need a way to quickly get to the newest… whether a 'to
+ * top' button that appears as you scroll up, or a 'To bottom' if you scroll
+ * down." Both ends of the register are destinations — Quick Add is under the
+ * last row, the filters are above the first.
+ *
+ * jsdom lays nothing out: `document.body.scrollHeight` is 0 and nothing ever
+ * scrolls. So the three numbers the control is a function of are STATED here,
+ * and what the component concludes from them is what these pin. The smooth
+ * scroll itself is a browser behaviour and is not pretended at.
+ */
+const VIEWPORT = 800;
+
+const geometry: Array<[object, string, PropertyDescriptor | undefined]> = [];
+
+const pinPage = (pageHeight: number, scrolledTo = 0): void => {
+  const stub = (target: object, property: string, value: number): void => {
+    geometry.push([target, property, Object.getOwnPropertyDescriptor(target, property)]);
+    Object.defineProperty(target, property, { configurable: true, get: () => value });
+  };
+  stub(document.body, 'scrollHeight', pageHeight);
+  stub(window, 'innerHeight', VIEWPORT);
+  stub(window, 'scrollY', scrolledTo);
+};
+
+/** Move the viewport and tell the listener, then let its rAF land. */
+const scrollPageTo = async (position: number, pageHeight: number): Promise<void> => {
+  pinPage(pageHeight, position);
+  await act(async () => {
+    window.dispatchEvent(new Event('scroll'));
+    // requestAnimationFrame is a 16ms timeout under this runner (browserShims).
+    await new Promise(resolve => setTimeout(resolve, 40));
+  });
+};
+
+const jumpButton = (): HTMLElement | null => screen.queryByRole('button', { name: /^Jump/ });
+
+afterEach(() => {
+  // Restore in reverse: the same property is stubbed more than once per test.
+  for (const [target, property, descriptor] of geometry.reverse()) {
+    if (descriptor) Object.defineProperty(target, property, descriptor);
+    else Reflect.deleteProperty(target, property);
+  }
+  geometry.length = 0;
+});
+
+describe('getting from one end of a long register to the other', () => {
+  it('stays away entirely when the whole page is barely a screen and a half', () => {
+    // Nothing to shortcut to: the other end is a flick away, and a floating
+    // button here would only cover a row.
+    pinPage(VIEWPORT + 200);
+    renderList('start');
+
+    expect(jumpButton()).not.toBeInTheDocument();
+  });
+
+  it('offers the far end, and names it by what is there', () => {
+    // Oldest-first register, so the newest line is the LAST one — and the
+    // reader is at the top.
+    pinPage(VIEWPORT * 4);
+    renderList('end', 60, 'end');
+
+    expect(jumpButton()).toHaveAccessibleName('Jump to newest');
+  });
+
+  it('turns round once the reader is past the middle', async () => {
+    pinPage(VIEWPORT * 4);
+    renderList('end', 60, 'end');
+
+    await scrollPageTo(VIEWPORT * 2.5, VIEWPORT * 4);
+
+    // Same button, other direction: from down here the far end is the top,
+    // and on an oldest-first list the top is 2008.
+    expect(jumpButton()).toHaveAccessibleName('Jump to oldest');
+  });
+
+  it('reads the ends the other way round for a newest-first list', async () => {
+    // The phone's untouched default: newest at the top, loading downward.
+    pinPage(VIEWPORT * 4);
+    renderList('start', 60, 'start');
+
+    expect(jumpButton()).toHaveAccessibleName('Jump to oldest');
+
+    await scrollPageTo(VIEWPORT * 2.5, VIEWPORT * 4);
+
+    expect(jumpButton()).toHaveAccessibleName('Jump to newest');
+  });
+
+  it('names a direction instead of a chronology when neither end is newest', () => {
+    // Sorted by amount: "newest" would be a claim about the ends that the
+    // order does not support.
+    pinPage(VIEWPORT * 4);
+    renderList('start');
+
+    expect(jumpButton()).toHaveAccessibleName('Jump to the bottom of the list');
+  });
+
+  it('actually travels to the far end when tapped', async () => {
+    pinPage(VIEWPORT * 4);
+    renderList('end', 60, 'end');
+    // The end-anchored list scrolls itself on arrival; that call is not this
+    // one's, so it is cleared before the tap.
+    vi.mocked(window.scrollTo).mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to newest' }));
+
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: VIEWPORT * 4, behavior: 'smooth' });
+
+    await scrollPageTo(VIEWPORT * 2.5, VIEWPORT * 4);
+    vi.mocked(window.scrollTo).mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to oldest' }));
+
+    // The top of what is LOADED, where "Load earlier" sits — not 2008, which
+    // is not in the document at all.
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+    expect(screen.getByRole('button', { name: 'Load earlier' })).toBeInTheDocument();
   });
 });
