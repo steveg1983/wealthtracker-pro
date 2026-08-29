@@ -1,71 +1,82 @@
-# Clerk Production Runbook — social sign-in that works on phones
+# Clerk Production — the record of what EXISTS
 
-**Why this exists**: production runs Clerk's *development* instance (`pk_test_…` is in the
-shipped bundle; the sign-up modal says "Development mode"). Dev-instance social login
-(Apple / Google / Microsoft) routes through Clerk's shared credentials on `accounts.dev`
-in a third-party context — which iPhone Safari's Intelligent Tracking Prevention blocks.
-The button spins forever. **No code change can fix this**; the cure is a production
-instance on a first-party domain. Email/password signup works on the dev instance
-meanwhile.
+**Rewritten 2026‑08‑29.** Until this rewrite, this file opened with "production
+runs Clerk's *development* instance" and laid out the plan to fix that. The
+plan had been **carried out in full around 26 August** — production instance,
+DNS, DKIM, all three social providers with custom credentials, live keys in
+Vercel — and the stale opening misled a full day of planning on the 29th: a
+worked migration path was drafted for a problem that no longer existed. A
+runbook that has been run is a different document from one that hasn't, and
+this is that document now.
 
-Steps marked **[YOU]** need accounts/dashboards only you control. **[CODE]** is the app side.
+## What is live (verified 29 Aug 2026)
 
-## 1 · Domain **[YOU]**
-- Buy/choose a domain (e.g. `wealthtracker.co.uk`). Any registrar; Vercel can also sell one.
-- In Vercel → wealthtracker-web project → Settings → Domains: add `app.<domain>` (or the
-  apex) and follow its DNS instructions. Verify the site loads on the new domain.
+- **The production Clerk instance is fully live.** The shipped bundle carries
+  `pk_live_…` (verified by grepping the served production JS, not by memory),
+  every Clerk CNAME and email record resolves, and the sign-up modal carries no
+  "Development mode" banner.
+- **Apple, Google and Microsoft sign-in all work on production** with our own
+  provider credentials (owner confirmation, 29 Aug: "we went through the
+  process with Google / Microsoft and Apple to get them working"). The original
+  failure — Apple sign-in spinning forever on iPhone Safari because the dev
+  instance's shared `accounts.dev` credentials sat in a third-party context ITP
+  blocks — is cured by construction: production auth is first-party on our
+  domain.
+- **The Supabase JWT bridge exists on the production instance** — same claims
+  and signing config the RLS policies expect. Production sign-ins read and
+  write their own rows and only their own rows (verified with the App Review
+  account).
+- **Vercel production env**: `VITE_CLERK_PUBLISHABLE_KEY` = `pk_live_…`,
+  `CLERK_SECRET_KEY` = `sk_live_…` (server only — never a `VITE_` prefix; that
+  prefix inlines a var into the public bundle and has leaked a master key
+  before).
 
-## 2 · Clerk production instance **[YOU]**
-- Clerk dashboard → the WealthTracker application → "Create production instance"
-  (top-right environment switcher). Choose the domain from step 1.
-- Clerk will list DNS records (CNAMEs like `clerk.<domain>`, `accounts.<domain>`,
-  plus email records). Add them at your DNS host, wait for Clerk to show all green.
+## The traps that remain true — read before touching anything
 
-## 3 · OAuth credentials — per provider **[YOU]**
-Dev instances borrow Clerk's shared apps; production needs your own. Clerk's dashboard
-(User & Authentication → Social connections → each provider → "Use custom credentials")
-shows the exact **redirect URI / callback URL** to paste into each provider console —
-copy it from there, not from memory.
+- **`.env.local` on the Mac still holds the DEV instance's `CLERK_SECRET_KEY`.**
+  Any local script that talks to Clerk (seeders included) is talking to a ghost:
+  it will succeed against the dev instance and the production app will see
+  nothing. This burned a seeding run on 29 Aug — the demo user was created on
+  the wrong instance and had to be repointed by SQL. Swap the key, or expect
+  every Clerk-touching script to lie until it is swapped.
+- **Production is a separate user table from dev.** A person who existed on the
+  dev instance gets a brand-new `user_…` id the first time they touch
+  production, the app finds no `users` row for it and creates an empty one —
+  and their first impression is an empty ledger. The cure is a repoint, proven
+  twice on 29 Aug (the App Review account, then Danielle):
+  1. Find their data row and the stray empty row:
+     `SELECT id, clerk_id, email, created_at FROM users WHERE email ILIKE '<theirs>'`
+     (plus per-row transaction counts to see which row holds the data).
+  2. Delete the stray empty row FIRST (clerk_id is unique), pinned by both id
+     and clerk_id.
+  3. `UPDATE users SET clerk_id = '<new production id>' WHERE id = '<data row>'`.
+  4. They close and reopen the app; everything is there. Their internal
+     `users.id` never changes, so subscriptions and all data stay attached.
+  To avoid even the transient empty first look: create their user in the
+  production Clerk dashboard BEFORE inviting them (mints the new id with no
+  action from them) and repoint in advance.
+- **`AUTHORIZED_PARTIES` must list every origin the app is served from.** Stale
+  origins after a domain change 401 every API route for every user while the
+  Clerk dashboard shows all green (this outage has happened — see memory /
+  incident notes). Check it FIRST after any domain work.
+- **Clerk prod dies if the DNS records go.** The CNAMEs are load-bearing;
+  removing them breaks auth in production immediately.
 
-- **Google**: console.cloud.google.com → new project → OAuth consent screen (External,
-  app name, your support email) → Credentials → OAuth client ID (Web application) →
-  authorised redirect URI = the one Clerk shows. Paste client ID + secret into Clerk.
-- **Microsoft**: portal.azure.com → Microsoft Entra ID → App registrations → New →
-  supported accounts: personal + work/school → Redirect URI (Web) = Clerk's. Create a
-  client secret. Paste application (client) ID + secret into Clerk.
-- **Apple** (the involved one): requires **Apple Developer Program** (£79/yr).
-  developer.apple.com → Certificates, Identifiers & Profiles:
-  1. Identifiers → App ID (if none) with "Sign in with Apple" capability.
-  2. Identifiers → **Services ID** (this is the web client) → enable Sign in with Apple →
-     configure: domains = your Clerk domains, return URL = the one Clerk shows.
-  3. Keys → new key with "Sign in with Apple" enabled → download the `.p8` once.
-  4. Into Clerk: Services ID, Team ID, Key ID, and the `.p8` contents.
+## Housekeeping still owed (as of 29 Aug 2026)
 
-## 4 · Keys and deploy **[CODE + YOU]**
-- Clerk production API keys page: copy `pk_live_…` and `sk_live_…`.
-- Vercel → project → Settings → Environment Variables (Production):
-  - `VITE_CLERK_PUBLISHABLE_KEY` = `pk_live_…`  (client, safe to inline)
-  - `CLERK_SECRET_KEY` = `sk_live_…`  (server only — **never** a `VITE_` prefix)
-- Redeploy. The Supabase JWT bridge (Clerk JWT template → Supabase) must exist on the
-  production instance too: copy the JWT template from the dev instance (Clerk dashboard →
-  JWT templates) — same claims, same signing config as the dev one the RLS policies expect.
+- Rotate the Clerk admin key the July security audit found committed — still
+  outstanding.
+- Swap `.env.local`'s `CLERK_SECRET_KEY` dev→prod (see trap one).
+- Delete the stray demo user created on the dev instance during the 29 Aug
+  seeding mix-up.
 
-## 5 · Verification checklist
-- [ ] New domain serves the app; sign-up modal **no longer says "Development mode"**.
-- [ ] Email/password signup works on the new domain.
-- [ ] Google sign-up completes **on desktop**.
-- [ ] **Apple sign-up completes on an iPhone** (the original failure — the real test).
-- [ ] Microsoft sign-up completes.
-- [ ] A social-created user gets Supabase rows (userIdService mapping) and RLS holds
-      (log in as them: only their data).
-- [ ] Existing dev-instance users: note that production is a NEW user table — your own
-      account and Danielle's live on the dev instance. Either keep dev for yourselves and
-      test accounts, or re-create on production and re-run the backup/restore path
-      (export from dev login, restore into prod login — ids remap on restore by design).
+## If a NEW provider or a new domain is ever added
 
-## Gotchas
-- Clerk prod requires the domain's DNS to stay pointed; removing the CNAMEs breaks auth.
-- Apple's Services ID return URL must match Clerk's *exactly* (scheme + path).
-- If Google shows "unverified app" interstitials, publish the consent screen (Testing →
-  In production). Verification review is only needed for sensitive scopes — sign-in isn't.
-- The dev instance keeps working in parallel; nothing is lost by standing production up.
+The one-time provider work (consent screens, redirect URIs, Apple's Services
+ID + `.p8` key dance) was done per Clerk's own dashboard instructions — Clerk's
+"Use custom credentials" page for each provider shows the exact callback URL to
+paste into the provider console, and that page, not this file, is the source of
+truth for the values. Apple's return URL must match Clerk's exactly, scheme and
+path. Google's consent screen must be published ("In production"), or every
+sign-in shows an unverified-app interstitial; verification review is only
+needed for sensitive scopes, which sign-in is not.
