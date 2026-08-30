@@ -21,6 +21,7 @@ import { dataPort } from '@data';
 import { useApp } from '../contexts/AppContextSupabase';
 import { tradeDateCompanions } from '../services/investments/tradeDateCompanions';
 import { Modal, ModalBody } from './common/Modal';
+import DatePicker from './common/DatePicker';
 import { buildHoldingRegister, type HoldingPricePoint } from '../services/investments/holdingRegister';
 import { buildSecurityRegister } from '../services/investments/securityRegister';
 import SecurityRegisterTable from './SecurityRegisterTable';
@@ -166,8 +167,8 @@ export default function HoldingRegisterModal({
     if (movingEventId === null) return;
     const event = events?.find((candidate) => candidate.id === movingEventId) ?? null;
     if (event === null) return;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(moveDate)) {
-      setSaveError('Pick the day this trade actually happened.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(moveDate) || moveDate > today()) {
+      setSaveError('Pick the day this trade actually happened — a real one, not in the future.');
       return;
     }
     if (moveDate === event.date) {
@@ -224,6 +225,10 @@ export default function HoldingRegisterModal({
       setSaveError('Enter the price of one unit — a plain number, 0 or more.');
       return;
     }
+    if (revalueDate > today()) {
+      setSaveError('A price cannot be dated in the future.');
+      return;
+    }
     setIsSaving(true);
     setSaveError(null);
     try {
@@ -277,6 +282,10 @@ export default function HoldingRegisterModal({
     }
     if (mode === 'sell' && quantity.greaterThan(holding.quantity)) {
       setSaveError(`Only ${holding.quantity.toString()} units are held.`);
+      return;
+    }
+    if (tradeDate > today()) {
+      setSaveError('A trade cannot be dated in the future.');
       return;
     }
     setIsSaving(true);
@@ -434,12 +443,12 @@ export default function HoldingRegisterModal({
         )}
         <label className="block">
           <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">On</span>
-          <input
-            type="date"
+          <DatePicker
             value={tradeDate}
-            max={today()}
-            onChange={(e) => setTradeDate(e.target.value)}
+            onChange={setTradeDate}
+            aria-label="Trade date"
             className={fieldClass}
+            usePortal
           />
         </label>
         <label className="block">
@@ -507,12 +516,20 @@ export default function HoldingRegisterModal({
         </label>
         <label className="block">
           <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">On</span>
-          <input
-            type="date"
+          {/* The house DatePicker, not a native date input (owner, 30 Aug:
+              "It seems an old version. It is not set to dark mode. I cannot
+              click on the month and it change to the year"). The native
+              picker is the browser's own — light-themed, month-view only,
+              US-ordered — and the app's calendar exists precisely so every
+              date field drills day→month→year in the app's own dress. The
+              future-date guard the native max carried now lives in the
+              submit, where a typed date was always able to bypass it anyway. */}
+          <DatePicker
             value={revalueDate}
-            max={today()}
-            onChange={(e) => setRevalueDate(e.target.value)}
-            className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg text-gray-900 dark:text-white"
+            onChange={setRevalueDate}
+            aria-label="Price date"
+            className={fieldClass}
+            usePortal
           />
         </label>
         <button
@@ -598,12 +615,12 @@ export default function HoldingRegisterModal({
                   <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                     This trade actually happened on
                   </span>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={moveDate}
-                    max={today()}
-                    onChange={(e) => setMoveDate(e.target.value)}
+                    onChange={setMoveDate}
+                    aria-label="This trade actually happened on"
                     className={fieldClass}
+                    usePortal
                   />
                 </label>
                 <button

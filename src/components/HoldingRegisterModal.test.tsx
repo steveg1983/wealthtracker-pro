@@ -317,8 +317,8 @@ describe('HoldingRegisterModal — moving a trade\u2019s date', () => {
     render(<HoldingRegisterModal holding={holding()} onClose={vi.fn()} onPricesChanged={vi.fn()} />);
 
     fireEvent.click(await screen.findByRole('button', { name: /change the date of this buy/i }));
-    const dateField = screen.getByLabelText(/actually happened on/i);
-    fireEvent.change(dateField, { target: { value: '2023-01-01' } });
+    const dateField = screen.getByLabelText('This trade actually happened on');
+    fireEvent.change(dateField, { target: { value: '01/01/2023' } });
     fireEvent.click(screen.getByRole('button', { name: 'Move the trade' }));
 
     await waitFor(() => {
@@ -349,7 +349,7 @@ describe('HoldingRegisterModal — moving a trade\u2019s date', () => {
     render(<HoldingRegisterModal holding={holding()} onClose={vi.fn()} onPricesChanged={vi.fn()} />);
 
     fireEvent.click(await screen.findByRole('button', { name: /change the date of this buy/i }));
-    fireEvent.change(screen.getByLabelText(/actually happened on/i), { target: { value: '2023-01-01' } });
+    fireEvent.change(screen.getByLabelText('This trade actually happened on'), { target: { value: '01/01/2023' } });
     fireEvent.click(screen.getByRole('button', { name: 'Move the trade' }));
 
     await waitFor(() => expect(mockMoveEventDate).toHaveBeenCalled());
