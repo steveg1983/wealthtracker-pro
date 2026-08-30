@@ -81,6 +81,18 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
   const logger = useMemo(() => createScopedLogger('AddAccountModal'), []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * ONE TICK INSTEAD OF CREATE-THEN-LINK (owner, 30 Aug): an investment
+   * account usually has cash alongside its holdings, and pairing one up used
+   * to take a second trip through this modal plus Account Settings → Part of
+   * investment account. Ticked, the submit creates BOTH — the cash account
+   * carries the same details with ' (Cash)' on the name, is itself an
+   * investment-type account, and is born already paired (parentAccountId).
+   * After that it is an ordinary account: its own register, its own
+   * settings, deletable like any other.
+   */
+  const [withCashRegister, setWithCashRegister] = useState(false);
+  const [cashBalance, setCashBalance] = useState('');
   const [formData, setFormData] = useState<AccountFormData>({
     name: '',
     type: 'current',
@@ -107,6 +119,8 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
       });
       setError(null);
       setIsSubmitting(false);
+      setWithCashRegister(false);
+      setCashBalance('');
     }
   }, [isOpen, defaultCurrency, prefill]);
 
@@ -174,10 +188,46 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
         accountNumber: accountNumberForStorage(formData.accountNumber, isCard),
       };
 
+      const wantsCashRegister = formData.type === 'investment' && withCashRegister;
+      const parsedCashBalance = cashBalance.trim() === ''
+        ? 0
+        : parseMoneyInput(cashBalance) ?? NaN;
+      if (wantsCashRegister && isNaN(parsedCashBalance)) {
+        throw new Error('Please enter a valid opening balance for the cash account');
+      }
+
       // Create the account
       const result = await addAccount(newAccountPayload);
 
       logger.info?.('[AddAccountModal] Account added successfully:', result);
+
+      // The ticked cash register: same details, ' (Cash)' on the name, born
+      // paired to the account just created. Failure here must say what DID
+      // happen — the investment account exists — and hand over the manual
+      // path rather than inviting a retry that would duplicate it.
+      if (wantsCashRegister && result?.id) {
+        try {
+          await addAccount({
+            name: `${newAccountPayload.name} (Cash)`,
+            type: 'investment',
+            balance: parsedCashBalance,
+            initialBalance: parsedCashBalance,
+            currency: newAccountPayload.currency,
+            institution: newAccountPayload.institution,
+            lastUpdated: new Date(),
+            openingBalance: parsedCashBalance,
+            openingBalanceDate: newAccountPayload.openingBalanceDate,
+            isActive: true,
+            parentAccountId: result.id,
+          });
+        } catch (cashError) {
+          throw new Error(
+            `${newAccountPayload.name} was created, but its cash account could not be` +
+            `${cashError instanceof Error ? ` (${cashError.message})` : ''}. ` +
+            'Add it yourself: a new investment-type account, paired in Account Settings → Part of investment account.'
+          );
+        }
+      }
 
       // Reset form and close modal only after successful creation
       setFormData({
@@ -356,6 +406,52 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                 </select>
               </div>
             </div>
+
+            {/* An investment account usually has cash beside its holdings —
+                one tick creates and pairs it (owner, 30 Aug). Only offered
+                for the type it makes sense for; the box resets with the
+                form. */}
+            {formData.type === 'investment' && (
+              <div className="space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={withCashRegister}
+                    onChange={(e) => setWithCashRegister(e.target.checked)}
+                    disabled={isSubmitting}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
+                      Add a cash register to this investment
+                    </span>
+                    <span className="block text-xs text-gray-500 dark:text-gray-400">
+                      Creates a second account alongside this one — same details, &lsquo;(Cash)&rsquo;
+                      on the name — already paired to it, for the money that sits uninvested.
+                    </span>
+                  </span>
+                </label>
+                {withCashRegister && (
+                  <div>
+                    <label htmlFor="add-account-cash-balance" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                      Opening balance — cash account
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">
+                        {selectedCurrency?.symbol}
+                      </span>
+                      <MoneyInput
+                        id="add-account-cash-balance"
+                        value={cashBalance}
+                        onChange={setCashBalance}
+                        className="w-full pl-8 pr-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-primary dark:text-white transition-all duration-200"
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Institution */}
             <div>
