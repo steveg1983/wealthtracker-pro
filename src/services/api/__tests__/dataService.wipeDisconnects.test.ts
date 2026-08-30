@@ -31,7 +31,7 @@ import { createDataService, type BankingEngineLike } from '../dataService';
 
 const wipeCloudData = vi.fn(async () => {});
 const wipeUserFinancialData = vi.fn(async () => ({}));
-const disconnect = vi.fn(async () => true);
+const disconnect = vi.fn(async () => ({ removed: true, revokedAtProvider: true }));
 const refreshConnections = vi.fn(async () => [{ id: 'conn-1' }, { id: 'conn-2' }]);
 
 vi.mock('../../transactionCache', () => ({
@@ -66,7 +66,7 @@ describe('a wipe revokes every bank connection', () => {
     disconnect.mockClear();
     refreshConnections.mockClear();
     refreshConnections.mockResolvedValue([{ id: 'conn-1' }, { id: 'conn-2' }]);
-    disconnect.mockResolvedValue(true);
+    disconnect.mockResolvedValue({ removed: true, revokedAtProvider: true });
   });
 
   it('disconnects each one, so nothing is left to recreate the accounts', async () => {
@@ -91,7 +91,7 @@ describe('a wipe revokes every bank connection', () => {
   it('says so when a bank refuses, instead of leaving it to resurrect the ledger', async () => {
     disconnect.mockImplementation(async (id: string) => {
       if (id === 'conn-2') throw new Error('provider unavailable');
-      return true;
+      return { removed: true, revokedAtProvider: true };
     });
 
     await expect(serviceWith(workingBank()).wipeAllFinancialData()).rejects.toThrow(
@@ -102,7 +102,7 @@ describe('a wipe revokes every bank connection', () => {
   it('tries every connection even after one fails', async () => {
     disconnect.mockImplementation(async (id: string) => {
       if (id === 'conn-1') throw new Error('provider unavailable');
-      return true;
+      return { removed: true, revokedAtProvider: true };
     });
 
     await expect(serviceWith(workingBank()).wipeAllFinancialData()).rejects.toThrow();

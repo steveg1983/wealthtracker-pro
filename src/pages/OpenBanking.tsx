@@ -20,11 +20,15 @@ export default function OpenBanking() {
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [linkingConnectionId, setLinkingConnectionId] = useState<string | null>(null);
-  // What a sync that ran but did not finish could not do. "Shown via connection
-  // status" was never true of a healthy connection with an unfinished job —
-  // e.g. accounts the bank gave no balance for, which are deliberately not
-  // opened at a made-up figure and so simply are not there.
-  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  // What an action that ran but did not finish could not do. "Shown via
+  // connection status" was never true of a healthy connection with an
+  // unfinished job — e.g. accounts the bank gave no balance for, which are
+  // deliberately not opened at a made-up figure and so simply are not there.
+  //
+  // It carries its own heading because it now reports two different
+  // unfinished jobs, and "Bank sync incomplete" over a message about a consent
+  // still standing at the bank would be the wrong sentence entirely.
+  const [notice, setNotice] = useState<{ title: string; body: string } | null>(null);
 
   const loadConnections = useCallback(async () => {
     try {
@@ -110,11 +114,15 @@ export default function OpenBanking() {
       // "Transaction sync failed", which names a subsystem rather than
       // telling the reader anything about their money. The modal's copy of
       // this was fixed and the PAGE's was missed; both say it now.
-      setSyncNotice(
+      setNotice(
         result.success
           ? null
-          : 'Some transactions didn’t come through, so this account may be behind. ' +
-            'If the row below asks you to reconnect, that is the fix; otherwise syncing again usually completes it.'
+          : {
+              title: 'Bank sync incomplete',
+              body:
+                'Some transactions didn’t come through, so this account may be behind. ' +
+                'If the row below asks you to reconnect, that is the fix; otherwise syncing again usually completes it.'
+            }
       );
       await loadConnections();
     } catch {
@@ -141,8 +149,27 @@ export default function OpenBanking() {
     setDeletingIds(prev => new Set(prev).add(connectionId));
     try {
       bankConnectionService.setAuthTokenProvider(() => getToken());
-      await bankConnectionService.disconnect(connectionId);
+      const outcome = await bankConnectionService.disconnect(connectionId);
       setConnections(prev => prev.filter(c => c.id !== connectionId));
+      // The row went either way — that is what the endpoint guarantees, and
+      // what stops the accounts coming back on the next sync. Whether the BANK
+      // dropped its authorisation is a second question, and it used to be
+      // answered by silence: a provider that refused the revocation was
+      // reported here as a clean disconnection, which left the user believing
+      // they had withdrawn access they still had out.
+      //
+      // Explicitly `=== false`, never falsy: an endpoint that did not send the
+      // field has told us nothing, and "we don't know" must not be dressed up
+      // as "the bank said no".
+      if (outcome.revokedAtProvider === false) {
+        setNotice({
+          title: 'Your bank may still hold this authorisation',
+          body:
+            `${institutionName} is disconnected here and won’t sync again, but the bank didn’t ` +
+            'confirm that it had dropped WealthTracker’s access. Remove it in your bank’s own app ' +
+            'or online banking, under connected apps or third-party access.'
+        });
+      }
     } catch {
       // The connection's own status flips on a failed disconnect and the
       // list below shows it.
@@ -170,9 +197,15 @@ export default function OpenBanking() {
         window.location.href = result.url;
         return;
       }
-      setSyncNotice('The bank did not offer a reconnection link. Try again, or disconnect and connect afresh.');
+      setNotice({
+        title: 'Reconnection didn’t start',
+        body: 'The bank did not offer a reconnection link. Try again, or disconnect and connect afresh.'
+      });
     } catch (err) {
-      setSyncNotice(err instanceof Error ? err.message : 'Reconnecting failed. Try again.');
+      setNotice({
+        title: 'Reconnection didn’t start',
+        body: err instanceof Error ? err.message : 'Reconnecting failed. Try again.'
+      });
     } finally {
       setReauthorizingIds(prev => {
         const next = new Set(prev);
@@ -241,19 +274,21 @@ export default function OpenBanking() {
         </p>
       </div>
 
-      {/* A sync that ran but could not finish the job. Amber, not red: the
-          connection works and syncing again usually completes it. */}
-      {syncNotice && (
+      {/* An action that ran but could not finish the job. Amber, not red: in
+          every case that reaches here the app itself is working and there is a
+          next step the reader can take — sync again, reconnect, or finish the
+          revocation at the bank. */}
+      {notice && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-6">
           <div className="flex items-start gap-3">
             <AlertCircleIcon className="text-amber-600 dark:text-amber-400 mt-0.5" size={20} />
             <div className="flex-1">
-              <p className="font-medium text-amber-800 dark:text-amber-200">Bank sync incomplete</p>
-              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{syncNotice}</p>
+              <p className="font-medium text-amber-800 dark:text-amber-200">{notice.title}</p>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{notice.body}</p>
             </div>
             <button
               type="button"
-              onClick={() => setSyncNotice(null)}
+              onClick={() => setNotice(null)}
               className="text-sm text-amber-700 dark:text-amber-300 underline"
             >
               Dismiss

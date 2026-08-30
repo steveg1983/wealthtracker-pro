@@ -4,6 +4,7 @@ import { setCorsHeaders } from '../_lib/cors.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { getRequiredEnv, getOptionalEnv } from '../_lib/env.js';
 import { getStripe } from '../_lib/stripe.js';
+import { revokeConnectionConsents } from '../_lib/banking-consent.js';
 import { applyRateLimit } from '../_lib/rate-limit.js';
 import { captureServerError, withSentry } from '../_lib/sentry.js';
 
@@ -12,12 +13,14 @@ import { captureServerError, withSentry } from '../_lib/sentry.js';
  *
  * Removes, in order:
  *   1. Stripe customer (cancels any active subscription so billing stops)
- *   2. All database rows: users row cascades every financial table
+ *   2. Bank consents at the provider — before the cascade below takes the
+ *      access tokens away with the rows that hold them
+ *   3. All database rows: users row cascades every financial table
  *      (accounts, transactions, budgets, goals, categories, investments,
  *      banking tables — all FK ON DELETE CASCADE); plus the tables keyed
  *      outside that cascade (financial_audit_log, user_profiles,
  *      recurring_transactions, subscription rows by clerk id)
- *   3. The Clerk identity
+ *   4. The Clerk identity
  *
  * Auth is self-contained (verifyToken, not requireAuth): requireAuth 404s
  * when the users row is already gone, which would make a retry after a
@@ -101,7 +104,48 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // ── 2. Database erasure ──────────────────────────────────────────────
+    // ── 2. Bank consents, BEFORE the cascade takes the rows away ─────────
+    //
+    // `bank_connections` hangs off `users` with ON DELETE CASCADE, so the
+    // delete below removes every connection this person has — and removing our
+    // row is not the same as revoking the consent behind it. Until this
+    // existed, "delete my account" left TrueLayer holding a live authorisation
+    // for the bank of somebody who had just asked to be erased: we forgot them
+    // and the bank did not. The in-app "Delete All Data" already revoked, by
+    // going through /api/banking/disconnect; this path, the one that erases
+    // MORE, revoked less.
+    //
+    // Order is forced: the access token lives IN the row, so a revocation
+    // after the cascade is not possible — there is nothing left to revoke
+    // with.
+    //
+    // Best effort, and the erasure proceeds either way. Refusing to delete
+    // somebody's data because a third party would not answer is the worse
+    // failure of the two, and nothing about our obligation to erase is
+    // conditional on TrueLayer's cooperation. What is not acceptable is doing
+    // it silently, which is what the warning is for.
+    if (userRow) {
+      const connectionsResult = await supabase
+        .from('bank_connections')
+        .select('id, provider, access_token_encrypted')
+        .eq('user_id', userRow.id);
+      if (connectionsResult.error) {
+        warnings.push(`bank_connections read: ${connectionsResult.error.message}`);
+      }
+
+      const unrevoked = await revokeConnectionConsents(connectionsResult.data ?? []);
+      if (unrevoked.length > 0) {
+        // The count, not the ids: this is the log of a GDPR erasure, and the
+        // number is what tells an operator to go and check.
+        console.warn('[account-delete] Bank consents not confirmed revoked', {
+          clerkUserId,
+          count: unrevoked.length
+        });
+        warnings.push(`bank_consents_unrevoked: ${unrevoked.length}`);
+      }
+    }
+
+    // ── 3. Database erasure ──────────────────────────────────────────────
     if (userRow) {
       // Tables NOT covered by the users-row cascade:
       const { error: auditErr } = await supabase
@@ -151,7 +195,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // ── 3. Clerk identity ────────────────────────────────────────────────
+    // ── 4. Clerk identity ────────────────────────────────────────────────
     try {
       const clerk = createClerkClient({ secretKey: getRequiredEnv('CLERK_SECRET_KEY') });
       await clerk.users.deleteUser(clerkUserId);

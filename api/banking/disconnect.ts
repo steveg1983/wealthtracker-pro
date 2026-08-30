@@ -4,8 +4,7 @@ import { AuthError, requireAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { createErrorResponse } from '../_lib/http-error.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
-import { decryptSecret } from '../_lib/encryption.js';
-import { revokeAccessToken } from '../_lib/truelayer.js';
+import { revokeConnectionConsent } from '../_lib/banking-consent.js';
 import { withSentry } from '../_lib/sentry.js';
 
 async function handler(req: VercelRequest, res: VercelResponse) {
@@ -41,6 +40,11 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     // the user asked to disconnect, and a connection left standing is what
     // recreates the accounts. But the response says so, rather than reporting
     // a clean disconnection that did not happen.
+    //
+    // The revocation itself moved to `_lib/banking-consent.ts` when account
+    // deletion turned out to need exactly the same act — this handler was the
+    // only place that knew how to give a consent back, and "delete my account"
+    // could not reach it.
     const { data: existing } = await supabase
       .from('bank_connections')
       .select('id, provider, access_token_encrypted')
@@ -48,16 +52,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('user_id', auth.userId)
       .maybeSingle();
 
-    let revokedAtProvider = false;
-    if (existing?.provider === 'truelayer' && existing.access_token_encrypted) {
-      try {
-        revokedAtProvider = await revokeAccessToken(decryptSecret(existing.access_token_encrypted));
-      } catch {
-        // A provider that is down must not trap somebody in a connection they
-        // have asked to leave.
-        revokedAtProvider = false;
-      }
-    }
+    const revokedAtProvider = existing ? await revokeConnectionConsent(existing) : false;
 
     const { data, error } = await supabase
       .from('bank_connections')

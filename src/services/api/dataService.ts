@@ -207,7 +207,13 @@ type UuidGenerator = () => string;
 export interface BankingEngineLike {
   bankConnectionService: {
     refreshConnections(): Promise<Array<{ id: string }>>;
-    disconnect(connectionId: string): Promise<boolean>;
+    // Spelled out structurally rather than imported, so this stays the
+    // shortest description of what the wipe needs of the service. The wipe
+    // reads neither field — a connection it could not remove throws out of the
+    // endpoint, which is the only outcome it acts on — but the shape still has
+    // to match the real method, or a stand-in would be typed against one that
+    // no longer exists.
+    disconnect(connectionId: string): Promise<{ removed: boolean; revokedAtProvider?: boolean }>;
   };
 }
 

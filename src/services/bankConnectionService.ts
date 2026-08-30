@@ -59,6 +59,32 @@ export interface ConnectBankOptions {
   connectionId?: string;
 }
 
+/**
+ * The two separate answers a disconnect comes back with.
+ *
+ * They used to be one, and the one was the stronger reading of the weaker
+ * fact: `disconnect` threw the response away and returned `true`, so a
+ * TrueLayer that REFUSED the revocation still reached the user as a clean
+ * disconnection — the app had forgotten the bank and the bank had not
+ * forgotten the app, and nothing on screen said so.
+ *
+ * The endpoint has always been more careful than we were. It deletes the row
+ * either way, because a connection left standing is what recreates the
+ * accounts on the next sync, and reports the provider's answer separately.
+ */
+export interface DisconnectOutcome {
+  /** The connection is gone from WealthTracker. */
+  removed: boolean;
+  /**
+   * Whether the PROVIDER confirmed it had dropped the consent.
+   *
+   * Left `undefined` rather than coerced to `false` when the response does not
+   * carry the field: "this deployment did not say" is not "the bank refused",
+   * and only the second is worth alarming somebody with.
+   */
+  revokedAtProvider?: boolean;
+}
+
 export interface OpsAlertStatsQuery {
   eventType?: string;
   eventTypePrefix?: string;
@@ -720,14 +746,26 @@ export class BankConnectionService {
     return results;
   }
 
-  async disconnect(connectionId: string): Promise<boolean> {
-    await this.request<DisconnectResponse>('/api/banking/disconnect', {
+  /**
+   * Remove a connection, and say what actually happened to the consent.
+   *
+   * A non-2xx throws out of `request`, so reaching the lines below means the
+   * row is gone — that part was never in doubt and is not what this returns
+   * for. `revokedAtProvider` is: the endpoint revokes best-effort and deletes
+   * regardless, so this is the only place a caller can learn that the bank may
+   * still be holding an authorisation the user believes they have withdrawn.
+   */
+  async disconnect(connectionId: string): Promise<DisconnectOutcome> {
+    const response = await this.request<DisconnectResponse>('/api/banking/disconnect', {
       method: 'POST',
       body: JSON.stringify({ connectionId })
     });
 
     this.connections = this.connections.filter((connection) => connection.id !== connectionId);
-    return true;
+    return {
+      removed: response.success !== false,
+      revokedAtProvider: response.revokedAtProvider
+    };
   }
 
   async discoverAccounts(connectionId: string): Promise<DiscoveredBankAccount[]> {
