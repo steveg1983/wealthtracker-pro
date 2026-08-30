@@ -308,7 +308,14 @@ export default function ReconciliationTransactionList({
         </div>
 
         {/* Rows */}
-        <div className="max-h-[600px] overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
+        {/* The inner scroller pads its own bottom on phones (the bottom
+            chrome offset; 0px above md): this list scrolls inside a
+            fixed-height column, so the page gutter below it is unreachable
+            and its last rows sat behind the floating pill. */}
+        <div
+          className="max-h-[600px] overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700"
+          style={{ paddingBottom: 'var(--wt-bottom-nav-clearance, 0px)' }}
+        >
           {filteredTransactions.length === 0 ? (
             <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
               {searchTerm

@@ -74,7 +74,7 @@ export default function MobileBottomNav(): React.JSX.Element {
               exactly one of the two modes this panel has. */}
           <div
             className="absolute bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-2 min-w-[200px]"
-            style={{ right: '0.75rem', bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}
+            style={{ right: '0.75rem', bottom: 'calc(5.125rem + env(safe-area-inset-bottom))' }}
           >
             {/* The add-transaction modal is Layout's and is opened by an
                 app-wide parameter, so this points at a page that still exists
@@ -126,7 +126,11 @@ export default function MobileBottomNav(): React.JSX.Element {
         style={{
           left: '0.5rem',
           right: '0.5rem',
-          bottom: 'calc(0.75rem + env(safe-area-inset-bottom))'
+          // 0.375rem, halved from 0.75 (owner, 30 Aug: "moving the pill
+          // down a bit") — still floating, but six more pixels of register
+          // visible above it. The page gutter's arithmetic in index.css
+          // moves with this number; change one, change both.
+          bottom: 'calc(0.375rem + env(safe-area-inset-bottom))'
         }}
         role="navigation"
         aria-label="Mobile navigation"

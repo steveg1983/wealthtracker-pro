@@ -101,6 +101,7 @@ export function TopNavDropdown({
   homeTo,
   items,
   activePaths,
+  inactivePaths,
   openDropdown,
   setOpenDropdown
 }: {
@@ -112,6 +113,8 @@ export function TopNavDropdown({
   homeTo: string;
   items: DropdownItem[];
   activePaths?: string[];
+  /** Routes inside a claimed prefix that ANOTHER menu owns — see isActive. */
+  inactivePaths?: string[];
   openDropdown: string | null;
   setOpenDropdown: (name: string | null) => void;
 }): React.JSX.Element {
@@ -122,9 +125,18 @@ export function TopNavDropdown({
   const isOpen = openDropdown === label;
   const homeLinkTo = isDemoMode ? `${homeTo}?demo=true` : homeTo;
 
-  const isActive = activePaths
+  const claimed = activePaths
     ? activePaths.some(p => location.pathname === p || location.pathname.startsWith(p))
     : false;
+  // A prefix claim can cover pages another menu owns outright — Categories
+  // lives under /settings but belongs to Manage, and both bars lit up over
+  // it (owner, 30 Aug). The disclaimer names what the prefix gives away, so
+  // ownership stays written where the claims are instead of being implied by
+  // whichever menu happens to list a page first.
+  const disclaimed = inactivePaths
+    ? inactivePaths.some(p => location.pathname === p || location.pathname.startsWith(p))
+    : false;
+  const isActive = claimed && !disclaimed;
 
   useEffect(() => {
     if (!isOpen) return;

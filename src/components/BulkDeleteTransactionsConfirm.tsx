@@ -168,7 +168,7 @@ export default function BulkDeleteTransactionsConfirm({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 dark:text-gray-200"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
           >
             {nothingToDelete ? 'Close' : 'Cancel'}
           </button>

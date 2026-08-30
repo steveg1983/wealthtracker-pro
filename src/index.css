@@ -826,21 +826,35 @@ button.rounded-full:focus-visible,
    * screen at the foot of every mobile page, on the smallest screens the app
    * runs on.
    *
-   * 6.25rem = 4.3 (the pill, MEASURED at 69px — icon, 11px label and its own
-   * padding; 67px at 320px where the label steps down a size) + 0.75 (the gap
-   * it floats above the window) + 1 (the same air as before) + the inset,
+   * 5.875rem = 4.3 (the pill, MEASURED at 69px — icon, 11px label and its own
+   * padding; 67px at 320px where the label steps down a size) + 0.375 (the
+   * gap it floats above the window — halved 30 Aug when the owner asked for
+   * the pill "down a bit") + 1 (the same air as before) + the inset,
    * which the pill's own `bottom` honours and the page therefore must too.
-   * Checked at 390x760: the pill's whole footprint is 80px from the window's
-   * bottom edge against the 100px reserved here, so content stops 20px clear
-   * of it rather than under it.
+   * Checked at 390x760 (before the 30 Aug lowering): the pill's whole
+   * footprint was 80px from the window's bottom edge against the 100px then
+   * reserved, content stopping 20px clear. The lowering moved pill and
+   * reservation down together by the same 0.375rem, so the 20px of air is
+   * unchanged.
    *
    * If the pill's height changes, this changes with it. That is the same
    * contract the old number had, and the same reason it lives here beside its
    * own arithmetic instead of as a `pb-` class at the call site.
    */
   @media (max-width: 767px) {
+    /* The clearance as a NAME, not only a class: the floating pill hides the
+       last hundred pixels of anything scrollable, and the page gutter below
+       only rescues surfaces whose OUTER page scrolls. A fixed-height column
+       with an inner scroller (the reconciliation list), or an overlay with
+       its own scroll (the slide-out menu), ends exactly behind the pill —
+       the owner lost the menu's Subscription entry and a register's last
+       rows to it, 30 Aug. Above 767px the variable is unset and every
+       consumer's fallback is 0px, exactly as the pill itself is md:hidden. */
+    :root {
+      --wt-bottom-nav-clearance: calc(5.875rem + env(safe-area-inset-bottom));
+    }
     .page-bottom-gutter {
-      padding-bottom: calc(6.25rem + env(safe-area-inset-bottom));
+      padding-bottom: var(--wt-bottom-nav-clearance);
     }
   }
   
