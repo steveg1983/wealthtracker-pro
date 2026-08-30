@@ -29,7 +29,11 @@ interface DatePickerProps {
    * For a field that sits inside a scroll container which CLIPS its overflow —
    * the register's quick-edit box lives inside the virtualised transaction
    * list, where an in-flow calendar is cut off at the edge of the table. Off by
-   * default, so every existing field renders byte-for-byte as it did.
+   * default, so a field only leaves its own DOM when it has that problem.
+   *
+   * Not needed merely to escape the BOTTOM of the window: an in-flow calendar
+   * flips above its field when it has to (see openUp), which is a clipping
+   * ancestor's problem only when there is one.
    */
   usePortal?: boolean;
   /**
@@ -208,10 +212,25 @@ export default function DatePicker({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [isOpen]);
 
-  // Where the portaled calendar sits: below the field, or above it when there
-  // is not room below. Recomputed on scroll (capture phase, so a scrolling
-  // container counts, not just the window) and on resize, so it tracks the
-  // field it belongs to rather than hanging in mid-air.
+  /**
+   * Which way the calendar opens. Below is the ordinary answer; it flips above
+   * when the field sits close enough to the bottom of the window that the
+   * calendar would run off it.
+   *
+   * This used to be worked out only for the PORTALED calendar, which left the
+   * in-flow one — the great majority of the fields, and the register's Quick Add
+   * bar among them — pinned below the field wherever the field happened to be.
+   * The Quick Add bar lives at the very bottom of the register page, so its
+   * calendar was always the clipped case (owner, 30 August: "when doing a quick
+   * add, and I drop down the date, I loose half the calendar, and then have to
+   * scroll down"). The decision is one calculation for both renderings now, so
+   * an in-flow field gets the same answer a portaled one has always had.
+   */
+  const [openUp, setOpenUp] = useState(false);
+  // Where the portaled calendar sits (fixed coordinates; portal mode only).
+  // Recomputed on scroll (capture phase, so a scrolling container counts, not
+  // just the window) and on resize, so it tracks the field it belongs to rather
+  // than hanging in mid-air — and so does the flip, which a scroll can change.
   const [menuPos, setMenuPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
   const computeMenuPosition = useCallback(() => {
     const el = containerRef.current;
@@ -219,20 +238,27 @@ export default function DatePicker({
     const rect = el.getBoundingClientRect();
     const gap = 4;
     const spaceBelow = window.innerHeight - rect.bottom;
-    const openUp = spaceBelow < CALENDAR_HEIGHT + gap && rect.top > spaceBelow;
+    // Above only when above is genuinely the better side: a window too short for
+    // the calendar either way would otherwise trade one clipped edge for another.
+    const up = spaceBelow < CALENDAR_HEIGHT + gap && rect.top > spaceBelow;
+    setOpenUp(up);
+    // An in-flow calendar carries the flip in its own classes (bottom-full), so
+    // there are no coordinates to hand it.
+    if (!usePortal) return;
     setMenuPos({
       // Kept on screen: a field near the right edge would otherwise put the
       // calendar half outside the window.
       left: Math.max(8, Math.min(rect.left, window.innerWidth - CALENDAR_WIDTH - 8)),
-      ...(openUp
+      ...(up
         ? { bottom: window.innerHeight - rect.top + gap }
         : { top: rect.bottom + gap }),
     });
-  }, []);
+  }, [usePortal]);
 
   useLayoutEffect(() => {
-    if (!usePortal || !isOpen) {
+    if (!isOpen) {
       setMenuPos(null);
+      setOpenUp(false);
       return;
     }
     computeMenuPosition();
@@ -243,7 +269,7 @@ export default function DatePicker({
       window.removeEventListener('scroll', onReflow, true);
       window.removeEventListener('resize', onReflow);
     };
-  }, [usePortal, isOpen, computeMenuPosition]);
+  }, [isOpen, computeMenuPosition]);
 
   const prevMonth = useCallback(() => {
     setViewMonth(m => {
@@ -462,7 +488,11 @@ export default function DatePicker({
             zIndex: 9999,
             ...(menuPos.top !== undefined ? { top: menuPos.top } : { bottom: menuPos.bottom }),
           } : undefined}
-          className={`${usePortal ? '' : 'absolute z-50 mt-1'} bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg p-3 w-[280px]`}
+          // data-datepicker-placement: which way it opened, readable by a test
+          // (and by anything that has to reason about the field's chrome)
+          // without measuring styles jsdom does not compute.
+          data-datepicker-placement={openUp ? 'above' : 'below'}
+          className={`${usePortal ? '' : `absolute z-50 ${openUp ? 'bottom-full mb-1' : 'mt-1'}`} bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg p-3 w-[280px]`}
         >
           {/* Header — the arrows step within the current view (month / year /
               12-year block) and the label drills UP a level (day→month→year). */}
