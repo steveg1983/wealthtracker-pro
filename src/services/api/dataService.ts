@@ -149,7 +149,7 @@ type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
  * file.
  */
 type InvestmentServiceLike = Pick<typeof import('./investmentService').InvestmentService,
-  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory' | 'listPrices' | 'recordManualPrice' | 'importEvents' | 'listEvents' | 'listAllEvents' | 'listAllPrices' | 'recordEvent' | 'deleteEventsFor' | 'moveEventDate'>;
+  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory' | 'listPrices' | 'recordManualPrice' | 'importEvents' | 'listEvents' | 'listAllEvents' | 'listAllPrices' | 'recordEvent' | 'deleteEventsFor' | 'moveEventDate' | 'deleteEvent'>;
 type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
 /**
@@ -3171,6 +3171,17 @@ class DataServiceImpl implements DataPort {
     throw new Error(HOLDINGS_NEED_A_LOGIN);
   }
 
+  async deleteInvestmentEvent(eventId: string): Promise<{
+    date: string; kind: 'buy' | 'sell' | 'write_off'; quantity: string; amount: string; symbol: string | null;
+  }> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).deleteEvent(userId, eventId);
+    }
+    this.guardCloudWrite();
+    throw new Error(HOLDINGS_NEED_A_LOGIN);
+  }
+
   async recordTradePrices(
     rows: readonly { symbol: string; date: string; price: string; currency: string }[]
   ): Promise<number> {
@@ -3867,6 +3878,12 @@ export class DataService {
 
   static moveInvestmentEventDate(eventId: string, newDate: string): Promise<{ previousDate: string }> {
     return this.service.moveInvestmentEventDate(eventId, newDate);
+  }
+
+  static deleteInvestmentEvent(eventId: string): Promise<{
+    date: string; kind: 'buy' | 'sell' | 'write_off'; quantity: string; amount: string; symbol: string | null;
+  }> {
+    return this.service.deleteInvestmentEvent(eventId);
   }
 
   static recordTradePrices(

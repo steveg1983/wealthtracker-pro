@@ -1379,6 +1379,20 @@ export interface DataPortInvestmentWrites {
   moveInvestmentEventDate(eventId: string, newDate: string): Promise<{ previousDate: string }>;
 
   /**
+   * Delete ONE recorded trade (owner, 30 Aug: a buy recorded against the
+   * wrong fund could otherwise only be undone by selling it, "but I dont
+   * want to do that, I want to delete it"). Removes the event, and its
+   * trade-implied price row UNLESS another event of the same security still
+   * asserts that day. The register rows that carried the trade's money and
+   * the holding row's pooled figures are the caller's to settle — they live
+   * in the app's context, not this port. Returns what the event said, so
+   * the caller can find them.
+   */
+  deleteInvestmentEvent(eventId: string): Promise<{
+    date: string; kind: 'buy' | 'sell' | 'write_off'; quantity: string; amount: string; symbol: string | null;
+  }>;
+
+  /**
    * EVERY quantity event, oldest first — what the net-worth valuation folds
    * (slice 3b). One read, because the walks value all accounts at once.
    */

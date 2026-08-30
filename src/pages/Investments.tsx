@@ -10,7 +10,8 @@ import InvestmentMarketView from '../components/InvestmentMarketView';
 import PortfolioManager, { type HoldingFormValues, type PurchaseDetails } from '../components/PortfolioManager';
 import { allInAverageCost } from '../services/investments/purchaseMath';
 import { openingPositionRow } from '../services/investments/openingPosition';
-import { openingPositionRowsFor } from '../services/investments/tradeDateCompanions';
+import { openingPositionRowsFor, localDayKey } from '../services/investments/tradeDateCompanions';
+import { bumpInvestmentValuation } from '../hooks/useInvestmentValuation';
 import { transferCategoryIdFor } from '../utils/transferRepoint';
 import StockWatchlist from '../components/StockWatchlist';
 // Use optimized lazy-loaded charts to reduce bundle size
@@ -270,6 +271,9 @@ function InvestmentsView() {
   const [quotedAccountId, setQuotedAccountId] = useState<string | null>(null);
 
   const reloadHoldings = useCallback(async (): Promise<void> => {
+    // Every holdings mutation funnels through here — and every value surface
+    // must learn of it at the same moment this page does.
+    bumpInvestmentValuation();
     try {
       // An engine with nowhere to keep a holding answers with an empty list
       // rather than rejecting (divergence B-12), which is honest: there are
@@ -506,8 +510,9 @@ function InvestmentsView() {
             accountId,
             symbol: values.symbol,
             securityName: values.name,
-            // A date string, not-a-charted-series (the slice-count census).
-            date: purchase.date.toISOString().slice(0, 10),
+            // LOCAL day, not toISOString: a summer local-midnight Date is the
+            // previous day in UTC, and the event would land a day early.
+            date: localDayKey(purchase.date),
             kind: 'buy',
             quantity: values.quantity.toString(),
             // Per-unit in the ACCOUNT's money, fees out — the register
@@ -521,8 +526,7 @@ function InvestmentsView() {
           // never overwriting a quote or a typed figure.
           await dataPort.recordTradePrices([{
             symbol: values.symbol,
-            // A date string, not-a-charted-series (the slice-count census).
-            date: purchase.date.toISOString().slice(0, 10),
+            date: localDayKey(purchase.date),
             price: values.averageCost.toString(),
             currency: values.currency
           }]);
@@ -615,8 +619,8 @@ function InvestmentsView() {
       const accountId = holding.accountId;
       if (accountId === null) throw new Error('This holding names no account.');
       const amount = trade.quantity.times(trade.price).plus(trade.charges);
-      // A date string, not-a-charted-series (the slice-count census).
-      const day = trade.date.toISOString().slice(0, 10);
+      // LOCAL day — see handleAddHolding's event date.
+      const day = localDayKey(trade.date);
 
       if (trade.fundingAccountId !== null) {
         const outLeg = await addTransaction({
@@ -629,6 +633,34 @@ function InvestmentsView() {
           cleared: false,
         });
         await createTransferCounterpart(outLeg.id, accountId);
+      } else {
+        /**
+         * The SAME hole #516 closed on Add a holding, on this path: an
+         * unfunded buy-more put its cost in the events and nowhere in the
+         * ledger, so the position gained units while the account gained
+         * nothing — the owner's second lot read as a LOSS of the whole
+         * £6,192.82 minus its market value. Same recipe, same description
+         * the companions and the delete cleanup already match.
+         */
+        const opening = openingPositionRow({
+          fundingAccountId: null,
+          costInAccountMoney: amount,
+          quantity: trade.quantity,
+          symbol: holding.symbol,
+          date: trade.date,
+          categories
+        });
+        if (opening.row !== null) {
+          await addTransaction({
+            accountId,
+            amount: opening.row.amount.toNumber(),
+            type: 'income',
+            date: opening.row.date,
+            description: opening.row.description,
+            category: opening.row.categoryId,
+            cleared: false,
+          });
+        }
       }
 
       try {
@@ -687,8 +719,8 @@ function InvestmentsView() {
       const proceeds = trade.quantity.times(trade.price).minus(trade.fees);
       const costOut = holding.averageCost.times(trade.quantity);
       const realised = proceeds.minus(costOut);
-      // A date string, not-a-charted-series (the slice-count census).
-      const day = trade.date.toISOString().slice(0, 10);
+      // LOCAL day — see handleAddHolding's event date.
+      const day = localDayKey(trade.date);
 
       if (trade.destinationAccountId !== null) {
         const outLeg = await addTransaction({
@@ -1029,8 +1061,9 @@ function InvestmentsView() {
       categories,
       range: historyRange,
       conversionAt: conversionAt ?? undefined,
+      deltaAt: valuation.deltaAt,
     }),
-    [scopeMembers, transactions, transactionSplits, categories, historyRange, conversionAt]
+    [scopeMembers, transactions, transactionSplits, categories, historyRange, conversionAt, valuation]
   );
 
   /**
