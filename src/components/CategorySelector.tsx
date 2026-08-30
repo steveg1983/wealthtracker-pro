@@ -173,6 +173,15 @@ export default function CategorySelector({
   const newCategoryInputRef = useRef<HTMLInputElement>(null);
   // Fixed coordinates for the portaled dropdown (usePortal mode only).
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
+  /**
+   * Which way the list opens — for BOTH renderings. The in-flow list was
+   * hard-coded UPWARD (bottom-full) — the mirror image of the DatePicker bug
+   * #515 fixed: right at the foot of a register, clipped at the top of the
+   * window everywhere else. The portal path's own measurement now serves the
+   * in-flow list too, through its classes. useLayoutEffect runs before
+   * paint, so the default never flashes on screen.
+   */
+  const [openUp, setOpenUp] = useState(false);
 
   // Anchor the portaled menu to the trigger. Chooses up/down by available space
   // and recomputes on scroll/resize so it tracks the trigger inside a scrolling
@@ -185,23 +194,29 @@ export default function CategorySelector({
     const maxMenu = 384; // matches the non-portal max-h-96
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
-    const openUp = spaceBelow < Math.min(maxMenu, 240) && spaceAbove > spaceBelow;
-    const available = (openUp ? spaceAbove : spaceBelow) - gap - 8;
+    const up = spaceBelow < Math.min(maxMenu, 240) && spaceAbove > spaceBelow;
+    setOpenUp(up);
+    // The in-flow list carries the flip in its own classes; only the
+    // portaled one needs coordinates.
+    if (!usePortal) return;
+    const available = (up ? spaceAbove : spaceBelow) - gap - 8;
     const maxHeight = Math.max(160, Math.min(maxMenu, available));
     setMenuPos({
       left: rect.left,
       width: rect.width,
       maxHeight,
-      ...(openUp
+      ...(up
         ? { bottom: window.innerHeight - rect.top + gap }
         : { top: rect.bottom + gap }),
     });
-  }, []);
+  }, [usePortal]);
 
-  // Position (and keep positioning) the portaled menu while it is open.
+  // Position (and keep positioning) the menu while it is open — both
+  // renderings now, since the flip decision serves the in-flow list too.
   useLayoutEffect(() => {
-    if (!usePortal || !showDropdown) {
+    if (!showDropdown) {
       setMenuPos(null);
+      setOpenUp(false);
       return;
     }
     computeMenuPosition();
@@ -213,7 +228,7 @@ export default function CategorySelector({
       window.removeEventListener('scroll', onReflow, true);
       window.removeEventListener('resize', onReflow);
     };
-  }, [usePortal, showDropdown, computeMenuPosition]);
+  }, [showDropdown, computeMenuPosition]);
 
   // Get sub-categories for the transaction type
   const getSubCategoriesForType = (): Category[] => {
@@ -731,6 +746,9 @@ export default function CategorySelector({
             ref={usePortal ? menuRef : undefined}
             id={listboxId}
             role="listbox"
+            // Which way it opened, readable by a test without measuring
+            // styles jsdom does not compute (the DatePicker idiom, #515).
+            data-categoryselector-placement={openUp ? 'above' : 'below'}
             style={usePortal && menuPos ? {
               position: 'fixed',
               left: menuPos.left,
@@ -741,7 +759,7 @@ export default function CategorySelector({
             } : undefined}
             className={usePortal
               ? 'overflow-y-auto bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg'
-              : 'absolute bottom-full left-0 right-0 mb-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-96 overflow-y-auto z-50'}
+              : `absolute ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'} left-0 right-0 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-96 overflow-y-auto z-50`}
           >
             {showCreateForm ? (
               /* Create New Category Form */
