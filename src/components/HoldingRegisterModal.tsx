@@ -99,6 +99,18 @@ export default function HoldingRegisterModal({
   const [tradeDate, setTradeDate] = useState(today());
   /** '' = just record, no cash leg; otherwise the sleeve's account id. */
   const [tradeCashId, setTradeCashId] = useState('');
+  /**
+   * WHICH FIGURE THE CONTRACT NOTE GIVES (owner, 30 Aug, an hour after the
+   * same choice landed on Add a holding: "Have we added the ability to do
+   * the total cost for 'buying more' or 'selling'?"). In total mode the
+   * price derives from total ÷ units — unrounded, so units × price returns
+   * the typed total to the penny — and the Charges/Fees box disappears: a
+   * total already contains them, one or the other. No FX to reason about
+   * here: these forms are only offered when the holding prices in the
+   * account's own currency (canTrade).
+   */
+  const [tradeEntryMode, setTradeEntryMode] = useState<'unit' | 'total'>('unit');
+  const [tradeTotal, setTradeTotal] = useState('');
 
   /**
    * Trades are offered only when the holding prices in the ACCOUNT's own
@@ -242,10 +254,25 @@ export default function HoldingRegisterModal({
 
   const submitTrade = useCallback(async (): Promise<void> => {
     const quantity = parsed(tradeQty, { allowZero: false });
-    const price = parsed(tradePrice);
-    const costs = tradeCosts.trim() === '' ? toDecimal('0') : parsed(tradeCosts);
+    // Total mode: the typed figure is the money that moved; the per-unit
+    // price is derived and the costs are already inside it.
+    const total = tradeEntryMode === 'total' ? parsed(tradeTotal) : null;
+    const price =
+      tradeEntryMode === 'total'
+        ? total !== null && quantity !== null && !quantity.isZero()
+          ? total.dividedBy(quantity)
+          : null
+        : parsed(tradePrice);
+    const costs =
+      tradeEntryMode === 'total'
+        ? toDecimal('0')
+        : tradeCosts.trim() === '' ? toDecimal('0') : parsed(tradeCosts);
     if (quantity === null || price === null || costs === null) {
-      setSaveError('Units, price and charges must be plain numbers; units above zero.');
+      setSaveError(
+        tradeEntryMode === 'total'
+          ? 'Units and the total must be plain numbers; units above zero.'
+          : 'Units, price and charges must be plain numbers; units above zero.'
+      );
       return;
     }
     if (mode === 'sell' && quantity.greaterThan(holding.quantity)) {
@@ -279,31 +306,76 @@ export default function HoldingRegisterModal({
       }
       setTradeQty('');
       setTradeCosts('');
+      setTradeTotal('');
       await load();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'The trade could not be recorded.');
     } finally {
       setIsSaving(false);
     }
-  }, [holding.quantity, load, mode, onBuyMore, onClose, onSell, tradeCashId, tradeCosts, tradeDate, tradePrice, tradeQty]);
+  }, [holding.quantity, load, mode, onBuyMore, onClose, onSell, tradeCashId, tradeCosts, tradeDate, tradeEntryMode, tradePrice, tradeQty, tradeTotal]);
+
+  /** Total mode's derived per-unit price, said out loud once both are typed. */
+  const derivedTradePrice = useMemo(() => {
+    if (tradeEntryMode !== 'total') return null;
+    const quantity = parsed(tradeQty, { allowZero: false });
+    const total = parsed(tradeTotal);
+    if (quantity === null || total === null || quantity.isZero()) return null;
+    return total.dividedBy(quantity);
+  }, [tradeEntryMode, tradeQty, tradeTotal]);
 
   /** The sale's realised preview — pooled basis, same maths the page writes. */
   const sellPreview = useMemo(() => {
     if (mode !== 'sell') return null;
     const quantity = parsed(tradeQty, { allowZero: false });
+    if (quantity === null || quantity.greaterThan(holding.quantity)) return null;
+    if (tradeEntryMode === 'total') {
+      const total = parsed(tradeTotal);
+      if (total === null) return null;
+      // The typed total IS the proceeds — fees are already inside it.
+      return { proceeds: total, realised: total.minus(holding.averageCost.times(quantity)) };
+    }
     const price = parsed(tradePrice);
     const fees = tradeCosts.trim() === '' ? toDecimal('0') : parsed(tradeCosts);
-    if (quantity === null || price === null || fees === null) return null;
-    if (quantity.greaterThan(holding.quantity)) return null;
+    if (price === null || fees === null) return null;
     const proceeds = quantity.times(price).minus(fees);
     return { proceeds, realised: proceeds.minus(holding.averageCost.times(quantity)) };
-  }, [holding.averageCost, holding.quantity, mode, tradeCosts, tradePrice, tradeQty]);
+  }, [holding.averageCost, holding.quantity, mode, tradeCosts, tradeEntryMode, tradePrice, tradeQty, tradeTotal]);
 
   const fieldClass =
     'px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg text-gray-900 dark:text-white';
 
   const tradeForm = (kind: 'buy' | 'sell'): React.JSX.Element => (
     <div className="mt-3">
+      {/* Which figure the contract note gives — the same segmented pair Add
+          a holding grew an hour earlier, worded for the trade's direction. */}
+      <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">I know the</span>
+      <div className="inline-flex rounded-lg border border-line dark:border-gray-600 overflow-hidden mb-3">
+        {(['unit', 'total'] as const).map((entry) => (
+          <button
+            key={entry}
+            type="button"
+            onClick={() => {
+              if (entry === tradeEntryMode) return;
+              setTradeEntryMode(entry);
+              // A number typed as a price per unit is not a total — clear
+              // rather than silently re-read it under the new meaning.
+              setTradePrice('');
+              setTradeTotal('');
+              setSaveError(null);
+            }}
+            aria-pressed={tradeEntryMode === entry}
+            disabled={isSaving}
+            className={`px-3 py-1.5 text-sm ${
+              tradeEntryMode === entry
+                ? 'bg-primary-action text-on-primary-action'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            {entry === 'unit' ? 'Unit price' : kind === 'buy' ? 'Total cost' : 'Total received'}
+          </button>
+        ))}
+      </div>
       <div className="flex flex-wrap items-end gap-3">
         <label className="block">
           <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Units</span>
@@ -316,32 +388,50 @@ export default function HoldingRegisterModal({
             className={`w-28 ${fieldClass}`}
           />
         </label>
-        <label className="block">
-          <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-            Price per unit ({holding.currency})
-          </span>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={tradePrice}
-            onChange={(e) => setTradePrice(e.target.value)}
-            placeholder="0.00"
-            className={`w-32 ${fieldClass}`}
-          />
-        </label>
-        <label className="block">
-          <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-            {kind === 'buy' ? 'Charges' : 'Fees'}
-          </span>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={tradeCosts}
-            onChange={(e) => setTradeCosts(e.target.value)}
-            placeholder="0.00"
-            className={`w-24 ${fieldClass}`}
-          />
-        </label>
+        {tradeEntryMode === 'total' ? (
+          <label className="block">
+            <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+              {kind === 'buy' ? 'Total cost' : 'Total received'} ({holding.currency})
+            </span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={tradeTotal}
+              onChange={(e) => setTradeTotal(e.target.value)}
+              placeholder="0.00"
+              className={`w-32 ${fieldClass}`}
+            />
+          </label>
+        ) : (
+          <>
+            <label className="block">
+              <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Price per unit ({holding.currency})
+              </span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={tradePrice}
+                onChange={(e) => setTradePrice(e.target.value)}
+                placeholder="0.00"
+                className={`w-32 ${fieldClass}`}
+              />
+            </label>
+            <label className="block">
+              <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                {kind === 'buy' ? 'Charges' : 'Fees'}
+              </span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={tradeCosts}
+                onChange={(e) => setTradeCosts(e.target.value)}
+                placeholder="0.00"
+                className={`w-24 ${fieldClass}`}
+              />
+            </label>
+          </>
+        )}
         <label className="block">
           <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">On</span>
           <input
@@ -376,6 +466,11 @@ export default function HoldingRegisterModal({
           {isSaving ? 'Saving…' : kind === 'buy' ? 'Record buy' : 'Record sale'}
         </button>
       </div>
+      {tradeEntryMode === 'total' && derivedTradePrice !== null && (
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          = {formatUnitPrice(derivedTradePrice, holding.currency)} a unit
+        </p>
+      )}
       {kind === 'sell' && sellPreview && (
         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
           Proceeds {formatCurrency(sellPreview.proceeds, holding.currency)} · Realised{' '}
