@@ -381,6 +381,27 @@ body {
 html,
 body {
   background-color: #f8f9fb;
+  /* ─ AND THE COLOUR-SCHEME, WHICH IS A SEPARATE ANSWER ─────────────────────
+     The background above is not enough, because WebKit does not paint the
+     rubber-band overscroll zones from it. Those two strips — the one revealed
+     ABOVE the document when you pull down past the top, and the one below it
+     at the bottom — are the canvas outside the document, and Safari paints
+     that from the element's `color-scheme`, not from any background it has
+     been given. Unset means "light", so a dark app whose html and body are
+     both painted #111827 still shows white bands the moment a finger drags
+     past either end.
+
+     Observed live on the owner's phone, 31 Aug 2026: "there is now a white
+     bit at the bottom… there is even more of a gap now at the top, to the
+     white bit covering my time and signal. That is when I pull all the way
+     down though to reveal that white bit."
+
+     `color-scheme` also hands the UA the palette for the things it draws
+     itself — scrollbars, and the controls inside form elements — which is
+     wanted in both modes. Nothing in the app renders a native
+     `<input type="date">` any more (the house DatePicker is everywhere), so
+     there is no date-control appearance to be surprised by. */
+  color-scheme: light;
 }
 
 /* `html.dark`, not `.dark html` — PreferencesContext puts the class on
@@ -389,6 +410,7 @@ body {
 html.dark,
 html.dark body {
   background-color: #111827; /* gray-900, the same ground the app div paints */
+  color-scheme: dark; /* the overscroll canvas above; see the light block */
 }
 
 /* The colour-theme variants (green/red/pink primary swaps) were retired
@@ -826,16 +848,20 @@ button.rounded-full:focus-visible,
    * screen at the foot of every mobile page, on the smallest screens the app
    * runs on.
    *
-   * 5.875rem = 4.3 (the pill, MEASURED at 69px — icon, 11px label and its own
-   * padding; 67px at 320px where the label steps down a size) + 0.375 (the
+   * 5.625rem = 4.3 (the pill, MEASURED at 69px — icon, 11px label and its own
+   * padding; 67px at 320px where the label steps down a size) + 0.125 (the
    * gap it floats above the window — halved 30 Aug when the owner asked for
-   * the pill "down a bit") + 1 (the same air as before) + the inset,
-   * which the pill's own `bottom` honours and the page therefore must too.
+   * the pill "down a bit", and halved again 31 Aug when he asked for the same
+   * thing once more: "the pill can also sit lower") + 1 (the same air as
+   * before) + 0.2 slack (the reservation has carried the pill's share at
+   * 4.5rem rather than its measured 4.3 since 14 Aug; said out loud here so
+   * the column adds up) + the inset, which the pill's own `bottom` honours
+   * and the page therefore must too.
    * Checked at 390x760 (before the 30 Aug lowering): the pill's whole
    * footprint was 80px from the window's bottom edge against the 100px then
-   * reserved, content stopping 20px clear. The lowering moved pill and
-   * reservation down together by the same 0.375rem, so the 20px of air is
-   * unchanged.
+   * reserved, content stopping 20px clear. Each lowering moved pill and
+   * reservation down together by the same amount — 0.375rem on 30 Aug, a
+   * further 0.25rem on 31 Aug — so the 20px of air is unchanged both times.
    *
    * If the pill's height changes, this changes with it. That is the same
    * contract the old number had, and the same reason it lives here beside its
@@ -851,7 +877,7 @@ button.rounded-full:focus-visible,
        rows to it, 30 Aug. Above 767px the variable is unset and every
        consumer's fallback is 0px, exactly as the pill itself is md:hidden. */
     :root {
-      --wt-bottom-nav-clearance: calc(5.875rem + env(safe-area-inset-bottom));
+      --wt-bottom-nav-clearance: calc(5.625rem + env(safe-area-inset-bottom));
     }
     .page-bottom-gutter {
       padding-bottom: var(--wt-bottom-nav-clearance);

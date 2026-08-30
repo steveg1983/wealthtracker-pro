@@ -62,7 +62,10 @@ export default function MobileBottomNav(): React.JSX.Element {
               and for the same reason. `bottom-20` was measured against a bar
               that ran to the physical edge; the pill floats clear of it, so the
               menu has to rise from the pill's top rather than from a number
-              that used to describe one. */}
+              that used to describe one. Which makes it one of the trio the
+              pill's own `bottom` names below: when the pill drops a notch
+              this drops by exactly the same amount, or the panel floats away
+              from the thing it belongs to. */}
           {/* THE ITEMS NAME THEIR OWN INK. Neither link set a text colour, so
               both inherited — and what they inherited was the document
               default, near-black. On the light panel that is correct by
@@ -74,7 +77,7 @@ export default function MobileBottomNav(): React.JSX.Element {
               exactly one of the two modes this panel has. */}
           <div
             className="absolute bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-2 min-w-[200px]"
-            style={{ right: '0.75rem', bottom: 'calc(5.125rem + env(safe-area-inset-bottom))' }}
+            style={{ right: '0.75rem', bottom: 'calc(4.875rem + env(safe-area-inset-bottom))' }}
           >
             {/* The add-transaction modal is Layout's and is opened by an
                 app-wide parameter, so this points at a page that still exists
@@ -126,11 +129,20 @@ export default function MobileBottomNav(): React.JSX.Element {
         style={{
           left: '0.5rem',
           right: '0.5rem',
-          // 0.375rem, halved from 0.75 (owner, 30 Aug: "moving the pill
-          // down a bit") — still floating, but six more pixels of register
-          // visible above it. The page gutter's arithmetic in index.css
-          // moves with this number; change one, change both.
-          bottom: 'calc(0.375rem + env(safe-area-inset-bottom))'
+          // 0.125rem: halved from 0.75 on 30 Aug ("moving the pill down a
+          // bit"), and halved again 31 Aug when the owner asked for the same
+          // thing once more — "the pill can also sit lower". Still floating,
+          // by 2px plus whatever the home indicator's inset adds, which on
+          // every phone that has one is most of the visible gap.
+          //
+          // THREE NUMBERS, ONE NOTCH. This is the low one of a trio that only
+          // ever moves together, each by the same amount (0.25rem on 31 Aug):
+          // this, the quick-actions menu that is anchored above the pill
+          // (4.875rem, up the file), and --wt-bottom-nav-clearance in
+          // index.css (5.625rem), which is what stops the last register row
+          // hiding behind it. Change one, change all three, or the panel
+          // detaches from the pill or the page gives back the air.
+          bottom: 'calc(0.125rem + env(safe-area-inset-bottom))'
         }}
         role="navigation"
         aria-label="Mobile navigation"
