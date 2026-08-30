@@ -6,7 +6,6 @@
 
 export { default as SubscriptionPage } from './SubscriptionPage';
 export { default as PricingPlans } from './PricingPlans';
-export { default as PaymentForm } from './PaymentForm';
 export { default as BillingDashboard } from './BillingDashboard';
 export { default as UsageLimitWarning, UpgradeBenefits } from './UsageLimitWarning';
 
