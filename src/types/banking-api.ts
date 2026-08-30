@@ -158,6 +158,9 @@ export interface SyncTransactionsResponse {
    * payment recorded by the owner before the feed delivered it (28 Aug).
    */
   transfersAdopted?: number;
+  /** Imported (CSV/manual) rows the feed recognised as its own and stamped —
+   *  one payment, one row, the owner's categorisation kept. */
+  importedRowsAdopted?: number;
   /**
    * Rows the bank offered that the owner had DELETED, and which were
    * therefore not re-imported (28 Aug: a card payment he had already recorded

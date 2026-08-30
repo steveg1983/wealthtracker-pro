@@ -394,13 +394,20 @@ export function AccountBalanceCell({
   secondary?: string;
 }): React.JSX.Element {
   return (
-    <div className={smOnly ? 'hidden lg:block text-right' : 'text-right'}>
+    <div className={smOnly ? 'relative hidden lg:block text-right' : 'relative text-right'}>
       <p className={ROW_LABEL_CLASS}>{label}</p>
       <p className={`${CELL_FIGURE_LINE_CLASS} ${CELL_FIGURE_CLASS} text-gray-900 dark:text-white`}>
         {value ?? '—'}
       </p>
       {secondary !== undefined && (
-        <p className="m-0 text-[11px] leading-tight text-gray-500 dark:text-gray-400 whitespace-nowrap">
+        /* ABSOLUTE, so the line costs the cell no height. In flow it made
+           this cell two lines tall inside an items-center grid, which sank
+           every single-line neighbour below this cell's first line — the
+           owner watched the Bank Bal figure sit lower than the worth beside
+           it. Hanging the line into the card's own padding keeps every
+           figure on one level and the register note exactly where it read
+           best. */
+        <p className="absolute top-full right-0 m-0 text-[11px] leading-tight text-gray-500 dark:text-gray-400 whitespace-nowrap">
           {secondary}
         </p>
       )}

@@ -24,6 +24,7 @@ import { fetchCardTransactions, fetchTransactions } from '../_lib/truelayer.js';
 import { cardAmountToAppSigned } from '../../src/services/banking/cardNormalization.js';
 import { resolveIdChurn, type ExistingBankRow } from '../../src/services/banking/idChurn.js';
 import { resolveTransferAdoption } from '../../src/services/banking/transferAdoption.js';
+import { resolveImportedRowAdoption } from '../../src/services/banking/importedRowAdoption.js';
 import { partitionOfferedRows } from '../../src/services/banking/ownerDeletions.js';
 import { applyFeedRules } from '../../src/services/banking/feedRules.js';
 import { stampBackfillDecision } from '../../src/services/banking/backfillStamp.js';
@@ -513,6 +514,68 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Rows the owner IMPORTED before the feed existed (his partner's account,
+    // 30 Aug: a year by CSV, then the feed over the same window — every
+    // overlapping payment doubled). Same adoption shape as the transfer legs
+    // above, for everything that is NOT a transfer: the imported row is
+    // stamped with the feed's identity and the owner's categorisation
+    // survives. importedRowAdoption's header carries the two rules that
+    // differ — a ±1-day window, and same-day identicals pairing by count.
+    let importedRowsAdopted = 0;
+    if (insertCandidates.length > 0) {
+      const adoptionAccountIds = [...new Set(insertCandidates.map((row) => row.account_id))];
+      const widenBy = (day: string, days: number): string => {
+        const d = new Date(`${day}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + days);
+        return d.toISOString().slice(0, 10);
+      };
+      const importedRowsResult = await supabase
+        .from('transactions')
+        .select('id, account_id, date, amount, metadata')
+        .eq('user_id', auth.userId)
+        .neq('type', 'transfer')
+        .is('external_transaction_id', null)
+        .in('account_id', adoptionAccountIds)
+        .gte('date', widenBy(dateRange.from.slice(0, 10), -1))
+        .lte('date', widenBy(dateRange.to.slice(0, 10), 1));
+      if (importedRowsResult.error) {
+        throw new Error(`Failed to load imported rows for adoption check: ${importedRowsResult.error.message}`);
+      }
+      const importedRows = (importedRowsResult.data ?? []) as Array<{
+        id: string; account_id: string; date: string; amount: number;
+        metadata: Record<string, unknown> | null;
+      }>;
+      const importedMetadataById = new Map(importedRows.map((row) => [row.id, row.metadata]));
+      const importedResolution = resolveImportedRowAdoption(insertCandidates, importedRows);
+      insertCandidates = importedResolution.inserts;
+
+      for (const adoption of importedResolution.adoptions) {
+        const previousMetadata = importedMetadataById.get(adoption.existingRowId) ?? {};
+        const previousHistory = Array.isArray(previousMetadata?.['importedRowAdoptions'])
+          ? previousMetadata['importedRowAdoptions']
+          : [];
+        const updateResult = await supabase
+          .from('transactions')
+          .update({
+            external_transaction_id: adoption.candidate.external_transaction_id,
+            connection_id: connection.id,
+            metadata: {
+              ...(previousMetadata ?? {}),
+              importedRowAdoptions: [
+                ...previousHistory,
+                { adoptedAt: new Date().toISOString() }
+              ]
+            }
+          })
+          .eq('id', adoption.existingRowId)
+          .eq('user_id', auth.userId);
+        if (updateResult.error) {
+          throw new Error(`Failed to adopt imported row: ${updateResult.error.message}`);
+        }
+        importedRowsAdopted += 1;
+      }
+    }
+
     // ── THE OWNER'S RULES, ON A FEED ────────────────────────────────────────
     //
     // He asked on 28 Aug whether import rules apply to automatic bank imports.
@@ -642,7 +705,8 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     // decision being honoured, and they leave the duplicate count alone so the
     // three numbers still add up to what the bank offered.
     const duplicatesSkipped =
-      prepared.length - insertedCount - idChurnRepaired - transfersAdopted - deletedByOwnerSkipped;
+      prepared.length - insertedCount - idChurnRepaired - transfersAdopted -
+      importedRowsAdopted - deletedByOwnerSkipped;
 
     await markConnectionSyncSuccess(supabase, connection.id, auth.userId);
     await supabase.from('sync_history').insert({
@@ -659,6 +723,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       duplicatesSkipped,
       ...(idChurnRepaired > 0 ? { idChurnRepaired } : {}),
       ...(transfersAdopted > 0 ? { transfersAdopted } : {}),
+      ...(importedRowsAdopted > 0 ? { importedRowsAdopted } : {}),
       ...(deletedByOwnerSkipped > 0 ? { deletedByOwnerSkipped } : {}),
       ...(rulesApplied > 0 ? { rulesApplied } : {})
     };
