@@ -393,3 +393,69 @@ describe('AddAccountModal — the opening balance', () => {
     expect(container.textContent).not.toContain('Currency *');
   });
 });
+
+describe('AddAccountModal \u2014 the investment cash register', () => {
+  /**
+   * One tick instead of create-then-link (owner, 30 Aug): an Investment
+   * account offers 'Add a cash register to this investment'. Ticked, the
+   * submit creates BOTH \u2014 the cash account carries ' (Cash)' on the name,
+   * is itself investment-typed, and is born paired via parentAccountId.
+   */
+  const tickBox = () => screen.getByRole('checkbox', { name: /Add a cash register/i });
+
+  const startAnInvestment = () => {
+    fireEvent.change(nameField(), { target: { value: 'Synthetic Broker ISA' } });
+    fireEvent.change(balanceField(), { target: { value: '1000' } });
+    fireEvent.click(screen.getByRole('button', { name: /Investment/ }));
+  };
+
+  it('offers the box only for an investment account, unticked', () => {
+    renderModal();
+    expect(screen.queryByRole('checkbox', { name: /Add a cash register/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Investment/ }));
+    expect(tickBox()).not.toBeChecked();
+    // The cash balance field waits behind the tick.
+    expect(screen.queryByRole('textbox', { name: /cash account/i })).not.toBeInTheDocument();
+  });
+
+  it('creates both accounts \u2014 the cash one named, typed, dated and paired', async () => {
+    renderModal();
+    startAnInvestment();
+    fireEvent.click(tickBox());
+    fireEvent.change(
+      screen.getByRole('textbox', { name: /Opening balance \u2014 cash account/i }),
+      { target: { value: '250' } }
+    );
+    fireEvent.click(submitButton());
+
+    await waitFor(() => expect(addAccount).toHaveBeenCalledTimes(2));
+    const investment = addAccount.mock.calls[0]?.[0];
+    const cash = addAccount.mock.calls[1]?.[0];
+    expect(investment?.name).toBe('Synthetic Broker ISA');
+    expect(cash?.name).toBe('Synthetic Broker ISA (Cash)');
+    // Investment-typed, NOT current \u2014 it moves inside the investment on
+    // the Accounts page and counts towards its value.
+    expect(cash?.type).toBe('investment');
+    expect(cash?.openingBalance).toBe(250);
+    expect(cash?.parentAccountId).toBe('new-account');
+    expect(cash?.openingBalanceDate).toEqual(investment?.openingBalanceDate);
+  });
+
+  it('a blank cash balance means zero, like the main field', async () => {
+    renderModal();
+    startAnInvestment();
+    fireEvent.click(tickBox());
+    fireEvent.click(submitButton());
+
+    await waitFor(() => expect(addAccount).toHaveBeenCalledTimes(2));
+    expect(addAccount.mock.calls[1]?.[0]?.openingBalance).toBe(0);
+  });
+
+  it('unticked creates one account, exactly as before', async () => {
+    renderModal();
+    startAnInvestment();
+    fireEvent.click(submitButton());
+
+    await waitFor(() => expect(addAccount).toHaveBeenCalledTimes(1));
+  });
+});
