@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal, parseMoneyInput, type DecimalInstance } from '../utils/decimal';
+import { toDecimal, parseMoneyInput, parseUnitPriceInput, type DecimalInstance } from '../utils/decimal';
 import { useFxQuote } from '../hooks/useFxQuote';
 import {
   AMOUNT_DP,
@@ -249,6 +249,13 @@ export default function PortfolioManager({
   const [name, setName] = useState('');
   const [assetType, setAssetType] = useState<InvestmentAssetType>('stock');
   const [pickingSymbol, setPickingSymbol] = useState(true);
+  /**
+   * A hand-typed instrument the lookup does not know (owner, 30 Aug). Its
+   * name is editable — the lookup normally supplies one — and no quote is
+   * fetched now or by Update quotes later; the register's Revalue is how its
+   * prices arrive.
+   */
+  const [isManualSecurity, setIsManualSecurity] = useState(false);
   const [quantity, setQuantity] = useState('');
   const [averageCost, setAverageCost] = useState('');
   const [holdingCurrency, setHoldingCurrency] = useState(currency);
@@ -297,6 +304,7 @@ export default function PortfolioManager({
     setName('');
     setAssetType('stock');
     setPickingSymbol(true);
+    setIsManualSecurity(false);
     setQuantity('');
     setAverageCost('');
     setHoldingCurrency(currency);
@@ -410,7 +418,9 @@ export default function PortfolioManager({
   const fundingAccount = fundingAccounts.find((a) => a.id === fundingAccountId) ?? null;
   const chargesValue = charges === '' ? 0 : parseMoneyInput(charges);
   const quantityValue = Number(quantity);
-  const costValue = parseMoneyInput(averageCost);
+  // FOUR places, not money's two: funds quote £0.0653 and the 2dp parse made
+  // it £0.07 — wrong by 7% before anything was valued (owner, 30 Aug).
+  const costValue = parseUnitPriceInput(averageCost);
 
   /**
    * What the purchase costs in cash, in the HOLDING's currency — the default
@@ -838,10 +848,23 @@ export default function PortfolioManager({
                   setName(match.name);
                   setAssetType(assetTypeFromLookup(match.type));
                   setPickingSymbol(false);
+                  setIsManualSecurity(false);
                   if (!currencyTouched) {
                     setHoldingCurrency(defaultCurrencyFor(picked, match.exchange, currency));
                   }
                   loadQuote(picked);
+                }}
+                onManual={(typed) => {
+                  // The typed text is the SYMBOL, uppercased the way tickers
+                  // are written; the name starts as the same text and the
+                  // field below invites a fuller one. No quote is fetched —
+                  // there is nothing to fetch.
+                  setSymbol(typed.toUpperCase());
+                  setName(typed);
+                  setPickingSymbol(false);
+                  setIsManualSecurity(true);
+                  setQuote(null);
+                  setQuoteLoading(false);
                 }}
                 autoFocus={!editing}
               />
@@ -849,15 +872,36 @@ export default function PortfolioManager({
               <div className="flex items-center justify-between gap-3 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700">
                 <span className="min-w-0">
                   <span className="block font-medium text-gray-900 dark:text-white">{symbol}</span>
-                  <span className="block text-xs text-gray-500 dark:text-gray-400 truncate">{name}</span>
+                  {!isManualSecurity && (
+                    <span className="block text-xs text-gray-500 dark:text-gray-400 truncate">{name}</span>
+                  )}
                 </span>
                 <button
                   type="button"
-                  onClick={() => setPickingSymbol(true)}
+                  onClick={() => { setPickingSymbol(true); setIsManualSecurity(false); }}
                   className="shrink-0 text-sm text-primary hover:underline"
                 >
                   Change
                 </button>
+              </div>
+            )}
+            {isManualSecurity && !pickingSymbol && (
+              <div className="mt-2">
+                <label htmlFor="holding-manual-name" className={labelClass}>
+                  Name
+                </label>
+                <input
+                  id="holding-manual-name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={isSaving}
+                  className={inputClass}
+                />
+                <p className={helperClass}>
+                  A holding you added by hand — quotes won&rsquo;t update it. Record its prices
+                  yourself from the holding&rsquo;s register (Revalue).
+                </p>
               </div>
             )}
             {/* What the exchange says it trades at — the sanity check for the
@@ -933,6 +977,7 @@ export default function PortfolioManager({
                   onChange={setAverageCost}
                   className={`${inputClass} pl-8`}
                   disabled={isSaving}
+                  decimals={4}
                 />
               </div>
             </div>
@@ -1097,21 +1142,32 @@ export default function PortfolioManager({
                 </div>
               )}
 
-              {fundingAccountId !== '' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="holding-purchase-date" className={labelClass}>
-                      Purchase date
-                    </label>
-                    <DatePicker
-                      id="holding-purchase-date"
-                      value={purchaseDate}
-                      onChange={setPurchaseDate}
-                      className={inputClass}
-                      aria-label="Purchase date"
-                      usePortal
-                    />
-                  </div>
+              {/* ALWAYS shown, funded or not (owner, 30 Aug: "If I am
+                  retrospectively trying to fill in some missing history,
+                  there is no 'start date'"). This date is where the position
+                  starts existing: the buy event, the opening-position row
+                  and the valuation walk all anchor to it, and hidden it
+                  defaulted every backfilled holding to TODAY — which put
+                  the buy after every real price and valued the lot at
+                  exactly £0.00 of delta. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="holding-purchase-date" className={labelClass}>
+                    Purchase date
+                  </label>
+                  <DatePicker
+                    id="holding-purchase-date"
+                    value={purchaseDate}
+                    onChange={setPurchaseDate}
+                    className={inputClass}
+                    aria-label="Purchase date"
+                    usePortal
+                  />
+                  <p className={helperClass}>
+                    When you bought it — where its value starts counting.
+                  </p>
+                </div>
+                {fundingAccountId !== '' && (
                   <div>
                     <label htmlFor="holding-total-paid" className={labelClass}>
                       Total paid ({fundingAccount?.currency ?? currency})
@@ -1132,8 +1188,8 @@ export default function PortfolioManager({
                         : 'Units × cost + charges, prefilled — change it if the contract note says otherwise.'}
                     </p>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </>
           )}
 

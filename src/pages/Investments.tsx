@@ -9,6 +9,7 @@ import TrendArrow from '../components/TrendArrow';
 import InvestmentMarketView from '../components/InvestmentMarketView';
 import PortfolioManager, { type HoldingFormValues, type PurchaseDetails } from '../components/PortfolioManager';
 import { allInAverageCost } from '../services/investments/purchaseMath';
+import { openingPositionRow } from '../services/investments/openingPosition';
 import { transferCategoryIdFor } from '../utils/transferRepoint';
 import StockWatchlist from '../components/StockWatchlist';
 // Use optimized lazy-loaded charts to reduce bundle size
@@ -446,6 +447,51 @@ function InvestmentsView() {
         : values.currency === accountCurrency
           ? values.quantity.times(averageCost)
           : null;
+
+      /**
+       * THE OPENING-POSITION ROW (owner, 30 Aug: holdings recorded without a
+       * cash leg "should hold a value throughout the app"). The valuation is
+       * ledger + (market − cost), and its stated assumption is that the
+       * ledger carries buys at cost — true for a funded buy through its
+       * transfer, false for "no money moves", which left the position
+       * contributing only its gain: a whole portfolio recorded
+       * retrospectively read £0.00 on Accounts, in net worth and on the
+       * Overview while the Portfolio tab priced it at market. The register
+       * now receives the cost the way a reconciliation adjustment arrives —
+       * dated the purchase, filed under the revaluation kind, so it moves
+       * the balance without ever counting as income. openingPositionRow
+       * makes the same funded/foreign choice as the event lane above, so
+       * the register and the valuation can never disagree about whether a
+       * position is ledger-backed.
+       */
+      const opening = openingPositionRow({
+        fundingAccountId: purchase.fundingAccountId,
+        costInAccountMoney: purchase.fundingAccountId === null ? eventAmount : null,
+        quantity: values.quantity,
+        symbol: values.symbol,
+        date: purchase.date,
+        categories
+      });
+      if (opening.row !== null) {
+        try {
+          await addTransaction({
+            accountId,
+            amount: opening.row.amount.toNumber(),
+            type: 'income',
+            date: opening.row.date,
+            description: opening.row.description,
+            category: opening.row.categoryId,
+            cleared: false,
+          });
+        } catch (error) {
+          throw new Error(
+            'The holding was saved, but its opening position could not be written into the register' +
+            `${error instanceof Error ? ` (${error.message})` : ''}. ` +
+            'Without that row the account undercounts by the cost — add it from the register: ' +
+            `a deposit of the amount paid, filed under Account Adjustment.`
+          );
+        }
+      }
       if (eventAmount !== null) {
         // Charges arrive in the HOLDING's currency; the event's figures are
         // account money — convert at the buy's own rate before any

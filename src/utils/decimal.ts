@@ -80,6 +80,26 @@ export function parseMoneyInput(raw: string | number | null | undefined): number
 }
 
 /**
+ * A typed UNIT PRICE, at four places — or null when it is not a plain number.
+ *
+ * Deliberately not parseMoneyInput: money rounds to pennies, but a unit price
+ * is a rate-like figure and funds quote four places (owner, 30 Aug: "a lot of
+ * prices are quoted as such. We hold 2dp's"). Two places turned a £0.0653
+ * fund into £0.07 — wrong by 7% before anything was even valued.
+ */
+export function parseUnitPriceInput(raw: string | number | null | undefined): number | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw)
+      ? new Decimal(raw).toDecimalPlaces(4, Decimal.ROUND_HALF_UP).toNumber()
+      : null;
+  }
+  const cleaned = raw.trim().replace(/[£$€,\s]/g, '');
+  if (cleaned === '' || !/^-?(\d+(\.\d+)?|\.\d+)$/.test(cleaned)) return null;
+  return new Decimal(cleaned).toDecimalPlaces(4, Decimal.ROUND_HALF_UP).toNumber();
+}
+
+/**
  * Export Decimal class for direct use
  */
 export { Decimal };

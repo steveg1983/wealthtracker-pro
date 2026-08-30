@@ -26,6 +26,16 @@ interface StockSymbolSearchProps {
   /** Rendered under the field; use for "already on your watchlist" etc. */
   hint?: string;
   autoFocus?: boolean;
+  /**
+   * Offered when the lookup cannot help — nothing matched, or the lookup is
+   * down — and also under a result list that missed: the typed text becomes
+   * a MANUAL instrument the caller prices by hand. Absent, the search stays
+   * a closed list (the watchlist needs quotes; a portfolio does not — the
+   * owner, 30 Aug: "If I cannot find my particular stock or fund … I should
+   * be allowed to type my own text … and the system add it as a manual
+   * holding that will only be updated for price manually").
+   */
+  onManual?: (typed: string) => void;
 }
 
 /** Long enough that a two-letter ticker still searches, short enough to be cheap. */
@@ -36,7 +46,8 @@ export default function StockSymbolSearch({
   onSelect,
   placeholder = 'Search by ticker or name (SHEL.L, Vanguard, AAPL…)',
   hint,
-  autoFocus = false
+  autoFocus = false,
+  onManual
 }: StockSymbolSearchProps): React.JSX.Element {
   const [query, setQuery] = useState('');
   const [matches, setMatches] = useState<SymbolMatch[]>([]);
@@ -89,6 +100,29 @@ export default function StockSymbolSearch({
     setHasSearched(false);
   };
 
+  const handleManual = (): void => {
+    if (onManual === undefined || debounced === '') return;
+    onManual(debounced);
+    setQuery('');
+    setMatches([]);
+    setHasSearched(false);
+    setError(null);
+  };
+
+  /** The hand-typed way out, whenever the lookup has had its chance. */
+  const manualOffer =
+    onManual !== undefined && debounced !== '' && !isSearching && (hasSearched || error !== null) ? (
+      <button
+        type="button"
+        onClick={handleManual}
+        className="mt-2 text-sm text-gray-700 dark:text-gray-300 underline underline-offset-2 hover:text-gray-900 dark:hover:text-white"
+      >
+        {matches.length > 0
+          ? `None of these? Add “${debounced}” by hand`
+          : `Add “${debounced}” by hand — you set its prices`}
+      </button>
+    ) : null;
+
   return (
     <div className="relative">
       <div className="relative">
@@ -137,6 +171,8 @@ export default function StockSymbolSearch({
         </p>
       )}
 
+      {matches.length === 0 && manualOffer}
+
       {matches.length > 0 && (
         <ul
           id={listId}
@@ -167,6 +203,7 @@ export default function StockSymbolSearch({
           ))}
         </ul>
       )}
+      {matches.length > 0 && manualOffer}
     </div>
   );
 }
