@@ -1772,26 +1772,27 @@ function AccountsList() {
                                   ? formatDisplayCurrency(account.bankBalance, account.currency)
                                   : null}
                               />
+                              {/* WHERE THE TWO FIGURES DIFFER, BOTH ARE SAID —
+                                  INSIDE one cell. An investment account is
+                                  worth its market value, which is what the row
+                                  and every total above it show; its register's
+                                  own bottom line rides beneath as a second
+                                  smaller line, for whoever is reconciling.
+                                  It was briefly a TENTH AccountBalanceCell,
+                                  which wrapped the nine-track grid: the owner
+                                  watched the delete button fall onto the next
+                                  line while every column slid one place
+                                  right — the exact failure the template's
+                                  header warns about. A cell may say more; a
+                                  row may not grow columns. */}
                               <AccountBalanceCell
                                 label="Account Bal"
                                 value={formatDisplayCurrency(computeValuedBalance(account.id), account.currency)}
+                                secondary={Math.abs(unrealisedGain(account.id)) >= 0.01
+                                  ? `${formatDisplayCurrency(computeAccountBalance(account.id), account.currency)} in the register`
+                                  : undefined}
                                 smOnly
                               />
-                              {/* WHERE THE TWO FIGURES DIFFER, BOTH ARE SAID.
-                                  An investment account is worth its market
-                                  value, which is what the row and every total
-                                  above it now show — but its register still
-                                  has a bottom line, and somebody reconciling
-                                  or reading the transactions needs to find
-                                  it. Only rendered when there is something to
-                                  explain: every account without holdings has
-                                  a zero gain and shows nothing extra. */}
-                              {Math.abs(unrealisedGain(account.id)) >= 0.01 && (
-                                <AccountBalanceCell
-                                  label="In the register"
-                                  value={formatDisplayCurrency(computeAccountBalance(account.id), account.currency)}
-                                />
-                              )}
                               <AccountCountCell
                                 label="Unreconciled"
                                 count={getUnreconciledCount(account.id)}
@@ -2017,6 +2018,9 @@ function AccountsList() {
                             <AccountBalanceCell
                               label="Account Bal"
                               value={formatDisplayCurrency(computeValuedBalance(child.id), child.currency)}
+                              secondary={Math.abs(unrealisedGain(child.id)) >= 0.01
+                                ? `${formatDisplayCurrency(computeAccountBalance(child.id), child.currency)} in the register`
+                                : undefined}
                               smOnly
                             />
                             <AccountCountCell

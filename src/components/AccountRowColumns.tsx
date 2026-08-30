@@ -366,6 +366,7 @@ export function AccountBalanceCell({
   label,
   value,
   smOnly = false,
+  secondary,
 }: {
   label: string;
   /**
@@ -380,6 +381,17 @@ export function AccountBalanceCell({
    */
   value: string | null;
   smOnly?: boolean;
+  /**
+   * A second, smaller line UNDER the figure — for the one account whose
+   * worth and register differ, so both can be said WITHOUT a tenth cell.
+   * The valued-rows change first rendered the register figure as its own
+   * AccountBalanceCell, which is exactly the sin this file's header warns
+   * against: the template is nine tracks, a surplus cell wraps the grid,
+   * and the owner watched the delete button fall onto the next line while
+   * every column slid one place right. A cell may say more; a row may not
+   * grow columns.
+   */
+  secondary?: string;
 }): React.JSX.Element {
   return (
     <div className={smOnly ? 'hidden lg:block text-right' : 'text-right'}>
@@ -387,6 +399,11 @@ export function AccountBalanceCell({
       <p className={`${CELL_FIGURE_LINE_CLASS} ${CELL_FIGURE_CLASS} text-gray-900 dark:text-white`}>
         {value ?? '—'}
       </p>
+      {secondary !== undefined && (
+        <p className="m-0 text-[11px] leading-tight text-gray-500 dark:text-gray-400 whitespace-nowrap">
+          {secondary}
+        </p>
+      )}
     </div>
   );
 }
