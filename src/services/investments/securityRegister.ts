@@ -56,6 +56,12 @@ export interface SecurityRegisterLine {
   /** The position's value after this line — quantity × price where one is known. */
   runningValue: DecimalInstance;
   source: HoldingPricePoint['source'] | 'event';
+  /**
+   * The investment event this line derives from — absent on revaluation
+   * lines, which derive from prices. What lets a register offer "move this
+   * trade's date" against the row that would actually move.
+   */
+  eventId?: string;
 }
 
 export interface SecurityRegister {
@@ -174,6 +180,7 @@ export function buildSecurityRegister(
       // At cost until the market says otherwise — the fees-absorption ruling.
       running = running.plus(amount);
       lines.push({
+        eventId: event.id,
         kind: 'buy',
         date: event.date,
         price,
@@ -203,6 +210,7 @@ export function buildSecurityRegister(
 
     running = valueNow();
     lines.push({
+      eventId: event.id,
       kind: event.kind,
       date: event.date,
       price: event.kind === 'write_off' ? null : price,

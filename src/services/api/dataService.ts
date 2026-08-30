@@ -149,7 +149,7 @@ type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
  * file.
  */
 type InvestmentServiceLike = Pick<typeof import('./investmentService').InvestmentService,
-  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory' | 'listPrices' | 'recordManualPrice' | 'importEvents' | 'listEvents' | 'listAllEvents' | 'listAllPrices' | 'recordEvent' | 'deleteEventsFor'>;
+  'list' | 'create' | 'update' | 'remove' | 'applyQuotes' | 'importPriceHistory' | 'listPrices' | 'recordManualPrice' | 'importEvents' | 'listEvents' | 'listAllEvents' | 'listAllPrices' | 'recordEvent' | 'deleteEventsFor' | 'moveEventDate'>;
 type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
 /**
@@ -3162,6 +3162,15 @@ class DataServiceImpl implements DataPort {
     throw new Error(HOLDINGS_NEED_A_LOGIN);
   }
 
+  async moveInvestmentEventDate(eventId: string, newDate: string): Promise<{ previousDate: string }> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return (await this.investmentEngine()).moveEventDate(userId, eventId, newDate);
+    }
+    this.guardCloudWrite();
+    throw new Error(HOLDINGS_NEED_A_LOGIN);
+  }
+
   async recordTradePrices(
     rows: readonly { symbol: string; date: string; price: string; currency: string }[]
   ): Promise<number> {
@@ -3854,6 +3863,10 @@ export class DataService {
 
   static recordInvestmentEvent(draft: Omit<InvestmentEventDraft, 'sourceRef'>): Promise<void> {
     return this.service.recordInvestmentEvent(draft);
+  }
+
+  static moveInvestmentEventDate(eventId: string, newDate: string): Promise<{ previousDate: string }> {
+    return this.service.moveInvestmentEventDate(eventId, newDate);
   }
 
   static recordTradePrices(

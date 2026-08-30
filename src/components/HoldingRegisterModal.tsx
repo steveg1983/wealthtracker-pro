@@ -18,6 +18,8 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { dataPort } from '@data';
+import { useApp } from '../contexts/AppContextSupabase';
+import { tradeDateCompanions } from '../services/investments/tradeDateCompanions';
 import { Modal, ModalBody } from './common/Modal';
 import { buildHoldingRegister, type HoldingPricePoint } from '../services/investments/holdingRegister';
 import { buildSecurityRegister } from '../services/investments/securityRegister';
@@ -127,6 +129,65 @@ export default function HoldingRegisterModal({
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * MOVING A TRADE'S DATE (owner, 30 Aug: a buy recorded on the wrong day
+   * could only be fixed by deleting the whole holding). Three records move
+   * as one act: the event (and its trade-implied price) through the port,
+   * and the register rows that carry the trade's money — found by
+   * tradeDateCompanions at the OLD date. A row the owner already redated by
+   * hand matches nothing, and the outcome says so rather than guessing.
+   */
+  const { transactions, updateTransaction } = useApp();
+  const [movingEventId, setMovingEventId] = useState<string | null>(null);
+  const [moveDate, setMoveDate] = useState('');
+  const [moveNote, setMoveNote] = useState<string | null>(null);
+
+  const beginMove = useCallback((eventId: string, currentDate: string): void => {
+    setMovingEventId(eventId);
+    setMoveDate(currentDate);
+    setMoveNote(null);
+    setSaveError(null);
+  }, []);
+
+  const submitMove = useCallback(async (): Promise<void> => {
+    if (movingEventId === null) return;
+    const event = events?.find((candidate) => candidate.id === movingEventId) ?? null;
+    if (event === null) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(moveDate)) {
+      setSaveError('Pick the day this trade actually happened.');
+      return;
+    }
+    if (moveDate === event.date) {
+      setMovingEventId(null);
+      return;
+    }
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await dataPort.moveInvestmentEventDate(movingEventId, moveDate);
+      const companions = tradeDateCompanions(
+        { date: event.date, kind: event.kind, quantity: event.quantity, symbol: event.symbol },
+        transactions
+      );
+      for (const id of companions) {
+        await updateTransaction(id, { date: new Date(`${moveDate}T00:00:00`) });
+      }
+      setMoveNote(
+        companions.length > 0
+          ? `Moved, with ${companions.length} register row${companions.length === 1 ? '' : 's'}.`
+          : 'The trade moved. No register row was found on its old date — if you had already ' +
+            'redated one by hand, it was left as you put it.'
+      );
+      setMovingEventId(null);
+      await load();
+      onPricesChanged();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'The trade could not be moved.');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [events, load, moveDate, movingEventId, onPricesChanged, transactions, updateTransaction]);
 
   /** The events derivation, when the position has any — see the header. */
   const securityRegister = useMemo(
@@ -434,7 +495,46 @@ export default function HoldingRegisterModal({
               register={securityRegister}
               currency={events?.[0]?.currency ?? holding.currency}
               symbol={holding.symbol}
+              onMoveDate={beginMove}
             />
+            {movingEventId !== null && (
+              <div className="flex flex-wrap items-end gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                <label className="block">
+                  <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    This trade actually happened on
+                  </span>
+                  <input
+                    type="date"
+                    value={moveDate}
+                    max={today()}
+                    onChange={(e) => setMoveDate(e.target.value)}
+                    className={fieldClass}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void submitMove()}
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50"
+                >
+                  {isSaving ? 'Moving…' : 'Move the trade'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMovingEventId(null)}
+                  className="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:underline"
+                >
+                  Cancel
+                </button>
+                <p className="w-full m-0 text-xs text-gray-500 dark:text-gray-400">
+                  Moves the trade, the price it implied, and the register rows that carry its money
+                  — the transfer or the opening position — together.
+                </p>
+              </div>
+            )}
+            {moveNote && (
+              <p className="text-xs text-gray-600 dark:text-gray-300">{moveNote}</p>
+            )}
             {actionArea}
           </>
         )}

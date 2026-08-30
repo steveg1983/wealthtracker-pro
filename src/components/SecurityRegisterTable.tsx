@@ -16,6 +16,14 @@ interface SecurityRegisterTableProps {
   currency: string;
   /** Null for a security with no ticker — the footer says what that means. */
   symbol: string | null;
+  /**
+   * Offered on trade lines when the surface can act on it — the LIVE
+   * holding's register passes this; the imported-history modal does not, so
+   * a read-only history stays read-only. Receives the event the line derives
+   * from and the date it currently claims (owner, 30 Aug: a buy recorded
+   * with the wrong date could only be fixed by deleting the whole holding).
+   */
+  onMoveDate?: (eventId: string, currentDate: string) => void;
 }
 
 const EVENT_WORD: Record<SecurityRegisterLine['kind'], string> = {
@@ -35,7 +43,8 @@ const SOURCE_WORD: Record<HoldingPricePoint['source'], string> = {
 export default function SecurityRegisterTable({
   register,
   currency,
-  symbol
+  symbol,
+  onMoveDate
 }: SecurityRegisterTableProps): React.JSX.Element {
   return (
     <>
@@ -52,7 +61,9 @@ export default function SecurityRegisterTable({
             </tr>
           </thead>
           <tbody>
-            {register.lines.map((line, index) => (
+            {register.lines.map((line, index) => {
+              const movableEventId = onMoveDate !== undefined ? line.eventId : undefined;
+              return (
               <tr
                 key={`${line.date}-${index}`}
                 className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
@@ -62,6 +73,16 @@ export default function SecurityRegisterTable({
                     overflow container scrolls instead. */}
                 <td className="py-2 pr-3 tabular-nums whitespace-nowrap text-gray-900 dark:text-white">
                   {line.date}
+                  {onMoveDate !== undefined && movableEventId !== undefined && (
+                    <button
+                      type="button"
+                      onClick={() => onMoveDate(movableEventId, line.date)}
+                      aria-label={`Change the date of this ${EVENT_WORD[line.kind].toLowerCase()}`}
+                      className="ml-2 text-xs text-gray-500 dark:text-gray-400 underline underline-offset-2 hover:text-gray-900 dark:hover:text-white"
+                    >
+                      change
+                    </button>
+                  )}
                 </td>
                 <td className="py-2 px-3 text-gray-700 dark:text-gray-300">
                   {line.kind === 'revaluation'
@@ -88,7 +109,8 @@ export default function SecurityRegisterTable({
                   {formatCurrency(line.runningValue, currency)}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

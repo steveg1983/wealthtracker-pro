@@ -1366,6 +1366,19 @@ export interface DataPortInvestmentWrites {
   deleteInvestmentEvents(accountId: string, symbol: string): Promise<void>;
 
   /**
+   * Move ONE recorded trade to a different day (owner, 30 Aug: a buy
+   * recorded with the wrong date could only be fixed by deleting the whole
+   * holding). Updates the event's date, and moves the trade-implied price
+   * row with it — a price asserted by a trade belongs on the day the trade
+   * now claims, and left behind it would value the position on a day nothing
+   * happened. The REGISTER rows that carry the trade's money move in the UI,
+   * through tradeDateCompanions, because transactions belong to the app's
+   * context rather than this port. Returns the date the event moved from, so
+   * the caller can find them.
+   */
+  moveInvestmentEventDate(eventId: string, newDate: string): Promise<{ previousDate: string }>;
+
+  /**
    * EVERY quantity event, oldest first — what the net-worth valuation folds
    * (slice 3b). One read, because the walks value all accounts at once.
    */

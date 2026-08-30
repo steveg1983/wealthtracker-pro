@@ -7,17 +7,23 @@ import type { InvestmentHolding } from '../services/investments/holding';
 // holdingRegister.test.ts — these specs pin the WIRING: series in, lines
 // drawn, a revalue written with manual provenance and the series re-read.
 
-const { mockListPrices, mockRecordPrice, mockListEvents } = vi.hoisted(() => ({
+import { __setAppContextValue, __resetAppContextValue } from '../test/mocks/AppContextSupabase';
+
+const mockUpdateTransaction = vi.fn(async () => {});
+
+const { mockListPrices, mockRecordPrice, mockListEvents, mockMoveEventDate } = vi.hoisted(() => ({
   mockListPrices: vi.fn(),
   mockRecordPrice: vi.fn(),
-  mockListEvents: vi.fn()
+  mockListEvents: vi.fn(),
+  mockMoveEventDate: vi.fn()
 }));
 
 vi.mock('@data', () => ({
   dataPort: {
     listInvestmentPrices: mockListPrices,
     recordInvestmentPrice: mockRecordPrice,
-    listInvestmentEvents: mockListEvents
+    listInvestmentEvents: mockListEvents,
+    moveInvestmentEventDate: mockMoveEventDate
   }
 }));
 
@@ -259,5 +265,95 @@ describe('HoldingRegisterModal — the register speaks the events\' currency', (
 
     expect(await screen.findByText(/Bought £23,185\.00/)).toBeInTheDocument();
     expect(screen.queryByText(/\$23,185/)).not.toBeInTheDocument();
+  });
+});
+
+describe('HoldingRegisterModal — moving a trade\u2019s date', () => {
+  /**
+   * The owner, 30 Aug: a buy recorded on the wrong day could only be fixed
+   * by deleting the whole holding. The register's event lines now carry a
+   * "change" door; submitting moves the event (and its trade price) through
+   * the port and drags the trade's register rows along via
+   * tradeDateCompanions — pinned separately in its own suite.
+   */
+  const BUY_EVENT = {
+    id: 'evt-1',
+    accountId: 'acct-1',
+    symbol: 'RR.L',
+    securityName: 'Rolls-Royce Holdings',
+    date: '2026-08-01',
+    kind: 'buy' as const,
+    quantity: '100',
+    price: '10',
+    fees: null,
+    amount: '1000',
+    currency: 'GBP',
+    source: 'manual' as const
+  };
+
+  beforeEach(() => {
+    mockListPrices.mockResolvedValue([]);
+    mockListEvents.mockResolvedValue([BUY_EVENT]);
+    mockMoveEventDate.mockResolvedValue({ previousDate: '2026-08-01' });
+    __setAppContextValue({
+      transactions: [
+        {
+          id: 'txn-open',
+          accountId: 'acct-1',
+          date: new Date('2026-08-01T00:00:00'),
+          description: 'Opening position \u2014 100 RR.L',
+          amount: 1000,
+          type: 'income',
+          category: 'cat-adjust'
+        }
+      ],
+      updateTransaction: mockUpdateTransaction
+    });
+  });
+
+  afterEach(() => __resetAppContextValue());
+
+  it('moves the event and drags its register row to the same day', async () => {
+    render(<HoldingRegisterModal holding={holding()} onClose={vi.fn()} onPricesChanged={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /change the date of this buy/i }));
+    const dateField = screen.getByLabelText(/actually happened on/i);
+    fireEvent.change(dateField, { target: { value: '2023-01-01' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Move the trade' }));
+
+    await waitFor(() => {
+      expect(mockMoveEventDate).toHaveBeenCalledWith('evt-1', '2023-01-01');
+    });
+    expect(mockUpdateTransaction).toHaveBeenCalledWith('txn-open', {
+      date: new Date('2023-01-01T00:00:00')
+    });
+    expect(await screen.findByText(/Moved, with 1 register row\./)).toBeInTheDocument();
+  });
+
+  it('says so when no register row sits on the old date \u2014 a hand-redated row stays the owner\u2019s', async () => {
+    __setAppContextValue({
+      transactions: [
+        {
+          id: 'txn-open',
+          accountId: 'acct-1',
+          // Already moved by hand: not on the event's old date.
+          date: new Date('2023-01-01T00:00:00'),
+          description: 'Opening position \u2014 100 RR.L',
+          amount: 1000,
+          type: 'income',
+          category: 'cat-adjust'
+        }
+      ],
+      updateTransaction: mockUpdateTransaction
+    });
+    render(<HoldingRegisterModal holding={holding()} onClose={vi.fn()} onPricesChanged={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /change the date of this buy/i }));
+    fireEvent.change(screen.getByLabelText(/actually happened on/i), { target: { value: '2023-01-01' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Move the trade' }));
+
+    await waitFor(() => expect(mockMoveEventDate).toHaveBeenCalled());
+    expect(mockUpdateTransaction).not.toHaveBeenCalled();
+    expect(await screen.findByText(/No register row was found on its old date/)).toBeInTheDocument();
   });
 });
