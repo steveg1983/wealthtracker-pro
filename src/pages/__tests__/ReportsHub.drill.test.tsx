@@ -17,7 +17,7 @@
  */
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { ToastProvider } from '../../contexts/ToastContext';
@@ -100,7 +100,13 @@ describe('a drill-down brings its own window', () => {
     renderHub('/reports/spending-by-category?period=this-month');
     await screen.findByRole('heading', { name: 'Where the money went' }, LOADS_LAZY_REPORT);
 
-    expect(screen.getByRole('button', { name: 'This month' })).toHaveAttribute('aria-pressed', 'true');
+    // The FIRST pill assertion waits — the heading is the lazy child's first
+    // paint and the pills land a render later (the sibling file's footer
+    // rule). Once one pill has rendered, its neighbour has too.
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: 'This month' })).toHaveAttribute('aria-pressed', 'true'),
+      LOADS_LAZY_REPORT
+    );
     expect(screen.getByRole('button', { name: 'All time' })).toHaveAttribute('aria-pressed', 'false');
   });
 
@@ -124,8 +130,12 @@ describe('a drill-down brings its own window', () => {
     expect(screen.getByTestId('where').textContent).not.toContain('period=');
     expect(screen.getByTestId('where').textContent).not.toContain('focus=');
 
-    // And the control still works, on the window that arrived.
-    expect(screen.getByRole('button', { name: 'Last month' })).toHaveAttribute('aria-pressed', 'true');
+    // And the control still works, on the window that arrived. The first
+    // pill assertion waits — same footer rule as the sibling file.
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: 'Last month' })).toHaveAttribute('aria-pressed', 'true'),
+      LOADS_LAZY_REPORT
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Tax year' }));
     expect(screen.getByRole('button', { name: 'Tax year' })).toHaveAttribute('aria-pressed', 'true');
     // NOW it is a choice, and it is written down.
