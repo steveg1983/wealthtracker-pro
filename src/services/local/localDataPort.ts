@@ -1726,6 +1726,12 @@ export class LocalDataPort implements DataPort {
     // An empty history has nothing to erase; deleting a holding proceeds.
   }
 
+  async moveInvestmentEventDate(): Promise<{ previousDate: string }> {
+    throw new Error(
+      'This ledger file cannot hold trading history yet. Move the trade in the cloud edition for now.'
+    );
+  }
+
   async listAllInvestmentPrices(): Promise<
     Array<{ symbol: string; date: string; price: string; currency: string }>
   > {

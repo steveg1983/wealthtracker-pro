@@ -579,6 +579,85 @@ export class InvestmentService {
   }
 
   /**
+   * Move ONE trade to a different day. Two records move as one decision:
+   * the event's own date, and the trade-implied price row — a price whose
+   * source is 'trade' was asserted BY this trade, so it belongs on the day
+   * the trade now claims and is false on the day it no longer does. A price
+   * someone typed or a quote fetched (stronger provenance) is never touched:
+   * the re-record at the new date uses ignoreDuplicates exactly like the
+   * original write, so a day already priced keeps what it has.
+   */
+  static async moveEventDate(
+    userId: string,
+    eventId: string,
+    newDate: string
+  ): Promise<{ previousDate: string }> {
+    const client = requireClient('this trade');
+    const { data: row, error: readError } = await client
+      .from('investment_events')
+      .select('event_date, symbol, currency')
+      .eq('id', eventId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (readError || !row) {
+      if (readError) {
+        this.logger.error('Failed to read the trade to move', readError);
+        throw new Error(handleSupabaseError(readError));
+      }
+      throw new Error('That trade no longer exists.');
+    }
+    const previousDate = String(row.event_date);
+
+    const { error: updateError } = await client
+      .from('investment_events')
+      .update({ event_date: newDate })
+      .eq('id', eventId)
+      .eq('user_id', userId);
+    if (updateError) {
+      this.logger.error('Failed to move the trade', updateError);
+      throw new Error(handleSupabaseError(updateError));
+    }
+
+    // The trade-implied price rides along; read-before-delete so its figure
+    // survives the move. The client types rows loosely, so the symbol is
+    // pinned to a string once and used everywhere.
+    const symbol = row.symbol === null || row.symbol === undefined ? null : String(row.symbol);
+    if (symbol !== null && previousDate !== newDate) {
+      const { data: priceRow } = await client
+        .from('investment_prices')
+        .select('price, currency')
+        .eq('user_id', userId)
+        .eq('symbol', symbol)
+        .eq('price_date', previousDate)
+        .eq('source', 'trade')
+        .maybeSingle();
+      if (priceRow) {
+        await client
+          .from('investment_prices')
+          .delete()
+          .eq('user_id', userId)
+          .eq('symbol', symbol)
+          .eq('price_date', previousDate)
+          .eq('source', 'trade');
+        await client
+          .from('investment_prices')
+          .upsert(
+            [{
+              user_id: userId,
+              symbol,
+              price_date: newDate,
+              price: String(priceRow.price),
+              currency: String(priceRow.currency ?? row.currency ?? 'GBP'),
+              source: 'trade'
+            }],
+            { onConflict: 'user_id,symbol,price_date', ignoreDuplicates: true }
+          );
+      }
+    }
+    return { previousDate };
+  }
+
+  /**
    * EVERY quantity event the user has, oldest first — what the net-worth
    * valuation folds. One query, not one per account: the walks value all
    * accounts at once, and the owner has over a hundred closed ones.

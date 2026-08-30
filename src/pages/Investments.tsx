@@ -10,6 +10,7 @@ import InvestmentMarketView from '../components/InvestmentMarketView';
 import PortfolioManager, { type HoldingFormValues, type PurchaseDetails } from '../components/PortfolioManager';
 import { allInAverageCost } from '../services/investments/purchaseMath';
 import { openingPositionRow } from '../services/investments/openingPosition';
+import { openingPositionRowsFor } from '../services/investments/tradeDateCompanions';
 import { transferCategoryIdFor } from '../utils/transferRepoint';
 import StockWatchlist from '../components/StockWatchlist';
 // Use optimized lazy-loaded charts to reduce bundle size
@@ -145,7 +146,7 @@ function InvestmentsView() {
     accounts, transactions, transactionSplits, categories,
     // The purchase's cash half: the out leg is an ordinary transaction and the
     // far side is minted and linked by the same machinery every transfer uses.
-    addTransaction, createTransferCounterpart,
+    addTransaction, createTransferCounterpart, deleteTransaction,
     // For the sale's income leg: find-or-create the Realised gains category.
     addCategory,
   } = useApp();
@@ -565,10 +566,19 @@ function InvestmentsView() {
       await dataPort.deleteInvestment(id);
       if (doomed && doomed.accountId !== null) {
         await dataPort.deleteInvestmentEvents(doomed.accountId, doomed.symbol);
+        // The synthetic opening-position rows go with the position — left
+        // standing, a deleted-then-re-added holding double-counts its cost
+        // (the owner's first backfill hit exactly this). Matched by shape
+        // and symbol, not date: a row the owner redated is still this
+        // position's cost. A funded buy's TRANSFER stays — it records money
+        // that genuinely moved, and deleting the holding does not unmove it.
+        for (const rowId of openingPositionRowsFor(doomed.accountId, doomed.symbol, transactions)) {
+          await deleteTransaction(rowId);
+        }
       }
       await reloadHoldings();
     },
-    [holdings, reloadHoldings]
+    [holdings, reloadHoldings, transactions, deleteTransaction]
   );
 
   /**
