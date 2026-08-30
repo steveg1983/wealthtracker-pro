@@ -197,6 +197,14 @@ export default function AccountSelector<T extends SelectableAccount>({
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightIndex, setHighlightIndex] = useState(-1);
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
+  /**
+   * Which way the list opens — for BOTH renderings. The calculation used to
+   * run only in portal mode, leaving the in-flow list hard-coded below the
+   * trigger (top-full): the same latent clipping the shared DatePicker had
+   * until #515, and the same fix — one decision, carried by fixed
+   * coordinates when portaled and by the list's own classes when not.
+   */
+  const [openUp, setOpenUp] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -339,20 +347,25 @@ export default function AccountSelector<T extends SelectableAccount>({
     const maxMenu = 384; // matches the non-portal max-h-96
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
-    const openUp = spaceBelow < Math.min(maxMenu, 240) && spaceAbove > spaceBelow;
-    const available = (openUp ? spaceAbove : spaceBelow) - gap - 8;
+    const up = spaceBelow < Math.min(maxMenu, 240) && spaceAbove > spaceBelow;
+    setOpenUp(up);
+    // The in-flow list carries the flip in its own classes (bottom-full);
+    // only the portaled one needs coordinates.
+    if (!usePortal) return;
+    const available = (up ? spaceAbove : spaceBelow) - gap - 8;
     const maxHeight = Math.max(160, Math.min(maxMenu, available));
     setMenuPos({
       left: rect.left,
       width: rect.width,
       maxHeight,
-      ...(openUp ? { bottom: window.innerHeight - rect.top + gap } : { top: rect.bottom + gap }),
+      ...(up ? { bottom: window.innerHeight - rect.top + gap } : { top: rect.bottom + gap }),
     });
-  }, []);
+  }, [usePortal]);
 
   useLayoutEffect(() => {
-    if (!usePortal || !showDropdown) {
+    if (!showDropdown) {
       setMenuPos(null);
+      setOpenUp(false);
       return;
     }
     computeMenuPosition();
@@ -364,7 +377,7 @@ export default function AccountSelector<T extends SelectableAccount>({
       window.removeEventListener('scroll', onReflow, true);
       window.removeEventListener('resize', onReflow);
     };
-  }, [usePortal, showDropdown, computeMenuPosition]);
+  }, [showDropdown, computeMenuPosition]);
 
   // Any change to the option list invalidates the highlight.
   useEffect(() => {
@@ -541,10 +554,14 @@ export default function AccountSelector<T extends SelectableAccount>({
             }
           : undefined
       }
+      // data-accountselector-placement: which way it opened, readable by a
+      // test without measuring styles jsdom does not compute (the DatePicker
+      // idiom from #515).
+      data-accountselector-placement={openUp ? 'above' : 'below'}
       className={
         usePortal
           ? 'overflow-y-auto bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg text-sm'
-          : 'absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-96 overflow-y-auto z-50 text-sm'
+          : `absolute ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'} left-0 right-0 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-96 overflow-y-auto z-50 text-sm`
       }
     >
       {/* Pinned clear row: selecting it reports no account at all. */}
