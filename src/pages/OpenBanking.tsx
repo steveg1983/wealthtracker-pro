@@ -431,7 +431,8 @@ export default function OpenBanking() {
                     Balances and transactions from {connection.institutionName} are no longer
                     arriving, so the accounts it feeds are going stale
                     {connection.lastSync ? ` — nothing has come in since ${formatDateTime(connection.lastSync)}` : ''}.
-                    Reconnect to authorise it again and the feed resumes.
+                    Everything it already brought in is untouched. Reconnect to authorise it
+                    again and the feed resumes.
                     {connection.status === 'error' && connection.error ? (
                       <span className="block mt-1 text-xs text-gray-500 dark:text-gray-400">
                         The provider said: {connection.error}
