@@ -31,7 +31,6 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
     'style-src': [
       "'self'",
       "'unsafe-inline'", // Required for inline styles and styled-components
-      'https://fonts.googleapis.com',
     ],
     
     // Images: self, data URIs (for inline images), and https
@@ -42,10 +41,11 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       'https:',
     ],
     
-    // Fonts: self and Google Fonts
+    // Fonts: self only — Inter and IBM Plex Mono are self-hosted from
+    // public/fonts/ (30 Aug 2026); the Google Fonts hosts left both CSPs the
+    // same day, so no visitor IP reaches Google
     'font-src': [
       "'self'",
-      'https://fonts.gstatic.com',
     ],
     
     // Connect: self and API endpoints
