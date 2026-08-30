@@ -56,3 +56,40 @@ describe('the signed-out front door', () => {
     expect(heading.closest('.min-h-screen')).not.toBeNull();
   });
 });
+
+/**
+ * GATE 5.2, HELD IN PLACE. The handover's other shipping condition: every
+ * security claim on this page must be literally true today. Three sentences
+ * were qualified under that audit (30 Aug 2026) — Stripe's, the backup
+ * card's, and the trial terms — and these tests are what stops the original,
+ * stronger, false versions drifting back in a copy edit.
+ */
+describe('the claims carry their qualifications', () => {
+  it('names the five vendors it asks the reader to check', () => {
+    renderWelcome();
+    for (const vendor of ['Clerk', 'TrueLayer', 'Supabase', 'Vercel', 'Stripe']) {
+      expect(screen.getByText(vendor)).toBeInTheDocument();
+    }
+  });
+
+  it('says what Stripe reports back, not "never held here"', () => {
+    renderWelcome();
+    // The DB keeps brand, last four and expiry from Stripe for the billing
+    // page, so the absolute version was an overclaim.
+    expect(screen.getByText(/what stays here is only what Stripe reports back/)).toBeInTheDocument();
+    expect(screen.queryByText(/never held here/)).not.toBeInTheDocument();
+  });
+
+  it('says encrypting an export is chosen, because the default is a plain file', () => {
+    renderWelcome();
+    expect(screen.getByText(/if you choose, lock it with a passphrase only you hold/)).toBeInTheDocument();
+  });
+
+  it('promises no key mechanism that does not exist — and keeps both trial lines in sync', () => {
+    renderWelcome();
+    expect(screen.queryByText(/time-limited key/)).not.toBeInTheDocument();
+    // §7: the trial terms appear in exactly two places — the hero line and
+    // the "It isn't finished" card — and must agree.
+    expect(screen.getAllByText(/not a free-for-life plan/)).toHaveLength(2);
+  });
+});

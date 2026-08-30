@@ -21,12 +21,17 @@
     <title>WealthTracker — a ledger you can prove</title>
     
     <!-- Preconnect to external domains -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://nqbacrjjgdjabygqtcah.supabase.co" crossorigin>
 
-    <!-- Inter font - professional typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Inter and IBM Plex Mono, SELF-HOSTED (30 Aug 2026). The old Google
+         Fonts stylesheet sent every visitor's IP and user agent to Google on
+         every page load, before any consent choice — and Google appeared in
+         no processor list because it was never meant to be one. The woff2
+         subsets below are the same files Google served, now from this origin;
+         the @font-face rules live in the critical style block. Preload note:
+         font preloads require crossorigin even same-origin, or the browser
+         fetches the file twice. -->
+    <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="dns-prefetch" href="https://js.stripe.com">
     <link rel="dns-prefetch" href="https://browser.sentry-cdn.com">
     
@@ -47,11 +52,57 @@
       @keyframes spin{to{transform:rotate(360deg)}}
       .spinner{width:48px;height:48px;border:3px solid #e2e6ed;border-top-color:#1a2332;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto}
       /* Checkbox/radio exempt: index.css draws them 24px with a 10px margin, which IS the 44px target without drawing a 44px control. min-height clamps, so a bare `input` here made every checkbox a large empty square on a phone. FOURTH copy of this rule (index.css, AccessibilityImprovements.tsx, this one) — the duplication is why the exemption kept being missed. */
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 300 700;
+        font-display: swap;
+        src: url('/fonts/inter-latin-ext.woff2') format('woff2');
+        unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 300 700;
+        font-display: swap;
+        src: url('/fonts/inter-latin.woff2') format('woff2');
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      @font-face {
+        font-family: 'IBM Plex Mono';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/fonts/plex-mono-latin-400.woff2') format('woff2');
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      @font-face {
+        font-family: 'IBM Plex Mono';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/fonts/plex-mono-latin-500.woff2') format('woff2');
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      @font-face {
+        font-family: 'IBM Plex Mono';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/fonts/plex-mono-latin-ext-400.woff2') format('woff2');
+        unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+      }
+      @font-face {
+        font-family: 'IBM Plex Mono';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/fonts/plex-mono-latin-ext-500.woff2') format('woff2');
+        unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+      }
       @media(max-width:768px){body{font-size:16px}button:not(.toggle-switch),a,input:not([type="checkbox"]):not([type="radio"]),select,textarea{min-height:44px;touch-action:manipulation}}
     </style>
     
-    <!-- Resource hints for performance -->
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
   </head>
   <body>
     <div id="root">
