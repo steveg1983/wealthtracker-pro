@@ -132,8 +132,19 @@ describe('ReportsHub gallery', () => {
 const openReportAndPick = async (linkName: RegExp, heading: string, period: string): Promise<void> => {
   fireEvent.click(screen.getByRole('link', { name: linkName }));
   await screen.findByRole('heading', { name: heading }, LOADS_LAZY_REPORT);
-  fireEvent.click(screen.getByRole('button', { name: period }));
-  expect(screen.getByRole('button', { name: period })).toHaveAttribute('aria-pressed', 'true');
+  // WAIT FOR THE BUTTON, not just the heading — the rule the footer comment
+  // below states and every test after it follows. The heading is the lazy
+  // child's first paint; the period pills land a render later, so a
+  // synchronous getByRole here passed on an idle machine and failed under
+  // load. This helper sat ABOVE the comment that named the rule, which is
+  // presumably how it escaped: the sentence and its counterexample were
+  // twenty lines apart, facing opposite directions.
+  const pill = await screen.findByRole('button', { name: period }, LOADS_LAZY_REPORT);
+  fireEvent.click(pill);
+  await waitFor(
+    () => expect(screen.getByRole('button', { name: period })).toHaveAttribute('aria-pressed', 'true'),
+    LOADS_LAZY_REPORT
+  );
 };
 
   it('keeps the chosen period as the user moves between reports', async () => {
