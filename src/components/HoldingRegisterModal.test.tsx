@@ -357,3 +357,82 @@ describe('HoldingRegisterModal — moving a trade\u2019s date', () => {
     expect(await screen.findByText(/No register row was found on its old date/)).toBeInTheDocument();
   });
 });
+
+describe('HoldingRegisterModal \u2014 trades from the total', () => {
+  /**
+   * The same choice Add a holding grew, on the register's own forms (owner,
+   * 30 Aug: "Have we added the ability to do the total cost for 'buying
+   * more' or 'selling'?"). In total mode the price derives from total \u00f7
+   * units \u2014 unrounded, so units \u00d7 price returns the typed total to the
+   * penny \u2014 and the Charges/Fees box is absent: a total already contains
+   * them.
+   */
+  const tradeProps = () => ({
+    holding: holding(),
+    onClose: vi.fn(),
+    onPricesChanged: vi.fn(),
+    accountCurrency: 'GBP',
+    fundingAccounts: [{ id: 'sleeve-1', name: 'Broker ISA (Cash)' }],
+    onBuyMore: vi.fn().mockResolvedValue(undefined),
+    onSell: vi.fn().mockResolvedValue(false)
+  });
+
+  beforeEach(() => {
+    mockListPrices.mockResolvedValue([]);
+    mockListEvents.mockResolvedValue([]);
+  });
+
+  it('a buy from the total derives the unit price and hides Charges', async () => {
+    const props = tradeProps();
+    render(<HoldingRegisterModal {...props} />);
+    await screen.findByText('Buy');
+    fireEvent.click(screen.getByRole('button', { name: 'Buy more' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Total cost' }));
+    expect(screen.queryByLabelText('Charges')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Units'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText(/Total cost \(GBP\)/), { target: { value: '1250' } });
+    // 1250 \u00f7 3 does not terminate \u2014 the derived price must keep its places.
+    expect(await screen.findByText(/= £416\.6667 a unit/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Record buy' }));
+    await waitFor(() => expect(props.onBuyMore).toHaveBeenCalled());
+    const trade = props.onBuyMore.mock.calls[0][0];
+    expect(trade.charges.toString()).toBe('0');
+    // Units \u00d7 derived price returns the typed total to the penny.
+    expect(trade.price.times(trade.quantity).toDecimalPlaces(2).toString()).toBe('1250');
+  });
+
+  it('a sale from the total treats it as the proceeds, fees inside', async () => {
+    const props = tradeProps();
+    render(<HoldingRegisterModal {...props} />);
+    await screen.findByText('Buy');
+    fireEvent.click(screen.getByRole('button', { name: 'Sell' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Total received' }));
+    expect(screen.queryByLabelText('Fees')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Units'), { target: { value: '50' } });
+    fireEvent.change(screen.getByLabelText(/Total received \(GBP\)/), { target: { value: '620' } });
+    // Proceeds \u00a3620 against pooled cost 50 \u00d7 \u00a310: realised +\u00a3120.
+    expect(await screen.findByText(/Proceeds £620\.00 · Realised £120\.00/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Record sale' }));
+    await waitFor(() => expect(props.onSell).toHaveBeenCalled());
+    const trade = props.onSell.mock.calls[0][0];
+    expect(trade.fees.toString()).toBe('0');
+    expect(trade.price.times(trade.quantity).toDecimalPlaces(2).toString()).toBe('620');
+  });
+
+  it('switching the entry mode clears the figure \u2014 a unit price is not a total', async () => {
+    const props = tradeProps();
+    render(<HoldingRegisterModal {...props} />);
+    await screen.findByText('Buy');
+    fireEvent.click(screen.getByRole('button', { name: 'Buy more' }));
+    fireEvent.change(screen.getByLabelText(/Price per unit/), { target: { value: '11' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Total cost' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Unit price' }));
+    expect(screen.getByLabelText(/Price per unit/)).toHaveValue('');
+  });
+});
