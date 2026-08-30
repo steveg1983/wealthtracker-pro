@@ -22,7 +22,38 @@
  */
 
 import React from 'react';
+import { configure } from '@testing-library/react';
 import { vi } from 'vitest';
+
+// HOW LONG THE DOM IS ALLOWED TO TAKE TO SETTLE.
+//
+// Not a shim, strictly — but it lives here for the reason the header gives, in
+// the one file BOTH jsdom runs import, because the alternative is the same line
+// in two setup files and the drift that always follows.
+//
+// `findBy*` and `waitFor` default to a 1000ms `asyncUtilTimeout`, which was
+// configured nowhere, so all 127 test files that use them carried it. That
+// number is a WALL-CLOCK bound, and it was being asked to stand in for a
+// correctness bound — which it is not. The work it fences is a React render and
+// the microtask queue behind it: a few milliseconds of actual computation,
+// which the scheduler is free to defer for arbitrarily longer under v8 coverage
+// instrumentation plus a worker per core all doing the same thing.
+//
+// Measured, on a 16-core machine, one full `vitest run --coverage`:
+//
+//   at rest             6 tests over 1000ms, 17 more between 700 and 999ms
+//   at 4x oversubscribe 68 tests over 1000ms, 67 more between 700 and 999ms
+//
+// and, in the second, four sibling cases in AccountTransactions.addTransaction
+// doing identical work finished at 677ms, 731ms, 928ms and 1476ms. The last one
+// failed. Nothing about it differed from the third except which worker it drew.
+// That is the whole flake: a test does not become wrong when the machine is
+// busy, and 1000ms cannot tell the two apart.
+//
+// 5000ms is not a licence to be slow — a genuinely stuck query still fails,
+// just five seconds later, well inside the 30s `testTimeout`. It is the
+// difference between measuring the app and measuring the runner's load average.
+configure({ asyncUtilTimeout: 5000 });
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
