@@ -174,13 +174,27 @@ const NO_PAYEES: readonly PayeeCompletionEntry[] = [];
  * editor row's is (see QUICK_EDIT_ROW_HEIGHT), and anything that changes it
  * changes the number here in the same commit.
  *
- * ─ THE PARTS ───────────────────────────────────────────────────────────────
- * The bar itself is about 178px — its px-4/py-3 shell, a 32px row of fields
- * with their own labels above them, and the cross-type line that appears under
- * an income or expense — plus the gap between it and the table and a little
- * slack.
+ * ─ THE PARTS, RE-COUNTED 30 AUG 2026 ───────────────────────────────────────
+ * The declared 224 was still clearing a 178px bar the dock no longer is —
+ * the owner measured the drift by eye: "a big gap below it to the bottom of
+ * my screen. That is wasted space." Added up from the dock's own utilities:
+ *
+ *   26  the shell — py-3 (24) and its 1px borders
+ *   50  the field row — text-xs label (16) + mb-0.5 (2) + h-[32px] controls
+ *   40  the cross-type line at its WORST — mt-2 (8) + two wrapped lines of
+ *       text-xs (32); one line on a wide window, but the reserve must fit
+ *       the narrow one or the last row hides behind the dock
+ *   16  the gap between the table and the dock
+ *   32  the page's own md:pb-8 under everything (EXPANDED_DOCK_RESERVE_PX,
+ *       which is exactly this padding, is the cross-check)
+ *    8  slack
+ * = 172, and about three more register rows on a laptop than 224 left room
+ * for. The quick-add ERROR line stays outside this arithmetic on purpose:
+ * it appears in answer to a keystroke, while the person is looking at the
+ * dock, and vanishes with the next one — reserving for it permanently would
+ * charge every quiet moment for the loud one.
  */
-export const QUICK_ADD_FIELDS_RESERVE_PX = 224;
+export const QUICK_ADD_FIELDS_RESERVE_PX = 172;
 /**
  * What the bar's heading adds: a `text-sm` line box (20px) and its `mb-2` (8).
  * Those two utilities are on the <h2> below, and a test holds them to it —

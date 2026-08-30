@@ -285,8 +285,8 @@ export default function Welcome(): React.JSX.Element {
               <img
                 src="/landing/reconciliation.webp"
                 alt="Reconciliation in light mode — a completed account with Difference £0.00"
-                width={720}
-                height={446}
+                width={1562}
+                height={967}
                 loading="lazy"
                 className="absolute inset-0 w-full h-full object-cover"
               />
@@ -318,8 +318,8 @@ export default function Welcome(): React.JSX.Element {
                 <img
                   src="/landing/accounts.webp"
                   alt="The Accounts page in dark mode — a banded list with group totals"
-                  width={808}
-                  height={538}
+                  width={1561}
+                  height={1040}
                   loading="lazy"
                   className="absolute inset-0 w-full h-full object-cover"
                 />
@@ -332,13 +332,17 @@ export default function Welcome(): React.JSX.Element {
             </div>
             <div className="flex flex-col gap-3.5">
               <div className={`relative w-full aspect-[16/11] border ${DARK_HAIRLINE} rounded-lg overflow-hidden ${DARK_CARD}`}>
+                {/* object-top: the 30 Aug re-captures include their page
+                    headers, and a centred cover-crop in this 16:11 frame
+                    took ~100px off the top — the portfolio's own title. The
+                    crop now spends its 195px on the bottom rows instead. */}
                 <img
                   src="/landing/investments.webp"
                   alt="Investments in dark mode — holdings with cost, value and the gain between them"
-                  width={808}
-                  height={655}
+                  width={1563}
+                  height={1268}
                   loading="lazy"
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover object-top"
                 />
               </div>
               <h3 className="m-0 text-[17px] font-semibold">Investments held at cost and at value</h3>
@@ -359,10 +363,10 @@ export default function Welcome(): React.JSX.Element {
               <img
                 src="/landing/budgets.webp"
                 alt="Budgets in light mode — actual spending set against the plan"
-                width={634}
-                height={720}
+                width={1179}
+                height={1338}
                 loading="lazy"
-                className="absolute inset-0 w-full h-full object-cover object-[center_8%]"
+                className="absolute inset-0 w-full h-full object-cover object-top"
               />
             </div>
             <span className="text-[12.5px] text-[#64748b]">
@@ -400,10 +404,10 @@ export default function Welcome(): React.JSX.Element {
               <img
                 src="/landing/recurring.webp"
                 alt="Recurring spend — what I'm committed to, with the monthly total"
-                width={718}
-                height={808}
+                width={1513}
+                height={1702}
                 loading="lazy"
-                className="absolute inset-0 w-full h-full object-cover object-[center_20%]"
+                className="absolute inset-0 w-full h-full object-cover object-top"
               />
             </div>
             <div className="flex flex-col gap-3">
@@ -439,8 +443,8 @@ export default function Welcome(): React.JSX.Element {
               <img
                 src="/landing/open-banking.webp"
                 alt="The Open Banking page — connected banks, sync status and controls"
-                width={1200}
-                height={430}
+                width={1588}
+                height={682}
                 loading="lazy"
                 className="absolute inset-0 w-full h-full object-cover"
               />

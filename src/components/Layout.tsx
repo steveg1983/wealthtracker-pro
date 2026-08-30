@@ -43,7 +43,7 @@ import KeyboardSequenceIndicator from './KeyboardSequenceIndicator';
 import MobileBottomNav from './MobileBottomNav';
 import ViewportDebugOverlay from './ViewportDebugOverlay';
 import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
-import { APP_BAR_HEIGHT_VAR, TOP_CHROME_OFFSET } from './layout/chromeOffsets';
+import { APP_BAR_HEIGHT_VAR, TOP_CHROME_OFFSET, BOTTOM_CHROME_OFFSET } from './layout/chromeOffsets';
 
 /*
  * The top-of-window offsets live in `layout/chromeOffsets.ts` rather than here.
@@ -339,6 +339,13 @@ export default function Layout(): React.JSX.Element {
         role="navigation"
         aria-label="Main navigation"
       >
+        {/* The desktop twin of the mobile bar's shoulder — 0px tall wherever
+            the inset and banner are 0, so a desktop browser never sees it. */}
+        <div
+          aria-hidden="true"
+          className="absolute left-0 right-0 bottom-full bg-[#1a2332]"
+          style={{ height: TOP_CHROME_OFFSET }}
+        />
         <div className="px-4 flex items-center h-12">
           {/* Brand */}
           <Link
@@ -455,6 +462,10 @@ export default function Layout(): React.JSX.Element {
                 { to: '/subscription', icon: CreditCardIcon, label: 'Subscription' },
               ]}
               activePaths={['/settings', '/subscription']}
+              // The pages Manage took from under /settings — its own
+              // activePaths four lines up names the same four, and the pair
+              // is what keeps exactly ONE menu lit over each of them.
+              inactivePaths={['/settings/categories', '/settings/tags', '/settings/payees', '/settings/duplicates']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
@@ -540,6 +551,19 @@ export default function Layout(): React.JSX.Element {
         style={{ top: TOP_CHROME_OFFSET }}
         role="banner"
       >
+        {/* The bar's OWN surface fills the offset above it (owner, 30 Aug:
+            "there is a bit of dead space" — the status-bar inset and the
+            demo-banner slot rendered as bare page background over the bar).
+            The clock can overlap that zone on an installed app, so content
+            cannot move into it — but it should read as the bar's shoulder,
+            not as a gap. Same trick the slide-out menu uses: background to
+            the physical top, geometry untouched. bottom-full, so it needs
+            no arithmetic of its own. */}
+        <div
+          aria-hidden="true"
+          className="absolute left-0 right-0 bottom-full bg-white dark:bg-gray-800"
+          style={{ height: TOP_CHROME_OFFSET }}
+        />
         <div className="flex items-center justify-between p-4">
           <button
             onClick={toggleMobileMenu}
@@ -614,7 +638,11 @@ export default function Layout(): React.JSX.Element {
             role="navigation"
             aria-label="Mobile navigation menu"
           >
-            <div className="p-4 pb-6">
+            {/* pb via the bottom chrome offset, not pb-6: this panel scrolls
+                its own content, so the page gutter cannot rescue it — the
+                menu's last entries (Subscription, the owner's report) lived
+                behind the pill. */}
+            <div className="p-4" style={{ paddingBottom: BOTTOM_CHROME_OFFSET }}>
               {/* Mobile header with close button */}
               <header className="flex justify-between items-center mb-8" role="banner">
                 <h2 id="mobile-menu-title" className="text-2xl font-semibold text-white dark:text-white tracking-tight">WealthTracker</h2>
@@ -797,6 +825,13 @@ export default function Layout(): React.JSX.Element {
                     <div className="mt-1 space-y-1">
                       <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/payees" icon={UsersIcon} label="Payees" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      {/* Present since 28 Aug on desktop and missed here —
+                          the mobile Manage list is a hand-copied twin of the
+                          desktop's, and this is the drift that shape invites
+                          (the owner went looking for it on his phone, 30
+                          Aug). Same position as the desktop menu: between
+                          Payees and Tags. */}
+                      <SidebarLink to="/settings/duplicates" icon={SearchIcon} label="Duplicates" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/transfer-links" icon={ArrowRightLeftIcon} label="Transfer Links" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       {/* "Import Data", as the desktop menu names it — one

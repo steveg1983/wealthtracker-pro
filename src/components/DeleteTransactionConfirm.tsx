@@ -128,8 +128,12 @@ export default function DeleteTransactionConfirm({
   // whitespace-nowrap on all three: a label that breaks mid-phrase reads as two
   // buttons, and "Delete this side only" is exactly the length that invites it.
   // Whole buttons may wrap instead (sm:flex-wrap below); words may not.
+  // The ink is NAMED, not inherited: this class once carried border and
+  // hover only, so the label wore whatever colour the page cascaded in —
+  // light-mode ink on the dark card, and Cancel all but vanished (owner,
+  // 30 Aug). The pair below is the app's standard outlined-button dress.
   const outlinedButton =
-'px-4 py-2 whitespace-nowrap border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700';
+'px-4 py-2 whitespace-nowrap border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700';
   const destructiveButton =
 'px-4 py-2 whitespace-nowrap bg-red-600 text-white rounded-lg hover:bg-red-700';
   // Outlined, but in the destructive colour: the narrower of the two deletes is

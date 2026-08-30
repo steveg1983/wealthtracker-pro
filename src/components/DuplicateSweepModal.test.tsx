@@ -131,7 +131,8 @@ describe('DuplicateSweepModal — finding the same payment twice', () => {
     const row = screen.getByTitle('Look at both copies of this');
     expect(within(row).getByText('TESCO STORES 3421')).toBeInTheDocument();
     expect(within(row).getByText('Current account')).toBeInTheDocument();
-    expect(within(row).getByText('£49.99')).toBeInTheDocument();
+    // Signed now, the house amount idiom — an expense pair says so at a glance.
+    expect(within(row).getByText('\u2212£49.99')).toBeInTheDocument();
     expect(within(row).getByText('100% alike')).toBeInTheDocument();
   });
 
@@ -186,7 +187,7 @@ describe('DuplicateSweepModal — the pair whose payee was renamed', () => {
     // one thing this pair has NOT got, and the user is told so.
     const row = screen.getByTitle('Look at both copies of this');
     expect(within(row).getByText('Not one word in common')).toBeInTheDocument();
-    expect(within(row).getByText('£410.00')).toBeInTheDocument();
+    expect(within(row).getByText('\u2212£410.00')).toBeInTheDocument();
   });
 
   it('will not delete on a chosen copy alone — the pair has to be confirmed', () => {

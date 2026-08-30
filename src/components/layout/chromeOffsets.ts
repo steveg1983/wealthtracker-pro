@@ -69,3 +69,13 @@ export const APP_BAR_HEIGHT_VAR = '--wt-app-bar-height';
  */
 export const STICKY_UNDER_APP_BAR =
   `calc(${SAFE_AREA_TOP} + ${DEMO_BANNER_OFFSET} + var(${APP_BAR_HEIGHT_VAR}, 0px))`;
+
+/**
+ * The room the floating mobile pill takes from the BOTTOM of the window —
+ * the top chrome's twin. Set by index.css under the same max-width the pill
+ * itself renders at (it is md:hidden), so above that width every consumer's
+ * fallback pays 0px. Any surface that scrolls its own content on a phone —
+ * an inner list, an overlay menu — pads its bottom with this, or its last
+ * rows live behind the pill.
+ */
+export const BOTTOM_CHROME_OFFSET = 'var(--wt-bottom-nav-clearance, 0px)';

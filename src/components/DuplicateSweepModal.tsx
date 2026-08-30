@@ -486,8 +486,13 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
             <span className="block text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
               {label}
             </span>
+            {/* SIGN AS WELL AS HUE (owner, 30 Aug: "I can't tell which
+                duplicate is an income transaction or an expense"). The colour
+                was already here; the sign is what the house amount idiom
+                demands beside it — +£100.00 / −£100.00 — because a hue alone
+                is unreadable to some eyes and unspoken by a screen reader. */}
             <span className={`block text-lg font-bold tabular-nums ${transaction.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-              {formatCurrency(Math.abs(transaction.amount))}
+              {transaction.amount < 0 ? '\u2212' : '+'}{formatCurrency(Math.abs(transaction.amount))}
             </span>
             <span className="mt-1 block text-sm text-gray-900 dark:text-white break-words">
               {transaction.description}
@@ -603,8 +608,13 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
                   )}
                   <span className="block text-xs mt-0.5">{likeness(candidate)}</span>
                 </td>
-                <td className="py-2 text-sm font-medium text-right tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
-                  {formatCurrency(Math.abs(candidate.a.amount))}
+                {/* The pair's direction, said the house way — the list said
+                    nothing at all, so an income twice and an expense twice
+                    read identically until the review opened. Both rows of a
+                    candidate share a sign by construction: the scan matches
+                    on the SIGNED amount. */}
+                <td className={`py-2 text-sm font-medium text-right tabular-nums whitespace-nowrap ${candidate.a.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                  {candidate.a.amount < 0 ? '\u2212' : '+'}{formatCurrency(Math.abs(candidate.a.amount))}
                 </td>
                 {/* The row itself opens the review — one meaning per click.
                     The second way out lives in this cell, which already stops
