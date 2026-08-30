@@ -1732,6 +1732,14 @@ export class LocalDataPort implements DataPort {
     );
   }
 
+  async deleteInvestmentEvent(): Promise<{
+    date: string; kind: 'buy' | 'sell' | 'write_off'; quantity: string; amount: string; symbol: string | null;
+  }> {
+    throw new Error(
+      'This ledger file cannot hold trading history yet. Delete the trade in the cloud edition for now.'
+    );
+  }
+
   async listAllInvestmentPrices(): Promise<
     Array<{ symbol: string; date: string; price: string; currency: string }>
   > {

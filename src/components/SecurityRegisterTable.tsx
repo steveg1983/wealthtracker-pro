@@ -24,6 +24,13 @@ interface SecurityRegisterTableProps {
    * with the wrong date could only be fixed by deleting the whole holding).
    */
   onMoveDate?: (eventId: string, currentDate: string) => void;
+  /**
+   * Offered beside the date's 'change' on the same lines: delete the trade
+   * outright (owner, 30 Aug: a buy recorded against the wrong fund — "my
+   * only option is to 'sell some' but I dont want to do that, I want to
+   * delete it"). Deletion is not a sale: nothing is realised.
+   */
+  onDeleteEvent?: (eventId: string, kind: SecurityRegisterLine['kind']) => void;
 }
 
 const EVENT_WORD: Record<SecurityRegisterLine['kind'], string> = {
@@ -44,7 +51,8 @@ export default function SecurityRegisterTable({
   register,
   currency,
   symbol,
-  onMoveDate
+  onMoveDate,
+  onDeleteEvent
 }: SecurityRegisterTableProps): React.JSX.Element {
   return (
     <>
@@ -63,6 +71,8 @@ export default function SecurityRegisterTable({
           <tbody>
             {register.lines.map((line, index) => {
               const movableEventId = onMoveDate !== undefined ? line.eventId : undefined;
+              const deleteEvent = onDeleteEvent;
+              const deletableEventId = deleteEvent !== undefined ? line.eventId : undefined;
               return (
               <tr
                 key={`${line.date}-${index}`}
@@ -81,6 +91,16 @@ export default function SecurityRegisterTable({
                       className="ml-2 text-xs text-gray-500 dark:text-gray-400 underline underline-offset-2 hover:text-gray-900 dark:hover:text-white"
                     >
                       change
+                    </button>
+                  )}
+                  {deleteEvent !== undefined && deletableEventId !== undefined && (
+                    <button
+                      type="button"
+                      onClick={() => deleteEvent(deletableEventId, line.kind)}
+                      aria-label={`Delete this ${EVENT_WORD[line.kind].toLowerCase()}`}
+                      className="ml-1 text-xs text-gray-500 dark:text-gray-400 underline underline-offset-2 hover:text-expense"
+                    >
+                      delete
                     </button>
                   )}
                 </td>

@@ -48,7 +48,7 @@ export interface EventForTradeMove {
  * toISOString, which shifts a local-midnight Date across the boundary in any
  * timezone east of Greenwich and matched nothing in BST.
  */
-const dayOf = (date: string | Date): string => {
+export const localDayKey = (date: string | Date): string => {
   if (typeof date === 'string') return date.slice(0, 10);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
@@ -92,7 +92,7 @@ export function tradeDateCompanions(
   const wanted = new Set(tradeRowDescriptions(event));
   if (wanted.size === 0) return [];
   return transactions
-    .filter((row) => dayOf(row.date) === event.date && wanted.has(row.description))
+    .filter((row) => localDayKey(row.date) === event.date && wanted.has(row.description))
     .map((row) => row.id);
 }
 

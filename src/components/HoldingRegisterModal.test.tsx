@@ -10,12 +10,15 @@ import type { InvestmentHolding } from '../services/investments/holding';
 import { __setAppContextValue, __resetAppContextValue } from '../test/mocks/AppContextSupabase';
 
 const mockUpdateTransaction = vi.fn(async () => {});
+const mockDeleteTransaction = vi.fn(async () => ({ outcome: 'deleted' }));
 
-const { mockListPrices, mockRecordPrice, mockListEvents, mockMoveEventDate } = vi.hoisted(() => ({
+const { mockListPrices, mockRecordPrice, mockListEvents, mockMoveEventDate, mockDeleteEvent, mockUpdateInvestment } = vi.hoisted(() => ({
   mockListPrices: vi.fn(),
   mockRecordPrice: vi.fn(),
   mockListEvents: vi.fn(),
-  mockMoveEventDate: vi.fn()
+  mockMoveEventDate: vi.fn(),
+  mockDeleteEvent: vi.fn(),
+  mockUpdateInvestment: vi.fn()
 }));
 
 vi.mock('@data', () => ({
@@ -23,7 +26,9 @@ vi.mock('@data', () => ({
     listInvestmentPrices: mockListPrices,
     recordInvestmentPrice: mockRecordPrice,
     listInvestmentEvents: mockListEvents,
-    moveInvestmentEventDate: mockMoveEventDate
+    moveInvestmentEventDate: mockMoveEventDate,
+    deleteInvestmentEvent: mockDeleteEvent,
+    updateInvestment: mockUpdateInvestment
   }
 }));
 
@@ -434,5 +439,70 @@ describe('HoldingRegisterModal \u2014 trades from the total', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Total cost' }));
     fireEvent.click(screen.getByRole('button', { name: 'Unit price' }));
     expect(screen.getByLabelText(/Price per unit/)).toHaveValue('');
+  });
+});
+
+describe('HoldingRegisterModal \u2014 deleting a trade', () => {
+  /**
+   * A deletion says the trade never happened \u2014 a different sentence from
+   * a sale. The event, its companions and the snapshot refold are pinned;
+   * the two refusals guard the histories that cannot survive it.
+   */
+  const TWO_BUYS = [
+    {
+      id: 'evt-1', accountId: 'acct-1', symbol: 'RR.L', securityName: 'Rolls-Royce Holdings',
+      date: '2026-08-01', kind: 'buy' as const, quantity: '100', price: '10', fees: null,
+      amount: '1000', currency: 'GBP', source: 'manual' as const
+    },
+    {
+      id: 'evt-2', accountId: 'acct-1', symbol: 'RR.L', securityName: 'Rolls-Royce Holdings',
+      date: '2026-08-15', kind: 'buy' as const, quantity: '50', price: '12', fees: null,
+      amount: '600', currency: 'GBP', source: 'manual' as const
+    }
+  ];
+
+  beforeEach(() => {
+    mockListPrices.mockResolvedValue([]);
+    mockListEvents.mockResolvedValue(TWO_BUYS);
+    mockDeleteEvent.mockResolvedValue({
+      date: '2026-08-15', kind: 'buy', quantity: '50', amount: '600', symbol: 'RR.L'
+    });
+    __setAppContextValue({
+      transactions: [
+        {
+          id: 'txn-open-2', accountId: 'acct-1', date: new Date('2026-08-15T00:00:00'),
+          description: 'Opening position \u2014 50 RR.L', amount: 600, type: 'income', category: 'cat-adjust'
+        }
+      ],
+      updateTransaction: mockUpdateTransaction,
+      deleteTransaction: mockDeleteTransaction
+    });
+  });
+
+  afterEach(() => __resetAppContextValue());
+
+  it('deletes the event, its register row, and refolds the snapshot from the survivor', async () => {
+    render(<HoldingRegisterModal holding={holding()} onClose={vi.fn()} onPricesChanged={vi.fn()} />);
+
+    fireEvent.click((await screen.findAllByRole('button', { name: /delete this buy/i }))[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete the trade' }));
+
+    await waitFor(() => expect(mockDeleteEvent).toHaveBeenCalledWith('evt-2'));
+    expect(mockDeleteTransaction).toHaveBeenCalledWith('txn-open-2');
+    // The surviving buy alone: 100 units at £10.
+    const [patchedId, patch] = mockUpdateInvestment.mock.calls[0];
+    expect(patchedId).toBe('inv-1');
+    expect(patch.quantity.toString()).toBe('100');
+    expect(patch.averageCost.toString()).toBe('10');
+    expect(await screen.findByText(/a deletion is not a sale/)).toBeInTheDocument();
+  });
+
+  it('refuses to delete the only trade \u2014 the holding is the thing to delete', async () => {
+    mockListEvents.mockResolvedValue([TWO_BUYS[0]]);
+    render(<HoldingRegisterModal holding={holding()} onClose={vi.fn()} onPricesChanged={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /delete this buy/i }));
+    expect(await screen.findByText(/only trade — delete the holding itself/)).toBeInTheDocument();
+    expect(mockDeleteEvent).not.toHaveBeenCalled();
   });
 });

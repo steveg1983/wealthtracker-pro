@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { dataPort } from '@data';
 import { useApp } from '../contexts/AppContextSupabase';
 import { tradeDateCompanions } from '../services/investments/tradeDateCompanions';
+import { refoldPosition } from '../services/investments/refoldPosition';
 import { Modal, ModalBody } from './common/Modal';
 import DatePicker from './common/DatePicker';
 import { buildHoldingRegister, type HoldingPricePoint } from '../services/investments/holdingRegister';
@@ -151,7 +152,7 @@ export default function HoldingRegisterModal({
    * tradeDateCompanions at the OLD date. A row the owner already redated by
    * hand matches nothing, and the outcome says so rather than guessing.
    */
-  const { transactions, updateTransaction } = useApp();
+  const { transactions, updateTransaction, deleteTransaction } = useApp();
   const [movingEventId, setMovingEventId] = useState<string | null>(null);
   const [moveDate, setMoveDate] = useState('');
   const [moveNote, setMoveNote] = useState<string | null>(null);
@@ -201,6 +202,78 @@ export default function HoldingRegisterModal({
       setIsSaving(false);
     }
   }, [events, load, moveDate, movingEventId, onPricesChanged, transactions, updateTransaction]);
+
+  /**
+   * DELETING A TRADE (owner, 30 Aug: a buy recorded against the wrong fund
+   * — "my only option is to 'sell some' but I dont want to do that, I want
+   * to delete it"). Deletion says the trade never happened, which is a
+   * different sentence from a sale: nothing is realised, and everything the
+   * trade wrote goes with it — the event, its implied price (the port keeps
+   * it only while a same-day sibling still asserts it), the register rows
+   * that carried its money, and the holding row's pooled figures, re-derived
+   * from the trades that survive. Two refusals stand in front of it: the
+   * position's only trade (delete the holding itself instead), and a
+   * deletion that would leave the pool sold out — a history that cannot
+   * fold is not a history to write.
+   */
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+
+  const beginDelete = useCallback((eventId: string): void => {
+    setSaveError(null);
+    setMoveNote(null);
+    if (events !== null && events.length === 1) {
+      setSaveError(
+        'This is the position\u2019s only trade \u2014 delete the holding itself instead, from the Portfolio tab.'
+      );
+      return;
+    }
+    setDeletingEventId(eventId);
+  }, [events]);
+
+  const submitDelete = useCallback(async (): Promise<void> => {
+    if (deletingEventId === null || events === null) return;
+    const event = events.find((candidate) => candidate.id === deletingEventId) ?? null;
+    if (event === null) return;
+    const survivors = events.filter((candidate) => candidate.id !== deletingEventId);
+    if (refoldPosition(survivors) === null) {
+      setSaveError(
+        'Deleting this trade would leave the position sold out \u2014 delete the holding itself instead.'
+      );
+      setDeletingEventId(null);
+      return;
+    }
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const outcome = await dataPort.deleteInvestmentEvent(deletingEventId);
+      const companions = tradeDateCompanions(
+        { date: outcome.date, kind: outcome.kind, quantity: outcome.quantity, symbol: outcome.symbol },
+        transactions
+      );
+      for (const id of companions) {
+        await deleteTransaction(id);
+      }
+      const refolded = refoldPosition(survivors);
+      if (refolded !== null) {
+        await dataPort.updateInvestment(holding.id, {
+          quantity: refolded.quantity,
+          averageCost: refolded.averageCost
+        });
+      }
+      setMoveNote(
+        companions.length > 0
+          ? `Deleted, with ${companions.length} register row${companions.length === 1 ? '' : 's'}. Nothing was realised \u2014 a deletion is not a sale.`
+          : 'Deleted. No register row sat on its date \u2014 one you had redated by hand stays yours to remove.'
+      );
+      setDeletingEventId(null);
+      await load();
+      onPricesChanged();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'The trade could not be deleted.');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [deleteTransaction, deletingEventId, events, holding.id, load, onPricesChanged, transactions]);
 
   /** The events derivation, when the position has any — see the header. */
   const securityRegister = useMemo(
@@ -608,7 +681,31 @@ export default function HoldingRegisterModal({
               currency={events?.[0]?.currency ?? holding.currency}
               symbol={holding.symbol}
               onMoveDate={beginMove}
+              onDeleteEvent={beginDelete}
             />
+            {deletingEventId !== null && (
+              <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                <p className="m-0 text-sm text-gray-900 dark:text-white">
+                  Delete this trade? It never happened — this is not a sale, and nothing is
+                  realised. Its register rows go with it.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void submitDelete()}
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50"
+                >
+                  {isSaving ? 'Deleting\u2026' : 'Delete the trade'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeletingEventId(null)}
+                  className="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:underline"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
             {movingEventId !== null && (
               <div className="flex flex-wrap items-end gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
                 <label className="block">

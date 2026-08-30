@@ -72,6 +72,17 @@ export interface PortfolioPerformanceInput {
    * Omitted, every figure is exactly what it always was: native units.
    */
   conversionAt?: (date: Date) => NetWorthConversion | null;
+  /**
+   * The derived market term for one account on one day (owner, 30 Aug: the
+   * Portfolio Value tile read the ledger while the chart, the Holdings
+   * panel and the Accounts page all read market — "The 3 areas should all
+   * be the same, all the time"). Wired from useInvestmentValuation's
+   * deltaAt, so the tiles, the gain and both returns measure what the
+   * portfolio is WORTH, through the same fold every other surface trusts.
+   * Omitted, every figure is exactly what it always was: the ledger — which
+   * keeps the module's own tests meaning what they meant.
+   */
+  deltaAt?: (accountId: string, day: string) => DecimalInstance;
 }
 
 export interface PortfolioPerformance {
@@ -275,7 +286,12 @@ export function computePortfolioPerformance(input: PortfolioPerformanceInput): P
   const valueAsOf = (day: string): DecimalInstance => {
     let value = ZERO;
     for (const accountId of nativeSeries.keys()) {
-      const native = nativeAsOf(accountId, day);
+      // The ledger plus the derived market term — the same sum every valued
+      // surface makes. The delta is native money like the balance, so one
+      // conversion serves both.
+      const native = nativeAsOf(accountId, day).plus(
+        input.deltaAt ? input.deltaAt(accountId, day) : ZERO
+      );
       if (native.isZero()) continue;
       const factor = factorFor(accountId, day);
       value = value.plus(factor ? native.times(factor) : native);

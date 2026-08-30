@@ -282,3 +282,49 @@ describe('computePortfolioPerformance — the dated conversion seam', () => {
     expect(result.gain.toNumber()).toBe(0);
   });
 });
+
+describe('computePortfolioPerformance — the derived market term', () => {
+  /**
+   * The owner, 30 Aug: the Portfolio Value tile read the ledger while every
+   * other surface read market — "The 3 areas should all be the same, all
+   * the time". With deltaAt wired, the tiles value ledger + derived term,
+   * the same sum the chart and the Accounts page make. Omitted, the module
+   * still means what its older tests mean: the ledger alone.
+   */
+  const INV = portfolio('acc-market');
+  const LEDGER = [
+    transferIn(INV.id, '2025-01-01', 10_000, EXTERNAL.id),
+  ];
+  const YEAR = { from: new Date('2025-01-01T00:00:00Z'), to: new Date('2026-01-01T00:00:00Z') };
+
+  it('adds each day\u2019s delta onto the ledger for start, end and gain', () => {
+    const result = computePortfolioPerformance({
+      memberAccounts: [INV],
+      transactions: LEDGER,
+      transactionSplits: [],
+      categories: CATEGORIES,
+      range: YEAR,
+      now: new Date('2026-01-01T00:00:00Z'),
+      // A position bought at 10,000 and worth 9,625.29 by year end — the
+      // owner's own second lot, inverted to a round figure.
+      deltaAt: (accountId, day) =>
+        accountId === INV.id && day >= '2025-06-01' ? toDecimal('-374.71') : toDecimal('0'),
+    });
+    expect(result.endValue.toString()).toBe('9625.29');
+    // The delta is not a flow: nothing was put in or taken out by it.
+    expect(result.netFlows.toString()).toBe('10000');
+    expect(result.gain.toString()).toBe('-374.71');
+  });
+
+  it('without deltaAt the ledger stands alone, exactly as before', () => {
+    const result = computePortfolioPerformance({
+      memberAccounts: [INV],
+      transactions: LEDGER,
+      transactionSplits: [],
+      categories: CATEGORIES,
+      range: YEAR,
+      now: new Date('2026-01-01T00:00:00Z'),
+    });
+    expect(result.endValue.toString()).toBe('10000');
+  });
+});

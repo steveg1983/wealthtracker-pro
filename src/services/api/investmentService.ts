@@ -658,6 +658,72 @@ export class InvestmentService {
   }
 
   /**
+   * Delete ONE trade. The trade-implied price goes with it UNLESS another
+   * event of the same security still asserts that day — two buys on one day
+   * share a price row, and the survivor keeps its anchor. Read-before-
+   * delete, so the caller learns what the event said and can settle the
+   * register rows that carried its money.
+   */
+  static async deleteEvent(
+    userId: string,
+    eventId: string
+  ): Promise<{ date: string; kind: 'buy' | 'sell' | 'write_off'; quantity: string; amount: string; symbol: string | null }> {
+    const client = requireClient('this trade');
+    const { data: row, error: readError } = await client
+      .from('investment_events')
+      .select('account_id, event_date, kind, quantity, amount, symbol')
+      .eq('id', eventId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (readError || !row) {
+      if (readError) {
+        this.logger.error('Failed to read the trade to delete', readError);
+        throw new Error(handleSupabaseError(readError));
+      }
+      throw new Error('That trade no longer exists.');
+    }
+    const date = String(row.event_date);
+    const symbol = row.symbol === null || row.symbol === undefined ? null : String(row.symbol);
+
+    const { error: deleteError } = await client
+      .from('investment_events')
+      .delete()
+      .eq('id', eventId)
+      .eq('user_id', userId);
+    if (deleteError) {
+      this.logger.error('Failed to delete the trade', deleteError);
+      throw new Error(handleSupabaseError(deleteError));
+    }
+
+    if (symbol !== null) {
+      const { data: siblings } = await client
+        .from('investment_events')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('symbol', symbol)
+        .eq('event_date', date)
+        .limit(1);
+      if (!siblings || siblings.length === 0) {
+        await client
+          .from('investment_prices')
+          .delete()
+          .eq('user_id', userId)
+          .eq('symbol', symbol)
+          .eq('price_date', date)
+          .eq('source', 'trade');
+      }
+    }
+
+    return {
+      date,
+      kind: String(row.kind) as 'buy' | 'sell' | 'write_off',
+      quantity: String(row.quantity),
+      amount: String(row.amount),
+      symbol
+    };
+  }
+
+  /**
    * EVERY quantity event the user has, oldest first — what the net-worth
    * valuation folds. One query, not one per account: the walks value all
    * accounts at once, and the owner has over a hundred closed ones.
