@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import DatePicker from './DatePicker';
@@ -205,5 +205,106 @@ describe('DatePicker typed entry', () => {
     blurField();
     expect(onCommit).toHaveBeenCalledWith('');
     expect(field().value).toBe('');
+  });
+});
+
+/**
+ * WHICH WAY THE CALENDAR OPENS.
+ *
+ * The owner, 30 August, on the register's Quick Add bar — which sits at the
+ * FOOT of the page: "when doing a quick add, and I drop down the date, I loose
+ * half the calendar, and then have to scroll down. I should not need to do
+ * that." A field near the bottom of the window has to open upward.
+ *
+ * jsdom lays nothing out — every rect is an empty one at the origin, which is
+ * the roomiest possible position and therefore the one case this could never
+ * catch by accident. So the two numbers the decision is a function of (where
+ * the field is, how tall the window is) are STATED here, and what the component
+ * concludes from them is what these pin. That the calendar is 340px tall in a
+ * real browser is a browser fact and is not pretended at.
+ */
+describe('DatePicker placement', () => {
+  const geometry: Array<[object, string, PropertyDescriptor | undefined]> = [];
+
+  /** Put the field `top` pixels down a window `viewport` pixels tall. */
+  const pinField = (top: number, viewport: number): void => {
+    geometry.push([window, 'innerHeight', Object.getOwnPropertyDescriptor(window, 'innerHeight')]);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, get: () => viewport });
+    // The picker measures exactly one element — its own container — so a single
+    // answer for every element is answer enough.
+    geometry.push([
+      HTMLElement.prototype,
+      'getBoundingClientRect',
+      Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'getBoundingClientRect'),
+    ]);
+    const height = 32;
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: (): DOMRect => ({
+        x: 20, y: top, top, bottom: top + height, left: 20, right: 170,
+        width: 150, height, toJSON: () => ({}),
+      }),
+    });
+  };
+
+  afterEach(() => {
+    while (geometry.length > 0) {
+      const entry = geometry.pop();
+      if (!entry) break;
+      const [target, property, descriptor] = entry;
+      if (descriptor) Object.defineProperty(target, property, descriptor);
+      else Reflect.deleteProperty(target, property);
+    }
+  });
+
+  const panel = (): HTMLElement => {
+    const el = document.querySelector('[data-datepicker-panel]');
+    if (!(el instanceof HTMLElement)) throw new Error('the calendar is not open');
+    return el;
+  };
+
+  it('opens above the field when the window ends just under it', () => {
+    // 28px of window left below a 340px calendar: the Quick Add bar's case.
+    pinField(740, 800);
+    render(<DatePicker value="2024-02-15" onChange={() => {}} />);
+    open();
+
+    expect(panel()).toHaveAttribute('data-datepicker-placement', 'above');
+    // bottom-full is what puts it there; mt-1 would push it back down.
+    expect(panel().className).toContain('bottom-full');
+    expect(panel().className).not.toContain('mt-1');
+  });
+
+  it('opens below the field when there is room below', () => {
+    pinField(100, 800);
+    render(<DatePicker value="2024-02-15" onChange={() => {}} />);
+    open();
+
+    expect(panel()).toHaveAttribute('data-datepicker-placement', 'below');
+    expect(panel().className).toContain('mt-1');
+    expect(panel().className).not.toContain('bottom-full');
+  });
+
+  it('stays below when neither side has room, rather than trading one clipped edge for another', () => {
+    // A 320px window: 188px below the field, 100px above it. Neither fits the
+    // calendar, and below is the larger of the two.
+    pinField(100, 320);
+    render(<DatePicker value="2024-02-15" onChange={() => {}} />);
+    open();
+
+    expect(panel()).toHaveAttribute('data-datepicker-placement', 'below');
+  });
+
+  it('anchors a portaled calendar by its bottom edge when it opens upward', () => {
+    pinField(740, 800);
+    render(<DatePicker value="2024-02-15" onChange={() => {}} usePortal />);
+    open();
+
+    // Portaled: fixed coordinates rather than classes, and it is the BOTTOM
+    // that is pinned — to the field's top edge, less the 4px gap.
+    expect(panel()).toHaveAttribute('data-datepicker-placement', 'above');
+    expect(panel().style.position).toBe('fixed');
+    expect(panel().style.bottom).toBe('64px');
+    expect(panel().style.top).toBe('');
   });
 });
