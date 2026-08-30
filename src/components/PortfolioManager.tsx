@@ -73,6 +73,21 @@ import type { Account } from '../types';
  * the chosen account, into this investment account — through the same
  * machinery every other transfer uses. The page owns those writes; this form
  * only gathers the answers.
+ *
+ * ── WHICHEVER FIGURE THE STATEMENT HAPPENS TO STATE (owner, 30 Aug) ─────────
+ * "Offer up the user the put in the unit price paid (as per current) or to
+ * offer them to put in the total cost of the holding and the system works out
+ * the unit price." A contract note names a price per unit; a fund platform's
+ * statement very often names only a total and a number of units, and the
+ * division between them is arithmetic the app should do rather than ask a
+ * person to do to four places. So the cost box asks which figure is in hand
+ * before it asks for the figure.
+ *
+ * The two modes are exclusive in the CHARGES as well as the cost, and that is
+ * the owner's ruling rather than an implementation convenience: "they cannot
+ * have the total cost and then add charges so its one or the other". A total
+ * is already all-in, so in total mode the Charges box is not disabled and not
+ * quietly ignored — it is not there, and the saved charges are zero.
  */
 
 /** What a save needs, independent of whether it is an add or an edit. */
@@ -257,7 +272,28 @@ export default function PortfolioManager({
    */
   const [isManualSecurity, setIsManualSecurity] = useState(false);
   const [quantity, setQuantity] = useState('');
-  const [averageCost, setAverageCost] = useState('');
+  /**
+   * The one cost box, holding whichever figure {@link costMode} says it holds:
+   * a price per unit, or the total the whole holding cost.
+   *
+   * One piece of state rather than two, because there is one box on screen and
+   * a second hidden string would be a second answer to the same question —
+   * exactly the disagreement the mode switch below exists to prevent.
+   */
+  const [costText, setCostText] = useState('');
+  /**
+   * WHICH FIGURE THE OWNER HAS (owner, 30 Aug): "offer up the user the put in
+   * the unit price paid (as per current) or to offer them to put in the total
+   * cost of the holding and the system works out the unit price".
+   *
+   * A contract note states both, but a statement from a fund platform very
+   * often states only the total and the units — and dividing one by the other
+   * by hand, to four places, before typing it back in, is arithmetic the app
+   * is better at. 'unit' is the default because it is what the form has always
+   * asked for, and nobody's habits should change for a new option they did not
+   * choose.
+   */
+  const [costMode, setCostMode] = useState<'unit' | 'total'>('unit');
   const [holdingCurrency, setHoldingCurrency] = useState(currency);
   // Once the owner has picked a currency by hand, a quote arriving later must
   // not overrule them — they may know something the feed does not.
@@ -306,7 +342,8 @@ export default function PortfolioManager({
     setPickingSymbol(true);
     setIsManualSecurity(false);
     setQuantity('');
-    setAverageCost('');
+    setCostText('');
+    setCostMode('unit');
     setHoldingCurrency(currency);
     setCurrencyTouched(false);
     setCharges('');
@@ -360,7 +397,11 @@ export default function PortfolioManager({
     setAssetType(holding.assetType);
     setPickingSymbol(false);
     setQuantity(holding.quantity.toString());
-    setAverageCost(holding.averageCost.toString());
+    setCostText(holding.averageCost.toString());
+    // An edit changes a STORED average cost, which is already a unit price;
+    // there is no total to work back from, because the charges that were
+    // folded into it are not recoverable from the holding.
+    setCostMode('unit');
     setHoldingCurrency(holding.currency || currency);
     setCurrencyTouched(true);
     setQuote(null);
@@ -416,11 +457,54 @@ export default function PortfolioManager({
   };
 
   const fundingAccount = fundingAccounts.find((a) => a.id === fundingAccountId) ?? null;
-  const chargesValue = charges === '' ? 0 : parseMoneyInput(charges);
+  const inTotalMode = costMode === 'total';
+  /**
+   * Charges, as they actually count — and in total mode they do not.
+   *
+   * The owner's ruling, 30 Aug: "If they choose total cost then the charges
+   * box disappears as they cannot have the total cost and then add charges so
+   * its one or the other." A total already includes the stamp duty and the
+   * commission; adding them again would count them twice. The typed text is
+   * left ALONE rather than cleared, so a mode switched by mistake and switched
+   * straight back gives the figure back — it is hidden, not spent.
+   */
+  const chargesValue = inTotalMode ? 0 : charges === '' ? 0 : parseMoneyInput(charges);
   const quantityValue = Number(quantity);
+  const quantityDecimal =
+    Number.isFinite(quantityValue) && quantityValue > 0 ? toDecimal(quantityValue) : null;
   // FOUR places, not money's two: funds quote £0.0653 and the 2dp parse made
   // it £0.07 — wrong by 7% before anything was valued (owner, 30 Aug).
-  const costValue = parseUnitPriceInput(averageCost);
+  const typedUnitCost = inTotalMode ? null : parseUnitPriceInput(costText);
+  /**
+   * The total, at TWO places — because a total is money, not a unit price.
+   * The four-place parse belongs to the box above it and to nothing else: no
+   * broker has ever charged a third of a penny for a whole holding.
+   */
+  const typedTotalCost = inTotalMode ? parseMoneyInput(costText) : null;
+
+  /**
+   * The unit price the total implies: total ÷ units, as a Decimal and NOT
+   * rounded.
+   *
+   * A ratio is not money and must not be rounded like it. Round this to
+   * pennies and 8,587.805 units of a £9,993.63 holding come back as £1.16 a
+   * unit, which multiplies out to £9,961.85 — sixty pounds of the owner's
+   * money gone to a rounding step nobody asked for. The four places the box
+   * would have accepted are not enough either; they are a DISPLAY convention,
+   * and the helper line below applies them to what is shown while the stored
+   * figure keeps every place the division produced.
+   */
+  const derivedUnitCost =
+    inTotalMode && typedTotalCost !== null && typedTotalCost > 0 && quantityDecimal !== null
+      ? toDecimal(typedTotalCost).dividedBy(quantityDecimal)
+      : null;
+
+  /** The cost per unit this save will store, whichever box asked for it. */
+  const unitCost = inTotalMode
+    ? derivedUnitCost
+    : typedUnitCost !== null && typedUnitCost > 0
+      ? toDecimal(typedUnitCost)
+      : null;
 
   /**
    * What the purchase costs in cash, in the HOLDING's currency — the default
@@ -428,10 +512,20 @@ export default function PortfolioManager({
    * Across a currency boundary there is no default: the true figure is on the
    * broker's note, and inventing one via an FX rate would write an unverified
    * number into two registers.
+   *
+   * In total mode this is the typed total ITSELF, not units × the derived
+   * price. The two agree to the penny here and would in almost every case,
+   * but "almost" is the wrong word for the figure that leaves a bank account:
+   * a division that does not terminate (three units for a tenner) comes back
+   * a hundredth of a penny short, and the owner would watch the total they
+   * typed reappear as something else.
    */
-  const cashTotal =
-    quantityValue > 0 && costValue !== null && costValue > 0 && chargesValue !== null && chargesValue >= 0
-      ? purchaseCashTotal(toDecimal(quantityValue), toDecimal(costValue), toDecimal(chargesValue))
+  const cashTotal = inTotalMode
+    ? typedTotalCost !== null && typedTotalCost > 0 && quantityDecimal !== null
+      ? toDecimal(typedTotalCost)
+      : null
+    : quantityDecimal !== null && unitCost !== null && chargesValue !== null && chargesValue >= 0
+      ? purchaseCashTotal(quantityDecimal, unitCost, toDecimal(chargesValue))
       : null;
 
   const fundingMatchesHoldingCurrency =
@@ -559,12 +653,20 @@ export default function PortfolioManager({
       return;
     }
 
-    if (!Number.isFinite(quantityValue) || quantityValue <= 0) {
+    // Checked BEFORE the cost, and the order is load-bearing in total mode:
+    // the unit price there is a quotient, and a quotient with nothing to
+    // divide by is not a small error but a meaningless one.
+    if (quantityDecimal === null) {
       setFormError('Units must be a positive number');
       return;
     }
 
-    if (costValue === null || !Number.isFinite(costValue) || costValue <= 0) {
+    if (inTotalMode) {
+      if (typedTotalCost === null || typedTotalCost <= 0) {
+        setFormError('Total cost must be a positive amount');
+        return;
+      }
+    } else if (typedUnitCost === null || typedUnitCost <= 0) {
       setFormError('Average cost must be a positive amount');
       return;
     }
@@ -578,38 +680,70 @@ export default function PortfolioManager({
      * THE REVERSE ENTRY'S CONVERSION. The boxes were speaking the account's
      * money; the holding is stored in the instrument's currency (its quotes
      * arrive in that currency, and a gain measured across two currencies is
-     * not a gain). So the typed price and charges convert INTO the
-     * instrument's currency here, at the rate on screen — division, because
-     * the rate is quoted as 1 instrument-unit in account money. What the
-     * owner typed is what the cash side uses; the stored figures are derived,
-     * and the provenance note says at what rate.
+     * not a gain). So the typed figures convert INTO the instrument's
+     * currency here, at the rate on screen — division, because the rate is
+     * quoted as 1 instrument-unit in account money. What the owner typed is
+     * what the cash side uses; the stored figures are derived, and the
+     * provenance note says at what rate.
+     *
+     * Total mode needs no special pleading to cross a currency: the total is
+     * money like the price it replaces, so it converts by the same rate, and
+     * the unit price divides out of the converted total afterwards.
      */
-    let storedCost = toDecimal(costValue);
-    let storedCharges = toDecimal(chargesValue);
-    if (enteringInAccountMoney) {
-      if (rateValue === null) {
-        setFormError(
-          `Enter the rate — 1 ${holdingCurrency} in ${currency} — so figures typed ` +
-          `in ${currency} can be stored in the instrument's own currency`
-        );
-        return;
+    if (enteringInAccountMoney && rateValue === null) {
+      setFormError(
+        `Enter the rate — 1 ${holdingCurrency} in ${currency} — so figures typed ` +
+        `in ${currency} can be stored in the instrument's own currency`
+      );
+      return;
+    }
+
+    let storedCost: DecimalInstance;
+    let storedCharges: DecimalInstance;
+
+    if (inTotalMode) {
+      /**
+       * CONVERT THE TOTAL, THEN DIVIDE — never the other way round.
+       *
+       * `sourceForRate` rounds its answer to pennies, which is right for the
+       * money it was written for and ruinous for a ratio: divide first and
+       * the £1.16370015 a unit comes back as £1.16. Converting the total is
+       * the same conversion applied to the figure that is actually money,
+       * and the division that follows inherits every place of it.
+       */
+      let totalInInstrument = toDecimal(typedTotalCost ?? 0);
+      if (enteringInAccountMoney && rateValue !== null) {
+        const converted = sourceForRate(totalInInstrument, rateValue);
+        if (!converted.ok) {
+          setFormError('That rate cannot convert this total — check both');
+          return;
+        }
+        totalInInstrument = converted.value;
       }
-      const costConverted = sourceForRate(storedCost, rateValue);
-      const chargesConverted = storedCharges.greaterThan(0)
-        ? sourceForRate(storedCharges, rateValue)
-        : { ok: true as const, value: toDecimal(0) };
-      if (!costConverted.ok || !chargesConverted.ok) {
-        setFormError('That rate cannot convert these figures — check both');
-        return;
+      storedCost = totalInInstrument.dividedBy(quantityDecimal);
+      // One or the other, per the owner: a total already includes them.
+      storedCharges = toDecimal(0);
+    } else {
+      storedCost = toDecimal(typedUnitCost ?? 0);
+      storedCharges = toDecimal(chargesValue);
+      if (enteringInAccountMoney && rateValue !== null) {
+        const costConverted = sourceForRate(storedCost, rateValue);
+        const chargesConverted = storedCharges.greaterThan(0)
+          ? sourceForRate(storedCharges, rateValue)
+          : { ok: true as const, value: toDecimal(0) };
+        if (!costConverted.ok || !chargesConverted.ok) {
+          setFormError('That rate cannot convert these figures — check both');
+          return;
+        }
+        storedCost = costConverted.value;
+        storedCharges = chargesConverted.value;
       }
-      storedCost = costConverted.value;
-      storedCharges = chargesConverted.value;
     }
 
     const values: HoldingFormValues = {
       symbol,
       name: name.trim() || symbol,
-      quantity: toDecimal(quantityValue),
+      quantity: quantityDecimal,
       averageCost: storedCost,
       currency: holdingCurrency,
       assetType
@@ -960,8 +1094,54 @@ export default function PortfolioManager({
             </div>
 
             <div>
+              {/* WHICH FIGURE DO YOU HAVE? A platform statement often gives
+                  the total and the units and no price at all; a contract note
+                  gives the price. Asking is cheaper than making the owner
+                  divide 9,993.63 by 8,587.805 in their head and type the
+                  answer to four places. The segmented pair is the house
+                  idiom — BudgetSetupModal's Monthly/Annually, same border,
+                  same pressed treatment. */}
+              {!editing && (
+                <>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    I know the
+                  </span>
+                  <div className="inline-flex rounded-lg border border-line dark:border-gray-600 overflow-hidden mb-2">
+                    {(['unit', 'total'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => {
+                          if (mode === costMode) return;
+                          setCostMode(mode);
+                          // CLEAR THE BOX. A number typed as a price per unit
+                          // is not a total, and £1.1637 silently re-read as
+                          // "the whole holding cost £1.16" would be a wrong
+                          // answer that looked like a kept one.
+                          setCostText('');
+                          // The prefilled total paid was computed under the
+                          // old meaning of that box; recompute rather than
+                          // carry a stale figure (same reasoning as "Enter
+                          // figures in" below).
+                          setTotalPaidTouched(false);
+                          setTotalPaid('');
+                        }}
+                        aria-pressed={costMode === mode}
+                        disabled={isSaving}
+                        className={`px-3 py-1.5 text-sm ${
+                          costMode === mode
+                            ? 'bg-primary-action text-on-primary-action'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {mode === 'unit' ? 'Unit price' : 'Total cost'}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
               <label htmlFor="holding-average-cost" className={labelClass}>
-                Average cost per unit
+                {inTotalMode ? 'Total cost of the holding' : 'Average cost per unit'}
               </label>
               {/* The symbol INSIDE the field, live from Priced in — the field
                   says its own currency, the way Opening balance wears its £,
@@ -973,13 +1153,23 @@ export default function PortfolioManager({
                 </span>
                 <MoneyInput
                   id="holding-average-cost"
-                  value={averageCost}
-                  onChange={setAverageCost}
+                  value={costText}
+                  onChange={setCostText}
                   className={`${inputClass} pl-8`}
                   disabled={isSaving}
-                  decimals={4}
+                  // Four places for a price, two for a total: a total is money
+                  // and no broker bills a third of a penny for a whole
+                  // holding, while a fund really is quoted at £0.0653.
+                  decimals={inTotalMode ? 2 : 4}
                 />
               </div>
+              {inTotalMode && (
+                <p className={helperClass}>
+                  {derivedUnitCost !== null
+                    ? `= ${formatUnitPrice(derivedUnitCost, entryCcy)} a unit`
+                    : 'Divided by the units above to give the price per unit.'}
+                </p>
+              )}
             </div>
 
             <div>
@@ -1049,26 +1239,32 @@ export default function PortfolioManager({
 
           {!editing && (
             <>
-              <div>
-                <label htmlFor="holding-charges" className={labelClass}>
-                  Charges — stamp duty, levies, commission
-                </label>
-                <div className="relative">
-                  <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none">
-                    {getCurrencySymbol(entryCcy)}
-                  </span>
-                  <MoneyInput
-                    id="holding-charges"
-                    value={charges}
-                    onChange={setCharges}
-                    className={`${inputClass} pl-8`}
-                    disabled={isSaving}
-                  />
+              {/* GONE IN TOTAL MODE (owner, 30 Aug): "they cannot have the
+                  total cost and then add charges so its one or the other". A
+                  total is already all-in, and a second box beside it would
+                  invite the same commission to be counted twice. */}
+              {!inTotalMode && (
+                <div>
+                  <label htmlFor="holding-charges" className={labelClass}>
+                    Charges — stamp duty, levies, commission
+                  </label>
+                  <div className="relative">
+                    <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none">
+                      {getCurrencySymbol(entryCcy)}
+                    </span>
+                    <MoneyInput
+                      id="holding-charges"
+                      value={charges}
+                      onChange={setCharges}
+                      className={`${inputClass} pl-8`}
+                      disabled={isSaving}
+                    />
+                  </div>
+                  <p className={helperClass}>
+                    Folded into the cost basis, the way a contract note&rsquo;s total is.
+                  </p>
                 </div>
-                <p className={helperClass}>
-                  Folded into the cost basis, the way a contract note&rsquo;s total is.
-                </p>
-              </div>
+              )}
 
               <div>
                 <label htmlFor="holding-funding" className={labelClass}>
@@ -1184,8 +1380,10 @@ export default function PortfolioManager({
                     />
                     <p className={helperClass}>
                       {needsConversion && !enteringInAccountMoney
-                        ? `(Units × cost + charges) × the rate above — change it if the contract note says otherwise. The ${fundingAccount?.currency ?? 'account'} figure is what moves.`
-                        : 'Units × cost + charges, prefilled — change it if the contract note says otherwise.'}
+                        ? `${inTotalMode ? 'The total above' : '(Units × cost + charges)'} × the rate above — change it if the contract note says otherwise. The ${fundingAccount?.currency ?? 'account'} figure is what moves.`
+                        : inTotalMode
+                          ? 'The total above, prefilled — change it if the cash that left differs.'
+                          : 'Units × cost + charges, prefilled — change it if the contract note says otherwise.'}
                     </p>
                   </div>
                 )}
