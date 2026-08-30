@@ -26,6 +26,11 @@ export interface BankConnectionRow {
    * only lawful while authentication is fresh.
    */
   last_sync?: string | null;
+  /** The needs-reauth pair — read by the handlers' early guard, so a
+   *  connection waiting on the owner is refused cleanly rather than
+   *  rediscovered as an error on every sync. */
+  status?: string | null;
+  needs_reauth?: boolean | null;
 }
 
 /**
@@ -96,7 +101,7 @@ export const getUserBankConnection = async (
 ): Promise<BankConnectionRow | null> => {
   const { data, error } = await supabase
     .from('bank_connections')
-    .select('id, user_id, provider, institution_id, institution_name, access_token_encrypted, refresh_token_encrypted, last_sync')
+    .select('id, user_id, provider, institution_id, institution_name, access_token_encrypted, refresh_token_encrypted, last_sync, status, needs_reauth')
     .eq('id', connectionId)
     .eq('user_id', userId)
     .single();
@@ -122,6 +127,36 @@ interface AccessTokenResolution {
   refreshed: boolean;
 }
 
+/**
+ * Decrypt a connection's stored secret, or say what that failure MEANS.
+ *
+ * A stored token that cannot be decrypted — a truncated blob, or ciphertext
+ * written under a key that has since been rotated — used to throw the raw
+ * crypto TypeError, which no classifier recognised: the failure was filed as
+ * transient, the connection went on claiming 'connected', and every hourly
+ * sync re-threw to Sentry. Observed live 29–30 Aug 2026: all three of the
+ * owner's feeds failing every sync for three days with nothing shown in the
+ * app, one email per throw. An unreadable credential is not a transient
+ * fact about one sync — it is the connection saying it can no longer prove
+ * who it is, which is precisely what ReauthRequiredError exists to carry
+ * into the marking, the 409 and the Reconnect CTA.
+ */
+const decryptConnectionSecret = (
+  encoded: string,
+  what: string,
+  provider: { displayName: string }
+): string => {
+  try {
+    return decryptSecret(encoded);
+  } catch {
+    // The crypto error's own text (tag lengths, auth failures) names cipher
+    // internals nobody can act on — and must never echo token material.
+    throw new ReauthRequiredError(
+      `${provider.displayName}'s stored ${what} can no longer be read — reconnect the bank to carry on`
+    );
+  }
+};
+
 const refreshConnectionAccessToken = async (
   supabase: SupabaseClient,
   connection: BankConnectionRow
@@ -133,7 +168,7 @@ const refreshConnectionAccessToken = async (
     );
   }
 
-  const refreshToken = decryptSecret(connection.refresh_token_encrypted);
+  const refreshToken = decryptConnectionSecret(connection.refresh_token_encrypted, 'refresh token', provider);
   let refreshed;
   try {
     refreshed = await provider.refreshAccessToken(refreshToken);
@@ -180,7 +215,7 @@ export const withProviderAccessToken = async <T>(
   operation: (accessToken: string) => Promise<T>
 ): Promise<T> => {
   const provider = providerFor(connection);
-  const accessToken = decryptSecret(connection.access_token_encrypted);
+  const accessToken = decryptConnectionSecret(connection.access_token_encrypted, 'access token', provider);
   try {
     return await operation(accessToken);
   } catch (error) {

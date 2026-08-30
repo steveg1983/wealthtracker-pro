@@ -166,6 +166,17 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       return createErrorResponse(res, 404, 'Connection not found', 'not_found');
     }
 
+    // ALREADY MARKED: a connection waiting on the owner to reconnect is not
+    // an error to rediscover hourly. Refusing here — before any provider
+    // call — is what turns three days of one email per sync into exactly
+    // one email at the transition: the classifier below already keeps the
+    // transition itself out of Sentry, and this guard keeps every visit
+    // after it out of the provider, the log and the inbox. The 409 is the
+    // same answer the transition gave, so the client's handling is one path.
+    if (connection.needs_reauth || connection.status === 'reauth_required') {
+      return createErrorResponse(res, 409, 'Bank reauthorization required', 'reauth_required');
+    }
+
     const dateRange = getDateRange(body, connection.last_sync);
 
     const linkedAccountsResult = await supabase
