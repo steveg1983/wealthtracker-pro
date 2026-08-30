@@ -191,14 +191,24 @@ function App(): React.JSX.Element {
                           </Suspense>
                         } />
                         
-                        {/* Main app routes */}
-                        <Route path="/" element={<Layout />}>
-                          {/* Public welcome page */}
-                          <Route index element={
-                            <Suspense fallback={<PageLoader />}>
-                              <Welcome />
-                            </Suspense>
-                          } />
+                        {/* The signed-out front door, OUTSIDE Layout. It used
+                            to render inside the app chrome, which put nine
+                            controls — Dashboard, Accounts, Plan, Reports,
+                            Manage, Settings, search, a bell, help — in front
+                            of a visitor who could use none of them (design
+                            handover 29 Aug, §5.1). A signed-out page carries
+                            its own header: wordmark and Sign in, nothing else.
+                            Signed-in arrivals are redirected by the page. */}
+                        <Route path="/" element={
+                          <Suspense fallback={<PageLoader />}>
+                            <Welcome />
+                          </Suspense>
+                        } />
+
+                        {/* Main app routes — a pathless layout route, so the
+                            chrome wraps every app screen but not the front
+                            door above. */}
+                        <Route element={<Layout />}>
                           
                           {/* Protected routes - all financial data pages */}
                           <Route path="dashboard" element={

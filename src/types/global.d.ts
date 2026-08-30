@@ -1,7 +1,5 @@
 // Global type declarations
 
-declare function gtag(...args: unknown[]): void;
-
 // Network Information API (non-standard browser API)
 // Note: effectiveType is string (not strict union) because browser API can return any value
 interface NetworkInformation {
@@ -46,7 +44,6 @@ interface Window {
       getToken: () => Promise<string | null>;
     };
   };
-  gtag?: typeof gtag;
   swRegistration?: ServiceWorkerRegistration | null;
   // Realtime sync action timestamp updater for echo prevention
   __updateRealtimeActionTimestamp?: (entity: string, actionType: string) => void;

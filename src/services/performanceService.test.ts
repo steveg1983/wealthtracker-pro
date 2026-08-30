@@ -23,8 +23,7 @@ const createEnv = (overrides: Partial<PerformanceServiceOptions> = {}) => {
       observe: vi.fn(),
       disconnect: vi.fn()
     })),
-    PerformanceEventTiming: function () {},
-    gtag: vi.fn()
+    PerformanceEventTiming: function () {}
   } as any;
 
   const documentRef = overrides.documentRef ?? ({
