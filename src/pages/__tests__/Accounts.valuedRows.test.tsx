@@ -90,14 +90,28 @@ describe('an investment row states what the account is worth', () => {
 
   it('still names the register figure, so it is findable for reconciling', () => {
     renderAccounts();
-    expect(screen.getByText('In the register')).toBeInTheDocument();
-    expect(screen.getAllByText('£100,000.00').length).toBeGreaterThan(0);
+    // One combined line INSIDE the balance cell — a tenth cell wrapped the
+    // nine-track grid and dropped the delete button to the next line
+    // (owner, 30 Aug).
+    expect(screen.getByText('£100,000.00 in the register')).toBeInTheDocument();
   });
 
   it('says nothing extra for an account with no holdings — nothing to explain', () => {
     renderAccounts();
     const current = screen.getByText('Synthetic Current').closest('div')!;
-    expect(within(current).queryByText('In the register')).not.toBeInTheDocument();
+    expect(within(current).queryByText(/in the register/)).not.toBeInTheDocument();
+  });
+
+  it('the register line rides INSIDE the balance cell, never as a cell of its own', () => {
+    renderAccounts();
+    // AccountRowColumns is a fixed nine-track grid, and a surplus cell wraps
+    // it — the owner watched the delete button fall to the next line while
+    // every column slid one place right. jsdom computes no grid, so the pin
+    // is the structure that prevents it: the register line and the worth
+    // figure share one cell.
+    const registerLine = screen.getByText('£100,000.00 in the register');
+    const cell = registerLine.parentElement!;
+    expect(within(cell).getByText('£140,000.00')).toBeInTheDocument();
   });
 });
 
