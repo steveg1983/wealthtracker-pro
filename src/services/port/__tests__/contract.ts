@@ -3748,26 +3748,35 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
       });
 
       /**
-       * Filing a payee in bulk is NOT reviewing the rows it files.
+       * Filing a payee in bulk ENDS the review of the rows it files — and no
+       * other's.
        *
-       * The pair with the test above, and the reason both are here: the two
-       * operations look alike (a list of ids, a boolean each) and mean opposite
-       * things. Confirming is a decision about a ROW the user is looking at;
-       * applying a category to a payee's blanks is a decision about a CATEGORY
-       * taken from a list of payees, where the rows' dates, amounts and
-       * accounts were never on screen. If this ever started clearing the flag,
-       * one run of the bulk tool would mark a whole imported statement as dealt
-       * with, silently.
+       * This rule used to assert the opposite, on the argument that a payee
+       * list never showed the rows' dates and amounts. The owner reversed it
+       * on 1 Sep 2026 after a live measurement: a household ledger's "to
+       * review" count refused to move under a thousand-row payee filing, and
+       * a counter only lowerable one row at a time is a counter nobody will
+       * lower. The confirm rule's own principle won — answering the question
+       * a row was asking IS reviewing it. Both engines changed together
+       * (20260901150000_bulk_filing_ends_review.sql and the crate's verb);
+       * the half that still holds is that a row the call does NOT file keeps
+       * its flag.
        */
-      rule(['applyCategoryToUncategorized'], 'leaves the review alone when a category is applied in bulk', async () => {
+      rule(['applyCategoryToUncategorized'], 'ends the review of the rows it files, and no other', async () => {
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
-          transactions: [aTransaction('txn-blank', { category: '', needsReview: true })]
+          transactions: [
+            aTransaction('txn-blank', { category: '', needsReview: true }),
+            // Already filed, so the call skips it — and its review stays.
+            aTransaction('txn-filed', { category: 'cat-everyday', needsReview: true })
+          ]
         });
 
-        await port.applyCategoryToUncategorized(['txn-blank'], 'cat-everyday');
+        await port.applyCategoryToUncategorized(['txn-blank', 'txn-filed'], 'cat-everyday');
 
-        expect(transactionOf(await read(), 'txn-blank')?.needsReview).toBe(true);
+        const state = await read();
+        expect(transactionOf(state, 'txn-blank')?.needsReview).toBe(false);
+        expect(transactionOf(state, 'txn-filed')?.needsReview).toBe(true);
       });
 
       /**

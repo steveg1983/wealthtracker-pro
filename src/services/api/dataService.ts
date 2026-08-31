@@ -949,13 +949,15 @@ class DataServiceImpl implements DataPort {
         // it — asking him to re-confirm the very rows he asked to be filed
         // would make the bulk tool slower than doing it one at a time.
         //
-        // needsReview is deliberately NOT touched, and the difference from
-        // confirmTransactionCategories below is the whole distinction: filing a
-        // payee in bulk is a decision about a CATEGORY made from a list of
-        // payees, not a decision about each ROW. The user has not seen these
-        // rows' dates, amounts or accounts, so they stay in the register's To
-        // Review list until somebody actually looks at one.
-        return { ...t, category, categoryConfirmed: true };
+        // needsReview ENDS with the filing. This used to say the opposite —
+        // that a payee list never showed the rows' dates and amounts — and
+        // the owner reversed it on 1 Sep 2026 after a live ledger's To
+        // Review count refused to move under a thousand-row filing. The
+        // confirm path's principle won: answering the question a row was
+        // asking IS reviewing it. All three engines say so together — the
+        // RPC (20260901150000_bulk_filing_ends_review.sql), the crate's
+        // verb, and this one.
+        return { ...t, category, categoryConfirmed: true, needsReview: false };
       }
       return t;
     });
