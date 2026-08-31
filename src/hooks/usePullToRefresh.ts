@@ -59,12 +59,26 @@ export interface PullToRefresh {
   ready: boolean;
 }
 
-/** True in an installed app, where the platform offers no refresh of its own. */
+/**
+ * True in an installed app, where the platform offers no refresh of its own.
+ *
+ * Three signals, because the owner's iOS 27 wrapper (1 Sep 2026) answers
+ * false to BOTH declared ones — the same lie that broke the safe-area
+ * zeroing — which silently killed this gesture on the one surface it exists
+ * for, leaving close-and-reopen as his only refresh. The class is main.tsx's
+ * behavioural detection (it catches the wrapper paying a top inset while the
+ * window falls short of the screen), and it can arrive SECONDS after mount
+ * there, which is why the caller asks per gesture rather than once.
+ */
 function isInstalledApp(): boolean {
   if (typeof window === 'undefined') return false;
   const standaloneDisplay = window.matchMedia?.('(display-mode: standalone)').matches === true;
   const iosStandalone = (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-  return standaloneDisplay || iosStandalone;
+  return (
+    standaloneDisplay ||
+    iosStandalone ||
+    document.documentElement.classList.contains('wt-installed-app')
+  );
 }
 
 export function usePullToRefresh(reload: () => void = () => window.location.reload()): PullToRefresh {
@@ -81,9 +95,18 @@ export function usePullToRefresh(reload: () => void = () => window.location.relo
   const engaged = useRef(false);
 
   useEffect(() => {
-    if (!isInstalledApp()) return;
-
     const onTouchStart = (event: TouchEvent): void => {
+      // Asked per GESTURE, not once at mount: on the owner's wrapper the
+      // installed-app class lands only when the webview is finally inset —
+      // seconds after this effect has run — so a mount-time gate stayed
+      // false forever and the gesture never existed there. In Safari this
+      // stays false on every touch and the listeners below are inert, which
+      // preserves the original rule: Safari has its own pull-to-refresh and
+      // stacking a second gesture fights the user for the scroll.
+      if (!isInstalledApp()) {
+        startY.current = null;
+        return;
+      }
       // Only a gesture that begins AT the top can be a pull. Starting anywhere
       // else is a scroll, and a scroll that later reaches the top must stay one.
       if (window.scrollY > 0 || event.touches.length !== 1) {

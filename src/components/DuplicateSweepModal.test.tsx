@@ -312,22 +312,53 @@ describe('DuplicateSweepModal — the bar has not moved', () => {
     await waitFor(() => expect(deleteTransaction).toHaveBeenCalledWith('feed'));
   });
 
-  it('offers nothing that could delete a pair the user has not opened', () => {
-    // No select-all, no per-row tick, no "delete all duplicates". The only
-    // route to a delete is through one pair's review, and the wider tier adds
-    // a confirmation on top of that. A list-level control is how a widened
-    // scan would have turned into lost money.
+  it('offers nothing that could DELETE a pair the user has not opened', () => {
+    // The invariant this has always guarded, said precisely: no list-level
+    // route to a delete. The only way to destroy a row is through one pair's
+    // review, radio-chosen, and the wider tier adds a confirmation on top.
+    // The list DID gain ticks on 1 Sep 2026 — the owner's bulk "These are
+    // not duplicates" over a two-thousand-suggestion backlog — but a refusal
+    // deletes nothing, moves no balance, and stays restorable, so the line
+    // holds: nothing the ticks reach can lose money.
     __setAppContextValue({
       transactions: [FEED, IMPORTED, RENAMED, AS_IMPORTED], categories: CATEGORIES,
     });
     renderModal();
 
     expect(screen.getAllByTitle('Look at both copies of this')).toHaveLength(2);
-    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
     expect(screen.queryAllByRole('radio')).toHaveLength(0);
     for (const button of screen.getAllByRole('button')) {
-      expect(button.textContent ?? '').not.toMatch(/delete|remove|all/i);
+      expect(button.textContent ?? '').not.toMatch(/delete|remove/i);
     }
+  });
+
+  it('the bulk ticks refuse — they warn first, persist refusals, and can delete nothing', async () => {
+    // The owner's nuclear button (1 Sep 2026: "save me going through over
+    // 2000!"): select-all, one press, one warning that genuine duplicates
+    // among the selection are refused too — and the only writes are
+    // dismissals. deleteTransaction staying uncalled IS the safety property.
+    const deleteTransaction = vi.fn(async () => {});
+    const dismissSuggestion = vi.fn(async () => {});
+    __setAppContextValue({
+      transactions: [FEED, IMPORTED, RENAMED, AS_IMPORTED], categories: CATEGORIES,
+      deleteTransaction, dismissSuggestion,
+    });
+    renderModal();
+
+    fireEvent.click(screen.getByLabelText(/Select all 2 suggestions/));
+    fireEvent.click(screen.getByRole('button', { name: 'These are not duplicates' }));
+
+    // The warning says the whole of it before anything happens.
+    expect(screen.getByText(/including any that genuinely are/)).toBeInTheDocument();
+    expect(screen.getByText(/individually restorable/)).toBeInTheDocument();
+
+    const confirmButtons = screen.getAllByRole('button', { name: 'These are not duplicates' });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+
+    await waitFor(() => expect(dismissSuggestion).toHaveBeenCalledTimes(2));
+    expect(deleteTransaction).not.toHaveBeenCalled();
+    // Off the list the moment the judgment was made.
+    expect(screen.queryByTitle('Look at both copies of this')).not.toBeInTheDocument();
   });
 
   it('will not delete a row the wider rule found once its copy is chosen and unconfirmed, however the button is pressed', async () => {
