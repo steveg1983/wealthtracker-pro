@@ -1,0 +1,22 @@
+# The public half of the WealthTracker licence signing key.
+#
+# The shell reads this file at COMPILE TIME — `include_str!` in
+# `src-tauri/src/license.rs` — so rotating the key is one commit and one
+# release: replace the line below, rebuild, done. The PRIVATE half never comes
+# near this repository. It is written once, by
+# `node scripts/issue-licence.mjs --generate`, to
+# ~/Documents/WealthTracker-signing/wealthtracker-licence.key, and it belongs in
+# a password manager the same afternoon.
+#
+# WHILE THE LINE BELOW SAYS `PLACEHOLDER`, THIS BUILD IS UNENFORCED.
+# Every window reports the licence state `unenforced`, nothing is ever refused,
+# and the licence screen says "development build" rather than pretending to be
+# licensed. Enforcement arms itself the moment a real key is here — there is no
+# flag, no environment variable and no build profile involved, because a switch
+# that can be flipped is a switch that gets flipped by accident.
+#
+# FORMAT: one line, the raw 32-byte Ed25519 public key, base64url, unpadded.
+# Lines beginning with `#` and blank lines are ignored; the first line that is
+# neither is the key.
+
+PLACEHOLDER

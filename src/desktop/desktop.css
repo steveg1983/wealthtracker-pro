@@ -79,3 +79,82 @@ body {
   outline: 3px solid Highlight;
   outline-offset: 2px;
 }
+
+/*
+ * THE LICENCE, on the chooser and on the ledger's own screen.
+ *
+ * Chrome, not product: it says which build this is and who it belongs to,
+ * beside the sentence about whose copy the file is. `LicenceScreen.tsx` argues
+ * why it is here rather than on the shared Settings page.
+ *
+ * NO COLOUR, deliberately, including in the read-only state. The house rule is
+ * that colour marks what needs attention, and an expired trial has already said
+ * so in a sentence — a red panel would be shouting at somebody about money that
+ * is not in any danger, which is the exact impression the copy exists to
+ * prevent. The rule is set out in the repository's CLAUDE.md: *"a filtered-empty
+ * state is not an empty one"*, and neither is a read-only ledger a lost one.
+ *
+ * NO FOCUS RULE EITHER: `.ledger-screen button:focus-visible` above is this
+ * window's one ring and these are its buttons.
+ */
+.licence {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid currentColor;
+  /* The divider is chrome; the words below it are not. */
+  border-color: color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.licence-line {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.licence-line button {
+  /* A link's job in a button's element: it reveals a panel, it does not act. */
+  padding: 0.2rem 0.4rem;
+  margin-left: 0.4rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.licence-panel h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 1rem 0 0.5rem;
+}
+
+.licence-panel p {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.licence-panel label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.licence-panel textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  /* A licence key has no words in it, so it is set in the face that makes a
+     mis-typed character visible. */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  padding: 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 0.5rem;
+  background: transparent;
+  resize: vertical;
+}
+
+.licence-panel .actions {
+  margin-top: 0.75rem;
+}
