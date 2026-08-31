@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, Suspense } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { preserveDemoParam } from '../utils/navigation';
 import { useApp } from '../contexts/AppContextSupabase';
@@ -16,7 +16,7 @@ import SpendingAlerts from '../components/SpendingAlerts';
 import type { Budget } from '../types';
 import { getEffectiveBudgetAmount } from '../utils/budgetAmounts';
 import PageWrapper from '../components/PageWrapper';
-import BudgetSetupModal from '../components/BudgetSetupModal';
+import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
 import PageTip from '../components/PageTip';
 import EmptyState from '../components/EmptyState';
@@ -32,6 +32,16 @@ import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
+
+/**
+ * The bulk setup flow, off the main chunk.
+ *
+ * It carries a whole grid, twelve months of aggregation and its own confirm
+ * step, and most sessions on this page never open it — so it is fetched when
+ * somebody asks for it, through the app's chunk-recovery loader (a stale
+ * deploy's missing chunk retries rather than white-screening).
+ */
+const BudgetWizard = lazyWithRecovery(() => import('../components/BudgetWizard'));
 
 export default function Budget() {
   // The whole-pounds scope must sit above every useCurrencyDecimal call,
@@ -371,9 +381,9 @@ function BudgetView() {
         <button
           onClick={() => setIsSetupOpen(true)}
           className="inline-flex items-center gap-2 px-4 py-2 border border-line dark:border-gray-600 text-gray-700 dark:text-gray-200 text-body font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          title="Set budgets from your spending"
+          title="Set budgets against what you actually spent"
         >
-          Set from my spending
+          Set up budgets
         </button>
         <button
           onClick={() => setIsModalOpen(true)}
@@ -667,7 +677,13 @@ function BudgetView() {
         </div>
       )}
 
-      <BudgetSetupModal isOpen={isSetupOpen} onClose={() => setIsSetupOpen(false)} />
+      {/* Mounted only once asked for: the wizard is a lazy chunk, and mounting
+          it unconditionally would fetch it for every visit to this page. */}
+      {isSetupOpen && (
+        <Suspense fallback={null}>
+          <BudgetWizard isOpen onClose={() => setIsSetupOpen(false)} />
+        </Suspense>
+      )}
 
       <BudgetModal
         isOpen={isModalOpen}
