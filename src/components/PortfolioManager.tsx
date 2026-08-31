@@ -11,6 +11,7 @@ import {
   type FxRateSource,
 } from '../utils/fx';
 import { formatDecimal } from '../utils/decimal-format';
+import { localDayKey } from '../services/investments/tradeDateCompanions';
 import { supportedCurrencies } from '../utils/currency';
 import MoneyInput from './common/MoneyInput';
 import { getCurrencySymbol } from '../utils/currency';
@@ -133,6 +134,20 @@ export interface PurchaseDetails {
   } | null;
 }
 
+/**
+ * A register row a deleted holding's own trades wrote — what the delete
+ * dialog can offer to take along. Matched upstream by the writers' exact
+ * descriptions and dates (holdingTraceRows), so a row the owner has redated
+ * or reworded is never on this list.
+ */
+export interface HoldingTraceOffer {
+  id: string;
+  description: string;
+  date: string | Date;
+  /** App-signed, in the row's own account. */
+  amount: number;
+}
+
 interface PortfolioManagerProps {
   holdings: readonly InvestmentHolding[];
   /** The investment account's currency — the fallback when a holding has none. */
@@ -146,7 +161,15 @@ interface PortfolioManagerProps {
   fundingAccounts: readonly Account[];
   onAdd: (values: HoldingFormValues, purchase: PurchaseDetails) => Promise<void>;
   onEdit: (id: string, values: HoldingFormValues) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  /** The tick's answer rides along: register rows the delete should also take. */
+  onDelete: (id: string, traceRowIds: readonly string[]) => Promise<void>;
+  /**
+   * What the delete dialog may OFFER — the holding's own trade rows, fetched
+   * when the dialog opens because the events the matching needs are erased
+   * with the holding. Optional so a host without the ledger simply offers
+   * nothing.
+   */
+  traceRowsFor?: (holding: InvestmentHolding) => Promise<HoldingTraceOffer[]>;
   /**
    * Ask this manager to open its add form from OUTSIDE — the page's own
    * "Add a holding" door, which now leads here rather than to a second modal
@@ -248,6 +271,7 @@ export default function PortfolioManager({
   onAdd,
   onEdit,
   onDelete,
+  traceRowsFor,
   openAddSignal,
   onAddSignalHandled
 }: PortfolioManagerProps): React.JSX.Element {
@@ -258,6 +282,16 @@ export default function PortfolioManager({
   const [formError, setFormError] = useState('');
   const [listError, setListError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  /**
+   * The delete CONFIRMATION, replacing window.confirm because an offer needs
+   * a tick. `offers` is null while the trade rows are being looked up, then
+   * the list — possibly empty, which is its own honest state. The tick
+   * defaults ON: the dialog exists because the holding was a mistake, and
+   * every row it lists is one the mistake's own trades wrote.
+   */
+  const [deleteAsking, setDeleteAsking] = useState<InvestmentHolding | null>(null);
+  const [deleteOffers, setDeleteOffers] = useState<HoldingTraceOffer[] | null>(null);
+  const [takeTrace, setTakeTrace] = useState(true);
 
   // Form state
   const [symbol, setSymbol] = useState('');
@@ -430,23 +464,39 @@ export default function PortfolioManager({
       .finally(() => setQuoteLoading(false));
   };
 
-  const handleDelete = async (holding: InvestmentHolding): Promise<void> => {
-    // The trades are erased with the record; the CASH is not — a purchase
-    // transfer is a ledger row, and the ledger is never deleted silently.
-    // Said here, so the register's leftover row is a known consequence and
-    // not a surprise (the owner's find, 27 Aug). Linking the buy to its
-    // transfer so this can OFFER the deletion is queued follow-up work.
-    if (!confirm(
-      `Remove ${holding.symbol} from this account's holdings?
-
-` +
-      'Its recorded trades are removed too. Any purchase transfer stays in ' +
-      'the registers — delete it there if it was part of the mistake.'
-    )) return;
+  const handleDelete = (holding: InvestmentHolding): void => {
+    // The trades are erased with the record, and the dialog OFFERS the
+    // register rows those trades wrote (owner, 1 Sep 2026: "delete all
+    // trace of it ever existing") — the follow-up the 27 Aug comment here
+    // used to promise. The ledger is still never deleted silently: every
+    // row the tick takes is listed by amount and date, and a row the owner
+    // has redated or reworded matches nothing and stays.
     setListError('');
+    setDeleteAsking(holding);
+    setDeleteOffers(null);
+    setTakeTrace(true);
+    if (traceRowsFor === undefined) {
+      setDeleteOffers([]);
+      return;
+    }
+    traceRowsFor(holding)
+      .then((offers) => setDeleteOffers(offers))
+      .catch(() => {
+        // An offer that cannot be computed is simply not made — the delete
+        // itself must not be blocked by it, and the old sentence covers the
+        // rows: delete them in the register.
+        setDeleteOffers([]);
+      });
+  };
+
+  const confirmDelete = async (): Promise<void> => {
+    if (deleteAsking === null || deleteOffers === null) return;
+    const holding = deleteAsking;
+    const traceRowIds = takeTrace ? deleteOffers.map((offer) => offer.id) : [];
+    setDeleteAsking(null);
     setDeletingId(holding.id);
     try {
-      await onDelete(holding.id);
+      await onDelete(holding.id, traceRowIds);
     } catch (error) {
       setListError(
         error instanceof Error ? error.message : `Could not remove ${holding.symbol}.`
@@ -1208,7 +1258,11 @@ export default function PortfolioManager({
                 gain — so figures typed in the account's money convert at the
                 rate box, and the note on the holding says so. */}
             {!editing && crossCurrency && (
-              <div>
+              // Full width: its options are sentences ("USD — the
+              // instrument's currency"), and at half a column the closed
+              // box cut them mid-word while the row beside it sat empty
+              // (owner, 1 Sep 2026).
+              <div className="sm:col-span-2">
                 <label htmlFor="holding-entry-currency" className={labelClass}>
                   Enter figures in
                 </label>
@@ -1444,6 +1498,89 @@ export default function PortfolioManager({
           </div>
         </ModalFooter>
       </Modal>
+
+      {/* THE DELETE, WITH ITS OFFER. A holding deleted here was recorded in
+          error (a real ending is a SALE), so the dialog lists the register
+          rows the mistake's own trades wrote and offers to take them too —
+          one tick, every row named by amount and date. Rows it cannot vouch
+          for (redated, reworded) are not listed and not touched. */}
+      {deleteAsking !== null && (
+        <Modal
+          isOpen
+          onClose={() => setDeleteAsking(null)}
+          title={`Remove ${deleteAsking.symbol} from this account's holdings?`}
+          size="md"
+        >
+          <ModalBody>
+            <p className="text-sm text-gray-700 dark:text-gray-200">
+              Its recorded trades are removed too. If it was sold and truly
+              owned, record a sale instead — deleting is for a holding that
+              should never have existed.
+            </p>
+            {deleteOffers === null ? (
+              <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                Looking up the register rows its trades wrote…
+              </p>
+            ) : deleteOffers.length === 0 ? (
+              <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                Any purchase transfer stays in the registers — delete it there
+                if it was part of the mistake.
+              </p>
+            ) : (
+              <div className="mt-3">
+                <label className="flex items-start gap-2.5 text-sm text-gray-700 dark:text-gray-200">
+                  <input
+                    type="checkbox"
+                    checked={takeTrace}
+                    onChange={(event) => setTakeTrace(event.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    Also delete the {deleteOffers.length === 1
+                      ? 'register row its trades wrote'
+                      : `${deleteOffers.length} register rows its trades wrote`}{' '}
+                    — a transfer's other side goes with it.
+                  </span>
+                </label>
+                <ul className="mt-2 ml-7 space-y-1">
+                  {deleteOffers.map((offer) => (
+                    <li
+                      key={offer.id}
+                      className="text-xs text-gray-500 dark:text-gray-400 tabular-nums"
+                    >
+                      {offer.description} — {formatCurrency(Math.abs(offer.amount))},{' '}
+                      {localDayKey(offer.date).split('-').reverse().join('/')}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  A row you have redated or reworded is not listed and stays —
+                  delete it in the register if it was part of the mistake.
+                </p>
+              </div>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <div className="flex items-center justify-end gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => setDeleteAsking(null)}
+                className="px-4 py-2 min-h-[44px] text-sm font-medium border border-line dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDelete()}
+                disabled={deleteOffers === null}
+                className="px-4 py-2 min-h-[44px] text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                Remove holding
+              </button>
+            </div>
+          </ModalFooter>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -97,6 +97,45 @@ export function tradeDateCompanions(
 }
 
 /**
+ * THE OFFER a deleted holding can make — every register row its own trades
+ * wrote and would otherwise leave standing (owner, 1 Sep 2026: "offer to
+ * help delete all trace of it ever existing").
+ *
+ * Matched per event by the writers' exact descriptions and the trade's own
+ * date, exactly as tradeDateCompanions matches a move — so a row the owner
+ * has redated or reworded matches NOTHING and stays, which is this module's
+ * standing rule: never guess at rows the owner has taken over. The caller
+ * names that in the dialog rather than pretending completeness.
+ *
+ * Two deliberate exclusions:
+ *  - Opening-position rows, because the delete already takes them
+ *    unconditionally (openingPositionRowsFor) — offering them would promise
+ *    a choice that does not exist.
+ *  - The counterpart legs in OTHER accounts, because the server's
+ *    pair-delete removes both legs from one id — returning the far leg too
+ *    would double-delete, and rows elsewhere that merely share a
+ *    description must never be touched.
+ */
+export function holdingTraceRows(
+  events: readonly EventForTradeMove[],
+  accountId: string,
+  transactions: readonly TransactionForTradeMove[]
+): string[] {
+  const matched = new Set<string>();
+  for (const event of events) {
+    for (const id of tradeDateCompanions(event, transactions)) matched.add(id);
+  }
+  return transactions
+    .filter(
+      (row) =>
+        matched.has(row.id) &&
+        row.accountId === accountId &&
+        !row.description.startsWith('Opening position — ')
+    )
+    .map((row) => row.id);
+}
+
+/**
  * The opening-position rows a DELETED holding leaves behind — matched by
  * shape and symbol, deliberately NOT by date or quantity: a row the owner
  * has redated (or a holding whose units were edited) is still this
