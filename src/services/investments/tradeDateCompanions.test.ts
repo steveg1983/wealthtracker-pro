@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  holdingTraceRows,
   tradeDateCompanions,
   tradeRowDescriptions,
   openingPositionRowsFor,
@@ -85,5 +86,43 @@ describe('what a deleted holding takes with it', () => {
       T('t5', 'acc-other', '2023-01-01', 'Opening position — 50 SYNTHFUND'),
     ];
     expect(openingPositionRowsFor('acc-invest', 'SYNTHFUND', rows)).toEqual(['t1', 't2']);
+  });
+});
+
+describe('the offer a deleted holding can make', () => {
+  const BUY = { date: '2023-01-01', kind: 'buy' as const, quantity: '100', symbol: 'SYNTHCO' };
+  const SELL = { date: '2023-06-01', kind: 'sell' as const, quantity: '40', symbol: 'SYNTHCO' };
+
+  it('offers the holding-account legs of its buys and sells, once per pair', () => {
+    const rows = [
+      // The buy's two legs — the far leg must NOT be offered: the server's
+      // pair-delete removes both from one id.
+      T('buy-cash', 'acc-cash', '2023-01-01', 'Buy 100.0000 SYNTHCO'),
+      T('buy-inv', 'acc-invest', '2023-01-01', 'Buy 100.0000 SYNTHCO'),
+      // The sale's proceeds pair and its income line.
+      T('sell-inv', 'acc-invest', '2023-06-01', 'Sell 40.0000 SYNTHCO'),
+      T('sell-cash', 'acc-cash', '2023-06-01', 'Sell 40.0000 SYNTHCO'),
+      T('gain', 'acc-invest', '2023-06-01', 'Realised gain — SYNTHCO'),
+      // Bystander on the same day.
+      T('rent', 'acc-cash', '2023-01-01', 'RENT'),
+    ];
+    expect(holdingTraceRows([BUY, SELL], 'acc-invest', rows)).toEqual([
+      'buy-inv',
+      'sell-inv',
+      'gain',
+    ]);
+  });
+
+  it('never offers an opening-position row — the delete takes those regardless', () => {
+    const rows = [
+      T('open', 'acc-invest', '2023-01-01', 'Opening position — 100 SYNTHCO'),
+      T('buy-inv', 'acc-invest', '2023-01-01', 'Buy 100.0000 SYNTHCO'),
+    ];
+    expect(holdingTraceRows([BUY], 'acc-invest', rows)).toEqual(['buy-inv']);
+  });
+
+  it('refuses a redated row — the owner took it over, and the offer must not guess', () => {
+    const rows = [T('buy-inv', 'acc-invest', '2023-02-14', 'Buy 100.0000 SYNTHCO')];
+    expect(holdingTraceRows([BUY], 'acc-invest', rows)).toEqual([]);
   });
 });

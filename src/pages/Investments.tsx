@@ -7,10 +7,10 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { BarChart3Icon, AlertCircleIcon, LineChartIcon, EyeIcon, ChevronDownIcon, ChevronRightIcon } from '../components/icons';
 import TrendArrow from '../components/TrendArrow';
 import InvestmentMarketView from '../components/InvestmentMarketView';
-import PortfolioManager, { type HoldingFormValues, type PurchaseDetails } from '../components/PortfolioManager';
+import PortfolioManager, { type HoldingFormValues, type HoldingTraceOffer, type PurchaseDetails } from '../components/PortfolioManager';
 import { allInAverageCost } from '../services/investments/purchaseMath';
 import { openingPositionRow } from '../services/investments/openingPosition';
-import { openingPositionRowsFor, localDayKey } from '../services/investments/tradeDateCompanions';
+import { holdingTraceRows, openingPositionRowsFor, localDayKey } from '../services/investments/tradeDateCompanions';
 import { bumpInvestmentValuation } from '../hooks/useInvestmentValuation';
 import { transferCategoryIdFor } from '../utils/transferRepoint';
 import StockWatchlist from '../components/StockWatchlist';
@@ -560,8 +560,28 @@ function InvestmentsView() {
     [reloadHoldings]
   );
 
+  /**
+   * What the delete dialog can OFFER to take along: the register rows this
+   * holding's own trades wrote — matched by the writers' exact descriptions
+   * and dates (holdingTraceRows), so a row the owner has redated or reworded
+   * is never on the list. Read BEFORE the delete, because the events the
+   * matching needs are erased with the holding.
+   */
+  const traceRowsForHolding = useCallback(
+    async (holding: InvestmentHolding): Promise<HoldingTraceOffer[]> => {
+      if (holding.accountId === null) return [];
+      const events = await dataPort.listInvestmentEvents(holding.accountId);
+      const own = events.filter((e) => e.symbol === holding.symbol);
+      const ids = new Set(holdingTraceRows(own, holding.accountId, transactions));
+      return transactions
+        .filter((t) => ids.has(t.id))
+        .map((t) => ({ id: t.id, description: t.description, date: t.date, amount: t.amount }));
+    },
+    [transactions]
+  );
+
   const handleDeleteHolding = useCallback(
-    async (id: string): Promise<void> => {
+    async (id: string, traceRowIds: readonly string[]): Promise<void> => {
       // A deleted holding is "this record was a mistake" — its events are
       // the same mistake, and left behind they would keep claiming the
       // position is still held under Securities traded. A SALE is the real
@@ -574,11 +594,17 @@ function InvestmentsView() {
         // standing, a deleted-then-re-added holding double-counts its cost
         // (the owner's first backfill hit exactly this). Matched by shape
         // and symbol, not date: a row the owner redated is still this
-        // position's cost. A funded buy's TRANSFER stays — it records money
-        // that genuinely moved, and deleting the holding does not unmove it.
+        // position's cost.
         for (const rowId of openingPositionRowsFor(doomed.accountId, doomed.symbol, transactions)) {
           await deleteTransaction(rowId);
         }
+      }
+      // The trades' own register rows, when the dialog's tick asked for them
+      // (owner, 1 Sep 2026). Each id is the holding-account leg; the server's
+      // pair-delete takes a transfer's far side with it. Ticked off AFTER the
+      // holding so a failed holding-delete leaves the ledger untouched.
+      for (const rowId of traceRowIds) {
+        await deleteTransaction(rowId);
       }
       await reloadHoldings();
     },
@@ -2786,6 +2812,7 @@ function InvestmentsView() {
                       onAdd={(values, purchase) => handleAddHolding(account.id, values, purchase)}
                       onEdit={handleEditHolding}
                       onDelete={handleDeleteHolding}
+                      traceRowsFor={traceRowsForHolding}
                     />
                   </div>
                 )}
