@@ -124,7 +124,9 @@ initializeSecurity();
 // a detection that flickered off mid-session would snap the chrome around.
 {
   const navigatorWithFlag = window.navigator as Navigator & { standalone?: boolean };
-  const paysTopInsetWhileInset = (): boolean => {
+  const startedAt = performance.now();
+  const trace: string[] = (window.__wtInstalledAppTrace = []);
+  const readEnvTop = (): number => {
     try {
       const probe = document.createElement('div');
       probe.style.cssText =
@@ -133,25 +135,45 @@ initializeSecurity();
       document.body.appendChild(probe);
       const envTop = Number.parseFloat(getComputedStyle(probe).paddingTop) || 0;
       probe.remove();
-      return envTop > 0 && window.innerHeight < window.screen.height;
+      return envTop;
     } catch {
-      return false;
+      return 0;
     }
   };
-  const detectInstalledApp = (): void => {
+  const detectInstalledApp = (reason: string): void => {
     const doc = document.documentElement;
     if (doc.classList.contains('wt-installed-app')) return;
     const declaredInstalled =
       navigatorWithFlag.standalone === true ||
       window.matchMedia?.('(display-mode: standalone)').matches === true;
-    if (declaredInstalled || paysTopInsetWhileInset()) {
+    const envTop = readEnvTop();
+    const lied = envTop > 0 && window.innerHeight < window.screen.height;
+    // The evidence trail Display diagnostics prints — a wrapper regression
+    // should cost one screenshot, and the 1 Sep hunt cost four deploys
+    // because nobody could see what this code saw. Bounded so a resize
+    // storm cannot grow it without limit.
+    if (trace.length < 20) {
+      trace.push(
+        `${Math.round(performance.now() - startedAt)}ms ${reason}: env ${envTop} inner ${window.innerHeight} screen ${window.screen.height} declared ${declaredInstalled} → ${declaredInstalled || lied ? 'INSTALLED' : 'no'}`
+      );
+    }
+    if (declaredInstalled || lied) {
       doc.classList.add('wt-installed-app');
     }
   };
-  detectInstalledApp();
-  window.addEventListener('load', detectInstalledApp, { once: true });
-  window.setTimeout(detectInstalledApp, 700);
-  window.setTimeout(detectInstalledApp, 2500);
+  // Fixed samples AND event-driven ones: the owner's wrapper (iOS 27) showed
+  // the lie pair true at Settings-render while every fixed sample had
+  // missed it, and the sim's first cold standalone launch has been seen to
+  // take twenty seconds — so the moment the wrapper finally insets the
+  // webview, a resize fires, and THAT is the sample that lands.
+  detectInstalledApp('boot');
+  window.addEventListener('load', () => detectInstalledApp('load'), { once: true });
+  window.setTimeout(() => detectInstalledApp('t+700'), 700);
+  window.setTimeout(() => detectInstalledApp('t+2500'), 2500);
+  window.setTimeout(() => detectInstalledApp('t+8000'), 8000);
+  window.addEventListener('resize', () => detectInstalledApp('resize'));
+  window.addEventListener('orientationchange', () => detectInstalledApp('orientation'));
+  window.visualViewport?.addEventListener('resize', () => detectInstalledApp('vv-resize'));
 }
 
 // Initialize Sentry error tracking

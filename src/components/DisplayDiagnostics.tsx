@@ -57,6 +57,10 @@ const readFacts = (): string[] => {
     `${window.innerWidth}×${window.innerHeight} / ${window.screen.width}×${window.screen.height}`
   );
   line('window reaches screen top', () => String(window.innerHeight >= window.screen.height));
+  // The detector's own evidence trail — what it saw, attempt by attempt.
+  for (const entry of window.__wtInstalledAppTrace ?? []) {
+    facts.push(`· ${entry}`);
+  }
   return facts;
 };
 
