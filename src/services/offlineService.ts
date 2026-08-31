@@ -44,7 +44,6 @@ interface DocumentLike {
 
 interface NavigatorLike {
   onLine?: boolean;
-  serviceWorker?: Pick<typeof navigator.serviceWorker, 'ready'>;
 }
 
 type DbFactory = () => Promise<IDBPDatabase<OfflineDB>>;
@@ -151,14 +150,18 @@ export class OfflineService {
     };
     this.documentRef?.addEventListener?.('visibilitychange', this.visibilityHandler);
 
-    const hasSyncManager = Boolean((this.windowRef as { SyncManager?: unknown } | null)?.SyncManager);
-    if (this.navigatorRef?.serviceWorker?.ready && hasSyncManager) {
-      this.navigatorRef.serviceWorker.ready
-        .then((registration) => (registration as ServiceWorkerRegistration & {
-          sync?: { register?: (tag: string) => Promise<void> };
-        }).sync?.register?.('sync-offline-data'))
-        .catch((err) => this.logger.error('Failed to register background sync:', err));
-    }
+    /*
+     * A Background Sync registration used to sit here, behind
+     * `navigator.serviceWorker.ready`. It was removed on 31 Aug 2026 because
+     * that promise NEVER RESOLVES without a registered worker, and this app has
+     * never had one (see the note at the foot of main.tsx) — so the `.then` was
+     * a callback waiting on an event that could not happen, and the unit test
+     * covering it only passed because it injected a `ready` that resolved.
+     *
+     * The two listeners above are what actually drains the queue: coming back
+     * online, and the tab becoming visible again. Both are real browser events
+     * and both work today. Nothing was lost.
+     */
   }
 
   destroy(): void {

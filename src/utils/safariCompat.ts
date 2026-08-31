@@ -100,28 +100,6 @@ export class SafariStorageFallback {
   }
 }
 
-// Fix for Safari's strict mode with service workers
-export const registerServiceWorkerSafari = async () => {
-  if (!('serviceWorker' in navigator)) {
-    safariCompatLogger.warn('Service Workers not supported');
-    return null;
-  }
-  
-  try {
-    // Safari might need a different approach
-    const swUrl = `${window.location.origin}/service-worker.js`;
-    const registration = await navigator.serviceWorker.register(swUrl, {
-      scope: '/'
-    });
-    
-    safariCompatLogger.info('Service Worker registered for Safari', registration);
-    return registration;
-  } catch (error) {
-    safariCompatLogger.warn('Service Worker registration failed in Safari', error);
-    return null;
-  }
-};
-
 // Polyfill for crypto.randomUUID if not available (older Safari)
 export const ensureRandomUUID = () => {
   if (!crypto.randomUUID) {

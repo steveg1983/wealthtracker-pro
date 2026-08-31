@@ -12,7 +12,6 @@
     "build:lenient": "tsc -p tsconfig.lenient.json --noEmit && vite build",
     "build:compress": "node scripts/build-with-compression.js",
     "build:production": "npm run build:compress",
-    "build:sw": "node scripts/build-service-worker.js",
     "optimize:images": "node scripts/optimize-images.js",
     "perf:analyze": "node scripts/run-performance-tests.js",
     "lint": "eslint .",
@@ -178,13 +177,6 @@
     "vercel": "^54.11.1",
     "vite": "^7.0.4",
     "vite-plugin-compression2": "^2.2.0",
-    "vitest": "^3.2.4",
-    "workbox-background-sync": "^7.3.0",
-    "workbox-broadcast-update": "^7.3.0",
-    "workbox-cacheable-response": "^7.3.0",
-    "workbox-expiration": "^7.3.0",
-    "workbox-precaching": "^7.3.0",
-    "workbox-routing": "^7.3.0",
-    "workbox-strategies": "^7.3.0"
+    "vitest": "^3.2.4"
   }
 }

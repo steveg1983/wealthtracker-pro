@@ -9,8 +9,7 @@ const createEnv = (overrides: Partial<OfflineServiceOptions> = {}) => {
   const windowRef = {
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-    SyncManager: true
+    dispatchEvent: vi.fn()
   };
 
   const documentRef = {
@@ -19,16 +18,16 @@ const createEnv = (overrides: Partial<OfflineServiceOptions> = {}) => {
     hidden: false
   };
 
-  const registerSpy = vi.fn().mockResolvedValue(undefined);
+  /*
+   * No `serviceWorker` here, on purpose. This object used to carry a
+   * `serviceWorker.ready` that resolved immediately, and a spy asserting the
+   * service registered a Background Sync against it. Every browser that has
+   * ever run this app disagreed: with no worker registered, `ready` never
+   * resolves, so the code under test did nothing and the passing test said
+   * otherwise. Both the code and the mock are gone (31 Aug 2026).
+   */
   const navigatorRef = {
-    onLine: true,
-    serviceWorker: {
-      ready: Promise.resolve({
-        sync: {
-          register: registerSpy
-        }
-      })
-    }
+    onLine: true
   };
 
   const service = new OfflineService({
@@ -38,7 +37,7 @@ const createEnv = (overrides: Partial<OfflineServiceOptions> = {}) => {
     ...overrides
   });
 
-  return { service, windowRef, documentRef, navigatorRef, registerSpy };
+  return { service, windowRef, documentRef, navigatorRef };
 };
 
 const createInMemoryDb = () => {
@@ -132,14 +131,12 @@ describe('OfflineService (injected env)', () => {
     });
   });
 
-  it('initializes, sets up listeners, and registers background sync', async () => {
+  it('initializes and listens on the two events that actually drain the queue', async () => {
     const env = createEnv({ dbFactory: async () => createInMemoryDb() });
     await env.service.init();
 
     expect(env.windowRef.addEventListener).toHaveBeenCalledWith('online', expect.any(Function));
     expect(env.documentRef.addEventListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
-    await env.navigatorRef.serviceWorker?.ready;
-    expect(env.registerSpy).toHaveBeenCalledWith('sync-offline-data');
   });
 
   it('queues transaction when offline', async () => {

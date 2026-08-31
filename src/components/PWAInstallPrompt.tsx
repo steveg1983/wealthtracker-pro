@@ -69,8 +69,13 @@ export default function PWAInstallPrompt() {
           </button>
         </div>
         
+        {/* "Offline support" was in this sentence until 31 Aug 2026 and was never
+            true — the service worker it referred to never registered, so an
+            installed copy needs a connection exactly as the browser tab does.
+            Do not put the claim back without a worker that actually caches. */}
         <div className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-          Install WealthTracker for quick access, offline support, and a native app experience.
+          Install WealthTracker for its own icon, a full screen, and quick access — the same
+          app, one tap away.
         </div>
         
         <div className="flex space-x-2">

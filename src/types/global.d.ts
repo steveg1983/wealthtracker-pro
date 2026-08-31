@@ -44,7 +44,6 @@ interface Window {
       getToken: () => Promise<string | null>;
     };
   };
-  swRegistration?: ServiceWorkerRegistration | null;
   // Realtime sync action timestamp updater for echo prevention
   __updateRealtimeActionTimestamp?: (entity: string, actionType: string) => void;
 }

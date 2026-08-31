@@ -50,7 +50,13 @@ export default function OfflineIndicator(): React.JSX.Element | null {
             <WifiOffIcon size={20} />
             <div>
               <p className="font-medium">You're offline</p>
-              <p className="text-sm opacity-90">Changes will sync when you're back online</p>
+              {/* This line used to read "Changes will sync when you're back
+                  online". It was a promise nothing kept: no write path queues
+                  anything, and the service worker that was supposed to has
+                  never existed (see the note at the foot of main.tsx). Saying
+                  the consequence is the house rule, and the consequence here
+                  is that an edit made now is lost. */}
+              <p className="text-sm opacity-90">Changes won't save until your connection returns</p>
             </div>
           </>
         ) : (

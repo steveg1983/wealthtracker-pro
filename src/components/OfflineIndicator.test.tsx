@@ -304,7 +304,7 @@ describe('OfflineIndicator', () => {
       triggerOfflineEvent();
       
       const title = screen.getByText("You're offline");
-      const description = screen.getByText("Changes will sync when you're back online");
+      const description = screen.getByText("Changes won't save until your connection returns");
       
       expect(title).toHaveClass('font-medium');
       expect(description).toHaveClass('text-sm', 'opacity-90');
@@ -319,7 +319,7 @@ describe('OfflineIndicator', () => {
       triggerOnlineEvent();
       
       expect(screen.getByText('Back online')).toHaveClass('font-medium');
-      expect(screen.queryByText("Changes will sync when you're back online")).not.toBeInTheDocument();
+      expect(screen.queryByText("Changes won't save until your connection returns")).not.toBeInTheDocument();
     });
   });
 });
