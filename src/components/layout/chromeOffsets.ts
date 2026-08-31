@@ -26,8 +26,14 @@
  * what it says: once the app is installed to a home screen, the page is drawn
  * UNDER the status bar rather than beneath it. In a browser tab the inset
  * resolves to 0px, so it only pays out where the status bar actually overlaps.
+ *
+ * Since iOS 26.1 the installed app is NOT drawn under the status bar — the
+ * system insets the webview behind its own opaque bar and still reports the
+ * full env() value, so paying it out here doubled the space. The named inset
+ * below is env() in a browser and 0px in standalone; the ruling and the
+ * revert condition live on `--wt-status-bar-inset` in index.css.
  */
-export const SAFE_AREA_TOP = 'env(safe-area-inset-top, 0px)';
+export const SAFE_AREA_TOP = 'var(--wt-status-bar-inset, 0px)';
 
 /**
  * The vertical room the demo banner needs, or nothing at all when it is not

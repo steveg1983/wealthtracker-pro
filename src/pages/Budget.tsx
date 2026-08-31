@@ -5,12 +5,11 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useNotifications } from '../contexts/NotificationContext';
 import { useToast } from '../contexts/ToastContext';
-import { RepeatIcon, ArrowRightIcon, BellIcon, ChevronDownIcon, ChevronRightIcon } from '../components/icons';
+import { ArrowRightIcon, BellIcon, ChevronDownIcon, ChevronRightIcon } from '../components/icons';
 import TrendArrow from '../components/TrendArrow';
 import { EditIcon, DeleteIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
 import BudgetModal from '../components/BudgetModal';
-import RecurringBudgetTemplates from '../components/RecurringBudgetTemplates';
 import BudgetRollover from '../components/BudgetRollover';
 import SpendingAlerts from '../components/SpendingAlerts';
 import type { Budget } from '../types';
@@ -69,8 +68,8 @@ function BudgetView() {
    * asked to choose between budgeting philosophies before they have a
    * single budget.
    */
-  const [openFeatures, setOpenFeatures] = useState<Set<'templates' | 'rollover' | 'alerts'>>(new Set());
-  const toggleFeature = (key: 'templates' | 'rollover' | 'alerts'): void =>
+  const [openFeatures, setOpenFeatures] = useState<Set<'rollover' | 'alerts'>>(new Set());
+  const toggleFeature = (key: 'rollover' | 'alerts'): void =>
     setOpenFeatures(previous => {
       const next = new Set(previous);
       if (next.has(key)) next.delete(key);
@@ -644,8 +643,13 @@ function BudgetView() {
           per the same rule as the summary trio. */}
       {featuresEarned && (
         <div className="mt-8 space-y-3">
+          {/* Templates left this list on 1 Sep 2026 (owner: "DELETE THE
+              TEMPLATES"): applying a budget set in one go is the wizard's
+              job now, and the named-sets remainder lived in localStorage —
+              sets that would not follow a person between devices. Rollover
+              stays: carrying unspent budget forward is a capability nothing
+              else has. */}
           {([
-            ['templates', RepeatIcon, 'Budget templates', 'Recurring budget sets you can apply in one go.'],
             ['rollover', ArrowRightIcon, 'Rollover', 'Carry what is left of a budget into the next period.'],
             ['alerts', BellIcon, 'Spending alerts', 'Warnings as a budget fills, before it overflows.'],
           ] as const).map(([key, Icon, title, blurb]) => (
@@ -667,7 +671,6 @@ function BudgetView() {
               </button>
               {openFeatures.has(key) && (
                 <div className="px-5 pb-5">
-                  {key === 'templates' && <RecurringBudgetTemplates />}
                   {key === 'rollover' && <BudgetRollover />}
                   {key === 'alerts' && <SpendingAlerts />}
                 </div>
@@ -702,7 +705,7 @@ function BudgetView() {
       <PageTip
         id="budget-intro-2"
         title="Track your spending with budgets"
-        description="Give a category a limit for its period — weekly, monthly or yearly — and the bar shows what you've spent against it. Templates, rollover and alerts are in the folds below the list."
+        description="Give a category a limit for its period — weekly, monthly or yearly — and the bar shows what you've spent against it. Rollover and alerts are in the folds below the list."
       />
     </PageWrapper>
   );

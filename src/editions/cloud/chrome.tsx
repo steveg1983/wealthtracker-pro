@@ -29,8 +29,6 @@ import EnhancedNotificationBell from '../../components/EnhancedNotificationBell'
 import GlobalSearchComponent from '../../components/GlobalSearch';
 import { MobileBreadcrumb as MobileBreadcrumbComponent } from '../../components/layout/Breadcrumbs';
 import { RealtimeStatusDot } from '../../components/RealtimeStatusIndicator';
-import { OfflineIndicator as PWAOfflineIndicatorComponent } from '../../components/pwa/OfflineIndicator';
-import { QuickAddOfflineButton as QuickAddOfflineButtonComponent } from '../../components/pwa/QuickAddOfflineButton';
 import { useAutoBankSync } from '../../hooks/useAutoBankSync';
 import type {
   ChromeHasBankFeeds,
@@ -106,11 +104,9 @@ export const QuickAddTransaction: ChromeQuickAddTransaction = lazyWithRecovery(
   () => import('../../components/AddTransactionModal')
 );
 
-/** How many writes are queued for a server this tab currently cannot reach. */
-export const OfflineQueueIndicator: ChromeOrnament = PWAOfflineIndicatorComponent;
-
-/** Write a transaction into that queue without a connection. */
-export const OfflineQuickAdd: ChromeOrnament = QuickAddOfflineButtonComponent;
+/* The offline-queue pair (OfflineQueueIndicator, OfflineQuickAdd) left this
+   contract on 1 Sep 2026: no write path ever fed the queue they fronted, so
+   both editions were answering a question nobody asked. */
 
 /** The cloud has the server, the tokens and the cron — see editions/chrome.ts. */
 export const CHROME_HAS_BANK_FEEDS: ChromeHasBankFeeds = true;

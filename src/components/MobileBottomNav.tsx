@@ -77,7 +77,7 @@ export default function MobileBottomNav(): React.JSX.Element {
               exactly one of the two modes this panel has. */}
           <div
             className="absolute bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-2 min-w-[200px]"
-            style={{ right: '0.75rem', bottom: 'calc(4.875rem + env(safe-area-inset-bottom))' }}
+            style={{ right: '0.75rem', bottom: 'calc(4.875rem + var(--wt-home-indicator-inset, 0px))' }}
           >
             {/* The add-transaction modal is Layout's and is opened by an
                 app-wide parameter, so this points at a page that still exists
@@ -142,7 +142,7 @@ export default function MobileBottomNav(): React.JSX.Element {
           // index.css (5.625rem), which is what stops the last register row
           // hiding behind it. Change one, change all three, or the panel
           // detaches from the pill or the page gives back the air.
-          bottom: 'calc(0.125rem + env(safe-area-inset-bottom))'
+          bottom: 'calc(0.125rem + var(--wt-home-indicator-inset, 0px))'
         }}
         role="navigation"
         aria-label="Mobile navigation"

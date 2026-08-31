@@ -15,8 +15,6 @@ import {
   IdentityMenu,
   MobileBreadcrumb,
   NotificationBell,
-  OfflineQuickAdd,
-  OfflineQueueIndicator,
   QuickAddTransaction,
   RealtimeDot,
   CHROME_HAS_BANK_FEEDS,
@@ -29,11 +27,7 @@ import { EnhancedSkipLinks, FocusIndicator, RouteAnnouncer } from './layout/Acce
 import PullToRefreshIndicator from './PullToRefreshIndicator';
 import OfflineIndicator from './OfflineIndicator';
 import BalanceReminderCard from './BalanceReminderCard';
-import { OfflineStatus } from './OfflineStatus';
-import { SyncConflictResolver } from './SyncConflictResolver';
 import PWAInstallPrompt from './PWAInstallPrompt';
-import { EnhancedConflictResolutionModal } from './pwa/EnhancedConflictResolutionModal';
-import { useConflictResolution } from '../hooks/useConflictResolution';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
 import { useKeyboardShortcutsHelp } from '../hooks/useKeyboardShortcutsHelp';
 import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
@@ -145,16 +139,6 @@ export default function Layout(): React.JSX.Element {
     };
   }, []);
 
-  // Initialize conflict resolution
-  const {
-    currentConflict,
-    currentAnalysis,
-    isModalOpen: isConflictModalOpen,
-    resolveConflict,
-    dismissConflict,
-    conflictState
-  } = useConflictResolution();
-  
   // Initialize global keyboard shortcuts
   const { activeSequence } = useGlobalKeyboardShortcuts(openHelp);
 
@@ -910,25 +894,17 @@ export default function Layout(): React.JSX.Element {
           Layout is what makes that sentence true. */}
       <BalanceReminderCard />
 
-      {/* Offline Indicator */}
+      {/* The one offline surface that is true: the browser's own
+          online/offline events, and the consequence stated plainly. The
+          QUEUE furniture that used to sit beside it (status card, sync
+          resolver, pending-count pill, offline quick-add, two conflict
+          modals and their banners) listened to a sync layer nothing fed —
+          no write path ever queued, nothing ever dispatched a conflict —
+          and was retired with it on 1 Sep 2026. If a real offline queue is
+          ever built, it arrives with the cloud↔local sync design, whose
+          merge policy is reserved in services/conflictResolutionService.ts
+          (see port-coverage manifest: preserved, not ported). */}
       <OfflineIndicator />
-      <OfflineStatus />
-      <SyncConflictResolver />
-      
-      {/* PWA Offline Indicator - Shows sync status */}
-      <OfflineQueueIndicator />
-      
-      {/* Quick Add Offline Button */}
-      <OfflineQuickAdd />
-      
-      {/* Conflict Resolution Modal */}
-      <EnhancedConflictResolutionModal 
-        isOpen={isConflictModalOpen}
-        onClose={dismissConflict}
-        conflict={currentConflict}
-        analysis={currentAnalysis || undefined}
-        onResolve={resolveConflict}
-      />
 
       {/* No "Update Available" prompt: there is no service worker to hold a
           waiting version, so a reload always has the current build. See the
@@ -949,49 +925,6 @@ export default function Layout(): React.JSX.Element {
             onClose={() => setShowGlobalAddTransaction(false)}
           />
         </Suspense>
-      )}
-      
-      {/* Enhanced Conflict Resolution Modal */}
-      {currentConflict && (
-        <EnhancedConflictResolutionModal
-          isOpen={isConflictModalOpen}
-          onClose={dismissConflict}
-          conflict={currentConflict}
-          analysis={currentAnalysis || undefined}
-          onResolve={resolveConflict}
-        />
-      )}
-      
-      {/* Conflict Status Indicator - Show when there are unresolved conflicts */}
-      {conflictState.requiresUserIntervention && (
-        <div className="fixed bottom-20 right-4 z-50 bg-amber-100 dark:bg-amber-900/90 p-3 rounded-lg shadow-lg">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-            <span className="text-sm text-amber-800 dark:text-amber-200">
-              {conflictState.conflicts.length} conflict{conflictState.conflicts.length !== 1 ? 's' : ''} need attention
-            </span>
-          </div>
-        </div>
-      )}
-      
-      {/* Auto-resolved notification.
-
-          Its amber twin above needs attention; this one is the opposite news —
-          it worked, and nothing is being asked of anybody. So a neutral toast
-          with the house success tick, not a hue of its own (stock-blue ruling,
-          28 Aug 2026). The dark ground keeps its /90: this floats over the
-          page, and a transparent toast is an unreadable one. */}
-      {conflictState.autoResolvedCount > 0 && (
-        <div className="fixed top-20 right-4 z-50 bg-gray-50 dark:bg-gray-800/90 p-3 rounded-lg shadow-lg animate-fade-in-out">
-          <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-green-700 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            <span className="text-sm text-gray-800 dark:text-gray-200">
-              {conflictState.autoResolvedCount} conflict{conflictState.autoResolvedCount !== 1 ? 's' : ''} auto-resolved
-            </span>
-          </div>
-        </div>
       )}
       
       {/* Keyboard Sequence Indicator */}

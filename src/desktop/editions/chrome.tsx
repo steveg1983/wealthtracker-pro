@@ -21,15 +21,10 @@
  *   RealtimeDot       "am I hearing about changes made somewhere else" — and
  *                     there is nowhere else. `capabilities().realtime` is false
  *                     for the local port, for exactly the same reason.
- *   OfflineQueueIndicator  how many writes are waiting for a server to come
- *   OfflineQuickAdd        back, and a button that adds one more. There is no
- *                     server to be offline FROM: a device write lands in the
- *                     file before the button's ripple finishes. These two are
- *                     the mount slice's second half, and they were found by the
- *                     BUNDLE GREP rather than by the walk — both reach
- *                     `pwa/offline-storage`, which keeps its queue in IndexedDB,
- *                     and `indexedDBService` was not on the forbidden list until
- *                     the renderer that contains them was built and grepped.
+ *   (The offline-queue pair — OfflineQueueIndicator/OfflineQuickAdd — left
+ *   the contract on 1 Sep 2026 when the unfed queue behind them was retired.
+ *   Their lesson stands: they were found by the BUNDLE GREP and not by the
+ *   walk, which is why both guards exist.)
  *
  * ── ANSWERED, FOR REAL ──────────────────────────────────────────────────────
  *
@@ -133,12 +128,6 @@ GlobalSearch.displayName = 'GlobalSearch(device)';
 
 /** No quick add yet — writing a transaction is the state layer's job. */
 export const QuickAddTransaction: ChromeQuickAddTransaction = (): ReactElement | null => null;
-
-/** No server to be offline from, so nothing is ever queued for one. */
-export const OfflineQueueIndicator: ChromeOrnament = () => null;
-
-/** …and nothing to add to the queue that is not there. */
-export const OfflineQuickAdd: ChromeOrnament = () => null;
 
 /** No server, no tokens, no sync — see editions/chrome.ts. */
 export const CHROME_HAS_BANK_FEEDS: ChromeHasBankFeeds = false;

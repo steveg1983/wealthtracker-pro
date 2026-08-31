@@ -76,7 +76,6 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
   // the finally below then runs against a torn-down react-dom (the intermittent
   // pre-commit/quality-gates error). Every post-await setState checks this ref
   // first. Reset on mount because Strict Mode remounts reuse the same ref.
-  // Same pattern as SyncConflictResolver.
   const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;

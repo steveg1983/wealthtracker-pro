@@ -33,7 +33,7 @@ export default function PullToRefreshIndicator(): React.JSX.Element | null {
         // The safe-area inset is what keeps it clear of the iOS clock — the
         // same reason Layout's own top chrome carries it. An indicator that
         // appears from under the status bar is the bug this app already had.
-        top: `calc(env(safe-area-inset-top, 0px) + ${Math.round(distance)}px - 40px)`,
+        top: `calc(var(--wt-status-bar-inset, 0px) + ${Math.round(distance)}px - 40px)`,
       }}
       // The gesture is a shortcut for reloading, and a screen reader user has
       // the browser's own reload. Announcing a decorative disc mid-drag would

@@ -15,8 +15,9 @@ import {
   type BudgetMode,
   type WizardGroup,
   type WizardRow,
+  type WizardWindowKind,
 } from '../utils/budgetWizardPlan';
-import { parseMoneyInput, type DecimalInstance } from '../utils/decimal';
+import { parseMoneyInput, toDecimal, type DecimalInstance } from '../utils/decimal';
 
 /**
  * THE BUDGET WIZARD — three questions, one apply.
@@ -96,11 +97,19 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
   // One evaluation instant for the whole wizard: the window named in the
   // header and the figures under it describe the same "now".
   const now = useMemo(() => new Date(), []);
-  const historyWindow = useMemo(() => budgetHistoryWindow(now), [now]);
+  /**
+   * Which twelve months the evidence covers (owner, 1 Sep 2026: "Some people
+   * may want to work on calendar years"). Changing it changes the EVIDENCE —
+   * the history columns, the references, the copy-in buttons — and touches
+   * nothing anybody has typed: a figure in a box is the user's intent, not a
+   * measurement, and it survives a change of measuring stick.
+   */
+  const [windowKind, setWindowKind] = useState<WizardWindowKind>('full-months');
+  const historyWindow = useMemo(() => budgetHistoryWindow(now, windowKind), [now, windowKind]);
 
   const summary = useMemo(
-    () => summariseForWizard(transactions, transactionSplits, categories, now),
-    [transactions, transactionSplits, categories, now]
+    () => summariseForWizard(transactions, transactionSplits, categories, now, windowKind),
+    [transactions, transactionSplits, categories, now, windowKind]
   );
   const rows = useMemo(
     () => buildWizardRows(summary, categories, budgets),
@@ -134,6 +143,38 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
 
   const setValue = (categoryId: string, value: string): void =>
     setEntries(previous => ({ ...previous, [categoryId]: value }));
+
+  /**
+   * THE RUNNING SCOREBOARD — total spent and total budgeted so far, alive as
+   * the boxes fill (owner, 1 Sep 2026: "I want to be able to see the totals
+   * as I go along", not only on the review page). Locked rows (a stored
+   * period the wizard cannot express) are left out of the budgeted side for
+   * the same reason their boxes are read-only: a week does not divide into a
+   * month without a guess. Sums are annual and quantised to monthly through
+   * `twinFigure`, the same arithmetic as every row — so the strip always
+   * agrees with the review step.
+   */
+  const totals = useMemo(() => {
+    const spent = rows.reduce((sum, row) => sum.plus(row.annual), toDecimal(0));
+    let budgeted = toDecimal(0);
+    let boxes = 0;
+    for (const row of rows) {
+      if (row.existing !== null && row.existing.period === null) continue;
+      const typed = entries[row.category.id];
+      const value =
+        typed !== undefined
+          ? typed
+          : row.existing === null
+            ? ''
+            : boxValue(amountInMode(row.existing.amount, row.existing.period ?? 'monthly', mode));
+      if (value.trim() === '') continue;
+      const parsed = parseMoneyInput(value);
+      if (parsed === null || parsed < 0) continue;
+      budgeted = budgeted.plus(mode === 'monthly' ? toDecimal(parsed).times(12) : toDecimal(parsed));
+      boxes += 1;
+    }
+    return { spent, budgeted, boxes };
+  }, [rows, entries, mode]);
 
   /** The historical figure for this row in the mode being typed. */
   const historyIn = (row: WizardRow): DecimalInstance => (mode === 'monthly' ? row.monthly : row.annual);
@@ -306,10 +347,10 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
                 <button
                   type="button"
                   onClick={() => fillFromHistory(row)}
-                  aria-label={`Use the last 12 months for ${row.category.name}`}
+                  aria-label={`Use what ${row.category.name} actually cost`}
                   className="text-xs text-gray-500 dark:text-gray-400 hover:underline rounded whitespace-nowrap min-h-[44px] sm:min-h-0 px-1"
                 >
-                  use last 12 months
+                  use my actual
                 </button>
               )}
               <input
@@ -347,15 +388,23 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
    */
   const renderGroupHeading = (group: WizardGroup): React.JSX.Element => (
     <tr className="block sm:table-row">
-      <th
-        scope="colgroup"
-        colSpan={4}
-        className="block sm:table-cell text-left text-xs font-medium text-gray-700 dark:text-gray-300 pt-4 pb-1"
-      >
-        {group.name || 'Ungrouped'}
-        <span className="ml-2 font-normal text-gray-500 dark:text-gray-400 tabular-nums">
-          {formatCurrency(group.annual)} a year · {formatCurrency(group.monthly)} a month
-        </span>
+      <th scope="colgroup" colSpan={4} className="block sm:table-cell text-left pt-4 pb-1">
+        {/* SHADED, so the eye can find the seams in a long list (owner,
+            1 Sep 2026: "category group headings … shaded a different colour
+            to show sections"). The shade sits on an inner div rather than
+            the cell so the breathing room above each section stays the
+            modal's own ground in both the table and the stacked-card
+            layouts, and the group's roll-up lives IN its bar — the group
+            totals have no other home, and a footer sentence of them is
+            what this replaced. */}
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-lg bg-gray-200/80 dark:bg-gray-700/60 px-3 py-2">
+          <span className="text-sm font-semibold text-gray-900 dark:text-white">
+            {group.name || 'Ungrouped'}
+          </span>
+          <span className="text-sm font-normal text-gray-600 dark:text-gray-300 tabular-nums">
+            {formatCurrency(group.annual)} a year · {formatCurrency(group.monthly)} a month
+          </span>
+        </div>
       </th>
     </tr>
   );
@@ -394,6 +443,13 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
   );
 
   // ── Step 2 ────────────────────────────────────────────────────────────────
+  const windowExplainer =
+    windowKind === 'full-months'
+      ? 'Twelve complete months — this month is still running, so it is not counted.'
+      : windowKind === 'calendar-year'
+        ? 'The last complete calendar year.'
+        : 'The last complete tax year — 6 April to 5 April.';
+
   const renderGrid = (): React.JSX.Element => (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -402,11 +458,30 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
             What you spent, {historyWindow.label}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Twelve complete months — this month is still running, so it is not counted.
-            An empty box means no budget; a nought means a budget of nothing.
+            {windowExplainer} An empty box means no budget; a nought means a budget of nothing.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* The measuring stick is a choice (owner, 1 Sep 2026): a
+              calendar-year budgeter sets this year's numbers against
+              Jan–Dec of last year, part-way through and unbothered. */}
+          <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            Measured over
+            <select
+              value={windowKind}
+              onChange={event => {
+                const chosen = event.target.value;
+                if (chosen === 'full-months' || chosen === 'calendar-year' || chosen === 'tax-year') {
+                  setWindowKind(chosen);
+                }
+              }}
+              className="px-2 py-2 min-h-[44px] text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              <option value="full-months">The last 12 full months</option>
+              <option value="calendar-year">Last calendar year</option>
+              <option value="tax-year">Last tax year</option>
+            </select>
+          </label>
           <button
             type="button"
             onClick={startFromHistory}
@@ -425,6 +500,35 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
         </div>
       </div>
 
+      {/* THE RUNNING SCOREBOARD, pinned above the scroller so it holds still
+          while the list moves (owner, 1 Sep 2026: "I want to be able to see
+          the totals as I go along"). The chosen rhythm's figure leads; its
+          twin follows, exactly as on every row. */}
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 rounded-lg border border-line dark:border-gray-700 px-3 py-2 mb-3 text-sm tabular-nums">
+        <span className="text-gray-600 dark:text-gray-300">
+          Spent{' '}
+          <span className="font-medium text-gray-900 dark:text-white">
+            {formatCurrency(mode === 'monthly' ? twinFigure(totals.spent, 'yearly') : totals.spent)}
+          </span>{' '}
+          {modeNoun}
+          <span className="text-gray-500 dark:text-gray-400">
+            {' '}· {formatCurrency(mode === 'monthly' ? totals.spent : twinFigure(totals.spent, 'yearly'))}{' '}
+            {mode === 'monthly' ? 'a year' : 'a month'}
+          </span>
+        </span>
+        <span className="text-gray-600 dark:text-gray-300">
+          Budgeted so far{' '}
+          <span className="font-medium text-gray-900 dark:text-white">
+            {formatCurrency(mode === 'monthly' ? twinFigure(totals.budgeted, 'yearly') : totals.budgeted)}
+          </span>{' '}
+          {modeNoun}
+          <span className="text-gray-500 dark:text-gray-400">
+            {' '}· {formatCurrency(mode === 'monthly' ? totals.budgeted : twinFigure(totals.budgeted, 'yearly'))}{' '}
+            {mode === 'monthly' ? 'a year' : 'a month'} · {totals.boxes} of {rows.length} boxes filled
+          </span>
+        </span>
+      </div>
+
       {/* The consequence of unfiled money, named: it is in none of the figures
           below, so every one of them is that much short. */}
       {summary.unfiledRows > 0 && (
@@ -437,14 +541,21 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
 
       <div className="max-h-[50vh] overflow-y-auto">
         <table className="block sm:table w-full">
+          {/* Sticky on the CELLS, not the row — WebKit ignores position:sticky
+              on table rows. The ground is restated so list rows slide under,
+              not through. */}
           <thead className="hidden sm:table-header-group">
             <tr className="text-xs text-gray-500 dark:text-gray-400">
-              <th className="text-left font-medium py-2 pr-3">Category</th>
-              <th className="text-right font-medium py-2 px-2">
-                Last 12 months<span className="block font-normal">{historyWindow.label}</span>
+              <th className="sticky top-0 z-10 bg-white dark:bg-gray-900 text-left font-medium py-2 pr-3">
+                Category
               </th>
-              <th className="text-right font-medium py-2 px-2">{columnHeading}</th>
-              <th className="text-right font-medium py-2 pl-2">
+              <th className="sticky top-0 z-10 bg-white dark:bg-gray-900 text-right font-medium py-2 px-2">
+                What it cost<span className="block font-normal">{historyWindow.label}</span>
+              </th>
+              <th className="sticky top-0 z-10 bg-white dark:bg-gray-900 text-right font-medium py-2 px-2">
+                {columnHeading}
+              </th>
+              <th className="sticky top-0 z-10 bg-white dark:bg-gray-900 text-right font-medium py-2 pl-2">
                 Which is<span className="block font-normal">{mode === 'monthly' ? 'a year' : 'a month'}</span>
               </th>
             </tr>
@@ -471,8 +582,8 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
                     className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 hover:underline rounded min-h-[44px]"
                   >
                     {showQuiet ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
-                    {quiet.length} categor{quiet.length === 1 ? 'y' : 'ies'} with nothing in the last
-                    12 months
+                    {quiet.length} categor{quiet.length === 1 ? 'y' : 'ies'} with nothing in this
+                    window
                   </button>
                 </td>
               </tr>

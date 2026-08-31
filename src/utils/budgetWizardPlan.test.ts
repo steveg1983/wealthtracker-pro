@@ -138,6 +138,46 @@ describe('budgetHistoryWindow — twelve COMPLETE months', () => {
   });
 });
 
+describe('budgetHistoryWindow — the measuring stick is a choice', () => {
+  it('calendar-year is the last COMPLETE Jan–Dec, named with both ends', () => {
+    const window = budgetHistoryWindow(new Date(2026, 8, 1), 'calendar-year');
+    expect(window.from).toBe('2025-01-01');
+    expect(window.to).toBe('2025-12-31');
+    expect(window.label).toBe('Jan – Dec 2025');
+  });
+
+  it('tax-year runs 6 April to 5 April, and only a WHOLE one counts', () => {
+    // 1 Sep 2026 is past 6 April, so 2025/26 is complete.
+    const past = budgetHistoryWindow(new Date(2026, 8, 1), 'tax-year');
+    expect(past.from).toBe('2025-04-06');
+    expect(past.to).toBe('2026-04-05');
+    // The 6th-to-5th boundary is named in full — month names alone would
+    // print "Apr 2025 – Apr 2026" and look like an error.
+    expect(past.label).toBe('6 Apr 2025 – 5 Apr 2026');
+    // On 5 April the year ends TODAY and is not yet whole — the one before counts.
+    const eve = budgetHistoryWindow(new Date(2026, 3, 5), 'tax-year');
+    expect(eve.from).toBe('2024-04-06');
+    expect(eve.to).toBe('2025-04-05');
+  });
+
+  it('the default is unchanged — twelve complete months', () => {
+    const now = new Date(2026, 7, 31);
+    expect(budgetHistoryWindow(now, 'full-months')).toEqual(budgetHistoryWindow(now));
+  });
+
+  it('the summary is summed over the same window the header names', () => {
+    // One source for the range — the label and the figures cannot describe
+    // different windows, whichever measuring stick is chosen.
+    const now = new Date(2026, 8, 1);
+    for (const kind of ['full-months', 'calendar-year', 'tax-year'] as const) {
+      const summary = summariseForWizard([], [], [], now, kind);
+      const window = budgetHistoryWindow(now, kind);
+      expect(summary.window.from).toBe(window.from);
+      expect(summary.window.to).toBe(window.to);
+    }
+  });
+});
+
 describe('twinFigure — type one figure, see the other', () => {
   it('a monthly budget states its year', () => {
     expect(twinFigure(100, 'monthly').toString()).toBe('1200');
