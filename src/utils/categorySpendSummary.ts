@@ -52,11 +52,12 @@
  */
 
 import { toDecimal, type DecimalInstance } from './decimal';
+import { buildPlWindow } from './plWindow';
 import { buildCategoryKindLookup, classifyFlow } from './incomeExpense';
 import { expandSplitTransactions } from './transactionSplits';
 import type { Category, Transaction, TransactionSplit } from '../types';
 
-export type SpendWindowKind = 'full-months' | 'to-yesterday';
+export type SpendWindowKind = 'full-months' | 'to-yesterday' | 'calendar-year' | 'tax-year';
 
 export interface SpendWindow {
   kind: SpendWindowKind;
@@ -104,6 +105,22 @@ export function spendWindow(kind: SpendWindowKind, now: Date): SpendWindow {
     const end = new Date(now.getFullYear(), now.getMonth(), 0);        // last day of last month
     const start = new Date(end.getFullYear(), end.getMonth() - 11, 1); // first day, 11 months earlier
     return { kind, from: iso(start), to: iso(end) };
+  }
+  if (kind === 'calendar-year' || kind === 'tax-year') {
+    // A budgeter who thinks in calendar or tax years measures against the
+    // last COMPLETE one (owner, 1 Sep 2026: "Some people may want to work on
+    // calendar years"). The boundary rules — which year counts as complete,
+    // and 6 April to 5 April for HMRC — already live in `buildPlWindow`
+    // under the owner's own 19 Aug completeness ruling; deriving them here a
+    // second time is how two screens come to disagree about a year. The end
+    // is exclusive there and inclusive here, so step back one day BY PARTS —
+    // parsing 'YYYY-MM-DD' through `new Date(string)` reads it as UTC
+    // midnight and shifts a summer date across the day line (the localDayKey
+    // lesson). Both years are exactly twelve months, so `monthly` stays
+    // annual ÷ 12 like every other window.
+    const pl = buildPlWindow(kind, now);
+    const [year, month1, day] = pl.endExclusive.split('-').map(Number);
+    return { kind, from: pl.start, to: iso(new Date(year, month1 - 1, day - 1)) };
   }
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1); // yesterday
   const start = new Date(end.getFullYear(), end.getMonth() - 12, end.getDate() + 1);

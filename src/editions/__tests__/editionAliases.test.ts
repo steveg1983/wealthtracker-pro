@@ -203,16 +203,18 @@ describe('the edition seams', () => {
 
   it('would notice — the comparison is over real and non-trivial lists', () => {
     // The equalities above are vacuously true of two empty files. `@chrome` is
-    // the big one: ten pieces of furniture — eight from the mount's first half
-    // and two the BUNDLE GREP added in its second, when a PWA offline queue in
-    // the frame turned out to be keeping writes for a server that does not
-    // exist. `RealtimeDot` is certainly one of them. Plus two FACTS —
+    // the big one: eight pieces of furniture from the mount's first half.
+    // (For a while it was ten — the BUNDLE GREP had added a PWA offline
+    // queue's indicator and quick-add in the second half, but that queue
+    // turned out to be keeping writes for a server that does not exist and
+    // no write path ever fed it; the pair retired with it on 1 Sep 2026.)
+    // `RealtimeDot` is certainly one of them. Plus two FACTS —
     // CHROME_HAS_BANK_FEEDS (26 Aug) and CHROME_HAS_PRICE_HISTORY (27 Aug) —
     // not furniture but booleans the callers ask before drawing their own
     // controls, after the first desktop install offered a nav item that
     // could only apologise.
     const chrome = valueExportsOf('src/editions/cloud/chrome.tsx');
-    expect(chrome.length).toBe(12);
+    expect(chrome.length).toBe(10);
     expect(chrome).toContain('RealtimeDot');
     expect(chrome).toContain('CHROME_HAS_BANK_FEEDS');
     expect(chrome).toContain('CHROME_HAS_PRICE_HISTORY');

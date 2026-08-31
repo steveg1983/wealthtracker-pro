@@ -139,7 +139,7 @@ describe('step 2 — the evidence beside every box', () => {
     renderWizard();
     chooseMonthly();
     expect(screen.getByRole('columnheader', { name: /Category/ })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: /Last 12 months/ })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /What it cost/ })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: /Your budget, per month/ })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: /Which is/ })).toBeInTheDocument();
   });
@@ -194,10 +194,10 @@ describe('step 2 — the evidence beside every box', () => {
 });
 
 describe('step 2 — filling boxes', () => {
-  it('"use last 12 months" fills the box rather than saving behind you', () => {
+  it('"use my actual" fills the box rather than saving behind you', () => {
     renderWizard();
     chooseMonthly();
-    fireEvent.click(screen.getByLabelText('Use the last 12 months for Food Shopping'));
+    fireEvent.click(screen.getByLabelText('Use what Food Shopping actually cost'));
     expect(boxFor('Food Shopping')).toHaveValue('100');
     expect(addBudget).not.toHaveBeenCalled();
   });
@@ -205,7 +205,7 @@ describe('step 2 — filling boxes', () => {
   it('fills the ANNUAL figure when annual is the rhythm', () => {
     renderWizard();
     chooseAnnually();
-    fireEvent.click(screen.getByLabelText('Use the last 12 months for Food Shopping'));
+    fireEvent.click(screen.getByLabelText('Use what Food Shopping actually cost'));
     expect(boxFor('Food Shopping', 'Yearly')).toHaveValue('1200');
   });
 
@@ -228,11 +228,45 @@ describe('step 2 — filling boxes', () => {
     expect(boxFor('Dining Out')).toHaveValue('');
   });
 
-  it('offers no "use last 12 months" on a row with nothing in the window', () => {
+  it('offers no "use my actual" on a row with nothing in the window', () => {
     renderWizard();
     chooseMonthly();
-    fireEvent.click(screen.getByRole('button', { name: /categories with nothing in the last 12 months/ }));
-    expect(screen.queryByLabelText('Use the last 12 months for Never Used')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /categories with nothing in this window/ }));
+    expect(screen.queryByLabelText('Use what Never Used actually cost')).not.toBeInTheDocument();
+  });
+});
+
+describe('step 2 — the measuring stick and the scoreboard', () => {
+  it('the measured-over choice changes the named window and its explainer', () => {
+    renderWizard();
+    chooseMonthly();
+    const lastYear = new Date().getFullYear() - 1;
+    fireEvent.change(screen.getByLabelText(/Measured over/), {
+      target: { value: 'calendar-year' },
+    });
+    expect(screen.getByText(`What you spent, Jan – Dec ${lastYear}`)).toBeInTheDocument();
+    expect(screen.getByText(/The last complete calendar year/)).toBeInTheDocument();
+  });
+
+  it('changing the measuring stick never touches what was typed', () => {
+    renderWizard();
+    chooseMonthly();
+    fireEvent.change(boxFor('Food Shopping'), { target: { value: '150' } });
+    fireEvent.change(screen.getByLabelText(/Measured over/), {
+      target: { value: 'calendar-year' },
+    });
+    // The evidence changed; the intent did not.
+    expect(boxFor('Food Shopping')).toHaveValue('150');
+  });
+
+  it('the scoreboard counts a typed box as I go along', () => {
+    renderWizard();
+    chooseMonthly();
+    expect(screen.getByText(/0 of 4 boxes filled/)).toBeInTheDocument();
+    fireEvent.change(boxFor('Food Shopping'), { target: { value: '150' } });
+    expect(screen.getByText(/1 of 4 boxes filled/)).toBeInTheDocument();
+    // The budgeted side leads with the chosen rhythm's figure.
+    expect(screen.getAllByText('£150.00').length).toBeGreaterThan(0);
   });
 });
 
@@ -242,14 +276,14 @@ describe('step 2 — the fold names what it hides', () => {
     chooseMonthly();
     expect(screen.queryByText('Never Used')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: '2 categories with nothing in the last 12 months' })
+      screen.getByRole('button', { name: '2 categories with nothing in this window' })
     ).toBeInTheDocument();
   });
 
   it('opens on a tap', () => {
     renderWizard();
     chooseMonthly();
-    fireEvent.click(screen.getByRole('button', { name: /categories with nothing in the last 12 months/ }));
+    fireEvent.click(screen.getByRole('button', { name: /categories with nothing in this window/ }));
     expect(screen.getByText('Never Used')).toBeInTheDocument();
     expect(boxFor('Never Used')).toBeInTheDocument();
   });
@@ -260,7 +294,7 @@ describe('step 2 — the fold names what it hides', () => {
     // Visible without expanding anything: a removal you cannot see is not an offer.
     expect(screen.getByText('Never Used')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: '1 category with nothing in the last 12 months' })
+      screen.getByRole('button', { name: '1 category with nothing in this window' })
     ).toBeInTheDocument();
   });
 });

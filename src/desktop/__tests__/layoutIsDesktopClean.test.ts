@@ -64,18 +64,25 @@ describe('the shared Layout, resolved for a device', () => {
     expect(graph.modules.has('desktop/editions/telemetry.ts')).toBe(true);
     expect(graph.modules.has('desktop/editions/preferencesStore.ts')).toBe(true);
     expect(graph.modules.has('desktop/editions/identity.ts')).toBe(true);
-    // The frame itself, not a stub of one: the nav, the drawer, the settings
-    // context and the logger are all still there and all still shared.
+    // The frame itself, not a stub of one: the nav, the page transition and
+    // the logger are all still there and all still shared. (The settings
+    // context used to stand here, but its only road into the DEVICE frame was
+    // the offline-queue furniture's selector tree — when that furniture was
+    // retired on 1 Sep 2026 the context rightly left this graph with it, and
+    // a positive control must be a module the frame reaches on a road of its
+    // own.)
     expect(graph.modules.has('components/layout/NavComponents.tsx')).toBe(true);
-    expect(graph.modules.has('contexts/PreferencesContext.tsx')).toBe(true);
+    expect(graph.modules.has('components/layout/SimplePageTransition.tsx')).toBe(true);
     expect(graph.modules.has('loggers/scopedLogger.ts')).toBe(true);
-    // 50 exactly at the mount slice's second half, down from 65: two PWA
-    // surfaces (an offline write queue and the button that fills it) joined
-    // `@chrome` when the BUNDLE GREP found IndexedDB in the built renderer that
-    // this walk had called clean. A floor rather than an equality, because the
-    // number that matters is zero and it is asserted below — this one only has
-    // to prove the walk resolved a real frame.
-    expect(graph.modules.size).toBeGreaterThan(40);
+    // Three chapters now: 65 before the mount slice; 50 when two PWA surfaces
+    // (an offline write queue and the button that fills it) joined `@chrome`
+    // after the BUNDLE GREP found IndexedDB in a renderer this walk had
+    // called clean; 34 measured since 1 Sep 2026, when that queue — which no
+    // write path ever fed — was retired from both editions and took a
+    // sixteen-module subtree with it. A floor rather than an equality,
+    // because the number that matters is zero and it is asserted below —
+    // this one only has to prove the walk resolved a real frame.
+    expect(graph.modules.size).toBeGreaterThan(30);
   });
 
   for (const { module, why } of FORBIDDEN_MODULES) {

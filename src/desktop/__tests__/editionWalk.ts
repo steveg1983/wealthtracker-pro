@@ -126,15 +126,6 @@ export const FORBIDDEN_MODULES: ReadonlyArray<{ module: string; why: string }> =
     why: "the browser's IndexedDB store — a second copy of the ledger, on a device that already has one"
   },
   {
-    module: 'pwa/offline-storage.ts',
-    why:
-      'a queue of writes waiting for a SERVER to come back, kept in IndexedDB. There is no ' +
-      'server to be offline from and a device write lands in the file immediately, so the queue ' +
-      'is a copy of the ledger with nowhere to go. Found by `desktop:greps` and not by this ' +
-      'walk, which is the clearest case in the repository for keeping both: the frame reached it ' +
-      'through two PWA components and every list here called the frame clean'
-  },
-  {
     module: 'services/transactionCache.ts',
     why:
       "the CLOUD engine's boot snapshot — the whole history in IndexedDB so that a re-boot can " +

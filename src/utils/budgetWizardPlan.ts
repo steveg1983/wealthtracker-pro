@@ -83,7 +83,12 @@
 
 import { toDecimal, parseMoneyInput, type DecimalInstance } from './decimal';
 import { categoryKindOf } from './incomeExpense';
-import { summariseCategorySpend, type CategorySpendSummary } from './categorySpendSummary';
+import {
+  spendWindow,
+  summariseCategorySpend,
+  type CategorySpendSummary,
+  type SpendWindowKind,
+} from './categorySpendSummary';
 import { getDateLocale } from './dateFormatter';
 import type { Budget, Category, Transaction, TransactionSplit } from '../types';
 
@@ -105,24 +110,46 @@ export interface BudgetHistoryWindow {
   label: string;
 }
 
-const iso = (d: Date): string =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/** The measurement windows the wizard offers. All are exactly twelve months. */
+export type WizardWindowKind = Extract<SpendWindowKind, 'full-months' | 'calendar-year' | 'tax-year'>;
 
 /**
- * The twelve complete calendar months before the month `now` falls in.
+ * The chosen twelve-month window, named so it can be checked.
  *
- * The month `now` is in is never one of them, INCLUDING on its last day: 31
- * August is still inside August, and August completes at midnight. So on 31
- * August 2026 the most recent complete month is July, and the window is
- * 1 Aug 2025 → 31 Jul 2026. `new Date(y, m, 0)` is the last day of the month
- * before `now`'s, which is that whole rule expressed once.
+ * 'full-months' (the default) is the twelve complete calendar months before
+ * the month `now` falls in — the month `now` is in is never one of them,
+ * INCLUDING on its last day: 31 August is still inside August, and August
+ * completes at midnight. 'calendar-year' and 'tax-year' are the last
+ * COMPLETE such year (owner, 1 Sep 2026: a calendar-year budgeter sets this
+ * year's budgets against Jan–Dec of last year, part-way through and
+ * unbothered). The RANGES all come from `spendWindow`, which is also what
+ * the summariser sums over — one source, so the label and the figures
+ * cannot describe different windows.
  */
-export function budgetHistoryWindow(now: Date): BudgetHistoryWindow {
-  const end = new Date(now.getFullYear(), now.getMonth(), 0);
-  const start = new Date(end.getFullYear(), end.getMonth() - (MONTHS_IN_YEAR - 1), 1);
-  const month = (d: Date): string =>
+export function budgetHistoryWindow(
+  now: Date,
+  kind: WizardWindowKind = 'full-months'
+): BudgetHistoryWindow {
+  const window = spendWindow(kind, now);
+  const part = (isoDate: string): Date => {
+    const [year, month1, day] = isoDate.split('-').map(Number);
+    return new Date(year, month1 - 1, day);
+  };
+  const monthLabel = (d: Date): string =>
     d.toLocaleDateString(getDateLocale(), { month: 'short', year: 'numeric' });
-  return { from: iso(start), to: iso(end), label: `${month(start)} – ${month(end)}` };
+  const dayLabel = (d: Date): string =>
+    d.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
+  const from = part(window.from);
+  const to = part(window.to);
+  const label =
+    kind === 'tax-year'
+      ? // The 6th-to-5th boundary is the whole point of a tax year — month
+        // names alone would print "Apr 2025 – Apr 2026" and look like an error.
+        `${dayLabel(from)} – ${dayLabel(to)}`
+      : kind === 'calendar-year'
+        ? `${from.toLocaleDateString(getDateLocale(), { month: 'short' })} – ${monthLabel(to)}`
+        : `${monthLabel(from)} – ${monthLabel(to)}`;
+  return { from: window.from, to: window.to, label };
 }
 
 /**
@@ -514,7 +541,8 @@ export function summariseForWizard(
   transactions: Transaction[],
   splits: TransactionSplit[],
   categories: Category[],
-  now: Date
+  now: Date,
+  kind: WizardWindowKind = 'full-months'
 ): CategorySpendSummary {
-  return summariseCategorySpend(transactions, splits, categories, { kind: 'full-months', now });
+  return summariseCategorySpend(transactions, splits, categories, { kind, now });
 }

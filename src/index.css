@@ -49,12 +49,12 @@
  * pair and must be changed together, exactly as `pt-16` (5.5rem's other half)
  * and the 5.5rem here already are. */
 .modal-viewport {
-  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(1.5rem + var(--wt-home-indicator-inset, 0px));
 }
 
 .modal-panel {
   max-height: calc(100vh - 5.5rem);
-  max-height: calc(100dvh - 5.5rem - env(safe-area-inset-bottom, 0px));
+  max-height: calc(100dvh - 5.5rem - var(--wt-home-indicator-inset, 0px));
 }
 
 /* Touch Target Optimization */
@@ -808,13 +808,14 @@ button.rounded-full:focus-visible,
     @apply min-h-[44px] min-w-[44px];
   }
   
-  /* Safe area padding for devices with notches */
+  /* Safe area padding for devices with notches — through the named insets,
+     which standalone mode zeroes (see --wt-status-bar-inset below). */
   .safe-padding-top {
-    padding-top: env(safe-area-inset-top);
+    padding-top: var(--wt-status-bar-inset, 0px);
   }
-  
+
   .safe-padding-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: var(--wt-home-indicator-inset, 0px);
   }
 
   /*
@@ -867,6 +868,31 @@ button.rounded-full:focus-visible,
    * contract the old number had, and the same reason it lives here beside its
    * own arithmetic instead of as a `pb-` class at the call site.
    */
+  /* THE SAFE-AREA INSETS AS NAMES — because iOS 26.1 pays them out twice.
+     Since that release a home-screen web app is no longer rendered
+     full-bleed: the system draws its own opaque bars behind the status bar
+     and home indicator, insetting the webview — and STILL reports the full
+     notch/home-indicator values through env(). Every consumer that padded
+     by env() then padded a second time over the system's own bars (owner's
+     phone, 1 Sep 2026: "dead dark blue space" above the WealthTracker bar
+     and below the pill). In standalone the inset is therefore zeroed — the
+     system bars already clear the hardware. Safari tabs keep the real env()
+     because there the page genuinely runs under the hardware cut-outs.
+     REVISIT when Apple restores full-bleed web apps (the white bars
+     disappearing IS the signal): this zeroing then jams the bar under the
+     clock, and these two lines are what to delete. See the wrapper-bug
+     paper trail in index.html's critical-CSS comment. */
+  :root {
+    --wt-status-bar-inset: env(safe-area-inset-top, 0px);
+    --wt-home-indicator-inset: env(safe-area-inset-bottom, 0px);
+  }
+  @media (display-mode: standalone) {
+    :root {
+      --wt-status-bar-inset: 0px;
+      --wt-home-indicator-inset: 0px;
+    }
+  }
+
   @media (max-width: 767px) {
     /* The clearance as a NAME, not only a class: the floating pill hides the
        last hundred pixels of anything scrollable, and the page gutter below
@@ -877,7 +903,7 @@ button.rounded-full:focus-visible,
        rows to it, 30 Aug. Above 767px the variable is unset and every
        consumer's fallback is 0px, exactly as the pill itself is md:hidden. */
     :root {
-      --wt-bottom-nav-clearance: calc(5.625rem + env(safe-area-inset-bottom));
+      --wt-bottom-nav-clearance: calc(5.625rem + var(--wt-home-indicator-inset, 0px));
     }
     .page-bottom-gutter {
       padding-bottom: var(--wt-bottom-nav-clearance);
