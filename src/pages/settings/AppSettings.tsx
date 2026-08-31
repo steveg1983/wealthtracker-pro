@@ -6,6 +6,7 @@ import BudgetAlertSettings from '../../components/BudgetAlertSettings';
 import LargeTransactionAlertSettings from '../../components/LargeTransactionAlertSettings';
 import LocaleSelector from '../../components/settings/LocaleSelector';
 import ShowTipsAgain from '../../components/settings/ShowTipsAgain';
+import DisplayDiagnostics from '../../components/DisplayDiagnostics';
 // Through the seam: a refresh schedule is a thing a SERVER keeps.
 // See src/editions/service.ts.
 import { BankFeedRefreshSettings } from '@service';
@@ -213,6 +214,12 @@ export default function AppSettings() {
 
       {/* Page Tips */}
       <ShowTipsAgain />
+
+      {/* What the device reports about its screen and app mode — the block
+          exists because the iOS wrapper's answers cannot be read from a
+          screenshot, and the installed app cannot take the debug-overlay's
+          URL parameter. See the component's header. */}
+      <DisplayDiagnostics />
     </PageWrapper>
   );
 }

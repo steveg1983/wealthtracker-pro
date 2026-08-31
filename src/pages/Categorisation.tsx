@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { computeIncomeExpense } from '../utils/incomeExpense';
@@ -89,6 +90,21 @@ export default function Categorisation(): React.JSX.Element {
 
   const uncategorised = flows.uncategorizedRows;
   const count = uncategorised.length;
+
+  /**
+   * The rows counted HERE but not by the register's "to review" — filed under
+   * a category that no longer exists. The two counters answer neighbouring
+   * questions by design (this page counts all filing work; the review flag is
+   * row-local and cannot know an id dangles), and the owner read the two-row
+   * gap between them as a bug on 1 Sep 2026 — which any user would. The gap
+   * is not the bug; the SILENCE about it was. The rule mirrors
+   * categoryHealth's exactly: a non-blank category id that neither the tree
+   * nor an unassigned bucket answers to.
+   */
+  const danglingCount = useMemo(() => {
+    const known = new Set(categories.map(c => c.id));
+    return uncategorised.filter(row => row.category && !known.has(row.category)).length;
+  }, [uncategorised, categories]);
 
   // Includes CLOSED accounts — old history is exactly where the
   // uncategorised backlog lives, and "Unknown account" was just a failure
@@ -261,6 +277,25 @@ export default function Categorisation(): React.JSX.Element {
               </div>
             </div>
           </div>
+
+          {/* Why this count can read HIGHER than the register's "to review":
+              rows filed under a category that no longer exists are filing
+              work (their money is in no report) but not row-review work (the
+              row-local flag cannot know an id dangles). The owner met the
+              unexplained two-row gap on 1 Sep 2026 and read it as a bug —
+              which any user would. Named here, with the remedy, per the
+              data-health rule; at zero it renders nothing. */}
+          {danglingCount > 0 && (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {danglingCount.toLocaleString()} of these {danglingCount === 1 ? 'is' : 'are'} filed
+              under a category that no longer exists, so {danglingCount === 1 ? 'it' : 'they'}{' '}
+              {danglingCount === 1 ? 'does not' : 'do not'} show in the register's review count
+              — repair {danglingCount === 1 ? 'it' : 'them'} under{' '}
+              <Link to="/settings/categories" className="underline hover:no-underline">
+                Manage&nbsp;→&nbsp;Categories
+              </Link>.
+            </p>
+          )}
 
           {/* The basis these two figures are on. Same component the report hub
               mounts, so this page cannot drift from a report that quotes the
