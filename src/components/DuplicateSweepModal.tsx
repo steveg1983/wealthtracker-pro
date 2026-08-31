@@ -160,6 +160,18 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
   // Refused pairs, keyed the canonical way — the bridge between the click and
   // the persisted refusal arriving back through suggestionDismissals.
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  /**
+   * THE BULK REFUSAL — rows ticked for "These are not duplicates" (owner,
+   * 1 Sep 2026: a ledger with years of imports surfaced two thousand
+   * suggestions, every one already settled by the account adjustments that
+   * make his balances reconcile — "save me going through over 2000!").
+   * Selection is by pair key; the press routes through the SAME judgment as
+   * the review dialog's refusal, cluster-wide per the 29 Aug ruling, and
+   * every refusal stays individually restorable from Dismissed suggestions.
+   */
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState<{ done: number; total: number } | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>(resume?.sortKey ?? 'date');
   const [sortDir, setSortDir] = useState<1 | -1>(resume?.sortDir ?? -1);
   // The row they jumped from: highlighted and scrolled back into view, the same
@@ -425,6 +437,102 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
     }
   };
 
+  /**
+   * The bulk refusal's true extent: every selected row's judgment, expanded
+   * to the cluster of live pairs sharing its rows — the review dialog's own
+   * rule (owner, 29 Aug: a refusal is about the repeated payment, not one
+   * pairing of it). Deduped by key so overlapping clusters refuse once.
+   * Computed on the button press, not per render — with everything selected
+   * this walks selected × live.
+   */
+  const bulkRefusalPairs = (): DuplicateCandidate[] => {
+    const byKey = new Map<string, DuplicateCandidate>();
+    for (const candidate of inScope) {
+      if (!selectedKeys.has(duplicateDismissalKey(candidate.a, candidate.b))) continue;
+      for (const pair of candidatesSharingRows(live, candidate)) {
+        byKey.set(duplicateDismissalKey(pair.a, pair.b), pair);
+      }
+    }
+    return [...byKey.values()];
+  };
+
+  /** What "These are not duplicates" will actually refuse — set when pressed. */
+  const [bulkPending, setBulkPending] = useState<DuplicateCandidate[]>([]);
+
+  const confirmBulkRefusal = async (): Promise<void> => {
+    const pairs = bulkPending;
+    setBulkConfirm(false);
+    setBulkPending([]);
+    if (pairs.length === 0) return;
+    // Off the list the moment the judgment is made — the single refusal's own
+    // order of operations. Persistence follows, one row per pair so each
+    // stays individually restorable, and failure is reported with its
+    // consequence rather than swallowed.
+    setDismissed(previous => {
+      const next = new Set(previous);
+      for (const pair of pairs) next.add(duplicateDismissalKey(pair.a, pair.b));
+      return next;
+    });
+    setSelectedKeys(new Set());
+    setBulkSaving({ done: 0, total: pairs.length });
+    let failed = 0;
+    for (const [index, pair] of pairs.entries()) {
+      try {
+        await dismissSuggestion(
+          'duplicate',
+          duplicateDismissalKey(pair.a, pair.b),
+          duplicateDismissalSubjectIds(pair.a, pair.b)
+        );
+      } catch {
+        failed += 1;
+      }
+      setBulkSaving({ done: index + 1, total: pairs.length });
+    }
+    setBulkSaving(null);
+    if (failed === 0) {
+      showSuccess(
+        `${pairs.length.toLocaleString()} suggestion${pairs.length === 1 ? '' : 's'} will not be offered again. Bring any back from “Dismissed suggestions” at the foot of this list.`,
+        'Not duplicates — remembered'
+      );
+    } else {
+      showError(
+        new Error(
+          `${failed.toLocaleString()} of ${pairs.length.toLocaleString()} refusals did NOT save — those are out of this sitting, but they will be offered again the next time this runs.`
+        )
+      );
+    }
+  };
+
+  const selectedInScope = useMemo(() => {
+    let count = 0;
+    for (const candidate of inScope) {
+      if (selectedKeys.has(duplicateDismissalKey(candidate.a, candidate.b))) count += 1;
+    }
+    return count;
+  }, [inScope, selectedKeys]);
+  // "All" means the whole SCOPE — the account filter is respected, the
+  // display cap is not: the button exists precisely for a list too long to
+  // page through three hundred at a time.
+  const allInScopeSelected = inScope.length > 0 && selectedInScope === inScope.length;
+  const toggleSelectAll = (): void => {
+    setSelectedKeys(
+      allInScopeSelected
+        ? new Set()
+        : new Set(inScope.map(candidate => duplicateDismissalKey(candidate.a, candidate.b)))
+    );
+  };
+  const toggleSelected = (key: string): void => {
+    setSelectedKeys(previous => {
+      const next = new Set(previous);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
   const handleRestore = async (dismissal: SuggestionDismissal): Promise<void> => {
     setRestoringKey(dismissal.subjectKey);
     try {
@@ -554,6 +662,7 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
       <table className="block sm:table w-full">
         <thead className="hidden sm:table-header-group">
           <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+            <th className="pb-2 w-8" aria-label="Select" />
             {([
               ['date', 'Date', 'Sort by date'],
               ['account', 'Account', 'Sort by account name'],
@@ -586,12 +695,27 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
                 ref={landedHere ? pairFocus.focusRef : undefined}
                 aria-current={landedHere ? 'true' : undefined}
                 onClick={() => review(candidate)}
-                className={`grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 py-2 sm:py-0 sm:table-row border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors align-top ${
+                className={`grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-3 py-2 sm:py-0 sm:table-row border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors align-top ${
                   landedHere ? ARRIVAL_ROW_CLASS : ''
                 }`}
                 title="Look at both copies of this"
               >
-                <td className="block sm:table-cell col-start-1 row-start-2 sm:py-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                {/* The tick, before everything — its cell stops the row's own
+                    click so ticking never opens the review. */}
+                <td
+                  className="block sm:table-cell col-start-1 row-start-1 sm:py-2 sm:pr-1 sm:align-top"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedKeys.has(pairKey)}
+                    onChange={() => toggleSelected(pairKey)}
+                    disabled={bulkSaving !== null}
+                    aria-label={`Select the ${candidate.a.description} pair`}
+                    className="mt-0.5"
+                  />
+                </td>
+                <td className="block sm:table-cell col-start-2 row-start-2 sm:py-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                   {shortDate(first.date)}
                   {candidate.daysApart > 0 && (
                     <span className="ml-1 text-xs text-gray-400">
@@ -599,12 +723,12 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
                     </span>
                   )}
                 </td>
-                <td className="block sm:table-cell col-start-1 row-start-1 min-w-0 sm:py-2 text-sm text-gray-700 dark:text-gray-300">
+                <td className="block sm:table-cell col-start-2 row-start-1 min-w-0 sm:py-2 text-sm text-gray-700 dark:text-gray-300">
                   <span className="block truncate sm:max-w-[140px]">
                     {accountName(candidate.a.accountId)}
                   </span>
                 </td>
-                <td className="block sm:table-cell col-span-2 col-start-1 row-start-3 min-w-0 mt-1 sm:mt-0 sm:py-2 text-sm text-gray-600 dark:text-gray-400">
+                <td className="block sm:table-cell col-span-2 col-start-2 row-start-3 min-w-0 mt-1 sm:mt-0 sm:py-2 text-sm text-gray-600 dark:text-gray-400">
                   <span className="block truncate sm:max-w-[260px] text-gray-900 dark:text-white">
                     {candidate.a.description}
                   </span>
@@ -620,7 +744,7 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
                     read identically until the review opened. Both rows of a
                     candidate share a sign by construction: the scan matches
                     on the SIGNED amount. */}
-                <td className={`block sm:table-cell col-start-2 row-start-1 sm:py-2 text-sm font-medium text-right tabular-nums whitespace-nowrap ${candidate.a.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                <td className={`block sm:table-cell col-start-3 row-start-1 sm:py-2 text-sm font-medium text-right tabular-nums whitespace-nowrap ${candidate.a.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                   {candidate.a.amount < 0 ? '\u2212' : '+'}{formatCurrency(Math.abs(candidate.a.amount))}
                 </td>
                 {/* The row itself opens the review — one meaning per click.
@@ -629,7 +753,7 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
                     ambiguous. It lands on the EARLIER copy: both are in one
                     account within the window, so the other is a few rows away
                     on the same screen, in date order with the running balance. */}
-                <td className="block sm:table-cell col-span-2 col-start-1 row-start-4 mt-2 sm:mt-0 sm:py-2 text-right" onClick={e => e.stopPropagation()}>
+                <td className="block sm:table-cell col-span-3 col-start-1 row-start-4 mt-2 sm:mt-0 sm:py-2 text-right" onClick={e => e.stopPropagation()}>
                   {/* One row of actions on a phone (both 44pt), the stacked
                       pair on a desktop — order flips so Review keeps its
                       desktop place while sitting rightmost under a thumb. */}
@@ -657,7 +781,7 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
           })}
           {total > CAP && (
             <tr className="block sm:table-row">
-              <td colSpan={5} className="block sm:table-cell py-3 text-center text-xs text-gray-400 dark:text-gray-500">
+              <td colSpan={6} className="block sm:table-cell py-3 text-center text-xs text-gray-400 dark:text-gray-500">
                 Showing the first {CAP.toLocaleString()} of {total.toLocaleString()} —
                 settle these, then run this again for the rest.
               </td>
@@ -790,6 +914,46 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
               >
                 {sortDir === 1 ? '↑' : '↓'}
               </button>
+            </div>
+            {/* THE BULK REFUSAL BAR (owner, 1 Sep 2026: "save me going
+                through over 2000!"). Select-all covers the whole scope, not
+                the displayed cap — that is the point of it. The action only
+                appears once something is selected, and the press asks first:
+                see the confirmation dialog at the foot of this file. */}
+            <div className="flex flex-wrap items-center gap-3 mb-3">
+              <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 min-h-[44px] sm:min-h-0 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allInScopeSelected}
+                  onChange={toggleSelectAll}
+                  disabled={bulkSaving !== null}
+                  aria-label={allInScopeSelected ? 'Unselect all suggestions' : `Select all ${inScope.length.toLocaleString()} suggestions`}
+                />
+                {allInScopeSelected ? 'Unselect all' : `Select all ${inScope.length.toLocaleString()}`}
+              </label>
+              {selectedInScope > 0 && (
+                <>
+                  <span className="text-sm text-gray-600 dark:text-gray-400 tabular-nums">
+                    {selectedInScope.toLocaleString()} selected
+                  </span>
+                  <button
+                    type="button"
+                    disabled={bulkSaving !== null}
+                    onClick={() => {
+                      setBulkPending(bulkRefusalPairs());
+                      setBulkConfirm(true);
+                    }}
+                    className="px-3 py-2 min-h-[44px] sm:min-h-0 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                  >
+                    These are not duplicates
+                  </button>
+                </>
+              )}
+              {bulkSaving !== null && (
+                <span className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">
+                  Remembering {bulkSaving.done.toLocaleString()} of {bulkSaving.total.toLocaleString()}…
+                </span>
+              )}
             </div>
             {wordingAgrees.length > 0 && (
               // Named regions, because the two tables carry the same column
@@ -975,6 +1139,67 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
                 className="justify-center px-4 py-2 text-sm font-medium rounded-lg bg-red-700 text-white hover:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {deleting ? 'Deleting…' : 'Delete the copy I chose'}
+              </button>
+            </div>
+          </ModalFooter>
+        </Modal>
+      )}
+
+      {/* THE NUCLEAR BUTTON'S WARNING (owner, 1 Sep 2026). The press is a
+          judgment about every ticked row at once, so the dialog says the
+          whole of it before anything happens: genuine duplicates among the
+          selection are refused too, they leave this list, and they are not
+          offered again — with the one honest comfort that every refusal is
+          its own restorable row in Dismissed suggestions. When clusters
+          widen the count beyond the ticks, the widening is named, not
+          slipped in. */}
+      {bulkConfirm && (
+        <Modal
+          isOpen
+          onClose={() => {
+            setBulkConfirm(false);
+            setBulkPending([]);
+          }}
+          title={`Treat ${bulkPending.length.toLocaleString()} as not duplicates?`}
+          size="md"
+        >
+          <ModalBody>
+            <p className="text-sm text-gray-700 dark:text-gray-200">
+              Everything selected will be treated as <strong>not a duplicate</strong> — including
+              any that genuinely are. They come off this list now and will not be offered again
+              the next time this runs.
+            </p>
+            {bulkPending.length > selectedInScope && (
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                Your {selectedInScope.toLocaleString()} ticked row
+                {selectedInScope === 1 ? '' : 's'} share rows with other suggestions of the same
+                repeated payments, so {bulkPending.length.toLocaleString()} suggestions are
+                refused together — one judgment per payment, the same rule as the review dialog.
+              </p>
+            )}
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              Nothing is deleted and no balance moves. Every refusal stays individually
+              restorable from “Dismissed suggestions” at the foot of the list.
+            </p>
+          </ModalBody>
+          <ModalFooter>
+            <div className="flex items-center justify-end gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkConfirm(false);
+                  setBulkPending([]);
+                }}
+                className="px-4 py-2 min-h-[44px] text-sm font-medium border border-line dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmBulkRefusal()}
+                className="px-4 py-2 min-h-[44px] text-sm font-medium rounded-lg bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 transition-colors"
+              >
+                These are not duplicates
               </button>
             </div>
           </ModalFooter>

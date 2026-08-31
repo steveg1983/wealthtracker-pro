@@ -88,6 +88,42 @@ describe('usePullToRefresh — an open dialog owns the screen', () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
+  it('the installed-app class alone arms the gesture — the wrapper that lies about both flags', () => {
+    // The owner's iOS 27 wrapper answers false to display-mode: standalone AND
+    // navigator.standalone; only main.tsx's behavioural detection knows, via
+    // this class — and it can land seconds after mount, so the hook must ask
+    // per gesture. This is the exact hole that left close-and-reopen as his
+    // only refresh (1 Sep 2026).
+    matchMediaSpy.mockImplementation(
+      (query: string) =>
+        ({
+          matches: false,
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          addListener: () => {},
+          removeListener: () => {},
+          onchange: null,
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList
+    );
+    const reload = vi.fn();
+    renderHook(() => usePullToRefresh(reload));
+
+    // Nothing declared, no class yet: the pull is a Safari-style no-op.
+    pullDown();
+    expect(reload).not.toHaveBeenCalled();
+
+    // The class arrives late, as it does on the wrapper — and the NEXT pull works.
+    document.documentElement.classList.add('wt-installed-app');
+    try {
+      pullDown();
+      expect(reload).toHaveBeenCalledTimes(1);
+    } finally {
+      document.documentElement.classList.remove('wt-installed-app');
+    }
+  });
+
   it('a scroll-locked drag keeps its default — the dialog scrolls instead of freezing', () => {
     const reload = vi.fn();
     document.body.style.position = 'fixed';
