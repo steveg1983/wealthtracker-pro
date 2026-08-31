@@ -1,0 +1,457 @@
+/**
+ * The budget wizard's arithmetic, pinned.
+ *
+ * What is guarded here is the difference between an empty box and a typed
+ * zero, the twelve-complete-month window and its name, which categories can
+ * carry a budget at all, and the rule that a write happens only where the
+ * money changed. Every name and amount is invented: this repo is public.
+ *
+ * DATES ARE RELATIVE TO `new Date()`, never spelled out. The suite fixes its
+ * own "now", so a hard-coded 2026 date can fall outside the window and read
+ * every figure as zero — a fixture that lies rather than a test that fails.
+ */
+
+import { describe, it, expect } from 'vitest';
+import {
+  amountInMode,
+  budgetHistoryWindow,
+  budgetPeriodSuffix,
+  buildWizardRows,
+  groupWizardRows,
+  indexExistingBudgets,
+  isBudgetableCategory,
+  monthlyEquivalent,
+  planBudgetWrites,
+  summariseForWizard,
+  twinFigure,
+  wizardPeriodOf,
+  type WizardRow,
+} from './budgetWizardPlan';
+import type { Budget, Category, Transaction } from '../types';
+
+const CATEGORIES: Category[] = [
+  { id: 'type-expense', name: 'Expenses', type: 'expense', level: 'type' },
+  { id: 'type-income', name: 'Income', type: 'income', level: 'type' },
+  { id: 'grp-food', name: 'Food', type: 'expense', level: 'sub', parentId: 'type-expense' },
+  { id: 'det-shop', name: 'Food Shopping', type: 'expense', level: 'detail', parentId: 'grp-food' },
+  { id: 'det-dining', name: 'Dining Out', type: 'expense', level: 'detail', parentId: 'grp-food' },
+  { id: 'det-quiet', name: 'Never Used', type: 'expense', level: 'detail', parentId: 'grp-food' },
+  { id: 'grp-home', name: 'Household', type: 'expense', level: 'sub', parentId: 'type-expense' },
+  { id: 'det-energy', name: 'Gas & Electricity', type: 'expense', level: 'detail', parentId: 'grp-home' },
+  { id: 'det-pay', name: 'Net Pay', type: 'income', level: 'detail', parentId: 'type-income' },
+  {
+    id: 'det-move', name: 'Transfer Out', type: 'both', level: 'detail',
+    parentId: 'type-expense', isTransferCategory: true,
+  },
+  {
+    id: 'det-reval', name: 'Account Adjustment', type: 'expense', level: 'detail',
+    parentId: 'type-expense', isRevaluationCategory: true,
+  },
+  {
+    id: 'det-unfiled', name: 'Unassigned', type: 'expense', level: 'detail',
+    parentId: 'type-expense', isUnassignedBucket: true,
+  },
+  { id: 'det-gone', name: 'Retired Category', type: 'expense', level: 'detail', parentId: 'grp-food', isActive: false },
+];
+
+/** The 10th of each of the twelve complete months before this one — inside the window by construction. */
+const lastCompleteMonth = (): Date => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 0);
+};
+
+const monthlySpend = (prefix: string, category: string, amount: number): Transaction[] => {
+  const anchor = lastCompleteMonth();
+  return Array.from({ length: 12 }, (_, index) => ({
+    id: `${prefix}-${index}`,
+    accountId: 'acc-1',
+    description: 'Synthetic row',
+    amount: -amount,
+    type: 'expense' as const,
+    category,
+    date: new Date(anchor.getFullYear(), anchor.getMonth() - index, 10),
+  }));
+};
+
+const TRANSACTIONS: Transaction[] = [
+  ...monthlySpend('shop', 'det-shop', 100),     // £1,200 a year
+  ...monthlySpend('dine', 'det-dining', 50),    // £600 a year
+  ...monthlySpend('energy', 'det-energy', 80),  // £960 a year
+  // Kinds that are not expenditure, each £500 a month, none of which may land.
+  ...monthlySpend('move', 'det-move', 500),
+  ...monthlySpend('reval', 'det-reval', 500),
+  ...monthlySpend('unfiled', 'det-unfiled', 500),
+  ...monthlySpend('pay', 'det-pay', 500),
+];
+
+const budget = (over: Partial<Budget> & { id: string; categoryId: string }): Budget => ({
+  amount: 100,
+  period: 'monthly',
+  isActive: true,
+  spent: 0,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  ...over,
+});
+
+const rowsFor = (budgets: Budget[] = []): WizardRow[] =>
+  buildWizardRows(summariseForWizard(TRANSACTIONS, [], CATEGORIES, new Date()), CATEGORIES, budgets);
+
+const rowFor = (rows: WizardRow[], id: string): WizardRow => {
+  const found = rows.find(r => r.category.id === id);
+  if (!found) throw new Error(`no row for ${id}`);
+  return found;
+};
+
+describe('budgetHistoryWindow — twelve COMPLETE months', () => {
+  it('ends on the last day of the month before this one', () => {
+    const now = new Date();
+    const window = budgetHistoryWindow(now);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    expect(window.to).toBe(
+      `${endOfLastMonth.getFullYear()}-${String(endOfLastMonth.getMonth() + 1).padStart(2, '0')}-${String(endOfLastMonth.getDate()).padStart(2, '0')}`
+    );
+  });
+
+  it('excludes the part-finished month even on its last day', () => {
+    // 31 August is still inside August; the last COMPLETE month is July.
+    const window = budgetHistoryWindow(new Date(2026, 7, 31));
+    expect(window.from).toBe('2025-08-01');
+    expect(window.to).toBe('2026-07-31');
+  });
+
+  it('starts on the first of the month eleven before that — exactly twelve months', () => {
+    const window = budgetHistoryWindow(new Date(2026, 0, 15));
+    expect(window.from).toBe('2025-01-01');
+    expect(window.to).toBe('2025-12-31');
+  });
+
+  it('names the range in the house idiom rather than describing it', () => {
+    expect(budgetHistoryWindow(new Date(2026, 7, 31)).label).toBe('Aug 2025 – Jul 2026');
+  });
+
+  it('crosses a year boundary without arithmetic drift', () => {
+    const window = budgetHistoryWindow(new Date(2026, 2, 4));
+    expect(window.from).toBe('2025-03-01');
+    expect(window.to).toBe('2026-02-28');
+    expect(window.label).toBe('Mar 2025 – Feb 2026');
+  });
+});
+
+describe('twinFigure — type one figure, see the other', () => {
+  it('a monthly budget states its year', () => {
+    expect(twinFigure(100, 'monthly').toString()).toBe('1200');
+  });
+
+  it('a yearly budget states its month, at two places', () => {
+    expect(twinFigure(1000, 'yearly').toString()).toBe('83.33');
+  });
+
+  it('is Decimal throughout — 0.1 + 0.2 arithmetic never appears', () => {
+    expect(twinFigure('0.07', 'monthly').toString()).toBe('0.84');
+    expect(twinFigure('20.10', 'monthly').toString()).toBe('241.2');
+  });
+
+  it('converts a stored figure into the mode being typed', () => {
+    expect(amountInMode(1200, 'yearly', 'monthly').toString()).toBe('100');
+    expect(amountInMode(100, 'monthly', 'yearly').toString()).toBe('1200');
+    expect(amountInMode(100, 'monthly', 'monthly').toString()).toBe('100');
+  });
+
+  it('measures every stored figure per month, the currency comparisons are made in', () => {
+    expect(monthlyEquivalent(1200, 'yearly').toString()).toBe('100');
+    expect(monthlyEquivalent(75, 'monthly').toString()).toBe('75');
+  });
+});
+
+describe('which stored periods the wizard will express', () => {
+  it('reads monthly and yearly, and a blank period as monthly', () => {
+    expect(wizardPeriodOf('monthly')).toBe('monthly');
+    expect(wizardPeriodOf('yearly')).toBe('yearly');
+    expect(wizardPeriodOf('')).toBe('monthly');
+    expect(wizardPeriodOf(undefined)).toBe('monthly');
+  });
+
+  it('refuses the periods it has no honest conversion for', () => {
+    expect(wizardPeriodOf('weekly')).toBeNull();
+    expect(wizardPeriodOf('quarterly')).toBeNull();
+    expect(wizardPeriodOf('custom')).toBeNull();
+  });
+
+  it('suffixes an amount so a bare figure reads as a rate', () => {
+    expect(budgetPeriodSuffix('monthly')).toBe('/mo');
+    expect(budgetPeriodSuffix('yearly')).toBe('/yr');
+    expect(budgetPeriodSuffix('weekly')).toBe('/wk');
+    expect(budgetPeriodSuffix('custom')).toBe('');
+  });
+});
+
+describe('which categories can carry a budget', () => {
+  it('takes expense categories', () => {
+    expect(isBudgetableCategory(CATEGORIES[3])).toBe(true);
+  });
+
+  it('leaves income out — v1 budgets what you spend', () => {
+    expect(isBudgetableCategory(rowKind('det-pay'))).toBe(false);
+  });
+
+  it('leaves transfers out: moving money is not spending it', () => {
+    expect(isBudgetableCategory(rowKind('det-move'))).toBe(false);
+  });
+
+  it('leaves the revaluation category out: a fund falling is not expenditure', () => {
+    expect(isBudgetableCategory(rowKind('det-reval'))).toBe(false);
+  });
+
+  it("leaves the importer's unassigned bucket out: it is not a classification", () => {
+    expect(isBudgetableCategory(rowKind('det-unfiled'))).toBe(false);
+  });
+
+  it('leaves a soft-deleted category out', () => {
+    expect(isBudgetableCategory(rowKind('det-gone'))).toBe(false);
+  });
+
+  function rowKind(id: string): Category {
+    const found = CATEGORIES.find(c => c.id === id);
+    if (!found) throw new Error(`no category ${id}`);
+    return found;
+  }
+});
+
+describe('buildWizardRows — the grid', () => {
+  it('gives a box to every detail category, spent in or not', () => {
+    const ids = rowsFor().map(r => r.category.id);
+    expect(ids).toContain('det-shop');
+    expect(ids).toContain('det-quiet');
+  });
+
+  it('carries the history the reports would report', () => {
+    const rows = rowsFor();
+    expect(rowFor(rows, 'det-shop').annual.toString()).toBe('1200');
+    expect(rowFor(rows, 'det-shop').monthly.toString()).toBe('100');
+    expect(rowFor(rows, 'det-shop').rows).toBe(12);
+  });
+
+  it('shows nothing for a category with no spending, rather than omitting it', () => {
+    const quiet = rowFor(rowsFor(), 'det-quiet');
+    expect(quiet.annual.toString()).toBe('0');
+    expect(quiet.rows).toBe(0);
+  });
+
+  it('excludes transfers, revaluations, the unassigned bucket and income entirely', () => {
+    const ids = rowsFor().map(r => r.category.id);
+    expect(ids).not.toContain('det-move');
+    expect(ids).not.toContain('det-reval');
+    expect(ids).not.toContain('det-unfiled');
+    expect(ids).not.toContain('det-pay');
+  });
+
+  it('gives a parent group no box of its own — a budget is measured at the leaf', () => {
+    expect(rowsFor().map(r => r.category.id)).not.toContain('grp-food');
+  });
+
+  it('DOES show a group that already has a budget, so it can be edited or removed', () => {
+    const rows = rowsFor([budget({ id: 'b-grp', categoryId: 'grp-food', amount: 400 })]);
+    expect(rows.map(r => r.category.id)).toContain('grp-food');
+    expect(rowFor(rows, 'grp-food').existing?.id).toBe('b-grp');
+  });
+
+  it('pre-fills what is stored, keeping the period it is stored in', () => {
+    const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 1500, period: 'yearly' })]);
+    const shop = rowFor(rows, 'det-shop');
+    expect(shop.existing?.amount.toString()).toBe('1500');
+    expect(shop.existing?.period).toBe('yearly');
+  });
+
+  it('ignores a deactivated budget rather than resurrecting it', () => {
+    const rows = rowsFor([budget({ id: 'b-off', categoryId: 'det-shop', isActive: false })]);
+    expect(rowFor(rows, 'det-shop').existing).toBeNull();
+  });
+
+  it('keeps one budget per category when the data holds two', () => {
+    const index = indexExistingBudgets([
+      budget({ id: 'b-first', categoryId: 'det-shop', amount: 10 }),
+      budget({ id: 'b-second', categoryId: 'det-shop', amount: 20 }),
+    ]);
+    expect(index.get('det-shop')?.id).toBe('b-first');
+  });
+});
+
+describe('groupWizardRows — arrangement', () => {
+  it('files each row under its parent with a display-only roll-up', () => {
+    const groups = groupWizardRows(rowsFor());
+    const food = groups.find(g => g.name === 'Food');
+    expect(food?.annual.toString()).toBe('1800'); // 1200 + 600 + 0
+    expect(food?.monthly.toString()).toBe('150');
+  });
+
+  it('leads with the biggest spend, inside a group and between groups', () => {
+    const groups = groupWizardRows(rowsFor());
+    expect(groups.map(g => g.name)).toEqual(['Food', 'Household']);
+    expect(groups[0].rows.map(r => r.category.name)).toEqual(['Food Shopping', 'Dining Out', 'Never Used']);
+  });
+});
+
+describe('planBudgetWrites — empty is not zero', () => {
+  it('writes a typed zero: "I intend to spend nothing here" is a real budget', () => {
+    const plan = planBudgetWrites(rowsFor(), { 'det-shop': '0' }, 'monthly');
+    expect(plan.upserts).toHaveLength(1);
+    expect(plan.upserts[0].amount.toString()).toBe('0');
+    expect(plan.upserts[0].period).toBe('monthly');
+    expect(plan.budgetedCount).toBe(1);
+  });
+
+  it('writes nothing for an empty box that had no budget behind it', () => {
+    const plan = planBudgetWrites(rowsFor(), { 'det-shop': '' }, 'monthly');
+    expect(plan.upserts).toHaveLength(0);
+    expect(plan.removals).toHaveLength(0);
+    expect(plan.budgetedCount).toBe(0);
+  });
+
+  it('REMOVES the budget behind a box somebody emptied', () => {
+    const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 120 })]);
+    const plan = planBudgetWrites(rows, { 'det-shop': '' }, 'monthly');
+    expect(plan.removals).toEqual([
+      { budgetId: 'b-1', categoryId: 'det-shop', categoryName: 'Food Shopping' },
+    ]);
+    expect(plan.upserts).toHaveLength(0);
+    expect(plan.budgetedCount).toBe(0);
+  });
+
+  it('keeps a typed zero and an emptied box apart on the same screen', () => {
+    const rows = rowsFor([
+      budget({ id: 'b-1', categoryId: 'det-shop', amount: 120 }),
+      budget({ id: 'b-2', categoryId: 'det-dining', amount: 60 }),
+    ]);
+    const plan = planBudgetWrites(rows, { 'det-shop': '0', 'det-dining': '' }, 'monthly');
+    expect(plan.upserts.map(u => u.categoryId)).toEqual(['det-shop']);
+    expect(plan.upserts[0].amount.toString()).toBe('0');
+    expect(plan.removals.map(r => r.categoryId)).toEqual(['det-dining']);
+  });
+
+  it('leaves an untouched box exactly as it was', () => {
+    const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 120 })]);
+    const plan = planBudgetWrites(rows, {}, 'monthly');
+    expect(plan.upserts).toHaveLength(0);
+    expect(plan.removals).toHaveLength(0);
+    // Still budgeted, and still counted: it exists after the apply.
+    expect(plan.budgetedCount).toBe(1);
+    expect(plan.monthlyTotal.toString()).toBe('120');
+  });
+});
+
+describe('planBudgetWrites — what counts as a change', () => {
+  it('creates where there was nothing, carrying no budget id', () => {
+    const plan = planBudgetWrites(rowsFor(), { 'det-shop': '95' }, 'monthly');
+    expect(plan.upserts[0].budgetId).toBeUndefined();
+    expect(plan.upserts[0].categoryId).toBe('det-shop');
+  });
+
+  it('edits where there was something, carrying its id', () => {
+    const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 120 })]);
+    const plan = planBudgetWrites(rows, { 'det-shop': '95' }, 'monthly');
+    expect(plan.upserts[0].budgetId).toBe('b-1');
+  });
+
+  it('re-typing the figure already stored is not a write', () => {
+    const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 120 })]);
+    const plan = planBudgetWrites(rows, { 'det-shop': '120' }, 'monthly');
+    expect(plan.upserts).toHaveLength(0);
+    expect(plan.budgetedCount).toBe(1);
+  });
+
+  it('a yearly budget seen in monthly mode and left alone is not rewritten', () => {
+    // £1,200/yr pre-fills the monthly box as £100. Agreeing with it changes no
+    // money, so its stored period is not churned into 'monthly'.
+    const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 1200, period: 'yearly' })]);
+    const plan = planBudgetWrites(rows, { 'det-shop': '100' }, 'monthly');
+    expect(plan.upserts).toHaveLength(0);
+    expect(plan.monthlyTotal.toString()).toBe('100');
+  });
+
+  it('rewrites in the chosen mode once the money really changes', () => {
+    const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 1200, period: 'yearly' })]);
+    const plan = planBudgetWrites(rows, { 'det-shop': '110' }, 'monthly');
+    expect(plan.upserts[0]).toMatchObject({ budgetId: 'b-1', period: 'monthly' });
+    expect(plan.upserts[0].amount.toString()).toBe('110');
+  });
+
+  it('writes an annual figure as yearly when that is the chosen mode', () => {
+    const plan = planBudgetWrites(rowsFor(), { 'det-shop': '1500' }, 'yearly');
+    expect(plan.upserts[0].period).toBe('yearly');
+    expect(plan.upserts[0].amount.toString()).toBe('1500');
+    expect(plan.upserts[0].monthly.toString()).toBe('125');
+  });
+
+  it('reads a figure typed with a currency symbol and separators', () => {
+    const plan = planBudgetWrites(rowsFor(), { 'det-shop': ' £1,250.50 ' }, 'yearly');
+    expect(plan.upserts[0].amount.toString()).toBe('1250.5');
+  });
+
+  it('never guesses at a figure it cannot read — it reports the row', () => {
+    const plan = planBudgetWrites(rowsFor(), { 'det-shop': 'about a hundred' }, 'monthly');
+    expect(plan.upserts).toHaveLength(0);
+    expect(plan.rejections).toEqual([
+      { categoryId: 'det-shop', categoryName: 'Food Shopping', raw: 'about a hundred' },
+    ]);
+  });
+
+  it('refuses a negative budget rather than storing one', () => {
+    const plan = planBudgetWrites(rowsFor(), { 'det-shop': '-50' }, 'monthly');
+    expect(plan.upserts).toHaveLength(0);
+    expect(plan.rejections.map(r => r.categoryId)).toEqual(['det-shop']);
+  });
+
+  it('leaves a weekly budget alone: neither rewritten nor removed', () => {
+    const rows = rowsFor([budget({ id: 'b-wk', categoryId: 'det-shop', amount: 30, period: 'weekly' })]);
+    const plan = planBudgetWrites(rows, { 'det-shop': '200' }, 'monthly');
+    expect(plan.upserts).toHaveLength(0);
+    expect(plan.removals).toHaveLength(0);
+    // Counted, because it will still be there afterwards.
+    expect(plan.budgetedCount).toBe(1);
+  });
+});
+
+describe('planBudgetWrites — the totals step 3 states', () => {
+  it('totals the month, the year and what those categories really cost', () => {
+    const plan = planBudgetWrites(
+      rowsFor(),
+      { 'det-shop': '90', 'det-dining': '40' },
+      'monthly'
+    );
+    expect(plan.budgetedCount).toBe(2);
+    expect(plan.monthlyTotal.toString()).toBe('130');
+    expect(plan.annualTotal.toString()).toBe('1560');
+    expect(plan.spentTotal.toString()).toBe('1800'); // 1200 + 600
+  });
+
+  it('names a shortfall: budgets that allow less than the year cost', () => {
+    const plan = planBudgetWrites(rowsFor(), { 'det-shop': '90' }, 'monthly');
+    expect(plan.difference.toString()).toBe('-120'); // 1080 budgeted vs 1200 spent
+    expect(plan.difference.isNegative()).toBe(true);
+  });
+
+  it('names headroom: budgets that allow more than the year cost', () => {
+    const plan = planBudgetWrites(rowsFor(), { 'det-shop': '150' }, 'monthly');
+    expect(plan.difference.toString()).toBe('600'); // 1800 budgeted vs 1200 spent
+  });
+
+  it('counts budgets left untouched in the totals, not just the ones being written', () => {
+    const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-energy', amount: 80 })]);
+    const plan = planBudgetWrites(rows, { 'det-shop': '100' }, 'monthly');
+    expect(plan.upserts).toHaveLength(1);
+    expect(plan.budgetedCount).toBe(2);
+    expect(plan.monthlyTotal.toString()).toBe('180');
+  });
+
+  it('excludes a removed budget from the totals it will not be part of', () => {
+    const rows = rowsFor([
+      budget({ id: 'b-1', categoryId: 'det-shop', amount: 100 }),
+      budget({ id: 'b-2', categoryId: 'det-dining', amount: 50 }),
+    ]);
+    const plan = planBudgetWrites(rows, { 'det-dining': '' }, 'monthly');
+    expect(plan.budgetedCount).toBe(1);
+    expect(plan.monthlyTotal.toString()).toBe('100');
+    expect(plan.spentTotal.toString()).toBe('1200'); // Dining's £600 is not in it
+  });
+});

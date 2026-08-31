@@ -1099,8 +1099,8 @@ export default function PortfolioManager({
                   gives the price. Asking is cheaper than making the owner
                   divide 9,993.63 by 8,587.805 in their head and type the
                   answer to four places. The segmented pair is the house
-                  idiom — BudgetSetupModal's Monthly/Annually, same border,
-                  same pressed treatment. */}
+                  idiom — the same border and pressed treatment the budget
+                  wizard's months-or-years choice uses. */}
               {!editing && (
                 <>
                   <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">

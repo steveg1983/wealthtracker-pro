@@ -1,5 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Suspense } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
+import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
+import { budgetPeriodSuffix, indexExistingBudgets } from '../../utils/budgetWizardPlan';
 import { useToast } from '../../contexts/ToastContext';
 import { DEFAULT_CATEGORY_TREE } from '../../data/defaultCategoryTree';
 import { planCategoryTreeImport } from '../../utils/categoryTreeImport';
@@ -194,6 +197,12 @@ function SortableCategory({
   );
 }
 
+/**
+ * The bulk setup flow, off this page's chunk — see the note on the Budget
+ * page, which loads the same component the same way.
+ */
+const BudgetWizard = lazyWithRecovery(() => import('../../components/BudgetWizard'));
+
 /** "1,240 transactions, 12 split lines and 1 budget" — zero counts say nothing. */
 function movingClause(transactions: number, splitLines: number, budgets: number): string {
   const parts: string[] = [];
@@ -226,7 +235,46 @@ export default function CategoriesSettings() {
     importCategoryTree
   } = useApp();
   const { showSuccess, showError } = useToast();
+  const { formatCurrency } = useCurrencyDecimal();
   const [isImporting, setIsImporting] = useState(false);
+  /**
+   * THE OTHER LENS ON A BUDGET (owner's ruling, 31 Aug 2026).
+   *
+   * A budget is a PROPERTY of a category, not a separate object sharing its
+   * name — so this page, which is where categories are managed, says WHAT IS
+   * SET, and the Budget page says how it is going. Both read the same rows,
+   * keyed by category id; nothing was added to the schema to make this true.
+   *
+   * Indexed once for the whole tree rather than searched per row: this page
+   * renders every category, and a `budgets.find()` inside the row would be
+   * O(categories × budgets) on a ledger with hundreds of both.
+   */
+  const budgetByCategory = useMemo(() => indexExistingBudgets(budgets), [budgets]);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+
+  /**
+   * A category's budget as stored — "£120.00/mo", "£1,500.00/yr" — or nothing
+   * at all for an unbudgeted one.
+   *
+   * Shown in the period it is STORED in rather than normalised to a month:
+   * this lens reports the world, and someone who set £1,500 a year should find
+   * £1,500 a year here. An empty cell is the honest rendering of unbudgeted —
+   * a "£0.00" would claim a budget of nothing, which is a different thing that
+   * a user can deliberately set.
+   */
+  const renderBudgetCell = (categoryId: string): React.JSX.Element | null => {
+    const budget = budgetByCategory.get(categoryId);
+    if (!budget) return null;
+    return (
+      <span
+        className="text-sm text-gray-600 dark:text-gray-300 tabular-nums whitespace-nowrap"
+        title={`Budget: ${formatCurrency(budget.amount)}${budgetPeriodSuffix(budget.storedPeriod)}`}
+      >
+        {formatCurrency(budget.amount)}
+        <span className="text-gray-400 dark:text-gray-500">{budgetPeriodSuffix(budget.storedPeriod)}</span>
+      </span>
+    );
+  };
 
   // Split parents expand into their per-line virtual rows so a split line
   // counts under ITS category, not nowhere (the parent's category is blank).
@@ -879,6 +927,7 @@ export default function CategoriesSettings() {
                       isDraggable={true}
                     >
                       <div className="flex items-center gap-2">
+                        {renderBudgetCell(subCategory.id)}
                         {orderedDetailCategories.length > 0 && (
                           <IconButton
                             onClick={(e) => {
@@ -919,6 +968,7 @@ export default function CategoriesSettings() {
                                   onClick={() => handleCategoryClick(detailCategory.id, detailCategory.name)}
                                   isDraggable={true}
                                 >
+                                  {renderBudgetCell(detailCategory.id)}
                                   <span className="text-sm text-gray-500 dark:text-gray-400">
                                     ({detailTransactionCount})
                                   </span>
@@ -939,7 +989,17 @@ export default function CategoriesSettings() {
     <PageWrapper 
       title="Categories"
       rightContent={
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {/* The same door as the Budget page's, because it is the same job:
+              a budget is a property of a category, and this is where the
+              categories are. Nobody should have to know which page owns it. */}
+          <button
+            onClick={() => setIsWizardOpen(true)}
+            className="px-3 py-2 min-h-[44px] text-sm font-medium border border-line dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            title="Set budgets against what you actually spent"
+          >
+            Set up budgets
+          </button>
           <button
             onClick={() => {
               setIsEditMode(!isEditMode);
@@ -1234,6 +1294,7 @@ export default function CategoriesSettings() {
                       onClick={() => handleCategoryClick(category.id, category.name)}
                       isDraggable={false}
                     >
+                      {renderBudgetCell(category.id)}
                       <span className="text-sm text-gray-500 dark:text-gray-400">
                         ({transactionCount})
                       </span>
@@ -1475,6 +1536,13 @@ export default function CategoriesSettings() {
         isOpen={showCategoryModal}
         onClose={() => setShowCategoryModal(false)}
       />
+
+      {/* Mounted only once asked for — it is a lazy chunk. */}
+      {isWizardOpen && (
+        <Suspense fallback={null}>
+          <BudgetWizard isOpen onClose={() => setIsWizardOpen(false)} />
+        </Suspense>
+      )}
 
       {/* View Transactions Confirmation */}
       {viewingCategoryId && !showTransactionsModal && (
