@@ -107,20 +107,22 @@ describe('Budget Workflow Integration', () => {
         expect(screen.getByRole('heading', { level: 1, name: /budget/i })).toBeInTheDocument();
       });
 
-      // The three features are collapsed folds, earned by the budget existing.
-      const templatesFold = await screen.findByRole('button', { name: /budget templates/i });
-      expect(templatesFold).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.getByRole('button', { name: /rollover/i })).toBeInTheDocument();
+      // The features are collapsed folds, earned by the budget existing.
+      // (Templates was the third fold until 1 Sep 2026 — retired: applying
+      // a budget set in one go is the wizard's job now.)
+      const rolloverFold = await screen.findByRole('button', { name: /rollover/i });
+      expect(rolloverFold).toHaveAttribute('aria-expanded', 'false');
       expect(screen.getByRole('button', { name: /spending alerts/i })).toBeInTheDocument();
 
-      // The retired approaches are gone for good.
+      // The retired features are gone for good.
       expect(screen.queryByText(/envelope/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/zero-based/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/budget templates/i)).not.toBeInTheDocument();
 
       // Opening a fold mounts its content.
-      await user.click(templatesFold);
+      await user.click(rolloverFold);
       await waitFor(() => {
-        expect(templatesFold).toHaveAttribute('aria-expanded', 'true');
+        expect(rolloverFold).toHaveAttribute('aria-expanded', 'true');
       });
     });
 
