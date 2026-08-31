@@ -93,19 +93,50 @@ if (!PUBLISHABLE_KEY) {
 // Initialize all security features
 initializeSecurity();
 
-// THE INSTALLED-APP CLASS, because the iOS wrapper lies twice over.
+// THE INSTALLED-APP CLASS, because the iOS wrapper lies three times over.
 // index.css zeroes the safe-area insets for installed apps (since iOS 26.1
 // the system draws its own bars there and still reports the full env()
-// values — see --wt-status-bar-inset), keyed on
-// `@media (display-mode: standalone)`. The owner's phone — iOS 27, 1 Sep
-// 2026 — proved the wrapper does not match that media query either, so the
-// media key never fired and the dead bands stayed. `navigator.standalone`
-// is the iOS-specific flag the wrapper cannot misreport — the same pair
-// usePullToRefresh already trusts — and the class gives the stylesheet a
-// key that works on both readings. Set before render so the first paint is
-// already right.
-if ((window.navigator as Navigator & { standalone?: boolean }).standalone === true) {
-  document.documentElement.classList.add('wt-installed-app');
+// values — see --wt-status-bar-inset). Three keys, each added when the one
+// before it was measured dead on the owner's iPhone (iOS 27, 1 Sep 2026):
+//
+//   1. `display-mode: standalone` — the standard signal. The wrapper does
+//      not match it (screenshot, 15:56).
+//   2. `navigator.standalone` — the iOS-specific flag usePullToRefresh
+//      trusts. Not true there either (screenshot, 16:19, post-deploy).
+//   3. THE LIE ITSELF: the device pays a top safe-area inset while the
+//      window provably does not reach the screen's top edge. No honest
+//      surface reports that pair at boot — Safari's chrome is expanded at
+//      load so env-top is 0; a healthy full-bleed installed app has
+//      innerHeight equal to the screen; desktop pays no env at all. Only a
+//      wrapper that insets the webview AND still reports the notch answers
+//      yes to both.
+//
+// Measured ONCE, at boot, deliberately: mid-session Safari can slide a page
+// under the status bar as its chrome minimises, which would make key 3
+// true for a moment — at load it never is. Set before render so the first
+// paint is already right.
+{
+  const navigatorWithFlag = window.navigator as Navigator & { standalone?: boolean };
+  const declaredInstalled =
+    navigatorWithFlag.standalone === true ||
+    window.matchMedia?.('(display-mode: standalone)').matches === true;
+  const paysTopInsetWhileInset = (): boolean => {
+    try {
+      const probe = document.createElement('div');
+      probe.style.cssText =
+        'position:fixed;top:0;left:0;height:0;width:0;visibility:hidden;pointer-events:none;' +
+        'padding-top:env(safe-area-inset-top,0px)';
+      document.body.appendChild(probe);
+      const envTop = Number.parseFloat(getComputedStyle(probe).paddingTop) || 0;
+      probe.remove();
+      return envTop > 0 && window.innerHeight < window.screen.height;
+    } catch {
+      return false;
+    }
+  };
+  if (declaredInstalled || paysTopInsetWhileInset()) {
+    document.documentElement.classList.add('wt-installed-app');
+  }
 }
 
 // Initialize Sentry error tracking
