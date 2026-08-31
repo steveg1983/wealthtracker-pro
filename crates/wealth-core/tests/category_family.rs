@@ -872,13 +872,15 @@ fn confirming_a_guess_ends_that_rows_review_and_no_other() {
 }
 
 #[test]
-fn filing_a_payee_in_bulk_leaves_every_review_alone() {
-    // The pair with the test above, and the reason both are here: the two verbs
-    // look alike and mean opposite things. Applying a category to a payee's
-    // blanks is a decision about a CATEGORY taken from a list of payees, where
-    // the rows' dates, amounts and accounts were never on screen. If this ever
-    // started clearing the flag, one run of the bulk tool would mark a whole
-    // imported statement as dealt with, silently.
+fn filing_a_payee_in_bulk_ends_the_reviews_it_files_and_no_other() {
+    // The pair with the test above — and this one used to assert the OPPOSITE,
+    // on the argument that a bulk filing never showed the rows' dates and
+    // amounts. The owner reversed it on 1 Sep 2026 after a live measurement:
+    // a household ledger's "to review" count stopped meaning anything when a
+    // thousand-odd payee-filed rows stayed bold forever. Filing ends the
+    // review (the confirm path's own principle: answering the question a row
+    // was asking IS reviewing it); rows the call does NOT file keep their
+    // flag, which is what this test still guards.
     let mut connection = fixture();
     every_shape_of_filing(&connection);
     connection
@@ -900,6 +902,15 @@ fn filing_a_payee_in_bulk_leaves_every_review_alone() {
             &connection,
             &format!("SELECT needs_review FROM transactions WHERE id = '{BLANK_ROW}'")
         ),
-        1
+        0,
+        "the row the call filed is dealt with"
+    );
+    assert_eq!(
+        scalar(
+            &connection,
+            &format!("SELECT needs_review FROM transactions WHERE id = '{CONFIRMED_ROW}'")
+        ),
+        1,
+        "a row the call never touched keeps its review"
     );
 }

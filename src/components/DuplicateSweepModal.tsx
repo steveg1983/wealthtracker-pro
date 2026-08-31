@@ -544,8 +544,15 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
 
   const renderTable = (rows: DuplicateCandidate[], total: number): React.JSX.Element => (
     <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
+      {/* A table on a desktop, cards on a phone — the house reflow (see
+          BulkCategorizeModal, BudgetWizard). At 375pt the five columns
+          crushed the Review button half off the glass (owner's screenshot,
+          1 Sep 2026); below `sm` each row is now a two-column card placed by
+          explicit grid coordinates, since the source order is the desktop's
+          column order. The thead hides with the columns; the phone-only
+          "Sort by" control above the sections replaces its buttons. */}
+      <table className="block sm:table w-full">
+        <thead className="hidden sm:table-header-group">
           <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
             {([
               ['date', 'Date', 'Sort by date'],
@@ -567,7 +574,7 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
             <th className="pb-2 w-28"></th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="block sm:table-row-group">
           {rows.map(candidate => {
             const first = earlier(candidate);
             const sameWording = candidate.a.description === candidate.b.description;
@@ -579,12 +586,12 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
                 ref={landedHere ? pairFocus.focusRef : undefined}
                 aria-current={landedHere ? 'true' : undefined}
                 onClick={() => review(candidate)}
-                className={`border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors align-top ${
+                className={`grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 py-2 sm:py-0 sm:table-row border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors align-top ${
                   landedHere ? ARRIVAL_ROW_CLASS : ''
                 }`}
                 title="Look at both copies of this"
               >
-                <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                <td className="block sm:table-cell col-start-1 row-start-2 sm:py-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                   {shortDate(first.date)}
                   {candidate.daysApart > 0 && (
                     <span className="ml-1 text-xs text-gray-400">
@@ -592,17 +599,17 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
                     </span>
                   )}
                 </td>
-                <td className="py-2 text-sm text-gray-700 dark:text-gray-300">
-                  <span className="block truncate max-w-[140px]">
+                <td className="block sm:table-cell col-start-1 row-start-1 min-w-0 sm:py-2 text-sm text-gray-700 dark:text-gray-300">
+                  <span className="block truncate sm:max-w-[140px]">
                     {accountName(candidate.a.accountId)}
                   </span>
                 </td>
-                <td className="py-2 text-sm text-gray-600 dark:text-gray-400">
-                  <span className="block truncate max-w-[260px] text-gray-900 dark:text-white">
+                <td className="block sm:table-cell col-span-2 col-start-1 row-start-3 min-w-0 mt-1 sm:mt-0 sm:py-2 text-sm text-gray-600 dark:text-gray-400">
+                  <span className="block truncate sm:max-w-[260px] text-gray-900 dark:text-white">
                     {candidate.a.description}
                   </span>
                   {!sameWording && (
-                    <span className="block truncate max-w-[260px] text-xs">
+                    <span className="block truncate sm:max-w-[260px] text-xs">
                       and “{candidate.b.description}”
                     </span>
                   )}
@@ -613,7 +620,7 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
                     read identically until the review opened. Both rows of a
                     candidate share a sign by construction: the scan matches
                     on the SIGNED amount. */}
-                <td className={`py-2 text-sm font-medium text-right tabular-nums whitespace-nowrap ${candidate.a.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                <td className={`block sm:table-cell col-start-2 row-start-1 sm:py-2 text-sm font-medium text-right tabular-nums whitespace-nowrap ${candidate.a.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                   {candidate.a.amount < 0 ? '\u2212' : '+'}{formatCurrency(Math.abs(candidate.a.amount))}
                 </td>
                 {/* The row itself opens the review — one meaning per click.
@@ -622,23 +629,26 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
                     ambiguous. It lands on the EARLIER copy: both are in one
                     account within the window, so the other is a few rows away
                     on the same screen, in date order with the running balance. */}
-                <td className="py-2 text-right" onClick={e => e.stopPropagation()}>
-                  <div className="flex flex-col items-end gap-1">
-                    <button
-                      type="button"
-                      onClick={() => review(candidate)}
-                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      Review
-                    </button>
+                <td className="block sm:table-cell col-span-2 col-start-1 row-start-4 mt-2 sm:mt-0 sm:py-2 text-right" onClick={e => e.stopPropagation()}>
+                  {/* One row of actions on a phone (both 44pt), the stacked
+                      pair on a desktop — order flips so Review keeps its
+                      desktop place while sitting rightmost under a thumb. */}
+                  <div className="flex flex-row items-center justify-end gap-4 sm:flex-col sm:items-end sm:gap-1">
                     <button
                       type="button"
                       onClick={() => openInRegister(first, candidate, false)}
                       aria-label={`See these two rows in ${accountName(candidate.a.accountId)}`}
-                      className="inline-flex items-center gap-1 px-1 text-xs font-medium text-primary hover:text-secondary"
+                      className="inline-flex items-center gap-1 px-1 min-h-[44px] sm:min-h-0 text-xs font-medium text-primary hover:text-secondary sm:order-2"
                     >
                       <ArrowUpRightIcon size={12} />
                       In the register
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => review(candidate)}
+                      className="px-3 py-1.5 min-h-[44px] sm:min-h-0 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors sm:order-1"
+                    >
+                      Review
                     </button>
                   </div>
                 </td>
@@ -646,8 +656,8 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
             );
           })}
           {total > CAP && (
-            <tr>
-              <td colSpan={5} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
+            <tr className="block sm:table-row">
+              <td colSpan={5} className="block sm:table-cell py-3 text-center text-xs text-gray-400 dark:text-gray-500">
                 Showing the first {CAP.toLocaleString()} of {total.toLocaleString()} —
                 settle these, then run this again for the rest.
               </td>
@@ -693,6 +703,25 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
           </label>
         </div>
 
+        {/* THE TALLY — how much is left, said where the work starts (owner,
+            1 Sep 2026: "a tally of how many you have left"). It counts what
+            the list below actually shows: the scoped account when one is
+            chosen, with the all-accounts figure beside it so narrowing never
+            hides the size of the job. At zero it says nothing — the empty
+            state below already says it in words, and a zero count renders
+            nothing (house rule). */}
+        {dismissalsChecked && inScope.length > 0 && (
+          <p className="mb-3 text-sm text-right text-gray-600 dark:text-gray-400 tabular-nums">
+            <span className="font-medium text-gray-900 dark:text-white">
+              {inScope.length.toLocaleString()}
+            </span>{' '}
+            suggestion{inScope.length === 1 ? '' : 's'} left
+            {scopedAccount !== '' && live.length !== inScope.length && (
+              <span> in this account · {live.length.toLocaleString()} across all accounts</span>
+            )}
+          </p>
+        )}
+
         {/* Only worth a control when there is more than one account to choose
             between — otherwise it is a menu with one thing on it. */}
         {accountsWithWork.length > 1 && (
@@ -728,6 +757,40 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
           </p>
         ) : (
           <>
+            {/* The thead's sort buttons hide with the columns below `sm`;
+                this is their phone replacement — one control, because the
+                sort state is shared by both sections. The arrow button
+                re-sorts by the same key, which is exactly what clicking a
+                heading twice does on a desktop. */}
+            <div className="sm:hidden flex items-center gap-1 mb-2 text-sm text-gray-600 dark:text-gray-400">
+              <label>
+                Sort by{' '}
+                <select
+                  value={sortKey}
+                  onChange={e => {
+                    const chosen = e.target.value;
+                    if (chosen === 'date' || chosen === 'account' || chosen === 'description' || chosen === 'amount') {
+                      sortBy(chosen);
+                    }
+                  }}
+                  className="ml-1 px-2 py-1 min-h-[44px] rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="date">Date</option>
+                  <option value="account">Account</option>
+                  <option value="description">Description</option>
+                  <option value="amount">Amount</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => sortBy(sortKey)}
+                aria-label="Reverse the sort"
+                title="Reverse the sort"
+                className="min-h-[44px] min-w-[44px] rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                {sortDir === 1 ? '↑' : '↓'}
+              </button>
+            </div>
             {wordingAgrees.length > 0 && (
               // Named regions, because the two tables carry the same column
               // headings: without this a screen reader meets "Sort by date"

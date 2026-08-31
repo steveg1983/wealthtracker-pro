@@ -93,6 +93,21 @@ if (!PUBLISHABLE_KEY) {
 // Initialize all security features
 initializeSecurity();
 
+// THE INSTALLED-APP CLASS, because the iOS wrapper lies twice over.
+// index.css zeroes the safe-area insets for installed apps (since iOS 26.1
+// the system draws its own bars there and still reports the full env()
+// values — see --wt-status-bar-inset), keyed on
+// `@media (display-mode: standalone)`. The owner's phone — iOS 27, 1 Sep
+// 2026 — proved the wrapper does not match that media query either, so the
+// media key never fired and the dead bands stayed. `navigator.standalone`
+// is the iOS-specific flag the wrapper cannot misreport — the same pair
+// usePullToRefresh already trusts — and the class gives the stylesheet a
+// key that works on both readings. Set before render so the first paint is
+// already right.
+if ((window.navigator as Navigator & { standalone?: boolean }).standalone === true) {
+  document.documentElement.classList.add('wt-installed-app');
+}
+
 // Initialize Sentry error tracking
 try {
   initSentry();

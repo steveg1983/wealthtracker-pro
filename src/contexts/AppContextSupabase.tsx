@@ -1216,9 +1216,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // NON-SPLIT rows flip (a split parent's blank category means "split").
       // categoryConfirmed comes along because this is the user's own filing —
       // the same reasoning as the server side (see the RPC and dataService).
+      // needsReview ENDS with the filing (owner's ruling, 1 Sep 2026, after a
+      // live ledger's "to review" count refused to move under a thousand-row
+      // payee filing): answering the question a row was asking IS reviewing
+      // it — the confirm path's own principle, now this one's too. See
+      // 20260901150000_bulk_filing_ends_review.sql for the ruling it
+      // reversed and the backfill that cleared the stranded rows.
       setTransactions(prev => prev.map(t =>
         idSet.has(t.id) && !t.isSplit && (!t.category || t.category.trim() === '')
-          ? { ...t, category, categoryConfirmed: true }
+          ? { ...t, category, categoryConfirmed: true, needsReview: false }
           : t
       ));
       return count;

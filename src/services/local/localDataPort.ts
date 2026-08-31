@@ -930,14 +930,16 @@ export class LocalDataPort implements DataPort {
   }
 
   /**
-   * File a category on the rows of a payee that are still blank.
+   * File a category on the rows of a payee that are still blank — and end
+   * their review with it.
    *
-   * Fill-blanks only, and it leaves `needsReview` exactly as it was. The
-   * contrast with `confirmTransactionCategories` below is the point and it is
-   * the crate's, not this file's: this is a decision about a CATEGORY taken from
-   * a list of payees, where the rows' dates, amounts and accounts were never on
-   * screen, so one run of the bulk tool must not mark a whole imported statement
-   * as dealt with.
+   * Fill-blanks only. This used to leave `needsReview` alone, on the argument
+   * that the rows' dates and amounts were never on screen; the owner reversed
+   * that on 1 Sep 2026 after a live ledger's "to review" count refused to
+   * move under a thousand-row payee filing. The principle that won is the one
+   * `confirmTransactionCategories` below has always carried: answering the
+   * question a row was asking IS reviewing it. Both engines changed together
+   * — the crate's verb and 20260901150000_bulk_filing_ends_review.sql.
    */
   async applyCategoryToUncategorized(ids: string[], category: string): Promise<number> {
     const answer = await this.#ask('apply_category_to_uncategorized', { ids, category });
