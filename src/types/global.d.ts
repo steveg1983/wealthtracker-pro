@@ -30,6 +30,12 @@ interface Navigator {
 }
 
 interface Window {
+  /**
+   * What the installed-app detector saw, attempt by attempt — printed by
+   * Settings → App's Display diagnostics so a wrapper regression costs one
+   * screenshot. Written only by main.tsx's detection block.
+   */
+  __wtInstalledAppTrace?: string[];
   Sentry?: {
     captureException: (error: Error) => void;
     captureMessage: (message: string) => void;
