@@ -40,9 +40,24 @@
       /* Critical CSS inline - optimized for LCP */
       *,*::before,*::after{box-sizing:border-box}
       html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+      /* The ground and colour-scheme must exist BEFORE the async stylesheet
+         arrives, or a dark-mode launch flashes white: index.css carries the
+         real backgrounds but is ~375KB gzipped and loads after first paint.
+         This block can only follow the system scheme — the app's own choice
+         (html.dark) is applied by JS later and index.css wins from there.
+         What this does NOT fix, verified 31 Aug 2026 by A/B in the iOS 26
+         simulator against production: the light status-bar band on a
+         home-screen web app in dark mode. That is Apple's wrapper bug
+         (reversed appearance — see tutao/tutanota#8911; iOS 26.1 also stopped
+         rendering web apps full-screen), and no page CSS, theme-color,
+         color-scheme or manifest value reaches it. Do not re-attempt from
+         here. */
+      html{background-color:#f8f9fb;color-scheme:light}
+      @media(prefers-color-scheme:dark){html{background-color:#111827;color-scheme:dark}}
       body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;line-height:1.5}
       #root{min-height:100vh;isolation:isolate}
       .app-loading{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f3f4f6}
+      .app-loading-caption{margin-top:16px;color:#1a2332;font-family:'Inter',sans-serif;font-weight:500;letter-spacing:-0.01em}
       /* Prevent layout shift */
       img,video,canvas,svg{display:block;max-width:100%}
       input,button,textarea,select{font:inherit}
@@ -51,6 +66,8 @@
       /* Loading spinner animation */
       @keyframes spin{to{transform:rotate(360deg)}}
       .spinner{width:48px;height:48px;border:3px solid #e2e6ed;border-top-color:#1a2332;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto}
+      /* After the light rules they override — same specificity, cascade order decides. */
+      @media(prefers-color-scheme:dark){.app-loading{background:#111827}.app-loading-caption{color:#e5e7eb}.spinner{border-color:#374151;border-top-color:#e5e7eb}}
       /* Checkbox/radio exempt: index.css draws them 24px with a 10px margin, which IS the 44px target without drawing a 44px control. min-height clamps, so a bare `input` here made every checkbox a large empty square on a phone. FOURTH copy of this rule (index.css, AccessibilityImprovements.tsx, this one) — the duplication is why the exemption kept being missed. */
       @font-face {
         font-family: 'Inter';
@@ -109,8 +126,10 @@
       <!-- Loading state while JS loads -->
       <div class="app-loading">
         <div style="text-align:center">
-          <div style="width:48px;height:48px;border:3px solid #e2e6ed;border-top-color:#1a2332;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto"></div>
-          <p style="margin-top:16px;color:#1a2332;font-family:'Inter',sans-serif;font-weight:500;letter-spacing:-0.01em">Loading WealthTracker...</p>
+          <!-- Classes, not inline styles: the dark-scheme overrides above
+               cannot beat a style attribute. -->
+          <div class="spinner"></div>
+          <p class="app-loading-caption">Loading WealthTracker...</p>
         </div>
       </div>
     </div>
