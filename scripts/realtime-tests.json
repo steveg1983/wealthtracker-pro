@@ -25,7 +25,6 @@
   "src/services/__tests__/stripeService.test.ts",
   "src/services/__tests__/loggingService.test.ts",
   "src/services/__tests__/mobileService.test.ts",
-  "src/services/__tests__/pushNotificationService.test.ts",
   "src/services/__tests__/merchantLogoService.test.ts",
   "src/services/__tests__/securityService.test.ts",
   "src/services/__tests__/bankConnectionService.test.ts",

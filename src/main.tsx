@@ -10,9 +10,7 @@ import './styles/borders.css'
 import './styles/accessibility-colors.css'
 import './index.css'
 import App from './App.tsx'
-import * as serviceWorkerRegistration from './utils/serviceWorkerRegistration'
 import { initializeSecurity } from './security'
-import { pushNotificationService } from './services/pushNotificationService'
 import { checkEnvironmentVariables } from './utils/env-check'
 import { captureMessage, initSentry } from './lib/sentry'
 import { createScopedLogger } from './loggers/scopedLogger'
@@ -52,7 +50,6 @@ if (import.meta.env.DEV && sessionStorage.getItem('bootProfile') === '1') {
 // `@media (prefers-reduced-motion: reduce)` block in index.css that flattens
 // every animation and transition. The `.reduce-motion` class this used to put
 // on <html> matched no selector anywhere, so it changed nothing.
-const disableServiceWorker = import.meta.env.VITE_DISABLE_SERVICE_WORKER === 'true';
 let runtimeControlSanitizationContext: {
   removedQueryParams: ('demo' | 'testMode')[];
   removedStorageKeys: ('isTestMode' | 'demoMode')[];
@@ -95,19 +92,6 @@ if (!PUBLISHABLE_KEY) {
 
 // Initialize all security features
 initializeSecurity();
-
-// Clean up old service workers (for migration)
-if (!disableServiceWorker && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(registrations => {
-    for (const registration of registrations) {
-      // Only unregister if it's not our current service worker
-      if (!registration.active?.scriptURL.includes('sw.js')) {
-        registration.unregister();
-        bootstrapLogger.info('Unregistered legacy service worker', { scope: registration.scope });
-      }
-    }
-  });
-}
 
 // Initialize Sentry error tracking
 try {
@@ -265,48 +249,28 @@ try {
   bootstrapLogger.error('Error rendering app', error);
 }
 
-// Register service worker for offline support
-let _swRegistration: ServiceWorkerRegistration | null = null;
-
-if (disableServiceWorker) {
-  bootstrapLogger.info('Service worker registration disabled by VITE_DISABLE_SERVICE_WORKER');
-} else {
-  serviceWorkerRegistration.register({
-    onSuccess: async (registration) => {
-      _swRegistration = registration;
-      bootstrapLogger.info('Service Worker registered successfully');
-
-      // Store registration globally for React components to access
-      window.swRegistration = registration;
-
-      // Initialize push notifications
-      try {
-        await pushNotificationService.initialize();
-        bootstrapLogger.info('Push notifications initialized');
-      } catch (error) {
-        bootstrapLogger.error('Failed to initialize push notifications', error);
-      }
-    },
-    onUpdate: (registration) => {
-      _swRegistration = registration;
-      bootstrapLogger.info('New app version available');
-
-      // Store registration globally for React components to access
-      window.swRegistration = registration;
-
-      // The ServiceWorkerUpdateNotification component will handle the UI
-      // Dispatch a custom event that React components can listen to
-      window.dispatchEvent(new CustomEvent('sw-update-available', {
-        detail: { registration }
-      }));
-    },
-    onOffline: () => {
-      // Dispatch offline event for React components
-      window.dispatchEvent(new Event('app-offline'));
-    },
-    onOnline: () => {
-      // Dispatch online event for React components
-      window.dispatchEvent(new Event('app-online'));
-    }
-  });
-}
+/*
+ * THERE IS NO SERVICE WORKER, ON PURPOSE (31 Aug 2026).
+ *
+ * A `register('/sw.js')` call used to sit here. It never once succeeded in
+ * production: no `sw.js` was ever built or deployed, and the host answers
+ * `/sw.js` with the SPA's index.html — so the browser rejected the script on
+ * its MIME type every single load. Everything hung off that call's success
+ * callback (push notifications, the update prompt, the `app-offline` /
+ * `app-online` events, `window.swRegistration`), and none of it ever ran.
+ * Nothing was lost by deleting it because nothing was working.
+ *
+ * It is not coming back, and the reasons are worth more than the code was:
+ *
+ * 1. A cloud ledger's offline story is the LOCAL EDITION and the native iOS
+ *    shell, not a browser cache. Serving a stale balance from a cache is worse
+ *    than saying "you're offline" — see `components/OfflineIndicator`.
+ * 2. No service worker means every deploy reaches every phone on the next
+ *    load, with no waiting worker and no "Update Available" prompt to press.
+ *    The project relies on that when iterating against the owner's device.
+ *
+ * The manifest stays: a PWA is installable without a service worker, and the
+ * home-screen app is used daily. If a worker is ever genuinely wanted, it
+ * needs a build step that EMITS one (there wasn't one) and a host rule that
+ * serves it — start there, not with a `register()` call.
+ */

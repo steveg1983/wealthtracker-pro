@@ -32,8 +32,6 @@ import BalanceReminderCard from './BalanceReminderCard';
 import { OfflineStatus } from './OfflineStatus';
 import { SyncConflictResolver } from './SyncConflictResolver';
 import PWAInstallPrompt from './PWAInstallPrompt';
-import ServiceWorkerUpdateNotification from './ServiceWorkerUpdateNotification';
-import { useServiceWorker } from '../hooks/useServiceWorker';
 import { EnhancedConflictResolutionModal } from './pwa/EnhancedConflictResolutionModal';
 import { useConflictResolution } from '../hooks/useConflictResolution';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
@@ -72,7 +70,6 @@ export default function Layout(): React.JSX.Element {
   const searchParams = new URLSearchParams(location.search);
   const isDemoModeRoutingEnabled =
     isDemoModeRuntimeAllowed(import.meta.env) && searchParams.get('demo') === 'true';
-  const { registration } = useServiceWorker();
   const { isOpen: isHelpOpen, openHelp, closeHelp } = useKeyboardShortcutsHelp();
   const [showGlobalAddTransaction, setShowGlobalAddTransaction] = useState(false);
 
@@ -932,10 +929,11 @@ export default function Layout(): React.JSX.Element {
         analysis={currentAnalysis || undefined}
         onResolve={resolveConflict}
       />
-      
-      {/* Service Worker Update Notification */}
-      <ServiceWorkerUpdateNotification registration={registration} />
-      
+
+      {/* No "Update Available" prompt: there is no service worker to hold a
+          waiting version, so a reload always has the current build. See the
+          note at the foot of main.tsx. */}
+
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />
       
