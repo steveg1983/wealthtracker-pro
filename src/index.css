@@ -892,6 +892,16 @@ button.rounded-full:focus-visible,
       --wt-home-indicator-inset: 0px;
     }
   }
+  /* …and the same zeroing by CLASS, because the owner's phone (iOS 27,
+     1 Sep 2026) proved the wrapper does not match the media query either —
+     it insets the webview, reports full env() values, AND does not report
+     display-mode: standalone. Apple carried the 26.1 regression forward.
+     main.tsx sets the class from `navigator.standalone`, the one flag the
+     wrapper cannot misreport. */
+  :root.wt-installed-app {
+    --wt-status-bar-inset: 0px;
+    --wt-home-indicator-inset: 0px;
+  }
 
   @media (max-width: 767px) {
     /* The clearance as a NAME, not only a class: the floating pill hides the

@@ -174,6 +174,26 @@ describe('DuplicateSweepModal — finding the same payment twice', () => {
   });
 });
 
+describe('DuplicateSweepModal — the tally of what is left', () => {
+  it('names how many suggestions remain, at the top where the work starts', async () => {
+    __setAppContextValue({ transactions: [FEED, IMPORTED], categories: CATEGORIES });
+    renderModal();
+    // The number and its words share one line but not one element.
+    expect(
+      await screen.findByText(
+        (_, element) => element?.tagName === 'P' && element.textContent === '1 suggestion left'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing at zero — the empty state already says it in words', async () => {
+    __setAppContextValue({ transactions: [FEED], categories: CATEGORIES });
+    renderModal();
+    expect(await screen.findByText(/Nothing looks like the same payment twice/)).toBeInTheDocument();
+    expect(screen.queryByText(/suggestions? left/)).not.toBeInTheDocument();
+  });
+});
+
 describe('DuplicateSweepModal — the pair whose payee was renamed', () => {
   beforeEach(() => {
     __setAppContextValue({ transactions: [RENAMED, AS_IMPORTED], categories: CATEGORIES });
@@ -853,7 +873,8 @@ describe('DuplicateSweepModal — leaving and coming back', () => {
   it('remembers the controls the user had set before they left', () => {
     renderWithProbe();
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: '7' } });
+    // Named, because the phone's "Sort by" select is a second combobox.
+    fireEvent.change(screen.getByRole('combobox', { name: /Within/ }), { target: { value: '7' } });
     fireEvent.click(screen.getByTitle('Sort by amount size'));
     fireEvent.click(screen.getByRole('button', { name: 'See these two rows in Current account' }));
 
@@ -917,7 +938,7 @@ describe('DuplicateSweepModal — leaving and coming back', () => {
       reviewing: false,
     });
 
-    expect(screen.getByRole('combobox')).toHaveValue('7');
+    expect(screen.getByRole('combobox', { name: /Within/ })).toHaveValue('7');
     expect(screen.getByTitle('Sort by amount size')).toHaveTextContent('Amount ↑');
   });
 

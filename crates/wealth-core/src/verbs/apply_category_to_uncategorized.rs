@@ -121,10 +121,33 @@
 //! absence is the point, and it is why the skip below is a `continue` rather
 //! than a guard-and-write.
 //!
+//! # Filing ends the review — the ruling reversed (1 Sep 2026)
+//!
+//! This verb used to leave `needs_review` exactly as it was, and said why: a
+//! decision about a CATEGORY taken from a list of payees, where the rows'
+//! dates, amounts and accounts were never on screen, must not mark a whole
+//! imported statement as dealt with. The opposite principle was recorded on
+//! `confirm_transaction_categories`: answering the question a row was asking
+//! IS reviewing it.
+//!
+//! The owner ruled between them after measuring the outcome on a live
+//! household ledger: a thousand-odd rows filed by payee still counted as
+//! review work, the "to review" figure stopped moving however much filing was
+//! done, and a counter that can only be lowered one row at a time across
+//! nearly two thousand rows is a counter nobody will ever lower. His ruling:
+//! **clear it**. Vouching for amounts has its own machinery (clearing and
+//! reconciliation); the review flag's own charter is Money's "which of these
+//! have I dealt with?", and a payee the user filed is dealt with.
+//!
+//! `20260901150000_bulk_filing_ends_review.sql` makes the cloud say the same,
+//! and backfills the rows the old semantics stranded. Auto-applied rules are
+//! untouched by all of this — a machine filing is not a human seeing, and the
+//! rules path does not come through this verb.
+//!
 //! # Balance-neutral
 //!
-//! `category`, `category_confirmed`, `updated_at`. No amount, no account, no
-//! arithmetic (`a1`: the account balance is unmoved).
+//! `category`, `category_confirmed`, `needs_review`, `updated_at`. No amount,
+//! no account, no arithmetic (`a1`: the account balance is unmoved).
 
 use rusqlite::{params, Connection, TransactionBehavior};
 use serde::{Deserialize, Serialize};
@@ -236,9 +259,12 @@ pub fn apply_category_to_uncategorized(
         }
 
         let changed = write.execute(
+            // `needs_review = 0`: filing ends the review (the owner's ruling,
+            // 1 Sep 2026 — the module docs carry the argument it reversed).
             "UPDATE transactions
                 SET category = ?1,
                     category_confirmed = 1,
+                    needs_review = 0,
                     updated_at = ?2
               WHERE id = ?3",
             params![command.category, now, before.id],
