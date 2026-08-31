@@ -111,15 +111,19 @@ initializeSecurity();
 //      wrapper that insets the webview AND still reports the notch answers
 //      yes to both.
 //
-// Measured ONCE, at boot, deliberately: mid-session Safari can slide a page
-// under the status bar as its chrome minimises, which would make key 3
-// true for a moment — at load it never is. Set before render so the first
-// paint is already right.
+// Measured at boot AND retried as the viewport settles, because a single
+// boot-time sample missed on the very phone this exists for: the owner's
+// Display diagnostics (1 Sep, 16:53) showed the lie pair plainly true at
+// Settings-render — env top 62px paid, window 894 of a 956 screen — while
+// the class sat false, so in the first instants of the process iOS had not
+// yet reported the pair this code sampled once and believed. Re-evaluating
+// later is safe on every honest surface: portrait Safari never pays a TOP
+// inset at any scroll state (pages slide under the BOTTOM bar, never the
+// clock), landscape pays left/right only, and a healthy full-bleed app
+// keeps innerHeight equal to its screen. The class is only ever ADDED —
+// a detection that flickered off mid-session would snap the chrome around.
 {
   const navigatorWithFlag = window.navigator as Navigator & { standalone?: boolean };
-  const declaredInstalled =
-    navigatorWithFlag.standalone === true ||
-    window.matchMedia?.('(display-mode: standalone)').matches === true;
   const paysTopInsetWhileInset = (): boolean => {
     try {
       const probe = document.createElement('div');
@@ -134,9 +138,20 @@ initializeSecurity();
       return false;
     }
   };
-  if (declaredInstalled || paysTopInsetWhileInset()) {
-    document.documentElement.classList.add('wt-installed-app');
-  }
+  const detectInstalledApp = (): void => {
+    const doc = document.documentElement;
+    if (doc.classList.contains('wt-installed-app')) return;
+    const declaredInstalled =
+      navigatorWithFlag.standalone === true ||
+      window.matchMedia?.('(display-mode: standalone)').matches === true;
+    if (declaredInstalled || paysTopInsetWhileInset()) {
+      doc.classList.add('wt-installed-app');
+    }
+  };
+  detectInstalledApp();
+  window.addEventListener('load', detectInstalledApp, { once: true });
+  window.setTimeout(detectInstalledApp, 700);
+  window.setTimeout(detectInstalledApp, 2500);
 }
 
 // Initialize Sentry error tracking
