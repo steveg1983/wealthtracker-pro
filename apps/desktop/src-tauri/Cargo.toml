@@ -74,6 +74,27 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 uuid = { version = "1", features = ["v4"] }
 
+# LICENSING. Offline signature checking, and nothing else — see `src/license.rs`
+# for the whole design and for the honest limits of it.
+#
+# `minisign-verify` is already in this lock file (tauri-plugin-updater pulls it
+# in, and it is Ed25519 underneath), and it was considered first for exactly
+# that reason. It verifies MINISIGN'S container: a two-line trusted-comment
+# block with a key id, which is a good format for a release artefact and a bad
+# one for a string somebody pastes into a text box. Wrapping our own claims into
+# it would mean the issuing script reproducing minisign's framing in Node to
+# gain nothing, so this takes the primitive directly instead.
+#
+# Verification only. No key is ever GENERATED here — `scripts/issue-licence.mjs`
+# does that with Node's own crypto, on the owner's machine, once — so `rand_core`
+# is not wanted and the default features are left alone rather than curated,
+# because ed25519-dalek's defaults are already verification-shaped.
+ed25519-dalek = "2"
+# The licence string's alphabet. 0.22 rather than 0.21, because both are already
+# in this lock file transitively and adding a THIRD copy of a base64 encoder to
+# one binary would be the more surprising choice.
+base64 = "0.22"
+
 [lints.rust]
 unsafe_code = "forbid"
 

@@ -64,6 +64,8 @@ import {
 import { preferences } from '../services/preferencesService';
 import type { Invoke } from '../services/local/coreTransport';
 import { LedgerChooser } from './LedgerScreen';
+import { LicenceStatusLine } from './LicenceScreen';
+import { ShellInvokeContext } from './shellInvoke';
 
 /**
  * The application, and everything it reaches. See the header: this import may
@@ -142,20 +144,28 @@ export function DesktopApp({ invoke }: DesktopAppProps): ReactElement {
         problem={problem}
         onOpen={choose('open_ledger')}
         onCreate={choose('create_ledger')}
+        // A licence can be entered before there is a ledger to enter it
+        // against, which is what a machine that has just been set up needs.
+        licence={<LicenceStatusLine invoke={invoke} />}
       />
     );
   }
 
   return (
-    <Suspense
-      fallback={
-        <main className="ledger-screen">
-          <h1>WealthTracker</h1>
-          <p>Opening {ledgerPath}…</p>
-        </main>
-      }
-    >
-      <MountedLedger />
-    </Suspense>
+    // The shell's door, made reachable from inside the mounted application. It
+    // carries the SHELL's commands and never the ledger's — everything about
+    // money still arrives through `@data`. See `shellInvoke.ts`.
+    <ShellInvokeContext.Provider value={invoke}>
+      <Suspense
+        fallback={
+          <main className="ledger-screen">
+            <h1>WealthTracker</h1>
+            <p>Opening {ledgerPath}…</p>
+          </main>
+        }
+      >
+        <MountedLedger />
+      </Suspense>
+    </ShellInvokeContext.Provider>
   );
 }

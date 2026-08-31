@@ -65,6 +65,8 @@ import LegacyTransactionsRedirect from '../components/LegacyTransactionsRedirect
 import { lazyWithPreload } from '../utils/lazyWithPreload';
 import { currentDeviceIdentity } from '../services/local/deviceIdentity';
 import { DESKTOP_ROUTES, type DesktopPath } from './routes';
+import { LicenceStatusLine } from './LicenceScreen';
+import { useShellInvoke } from './shellInvoke';
 
 const Dashboard = lazyWithPreload(() => import(/* webpackChunkName: "dashboard" */ '../pages/Dashboard'));
 const Accounts = lazyWithPreload(() => import(/* webpackChunkName: "accounts" */ '../pages/Accounts'));
@@ -173,6 +175,7 @@ const count = (n: number, one: string, many: string): string =>
 function OpenLedgerScreen(): ReactElement {
   const { accounts, transactions, categories, capabilities } = useApp();
   const identity = currentDeviceIdentity();
+  const shell = useShellInvoke();
 
   return (
     <main className="ledger-screen">
@@ -195,6 +198,14 @@ function OpenLedgerScreen(): ReactElement {
           : 'A copy of these rows is held by your account as well as by this file.'}{' '}
         {capabilities.edition === 'device' ? 'Local edition.' : 'Cloud edition.'}
       </p>
+      {/* THE WINDOW'S SETTINGS SURFACE, and the reason the licence line is here
+          rather than on the shared Settings page: `pages/Settings` is the same
+          module the cloud edition serves, and a licence is a thing only this
+          edition has. This screen is already where the window says what it IS
+          rather than what your money is — which copy of the file this is, which
+          edition is running — so it is where "and whose licence" belongs. It
+          renders nothing at all when there is no shell to ask. */}
+      <LicenceStatusLine invoke={shell} />
     </main>
   );
 }

@@ -25,7 +25,7 @@
  * snapshot read specially for it.
  */
 
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 export interface LedgerChooserProps {
   /** Set while the shell's chooser is up or a ledger is being opened. */
@@ -41,13 +41,25 @@ export interface LedgerChooserProps {
   readonly problem: string | null;
   readonly onOpen: () => void;
   readonly onCreate: () => void;
+  /**
+   * The licence line, when this window has a shell to ask.
+   *
+   * A SLOT rather than a component imported here, because this screen is what a
+   * person looks at while they decide which ledger to open and it has never
+   * known anything about the shell — it takes no data at all, which is the
+   * simplest form of the rule its header states. `DesktopApp` holds the door and
+   * passes what it wants said; a licence can therefore be entered on a machine
+   * that has just been set up, before there is a file to enter it against.
+   */
+  readonly licence?: ReactNode;
 }
 
 export function LedgerChooser({
   busy,
   problem,
   onOpen,
-  onCreate
+  onCreate,
+  licence
 }: LedgerChooserProps): ReactElement {
   return (
     <main className="ledger-screen">
@@ -69,6 +81,7 @@ export function LedgerChooser({
           New ledger…
         </button>
       </div>
+      {licence}
     </main>
   );
 }

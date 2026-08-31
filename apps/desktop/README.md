@@ -5,24 +5,33 @@ the two.
 
 ```
 apps/desktop
-├── vite.config.ts        builds src/desktop → dist/, which the binary embeds
+├── vite.config.ts             builds src/desktop → dist/, which the binary embeds
+├── licence-public-key.txt     compiled in with include_str!; PLACEHOLDER until issued
 └── src-tauri
-    ├── Cargo.toml        its own workspace; depends on crates/wealth-core by path
-    ├── tauri.conf.json   window, CSP, `withGlobalTauri`, frontendDist
-    ├── icons/icon.png    the app's mark
+    ├── Cargo.toml             its own workspace; depends on crates/wealth-core by path
+    ├── tauri.conf.json        window, CSP, `withGlobalTauri`, frontendDist
+    ├── icons/icon.png         the app's mark
     └── src
-        ├── main.rs       the ONE ledger command, three file commands, the mutex
-        ├── document.rs   open, create, and whose rows a file holds
-        └── lock.rs       the second of the two locks
+        ├── main.rs            the ONE ledger command, the licence gate, the mutex
+        ├── document.rs        open, create, and whose rows a file holds
+        ├── lock.rs            the second of the two locks
+        ├── license.rs         verify a signed licence, offline, and remember the clock
+        └── update.rs          ask about a newer release, and never interrupt
 
-src/desktop               THE RENDERER. Not here, on purpose — see below.
-├── index.html            the window's document
-├── main.tsx              the entry: finds `invoke`, mounts React
-├── DesktopApp.tsx        the router, and the window's one open document
-├── routes.ts             every address in App.tsx, and what it means here
-├── LedgerScreen.tsx      "which ledger?", and the ledger once it is open
-├── tauriShell.ts         the one line that knows where `invoke` comes from
-└── desktop.css           four rules; the app's stylesheet is not here yet
+src/desktop                    THE RENDERER. Not here, on purpose — see below.
+├── index.html                 the window's document
+├── main.tsx                   the entry: finds `invoke`, mounts React
+├── DesktopApp.tsx             the router, and the window's one open document
+├── MountedLedger.tsx          the application, in a window
+├── routes.ts                  every address in App.tsx, and what it means here
+├── LedgerScreen.tsx           "which ledger?"
+├── LicenceScreen.tsx          the licence, as a line and as a panel
+├── licence.ts                 what the renderer may know about it, and how it asks
+├── shellInvoke.ts             the shell's door, reachable from inside the app
+├── tauriShell.ts              the one line that knows where `invoke` comes from
+└── desktop.css                this window's own chrome; the app brings its own
+
+scripts/issue-licence.mjs      the owner's side: --generate, --issue, --verify
 ```
 
 **Nothing with a decision in it is under `apps/`.** As of slice 29 that is
@@ -161,7 +170,7 @@ Verified on this machine, at this commit:
 | | |
 | --- | --- |
 | the shell crate compiles | `cargo build --release` → a 16.1 MB arm64 binary (15.3 MiB). Cold, from an empty target directory: 45 s wall, 262 CPU-seconds, 454 packages, 991 MB of build artefacts |
-| the shell's own tests | 12 pass: both locks, the identity flow, the refusals |
+| the shell's own tests | 38 pass: both locks, the identity flow, the refusals, and — since licensing — the verifier, the clock's high-water mark, the read allowlist held to the crate's own enum, and a real ledger proving that an expired window is refused a write BY NAME while a read and an export both still answer |
 | clippy | clean at `--all-targets`, pedantic on |
 | the renderer builds | 3,273.1 KiB raw / 1,006.5 KiB gzipped over 101 files — the whole application, mounted (the mount slice's second half). It was 259.3 KiB / 86.7 KiB when it was React and a file chooser, and 81.8 kB when it was one screen of vanilla DOM. `npm run bundle:check:desktop` is that measurement as a command, with budgets ~10 % above it and the four chunks worth attacking named in the script's own note (xlsx, jspdf, html2canvas, recharts — 41 % of it, and all four are the WEB app's problem too) |
 | the renderer is cloud-free | zero occurrences of `supabase`, `storageAdapter` — PHASE3-PLAN §5's two bundle greps — and of `wealthtracker_transactions` (the browser ledger mirror's own storage key), `clerk`, `sentry`, `stripe`. `npm run desktop:greps` is that check, as a command, over the built bundle; two import-graph walks assert the same on every test run, from the data root and from the entry. The `indexedDB` grep RETIRED in favour of the storage key, and the script's note says why at length: a device keeps its receipts in the WebView's store and that is not the ledger |
@@ -200,6 +209,102 @@ ever drawn — on the arm64 macOS build, driven end to end:
 * **Windows and Intel macOS.** Neither has ever been built. The
   `desktop-release.yml` workflow exists to produce both (NSIS on a Windows
   runner, dmg on `macos-13`) and has not yet had a green run.
+
+## Licensing
+
+A licence is a signed statement, checked offline, and nothing else. There is no
+server, no activation call and no phone-home in this program, and there is not
+going to be one: the local edition's whole promise is one file on one machine,
+and a licence check that reached the internet would be the first line of that
+promise broken.
+
+**A fence, not a vault.** This repository is public, so the verifier and the
+allowlist can be read by anybody, and somebody prepared to compile their own
+build can delete them in an afternoon. That is the premise rather than a flaw.
+What is actually being sold is the signed, notarised, self-updating build — a
+recompiled fork gets none of that — and what the licence does is keep honest
+people honest and let a trial exist at all.
+`apps/desktop/src-tauri/src/license.rs`'s header argues the whole of it,
+including the two things it deliberately does NOT do (machine binding, and
+anything at all to your ledger).
+
+**Nothing is ever held hostage.** The landing page promises *"your ledger
+exports in full whenever you want it"*, and an expired or missing licence does
+not touch that: every read answers, every report runs, and `collect_backup` —
+the export — is on the allowlist beside them. What stops is writing.
+`main.rs`'s `READ_VERBS` is that allowlist, derived one verb at a time from the
+crate's single `dispatch` match, and `licence_gate` is where the promise is
+kept.
+
+### The owner's one manual step
+
+Once, ever:
+
+```bash
+node scripts/issue-licence.mjs --generate
+```
+
+It writes the PRIVATE key to `~/Documents/WealthTracker-signing/wealthtracker-licence.key`
+(chmod 600, never printed, never committed) and prints the PUBLIC half. Then:
+
+1. **back the private key up to your password manager, that afternoon.** Nothing
+   else in the world has a copy;
+2. paste the public line into `apps/desktop/licence-public-key.txt`, replacing
+   the word `PLACEHOLDER`, and commit it.
+
+That second step is what ARMS enforcement. Until it happens, every build reports
+the licence state `unenforced`: nothing is refused, and the window says
+"Development build" rather than pretending to be licensed. There is no flag and
+no build profile involved, because a switch that can be flipped is a switch that
+gets flipped by accident.
+
+### Issuing, and rotating
+
+```bash
+# a lifetime licence
+node scripts/issue-licence.mjs --issue --email ada@example.com --name "Ada Lovelace"
+
+# a three-month trial
+node scripts/issue-licence.mjs --issue --email ada@example.com --name "Ada Lovelace" --trial-months 3
+
+# the support tool: "they say it does not work"
+node scripts/issue-licence.mjs --verify WTL1-…
+```
+
+A licence string is `WTL1-<base64url(claims JSON)>.<base64url(signature)>`. It
+is **not a secret**: it is a signed statement, readable by anybody holding one,
+and the property it has is that it cannot be MADE without the private key. The
+signature covers the exact transported bytes, so there is no canonical
+serialisation for Node and Rust to agree about.
+
+**Rotating** is one commit: `--generate` into a new directory, replace the line
+in `licence-public-key.txt`, ship. Every licence signed by the old key stops
+verifying the moment the new public key ships, so re-issue to everybody who
+bought one. Losing the private key costs exactly that and nothing more — already
+issued licences keep working on already installed builds, because those carry
+the old public half.
+
+### Checking it end to end, without going near the real key
+
+```bash
+export WEALTHTRACKER_SIGNING_DIR=$(mktemp -d)
+export WEALTHTRACKER_PUBLIC_KEY_FILE=$WEALTHTRACKER_SIGNING_DIR/pub.txt
+node scripts/issue-licence.mjs --generate            # prints a public key
+# …put that line in $WEALTHTRACKER_PUBLIC_KEY_FILE, then:
+node scripts/issue-licence.mjs --issue --email a@example.com --name "A" --trial-months 3
+node scripts/issue-licence.mjs --verify WTL1-…       # valid
+node scripts/issue-licence.mjs --verify WTL1-…       # one byte changed → REFUSED, exit 1
+```
+
+Both environment variables exist for this and for nothing else. The SHELL reads
+the committed key file with `include_str!` at compile time and has never heard
+of either of them.
+
+The two implementations are also held to each other by a test rather than by
+these paragraphs: `license.rs`'s
+`a_licence_the_issuing_script_really_made_verifies_here` carries a licence that
+script actually printed, beside the public key it printed with it. The keypair
+was ephemeral, its private half is gone, and the licensee is invented.
 
 ## What one open file gives the app
 
