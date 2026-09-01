@@ -9,8 +9,9 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useAccountNames } from '../hooks/useAccountNames';
 import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
 import { getDateLocale } from '../utils/dateFormatter';
+import { isDanglingFiling } from '../utils/categoryHealth';
 import { AlertTriangleIcon, PlusIcon, XIcon } from './icons';
-import type { Category, Transaction } from '../types';
+import type { Transaction } from '../types';
 
 /**
  * Filter and file — the engine both categorising surfaces are made of.
@@ -102,6 +103,15 @@ import type { Category, Transaction } from '../types';
  * word, a category, an account, a range; this one asks for nothing because
  * there is nothing to name — the category is gone, which is the whole
  * complaint.
+ *
+ * WHAT IT CANNOT SHOW, IT NAMES (owner, 1 Sep 2026). The count that sends a
+ * reader here is measured over SPLIT-EXPANDED rows, and a line inside a split is
+ * filed in its parent — no press in this list can write to one. So a panel
+ * saying three over a list holding two would be the unexplained counter gap the
+ * owner has ruled against twice; the mount hands down how many of them are split
+ * lines (from the SAME measure the count came off — see categoryHealth) and the
+ * list says so beneath the results. The two numbers are then one arithmetic
+ * rather than two definitions that happen to agree.
  *
  * It exists because those rows were ANNOUNCED in two places and reachable from
  * neither. Accounts → Categorisation said "N of these are filed under a
@@ -226,6 +236,18 @@ interface FilterAndFileListProps {
    * exactly as it does when the reader changes a filter themselves.
    */
   preset?: FilterAndFilePreset | null;
+  /**
+   * How many rows whose category no longer exists are LINES INSIDE SPLITS, and
+   * therefore cannot appear in this list at all — measured by the same pass that
+   * produced the count which sent the reader here (`CategoryHealth`), never
+   * recounted, so the panel's number and these rows are two halves of one sum.
+   *
+   * Named beneath the results whenever the dangling filter is the search, INCLUDING
+   * when it matched nothing at all: a list saying "no transaction matches" under a
+   * panel promising one is the exact moment the sentence is worth most. Zero says
+   * nothing, and a mount that never has split lines to declare passes nothing.
+   */
+  danglingSplitLines?: number;
 }
 
 type FilterKind = 'text' | 'category' | 'account' | 'date' | 'amount' | 'tag' | 'dangling';
@@ -316,24 +338,6 @@ const boundOf = (raw: string): number | null => {
   const value = Number(trimmed);
   return Number.isFinite(value) ? Math.abs(value) : null;
 };
-
-/**
- * THE ONE DEFINITION OF A DANGLING FILING: a category id that is set, and that
- * no category in the tree answers to.
- *
- * Two things read it and they may never disagree — the amber note beside a
- * row's picker (which says the category is gone) and the FILTER that finds
- * those rows. A second predicate would eventually be a list that swore its rows
- * were dangling with rows inside it saying they were not, and no reader could
- * tell which half was lying.
- *
- * Blank is not dangling: a row with no category at all is Categorisation's
- * work, and both mounts already have their own answer to it.
- */
-const isDanglingFiling = (
-  categoryId: string,
-  categoriesById: ReadonlyMap<string, Category>
-): boolean => categoryId !== '' && !categoriesById.has(categoryId);
 
 /** Is this row an instruction yet, or an empty box? */
 const filterHasValue = (filter: Filter): boolean => {
@@ -428,6 +432,7 @@ export default function FilterAndFileList({
   header,
   className,
   preset = null,
+  danglingSplitLines = 0,
 }: FilterAndFileListProps): React.JSX.Element {
   const { transactions, categories, accounts, updateTransaction } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
@@ -496,8 +501,10 @@ export default function FilterAndFileList({
    *
    * The FILTER of the same name matches on this exact predicate (it is handed
    * down to rowMatches), so a row the list found can never draw itself as
-   * anything else. Memoised on the tree because the search memos below depend
-   * on it.
+   * anything else — and it is the SHARED one, the same rule the data-health
+   * count is measured with (utils/categoryHealth), so the number that sends a
+   * reader here and the rows they arrive at cannot be answering different
+   * questions. Memoised on the tree because the search memos below depend on it.
    */
   const filingHasNoName = useCallback(
     (categoryId: string): boolean => isDanglingFiling(categoryId, categoriesById),
@@ -508,6 +515,19 @@ export default function FilterAndFileList({
   const searchable = useMemo(() => transactions.filter(population), [transactions, population]);
 
   const activeFilters = useMemo(() => filters.filter(filterHasValue), [filters]);
+
+  /**
+   * Is the reader looking at the rows whose category is gone?
+   *
+   * Asked of the ACTIVE FILTERS rather than of the preset, so choosing that kind
+   * from the selector by hand is answered exactly as arriving on the panel's
+   * action is: the split lines are missing from the results either way, and what
+   * makes the sentence true is the search, not how the page was opened.
+   */
+  const searchingForDangling = useMemo(
+    () => activeFilters.some(filter => filter.kind === 'dangling'),
+    [activeFilters]
+  );
 
   const matched = useMemo(() => {
     if (activeFilters.length === 0) return [];
@@ -1211,6 +1231,23 @@ export default function FilterAndFileList({
                 </p>
               )}
             </>
+          )}
+
+          {/* THE OTHER HALF OF THE PANEL'S COUNT (owner, 1 Sep 2026).
+              Sibling of the transfers note above and dressed as one, but
+              OUTSIDE the results: when every dangling row is a split line this
+              list matches nothing at all, and "no transaction matches that
+              filter" under a panel promising three is precisely the moment the
+              sentence has to be on screen. The count comes from the same
+              measure the panel's does, so the reader can do the subtraction and
+              have it come out. A zero says nothing, as ever. */}
+          {searchingForDangling && danglingSplitLines > 0 && (
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              {danglingSplitLines.toLocaleString()} of these{' '}
+              {danglingSplitLines === 1
+                ? 'is inside a split — edit that split to re-file it.'
+                : 'are inside splits — edit those splits to re-file them.'}
+            </p>
           )}
 
           {copy.footnote !== undefined && (

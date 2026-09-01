@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, within, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { ToastProvider } from '../../contexts/ToastContext';
@@ -21,6 +21,21 @@ import type { Account, Budget as BudgetType, Category, Transaction, TransactionS
  * The app context is the shared test double from src/test/setup.ts; every
  * figure and name here is synthetic (this repo is public).
  */
+
+/**
+ * The setup wizard, stubbed. It is a lazy chunk with a grid, twelve months of
+ * aggregation and a confirm step of its own, all pinned by BudgetWizard.test —
+ * what the block at the foot of this file tests is whether the PAGE opens it
+ * when the address says to, which needs nothing of the real one but its shape.
+ */
+vi.mock('../../components/BudgetWizard', () => ({
+  default: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>
+    isOpen ? (
+      <div data-testid="budget-wizard">
+        <button type="button" onClick={onClose}>Close the wizard</button>
+      </div>
+    ) : null,
+}));
 
 const now = new Date();
 /** The 10th of the current month, exactly as the wire would send it. */
@@ -58,9 +73,14 @@ const budget = (over: Partial<BudgetType> & { id: string; categoryId: string; am
   ...over
 });
 
-const renderBudget = (): void => {
+/**
+ * The page, opened at an address. Defaults to the plain one; the wizard's own
+ * `?open=wizard` is the only caller that passes anything else (see the block at
+ * the foot of this file).
+ */
+const renderBudget = (entry: string = '/budget'): void => {
   render(
-    <MemoryRouter initialEntries={['/budget']}>
+    <MemoryRouter initialEntries={[entry]}>
       <PreferencesProvider>
         <ToastProvider>
           {/* The page raises budget alerts through the notification context,
@@ -317,5 +337,61 @@ describe('Budget page — an empty page is an empty state, not zeroed furniture'
     expect(screen.queryByText(/Budget templates/)).not.toBeInTheDocument();
     // Folds start closed: a fold's content mounts only when opened.
     expect(screen.getByRole('button', { name: /Rollover/ })).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
+/**
+ * THE WIZARD HAS AN ADDRESS (owner, 1 Sep 2026).
+ *
+ * "Set budgets from your real year" is the last step of the dashboard's history
+ * guide, and until this ruling it could only land on this page and leave the
+ * reader to find the button. `?open=wizard` lands on the wizard — the same
+ * `?open=` contract as Categorisation's two sweeps (utils/pageOpenLink): read
+ * once on mount, and an unknown value opens nothing.
+ */
+describe('Budget page — opened at the wizard', () => {
+  const setLedger = (): void => {
+    __setAppContextValue({
+      accounts: ACCOUNTS,
+      categories: CATEGORIES,
+      budgets: [],
+      transactions: [],
+      transactionSplits: [],
+    });
+  };
+
+  afterEach(() => {
+    __resetAppContextValue();
+  });
+
+  it('?open=wizard brings the wizard up on arrival', async () => {
+    setLedger();
+    renderBudget('/budget?open=wizard');
+
+    expect(await screen.findByTestId('budget-wizard')).toBeInTheDocument();
+  });
+
+  it('lets the reader close it, and it stays closed', async () => {
+    setLedger();
+    renderBudget('/budget?open=wizard');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Close the wizard' }));
+
+    // The parameter is still in the address: it says how the page was opened,
+    // not what it must keep doing.
+    expect(screen.queryByTestId('budget-wizard')).not.toBeInTheDocument();
+  });
+
+  it('opens nothing for an ordinary visit, or for an ask it does not know', async () => {
+    setLedger();
+    renderBudget();
+    expect(await screen.findByRole('button', { name: 'Set up budgets' })).toBeInTheDocument();
+    expect(screen.queryByTestId('budget-wizard')).not.toBeInTheDocument();
+
+    cleanup();
+    setLedger();
+    renderBudget('/budget?open=something-else');
+    expect(await screen.findByRole('button', { name: 'Set up budgets' })).toBeInTheDocument();
+    expect(screen.queryByTestId('budget-wizard')).not.toBeInTheDocument();
   });
 });

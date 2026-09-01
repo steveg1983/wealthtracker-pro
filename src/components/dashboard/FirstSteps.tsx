@@ -45,6 +45,17 @@ import { CheckCircleIcon, XIcon } from '../icons';
  * The one stored bit is the DISMISSAL, because a dismissal is a choice,
  * not a fact about the ledger (the PageTip rule). In preferences rather
  * than localStorage so the choice travels with the user.
+ *
+ * ─ IT STANDS DOWN FOR THE HISTORY GUIDE (owner, 1 Sep 2026) ────────────
+ * A fresh ledger with a year of statements in it and nothing filed earns
+ * this card AND HistoryPathCard at once, and the two then said
+ * overlapping things one above the other. The guide's first two steps
+ * are these three done better, so while it is up the dashboard does not
+ * mount this card at all — the gate is in ImprovedDashboard, reading the
+ * guide's own `useHistoryPath`, because "is the guide up?" is the guide's
+ * question and there is exactly one answer to it. Nothing here changed:
+ * dismissed mid-journey, or a backlog that never met the guide's
+ * threshold, and this card behaves precisely as it always has.
  */
 
 const DISMISSED_KEY = 'firstStepsDismissed';

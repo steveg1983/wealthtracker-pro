@@ -2,7 +2,11 @@ import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import HistoryPathCard, { APPEARS_AT_BACKLOG } from './HistoryPathCard';
+import HistoryPathCard from './HistoryPathCard';
+// The threshold lives with the rule that uses it — the visibility hook the
+// dashboard reads too, so that "is the guide up?" has one answer (owner, 1 Sep
+// 2026). See useHistoryPath.
+import { APPEARS_AT_BACKLOG } from './useHistoryPath';
 import { __setAppContextValue, __resetAppContextValue } from '../../test/mocks/AppContextSupabase';
 import { preferences } from '../../services/preferencesService';
 import type { Account, Budget, Transaction } from '../../types';
@@ -369,18 +373,25 @@ describe('the three steps only the person doing them can judge', () => {
 });
 
 describe('every step is a way into the tool that does it', () => {
-  it('addresses all seven', () => {
+  /**
+   * …and INTO IT, not to the page it lives on (owner, 1 Sep 2026). Four of these
+   * seven end in something that used to be modal state with no address, so the
+   * step could only have said "go here, then press that card" — an instruction
+   * the reader has to carry across a navigation, which is the job of a link. The
+   * `?open=` idiom (utils/pageOpenLink) gives them addresses; these are them.
+   */
+  it('addresses all seven, and lands on the tool rather than beside it', () => {
     preferences.setItem(ENGAGED_PREFERENCE, 'true');
     setLedger({ accounts: [], transactions: unfiled(50) });
     renderCard();
 
     expect(hrefOf('Add your accounts')).toBe('/accounts?action=add');
     expect(hrefOf('Import your statements')).toBe('/enhanced-import');
-    expect(hrefOf('Match transfers first')).toBe('/categorisation');
+    expect(hrefOf('Match transfers first')).toBe('/categorisation?open=transfers');
     expect(hrefOf('Tidy your payees')).toBe('/settings/payees');
-    expect(hrefOf('Categorise by payee')).toBe('/categorisation');
-    expect(hrefOf('Sweep what’s left')).toBe('/categorisation');
-    expect(hrefOf('Set budgets from your real year')).toBe('/budget');
+    expect(hrefOf('Categorise by payee')).toBe('/categorisation?open=payees');
+    expect(hrefOf('Sweep what’s left')).toBe('/categorisation?open=file');
+    expect(hrefOf('Set budgets from your real year')).toBe('/budget?open=wizard');
   });
 });
 

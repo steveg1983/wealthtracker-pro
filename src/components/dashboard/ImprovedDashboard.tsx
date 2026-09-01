@@ -38,6 +38,7 @@ import { WholePoundsToggle } from '../../contexts/WholePoundsContext';
 import NetWorthSummary from '../../components/NetWorthSummary';
 import FirstSteps from './FirstSteps';
 import HistoryPathCard from './HistoryPathCard';
+import { useHistoryPath } from './useHistoryPath';
 import AccountBreakdownModal, { type AccountBreakdownView } from '../../components/AccountBreakdownModal';
 import { PERIOD_LABELS, usePeriod } from '../../hooks/usePeriod';
 import { cardPeriodKey, useCardPeriod } from '../../hooks/useCardPeriod';
@@ -141,6 +142,23 @@ export function ImprovedDashboard() {
   // fetch.
   const { accounts, transactions, transactionSplits, budgets, categories, customReports, serverBalances, isLoading } = useApp();
   const { formatCurrency: formatCurrencyWithSymbol, displayCurrency } = useCurrencyDecimal();
+  /**
+   * THE HISTORY GUIDE SUPERSEDES FIRST STEPS (owner's ruling, 1 Sep 2026).
+   *
+   * Both cards can be earned at once — a fresh ledger with a year of statements
+   * imported and nothing filed meets the first-steps checklist AND the guide's
+   * hundred-row threshold — and the two then said overlapping things in two
+   * voices, one under the other. The guide's first two steps are that checklist
+   * done better (they name the order, and they are followed by the five that
+   * were missing), so while it is up First steps stands down.
+   *
+   * Asked of the guide's own hook, never re-derived here: one definition of
+   * "the guide is on screen", read by the card that draws it and by the gate
+   * that hides its predecessor. Nothing else about First steps changes — a
+   * dismissal mid-journey, or a backlog that never met the threshold, leaves it
+   * exactly as it was, boot included.
+   */
+  const { visible: historyPathVisible } = useHistoryPath();
   const identityKey = useIdentityKey();
   const navigate = useNavigate();
   const location = useLocation();
@@ -795,8 +813,10 @@ export function ImprovedDashboard() {
         />
 
         {/* The walk from nothing to a working ledger — derives its own ticks
-            and stands down by itself; see the component header. */}
-        <FirstSteps />
+            and stands down by itself; see the component header. Superseded
+            while the guide below is up: same journey, further along, said
+            once (see the gate above). */}
+        {!historyPathVisible && <FirstSteps />}
       </section>
 
       {/* THE ORDER THAT TURNS A YEAR OF IMPORTED ROWS INTO AN AFTERNOON.
