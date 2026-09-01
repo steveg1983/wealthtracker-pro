@@ -1,8 +1,6 @@
 import { useState, useMemo, Suspense } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
-import { budgetPeriodSuffix, indexExistingBudgets } from '../../utils/budgetWizardPlan';
 import { useToast } from '../../contexts/ToastContext';
 import { DEFAULT_CATEGORY_TREE } from '../../data/defaultCategoryTree';
 import { planCategoryTreeImport } from '../../utils/categoryTreeImport';
@@ -13,6 +11,7 @@ import EditCategoryModal from '../../components/EditCategoryModal';
 import CategorySelector from '../../components/CategorySelector';
 import CategoryTransactionsModal from '../../components/CategoryTransactionsModal';
 import CategoryDataHealthPanel from '../../components/CategoryDataHealthPanel';
+import RecategoriseSection from '../../components/RecategoriseSection';
 import { useAttentionLadder } from '../../hooks/useAttentionLadder';
 import IncomeExpenseBreakdownModal from '../../components/IncomeExpenseBreakdownModal';
 import EditTransactionModal from '../../components/EditTransactionModal';
@@ -235,46 +234,18 @@ export default function CategoriesSettings() {
     importCategoryTree
   } = useApp();
   const { showSuccess, showError } = useToast();
-  const { formatCurrency } = useCurrencyDecimal();
   const [isImporting, setIsImporting] = useState(false);
   /**
-   * THE OTHER LENS ON A BUDGET (owner's ruling, 31 Aug 2026).
+   * NO BUDGET FIGURES ON THIS PAGE (owner's ruling, 1 Sep 2026, reversing
+   * 31 Aug's "other lens").
    *
-   * A budget is a PROPERTY of a category, not a separate object sharing its
-   * name — so this page, which is where categories are managed, says WHAT IS
-   * SET, and the Budget page says how it is going. Both read the same rows,
-   * keyed by category id; nothing was added to the schema to make this true.
-   *
-   * Indexed once for the whole tree rather than searched per row: this page
-   * renders every category, and a `budgets.find()` inside the row would be
-   * O(categories × budgets) on a ledger with hundreds of both.
+   * A budget is still a PROPERTY of a category — merging and deleting still
+   * move and count them — but this page is for looking into categories and
+   * the transactions filed under them, and a figure beside each row made it
+   * read as a budgeting page. The amounts live on the Budget page only; what
+   * this page keeps is the way IN to setting them (the wizard button above).
    */
-  const budgetByCategory = useMemo(() => indexExistingBudgets(budgets), [budgets]);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-
-  /**
-   * A category's budget as stored — "£120.00/mo", "£1,500.00/yr" — or nothing
-   * at all for an unbudgeted one.
-   *
-   * Shown in the period it is STORED in rather than normalised to a month:
-   * this lens reports the world, and someone who set £1,500 a year should find
-   * £1,500 a year here. An empty cell is the honest rendering of unbudgeted —
-   * a "£0.00" would claim a budget of nothing, which is a different thing that
-   * a user can deliberately set.
-   */
-  const renderBudgetCell = (categoryId: string): React.JSX.Element | null => {
-    const budget = budgetByCategory.get(categoryId);
-    if (!budget) return null;
-    return (
-      <span
-        className="text-sm text-gray-600 dark:text-gray-300 tabular-nums whitespace-nowrap"
-        title={`Budget: ${formatCurrency(budget.amount)}${budgetPeriodSuffix(budget.storedPeriod)}`}
-      >
-        {formatCurrency(budget.amount)}
-        <span className="text-gray-400 dark:text-gray-500">{budgetPeriodSuffix(budget.storedPeriod)}</span>
-      </span>
-    );
-  };
 
   // Split parents expand into their per-line virtual rows so a split line
   // counts under ITS category, not nowhere (the parent's category is blank).
@@ -927,7 +898,6 @@ export default function CategoriesSettings() {
                       isDraggable={true}
                     >
                       <div className="flex items-center gap-2">
-                        {renderBudgetCell(subCategory.id)}
                         {orderedDetailCategories.length > 0 && (
                           <IconButton
                             onClick={(e) => {
@@ -968,7 +938,6 @@ export default function CategoriesSettings() {
                                   onClick={() => handleCategoryClick(detailCategory.id, detailCategory.name)}
                                   isDraggable={true}
                                 >
-                                  {renderBudgetCell(detailCategory.id)}
                                   <span className="text-sm text-gray-500 dark:text-gray-400">
                                     ({detailTransactionCount})
                                   </span>
@@ -1294,7 +1263,6 @@ export default function CategoriesSettings() {
                       onClick={() => handleCategoryClick(category.id, category.name)}
                       isDraggable={false}
                     >
-                      {renderBudgetCell(category.id)}
                       <span className="text-sm text-gray-500 dark:text-gray-400">
                         ({transactionCount})
                       </span>
@@ -1314,6 +1282,14 @@ export default function CategoriesSettings() {
           </DragOverlay>
         </DndContext>
       </div>
+
+      {/* Housekeeping, at the foot: changing what has ALREADY been filed —
+          including moving an old category's rows into one just created above.
+          Here rather than in the review band because that band is where a
+          transaction gets its first category; this is the other job, and the
+          two must not compete over what has been dealt with. Collapsed until
+          asked for, so the tree stays the page. */}
+      <RecategoriseSection />
 
       </div>{/* end desktop flex column */}
 

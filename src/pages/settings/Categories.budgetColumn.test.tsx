@@ -1,15 +1,13 @@
 /**
- * Settings → Categories: the budget a category carries.
+ * Settings → Categories: NO budget figures on this page.
  *
- * The owner's ruling (31 Aug 2026): a budget is a PROPERTY of a category, not
- * a separate object sharing its name. So there are two lenses over one thing —
- * this page says WHAT IS SET, the Budget page says how it is going — and both
- * read the same rows, keyed by category id, with nothing added to the schema.
- *
- * What is pinned here: the figure appears beside the category that owns it, in
- * the period it is STORED in, an unbudgeted category shows nothing at all
- * (rather than a "£0.00" that would claim a budget of nothing), and the wizard
- * is reachable from this page as well as from Budget.
+ * The owner's ruling (1 Sep 2026, reversing 31 Aug's "other lens"): this page
+ * is for looking into categories and the transactions filed under them, and a
+ * budget figure beside each row made it read as a budgeting page. A budget is
+ * still a property of the category — merging and deleting still move and
+ * count them (Categories.merge.test.tsx pins that) — but the AMOUNTS live on
+ * the Budget page only. What this page keeps is the way in to setting them:
+ * the wizard button.
  *
  * Every name and amount is invented: this repo is public.
  */
@@ -82,49 +80,29 @@ const rowFor = (name: string): HTMLElement => {
 beforeEach(() => vi.clearAllMocks());
 afterEach(() => { cleanup(); __resetAppContextValue(); });
 
-describe('Categories — the budget a category carries', () => {
-  it('shows a monthly budget beside the category that owns it', () => {
+describe('Categories — a budgeted category shows no figure here', () => {
+  it('shows nothing beside a detail category that HAS a budget', () => {
     setup([budgetOf({ id: 'b-1', categoryId: 'cat-shop', amount: 120 })]);
     expandFood();
     const row = rowFor('Food Shopping');
-    expect(within(row).getByText('£120.00')).toBeInTheDocument();
-    expect(within(row).getByText('/mo')).toBeInTheDocument();
-  });
-
-  it('shows a yearly budget as a year — the period it is stored in, not normalised', () => {
-    setup([budgetOf({ id: 'b-1', categoryId: 'cat-shop', amount: 1500, period: 'yearly' })]);
-    expandFood();
-    const row = rowFor('Food Shopping');
-    expect(within(row).getByText('£1500.00')).toBeInTheDocument();
-    expect(within(row).getByText('/yr')).toBeInTheDocument();
-  });
-
-  it('leaves an unbudgeted category EMPTY rather than claiming a budget of nothing', () => {
-    setup([budgetOf({ id: 'b-1', categoryId: 'cat-shop', amount: 120 })]);
-    expandFood();
-    const row = rowFor('Dining Out');
     expect(within(row).queryByText(/£/)).not.toBeInTheDocument();
     expect(within(row).queryByText('/mo')).not.toBeInTheDocument();
   });
 
-  it('shows a group budget on the group, where it is actually stored', () => {
+  it('shows nothing beside a group that has a budget of its own', () => {
     setup([budgetOf({ id: 'b-grp', categoryId: 'sub-food', amount: 400 })]);
     const row = rowFor('Food');
-    expect(within(row).getByText('£400.00')).toBeInTheDocument();
+    expect(within(row).queryByText(/£/)).not.toBeInTheDocument();
   });
 
-  it('ignores a deactivated budget — it is not set any more', () => {
-    setup([budgetOf({ id: 'b-off', categoryId: 'cat-shop', isActive: false })]);
+  it('shows nothing whatever the stored period', () => {
+    setup([
+      budgetOf({ id: 'b-yr', categoryId: 'cat-shop', amount: 1500, period: 'yearly' }),
+      budgetOf({ id: 'b-wk', categoryId: 'cat-dining', amount: 30, period: 'weekly' }),
+    ]);
     expandFood();
-    expect(within(rowFor('Food Shopping')).queryByText(/£/)).not.toBeInTheDocument();
-  });
-
-  it('says what a weekly budget is, in weeks', () => {
-    setup([budgetOf({ id: 'b-wk', categoryId: 'cat-shop', amount: 30, period: 'weekly' })]);
-    expandFood();
-    const row = rowFor('Food Shopping');
-    expect(within(row).getByText('£30.00')).toBeInTheDocument();
-    expect(within(row).getByText('/wk')).toBeInTheDocument();
+    expect(within(rowFor('Food Shopping')).queryByText(/\/yr|£/)).not.toBeInTheDocument();
+    expect(within(rowFor('Dining Out')).queryByText(/\/wk|£/)).not.toBeInTheDocument();
   });
 });
 
