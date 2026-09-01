@@ -81,7 +81,9 @@ export default function FirstSteps(): React.JSX.Element | null {
       done: hasTransactions,
       label: 'Add or import transactions',
       detail: 'Type them in, or bring history from Microsoft Money, CSV, QIF or OFX.',
-      to: '/import',
+      // '/import' is not a route — App.tsx routes the importer at 'enhanced-import',
+      // and the old address fell through to NotFound. Found 1 Sep 2026.
+      to: '/enhanced-import',
     },
     {
       done: hasFiled,

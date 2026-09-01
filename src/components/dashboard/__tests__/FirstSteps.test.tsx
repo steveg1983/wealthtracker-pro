@@ -67,7 +67,7 @@ describe('the first-steps card', () => {
     expect(screen.getByRole('link', { name: 'Add your first account' }))
       .toHaveAttribute('href', '/accounts?action=add');
     expect(screen.getByRole('link', { name: 'Add or import transactions' }))
-      .toHaveAttribute('href', '/import');
+      .toHaveAttribute('href', '/enhanced-import');
   });
 
   it('derives a tick the moment the data proves the step', () => {

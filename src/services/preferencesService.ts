@@ -223,6 +223,17 @@ export const PORTABLE_PREFERENCE_KEYS: readonly string[] = [
   // inherited it would believe it had already synced today and skip.
   'bankAutoSync.prefs.v1',
 
+  // ── The "Bringing in your history" guide ─────────────────────────────────
+  // Three statements about the PERSON, not about this screen: that they have
+  // met the guide (which is what keeps it on screen while their backlog falls),
+  // that they hid it, and which of the three steps only they can judge they
+  // have finished. A guide dismissed on a laptop that came back on a phone
+  // would be the same bug the balance reminder's acknowledgement was moved here
+  // to avoid. See components/dashboard/HistoryPathCard.
+  'historyPath.engaged.v1',
+  'historyPath.dismissed.v1',
+  'historyPath.ticks.v1',
+
   // ── Formatting ───────────────────────────────────────────────────────────
   'preferredLocale',
 ] as const;

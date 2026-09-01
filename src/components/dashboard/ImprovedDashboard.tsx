@@ -37,6 +37,7 @@ import PeriodBar from '../../components/PeriodBar';
 import { WholePoundsToggle } from '../../contexts/WholePoundsContext';
 import NetWorthSummary from '../../components/NetWorthSummary';
 import FirstSteps from './FirstSteps';
+import HistoryPathCard from './HistoryPathCard';
 import AccountBreakdownModal, { type AccountBreakdownView } from '../../components/AccountBreakdownModal';
 import { PERIOD_LABELS, usePeriod } from '../../hooks/usePeriod';
 import { cardPeriodKey, useCardPeriod } from '../../hooks/useCardPeriod';
@@ -797,6 +798,18 @@ export function ImprovedDashboard() {
             and stands down by itself; see the component header. */}
         <FirstSteps />
       </section>
+
+      {/* THE ORDER THAT TURNS A YEAR OF IMPORTED ROWS INTO AN AFTERNOON.
+          Second on the page, under the headline figures and above everything
+          that is read over a period: for the user it appears to — several
+          thousand unfiled rows — it IS the point of the dashboard, and a guide
+          to the next fortnight of their evenings does not belong under three
+          charts. It is not inside the net-worth landmark above, because a
+          section named "Net worth, assets and liabilities" is not where a
+          seven-step guide lives; it carries its own heading and its own name.
+          Everything about when it appears, when it stands down and where its
+          state lives is argued in the component. */}
+      <HistoryPathCard />
 
       {/* WHAT CAME IN AND WHAT WENT OUT, over the chosen period.
           Called "Performance" until 2026-08-13, which measured nothing:
