@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { SubscriptionProvider, useUsageLimit, useSubscription } from '../SubscriptionContext';
 import type { SubscriptionPlan, UsageMetrics } from '../../types/subscription';
 
@@ -58,10 +58,11 @@ type Quota = 'accounts' | 'transactions' | 'budgets' | 'goals';
 
 function UsageProbe({ feature }: { feature: Quota }): React.JSX.Element {
   const { limit, isUnlimited, currentUsage, percentUsed, canAdd } = useUsageLimit(feature);
-  const { tier } = useSubscription();
+  const { tier, isLoading } = useSubscription();
 
   return (
     <dl>
+      <dd data-testid="loading">{String(isLoading)}</dd>
       <dd data-testid="tier">{tier}</dd>
       <dd data-testid="limit">{String(limit)}</dd>
       <dd data-testid="unlimited">{String(isUnlimited)}</dd>
@@ -92,9 +93,13 @@ const renderProbe = async (feature: Quota = 'accounts'): Promise<void> => {
       <UsageProbe feature={feature} />
     </SubscriptionProvider>
   );
-  // The provider resolves the tier asynchronously; wait for it to settle so the
-  // assertions read the loaded tier and not the free-tier default.
-  await screen.findByText(mockState.tier);
+  // Wait for the LOAD, not the tier. Waiting on the tier's text was vacuous
+  // for every free-tier test — the provider's default state already reads
+  // 'free', so the wait resolved on first paint and the assertions raced the
+  // asynchronous usage load. Under coverage instrumentation the window widened
+  // enough to fire (CI, 1 Sep 2026). isLoading flips false only after usage
+  // has been set, so this wait is real for every tier.
+  await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'));
 };
 
 describe('useUsageLimit', () => {
@@ -168,9 +173,10 @@ describe('SubscriptionContext feature access', () => {
   });
 
   function FeatureProbe(): React.JSX.Element {
-    const { hasFeature, tier } = useSubscription();
+    const { hasFeature, tier, isLoading } = useSubscription();
     return (
       <dl>
+        <dd data-testid="loading">{String(isLoading)}</dd>
         <dd data-testid="tier">{tier}</dd>
         <dd data-testid="reports">{String(hasFeature('customReports'))}</dd>
         <dd data-testid="api">{String(hasFeature('apiCalls'))}</dd>
@@ -184,7 +190,10 @@ describe('SubscriptionContext feature access', () => {
         <FeatureProbe />
       </SubscriptionProvider>
     );
-    await screen.findByText(mockState.tier);
+    // Same wait as renderProbe, for the same reason: 'free' is also the
+    // default, so waiting on the tier's text proved nothing for free-tier
+    // tests. The load flag is real for every tier.
+    await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'));
   };
 
   it('denies a free user a premium feature', async () => {
