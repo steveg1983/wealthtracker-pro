@@ -156,9 +156,39 @@ describe('RenamePayeesModal — Enter commits the rename', () => {
     await user.click(screen.getByRole('button', { name: 'Rename 3 transactions' }));
 
     await waitFor(() => {
-      expect(onRenamed).toHaveBeenCalledWith('Corner Shop', 3);
+      // The third argument is the one shot back: every row this rename was
+      // aimed at, carrying the payee it had BEFORE the write, in the shape the
+      // restore takes. Captured here because here is the last moment the old
+      // wording exists anywhere in the app.
+      expect(onRenamed).toHaveBeenCalledWith('Corner Shop', 3, [
+        { id: 't1', description: 'CORNER SHOP*A1' },
+        { id: 't2', description: 'CORNER SHOP*A1' },
+        { id: 't3', description: 'CORNER SHOP*B2' },
+      ]);
     });
     expect(renameTransactionDescriptions).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * The dialog used to promise that nothing in the app could put a rename
+   * back. That was true when it was written and is not true now, and a
+   * consequence sentence that overstates is as much a lie as one that
+   * understates — so it says how long the way back lasts.
+   */
+  it('no longer claims the rename is beyond recovery, and says how long the undo lasts', async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await user.type(nameBox(), 'Corner Shop');
+
+    expect(screen.queryByText(/nothing in the app can put it back/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Undo on the page behind this puts it back while you are still there/)
+    ).toBeInTheDocument();
+    // The consequence itself is untouched: the wording really is overwritten.
+    expect(screen.getByText(/The bank's original wording is replaced/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/once you leave the page, a re-import from the bank is the only way/)
+    ).toBeInTheDocument();
   });
 
   it('commits through a real submit button, so the browser does the work', async () => {

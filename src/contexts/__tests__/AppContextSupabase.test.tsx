@@ -354,6 +354,72 @@ describe('AppContextSupabase live provider', () => {
       expect(peak).toBe(1);
       expect(result.current.transactions.map(t => t.description)).toEqual(['Tesco', 'Tesco', 'Tesco']);
     });
+
+    /**
+     * The other direction, and the reason it is a method of its own rather
+     * than a rename run backwards: a rename collapses many payees into ONE
+     * name, so putting it back means giving every row its own wording again.
+     * "Rename these ids to X" cannot express that at any batch size.
+     *
+     * What is pinned here is what reaches the ledger: each row's own text, and
+     * a payload that is the description AND NOTHING ELSE. The sweep's undo
+     * must never carry a stray field into a financial row on its way past.
+     */
+    it('puts each row back to its own payee, writing the description and nothing else', async () => {
+      const { result } = await renderApp();
+
+      let account!: Account;
+      await act(async () => {
+        account = await result.current.addAccount(createAccountInput());
+      });
+
+      // Three DIFFERENT references for one shop — a fixture where they matched
+      // would pass whether the undo respected the rows or not.
+      const originals = ['TESCO 1234', 'TESCO STORES 5678', 'TESCO EXPRESS 9012'];
+      await act(async () => {
+        for (const description of originals) {
+          await result.current.addTransaction(
+            createTransactionInput(account.id, { description })
+          );
+        }
+      });
+      const before = result.current.transactions.map(transaction => ({
+        id: transaction.id,
+        description: transaction.description,
+      }));
+      expect(before.map(row => row.description).sort()).toEqual([...originals].sort());
+
+      await act(async () => {
+        await result.current.renameTransactionDescriptions(
+          before.map(row => row.id),
+          'Tesco'
+        );
+      });
+      expect(result.current.transactions.map(t => t.description)).toEqual(['Tesco', 'Tesco', 'Tesco']);
+
+      const writes: Array<{ id: string; updates: unknown }> = [];
+      const realUpdate = DataService.updateTransaction.bind(DataService);
+      vi.spyOn(DataService, 'updateTransaction').mockImplementation(async (id, updates) => {
+        writes.push({ id, updates });
+        return await realUpdate(id, updates);
+      });
+
+      let restored = 0;
+      await act(async () => {
+        restored = await result.current.restoreTransactionDescriptions(before);
+      });
+
+      expect(restored).toBe(3);
+      // One write per row, each carrying that row's own text and no other
+      // field: `{ description }`, exactly.
+      expect(writes).toEqual(
+        before.map(row => ({ id: row.id, updates: { description: row.description } }))
+      );
+      // And the register agrees — three payees, not one name three times.
+      expect(new Map(
+        result.current.transactions.map(t => [t.id, t.description])
+      )).toEqual(new Map(before.map(row => [row.id, row.description])));
+    });
   });
 
   describe('transaction mutations (SIGNED amounts)', () => {

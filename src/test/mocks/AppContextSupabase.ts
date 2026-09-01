@@ -7,6 +7,10 @@ import {
 } from '../../data/defaultTestData';
 import { getDefaultCategories } from '../../data/defaultCategories';
 import type { Category, DismissalKind, SuggestionDismissal, Transaction } from '../../types';
+// Type-only, and therefore erased: this file STANDS IN for that module at
+// runtime, but the shape its doubles must satisfy is the real one's, and
+// borrowing it here is what keeps the two from drifting apart.
+import type { TransactionDescription } from '../../contexts/AppContextSupabase';
 import type { DataPortCapabilities } from '../../services/port';
 import type { TestDataSeedResult } from '../../utils/testDataset';
 import { NO_SURVIVORS, type DeleteTransactionOutcome } from '../../utils/transferSurvivorRelease';
@@ -116,6 +120,24 @@ const baseValue = {
   finalizeReconciliation: async () => 0,
   applyCategoryToUncategorized: async () => 0,
   confirmTransactionCategories: async () => 0,
+  /**
+   * The payee sweep's two bulk writes, typed to the letter.
+   *
+   * Fully typed rather than `async () => 0` for the reason the two doubles
+   * above this one are: a suite hands `__setAppContextValue` a spy of the real
+   * shape, and a double whose parameters were inferred as `never` would refuse
+   * every spy that takes arguments. Both answer 0 by default — a suite that
+   * says nothing about a rename is a suite where nobody pressed it.
+   */
+  renameTransactionDescriptions: async (
+    _ids: string[],
+    _description: string,
+    _onProgress?: (done: number) => void
+  ): Promise<number> => 0,
+  restoreTransactionDescriptions: async (
+    _entries: ReadonlyArray<TransactionDescription>,
+    _onProgress?: (done: number) => void
+  ): Promise<number> => 0,
   transactionSplits: [],
   serverBalances: new Map<string, { balance: number; txnCount: number }>(),
   getTransactionSplits: async () => [],
