@@ -3762,7 +3762,15 @@ export default function AccountTransactions() {
              goes rather than which way it scrolls. Undefined under a
              description or amount sort, where neither end is "newest". */
           newestEnd={phoneNewestEnd}
-          accounts={[]}
+          /* The accounts are what let a card say "Transfer > Current Account"
+             instead of an italic *Uncategorised* over a correctly filed
+             transfer (owner's phone, 1 Sep 2026 — the category a transfer
+             carries is the literal 'transfer-out', which is no category's id).
+             An empty array used to stand here to keep every card in a
+             single-account register from repeating that account's name; the
+             list now derives that from the rows themselves, so passing the
+             real accounts adds the labels without adding the repetition. */
+          accounts={accounts}
           categories={categories}
           // A phone is still looking at the REGISTER, with the same To Review
           // box above it and the same filter, so it gets the same bold. A list

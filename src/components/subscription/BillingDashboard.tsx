@@ -20,6 +20,7 @@ import type {
 } from '../../types/subscription';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { toDecimal } from '../../utils/decimal';
+import { getDateLocale } from '../../utils/dateFormatter';
 // The invoice PDF is hosted by Stripe: an `<a href>` that hands the reader to a
 // tab this app does not control is the one thing link blue is still for.
 import { LINK_CLASS } from '../../design-system/linkBlue';
@@ -144,9 +145,12 @@ export default function BillingDashboard({
     );
   };
 
+  // A renewal date is a date like any other, and obeys Settings ▸ App ▸ Region
+  // & Date Format. It was 'en-US', so a UK subscriber's next payment read
+  // "June 2, 2026" on the one screen where reading a date wrongly costs money.
   const formatDate = (date: Date | string) => {
     const d = new Date(date);
-    return d.toLocaleDateString('en-US', {
+    return d.toLocaleDateString(getDateLocale(), {
       year: 'numeric',
       month: 'long',
       day: 'numeric'

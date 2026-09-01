@@ -4,6 +4,7 @@
 
 import { useEffect, useRef } from 'react';
 import { formatCurrency as formatCurrencyDecimal } from './currency-decimal';
+import { getDateLocale } from './dateFormatter';
 
 /**
  * Announce a message to screen readers
@@ -116,10 +117,14 @@ export function getAriaLabelForCurrency(amount: number, currency: string = 'GBP'
 
 /**
  * Get appropriate ARIA label for dates
+ *
+ * Spoken by a screen reader is still read by a person, so it obeys Settings ▸
+ * App ▸ Region & Date Format like every other date. It said 'en-US' — which
+ * would have announced "June 2, 2026" under a setting of English (UK).
  */
 export function getAriaLabelForDate(date: Date | string): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return dateObj.toLocaleDateString('en-US', {
+  return dateObj.toLocaleDateString(getDateLocale(), {
     weekday: 'long',
     year: 'numeric',
     month: 'long',

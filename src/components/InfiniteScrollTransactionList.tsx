@@ -4,6 +4,7 @@ import type { Transaction, Account, Category } from '../types';
 import { LoadingSpinner } from './LoadingSpinner';
 import { TableSkeleton, type TableSkeletonColumn } from './loading/TableSkeleton';
 import { useDelayedFlag } from '../hooks/useDelayedFlag';
+import { createCategoryLabeller } from '../utils/categoryLabel';
 
 /**
  * What a transaction card is shaped like, for the placeholder that waits in
@@ -68,6 +69,14 @@ const jumpLabelFor = (jumpTo: 'top' | 'bottom', newestEnd?: 'start' | 'end'): st
 
 interface InfiniteScrollTransactionListProps {
   transactions: Transaction[];
+  /**
+   * The accounts the app knows — needed to READ the rows, not only to name
+   * them: a transfer's category says only that it is a transfer, so the other
+   * side's name is where "Transfer > Rainy Day Savings" comes from. Passing an
+   * empty array here is how a correctly filed transfer came to read
+   * *Uncategorised* on a phone (1 Sep 2026). Whether a card also names its own
+   * account is decided from the rows, not from this.
+   */
   accounts: Account[];
   categories: Category[];
   formatCurrency: (amount: number) => string;
@@ -159,9 +168,56 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
   // explaining renders NOTHING, which is not an element.
 }: InfiniteScrollTransactionListProps): React.JSX.Element | null {
   const [displayedItems, setDisplayedItems] = useState(itemsPerBatch);
-  const categoryNameById = useMemo(
-    () => new Map(categories.map(c => [c.id, c.name])),
-    [categories]
+
+  /**
+   * What a card's category line says — THE register's own resolver, not a
+   * second one.
+   *
+   * This was `new Map(categories.map(c => [c.id, c.name]))`, and a transfer's
+   * category is the literal `'transfer-out'`/`'transfer-in'`, which is no
+   * category's id. So every hand-entered transfer missed the lookup and the
+   * card printed an italic *Uncategorised* over a row that was filed
+   * perfectly — twelve of them on one phone screen, reported 1 Sep 2026, while
+   * the desktop register beside it read "Transfer > Current Account" for the
+   * same rows. A leaf-only map also dropped the parent from every other row:
+   * "Groceries" here, "Food > Groceries" there, one register.
+   *
+   * `createCategoryLabeller` is the answer the register already had — read its
+   * header for why it is a factory and why it is memoised on exactly the two
+   * arrays it reads.
+   */
+  const categoryLabel = useMemo(
+    () => createCategoryLabeller(categories, accounts),
+    [categories, accounts]
+  );
+
+  /**
+   * Does a card name the account its row belongs to?
+   *
+   * Only when the list holds more than one account's rows. The labeller above
+   * needs the app's accounts to resolve "Transfer > <the other account>", so
+   * they now arrive where an empty array used to be passed — and an account
+   * register would otherwise repeat one identical name down every card, on the
+   * single truncating line that already carries the date, the category and the
+   * suggestion badge. Derived rather than asked of the caller: a rule about
+   * whether a name distinguishes anything is a fact about the rows, and one
+   * nobody can forget to pass.
+   */
+  const namesTheAccount = useMemo(() => {
+    let first: string | undefined;
+    for (const transaction of transactions) {
+      if (first === undefined) {
+        first = transaction.accountId;
+        continue;
+      }
+      if (transaction.accountId !== first) return true;
+    }
+    return false;
+  }, [transactions]);
+
+  const accountById = useMemo(
+    () => new Map(accounts.map(account => [account.id, account] as const)),
+    [accounts]
   );
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   /** Under 200ms the phone shows nothing rather than a flash of grey bars. */
@@ -528,15 +584,21 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
       {/* Transaction list */}
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
         {visibleTransactions.map((transaction) => {
-          const account = accounts.find(a => a.id === transaction.accountId);
+          const account = namesTheAccount ? accountById.get(transaction.accountId) : undefined;
           const isSelected = selectedTransactions?.has(transaction.id) || false;
-          
+          // An id that resolves to nothing reads as nothing — the labeller's
+          // ruling, not a second fallback invented here. On a card "nothing"
+          // is the one thing the line already knows how to say, so the empty
+          // string becomes the same italic Uncategorised an unfiled row gets
+          // rather than a dangling " · " after the date.
+          const label = categoryLabel(transaction);
+
           return (
             <SwipeableTransactionRow
               key={transaction.id}
               transaction={transaction}
               account={account}
-              categoryName={transaction.category ? categoryNameById.get(transaction.category) : undefined}
+              categoryName={label === '' ? undefined : label}
               formatCurrency={formatCurrency}
               onEdit={onEdit}
               onDelete={onDelete}

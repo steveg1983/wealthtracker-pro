@@ -7,6 +7,7 @@ import MoneyInput from './common/MoneyInput';
 import { toDecimal, toStorageNumber, parseMoneyInput } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { getEffectiveBudgetAmount, sumBudgetCarry } from '../utils/budgetAmounts';
+import { getDateLocale } from '../utils/dateFormatter';
 import {
   ArrowRightIcon,
   CheckCircleIcon,
@@ -330,8 +331,11 @@ export default function BudgetRollover() {
   const budgetsWithDeficit = rolloverData.filter(data => data.remaining.lessThan(0)).length;
   const currentCarry = useMemo(() => sumBudgetCarry(budgets), [budgets]);
 
+  // `'default'` here meant the RUNTIME's locale, not the reader's choice: a
+  // browser set to French printed "janvier" under an app set to English (UK).
+  // The setting is the app's one answer to which region it is speaking.
   const getMonthName = useCallback(
-    (month: number) => new Date(2000, month).toLocaleString('default', { month: 'long' }),
+    (month: number) => new Date(2000, month).toLocaleString(getDateLocale(), { month: 'long' }),
     []
   );
 

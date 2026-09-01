@@ -107,13 +107,21 @@ const FIND_SKELETON_COLUMNS: TableSkeletonColumn[] = [
 const FIND_ROW_HEIGHT = 36;
 
 /** How a day is written in the range chip — the app's date style, spelled out. */
-const DAY_FORMAT = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const DAY_PARTS: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
 
-/** `YYYY-MM-DD` as the chip prints it, or the raw text if it cannot be read. */
+/**
+ * `YYYY-MM-DD` as the chip prints it, or the raw text if it cannot be read.
+ *
+ * The formatter is built per call rather than once at module load: it used to
+ * hard-code 'en-GB', and a constant built from `getDateLocale()` at import time
+ * would freeze whatever the setting said then — the rows in the table beneath
+ * this chip ask for the locale every time they draw, and the chip must not be
+ * the one date on the page still answering to yesterday's choice.
+ */
 function formatDay(day: string): string {
   const ms = Date.parse(`${day}T00:00:00.000Z`);
   if (!Number.isFinite(ms)) return day;
-  return DAY_FORMAT.format(new Date(ms));
+  return new Intl.DateTimeFormat(getDateLocale(), DAY_PARTS).format(new Date(ms));
 }
 
 export default function Find(): React.JSX.Element {

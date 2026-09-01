@@ -36,6 +36,7 @@
  */
 
 import type { Invoke } from '../services/local/coreTransport';
+import { getDateLocale } from '../utils/dateFormatter';
 
 /** Where a window stands. `license.rs`'s `State`, as it serialises. */
 export type LicenceState = 'unenforced' | 'licensed' | 'expired' | 'unlicensed';
@@ -136,12 +137,20 @@ export const applyLicenceKey = async (invoke: Invoke, key: string): Promise<Lice
 /**
  * A date, the way this app says dates.
  *
- * `en-GB` hard-coded, exactly as `utils/dateFormatter` does it: there is no US
- * edition to be consistent with, and a trial that ends on 03/04/2027 must not be
- * readable as two different days.
+ * It said `en-GB` outright, on the argument that `utils/dateFormatter` did the
+ * same and there was no other edition to be consistent with. That stopped being
+ * true when Settings ▸ App ▸ Region & Date Format started reaching the
+ * formatters: en-GB is now the DEFAULT rather than the only answer, and a trial
+ * expiry printed in a region the reader did not choose is exactly the "readable
+ * as two different days" this note was written to prevent. The setting is the
+ * one answer; `getDateLocale` is where it is kept.
+ *
+ * `dateFormatter` names no edition of its own — it reads preferences through
+ * `@prefs-store`, which is the desktop's own transport in a desktop window —
+ * so this stays a module a desktop bundle may reach.
  */
 export const formatLicenceDate = (epochSeconds: number): string =>
-  new Date(epochSeconds * 1000).toLocaleDateString('en-GB', {
+  new Date(epochSeconds * 1000).toLocaleDateString(getDateLocale(), {
     day: 'numeric',
     month: 'long',
     year: 'numeric'

@@ -5,13 +5,22 @@ import { EditIcon, DeleteIcon, CheckIcon, StarIcon, FolderIcon } from './icons';
 import SuggestedCategoryBadge from './SuggestedCategoryBadge';
 import { isConfirmableSuggestion } from '../utils/categoryProvenance';
 import { isAwaitingReview } from '../utils/transactionReview';
+import { UNCATEGORISED_LABEL } from '../utils/categoryNames';
 import type { Transaction, Account } from '../types';
 import { useFormattedDate } from '../hooks/useFormattedValues';
 
 interface SwipeableTransactionRowProps {
   transaction: Transaction;
   account?: Account;
-  /** The category's display name; the transaction itself holds only its id. */
+  /**
+   * The category's display name; the transaction itself holds only its id.
+   *
+   * Resolved by the caller through `createCategoryLabeller`, which is what
+   * makes a transfer read "Transfer > Current Account" rather than the literal
+   * category a transfer carries. Undefined means the row has nothing to say
+   * about its category — no id, or one that resolves to none — and the line
+   * below says exactly that.
+   */
   categoryName?: string;
   formatCurrency: (amount: number) => string;
   onEdit: (transaction: Transaction) => void;
@@ -240,7 +249,9 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
               }`}>
                 {formattedDate}
                 {' · '}
-                {categoryName ?? <span className="italic">Uncategorised</span>}
+                {/* One spelling of the word, read from the one place that
+                    holds it (utils/categoryNames), as Find's result rows do. */}
+                {categoryName ?? <span className="italic">{UNCATEGORISED_LABEL}</span>}
                 {/* Right beside the category it is about, because that is the
                     only place it means anything. Tapping the card opens the
                     row's editor, which carries the same badge — and saving an

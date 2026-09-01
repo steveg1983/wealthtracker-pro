@@ -11,6 +11,7 @@
 import React, { useState } from 'react';
 import { useRealtimeConnectionStatus } from '../hooks/useRealtimeConnectionStatus';
 import realtimeService from '../services/realtimeService';
+import { getDateLocale } from '../utils/dateFormatter';
 
 interface RealtimeStatusIndicatorProps {
   /**
@@ -64,9 +65,11 @@ export function RealtimeStatusIndicator({
     }
   };
 
+  // The clock a reader recognises: 'en-US' put the last sync at "09:12:44 PM"
+  // for a user whose whole app is set to English (UK), which reads it as 21:12.
   const formatTime = (date: Date | null) => {
     if (!date) return 'Never';
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(getDateLocale(), {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
