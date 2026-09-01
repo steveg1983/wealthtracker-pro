@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import CategorySelector from './CategorySelector';
 import AccountSelector, { type SelectableAccount } from './common/AccountSelector';
@@ -10,7 +10,7 @@ import { useAccountNames } from '../hooks/useAccountNames';
 import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
 import { getDateLocale } from '../utils/dateFormatter';
 import { AlertTriangleIcon, PlusIcon, XIcon } from './icons';
-import type { Transaction } from '../types';
+import type { Category, Transaction } from '../types';
 
 /**
  * Filter and file — the engine both categorising surfaces are made of.
@@ -94,6 +94,27 @@ import type { Transaction } from '../types';
  * expects it. At `sm` and up the wrapper dissolves (`display: contents`, the
  * Accounts toolbar's own trick) and the row is the flex row it always was.
  *
+ * ── ONE FILTER IS CHOSEN RATHER THAN FILLED IN (owner, 1 Sep 2026) ──────────
+ *
+ * "Filed under a category that no longer exists" takes no value: picking the
+ * kind IS the instruction, so it counts as a search the moment it is chosen and
+ * its row has no second line to stack on a phone. Every other kind asks for a
+ * word, a category, an account, a range; this one asks for nothing because
+ * there is nothing to name — the category is gone, which is the whole
+ * complaint.
+ *
+ * It exists because those rows were ANNOUNCED in two places and reachable from
+ * neither. Accounts → Categorisation said "N of these are filed under a
+ * category that no longer exists, repair them under Manage → Categories";
+ * Manage → Categories said "N rows point at a category that no longer exists"
+ * and offered a link back to Categorisation. Each end pointed at the other and
+ * the rows were never on screen. The owner's ruling closed it: a dangling row
+ * HAS a category — a dead one — so putting it right is a CHANGE to something
+ * already filed, which is this tool's housekeeping mount. The population there
+ * already held those rows and the picker already said so beside them; what was
+ * missing was the way to find them, and this is it. Both former ends of the
+ * loop now land here (see utils/categoryRefileLink).
+ *
  * ── WHAT A CHANGE WRITES, AND WHAT IT NEVER DOES ────────────────────────────
  *
  * Exactly the three fields of a filing: the category, and the two flags that
@@ -148,6 +169,27 @@ export interface FilterAndFileCopy {
   filesUnchangedRows?: boolean;
 }
 
+/**
+ * A filter another surface can ask for on the reader's behalf.
+ *
+ * Presence-only kinds and nothing else, which is not an arbitrary narrowing: a
+ * preset of any other kind would arrive as an EMPTY BOX, and an empty box is
+ * not a search — nothing is listed until a filter carries a value, so the
+ * reader would be handed an open panel and no rows, which is the failure this
+ * whole path exists to end.
+ */
+export type PresetFilterKind = 'dangling';
+
+export interface FilterAndFilePreset {
+  kind: PresetFilterKind;
+  /**
+   * Changes on every ask, so asking twice works twice — the `openSearchToken`
+   * idiom the house pickers already use. Without it a second press after the
+   * reader had changed the search would do nothing at all.
+   */
+  token: number;
+}
+
 interface FilterAndFileListProps {
   /**
    * Whether the body is drawn. The component stays MOUNTED when it is not, so
@@ -173,9 +215,20 @@ interface FilterAndFileListProps {
   header?: React.ReactNode;
   /** The box the body sits in, where the mount wants one. */
   className?: string;
+  /**
+   * A search this mount has been asked to run for the reader — today the rows
+   * whose category no longer exists, asked for by the data-health panel above
+   * the housekeeping mount or by the link that arrives from Categorisation.
+   *
+   * It REPLACES the filters rather than adding to them: the request is "show me
+   * those rows", and a leftover filter from a previous question would quietly
+   * hide some of them. Everything answering the old question goes with it,
+   * exactly as it does when the reader changes a filter themselves.
+   */
+  preset?: FilterAndFilePreset | null;
 }
 
-type FilterKind = 'text' | 'category' | 'account' | 'date' | 'amount' | 'tag';
+type FilterKind = 'text' | 'category' | 'account' | 'date' | 'amount' | 'tag' | 'dangling';
 
 /**
  * One filter row.
@@ -207,7 +260,17 @@ const FILTER_KIND_LABELS: Record<FilterKind, string> = {
   date: 'Date range',
   amount: 'Amount',
   tag: 'Tag',
+  dangling: 'Filed under a category that no longer exists',
 };
+
+/**
+ * What the reader chose in the kind selector, as a kind — asked of the labels
+ * above rather than listed a second time, so a kind added there is offered,
+ * selectable and matched without a third place to remember. `hasOwnProperty`
+ * rather than `in`: everything on Object.prototype answers `in`.
+ */
+const isFilterKind = (value: string): value is FilterKind =>
+  Object.prototype.hasOwnProperty.call(FILTER_KIND_LABELS, value);
 
 /** Distinct keys for filter rows, which have no natural identity of their own. */
 let filterSeq = 0;
@@ -254,6 +317,24 @@ const boundOf = (raw: string): number | null => {
   return Number.isFinite(value) ? Math.abs(value) : null;
 };
 
+/**
+ * THE ONE DEFINITION OF A DANGLING FILING: a category id that is set, and that
+ * no category in the tree answers to.
+ *
+ * Two things read it and they may never disagree — the amber note beside a
+ * row's picker (which says the category is gone) and the FILTER that finds
+ * those rows. A second predicate would eventually be a list that swore its rows
+ * were dangling with rows inside it saying they were not, and no reader could
+ * tell which half was lying.
+ *
+ * Blank is not dangling: a row with no category at all is Categorisation's
+ * work, and both mounts already have their own answer to it.
+ */
+const isDanglingFiling = (
+  categoryId: string,
+  categoriesById: ReadonlyMap<string, Category>
+): boolean => categoryId !== '' && !categoriesById.has(categoryId);
+
 /** Is this row an instruction yet, or an empty box? */
 const filterHasValue = (filter: Filter): boolean => {
   switch (filter.kind) {
@@ -269,6 +350,10 @@ const filterHasValue = (filter: Filter): boolean => {
       return boundOf(filter.min) !== null || boundOf(filter.max) !== null;
     case 'tag':
       return filter.tag !== '';
+    // Chosen, therefore asked: this kind has no box to fill in, so the moment
+    // it is picked it is a search (see the note at the top of the file).
+    case 'dangling':
+      return true;
   }
 };
 
@@ -276,8 +361,16 @@ const filterHasValue = (filter: Filter): boolean => {
  * One row against one filter. Applied to transfers as well as to the
  * population, so the exclusion below can be counted and said out loud rather
  * than being a silent shortfall in the results.
+ *
+ * `filingHasNoName` is handed in rather than derived here because it needs the
+ * category tree, which is the component's. It is the SAME predicate the rows
+ * draw their amber note from — see isDanglingFiling.
  */
-const rowMatches = (transaction: Transaction, filter: Filter): boolean => {
+const rowMatches = (
+  transaction: Transaction,
+  filter: Filter,
+  filingHasNoName: (categoryId: string) => boolean
+): boolean => {
   switch (filter.kind) {
     case 'text': {
       // Description OR notes — asked separately rather than of the two joined,
@@ -304,6 +397,8 @@ const rowMatches = (transaction: Transaction, filter: Filter): boolean => {
     }
     case 'tag':
       return (transaction.tags ?? []).includes(filter.tag);
+    case 'dangling':
+      return filingHasNoName(transaction.category);
   }
 };
 
@@ -332,6 +427,7 @@ export default function FilterAndFileList({
   copy,
   header,
   className,
+  preset = null,
 }: FilterAndFileListProps): React.JSX.Element {
   const { transactions, categories, accounts, updateTransaction } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
@@ -397,9 +493,16 @@ export default function FilterAndFileList({
    * trigger tells the truth about a revaluation leaf, an account's To/From, or
    * a group. A dangling id is the one case it cannot draw — and drawing nothing
    * would read as "no category", which is the opposite of this row's problem.
+   *
+   * The FILTER of the same name matches on this exact predicate (it is handed
+   * down to rowMatches), so a row the list found can never draw itself as
+   * anything else. Memoised on the tree because the search memos below depend
+   * on it.
    */
-  const filingHasNoName = (categoryId: string): boolean =>
-    categoryId !== '' && !categoriesById.has(categoryId);
+  const filingHasNoName = useCallback(
+    (categoryId: string): boolean => isDanglingFiling(categoryId, categoriesById),
+    [categoriesById]
+  );
 
   /** The rows this mount owns — see the note on the prop. */
   const searchable = useMemo(() => transactions.filter(population), [transactions, population]);
@@ -409,11 +512,13 @@ export default function FilterAndFileList({
   const matched = useMemo(() => {
     if (activeFilters.length === 0) return [];
     return searchable
-      .filter(transaction => activeFilters.every(filter => rowMatches(transaction, filter)))
+      .filter(transaction => activeFilters.every(
+        filter => rowMatches(transaction, filter, filingHasNoName)
+      ))
       // Newest first, the register's own order: the rows somebody is looking
       // for are far likelier to be recent than to be at the start of a decade.
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [searchable, activeFilters]);
+  }, [searchable, activeFilters, filingHasNoName]);
 
   /**
    * Transfers the same filters caught. Counted, never listed — and said out
@@ -424,9 +529,9 @@ export default function FilterAndFileList({
     if (activeFilters.length === 0) return 0;
     return transactions.filter(
       transaction => transaction.type === 'transfer'
-        && activeFilters.every(filter => rowMatches(transaction, filter))
+        && activeFilters.every(filter => rowMatches(transaction, filter, filingHasNoName))
     ).length;
-  }, [transactions, activeFilters]);
+  }, [transactions, activeFilters, filingHasNoName]);
 
   /**
    * The accounts the population sits in — and only those, because an account
@@ -477,14 +582,35 @@ export default function FilterAndFileList({
    * unsaved picks, the account of the last press — and the one shot back,
    * which is about rows that may not even be in the new results.
    */
-  const changeFilters = (next: Filter[]): void => {
+  const changeFilters = useCallback((next: Filter[]): void => {
     setFilters(next);
     setSelectedIds(new Set());
     setRowChoices({});
     setSummary(null);
     setUndoable([]);
     setUndoneCount(null);
-  };
+  }, []);
+
+  /**
+   * A search asked for from OUTSIDE — the data-health panel's re-file action,
+   * or the link that arrives on that page from Categorisation carrying the
+   * same request.
+   *
+   * Applied ONCE PER TOKEN, so a reader who narrows the search afterwards
+   * keeps their own filters and a second press puts the asked-for search back.
+   * The token is what guards that, never the effect's dependencies: a parent
+   * that builds a fresh `{ kind, token }` object on each render is an ordinary
+   * thing to write, and it must not cost the reader their search.
+   */
+  const presetKind = preset?.kind ?? null;
+  const presetToken = preset?.token ?? null;
+  const presetApplied = useRef<number | null>(null);
+  useEffect((): void => {
+    if (presetKind === null || presetToken === null) return;
+    if (presetApplied.current === presetToken) return;
+    presetApplied.current = presetToken;
+    changeFilters([newFilter(presetKind)]);
+  }, [presetKind, presetToken, changeFilters]);
 
   const updateFilter = (id: string, changes: Partial<Filter>): void => {
     changeFilters(filters.map(filter => (filter.id === id ? { ...filter, ...changes } : filter)));
@@ -682,7 +808,13 @@ export default function FilterAndFileList({
   const dateFieldClass =
     'min-h-[44px] sm:min-h-[42px] text-sm rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white';
 
-  const renderFilterInputs = (filter: Filter, position: number): React.JSX.Element => {
+  /**
+   * The boxes a kind asks for, or null where it asks for none — which is the
+   * whole of the dangling filter's interface (see the note at the top). Null
+   * means the row draws no second line at all rather than an empty one: there
+   * is nothing to indent under the kind that governs it.
+   */
+  const renderFilterInputs = (filter: Filter, position: number): React.JSX.Element | null => {
     switch (filter.kind) {
       case 'text':
         return (
@@ -787,6 +919,8 @@ export default function FilterAndFileList({
             ))}
           </select>
         );
+      case 'dangling':
+        return null;
     }
   };
 
@@ -797,58 +931,62 @@ export default function FilterAndFileList({
           {header}
 
           <div className="mt-4 space-y-2">
-            {filters.map((filter, index) => (
-              // A grid below `sm` and the flex row it always was above it. The
-              // cells are placed by explicit coordinates rather than by source
-              // order — the same reflow the results table below uses — so the
-              // ✕ can sit beside the kind selector on the top line while the
-              // markup keeps the reading order the desktop wants.
-              <div
-                key={filter.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:flex-wrap sm:items-center"
-              >
-                <select
-                  value={filter.kind}
-                  onChange={event => {
-                    const kind = event.target.value;
-                    if (kind === 'text' || kind === 'category' || kind === 'account'
-                      || kind === 'date' || kind === 'amount' || kind === 'tag') {
-                      updateFilter(filter.id, { kind });
-                    }
-                  }}
-                  aria-label={`What to filter by, filter ${index + 1}`}
-                  disabled={running}
-                  // `min-w-0` only while it is a grid cell: a select's own
-                  // minimum is the width of its longest option, which would
-                  // burst a phone-width track. `min-w-[auto]` hands that
-                  // minimum back at `sm`, where the row is flex and the select
-                  // has always sized itself to its text.
-                  className={`${fieldClass} col-start-1 row-start-1 min-w-0 sm:min-w-[auto]`}
+            {filters.map((filter, index) => {
+              const inputs = renderFilterInputs(filter, index + 1);
+              return (
+                // A grid below `sm` and the flex row it always was above it.
+                // The cells are placed by explicit coordinates rather than by
+                // source order — the same reflow the results table below uses —
+                // so the ✕ can sit beside the kind selector on the top line
+                // while the markup keeps the reading order the desktop wants.
+                <div
+                  key={filter.id}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:flex-wrap sm:items-center"
                 >
-                  {(Object.keys(FILTER_KIND_LABELS) as FilterKind[]).map(kind => (
-                    <option key={kind} value={kind}>{FILTER_KIND_LABELS[kind]}</option>
-                  ))}
-                </select>
-                {/* The value box, or boxes, on their own line under the kind
-                    that governs them and indented to say so (owner, 1 Sep
-                    2026). `sm:contents` dissolves this wrapper at every width
-                    the desktop uses, so the inputs go back to being flex items
-                    of the row itself and nothing above `sm` changes. */}
-                <div className="col-span-2 row-start-2 min-w-0 pl-4 flex flex-wrap items-center gap-2 sm:contents">
-                  {renderFilterInputs(filter, index + 1)}
+                  <select
+                    value={filter.kind}
+                    onChange={event => {
+                      const kind = event.target.value;
+                      if (isFilterKind(kind)) updateFilter(filter.id, { kind });
+                    }}
+                    aria-label={`What to filter by, filter ${index + 1}`}
+                    disabled={running}
+                    // `min-w-0` only while it is a grid cell: a select's own
+                    // minimum is the width of its longest option, which would
+                    // burst a phone-width track. `min-w-[auto]` hands that
+                    // minimum back at `sm`, where the row is flex and the
+                    // select has always sized itself to its text.
+                    className={`${fieldClass} col-start-1 row-start-1 min-w-0 sm:min-w-[auto]`}
+                  >
+                    {(Object.keys(FILTER_KIND_LABELS) as FilterKind[]).map(kind => (
+                      <option key={kind} value={kind}>{FILTER_KIND_LABELS[kind]}</option>
+                    ))}
+                  </select>
+                  {/* The value box, or boxes, on their own line under the kind
+                      that governs them and indented to say so (owner, 1 Sep
+                      2026). `sm:contents` dissolves this wrapper at every width
+                      the desktop uses, so the inputs go back to being flex
+                      items of the row itself and nothing above `sm` changes.
+                      A kind that asks for nothing gets no line at all — there
+                      is nothing to stack. */}
+                  {inputs !== null && (
+                    <div className="col-span-2 row-start-2 min-w-0 pl-4 flex flex-wrap items-center gap-2 sm:contents">
+                      {inputs}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeFilter(filter.id)}
+                    disabled={running}
+                    aria-label={`Remove filter ${index + 1}`}
+                    title="Remove this filter"
+                    className="col-start-2 row-start-1 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:p-1.5 inline-flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                  >
+                    <XIcon size={14} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removeFilter(filter.id)}
-                  disabled={running}
-                  aria-label={`Remove filter ${index + 1}`}
-                  title="Remove this filter"
-                  className="col-start-2 row-start-1 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:p-1.5 inline-flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-                >
-                  <XIcon size={14} />
-                </button>
-              </div>
-            ))}
+              );
+            })}
             <button
               type="button"
               onClick={() => changeFilters([...filters, newFilter()])}

@@ -1,5 +1,9 @@
-import React, { useState } from 'react';
-import FilterAndFileList, { type FilterAndFileCopy } from './FilterAndFileList';
+import React, { useEffect, useState } from 'react';
+import FilterAndFileList, {
+  type FilterAndFileCopy,
+  type FilterAndFilePreset,
+} from './FilterAndFileList';
+import { useArrivalRowFocus } from '../hooks/useArrivalFocus';
 import type { Transaction } from '../types';
 
 /**
@@ -26,6 +30,15 @@ import type { Transaction } from '../types';
  * FilterAndFileList, which is the file to read and the file to change. What is
  * here is this page's half: its population, and the words that are only true
  * of a re-filing.
+ *
+ * ── IT CAN BE ASKED FOR FROM ABOVE (owner, 1 Sep 2026) ──────────────────────
+ *
+ * The data-health panel at the top of this page, and a link that arrives from
+ * Accounts → Categorisation, both need to end at ROWS: the rows filed under a
+ * category that no longer exists. So the section takes a request, and answering
+ * it is one act — reveal, apply the search, scroll here. A nudge, not a lock:
+ * whoever asked cannot hold the section open, and the reader's next filter is
+ * their own.
  */
 
 /** A transaction the tree can be corrected on, and the words for correcting it. */
@@ -71,11 +84,42 @@ const CORRECTING_A_FILING: FilterAndFileCopy = {
 const isFiled = (transaction: Transaction): boolean =>
   transaction.type !== 'transfer' && (transaction.category ?? '').trim() !== '';
 
-export default function RecategoriseSection(): React.JSX.Element {
+interface RecategoriseSectionProps {
+  /**
+   * A search the page has asked this section to run, and a token that changes
+   * on every ask. Null — the ordinary case — and nothing about the section
+   * changes for anyone who never asks.
+   */
+  openWith?: FilterAndFilePreset | null;
+}
+
+export default function RecategoriseSection({
+  openWith = null,
+}: RecategoriseSectionProps): React.JSX.Element {
   const [open, setOpen] = useState(false);
+
+  /**
+   * Revealed when it is asked for. Deliberately one-way: the Hide button still
+   * works afterwards, because a request opens a door rather than holding it.
+   */
+  useEffect((): void => {
+    if (openWith !== null) setOpen(true);
+  }, [openWith]);
+
+  /**
+   * …and brought into view, because this section is at the FOOT of a page whose
+   * tree runs to hundreds of rows. Revealing a list a reader cannot see is the
+   * same failure as the loop this path replaced. The house arrival hook, so
+   * being sent somewhere always behaves the same way: once per request, and
+   * never dragging the view back afterwards.
+   */
+  const { focusRef } = useArrivalRowFocus(
+    openWith === null ? null : `refile-${openWith.kind}-${openWith.token}`
+  );
 
   return (
     <section
+      ref={focusRef}
       className="mt-6 bg-white dark:bg-gray-800 rounded-lg border border-line dark:border-gray-700 p-4 sm:p-6"
       aria-labelledby="recategorise-heading"
     >
@@ -98,7 +142,12 @@ export default function RecategoriseSection(): React.JSX.Element {
         Accounts&nbsp;→&nbsp;Categorisation, and are not searched here.
       </p>
 
-      <FilterAndFileList open={open} population={isFiled} copy={CORRECTING_A_FILING} />
+      <FilterAndFileList
+        open={open}
+        population={isFiled}
+        copy={CORRECTING_A_FILING}
+        preset={openWith}
+      />
     </section>
   );
 }

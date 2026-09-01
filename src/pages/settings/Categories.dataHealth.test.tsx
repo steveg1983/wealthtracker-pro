@@ -18,7 +18,12 @@
  *    rows are not blank. So this action opens the bucket's list, here;
  *  - an empty category is deleted from the tree on this page, behind
  *    Edit → Delete mode, so the action arrives in that mode with the empty rows
- *    expanded, highlighted and the first one scrolled to.
+ *    expanded, highlighted and the first one scrolled to;
+ *  - a row filed under a category that NO LONGER EXISTS is still filed, so it
+ *    is housekeeping: the Re-categorise section at the foot of this page opens
+ *    on exactly those rows. It used to link to Categorisation, which linked
+ *    back here, and the rows were never on screen in either direction — the
+ *    loop the owner reported on 1 Sep 2026 from a real user.
  *
  * Every category, transaction and figure below is invented: this repo is public.
  */
@@ -90,7 +95,11 @@ const SPLITS: TransactionSplit[] = [
   { id: 's2', transactionId: 'txn-split', category: BUCKET, amount: -20, sortOrder: 2 },
 ];
 
-const setup = (overrides: Record<string, unknown> = {}): void => {
+const setup = (
+  overrides: Record<string, unknown> = {},
+  /** The address the page is opened at — one remedy arrives in it. */
+  entry: string = '/settings/categories'
+): void => {
   __setAppContextValue({
     categories: CATEGORIES,
     transactions: [txn({ id: 'txn-filed' }), SPLIT_PARENT],
@@ -104,8 +113,25 @@ const setup = (overrides: Record<string, unknown> = {}): void => {
     getDetailCategories: (parentId?: string) => CATEGORIES.filter(c => c.parentId === parentId),
     ...overrides,
   });
-  render(<MemoryRouter><CategoriesSettings /></MemoryRouter>);
+  render(
+    <MemoryRouter initialEntries={[entry]}>
+      <CategoriesSettings />
+    </MemoryRouter>
+  );
 };
+
+/** Filed under a category that was deleted, alongside one that is filed properly. */
+const DANGLING_LEDGER = {
+  transactions: [
+    txn({ id: 'txn-orphan', description: 'Ashvale Hardware', category: 'was-deleted-long-ago' }),
+    txn({ id: 'txn-filed', description: 'Riverbank Groceries' }),
+  ],
+  transactionSplits: [],
+};
+
+/** What such a row says beside its picker — the proof a ROW is on screen. */
+const DANGLING_ROW_NOTE =
+  'Filed under a category that no longer exists — choose one to put it right.';
 
 const healthPanel = (): HTMLElement =>
   screen.getByRole('region', { name: 'Data health' });
@@ -146,11 +172,49 @@ describe('every data-health line carries its remedy', () => {
     expect(rows).toHaveLength(2);
   });
 
-  it('sends rows pointing at a deleted category to the review that can re-file them', () => {
-    setup({ transactions: [txn({ id: 'txn-orphan', category: 'was-deleted-long-ago' })], transactionSplits: [] });
+  /**
+   * THE BUG, AND THE TEST OF IT (owner, from a user, 1 Sep 2026).
+   *
+   * This line used to link to Accounts → Categorisation, whose own amber note
+   * about the same rows linked back to this page. A reader who followed either
+   * arrived at the other announcement; the rows were never on screen, in either
+   * direction, ever. The path has to END AT THE ROWS, and this is what says so.
+   */
+  it('ends the loop: the dangling rows come up HERE, each with its picker', () => {
+    setup(DANGLING_LEDGER);
 
-    expect(within(healthPanel()).getByRole('link', { name: 'Review and re-file' }))
-      .toHaveAttribute('href', '/categorisation');
+    // Before: the housekeeping section at the foot of the page is collapsed.
+    expect(screen.queryByLabelText('What to filter by, filter 1')).not.toBeInTheDocument();
+
+    fireEvent.click(within(healthPanel()).getByRole('button', { name: 'Re-file it now' }));
+
+    // The section is open, on the search that finds exactly these rows…
+    expect(screen.getByLabelText('What to filter by, filter 1')).toHaveValue('dangling');
+    // …and the row is on screen, saying what is wrong with it, with the
+    // control that puts it right beside it.
+    expect(screen.getByLabelText(/^Category for Ashvale Hardware/)).toBeInTheDocument();
+    expect(screen.getByText(DANGLING_ROW_NOTE)).toBeInTheDocument();
+    // Nothing else filtered in: a properly filed row is not part of this job.
+    expect(screen.queryByLabelText(/^Category for Riverbank Groceries/)).not.toBeInTheDocument();
+  });
+
+  it('the other end of the loop lands on the same rows, from its own address', () => {
+    // What Categorisation's amber note links to (utils/categoryRefileLink) —
+    // the ask travels in the address, because it has to survive a navigation.
+    setup(DANGLING_LEDGER, '/settings/categories?refile=dangling');
+
+    expect(screen.getByLabelText('What to filter by, filter 1')).toHaveValue('dangling');
+    expect(screen.getByLabelText(/^Category for Ashvale Hardware/)).toBeInTheDocument();
+    expect(screen.getByText(DANGLING_ROW_NOTE)).toBeInTheDocument();
+  });
+
+  it('opens nothing on an ordinary visit', () => {
+    setup(DANGLING_LEDGER);
+
+    // The section is a section, not a modal: it stays where it was for anyone
+    // who did not come here about these rows.
+    expect(screen.queryByLabelText('What to filter by, filter 1')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show' })).toBeInTheDocument();
   });
 
   it('shows the empty categories in the tree, expanded, highlighted, deletion live', () => {
@@ -233,6 +297,14 @@ describe('a measure that is zero says nothing at all', () => {
     // The empty-category line IS showing here, so this is a per-line rule and
     // not just an empty panel.
     expect(within(panel).getByRole('button', { name: 'Show them in the tree' })).toBeInTheDocument();
+  });
+
+  it('no dangling rows → no dangling line, and no re-file action', () => {
+    setup({ transactions: [txn({ id: 'txn-filed' })], transactionSplits: [] });
+
+    const panel = healthPanel();
+    expect(within(panel).queryByText(/no longer exists/)).not.toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: /^Re-file/ })).not.toBeInTheDocument();
   });
 
   it('clean data → the whole panel, and every remedy in it, renders nothing', () => {

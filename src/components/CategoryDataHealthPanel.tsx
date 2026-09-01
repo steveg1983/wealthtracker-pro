@@ -34,8 +34,14 @@ import type { CategoryHealth } from '../utils/categoryHealth';
  *    change it is the parent's editor, which is precisely what a row in that
  *    list opens. The review band's inline picker cannot — it fills BLANKS only
  *    (apply_category_to_uncategorized), and these rows are not blank;
- *  - dangling references → the Categorisation page as well: they sit in the
- *    same review band, and each row opens the editor that can re-file it;
+ *  - dangling references → the Re-categorise section at the FOOT OF THIS PAGE,
+ *    opened on exactly those rows. It used to link to Categorisation, whose own
+ *    amber note about the same rows linked back here: a reader following either
+ *    arrived at the other announcement and never at the rows (owner, from a
+ *    user, 1 Sep 2026). The ruling that closed the loop is that a dangling row
+ *    HAS a category — a dead one — so putting it right is a CHANGE to something
+ *    already filed, which is housekeeping and lives here. See
+ *    utils/categoryRefileLink;
  *  - empty categories → the tree below, with those rows lit up and deletion
  *    reachable, because that is where a category is deleted;
  *  - transfer filings that are not transfers → a list of exactly those rows,
@@ -44,12 +50,26 @@ import type { CategoryHealth } from '../utils/categoryHealth';
  *    already exists somewhere, or has to be created — so the cure is the
  *    editor's own match-or-create question, asked once per row. A bulk convert
  *    would invent movements between accounts nobody recorded.
+ *
+ * ── ONE LINE WEARS AMBER, AND IT IS EARNED (owner, 1 Sep 2026) ─────────────
+ *
+ * The dangling line — and only it — reads as a warning, in the text treatment
+ * Categorisation's own note about the same rows uses. Money filed under a
+ * category that does not exist is in NO report: it is absent from the totals
+ * without being absent from the ledger, which is the one condition on this
+ * panel a reader cannot see for themselves anywhere else. Its neighbours are
+ * not warnings and stay neutral — an unused category and an ordinary backlog
+ * are housekeeping, and colour marks what needs attention (house rule) or it
+ * stops marking anything at all. The PANEL's own amber is a different question
+ * with a different answer: it belongs to the attention ladder, and says which
+ * work is next.
  */
 export default function CategoryDataHealthPanel({
   health,
   onFileUnassignedBucket,
   onShowEmptyCategories,
   onFixTransferFilings,
+  onReviewDangling,
   wearsAmber,
 }: {
   health: CategoryHealth;
@@ -63,6 +83,13 @@ export default function CategoryDataHealthPanel({
   onFileUnassignedBucket: (categoryId: string) => void;
   /** Show the empty categories in the tree, with deletion reachable. */
   onShowEmptyCategories: () => void;
+  /**
+   * Open the Re-categorise section below on the rows whose category is gone.
+   * Takes no arguments: the section finds them by the same rule this count is
+   * measured with, so handing ids across would be a second definition of
+   * "dangling" — see FilterAndFileList's isDanglingFiling.
+   */
+  onReviewDangling: () => void;
   /** Open the mismatched rows, one editor per row (the ids are the measured ones). */
   onFixTransferFilings: (transactionIds: readonly string[]) => void;
 }): React.JSX.Element | null {
@@ -150,19 +177,36 @@ export default function CategoryDataHealthPanel({
             </button>
           </li>
         )}
+        {/* THE ONE WARNING ON THIS PANEL. The amber is the text treatment
+            Categorisation's note about these same rows carries, and it is on
+            the LINE rather than the panel — the owner's ruling was that this
+            finding reads as a warning, not that the whole panel does. Its
+            neighbours stay neutral: they are housekeeping. The action's own
+            ink is untouched, because it is in-app navigation like every other
+            action here. */}
         {health.danglingCount > 0 && (
-          <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-amber-700 dark:text-amber-400">
             <span>
               <strong className="tabular-nums">{health.danglingCount.toLocaleString()}</strong>{' '}
-              row{plural(health.danglingCount)} point at a category that no longer exists — re-file{' '}
+              {/* The verb agrees, as it does on every other line here
+                  ("categor{y has|ies have}", "transaction{ carries|s carry}").
+                  This one said "1 row point at" until the line was rewritten. */}
+              row{plural(health.danglingCount)} point{health.danglingCount === 1 ? 's' : ''} at a
+              category that no longer exists — re-file{' '}
               {health.danglingCount === 1 ? 'it' : 'them'} so nothing is silently dropped
             </span>
-            <Link
-              to={preserveDemoParam('/categorisation', location.search)}
+            {/* Not a link away any more: the rows are on THIS page, at the
+                foot of it, and this opens them there (see the header note).
+                Called with nothing, deliberately — handed straight to onClick
+                it would receive a MouseEvent, and a prop that says it takes no
+                arguments should not quietly be given one. */}
+            <button
+              type="button"
+              onClick={() => onReviewDangling()}
               className={actionClass}
             >
-              Review and re-file
-            </Link>
+              Re-file {health.danglingCount === 1 ? 'it' : 'them'} now
+            </button>
           </li>
         )}
         {health.transferFilingMismatchCount > 0 && (
