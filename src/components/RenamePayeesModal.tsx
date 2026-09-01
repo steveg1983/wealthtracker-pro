@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
-import { useApp } from '../contexts/AppContextSupabase';
+import { useApp, type TransactionDescription } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { planRename, type PayeeSummary } from '../utils/payeeCleanup';
 
@@ -8,10 +8,25 @@ import { planRename, type PayeeSummary } from '../utils/payeeCleanup';
  * Rename many payees to one name.
  *
  * The whole point of the dialog is the sentence before the button: a rename
- * REPLACES the bank's own wording on every transaction behind the selection,
- * and the app has no way to put it back. So the confirm step names the
- * consequence — how many transactions, from how many payees, and what is lost
- * — rather than just showing a number and a verb.
+ * REPLACES the bank's own wording on every transaction behind the selection.
+ * So the confirm step names the consequence — how many transactions, from how
+ * many payees, and what is lost — rather than just showing a number and a verb.
+ *
+ * ── IT IS TAKEABLE BACK, FOR AS LONG AS THE READER IS STANDING THERE ────────
+ *
+ * The owner ticked the wrong payees and rewrote 771 descriptions in ten
+ * seconds: "I realised straight away but it was too late." So this dialog
+ * hands the screen behind it each row's CURRENT payee, captured before the
+ * first write, and the screen offers one shot back (see PayeeCleanup). The
+ * capture happens HERE because here is the last moment the old wording exists
+ * anywhere in the app — a page told about a rename after the fact is told
+ * about it by a register that has already been rewritten.
+ *
+ * That undo lasts for the sitting, not for ever, and the copy below says so
+ * rather than promising more than memory can keep. The durable record is the
+ * server's `financial_audit_log`, which holds the before and after of every
+ * transaction update — recovering a rename from THAT is a different feature,
+ * and this is not it.
  */
 
 interface Props {
@@ -19,8 +34,22 @@ interface Props {
   onClose: () => void;
   /** The payees ticked on the cleanup screen. */
   selected: PayeeSummary[];
-  /** Called after a successful rename so the screen can clear its selection. */
-  onRenamed: (newDescription: string, transactionsRenamed: number) => void;
+  /**
+   * Called after a successful rename so the screen can clear its selection —
+   * and so it can hold the one shot back.
+   *
+   * `previous` is every row this rename was aimed at, each with the payee it
+   * carried BEFORE the write. Aimed at rather than proven changed: the rename
+   * reports how many rows it rewrote but not which, and putting the old
+   * wording back on a row the ledger refused to rename writes the text that
+   * row already holds — an idempotent write, and a far smaller price than
+   * having no undo for the rows that did change.
+   */
+  onRenamed: (
+    newDescription: string,
+    transactionsRenamed: number,
+    previous: TransactionDescription[]
+  ) => void;
 }
 
 export default function RenamePayeesModal({
@@ -58,8 +87,10 @@ export default function RenamePayeesModal({
   /**
    * The merchant every selected payee already looks like, when they agree —
    * offered as a one-click fill rather than pre-filled into the box, because
-   * a pre-filled name is one the user can confirm without ever having read
-   * it, and this action cannot be undone.
+   * a pre-filled name is one the user can confirm without ever having read it,
+   * and this rewrites the bank's own wording on every row behind the ticks.
+   * The undo behind this dialog is one press for this sitting, not a licence
+   * to press this one without reading it.
    */
   const sharedMerchant = useMemo(() => {
     if (selected.length < 2) return null;
@@ -94,6 +125,16 @@ export default function RenamePayeesModal({
     setRenaming(true);
     setProgress(0);
     try {
+      // BEFORE the first write, and from the register itself rather than from
+      // the ticked payees: the ticks are payee TEXT, and the undo has to put
+      // wording back on rows. Built by walking the ids' rows rather than
+      // looking each id up with a fallback, so there is no "or empty string"
+      // case to invent — every id in the plan came off one of these rows.
+      const changing = new Set(plan.transactionIds);
+      const previous: TransactionDescription[] = transactions
+        .filter(transaction => changing.has(transaction.id))
+        .map(transaction => ({ id: transaction.id, description: transaction.description }));
+
       const renamed = await renameTransactionDescriptions(
         plan.transactionIds,
         trimmedName,
@@ -103,7 +144,7 @@ export default function RenamePayeesModal({
         `${renamed.toLocaleString()} transaction${renamed === 1 ? '' : 's'} now read "${trimmedName}".`,
         'Payees renamed'
       );
-      onRenamed(trimmedName, renamed);
+      onRenamed(trimmedName, renamed, previous);
       onClose();
     } catch (error) {
       showError(error);
@@ -171,11 +212,18 @@ export default function RenamePayeesModal({
               </>
             )}
           </p>
+          {/* The consequence is unchanged and still amber — the bank's wording
+              really is overwritten on every one of those rows. What changed is
+              the last clause: there IS a way back now, and it is one press on
+              the page behind this dialog for as long as the reader stays on it.
+              Saying how long it lasts is the whole honesty of the sentence; an
+              unqualified "you can undo this" would be the more dangerous lie of
+              the two. */}
           <p className="text-sm text-amber-900 dark:text-amber-200">
             The bank's original wording is replaced, not kept alongside. It is
-            what your register, exports and reports show, and nothing in the app
-            can put it back — a re-import from the bank is the only way to
-            recover it.
+            what your register, exports and reports show. Undo on the page
+            behind this puts it back while you are still there — once you leave
+            the page, a re-import from the bank is the only way to recover it.
           </p>
           {/* Auto-categorisation matches new imports against the payee text of
               existing rows. Renaming moves that goalpost, and a user deserves

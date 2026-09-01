@@ -1,5 +1,5 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { useApp } from '../../contexts/AppContextSupabase';
+import { useApp, type TransactionDescription } from '../../contexts/AppContextSupabase';
 import { useToast } from '../../contexts/ToastContext';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import PageWrapper from '../../components/PageWrapper';
@@ -226,6 +226,48 @@ interface SaveOutcome {
 }
 
 /**
+ * The last rename, held so it can be taken back — the owner's own ask, after a
+ * mis-ticked selection rewrote 771 descriptions in ten seconds: "I realised
+ * straight away but it was too late. I think we should offer the user a brief
+ * 'undo' after each change."
+ *
+ * ONE batch, the last one, and only for this sitting. Nothing here is
+ * persisted and nothing is written down: navigate away and it is gone, which
+ * is exactly what was asked for and also what keeps it honest — an undo that
+ * outlived the page would be a promise about rows the page can no longer see.
+ * The durable record already exists on the server: `financial_audit_log` holds
+ * the before and after of every transaction update, so recovering an old
+ * rename from history is possible and is a different feature from this one.
+ */
+interface RenameBatch {
+  /** The name every one of these rows was given. */
+  name: string;
+  /** How many rows the rename actually rewrote — the rename's own count. */
+  renamed: number;
+  /**
+   * Each row's own payee before the rename. A rename collapses many payees
+   * into one name, so putting "the previous name" back would be a second
+   * rename; every row has to carry its own wording.
+   */
+  previous: TransactionDescription[];
+}
+
+/** A run of writes going out, row by row — the count on screen while it does. */
+interface UndoProgress {
+  done: number;
+  total: number;
+}
+
+/** What the one shot back actually managed, once it has been taken. */
+interface UndoOutcome {
+  restored: number;
+  /** Still reading `name`, because the ledger refused to put them back. */
+  failed: number;
+  /** What those failures still read — named, never left to be guessed. */
+  name: string;
+}
+
+/**
  * Why a save failed, in the words of whatever refused it.
  *
  * The database's own sentence, not a friendly paraphrase of it: a refusal this
@@ -247,6 +289,7 @@ export default function PayeeCleanup(): React.JSX.Element {
     refreshSuggestionDismissals,
     dismissSuggestion,
     restoreSuggestion,
+    restoreTransactionDescriptions,
   } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { showSuccess, showError } = useToast();
@@ -283,6 +326,10 @@ export default function PayeeCleanup(): React.JSX.Element {
   const [savingDismissal, setSavingDismissal] = useState(false);
   const [saveFailure, setSaveFailure] = useState<SaveFailure | null>(null);
   const [restoringKey, setRestoringKey] = useState<string | null>(null);
+  /** The one shot back — see RenameBatch. Replaced by the next rename. */
+  const [lastRename, setLastRename] = useState<RenameBatch | null>(null);
+  const [undoing, setUndoing] = useState<UndoProgress | null>(null);
+  const [undone, setUndone] = useState<UndoOutcome | null>(null);
 
   // Read once when the page opens, the same as every sweep does: a refusal
   // saved on another device has to be honoured here too.
@@ -582,6 +629,57 @@ export default function PayeeCleanup(): React.JSX.Element {
       setSavingDismissal(false);
     }
   }, [saveFailure, saveRefusals, showSuccess]);
+
+  /**
+   * A rename has landed: clear the ticks it was made from, and hold it.
+   *
+   * Holding it REPLACES whatever was held before. One batch, the last one — an
+   * undo of a rename two renames ago would be putting back wording that the
+   * rename in between may have overwritten again, which is a promise this
+   * screen cannot keep from memory alone.
+   */
+  const handleRenamed = useCallback((
+    name: string,
+    renamed: number,
+    previous: TransactionDescription[]
+  ): void => {
+    setSelected(new Set());
+    setUndone(null);
+    setLastRename({ name, renamed, previous });
+  }, []);
+
+  /**
+   * Put every row of the last rename back to the payee it had.
+   *
+   * One shot: the batch goes whether or not every write landed, which is the
+   * house rule for this kind of undo (see FilterAndFileList) and the only one
+   * that keeps "the last change" meaning one unambiguous thing. What the
+   * ledger refused is counted and named instead, so a partial undo is a
+   * sentence about your register rather than a silent shortfall.
+   */
+  const undoRename = useCallback(async (): Promise<void> => {
+    if (lastRename === null) return;
+    const { previous, name } = lastRename;
+    if (previous.length === 0) return;
+
+    setUndone(null);
+    setUndoing({ done: 0, total: previous.length });
+    try {
+      const restored = await restoreTransactionDescriptions(
+        previous,
+        done => setUndoing({ done, total: previous.length })
+      );
+      setUndone({ restored, failed: previous.length - restored, name });
+      setLastRename(null);
+    } catch (error) {
+      // The restore counts its own failures rather than throwing, so this is
+      // the seam itself falling over — nothing was put back and the batch is
+      // deliberately still held, so the press can be made again.
+      showError(error);
+    } finally {
+      setUndoing(null);
+    }
+  }, [lastRename, restoreTransactionDescriptions, showError]);
 
   const handleRestore = useCallback(async (dismissal: SuggestionDismissal): Promise<void> => {
     setRestoringKey(dismissal.subjectKey);
@@ -945,6 +1043,62 @@ export default function PayeeCleanup(): React.JSX.Element {
           transaction at all.
         </p>
 
+        {/* ─ WHAT THE LAST RENAME DID, AND THE ONE PRESS THAT UNDOES IT ─────
+            Above the list, outside it, and neutral: a rename that worked is
+            not a warning, and the colour on this page is reserved for what
+            needs attention (the amber below, and the failures inside this
+            line). It cannot live in the list because the list is of PAYEES —
+            the ones this batch renamed have just become one row with a new
+            name, so an account of the change attached to them would move or
+            vanish at the moment it is worth reading.
+            A zero renders nothing, as everywhere: no batch, no line. */}
+        {undoing !== null && (
+          <p role="status" className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">
+            Putting back {undoing.done.toLocaleString()} of {undoing.total.toLocaleString()}…
+          </p>
+        )}
+        {lastRename !== null && lastRename.renamed > 0 && (
+          <p role="status" className="text-sm text-gray-700 dark:text-gray-200">
+            <strong className="tabular-nums">{lastRename.renamed.toLocaleString()}</strong>{' '}
+            transaction{lastRename.renamed === 1 ? '' : 's'} now read “{lastRename.name}”.{' '}
+            {lastRename.previous.length > 0 && (
+              <button
+                type="button"
+                onClick={() => void undoRename()}
+                disabled={undoing !== null}
+                // 44px of thumb below `sm` and the sentence's own height above
+                // it: this is a word in a line of prose on a desktop, and the
+                // one control on the page a phone user reaches for in a hurry.
+                className="inline-flex items-center min-h-[44px] sm:min-h-0 underline underline-offset-2 font-medium text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {/* One word, in flight or not: the line above says how far the
+                    run has got, and a button that renamed itself mid-press
+                    would be saying the same thing twice. */}
+                Undo
+              </button>
+            )}
+          </p>
+        )}
+        {undone !== null && (
+          <p role="status" className="text-sm text-gray-700 dark:text-gray-200">
+            {undone.restored > 0 && (
+              <>
+                <strong className="tabular-nums">{undone.restored.toLocaleString()}</strong>{' '}
+                transaction{undone.restored === 1 ? ' is' : 's are'} back to the payee
+                {undone.restored === 1 ? ' it' : 's they'} had.{' '}
+              </>
+            )}
+            {/* Named, in the words of what is actually on those rows now —
+                the consequence, not "3 failed". */}
+            {undone.failed > 0 && (
+              <span className="text-amber-700 dark:text-amber-400">
+                {undone.failed.toLocaleString()} could not be put back and still
+                read “{undone.name}”.
+              </span>
+            )}
+          </p>
+        )}
+
         {saveFailure && (
           <div
             role="alert"
@@ -1071,7 +1225,7 @@ export default function PayeeCleanup(): React.JSX.Element {
         isOpen={renameOpen}
         onClose={() => setRenameOpen(false)}
         selected={selectedPayees}
-        onRenamed={() => setSelected(new Set())}
+        onRenamed={handleRenamed}
       />
 
     </PageWrapper>

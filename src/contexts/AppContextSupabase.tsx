@@ -116,6 +116,19 @@ export interface Tag {
   updatedAt: Date;
 }
 
+/**
+ * One row's payee, said row by row.
+ *
+ * The unit the payee sweep's one-shot Undo is held in and given back by. A
+ * rename collapses many payees into ONE name, so there is no "the previous
+ * name" to put back — each row has to carry its own wording, or undoing a
+ * rename would be a second rename.
+ */
+export interface TransactionDescription {
+  id: string;
+  description: string;
+}
+
 export interface AppContextType extends AppState {
   // Account operations
   addAccount: (account: Omit<Account, 'id'> & { initialBalance?: number }) => Promise<Account>;
@@ -307,6 +320,26 @@ export interface AppContextType extends AppState {
     description: string,
     onProgress?: (done: number) => void
   ) => Promise<number>;
+  /**
+   * Give each of these rows back the payee it names — the other direction of
+   * the rename above, and the write behind the sweep's one-shot Undo.
+   *
+   * Same door, same batching, same single state patch (they share
+   * `writeDescriptions`); what differs is that every row carries its OWN text
+   * rather than all of them sharing one, which is what makes it an undo rather
+   * than another rename. Each write lands in financial_audit_log like any
+   * other, so putting a batch back is as auditable as making it.
+   *
+   * Resolves with the number of rows actually put back, and NEVER throws for a
+   * write the ledger refused: the caller is a screen saying what became of a
+   * batch it has already told the user about, and it needs the count far more
+   * than an exception — `entries.length` minus this is what still reads the
+   * name the rename gave it.
+   */
+  restoreTransactionDescriptions: (
+    entries: ReadonlyArray<TransactionDescription>,
+    onProgress?: (done: number) => void
+  ) => Promise<number>;
   /** Soft-archive an account's reconciled transactions on/before the cutoff. */
   archiveTransactionsBefore: (accountId: string, cutoff: Date) => Promise<number>;
   /** Bring an account's archived transactions back into the live register. */
@@ -444,6 +477,58 @@ export interface AppContextType extends AppState {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 const appLogger = createScopedLogger('AppContext');
+
+/**
+ * Write a payee onto each of these rows and report which ones landed.
+ *
+ * The one loop behind BOTH bulk payee writes — the rename and the undo of it.
+ * Shared rather than copied because the thing worth getting right is the
+ * batching, and a second copy of it would be a second chance to get the limit
+ * wrong on a store that cannot survive being got wrong.
+ *
+ * How many may be in flight at once is the STORE's answer, not this loop's. In
+ * the cloud each write is an independent RPC, so a handful in flight keeps a
+ * few thousand renames tolerable without opening a few thousand sockets; a
+ * store that re-reads and re-persists a whole collection per write has no such
+ * freedom, because two in flight is a lost-update race and the second silently
+ * overwrites the first.
+ *
+ * The reasoning is unchanged and the numbers are unchanged (8 and 1). What
+ * changed is who holds them: this file used to resolve a database id and check
+ * a Supabase client to work out which engine it was writing to — the last place
+ * in the context that named either — and an engine that is neither had no way
+ * to be safe here. Now it states its own limit.
+ *
+ * Never throws: a row the ledger refused is counted out rather than aborting
+ * the batch, so a single bad id cannot strand the rest half-written with
+ * nothing to show for it. The callers decide what a total failure means.
+ */
+const writeDescriptions = async (
+  writes: ReadonlyArray<TransactionDescription>,
+  onProgress?: (done: number) => void
+): Promise<{ written: TransactionDescription[]; failures: number }> => {
+  const BATCH_SIZE = dataPort.capabilities().maxConcurrentWrites;
+  const written: TransactionDescription[] = [];
+  let failures = 0;
+
+  for (let start = 0; start < writes.length; start += BATCH_SIZE) {
+    const batch = writes.slice(start, start + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map(write => dataPort.updateTransaction(write.id, { description: write.description }))
+    );
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        written.push(batch[index]);
+      } else {
+        failures++;
+        appLogger.error('Failed to write payee on transaction', result.reason);
+      }
+    });
+    onProgress?.(Math.min(start + batch.length, writes.length));
+  }
+
+  return { written, failures };
+};
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   /**
@@ -1281,6 +1366,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [refreshAccountsAndTransactions]);
 
+  /**
+   * Paint what the ledger actually took, in ONE pass.
+   *
+   * A per-row state update would re-map a 50k-row array and re-render the app
+   * for every transaction written, which is the whole reason both bulk payee
+   * writes touch React exactly once at the end.
+   */
+  const patchDescriptions = useCallback((written: ReadonlyArray<TransactionDescription>): void => {
+    if (written.length === 0) return;
+    const byId = new Map(written.map(write => [write.id, write.description]));
+    setTransactions(prev => prev.map(t => {
+      const description = byId.get(t.id);
+      return description === undefined ? t : { ...t, description };
+    }));
+  }, []);
+
   const renameTransactionDescriptions = useCallback(async (
     ids: string[],
     description: string,
@@ -1291,52 +1392,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return 0;
     }
 
-    // How many of these may be in flight at once is the STORE's answer, not
-    // this loop's. In the cloud each write is an independent RPC, so a handful
-    // in flight keeps a few thousand renames tolerable without opening a few
-    // thousand sockets; a store that re-reads and re-persists a whole
-    // collection per write has no such freedom, because two in flight is a
-    // lost-update race and the second silently overwrites the first.
-    //
-    // The reasoning is unchanged and the numbers are unchanged (8 and 1). What
-    // changed is who holds them: this file used to resolve a database id and
-    // check a Supabase client to work out which engine it was writing to — the
-    // last place in the context that named either — and an engine that is
-    // neither had no way to be safe here. Now it states its own limit.
-    const BATCH_SIZE = dataPort.capabilities().maxConcurrentWrites;
-    const renamed = new Set<string>();
-    let failures = 0;
-
-    for (let start = 0; start < ids.length; start += BATCH_SIZE) {
-      const batch = ids.slice(start, start + BATCH_SIZE);
-      const results = await Promise.allSettled(
-        batch.map(id => dataPort.updateTransaction(id, { description: newDescription }))
-      );
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
-          renamed.add(batch[index]);
-        } else {
-          failures++;
-          appLogger.error('Failed to rename payee on transaction', result.reason);
-        }
-      });
-      onProgress?.(Math.min(start + batch.length, ids.length));
-    }
-
-    if (renamed.size > 0) {
-      setTransactions(prev => prev.map(t =>
-        renamed.has(t.id) ? { ...t, description: newDescription } : t
-      ));
-    }
+    const { written, failures } = await writeDescriptions(
+      ids.map(id => ({ id, description: newDescription })),
+      onProgress
+    );
+    patchDescriptions(written);
 
     // Every single write failed: the caller asked for a rename and got none,
     // so it must be able to say so rather than report "0 renamed" as success.
-    if (renamed.size === 0 && failures > 0) {
+    if (written.length === 0 && failures > 0) {
       throw new Error('No payees could be renamed. Please try again.');
     }
 
-    return renamed.size;
-  }, []);
+    return written.length;
+  }, [patchDescriptions]);
+
+  const restoreTransactionDescriptions = useCallback(async (
+    entries: ReadonlyArray<TransactionDescription>,
+    onProgress?: (done: number) => void
+  ): Promise<number> => {
+    if (entries.length === 0) {
+      return 0;
+    }
+
+    // No trimming and no emptiness check, unlike the rename above: this is not
+    // a name somebody typed, it is the wording these rows were carrying a
+    // moment ago, and the only faithful thing to do with it is put it back
+    // exactly as it was.
+    const { written } = await writeDescriptions(entries, onProgress);
+    patchDescriptions(written);
+
+    // Deliberately no throw when nothing landed — see the interface. A screen
+    // that has already told the user "771 transactions now read <that name>"
+    // needs to be able to say how many of them are back, and an exception at
+    // this point would leave it unable to say anything true at all.
+    return written.length;
+  }, [patchDescriptions]);
 
   const getTransactionSplits = useCallback(async (transactionId: string) => {
     try {
@@ -2325,6 +2416,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     applyCategoryToUncategorized,
     confirmTransactionCategories,
     renameTransactionDescriptions,
+    restoreTransactionDescriptions,
     archiveTransactionsBefore,
     unarchiveAccount,
     transactionSplits,
