@@ -463,6 +463,42 @@ describe('the desktop window, with a ledger open', () => {
     expect(screen.queryByText(/Signed in/i)).toBeNull();
   });
 
+  it('renders EXPORT with CSV and PDF, and no Excel anywhere on it', async () => {
+    // THE OWNER'S RULING OF 1 SEP 2026, from the window rather than from a
+    // bundle: *"Lose excel is fine as long as they can keep csv."*
+    //
+    // Everything else about the eviction is an absence measured in bytes — a
+    // grep over the built renderer, a walk over the import graph, a size
+    // ratchet. All three pass on a page that renders nothing at all, and none of
+    // them can say whether a person who came here for a spreadsheet leaves with
+    // one. This is that question.
+    await openTheLedger('#/export-manager');
+
+    // PDF and CSV are both still offered, by their own labels in the format
+    // dropdown — an assertion that comes FIRST, because "no Excel" is satisfied
+    // by an export page with no formats on it at all.
+    expect(await screen.findByRole('option', { name: /PDF document/i }, PAGE)).toBeInTheDocument();
+    const csv = screen.getByRole('option', { name: /CSV spreadsheet/i });
+    // …and the CSV option carries the sentence that replaces the button: nothing
+    // was taken away, the same file opens in the same program.
+    expect(csv).toHaveTextContent(/opens in Excel/i);
+
+    // ABSENT, not disabled. The Excel Export button and the Advanced Export
+    // modal's Excel tile are both drawn behind `CAN_EXPORT_SPREADSHEETS`, which
+    // is the same import that decides whether SheetJS is in this build — so the
+    // button and the bundle cannot disagree.
+    expect(screen.queryByRole('button', { name: /excel export/i })).toBeNull();
+    // Nor the page's own headline copy, which used to promise "export to Excel".
+    expect(screen.queryByText(/export to Excel/i)).toBeNull();
+
+    // The report builder is on this page too, and it keeps PDF and CSV.
+    await userEvent.click(screen.getByRole('button', { name: /advanced export/i }));
+    expect(await screen.findByText('CSV', {}, PAGE)).toBeInTheDocument();
+    expect(screen.getByText('PDF')).toBeInTheDocument();
+    expect(screen.queryByText('Excel')).toBeNull();
+    expect(screen.getByText('Opens in Excel')).toBeInTheDocument();
+  });
+
   it('names the window after the screen, because a window has no tab strip', async () => {
     await openTheLedger('#/accounts');
     await screen.findByText('Everyday Current', {}, PAGE);

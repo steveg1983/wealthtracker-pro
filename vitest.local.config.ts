@@ -38,7 +38,10 @@ export default defineConfig({
       '@rules-store': path.resolve(process.cwd(), './src/desktop/editions/rulesStore'),
       '@telemetry': path.resolve(process.cwd(), './src/desktop/editions/telemetry'),
       '@session': path.resolve(process.cwd(), './src/desktop/editions/session'),
-      '@service': path.resolve(process.cwd(), './src/desktop/editions/service')
+      '@service': path.resolve(process.cwd(), './src/desktop/editions/service'),
+      // …and the device's answer to "can this edition write .xlsx", which is no
+      // (owner, 1 Sep 2026).
+      '@spreadsheet': path.resolve(process.cwd(), './src/desktop/editions/spreadsheet')
     }
   },
   test: {

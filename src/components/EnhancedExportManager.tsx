@@ -10,11 +10,24 @@ import { formatDecimal } from '../utils/decimal-format';
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import { buildCategoryNameLookup } from '../utils/categoryNames';
 import { csvDocument } from '../utils/csvExport';
+// WHETHER THIS EDITION WRITES .xlsx, and the writer that does it. Through the
+// seam rather than by path, and the spreadsheet library is no longer named on
+// this line at all: a dynamic import of it here put a 488 KiB chunk in the
+// DESKTOP renderer too, where nothing is downloaded — `generate_context!`
+// embeds every chunk into the binary — and the owner's ruling of 1 Sep 2026 is
+// that this edition loses Excel and keeps CSV. A runtime `if` could not have
+// shed it; only the build resolving the import elsewhere can. See
+// docs/edition-gating.md.
+//
+// (The library's name is deliberately not spelled in an import expression
+// anywhere in this file, even in prose. `importGraph.ts` reads source as TEXT
+// and does not strip comments, so a sentence quoting the old line was enough to
+// fail `desktopShedsExcel.test.ts` — measured, not guessed.)
+import { CAN_EXPORT_SPREADSHEETS, writeSpreadsheet, type SpreadsheetSheet } from '@spreadsheet';
 
 // Dynamic imports for heavy libraries (loaded on demand)
 let jsPDF: typeof import('jspdf').jsPDF | null = null;
 let autoTable: typeof import('jspdf-autotable').default | null = null;
-let XLSX: typeof import('xlsx') | null = null;
 
 type ExportFormat = 'pdf' | 'excel' | 'csv';
 
@@ -291,13 +304,17 @@ export default function EnhancedExportManager(): React.JSX.Element {
     return pdf;
   };
 
-  const generateExcel = async () => {
-    // Load XLSX dynamically if not already loaded
-    if (!XLSX) {
-      XLSX = await import('xlsx');
-    }
-
-    const workbook = XLSX.utils.book_new();
+  /**
+   * The report as SHEETS — tab names and rows, and not one line of SheetJS.
+   *
+   * This is the half of the old `generateExcel` that is about the REPORT: which
+   * figures, in what order, under what headings. It is edition-blind and stays
+   * here. The half that was about the FILE — a workbook, a writer, an extension
+   * — went through `@spreadsheet` on 1 Sep 2026, which is what lets a desktop
+   * build contain this function and no spreadsheet library.
+   */
+  const buildSpreadsheet = (): SpreadsheetSheet[] => {
+    const sheets: SpreadsheetSheet[] = [];
     const dateRange = getDateRange();
     const filteredTransactions = getFilteredTransactions();
     const { income, expenses, net } = summarise(filteredTransactions);
@@ -317,8 +334,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
       ['Transaction Count:', filteredTransactions.length]
     ];
 
-    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+    sheets.push({ name: 'Summary', rows: summaryData });
 
     // Transactions Sheet
     //
@@ -339,11 +355,10 @@ export default function EnhancedExportManager(): React.JSX.Element {
         ])
       ];
 
-      const transactionSheet = XLSX.utils.aoa_to_sheet(transactionData);
       // Header styling was attempted here and did nothing: cell `.s` styles are
       // a feature of the paid SheetJS build, and this project pins the
       // community one. It was removed rather than left looking deliberate.
-      XLSX.utils.book_append_sheet(workbook, transactionSheet, 'Transactions');
+      sheets.push({ name: 'Transactions', rows: transactionData });
     }
 
     // Budget Sheet (if applicable)
@@ -369,8 +384,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
         })
       ];
 
-      const budgetSheet = XLSX.utils.aoa_to_sheet(budgetData);
-      XLSX.utils.book_append_sheet(workbook, budgetSheet, 'Budget Analysis');
+      sheets.push({ name: 'Budget Analysis', rows: budgetData });
     }
 
     // Category Summary Sheet
@@ -391,10 +405,9 @@ export default function EnhancedExportManager(): React.JSX.Element {
       ])
     ];
 
-    const categorySheet = XLSX.utils.aoa_to_sheet(categoryData);
-    XLSX.utils.book_append_sheet(workbook, categorySheet, 'Category Summary');
+    sheets.push({ name: 'Category Summary', rows: categoryData });
 
-    return workbook;
+    return sheets;
   };
 
   const handleExport = async () => {
@@ -404,9 +417,11 @@ export default function EnhancedExportManager(): React.JSX.Element {
         const pdf = await generatePDF();
         pdf.save(`${getFileName()}.pdf`);
       } else if (options.format === 'excel') {
-        const workbook = await generateExcel();
-        if (!XLSX) throw new Error('The spreadsheet library did not load.');
-        XLSX.writeFile(workbook, `${getFileName()}.xlsx`);
+        // The seam names the file — see `editions/spreadsheet.ts`. A `.xlsx`
+        // spelled here would sit in a shared component and therefore in a
+        // desktop bundle that contains no spreadsheet writer, which is exactly
+        // what `scripts/desktop-bundle-greps.mjs` is looking for.
+        await writeSpreadsheet({ stem: getFileName(), sheets: buildSpreadsheet() });
       } else {
         const csv = generateCSV();
         const blob = new Blob([csv], { type: 'text/csv' });
@@ -548,18 +563,25 @@ export default function EnhancedExportManager(): React.JSX.Element {
                     <p className="text-xs text-gray-500 mt-1">Professional reports</p>
                   </button>
 
-                  <button
-                    onClick={() => setOptions(prev => ({ ...prev, format: 'excel' }))}
-                    className={`flex-1 justify-center p-3 rounded-lg border-2 transition-all ${
-                      options.format === 'excel'
-                        ? 'border-primary bg-primary/10 dark:bg-gray-700/50'
-                        : 'border-gray-200 dark:border-gray-700'
-                    }`}
-                  >
-                    <FileSpreadsheetIcon size={24} className="mx-auto mb-2 text-green-500" />
-                    <p className="text-sm font-medium">Excel</p>
-                    <p className="text-xs text-gray-500 mt-1">Advanced analysis</p>
-                  </button>
+                  {/* ABSENT, not disabled, in the edition that writes no .xlsx
+                      (owner, 1 Sep 2026). The bank-feeds lesson of 26 Aug: a
+                      control whose action cannot exist here is not stubbed, it
+                      is not printed — and the CSV tile beside it says what a
+                      person who came for a spreadsheet should press instead. */}
+                  {CAN_EXPORT_SPREADSHEETS && (
+                    <button
+                      onClick={() => setOptions(prev => ({ ...prev, format: 'excel' }))}
+                      className={`flex-1 justify-center p-3 rounded-lg border-2 transition-all ${
+                        options.format === 'excel'
+                          ? 'border-primary bg-primary/10 dark:bg-gray-700/50'
+                          : 'border-gray-200 dark:border-gray-700'
+                      }`}
+                    >
+                      <FileSpreadsheetIcon size={24} className="mx-auto mb-2 text-green-500" />
+                      <p className="text-sm font-medium">Excel</p>
+                      <p className="text-xs text-gray-500 mt-1">Advanced analysis</p>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => setOptions(prev => ({ ...prev, format: 'csv' }))}
@@ -575,7 +597,13 @@ export default function EnhancedExportManager(): React.JSX.Element {
                         2026) — the word beneath the icon is what names it. */}
                     <FilePlusIcon size={24} className="mx-auto mb-2 text-gray-600 dark:text-gray-400" />
                     <p className="text-sm font-medium">CSV</p>
-                    <p className="text-xs text-gray-500 mt-1">Universal format</p>
+                    {/* In the edition with no Excel tile beside it, this line is
+                        the answer to "where did the spreadsheet go" — and it is
+                        true: every spreadsheet opens a CSV. The web edition's
+                        wording is unchanged, because it has the tile. */}
+                    <p className="text-xs text-gray-500 mt-1">
+                      {CAN_EXPORT_SPREADSHEETS ? 'Universal format' : 'Opens in Excel'}
+                    </p>
                   </button>
                 </div>
               </div>

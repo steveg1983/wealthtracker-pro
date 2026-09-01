@@ -21,6 +21,10 @@ export default createVitestReactConfig({
     '@telemetry': path.resolve(process.cwd(), './src/editions/cloud/telemetry'),
     '@session': path.resolve(process.cwd(), './src/editions/cloud/session'),
     '@service': path.resolve(process.cwd(), './src/editions/cloud/service'),
+    // …and the web edition writes .xlsx, so the Export page's Excel button and
+    // the Advanced Export modal's Excel tile are drawn in this suite exactly as
+    // they are in a browser (1 Sep 2026).
+    '@spreadsheet': path.resolve(process.cwd(), './src/editions/cloud/spreadsheet'),
     '@': path.resolve(process.cwd(), './src'),
     '@/contexts/AppContextSupabase': path.resolve(process.cwd(), './src/test/mocks/AppContextSupabase.ts'),
   },

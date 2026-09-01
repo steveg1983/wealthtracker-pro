@@ -26,7 +26,17 @@
  * tests do both.
  */
 
-/** Every seam, as `apps/desktop/vite.config.ts` resolves it. */
+/**
+ * Every seam, as `apps/desktop/vite.config.ts` resolves it.
+ *
+ * A specifier this map does not know is not an error — {@link walkFrom} records
+ * it as a PACKAGE and stops there — which is a blind spot rather than a
+ * failure, and the reason each new seam is added here as it arrives.
+ * `@spreadsheet` (1 Sep 2026) is the clearest case: unmapped, the walk from any
+ * Export surface would have halted at the specifier and reported a graph with
+ * no spreadsheet writer in it, which is the right answer for the wrong reason
+ * and would have gone on being the right answer after the seam broke.
+ */
 export const DEVICE_ALIAS: Readonly<Record<string, string>> = {
   '@data': 'services/local/deviceDataPort',
   '@chrome': 'desktop/editions/chrome',
@@ -34,7 +44,8 @@ export const DEVICE_ALIAS: Readonly<Record<string, string>> = {
   '@prefs-store': 'desktop/editions/preferencesStore',
   '@telemetry': 'desktop/editions/telemetry',
   '@session': 'desktop/editions/session',
-  '@service': 'desktop/editions/service'
+  '@service': 'desktop/editions/service',
+  '@spreadsheet': 'desktop/editions/spreadsheet'
 };
 
 /** Every seam, as `vite.config.ts` resolves it. The wrong way, on purpose. */
@@ -45,7 +56,8 @@ export const CLOUD_ALIAS: Readonly<Record<string, string>> = {
   '@prefs-store': 'editions/cloud/preferencesStore',
   '@telemetry': 'editions/cloud/telemetry',
   '@session': 'desktop/editions/session',
-  '@service': 'editions/cloud/service'
+  '@service': 'editions/cloud/service',
+  '@spreadsheet': 'editions/cloud/spreadsheet'
 };
 
 /**

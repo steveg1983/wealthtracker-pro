@@ -80,6 +80,11 @@ export default defineConfig({
       // ledger. See docs/edition-gating.md.
       '@session': path.resolve(__dirname, './src/editions/cloud/session'),
       '@service': path.resolve(__dirname, './src/editions/cloud/service'),
+      // WHETHER THIS EDITION WRITES .xlsx (1 Sep 2026). A browser does, and this
+      // half is where the 488 KiB spreadsheet writer is reachable from — the
+      // desktop's half reaches no writer at all, which is what keeps it out of a
+      // binary that embeds every chunk it builds. See docs/edition-gating.md.
+      '@spreadsheet': path.resolve(__dirname, './src/editions/cloud/spreadsheet'),
       '@': path.resolve(__dirname, './src'),
       // Fix for recharts es-toolkit import issue
       // This ensures recharts gets the correct export format

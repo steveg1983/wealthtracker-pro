@@ -47,6 +47,14 @@ export default defineConfig({
       // schedule and a delete-my-account button.
       '@session': path.join(REPO, 'src', 'desktop', 'editions', 'session'),
       '@service': path.join(REPO, 'src', 'desktop', 'editions', 'service'),
+      // AND THE ONE THAT IS PURELY ABOUT WEIGHT (1 Sep 2026). The web half
+      // reaches `xlsx` — 488 KiB raw, the largest chunk this renderer used to
+      // build. This half reaches no spreadsheet writer at all, so none is built,
+      // which is the only way to shed it: `generate_context!` embeds every file
+      // in `dist` into the binary, so a "lazy" chunk is not deferred here, it is
+      // simply bytes on a buyer's disk. Owner's ruling: "lose excel is fine as
+      // long as they can keep csv".
+      '@spreadsheet': path.join(REPO, 'src', 'desktop', 'editions', 'spreadsheet'),
       '@app-types': path.join(REPO, 'src', 'types')
     }
   },

@@ -30,12 +30,13 @@ enforcement of it or a consequence.
 
 ---
 
-## The seven seams
+## The nine seams
 
 `@data` was the first and the largest. The mount slice added six more, four in
 its first half and two in its second, for the same reason and by the same
 mechanism — a specifier that names no edition, and a build that says which file
-it is.
+it is. Two more followed, one per ruling: `@rules-store` (28 Aug) and
+`@spreadsheet` (1 Sep).
 
 | specifier | the question it answers | web resolves it to | desktop resolves it to |
 | --- | --- | --- | --- |
@@ -46,6 +47,24 @@ it is.
 | `@telemetry` | where does a caught error go? | `editions/cloud/telemetry.ts` — Sentry | `desktop/editions/telemetry.ts` — this machine's console |
 | `@session` | whose ledger, and may I read it yet? | `editions/cloud/session.ts` — Clerk loads, the database row is ensured, the preferences bind, the offline queue starts, the engine is told who signed in | `desktop/editions/session.ts` — nothing; the file was chosen, opened, seeded and attached before the tree existed |
 | `@service` | what does a shared surface say about the account you hold WITH somebody? | `editions/cloud/service.ts` — a billing card, a feed schedule, a delete-my-account button, an incident badge, the connections modal, the per-account sync | `desktop/editions/service.ts` — seven absences, one from each of the three regions the router already rules out |
+| `@rules-store` | where do import rules live between sessions? | `editions/cloud/rulesStore.ts` — a table, so they follow you between devices | `desktop/editions/rulesStore.ts` — `null`; this machine IS the device |
+| `@spreadsheet` | does this edition write .xlsx? | `editions/cloud/spreadsheet.ts` — the Excel modal and a SheetJS writer | `desktop/editions/spreadsheet.ts` — `false`, a modal that draws nothing, and a writer that refuses |
+
+**`@spreadsheet` is the one that is not about the cloud**, and it is worth
+reading for that reason. Both halves are entirely local; `xlsx` leaks nothing
+and would be perfectly welcome in a desktop build if the product offered the
+format. What differs is 488 KiB — the renderer's largest chunk, for one button —
+and the owner's ruling of 1 September 2026 that the local edition need not offer
+it: *"Lose excel is fine as long as they can keep csv."*
+
+It is the clearest available demonstration that **the mechanism is about
+reachability, not about trust**. A runtime `if (isDesktop)` would have removed
+the button and kept the library, because Vite splits `import('xlsx')` into a
+chunk whatever surrounds it — and a chunk is not deferred in this edition at
+all: `generate_context!` embeds every file in `apps/desktop/dist` into the
+binary, so a chunk nobody loads is bytes on the disk of somebody who bought the
+program once. The same import that decides what is BUILT decides what is DRAWN,
+so the button and the bundle cannot disagree.
 
 Each seam is three files: a CONTRACT in `src/editions/` that names no edition, a
 cloud half in `src/editions/cloud/`, and a device half in
@@ -97,10 +116,10 @@ both.
 
 ## Where the seams are declared
 
-Six configs, because six things resolve a module — and seven specifiers, so
-forty-two mappings that have to agree. They are asserted to by
+Seven configs, because seven things resolve a module — and nine specifiers, so
+sixty-three mappings that have to agree. They are asserted to by
 `src/services/__tests__/dataAlias.test.ts` (for `@data`) and
-`src/editions/__tests__/editionAliases.test.ts` (for the other four); a mapping
+`src/editions/__tests__/editionAliases.test.ts` (for the other eight); a mapping
 that one config has and another does not fails as *"Cannot find module"* in
 whichever command is run next.
 
@@ -111,7 +130,13 @@ whichever command is run next.
 | `tsconfig.app.json` | the web halves | `tsc -b`, the web project |
 | `apps/desktop/vite.config.ts` | the device halves | the desktop renderer build |
 | `vitest.local.config.ts` | the device halves | the local contract run |
+| `vitest.desktop.config.ts` | the device halves | the mount run — the window, rendered |
 | `tsconfig.desktop.json` | the device halves | `tsc -b`, the desktop project |
+
+`vitest.desktop.config.ts` was resolving all of them and was checked by none
+until 1 September 2026. It is the config behind the one gate that asserts a
+window renders SOMETHING, so a seam missing from it does not fail loudly — it
+fails as a twenty-second timeout in a suite whose job is to describe a screen.
 
 **Every seam must be declared before the bare `@` alias** in the two Vite-family
 configs. Vite matches aliases in order, by prefix, so `'@'` would otherwise claim
@@ -119,8 +144,8 @@ configs. Vite matches aliases in order, by prefix, so `'@'` would otherwise clai
 the error it produces says nothing about aliases.
 
 `editionAliases.test.ts` also reads the `@`-prefixed aliases out of
-`vite.config.ts` and requires the list to be exactly the seven it knows about —
-so an eighth seam cannot arrive with no substitution check behind it.
+`vite.config.ts` and requires the list to be exactly the nine it knows about —
+so a tenth seam cannot arrive with no substitution check behind it.
 
 ---
 
@@ -143,7 +168,7 @@ that component is mounted in a window.
 
 ## What is checked, and at what altitude
 
-Nine instruments, on purpose. Each catches what the others structurally cannot.
+Ten instruments, on purpose. Each catches what the others structurally cannot.
 
 | | What it reads | When | What only it can catch |
 | --- | --- | --- | --- |
@@ -154,6 +179,7 @@ Nine instruments, on purpose. Each catches what the others structurally cannot.
 | `layoutIsDesktopClean.test.ts` | the import graph from `components/Layout` | every test run | a cloud module re-entering the shared FRAME. The entry reaches the frame now, so the two overlap — this is kept because it ISOLATES the frame, and "the frame or a page?" is the first question a red walk raises |
 | `desktopPages.test.tsx` | the window, RENDERED, over a fixture ledger | `npm run test:desktop-mount` | that the window shows **nothing**. Every other row here is about absence and passes on a blank page |
 | `editionAliases.test.ts` | the two halves of each seam, and six configs, as text | every test run | a half that answers for a name the other does not, and a mapping one config is missing |
+| `desktopShedsExcel.test.ts` | the import graph from the entry, for one PACKAGE | every test run | a spreadsheet writer coming back — and, uniquely, that the WEB edition still has one, which every desktop-side check would applaud losing |
 | `scripts/desktop-bundle-greps.mjs` | the built bundle | `npm run desktop:verify` | anything a *dependency* drags in, and anything a plugin injects |
 | `scripts/desktop-bundle-size.mjs` | the built bundle's weight | the same | growth that is **perfectly cloud-free**. It saw the event it was written for: the mount took the renderer from 259 KiB to 3,273 KiB in one commit, and made somebody write down why |
 

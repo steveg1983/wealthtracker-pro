@@ -43,7 +43,12 @@ const EDITION_SEAMS = [
   '@prefs-store',
   '@telemetry',
   '@session',
-  '@service'
+  '@service',
+  // …and the seventh, added 1 Sep 2026. `@spreadsheet` is the first seam that is
+  // about WEIGHT rather than about the cloud: both halves are perfectly local,
+  // and the difference between them is 488 KiB of SheetJS that a desktop binary
+  // would embed for a button the owner has ruled it does not have.
+  '@spreadsheet'
 ]
 
 /**
@@ -62,8 +67,8 @@ const CLOUD_EDITION_MESSAGE =
   'Importing it by path picks an edition on behalf of every ' +
   'edition, exactly as importing `services/port` by path does, and the damage appears on the day ' +
   'the importing component is mounted in a window. Import the specifier instead (`@chrome`, ' +
-  '`@identity`, `@prefs-store`, `@telemetry`, `@session`, `@service`) and let the build ' +
-  'choose. See docs/edition-gating.md.'
+  '`@identity`, `@prefs-store`, `@telemetry`, `@session`, `@service`, `@spreadsheet`) and let ' +
+  'the build choose. See docs/edition-gating.md.'
 
 /**
  * What a desktop-reachable module may not import, whatever it is.

@@ -177,14 +177,72 @@ const BINARY = path.join(REPO, 'apps', 'desktop', 'src-tauri', 'target', 'releas
  * bundle work of 2026-08-12 confirmed recharts is the product's only charting
  * library, so "recharts AND chart.js" is history and the recharts 274 KiB is
  * no longer waiting on a consolidation decision, only on a lazy-loading one.
+ *
+ * ── LOWERED 2026-09-01: THE SPREADSHEET WRITER IS GONE ──────────────────────
+ *
+ * The first entry here that goes DOWN, and the paragraph above finally has an
+ * answer: *"xlsx + jspdf + html2canvas … `docs/bundle-optimization-plan.md` has
+ * had them on the WEB app's list for months. Whatever fixes them there fixes
+ * them here."* Nothing fixed them there. What happened instead is that the
+ * owner ruled the two editions need not offer the same formats —
+ *
+ *     "Lose excel is fine as long as they can keep csv."   (1 Sep 2026)
+ *
+ * — so the desktop edition offers CSV and PDF and no .xlsx, and
+ * `@spreadsheet` (a build-time alias, `src/editions/spreadsheet.ts`) makes that
+ * true of the BUNDLE rather than only of the buttons. A runtime `if` would have
+ * removed the button and kept the library: Vite splits `await import('xlsx')`
+ * into a chunk whatever surrounds it, and a chunk is not deferred here — it is
+ * embedded in the binary by `generate_context!` and sits on the disk of somebody
+ * who never presses the button.
+ *
+ *   measured, 4a95a763 + the eviction, `npm run desktop:ui`:
+ *
+ *     before   4289.1 KiB raw   1326.2 KiB gzip   (187 + 2 files)
+ *     after    3790.5 KiB raw   1163.8 KiB gzip   (187 files)
+ *     shed     −498.6 KiB raw   −162.4 KiB gzip   — 11.6% of the renderer
+ *
+ * Two chunks left: `xlsx-*.js` (488.0 KiB raw / 159.2 gzip, the largest in the
+ * bundle by 124 KiB) and `ExcelExport-*.js`, the modal that was its only
+ * dedicated caller. `jspdf` is now the largest chunk and it STAYS — PDF is a
+ * format this edition keeps.
+ *
+ * ── AND WHY THE `before` FIGURE IS NOT THE BASELINE ABOVE ───────────────────
+ *
+ * Because the baseline had fallen behind again. 4070.0 → 4289.1 raw and 1240.6
+ * → 1326.2 gzip is +219.1 / +85.6 of ordinary merged work since #254 — which had
+ * quietly eaten seven eighths of the headroom, leaving the ratchet 30.9 KiB from
+ * failing on whatever landed next. That is the exact blindness the re-record of
+ * 2026-08-12 was written to prevent, happening again, which is worth saying out
+ * loud: this file's baseline is only useful if it is re-measured on the day the
+ * budgets move.
+ *
+ * ── WHY THE NEW BUDGETS ARE WHERE THEY ARE, AND THAT THEY ARE TIGHT ─────────
+ *
+ * 3830 / 1176: measured + 39.5 KiB raw (+1.04%) and + 12.2 KiB gzip (+1.05%),
+ * which is the headroom that ACTUALLY existed the day before this change (30.9
+ * KiB raw, 8.8 KiB gzip), preserved rather than the ~6–10% the paragraphs above
+ * quote. The reason is the whole point of a ratchet: shedding 498.6 KiB and
+ * leaving the budget at 4320 would have banked the win as 529 KiB of silent
+ * permission for the next arrival, and a gate that has to be argued out of
+ * permission it never granted is not a gate.
+ *
+ * The consequence is deliberate and should surprise nobody: the next intended
+ * growth of any size FAILS THIS CHECK, and the person who intended it raises
+ * these two numbers in the commit that causes it and says what for — exactly as
+ * slice 31 did for three routes and as #253/#254 should have. That is the
+ * difference between a ratchet and a number that drifts, and it is cheap: it
+ * costs one line in a commit that was going to be written anyway.
  */
-const BASELINE_TOTAL_RAW_KIB = 4070.0;
-const BASELINE_TOTAL_GZIP_KIB = 1240.6;
+const BASELINE_TOTAL_RAW_KIB = 3790.5;
+const BASELINE_TOTAL_GZIP_KIB = 1163.8;
 
-// ~10% above measured, which is this file's own convention and matters more
-// than the number: tight enough that the next ACCIDENTAL arrival fails.
-const MAX_TOTAL_RAW_KIB = Number(process.env.DESKTOP_MAX_TOTAL_RAW_KIB ?? 4320);
-const MAX_TOTAL_GZIP_KIB = Number(process.env.DESKTOP_MAX_TOTAL_GZIP_KIB ?? 1335);
+// ~1% above measured — see "WHY THE NEW BUDGETS ARE WHERE THEY ARE" above. The
+// convention this file inherited was ~10%; the eviction of 2026-09-01 spent that
+// slack deliberately rather than banking it, so this is tight ON PURPOSE and
+// intended growth is expected to raise it in the commit that causes it.
+const MAX_TOTAL_RAW_KIB = Number(process.env.DESKTOP_MAX_TOTAL_RAW_KIB ?? 3830);
+const MAX_TOTAL_GZIP_KIB = Number(process.env.DESKTOP_MAX_TOTAL_GZIP_KIB ?? 1176);
 
 const isReport = process.argv.includes('--report');
 
