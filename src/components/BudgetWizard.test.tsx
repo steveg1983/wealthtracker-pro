@@ -63,13 +63,36 @@ const TRANSACTIONS: Transaction[] = [
   ...monthlySpend('dine', 'det-dining', 50),  // £600 a year
 ];
 
+/** What a test adds to the default world, for the few that need more of one. */
+interface World {
+  categories?: Category[];
+  transactions?: Transaction[];
+}
+
+/**
+ * A SECOND group, and the world that carries it.
+ *
+ * Kept out of the default fixture rather than added to it: most of the suite
+ * pins row counts and totals that a second group would move, and the tests
+ * that need one are exactly the tests about groups being counted APART.
+ */
+const TWO_GROUPS: World = {
+  categories: [
+    { id: 'grp-travel', name: 'Travel', type: 'expense', level: 'sub', parentId: 'type-expense' },
+    { id: 'det-fares', name: 'Train Fares', type: 'expense', level: 'detail', parentId: 'grp-travel' },
+  ],
+  transactions: monthlySpend('fare', 'det-fares', 20),  // £240 a year
+};
+
 const addBudget = vi.fn(async () => {});
 const updateBudget = vi.fn(async () => {});
 const deleteBudget = vi.fn(async () => {});
 
-const renderWizard = (budgets: Budget[] = []): void => {
+const renderWizard = (budgets: Budget[] = [], world: World = {}): void => {
   __setAppContextValue({
-    transactions: TRANSACTIONS, transactionSplits: [], categories: CATEGORIES,
+    transactions: [...TRANSACTIONS, ...(world.transactions ?? [])],
+    transactionSplits: [],
+    categories: [...CATEGORIES, ...(world.categories ?? [])],
     budgets, addBudget, updateBudget, deleteBudget,
   });
   render(<BudgetWizard isOpen onClose={vi.fn()} />);
@@ -88,6 +111,25 @@ const boxFor = (name: string, rhythm: 'Monthly' | 'Yearly' = 'Monthly'): HTMLEle
 
 const rowFor = (name: string): HTMLElement =>
   screen.getByText(name).closest('tr') as HTMLElement;
+
+/** A group's heading row — the shaded band that answers the same columns as its rows. */
+const groupRow = (name: string): HTMLElement =>
+  screen.getByRole('rowheader', { name }).closest('tr') as HTMLElement;
+
+/** Its three figure cells, in the grid's own order: what it cost, the total, the twin. */
+const groupCells = (name: string): HTMLElement[] => within(groupRow(name)).getAllByRole('cell');
+
+/** Every £ figure in an element, as whole pence, so a test can add them up itself. */
+const penceIn = (element: HTMLElement): number[] =>
+  [...(element.textContent ?? '').matchAll(/£(\d+)\.(\d\d)/g)].map(
+    ([, pounds, pence]) => Number(pounds) * 100 + Number(pence)
+  );
+
+/** What a group heading claims has been budgeted across it, in the rhythm being typed. */
+const groupBudgetPence = (name: string): number => penceIn(groupCells(name)[1])[0] ?? 0;
+
+/** What the scoreboard claims for the whole screen, in the same rhythm. */
+const scoreboardPence = (): number => penceIn(screen.getByText(/Budgeted so far/))[0] ?? 0;
 
 const budgetOf = (over: Partial<Budget> & { id: string; categoryId: string }): Budget => ({
   amount: 100, period: 'monthly', isActive: true, spent: 0,
@@ -166,13 +208,12 @@ describe('step 2 — the evidence beside every box', () => {
     expect(boxFor('Food Shopping')).toHaveValue('');
   });
 
-  it('files rows under their parent with a display-only group total', () => {
+  it('files rows under their parent', () => {
     renderWizard();
     chooseMonthly();
-    const heading = screen.getByRole('columnheader', { name: /^Food/ });
-    expect(heading).toHaveTextContent('£1800.00 a year · £150.00 a month');
-    // A group is context, never a box: budgeting it AND its children double-counts.
-    expect(within(heading).queryByRole('textbox')).not.toBeInTheDocument();
+    const body = groupRow('Food').closest('tbody') as HTMLElement;
+    expect(within(body).getByLabelText('Monthly budget for Food Shopping')).toBeInTheDocument();
+    expect(within(body).getByLabelText('Monthly budget for Dining Out')).toBeInTheDocument();
   });
 
   it('a typed monthly figure states its year', () => {
@@ -267,6 +308,123 @@ describe('step 2 — the measuring stick and the scoreboard', () => {
     expect(screen.getByText(/1 of 4 boxes filled/)).toBeInTheDocument();
     // The budgeted side leads with the chosen rhythm's figure.
     expect(screen.getAllByText('£150.00').length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * THE GROUP HEADING IS A ROW OF THE GRID (owner, 2 Sep 2026).
+ *
+ * It used to be a banner laid across all four columns, with the group's SPEND
+ * on the right where the budget columns are — "that is actually my spend for
+ * the period, not my budget". So what is pinned here is that every figure on
+ * the heading now sits under the column that describes it, and that the
+ * budget total is the sum of that group's own boxes as they are typed: the
+ * same arithmetic as the scoreboard, over a subset of the same boxes, which
+ * is why the group figures must ADD UP to the scoreboard's exactly.
+ */
+describe('step 2 — the group heading is a row of the grid', () => {
+  it('answers the same four columns its rows do, and takes no typing', () => {
+    renderWizard();
+    chooseMonthly();
+    const row = groupRow('Food');
+    // One heading cell and three figure cells — the grid's four columns.
+    expect(within(row).getAllByRole('rowheader')).toHaveLength(1);
+    expect(within(row).getAllByRole('cell')).toHaveLength(3);
+    // Still context, never a box: budgeting a group AND its children double-counts.
+    expect(within(row).queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('puts what the group cost under "What it cost", both periods', () => {
+    renderWizard();
+    chooseMonthly();
+    const [cost] = groupCells('Food');
+    expect(cost).toHaveTextContent('£1800.00 a year');
+    expect(cost).toHaveTextContent('£150.00 a month');
+  });
+
+  it('shows NO budget figure while every box in the group is empty', () => {
+    renderWizard();
+    chooseMonthly();
+    const [, budget, twin] = groupCells('Food');
+    // An empty box is no budget, so an untouched group has no total. £0.00
+    // here would claim a budget of nothing across every row beneath it.
+    expect(budget).toBeEmptyDOMElement();
+    expect(twin).toBeEmptyDOMElement();
+  });
+
+  it('adds up its own boxes as they are typed, and says the twin beside it', () => {
+    renderWizard();
+    chooseMonthly();
+    fireEvent.change(boxFor('Food Shopping'), { target: { value: '90' } });
+    fireEvent.change(boxFor('Dining Out'), { target: { value: '40.50' } });
+    const [, budget, twin] = groupCells('Food');
+    expect(budget).toHaveTextContent('£130.50');
+    expect(twin).toHaveTextContent('£1566.00 a year');
+  });
+
+  it('does not move when a box in another group is filled', () => {
+    renderWizard([], TWO_GROUPS);
+    chooseMonthly();
+    fireEvent.change(boxFor('Food Shopping'), { target: { value: '90' } });
+    fireEvent.change(boxFor('Dining Out'), { target: { value: '40.50' } });
+    expect(groupBudgetPence('Food')).toBe(13050);
+
+    fireEvent.change(boxFor('Train Fares'), { target: { value: '15' } });
+    expect(groupBudgetPence('Food')).toBe(13050);
+    expect(groupBudgetPence('Travel')).toBe(1500);
+  });
+
+  it('counts a typed nought, and stops counting a box that is cleared', () => {
+    renderWizard();
+    chooseMonthly();
+    fireEvent.change(boxFor('Food Shopping'), { target: { value: '40' } });
+    fireEvent.change(boxFor('Dining Out'), { target: { value: '0' } });
+    expect(groupBudgetPence('Food')).toBe(4000);
+
+    // A nought is a budget of nothing: it is filled in, so the total remains
+    // — as £0.00, which is a different claim from no figure at all.
+    fireEvent.change(boxFor('Food Shopping'), { target: { value: '' } });
+    expect(groupCells('Food')[1]).toHaveTextContent('£0.00');
+
+    fireEvent.change(boxFor('Dining Out'), { target: { value: '' } });
+    expect(groupCells('Food')[1]).toBeEmptyDOMElement();
+  });
+
+  it('the group totals add up to the scoreboard, to the penny', () => {
+    renderWizard([], TWO_GROUPS);
+    chooseMonthly();
+    fireEvent.change(boxFor('Food Shopping'), { target: { value: '90' } });
+    fireEvent.change(boxFor('Dining Out'), { target: { value: '40.50' } });
+    fireEvent.change(boxFor('Train Fares'), { target: { value: '15' } });
+
+    expect(scoreboardPence()).toBe(14550);
+    expect(groupBudgetPence('Food') + groupBudgetPence('Travel')).toBe(scoreboardPence());
+  });
+
+  it('…and still adds up when the year is the rhythm being typed', () => {
+    renderWizard([], TWO_GROUPS);
+    chooseAnnually();
+    fireEvent.change(boxFor('Food Shopping', 'Yearly'), { target: { value: '1080' } });
+    fireEvent.change(boxFor('Dining Out', 'Yearly'), { target: { value: '486' } });
+    fireEvent.change(boxFor('Train Fares', 'Yearly'), { target: { value: '180' } });
+
+    expect(scoreboardPence()).toBe(174600);
+    expect(groupBudgetPence('Food') + groupBudgetPence('Travel')).toBe(scoreboardPence());
+    // The twin is the month now, on the heading as on every row.
+    expect(groupCells('Food')[2]).toHaveTextContent('£130.50 a month');
+  });
+
+  it('turns over with a change of rhythm, scoreboard and all', () => {
+    renderWizard();
+    chooseMonthly();
+    fireEvent.change(boxFor('Food Shopping'), { target: { value: '90' } });
+    expect(groupCells('Food')[2]).toHaveTextContent('£1080.00 a year');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    chooseAnnually();
+    // The same figure, read as a year now — so its twin is the month.
+    expect(groupCells('Food')[2]).toHaveTextContent('£7.50 a month');
+    expect(groupBudgetPence('Food')).toBe(scoreboardPence());
   });
 });
 

@@ -5,13 +5,15 @@ import { useToast } from '../contexts/ToastContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { ChevronDownIcon, ChevronRightIcon } from './icons';
 import {
-  amountInMode,
+  boxFigure,
   budgetHistoryWindow,
   buildWizardRows,
   groupWizardRows,
   planBudgetWrites,
   summariseForWizard,
+  totalBudgeted,
   twinFigure,
+  wizardBoxValue,
   type BudgetMode,
   type WizardGroup,
   type WizardRow,
@@ -72,8 +74,45 @@ interface Props {
 
 type Step = 'rhythm' | 'grid' | 'confirm';
 
-/** A figure for a box: two places, plain, no symbol — it is going into an input. */
-const boxValue = (amount: DecimalInstance): string => amount.toDecimalPlaces(2).toString();
+/**
+ * The shaded band a group heading is drawn on (owner, 1 Sep 2026: "category
+ * group headings … shaded a different colour to show sections"), one class per
+ * column. `renderGroupHeading` is the only thing that wears these and carries
+ * the reasoning for why the shade is on the cells at all; what is settled here
+ * is the PADDING, which is load-bearing in three separate ways.
+ *
+ * A content-box background stops at the padding, so on every edge INSIDE the
+ * row — the three seams between the cells, and the join between the two lines
+ * a phone folds them into — the padding has to be nothing, or the band shows a
+ * hairline of the modal's ground through it. That is what `px-0`, `pl-0`,
+ * `pr-0`, `pb-0` and the `pt-0` on the folding pair are for; measured, not
+ * assumed, because a browser gives every table cell 1px of padding that
+ * nothing in this stylesheet resets, and 1px of white is perfectly visible
+ * across a shaded bar.
+ *
+ * At the row's two OUTER ends that same 1px is left exactly where the browser
+ * put it, because the data cells and the column headers leave theirs too — so
+ * the name starts and the twin ends on the same pixel as every figure above
+ * and below them. The horizontal insets then come from the inner divs rather
+ * than the cells, matching each data cell's own padding, which is what makes
+ * the band's figures land in their columns instead of near them.
+ *
+ * And the top: `pt-4` holds the breathing room open ABOVE each section, unshaded,
+ * because that padding is outside a content-box background — the one trick that
+ * lets a single band be both full-bleed and preceded by the modal's own ground.
+ * Only the leading pair carries it: on a phone the other two fold underneath,
+ * where a gap would cut the band in half.
+ *
+ * A word on the greys inside it. The data rows put their quieter figures in
+ * gray-400/500, which is legible on the modal's white but not on this band — so
+ * the band's own text is a step or two darker. Contrast is measured against the
+ * surface the text sits on, never the page it sits in.
+ */
+const BAND = 'bg-gray-200/80 dark:bg-gray-700/60 bg-clip-content align-baseline block sm:table-cell pb-0';
+const BAND_NAME = `${BAND} pt-4 pr-0 min-w-0 text-left`;
+const BAND_COST = `${BAND} pt-4 px-0 text-right tabular-nums`;
+const BAND_BUDGET = `${BAND} pt-0 sm:pt-4 px-0 text-right`;
+const BAND_TWIN = `${BAND} pt-0 sm:pt-4 pl-0 text-right tabular-nums`;
 
 export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Element {
   const {
@@ -133,13 +172,13 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
   const groups = useMemo(() => groupWizardRows(active), [active]);
   const plan = useMemo(() => planBudgetWrites(rows, entries, mode), [rows, entries, mode]);
 
-  /** The string a box shows: what was typed, else what is stored, else empty. */
-  const valueFor = (row: WizardRow): string => {
-    const typed = entries[row.category.id];
-    if (typed !== undefined) return typed;
-    if (row.existing === null || row.existing.period === null) return '';
-    return boxValue(amountInMode(row.existing.amount, row.existing.period, mode));
-  };
+  /**
+   * The string a box shows: what was typed, else what is stored, else empty.
+   *
+   * Delegated rather than decided here, because the totals below are the sum
+   * of exactly these strings — see `wizardBoxValue`.
+   */
+  const valueFor = (row: WizardRow): string => wizardBoxValue(row, entries, mode);
 
   const setValue = (categoryId: string, value: string): void =>
     setEntries(previous => ({ ...previous, [categoryId]: value }));
@@ -147,39 +186,25 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
   /**
    * THE RUNNING SCOREBOARD — total spent and total budgeted so far, alive as
    * the boxes fill (owner, 1 Sep 2026: "I want to be able to see the totals
-   * as I go along", not only on the review page). Locked rows (a stored
-   * period the wizard cannot express) are left out of the budgeted side for
-   * the same reason their boxes are read-only: a week does not divide into a
-   * month without a guess. Sums are annual and quantised to monthly through
-   * `twinFigure`, the same arithmetic as every row — so the strip always
-   * agrees with the review step.
+   * as I go along", not only on the review page).
+   *
+   * The budgeted side is `totalBudgeted` over EVERY row, which is the same
+   * function each group heading runs over ITS rows — so the strip and the
+   * headings under it are the one sum taken over nested sets, and cannot
+   * drift apart however either is later changed.
    */
-  const totals = useMemo(() => {
-    const spent = rows.reduce((sum, row) => sum.plus(row.annual), toDecimal(0));
-    let budgeted = toDecimal(0);
-    let boxes = 0;
-    for (const row of rows) {
-      if (row.existing !== null && row.existing.period === null) continue;
-      const typed = entries[row.category.id];
-      const value =
-        typed !== undefined
-          ? typed
-          : row.existing === null
-            ? ''
-            : boxValue(amountInMode(row.existing.amount, row.existing.period ?? 'monthly', mode));
-      if (value.trim() === '') continue;
-      const parsed = parseMoneyInput(value);
-      if (parsed === null || parsed < 0) continue;
-      budgeted = budgeted.plus(mode === 'monthly' ? toDecimal(parsed).times(12) : toDecimal(parsed));
-      boxes += 1;
-    }
-    return { spent, budgeted, boxes };
-  }, [rows, entries, mode]);
+  const totals = useMemo(
+    () => ({
+      spent: rows.reduce((sum, row) => sum.plus(row.annual), toDecimal(0)),
+      budget: totalBudgeted(rows, entries, mode),
+    }),
+    [rows, entries, mode]
+  );
 
   /** The historical figure for this row in the mode being typed. */
   const historyIn = (row: WizardRow): DecimalInstance => (mode === 'monthly' ? row.monthly : row.annual);
 
-  const fillFromHistory = (row: WizardRow): void => setValue(row.category.id, boxValue(historyIn(row)));
+  const fillFromHistory = (row: WizardRow): void => setValue(row.category.id, boxFigure(historyIn(row)));
 
   /** Fill every box that has evidence behind it. A row with no spending is left alone. */
   const startFromHistory = (): void =>
@@ -188,7 +213,7 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
       for (const row of rows) {
         if (row.annual.isZero()) continue;
         if (row.existing !== null && row.existing.period === null) continue;
-        next[row.category.id] = boxValue(historyIn(row));
+        next[row.category.id] = boxFigure(historyIn(row));
       }
       return next;
     });
@@ -380,34 +405,101 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
   };
 
   /**
-   * A group heading row: the parent, and its children's roll-up.
+   * A group heading row — a ROW OF THE GRID, not a banner laid across it.
    *
-   * DISPLAY ONLY, and structurally so — there is no input in it. A budget on a
-   * group AND on its children would double-count, and which of the two the
-   * Budget page should measure would be a question with two answers.
+   * THE OWNER, 2 SEP 2026: "After filling in my budget per line for Cars &
+   * Bikes I cannot see that total easily. I see below 'your budget for the
+   * year = £91,451.42' but that is actually my spend for the period, not my
+   * budget. That should be off to the left under 'What it cost', and 'Your
+   * budget, per year' should have a running updatable total as you type
+   * below. There should be a total for each category grouping."
+   *
+   * So the heading answers the same four columns its children do: the name,
+   * what the group cost, what has been budgeted across it so far, and that
+   * total's twin. A figure under a column heading now means what the heading
+   * says — which is the whole of the fix. It cost the bar its rounded ends:
+   * something with columns to line up with cannot also be inset from them.
+   *
+   * THE SHADE IS ON THE CELLS, clipped to their content boxes, which is the
+   * one arrangement that does both jobs at once: an unbroken band across four
+   * cells AND the breathing room above each section left as the modal's own
+   * ground. What that costs in padding is settled in BAND_* above. On a phone
+   * the four cells fold two-by-two like every other row here, and the band
+   * closes over both of its lines.
+   *
+   * NO "n of m filled" COUNT. It would sit in a desktop cell and crowd a
+   * phone's, and the scoreboard above already says it for the whole screen.
+   *
+   * DISPLAY ONLY, and structurally so — there is still no input in it. A
+   * budget on a group AND on its children would double-count, and which of
+   * the two the Budget page should measure would be a question with two
+   * answers.
    */
-  const renderGroupHeading = (group: WizardGroup): React.JSX.Element => (
-    <tr className="block sm:table-row">
-      <th scope="colgroup" colSpan={4} className="block sm:table-cell text-left pt-4 pb-1">
-        {/* SHADED, so the eye can find the seams in a long list (owner,
-            1 Sep 2026: "category group headings … shaded a different colour
-            to show sections"). The shade sits on an inner div rather than
-            the cell so the breathing room above each section stays the
-            modal's own ground in both the table and the stacked-card
-            layouts, and the group's roll-up lives IN its bar — the group
-            totals have no other home, and a footer sentence of them is
-            what this replaced. */}
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-lg bg-gray-200/80 dark:bg-gray-700/60 px-3 py-2">
-          <span className="text-sm font-semibold text-gray-900 dark:text-white">
-            {group.name || 'Ungrouped'}
-          </span>
-          <span className="text-sm font-normal text-gray-600 dark:text-gray-300 tabular-nums">
-            {formatCurrency(group.annual)} a year · {formatCurrency(group.monthly)} a month
-          </span>
-        </div>
-      </th>
-    </tr>
-  );
+  const renderGroupHeading = (group: WizardGroup): React.JSX.Element => {
+    const budget = totalBudgeted(group.rows, entries, mode);
+    /**
+     * Empty is not zero, all the way up to the heading: a group nobody has
+     * budgeted yet shows NO figure at all, because £0.00 there would claim a
+     * budget of nothing across every row beneath it. A typed nought is a
+     * different matter — it is a box that is filled, so it counts, and the
+     * total is drawn.
+     */
+    const totalled = budget.boxes > 0;
+
+    return (
+      <tr className="grid grid-cols-[minmax(0,1fr)_auto] sm:table-row">
+        <th scope="rowgroup" className={BAND_NAME}>
+          <div className="py-2 sm:pr-3">
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+              {group.name || 'Ungrouped'}
+            </span>
+          </div>
+        </th>
+        {/* WHAT THE GROUP COST — the roll-up, under the heading that has
+            always described it, in the same two-line shape as its rows. */}
+        <td className={BAND_COST}>
+          <div className="py-2 sm:px-2">
+            {group.annual.isZero() ? (
+              <span className="text-xs text-gray-600 dark:text-gray-300">Nothing in this window</span>
+            ) : (
+              <>
+                <span className="block text-sm text-gray-700 dark:text-gray-200">
+                  {formatCurrency(group.annual)} a year
+                </span>
+                <span className="block text-xs text-gray-600 dark:text-gray-300">
+                  {formatCurrency(group.monthly)} a month
+                </span>
+              </>
+            )}
+          </div>
+        </td>
+        {/* THE RUNNING TOTAL: this group's boxes, added up as they are typed. */}
+        <td className={BAND_BUDGET}>
+          {totalled && (
+            <div className="flex justify-end py-2 sm:px-2">
+              {/* The box's own geometry, borrowed — same width, same padding,
+                  a border that is there and invisible, laid out by the same
+                  flex the row lays its box out with — so the total's digits
+                  land on the digits of the boxes it is totalling. */}
+              <span className="w-28 px-2 border border-transparent text-sm font-medium text-gray-900 dark:text-white tabular-nums">
+                {formatCurrency(budget.typed)}
+              </span>
+            </div>
+          )}
+        </td>
+        {/* Its twin, said the way every row says its own. */}
+        <td className={BAND_TWIN}>
+          {totalled && (
+            <div className="py-2 sm:pl-2">
+              <span className="text-xs text-gray-600 dark:text-gray-300">
+                {formatCurrency(budget.twin)} {mode === 'monthly' ? 'a year' : 'a month'}
+              </span>
+            </div>
+          )}
+        </td>
+      </tr>
+    );
+  };
 
   // ── Step 1 ────────────────────────────────────────────────────────────────
   const renderRhythm = (): React.JSX.Element => (
@@ -519,12 +611,12 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
         <span className="text-gray-600 dark:text-gray-300">
           Budgeted so far{' '}
           <span className="font-medium text-gray-900 dark:text-white">
-            {formatCurrency(mode === 'monthly' ? twinFigure(totals.budgeted, 'yearly') : totals.budgeted)}
+            {formatCurrency(totals.budget.typed)}
           </span>{' '}
           {modeNoun}
           <span className="text-gray-500 dark:text-gray-400">
-            {' '}· {formatCurrency(mode === 'monthly' ? totals.budgeted : twinFigure(totals.budgeted, 'yearly'))}{' '}
-            {mode === 'monthly' ? 'a year' : 'a month'} · {totals.boxes} of {rows.length} boxes filled
+            {' '}· {formatCurrency(totals.budget.twin)}{' '}
+            {mode === 'monthly' ? 'a year' : 'a month'} · {totals.budget.boxes} of {rows.length} boxes filled
           </span>
         </span>
       </div>
