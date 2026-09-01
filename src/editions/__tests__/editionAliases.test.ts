@@ -17,8 +17,18 @@
  * The declarations are checked for the blunter reason `dataAlias.test.ts` gives:
  * an alias one config knows about and another does not fails as *"Cannot find
  * module"* in whichever command is run next by whoever is least expecting it.
- * There are now eight specifiers and six configs, which is forty-eight
+ * There are now nine specifiers and seven configs, which is sixty-three
  * mappings that have to agree.
+ *
+ * ── THE SEVENTH CONFIG, ADDED 1 SEPTEMBER 2026 ──────────────────────────────
+ *
+ * `vitest.desktop.config.ts` was resolving all eight seams and was checked by
+ * nothing. It is the config the MOUNT test runs under — the one gate in this
+ * repository that asserts a window renders something rather than that it renders
+ * no cloud — so a seam missing from it does not fail loudly, it fails as a
+ * twenty-second timeout in a suite whose job is to describe a screen. Adding it
+ * here cost nothing (every existing mapping was already correct) and closes the
+ * gap before the next seam finds it.
  *
  * ── WHY IT READS THE FILES AS TEXT ──────────────────────────────────────────
  *
@@ -85,6 +95,16 @@ const SEAMS: readonly Seam[] = [
     specifier: '@rules-store',
     web: 'src/editions/cloud/rulesStore.ts',
     device: 'src/desktop/editions/rulesStore.ts'
+  },
+  {
+    // Added 1 Sep 2026, on the owner's ruling that the local edition "lose
+    // excel … as long as they can keep csv". The first seam here that is not
+    // about the cloud at all: both halves are entirely local, and what differs
+    // is 488 KiB of SheetJS — the largest chunk the desktop renderer built, in a
+    // binary that embeds every chunk it builds.
+    specifier: '@spreadsheet',
+    web: 'src/editions/cloud/spreadsheet.ts',
+    device: 'src/desktop/editions/spreadsheet.ts'
   }
 ];
 
@@ -95,6 +115,7 @@ const DECLARATIONS: ReadonlyArray<{ config: string; edition: 'web' | 'device' }>
   { config: 'tsconfig.app.json', edition: 'web' },
   { config: 'apps/desktop/vite.config.ts', edition: 'device' },
   { config: 'vitest.local.config.ts', edition: 'device' },
+  { config: 'vitest.desktop.config.ts', edition: 'device' },
   { config: 'tsconfig.desktop.json', edition: 'device' }
 ];
 
@@ -179,7 +200,7 @@ describe('the edition seams', () => {
     }
   });
 
-  it('knows about every seam the web build declares, so a ninth cannot arrive untested', () => {
+  it('knows about every seam the web build declares, so a tenth cannot arrive untested', () => {
     // The one check that is about this FILE rather than about the seams. A
     // specifier added to `vite.config.ts` and to five other configs, wired
     // through a component, and never listed here would have no substitution
@@ -197,6 +218,8 @@ describe('the edition seams', () => {
       '@rules-store',
       '@service',
       '@session',
+      // 1 Sep 2026 — the desktop edition sheds Excel and keeps CSV.
+      '@spreadsheet',
       '@telemetry'
     ]);
   });
@@ -252,6 +275,17 @@ describe('the edition seams', () => {
     // `signOut`, which is `auth`, which a shared page may not import — so it
     // came through the seam rather than as a Clerk import beside the router.
     // This equality is what stops the desktop half being forgotten.
+    // `@spreadsheet` is the smallest of them and the equality still earns its
+    // place: the fact and the writer answer the two different questions the
+    // Export surfaces ask — *may I draw an Excel control* and *write this
+    // workbook* — and a device half that answered only the first would compile,
+    // lint, pass every other test here, and throw `writeSpreadsheet is not a
+    // function` in a window on the day somebody made the fact true.
+    expect(valueExportsOf('src/desktop/editions/spreadsheet.ts')).toEqual([
+      'CAN_EXPORT_SPREADSHEETS',
+      'SpreadsheetExport',
+      'writeSpreadsheet'
+    ]);
     expect(valueExportsOf('src/desktop/editions/service.ts')).toEqual([
       'BankConnections',
       'BankFeedRefreshSettings',

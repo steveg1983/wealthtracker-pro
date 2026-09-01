@@ -1,5 +1,6 @@
 /**
- * PHASE3-PLAN §5's TWO BUNDLE GREPS, as a command.
+ * PHASE3-PLAN §5's TWO BUNDLE GREPS, as a command — and, since 1 Sep 2026, one
+ * more that is not about the cloud at all.
  *
  *   npm run desktop:greps      (build first: npm run desktop:ui)
  *
@@ -37,6 +38,12 @@
  * legible — if this ever has to be argued about, it is worth knowing which line
  * is the law and which is the belt.
  *
+ * ── AND ONE THAT IS ABOUT WEIGHT, NOT ABOUT THE CLOUD ───────────────────────
+ *
+ * `xlsx`, from 1 September 2026, in a group of its own. See
+ * {@link AND_ONE_ABOUT_WEIGHT} for the ruling behind it and for why it is not
+ * folded in with the five above.
+ *
  * ── IT REFUSES RATHER THAN SKIPS ────────────────────────────────────────────
  *
  * No build, no answer, non-zero exit. The alternative — passing quietly when
@@ -62,6 +69,58 @@ const THE_TWO = [
     word: 'storageAdapter',
     is: "the browser's IndexedDB store",
     costs: 'a second copy of the ledger, on a device that already has one'
+  }
+];
+
+/**
+ * AND THE ONE THAT IS ABOUT WEIGHT — the owner's ruling of 1 September 2026.
+ *
+ * *"Lose excel is fine as long as they can keep csv."* The desktop edition's
+ * Export surfaces offer CSV and PDF and no .xlsx, and `@spreadsheet` is the seam
+ * that makes that true of the BUNDLE and not merely of the buttons.
+ *
+ * ── WHY A GREP AND NOT JUST THE RATCHET ─────────────────────────────────────
+ *
+ * `desktop-bundle-size.mjs` would notice 488 KiB coming back, but only as a
+ * number, only after the budget below it had been re-tightened, and only if
+ * nothing else shrank by 488 KiB in the same commit. This names the thing. It
+ * also makes the eviction PERMANENT rather than a one-time diet: the way a
+ * shed library comes back is somebody adding `await import('xlsx')` to a shared
+ * component in six months, which lints clean, typechecks in both projects, and
+ * shows up here as one line.
+ *
+ * ── IT IS ITS OWN GROUP, AND THAT IS THE POINT ──────────────────────────────
+ *
+ * Every other entry in this file answers *"does this bundle reach a network,
+ * a login or a second store?"* — a promise about the user's money. This one
+ * answers *"is this bundle carrying a library the product has decided it does
+ * not offer?"* — a promise about their disk. Folding the two together would
+ * make the first list harder to read and would, the first time somebody
+ * shipped a big library on purpose, invite an argument about the wrong rule.
+ *
+ * ── THE ALLOWANCE, WHICH IS THE STRIPE ALLOWANCE'S SHAPE EXACTLY ────────────
+ *
+ * `components/DocumentUpload.tsx` accepts a spreadsheet as an ATTACHMENT —
+ * `accept="…,.xls,.xlsx"` — so a person can file the invoice their accountant
+ * sent them. That is a receipt, not a writer; it is two occurrences of the word
+ * in `DocumentManager`'s chunk and it is exactly what this edition is for. The
+ * answer is the named allowance the Stripe CSV preset already established, with
+ * the same three properties: it names the exact text, it is self-checked by
+ * {@link ALLOWANCE_CHECK}, and the run prints what it forgave.
+ */
+const AND_ONE_ABOUT_WEIGHT = [
+  {
+    word: 'xlsx',
+    is: 'a spreadsheet writer',
+    costs:
+      "488 KiB of SheetJS embedded in the binary — the renderer's largest chunk — for a format "
+      + 'this edition has decided it does not write (owner, 1 Sep 2026)',
+    allow: {
+      text: '.doc,.docx,.xls,.xlsx',
+      why:
+        "DocumentUpload's accept list — a person filing a spreadsheet their accountant sent "
+        + 'them as an attachment, which is a receipt and not a writer'
+    }
   }
 ];
 
@@ -197,8 +256,31 @@ const AND_THREE_MORE = [
 const INSTRUMENT_CHECK = [
   { word: 'clerk', finds: ['https://clerk.accounts.dev/npm/@clerk/clerk-js', '__clerk_db_jwt'], ignores: ['adminClerkId', 't.adminClerkId'] },
   { word: 'sentry', finds: ['window.Sentry?.captureException', '@sentry/react'], ignores: ['sentryish', 'presentry'] },
-  { word: 'stripe', finds: ['https://js.stripe.com/v3', 'new Stripe(k)'], ignores: ['striped', 'gridstripes', 'HorzStripe:"darkHorizontal"'] }
+  { word: 'stripe', finds: ['https://js.stripe.com/v3', 'new Stripe(k)'], ignores: ['striped', 'gridstripes', 'HorzStripe:"darkHorizontal"'] },
+  // `xlsx` is a plain word rather than a pattern — it is distinctive and it
+  // never occurs inside another one — so what is checked here is the ALLOWANCE
+  // rather than a narrowing. The three `finds` are the three shapes the library
+  // actually arrives in: the chunk's own filename, SheetJS's default bookType,
+  // and its own named writer. The `ignores` are the attachment list this
+  // edition legitimately carries, and two spreadsheet MIME types that do not
+  // spell the word at all and must not start to.
+  {
+    word: 'xlsx',
+    finds: ['import("./xlsx-kWF--8k_.js")', 'bookType:"xlsx"', 'writeFileXLSX'],
+    ignores: ['.doc,.docx,.xls,.xlsx', 'application/vnd.ms-excel', 'spreadsheetml.sheet']
+  }
 ];
+
+/**
+ * Every entry, whatever group it is in.
+ *
+ * The two loops that check the INSTRUMENT — the allowances, and the blunting
+ * check — must reach all of them, and both used to name one group by hand. That
+ * is the failure this repository keeps finding written down in the file it
+ * would occur in: a third group would have been added to the report and to
+ * neither loop, and its allowance would have gone unchecked in silence.
+ */
+const EVERY_ENTRY = [...THE_TWO, ...AND_THREE_MORE, ...AND_ONE_ABOUT_WEIGHT];
 
 /**
  * An allowance is only safe if it really matches, and only honest if it cannot
@@ -312,7 +394,7 @@ const failures = [];
 
 // The allowances, before anything is grepped: one that matches nothing, or one
 // broad enough to swallow a real leak, would make every line below a lie.
-for (const entry of [...THE_TWO, ...AND_THREE_MORE]) {
+for (const entry of EVERY_ENTRY) {
   for (const problem of ALLOWANCE_CHECK(entry)) failures.push(`  ${problem}`);
 }
 
@@ -350,7 +432,11 @@ const report = (heading, group) => {
 // this script can be worse than not existing.
 const blunted = [];
 for (const { word, finds, ignores } of INSTRUMENT_CHECK) {
-  const entry = AND_THREE_MORE.find(candidate => candidate.word === word);
+  const entry = EVERY_ENTRY.find(candidate => candidate.word === word);
+  if (entry === undefined) {
+    blunted.push(`  '${word}' is self-checked but is not grepped for by anything`);
+    continue;
+  }
   for (const sample of finds) {
     if (countIn(sample, entry) === 0) blunted.push(`  '${word}' no longer finds ${JSON.stringify(sample)}`);
   }
@@ -370,6 +456,7 @@ if (blunted.length > 0) {
 
 report('the plan’s two', THE_TWO);
 report('and the four more the README claims', AND_THREE_MORE);
+report('and the one that is about weight, not the cloud', AND_ONE_ABOUT_WEIGHT);
 
 say('');
 if (failures.length > 0) {
@@ -379,5 +466,5 @@ if (failures.length > 0) {
   say('');
   process.exit(1);
 }
-say('PASS  the desktop bundle reaches no cloud');
+say('PASS  the desktop bundle reaches no cloud, and carries no spreadsheet writer');
 say('');

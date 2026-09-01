@@ -53,6 +53,10 @@
       "@telemetry": ["./src/desktop/editions/telemetry.ts"],
       "@session": ["./src/desktop/editions/session.ts"],
       "@service": ["./src/desktop/editions/service.ts"],
+      /* Whether this edition writes .xlsx — false here (owner, 1 Sep 2026). The
+         device half names no spreadsheet writer, which is what keeps SheetJS out
+         of a binary that embeds every chunk the renderer builds. */
+      "@spreadsheet": ["./src/desktop/editions/spreadsheet.ts"],
       "@wealthtracker/utils": ["./packages/utils/index.ts"],
       "@wealthtracker/utils/*": ["./packages/utils/*"],
       "@wealthtracker/types/*": ["./packages/types/*"],

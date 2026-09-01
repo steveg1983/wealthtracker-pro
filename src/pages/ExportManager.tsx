@@ -23,6 +23,15 @@ import PeriodPicker from '../components/PeriodPicker';
 import { LoadingState } from '../components/loading/LoadingState';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { dataPort } from '@data';
+// WHETHER THIS EDITION WRITES .xlsx, and the modal that does it. Through the
+// seam rather than by path, for the reason `@data` is: the desktop edition does
+// not write spreadsheets (owner, 1 Sep 2026 — "lose excel is fine as long as
+// they can keep csv"), and an `if` around a lazy import would have removed the
+// button and kept the library. `generate_context!` embeds every chunk in
+// `apps/desktop/dist` into the binary, so 488 KiB of SheetJS behind a button is
+// 488 KiB on the disk of somebody who never presses it. See
+// docs/edition-gating.md.
+import { CAN_EXPORT_SPREADSHEETS, SpreadsheetExport } from '@spreadsheet';
 // From the FORMAT module, not from `backupService`: this page collects its
 // bundle through `dataPort` and only needs the file's own vocabulary, while
 // `backupService` opens with a Supabase client. See docs/edition-gating.md.
@@ -42,8 +51,13 @@ import {
 // exporter both used to live under Settings ▸ Data Management. They move here so
 // every way OUT of the app is on one page. Kept lazy — moving a component must
 // not turn its chunk into an always-loaded static import.
+//
+// The Excel exporter's `lazyWithRecovery` line stood here too until 1 Sep 2026,
+// when it moved into `editions/cloud/spreadsheet.ts` whole. It is still lazy and
+// still the same chunk in a browser; what changed is that a DESKTOP build now
+// resolves the seam to a half that names no exporter, so neither the modal nor
+// the spreadsheet writer behind it is reachable from that graph.
 const EnhancedExportManager = lazyWithRecovery(() => import('../components/EnhancedExportManager'));
-const ExcelExport = lazyWithRecovery(() => import('../components/ExcelExport'));
 
 const exportManagerLogger = createScopedLogger('ExportManagerPage');
 
@@ -65,6 +79,19 @@ const FORMAT_ORDER: ExportFormat[] = ['pdf', 'csv', 'qif', 'ofx'];
  * Neither half is optional in the format, so the Include ticks do not apply.
  */
 const isInterchangeFormat = (format: ExportFormat): boolean => format === 'qif' || format === 'ofx';
+
+/**
+ * A format's name in the dropdown — plus, in the edition that writes no .xlsx,
+ * the one thing a person needs told about the one that replaces it.
+ *
+ * Nothing is taken away silently. A desktop buyer who came to this page for a
+ * spreadsheet finds no Excel button, so the CSV option says what a CSV is for:
+ * every spreadsheet on earth opens one. The web edition's label is untouched.
+ */
+const formatLabel = (format: ExportFormat): string =>
+  format === 'csv' && !CAN_EXPORT_SPREADSHEETS
+    ? `${EXPORT_FORMAT_LABELS.csv} — opens in Excel`
+    : EXPORT_FORMAT_LABELS[format];
 
 const isoDay = (date: Date): string => {
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -320,7 +347,9 @@ export default function ExportManager(): React.JSX.Element {
             <div>
               <h1 className="text-page font-semibold mb-2 text-gray-900 dark:text-white">Export Data</h1>
               <p className="text-body text-gray-500 dark:text-gray-400">
-                Generate reports, export to Excel, and save reusable export templates
+                {CAN_EXPORT_SPREADSHEETS
+                  ? 'Generate reports, export to Excel, and save reusable export templates'
+                  : 'Generate reports, export to CSV or PDF, and save reusable export templates'}
               </p>
             </div>
             {/* Decorative. Grey, not ink: the heading beside it already names the page,
@@ -390,10 +419,10 @@ export default function ExportManager(): React.JSX.Element {
                     Format
                   </label>
                   {/* Only the formats this page actually writes. Excel lives in
-                      the Excel Export / Advanced Report tools below, and full
-                      JSON in the full backup — offering dead options here would
-                      be the same broken-control problem as the removed
-                      scheduler. */}
+                      the Excel Export / Advanced Report tools below — where the
+                      edition that has them draws them — and full JSON in the
+                      full backup; offering dead options here would be the same
+                      broken-control problem as the removed scheduler. */}
                   <select
                     id="export-format"
                     value={format}
@@ -401,7 +430,7 @@ export default function ExportManager(): React.JSX.Element {
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     {FORMAT_ORDER.map(key => (
-                      <option key={key} value={key}>{EXPORT_FORMAT_LABELS[key]}</option>
+                      <option key={key} value={key}>{formatLabel(key)}</option>
                     ))}
                   </select>
                 </div>
@@ -498,13 +527,20 @@ export default function ExportManager(): React.JSX.Element {
                   <EnhancedExportManager />
                 </Suspense>
 
-                <button
-                  onClick={() => setShowExcelExport(true)}
-                  className="flex items-center gap-2 px-4 py-3 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  <FileSpreadsheetIcon size={16} />
-                  Excel Export
-                </button>
+                {/* ABSENT, not disabled, in the edition that writes no .xlsx —
+                    the bank-feeds lesson (owner, 26 Aug): a control whose action
+                    cannot exist here is a control to leave out, because a dead
+                    one makes a person wonder what they did wrong. The CSV option
+                    above carries the sentence that replaces it. */}
+                {CAN_EXPORT_SPREADSHEETS && (
+                  <button
+                    onClick={() => setShowExcelExport(true)}
+                    className="flex items-center gap-2 px-4 py-3 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    <FileSpreadsheetIcon size={16} />
+                    Excel Export
+                  </button>
+                )}
 
                 <button
                   onClick={handleSaveAsTemplate}
@@ -792,10 +828,12 @@ export default function ExportManager(): React.JSX.Element {
       </div>
 
       {/* Dedicated Excel exporter (rich formatting, multiple entity sheets).
-          Mounted only while open so its XLSX chunk stays deferred until used. */}
+          Mounted only while open so its XLSX chunk stays deferred until used —
+          and reached through `@spreadsheet`, so the edition that offers no
+          button also builds no chunk to defer. */}
       {showExcelExport && (
         <Suspense fallback={<LoadingState />}>
-          <ExcelExport
+          <SpreadsheetExport
             isOpen={showExcelExport}
             onClose={() => setShowExcelExport(false)}
           />

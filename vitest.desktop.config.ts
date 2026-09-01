@@ -58,6 +58,10 @@ export default defineConfig({
       '@telemetry': path.resolve(process.cwd(), './src/desktop/editions/telemetry'),
       '@session': path.resolve(process.cwd(), './src/desktop/editions/session'),
       '@service': path.resolve(process.cwd(), './src/desktop/editions/service'),
+      // False, so the window's Export page draws CSV and PDF and no Excel — the
+      // one assertion in this run that is about what a person SEES rather than
+      // about what the bundle weighs (owner, 1 Sep 2026).
+      '@spreadsheet': path.resolve(process.cwd(), './src/desktop/editions/spreadsheet'),
       '@app-types': path.resolve(process.cwd(), './src/types'),
       '@': path.resolve(process.cwd(), './src')
     }

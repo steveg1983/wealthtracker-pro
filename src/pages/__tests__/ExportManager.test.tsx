@@ -321,6 +321,39 @@ describe('Export Data page', () => {
   });
 
   /**
+   * THE WEB EDITION KEEPS EXCEL — the other half of the owner's ruling of
+   * 1 September 2026, and the half nothing else in this repository watches.
+   *
+   * *"Lose excel is fine as long as they can keep csv"* was a ruling about the
+   * DESKTOP edition. Every guard behind it — the bundle grep, the import walk,
+   * the size ratchet, the mount test — asserts an ABSENCE in a window, and all
+   * four would go on passing if the format had been removed from the product
+   * altogether. This suite runs with `@spreadsheet` at its cloud half, which is
+   * what a browser resolves, so this is where "and the web page is exactly as it
+   * was" is a check rather than an intention.
+   */
+  describe('the Excel exporter, in the edition that has one', () => {
+    it('offers the Excel Export button, and says so in the page copy', () => {
+      renderPage();
+
+      expect(screen.getByRole('button', { name: /Excel Export/i })).toBeInTheDocument();
+      expect(screen.getByText(/Generate reports, export to Excel/i)).toBeInTheDocument();
+    });
+
+    it('leaves the CSV option worded as it always was', () => {
+      // The desktop edition appends "— opens in Excel" here, because it has no
+      // Excel button to explain itself with. A browser has one, so the label is
+      // untouched — asserted exactly, so that a future edit to the desktop's
+      // wording cannot leak into the web's by being written in the wrong place.
+      renderPage();
+      const csv = screen.getByRole('option', { name: 'CSV spreadsheet' });
+
+      expect(csv).toBeInTheDocument();
+      expect(csv.textContent).toBe('CSV spreadsheet');
+    });
+  });
+
+  /**
    * The full backup — the only export that can be restored, and the only one
    * that reads whole rows out of the store rather than the app's React state.
    */

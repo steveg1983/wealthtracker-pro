@@ -18,8 +18,8 @@
 | Threshold | `node scripts/verify-coverage-threshold.mjs …` | ✅ | ≥75 % statements / ≥80 % branches (raised 2026-08-12 from 63/55; measured 77.13/82.48) |
 | Supabase smoke | `npm run test:supabase-smoke` | ✅ | Logs saved to `logs/supabase-smoke/` |
 | Build parity | `npm run build` | ✅ | Mirrors Vercel’s `vite build` via `scripts/build-web.mjs` |
-| Desktop bundle | `npm run desktop:verify` | ✅ | Builds `src/desktop` → `apps/desktop/dist`, then PHASE3-PLAN §5’s two bundle greps, then the size ratchet. REFUSES rather than skips when there is no build |
-| Desktop size | `npm run bundle:check:desktop` | ✅ | ~4,090 KiB raw / ~1,244 KiB gz; budgets 4320 / 1335 KiB. **Raw** is the gate — nothing is downloaded, the bytes are embedded in the binary. Binary size recorded, never gated. (The 259 KiB figure this row used to quote was the chooser window, before the app's screens were mounted; the baseline was re-recorded 2026‑08‑12 and the header of `scripts/desktop-bundle-size.mjs` narrates every step since.) |
+| Desktop bundle | `npm run desktop:verify` | ✅ | Builds `src/desktop` → `apps/desktop/dist`, then PHASE3-PLAN §5’s two bundle greps **plus the one that is about weight rather than the cloud** (`xlsx`, 1 Sep 2026), then the size ratchet, then the mount run. REFUSES rather than skips when there is no build |
+| Desktop size | `npm run bundle:check:desktop` | ✅ | 3,790.5 KiB raw / 1,163.8 KiB gz; budgets 3830 / 1176 KiB. **Raw** is the gate — nothing is downloaded, the bytes are embedded in the binary. Binary size recorded, never gated. Budgets sit ~1 % above measured, which is tight ON PURPOSE: the last move was DOWN (−498.6 KiB raw, the spreadsheet writer, owner's ruling 1 Sep 2026 — "lose excel is fine as long as they can keep csv"), and leaving 4320 would have banked the win as silent permission. The next intended growth raises these two numbers in the commit that causes it; the header of `scripts/desktop-bundle-size.mjs` narrates every step. |
 | Desktop shell | `npm run desktop:check` | ✅ | clippy `-D warnings` + the shell crate's own 38 tests (`apps/desktop/src-tauri`). Was 12; licensing brought 26 — the offline verifier, the clock's high-water mark, the read allowlist held to the crate's own enum by asking serde to recite it, and a real ledger proving that an expired window is refused a write BY NAME while a read and the export both still answer |
 | Desktop build | `npm run desktop:build` | ✅ | `vite` → `apps/desktop/dist`, then `cargo build --release` → ~20 MB arm64 (was 16.1 MB; the 0.1.1 updater brings an HTTP/TLS stack with it). The renderer must be built first: `generate_context!` embeds it. Since 0.1.1 a release build also emits `WealthTracker.app.tar.gz` + `.sig` — what an INSTALLED copy downloads, which is not the installer |
 
@@ -82,8 +82,13 @@ Latest Vercel preview: `wealthtracker-l514dsq11` (2025‑10‑29 21:33 UTC). B
   service or the web's choosing line. Checked at three altitudes: lint, two import-graph
   walks, and the bundle greps.
 - The renderer also has a **size** ratchet, because growth that is perfectly cloud-free
-  passes all three of those. 259.3 KiB raw today; the 144-module `components/Layout`
-  graph is what it is guarding against.
+  passes all three of those. 3,790.5 KiB raw today, budget 3830 — ~1 % of headroom,
+  because the last move was a deliberate 498.6 KiB DOWN and that slack was spent
+  rather than banked. Intended growth raises the budget in the commit that causes it.
+- A seam may also be about **weight** rather than the cloud. `@spreadsheet` is the
+  first: the desktop edition writes CSV and PDF and no .xlsx (owner, 1 Sep 2026), and
+  the same import that decides what is BUILT decides what is DRAWN, so the button and
+  the bundle cannot disagree.
 - `src/desktop/routes.ts` must have an answer for every `path=` in `src/App.tsx`. Adding a
   route to the web router without one fails `desktopRouter.test.tsx`.
 

@@ -46,6 +46,10 @@
          three settings panels that are about the hosted service. */
       "@session": ["./src/editions/cloud/session.ts"],
       "@service": ["./src/editions/cloud/service.ts"],
+      /* Whether this edition writes .xlsx (1 Sep 2026). True here, false in the
+         desktop project — so a shared Export surface that assumed a spreadsheet
+         writer exists is a compile error in whichever project it broke. */
+      "@spreadsheet": ["./src/editions/cloud/spreadsheet.ts"],
       "@wealthtracker/utils": ["./packages/utils/index.ts"],
       "@wealthtracker/utils/*": ["./packages/utils/*"],
       "@wealthtracker/types/*": ["./packages/types/*"],
