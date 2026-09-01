@@ -74,6 +74,7 @@
     "audit:data": "node scripts/audit-data-integrity.mjs",
     "backup:db": "node scripts/backup-database.mjs",
     "restore:db": "node scripts/restore-database.mjs",
+    "licence:desk": "node scripts/licence-desk.mjs",
     "dr:drill": "node scripts/dr-restore-drill.mjs",
     "pentest": "node scripts/pentest.mjs",
     "audit:a11y": "node scripts/audit-accessibility.mjs",

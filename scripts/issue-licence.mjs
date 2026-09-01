@@ -8,6 +8,12 @@
  *   node scripts/issue-licence.mjs --issue --email x@example.com --name "X" --trial-months 3
  *   node scripts/issue-licence.mjs --verify WTL1-…
  *
+ * There is also a page for this — `node scripts/licence-desk.mjs` — which
+ * issues the same licences through a form and keeps a record of them. What a
+ * licence IS (the claims, the month arithmetic, the signature) lives once, in
+ * `licence-core.mjs`, and both tools use it; this file keeps `--generate`,
+ * because a signing key is made once, ever, and only deliberately.
+ *
  * ── THE PRIVATE KEY NEVER COMES NEAR THIS REPOSITORY ────────────────────────
  *
  * `--generate` writes it to ~/Documents/WealthTracker-signing/, chmod 600, once,
@@ -36,7 +42,7 @@
  *   WTL1-<base64url(claims JSON)>.<base64url(64-byte signature)>
  *
  * The claims travel base64url'd and the signature covers exactly those bytes, so
- * there is no canonical serialisation for this script and the Rust to agree
+ * there is no canonical serialisation for these tools and the Rust to agree
  * about — no key ordering, no whitespace, no number formatting. Whatever
  * `JSON.stringify` produced here is what is verified there, byte for byte.
  * `license.rs`'s header argues it at length.
@@ -51,76 +57,15 @@
  * What is being sold is the signed, notarised, self-updating build.
  */
 
-import {
-  createPrivateKey,
-  createPublicKey,
-  generateKeyPairSync,
-  randomBytes,
-  sign,
-  verify
-} from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync, existsSync, chmodSync } from 'node:fs';
-import { homedir } from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-
-/**
- * Where the private key lives.
- *
- * Overridable ONLY by an environment variable, and only so that this script's
- * own end-to-end check can run against an ephemeral pair in a temp directory
- * without going anywhere near the owner's. There is no flag for it, because a
- * flag is a thing that ends up in a shell history.
- */
-const SIGNING_DIR =
-  process.env.WEALTHTRACKER_SIGNING_DIR ?? path.join(homedir(), 'Documents', 'WealthTracker-signing');
-const PRIVATE_KEY = path.join(SIGNING_DIR, 'wealthtracker-licence.key');
-
-/**
- * The committed public key the shell compiles in. One file, one line.
- *
- * Overridable by an environment variable for ONE reason, which is the
- * end-to-end check in `apps/desktop/README.md`: generate an ephemeral pair into
- * a temp directory, issue against it, verify against it, tamper a byte and watch
- * it fail — all without touching the committed key or the owner's. It is not a
- * way to make a build trust a different key: the SHELL reads the committed file
- * with `include_str!` at compile time and has never heard of this variable.
- */
-const PUBLIC_KEY_FILE =
-  process.env.WEALTHTRACKER_PUBLIC_KEY_FILE ??
-  path.join(REPO, 'apps', 'desktop', 'licence-public-key.txt');
-
-/** The envelope's version. `license.rs`'s `PREFIX`. */
-const PREFIX = 'WTL1-';
-/** The claims schema version. `license.rs`'s `CLAIMS_VERSION`. */
-const CLAIMS_VERSION = 1;
-
-const b64u = bytes => Buffer.from(bytes).toString('base64url');
-const unb64u = text => Buffer.from(text, 'base64url');
+import { generateKeyPairSync } from 'node:crypto';
+import { mkdirSync, writeFileSync, existsSync, chmodSync } from 'node:fs';
+import { b64u, issueLicence, PRIVATE_KEY, rawPublic, SIGNING_DIR, verifyLicence } from './licence-core.mjs';
 
 const say = line => process.stdout.write(`${line}\n`);
 const die = line => {
   process.stderr.write(`issue-licence: ${line}\n`);
   process.exit(1);
 };
-
-/** The raw 32 bytes of an Ed25519 public key, out of a KeyObject. */
-const rawPublic = key => unb64u(key.export({ format: 'jwk' }).x);
-
-/** The first line of the committed key file that is neither blank nor a comment. */
-const committedPublicKey = () => {
-  const line = readFileSync(PUBLIC_KEY_FILE, 'utf8')
-    .split('\n')
-    .map(text => text.trim())
-    .find(text => text !== '' && !text.startsWith('#'));
-  return line ?? 'PLACEHOLDER';
-};
-
-/** A public KeyObject from the raw 32 bytes, via JWK. */
-const publicKeyFromRaw = raw =>
-  createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519', x: b64u(raw) }, format: 'jwk' });
 
 // ── --generate ───────────────────────────────────────────────────────────────
 
@@ -165,49 +110,18 @@ function issue({ email, name, trialMonths }) {
   if (!email) die('--issue needs --email.');
   if (!name) die('--issue needs --name "Their Name" — it is what the app displays.');
 
-  if (!existsSync(PRIVATE_KEY)) {
-    die(`no signing key at ${PRIVATE_KEY}. Run --generate first (once, ever).`);
+  let issued;
+  try {
+    issued = issueLicence({ name, email, trialMonths });
+  } catch (refused) {
+    die(refused instanceof Error ? refused.message : String(refused));
   }
-  const privateKey = createPrivateKey(readFileSync(PRIVATE_KEY, 'utf8'));
-
-  const issued = Math.floor(Date.now() / 1000);
-
-  // A trial's end is computed as a CALENDAR month rather than as 30 days, so
-  // that "three months" means what a person buying it thinks it means.
-  let expires;
-  if (trialMonths !== undefined) {
-    const months = Number(trialMonths);
-    if (!Number.isInteger(months) || months < 1 || months > 60) {
-      die('--trial-months takes a whole number of months between 1 and 60.');
-    }
-    const end = new Date(issued * 1000);
-    end.setMonth(end.getMonth() + months);
-    expires = Math.floor(end.getTime() / 1000);
-  }
-
-  const claims = {
-    v: CLAIMS_VERSION,
-    kind: expires === undefined ? 'lifetime' : 'trial',
-    name,
-    email,
-    issued,
-    // Omitted entirely for a lifetime licence — `license.rs` refuses a lifetime
-    // claim that carries an end date, because a licence that contradicts itself
-    // would make somebody choose which half to believe.
-    ...(expires === undefined ? {} : { expires }),
-    // Something a support conversation can name. Random rather than sequential:
-    // a counter would need a ledger of its own, and there is nothing here that
-    // needs to know how many have been sold.
-    id: `wtl-${b64u(randomBytes(9))}`
-  };
-
-  const body = Buffer.from(JSON.stringify(claims), 'utf8');
-  const licence = `${PREFIX}${b64u(body)}.${b64u(sign(null, body, privateKey))}`;
+  const { claims, licence } = issued;
 
   say('');
   say(`  ${claims.kind === 'trial' ? `Trial, ${trialMonths} month(s)` : 'Lifetime'} — ${name} <${email}>`);
-  if (expires !== undefined) {
-    say(`  Ends ${new Date(expires * 1000).toLocaleDateString('en-GB', {
+  if (claims.expires !== undefined) {
+    say(`  Ends ${new Date(claims.expires * 1000).toLocaleDateString('en-GB', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
@@ -233,32 +147,13 @@ function issue({ email, name, trialMonths }) {
  * here was mis-copied or was signed by a key that is no longer shipped.
  */
 function verifyOne(licence) {
-  const committed = committedPublicKey();
-  if (committed === 'PLACEHOLDER') {
-    die(
-      'apps/desktop/licence-public-key.txt still holds the placeholder, so there is nothing\n' +
-        '  to verify against. Run --generate and commit the public key it prints.'
-    );
+  let claims;
+  try {
+    claims = verifyLicence(licence);
+  } catch (refused) {
+    die(refused instanceof Error ? refused.message : String(refused));
   }
 
-  if (!licence || !licence.startsWith(PREFIX)) {
-    die(`that does not begin with ${PREFIX}, so it is not a WealthTracker licence key.`);
-  }
-  const [claimsPart, signaturePart, ...rest] = licence.slice(PREFIX.length).split('.');
-  if (signaturePart === undefined || rest.length > 0) {
-    die('that is not one claims part and one signature part separated by a full stop.');
-  }
-
-  const body = unb64u(claimsPart);
-  const ok = verify(null, body, publicKeyFromRaw(unb64u(committed)), unb64u(signaturePart));
-  if (!ok) {
-    die(
-      'REFUSED. That signature does not match the committed public key.\n' +
-        '  Either the string was mis-copied, or it was signed by a key this build no longer ships.'
-    );
-  }
-
-  const claims = JSON.parse(body.toString('utf8'));
   say('');
   say('  VALID — signed by the key this build carries.');
   say('');
@@ -306,6 +201,9 @@ if (argv.includes('--generate')) {
   say('');
   say('  node scripts/issue-licence.mjs --verify WTL1-…');
   say('      Check one against the committed public key. The support tool.');
+  say('');
+  say('  node scripts/licence-desk.mjs');
+  say('      The same, as a page — with a copy button and a record of every licence.');
   say('');
   process.exit(1);
 }
