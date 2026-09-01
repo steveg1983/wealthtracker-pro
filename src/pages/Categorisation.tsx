@@ -6,6 +6,7 @@ import { computeIncomeExpense } from '../utils/incomeExpense';
 import { expandSplitTransactions, type SplitExpandedTransaction } from '../utils/transactionSplits';
 import { groupUncategorisedByAccount } from '../utils/uncategorisedByAccount';
 import { groupSuggestedByCategory, groupSuggestedByAccount } from '../utils/categoryProvenance';
+import { awaitsFiling } from '../utils/transactionReview';
 import { preferences } from '../services/preferencesService';
 import { useAttentionLadder } from '../hooks/useAttentionLadder';
 import { useFlowConvert } from '../hooks/useFlowConvert';
@@ -16,6 +17,7 @@ import { useAccountNames } from '../hooks/useAccountNames';
 import { useToast } from '../contexts/ToastContext';
 import TransferSweepModal from '../components/TransferSweepModal';
 import BulkCategorizeModal from '../components/BulkCategorizeModal';
+import FileOutstandingSection from '../components/FileOutstandingSection';
 import ReportDrillModal, { type ReportDrillTarget } from '../components/reports/ReportDrillModal';
 import { ArrowRightLeftIcon, TagIcon, ListIcon, CheckCircleIcon, ChevronRightIcon } from '../components/icons';
 import EmptyState from '../components/EmptyState';
@@ -62,6 +64,8 @@ export default function Categorisation(): React.JSX.Element {
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const [showTransferSweep, setShowTransferSweep] = useState(false);
   const [showBulkCategorize, setShowBulkCategorize] = useState(false);
+  /** Whether the filter-and-file list below the cards is showing. */
+  const [filing, setFiling] = useState(false);
   /** Which group button is mid-confirm, so it alone can say so. */
   const [confirmingCategoryId, setConfirmingCategoryId] = useState<string | null>(null);
 
@@ -105,6 +109,28 @@ export default function Categorisation(): React.JSX.Element {
     const known = new Set(categories.map(c => c.id));
     return uncategorised.filter(row => row.category && !known.has(row.category)).length;
   }, [uncategorised, categories]);
+
+  /**
+   * The rows the filter-and-file list below can actually settle, and the size
+   * of the job its card states.
+   *
+   * Read off the RAW transactions rather than the split-expanded rows above:
+   * every row here is one `updateTransaction` can write, and a split line is a
+   * virtual projection with a synthetic id. It is a wider question than the
+   * backlog figure in any case — a feed's guess is filed but not agreed with,
+   * which is work of exactly the kind this page exists for.
+   */
+  const toFile = useMemo(() => transactions.filter(awaitsFiling), [transactions]);
+
+  /**
+   * The part of the backlog above that the list cannot show: lines inside a
+   * split, which are filed in their parent. Counted here so the list can say
+   * so instead of leaving the reader to find the gap.
+   */
+  const splitLinesOutstanding = useMemo(
+    () => uncategorised.filter(row => row.isSplitLine === true).length,
+    [uncategorised]
+  );
 
   // Includes CLOSED accounts — old history is exactly where the
   // uncategorised backlog lives, and "Unknown account" was just a failure
@@ -306,7 +332,8 @@ export default function Categorisation(): React.JSX.Element {
 
           {/* The three ways through, cheapest first: a transfer sweep can clear
               thousands of rows without a decision, filing a payee clears every
-              row for that merchant at once, and one-by-one is the fallback. */}
+              row for that merchant at once, and a search-and-tick is the
+              general case. */}
           <div className="grid gap-3 md:grid-cols-3">
             <ActionCard
               icon={<ArrowRightLeftIcon size={22} />}
@@ -320,46 +347,75 @@ export default function Categorisation(): React.JSX.Element {
               body="File a whole merchant at once, and teach future imports to file it for you."
               onClick={() => setShowBulkCategorize(true)}
             />
-            <ActionCard
-              icon={<ListIcon size={22} />}
-              title="Review one by one"
-              body={`Work through all ${count.toLocaleString()} outstanding transactions individually.`}
-              onClick={() => openDrill('Uncategorised transactions', uncategorised)}
-            />
-          </div>
+            {/* Nothing to file, no card — the third way through is the one
+                whose whole body is a count (house rule: a zero renders
+                nothing). Its two neighbours have work to do either way.
 
-          {/* Which accounts the work is actually in — the same "pick one and
-              clear it" shape as the reconciliation account list. */}
-          <div>
-            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">By account</h2>
-            <div className="flex flex-col gap-2">
-              {byAccount.map(({ accountId, rows: accountRows }) => (
-                <button
-                  key={accountId}
-                  type="button"
-                  onClick={() => openDrill(`Uncategorised — ${accountName(accountId)}`, accountRows)}
-                  className="w-full text-left bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary hover:shadow-md transition-all p-4 flex items-center gap-3"
-                >
-                  <span className="font-medium text-gray-900 dark:text-white truncate min-w-0 flex-1">
-                    {accountName(accountId)}
-                  </span>
-                  {/* NEUTRAL — a count is not a signal (Design, 25 Aug §4,
-                      and their own rule since the 13th: "a zero, a count and a
-                      settled row need none"). Five soft ambers sat here on the
-                      page representing the STOOD-DOWN categorise rung, which
-                      is precisely the erosion the ladder exists to prevent.
-                      Not rung-dependent: a per-account count has no business
-                      wearing the attention colour at any rung, so this is
-                      neutral outright rather than conditional. */}
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 whitespace-nowrap">
-                    {accountRows.length.toLocaleString()}
-                  </span>
-                  <ChevronRightIcon size={18} className="text-gray-400 flex-shrink-0" />
-                </button>
-              ))}
-            </div>
+                The second sentence is there because this count is NOT the
+                panel's: it is the register's "to review" population, so it
+                also holds rows the app guessed at, which are filed and
+                therefore counted in no backlog. The owner met an unexplained
+                gap between two counters on 1 Sep 2026 and read it as a bug —
+                which is what an unexplained gap is. */}
+            {toFile.length > 0 && (
+              <ActionCard
+                icon={<ListIcon size={22} />}
+                title="Filter and file"
+                body={`${toFile.length === 1
+                  ? 'Search the one outstanding transaction, tick it, and file it in one press.'
+                  : `Search the ${toFile.length.toLocaleString()} outstanding transactions, tick them, and file them in one press.`
+                } Rows with no category and the app’s own guesses are both here.`}
+                onClick={() => setFiling(showing => !showing)}
+                expanded={filing}
+              />
+            )}
           </div>
         </>
+      )}
+
+      {/* OUTSIDE the branch above, and that is load-bearing: filing the last
+          of the backlog takes this page to "Everything is filed", and a list
+          that lived in the other arm would take its own account of the press —
+          and the one shot back — off the screen at the exact moment they were
+          the only things on it worth reading. */}
+      <FileOutstandingSection
+        open={filing}
+        onHide={() => setFiling(false)}
+        splitLines={splitLinesOutstanding}
+      />
+
+      {/* Which accounts the work is actually in — the same "pick one and
+          clear it" shape as the reconciliation account list. */}
+      {count > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">By account</h2>
+          <div className="flex flex-col gap-2">
+            {byAccount.map(({ accountId, rows: accountRows }) => (
+              <button
+                key={accountId}
+                type="button"
+                onClick={() => openDrill(`Uncategorised — ${accountName(accountId)}`, accountRows)}
+                className="w-full text-left bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary hover:shadow-md transition-all p-4 flex items-center gap-3"
+              >
+                <span className="font-medium text-gray-900 dark:text-white truncate min-w-0 flex-1">
+                  {accountName(accountId)}
+                </span>
+                {/* NEUTRAL — a count is not a signal (Design, 25 Aug §4,
+                    and their own rule since the 13th: "a zero, a count and a
+                    settled row need none"). Five soft ambers sat here on the
+                    page representing the STOOD-DOWN categorise rung, which
+                    is precisely the erosion the ladder exists to prevent.
+                    Not rung-dependent: a per-account count has no business
+                    wearing the attention colour at any rung, so this is
+                    neutral outright rather than conditional. */}
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 whitespace-nowrap">
+                  {accountRows.length.toLocaleString()}
+                </span>
+                <ChevronRightIcon size={18} className="text-gray-400 flex-shrink-0" />
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* ── Suggestions waiting to be agreed with ────────────────────────────
@@ -460,16 +516,24 @@ function ActionCard({
   title,
   body,
   onClick,
+  expanded,
 }: {
   icon: React.ReactNode;
   title: string;
   body: string;
   onClick: () => void;
+  /**
+   * Set only by the card that reveals something on this page rather than
+   * opening a modal — the two that open one say nothing, which is right: a
+   * dialog announces itself.
+   */
+  expanded?: boolean;
 }): React.JSX.Element {
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-expanded={expanded}
       className="text-left bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary hover:shadow-md transition-all p-4 flex flex-col gap-2 min-h-[48px]"
     >
       <span className="flex items-center gap-2 text-gray-900 dark:text-white font-semibold">

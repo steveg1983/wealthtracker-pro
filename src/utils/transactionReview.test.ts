@@ -23,6 +23,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  awaitsFiling,
   countAwaitingReview,
   countAwaitingReviewByAccount,
   isAwaitingReview,
@@ -104,6 +105,28 @@ describe('isUnfiled — exported for the ladder, so subtraction cannot drift', (
     expect(isUnfiled(row('a', { needsReview: true }))).toBe(false);
     expect(isUnfiled(row('a', { type: 'transfer', category: undefined }))).toBe(false);
     expect(isUnfiled(row('a', { isSplit: true, category: undefined }))).toBe(false);
+  });
+});
+
+describe('awaitsFiling — what a bulk filing surface may offer', () => {
+  it('takes both arms, exactly as the register bolds them', () => {
+    expect(awaitsFiling(row('a', { needsReview: true, category: 'det-groceries' }))).toBe(true);
+    expect(awaitsFiling(row('b', { category: '' }))).toBe(true);
+    expect(awaitsFiling(row('c'))).toBe(false);
+  });
+
+  it('refuses a flagged transfer, which the register bolds and no filing can settle', () => {
+    // The difference between this and isAwaitingReview, and the reason it
+    // exists: the flag arm has no exclusions of its own, so a fed transfer
+    // arrives flagged. It still wants a look — in the transfer sweep — but a
+    // category written to it is a category it does not take.
+    expect(isAwaitingReview(row('a', { type: 'transfer', needsReview: true }))).toBe(true);
+    expect(awaitsFiling(row('a', { type: 'transfer', needsReview: true }))).toBe(false);
+  });
+
+  it('refuses a flagged split parent, whose category the database rejects', () => {
+    expect(isAwaitingReview(row('a', { isSplit: true, needsReview: true }))).toBe(true);
+    expect(awaitsFiling(row('a', { isSplit: true, needsReview: true }))).toBe(false);
   });
 });
 
