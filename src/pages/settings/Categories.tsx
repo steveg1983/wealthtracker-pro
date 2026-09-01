@@ -1,6 +1,5 @@
-import { useState, useMemo, Suspense } from 'react';
+import { useState, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
 import { useToast } from '../../contexts/ToastContext';
 import { DEFAULT_CATEGORY_TREE } from '../../data/defaultCategoryTree';
 import { planCategoryTreeImport } from '../../utils/categoryTreeImport';
@@ -196,12 +195,6 @@ function SortableCategory({
   );
 }
 
-/**
- * The bulk setup flow, off this page's chunk — see the note on the Budget
- * page, which loads the same component the same way.
- */
-const BudgetWizard = lazyWithRecovery(() => import('../../components/BudgetWizard'));
-
 /** "1,240 transactions, 12 split lines and 1 budget" — zero counts say nothing. */
 function movingClause(transactions: number, splitLines: number, budgets: number): string {
   const parts: string[] = [];
@@ -219,6 +212,17 @@ function movingClause(transactions: number, splitLines: number, budgets: number)
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
+/**
+ * NO BUDGETS ON THIS PAGE AT ALL (owner's ruling, 1 Sep 2026).
+ *
+ * The 31 Aug per-row figures went first — an amount beside every category made
+ * this read as a budgeting page — and the wizard button in the header has now
+ * gone after them. A budget is still a PROPERTY of a category, so merging and
+ * deleting still move and count them (`referencesTo` below says so out loud),
+ * but this page is for looking into categories and the transactions filed under
+ * them. Both the amounts and the way IN to setting them live on the Budget
+ * page, which mounts the same wizard.
+ */
 export default function CategoriesSettings() {
   const {
     accounts,
@@ -235,17 +239,6 @@ export default function CategoriesSettings() {
   } = useApp();
   const { showSuccess, showError } = useToast();
   const [isImporting, setIsImporting] = useState(false);
-  /**
-   * NO BUDGET FIGURES ON THIS PAGE (owner's ruling, 1 Sep 2026, reversing
-   * 31 Aug's "other lens").
-   *
-   * A budget is still a PROPERTY of a category — merging and deleting still
-   * move and count them — but this page is for looking into categories and
-   * the transactions filed under them, and a figure beside each row made it
-   * read as a budgeting page. The amounts live on the Budget page only; what
-   * this page keeps is the way IN to setting them (the wizard button above).
-   */
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
 
   // Split parents expand into their per-line virtual rows so a split line
   // counts under ITS category, not nowhere (the parent's category is blank).
@@ -959,16 +952,6 @@ export default function CategoriesSettings() {
       title="Categories"
       rightContent={
         <div className="flex items-center gap-2">
-          {/* The same door as the Budget page's, because it is the same job:
-              a budget is a property of a category, and this is where the
-              categories are. Nobody should have to know which page owns it. */}
-          <button
-            onClick={() => setIsWizardOpen(true)}
-            className="px-3 py-2 min-h-[44px] text-sm font-medium border border-line dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            title="Set budgets against what you actually spent"
-          >
-            Set up budgets
-          </button>
           <button
             onClick={() => {
               setIsEditMode(!isEditMode);
@@ -1512,13 +1495,6 @@ export default function CategoriesSettings() {
         isOpen={showCategoryModal}
         onClose={() => setShowCategoryModal(false)}
       />
-
-      {/* Mounted only once asked for — it is a lazy chunk. */}
-      {isWizardOpen && (
-        <Suspense fallback={null}>
-          <BudgetWizard isOpen onClose={() => setIsWizardOpen(false)} />
-        </Suspense>
-      )}
 
       {/* View Transactions Confirmation */}
       {viewingCategoryId && !showTransactionsModal && (

@@ -1,12 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import CategorySelector from './CategorySelector';
+import AccountSelector, { type SelectableAccount } from './common/AccountSelector';
+import DatePicker from './common/DatePicker';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useAccountNames } from '../hooks/useAccountNames';
+import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
 import { getDateLocale } from '../utils/dateFormatter';
 import { AlertTriangleIcon, PlusIcon, XIcon } from './icons';
-import type { Category, Transaction } from '../types';
+import type { Transaction } from '../types';
 
 /**
  * Re-categorise past transactions — the housekeeping end of categories.
@@ -38,16 +42,35 @@ import type { Category, Transaction } from '../types';
  *
  * ── MIXED DIRECTIONS ARE ALLOWED (owner's ruling) ───────────────────────────
  *
- * Both pickers offer every income and expense leaf whatever the row's own
- * direction: a refund belongs under the expense category it refunds, and a
+ * Every picker here offers both directions whatever the row's own direction
+ * is: a refund belongs under the expense category it refunds, and a
  * charge reversed into an income category is a filing somebody meant. What
  * keeps a mixed selection legible is the register's own colour and sign on
  * every amount — money out red and signed −, money in green and signed + — so
  * nobody bulk-files a receipt as a cost without seeing that they have.
  *
- * A category a row is ALREADY filed under is always shown, even when it is not
- * one of the leaves offered (a revaluation category, an account's To/From).
- * Otherwise the picker would quietly draw a row as something it is not.
+ * ── THE HOUSE CONTROLS, NOT PLAIN BOXES (owner, 1 Sep 2026) ─────────────────
+ *
+ * Every picker here is the one the register uses: the searchable category
+ * combobox, the banded account combobox, the app's own calendar. This shipped
+ * with native selects and native date inputs, and the owner's report was the
+ * whole argument against them — the calendar "doesn't look like our normal
+ * calendar", and a category could not be found by typing "just like you can
+ * start typing when editing a transaction". A tool for a fifteen-year ledger
+ * cannot ask people to scroll a flat list of four hundred categories.
+ *
+ * So the accounts band the way the ACCOUNTS PAGE bands them (type sections in
+ * page order, institutions nested inside), and the category filter offers
+ * groups as well as leaves — rows are filed directly on groups, sometimes
+ * thousands of them, and a filter that could not name a group could not find
+ * them. The two pickers that FILE a row still offer leaves alone: a
+ * transaction belongs to a leaf.
+ *
+ * The trigger names whatever a row is already filed under, offered or not — a
+ * revaluation category, an account's To/From, a group. A filing pointing at a
+ * category that no longer EXISTS has no name to draw, so that row says so in
+ * words beside its picker instead of showing an empty box. The one thing a
+ * control here may never do is draw a row as something it is not.
  *
  * ── WHAT A CHANGE WRITES, AND WHAT IT NEVER DOES ────────────────────────────
  *
@@ -80,7 +103,7 @@ interface Filter {
   text: string;
   categoryId: string;
   accountId: string;
-  /** Inclusive, as `yyyy-mm-dd` — what a native date input hands over. */
+  /** Inclusive, as `yyyy-mm-dd` — what the house calendar hands over. */
   from: string;
   to: string;
   /** Amount bounds, matched against the SIZE of the row (see rowMatches). */
@@ -196,12 +219,6 @@ const rowMatches = (transaction: Transaction, filter: Filter): boolean => {
   }
 };
 
-/** A category offered in a picker: the id, and how it reads. */
-interface CategoryOption {
-  id: string;
-  label: string;
-}
-
 /** The filing a row carried before a bulk change, so it can be given back. */
 interface PreviousFiling {
   id: string;
@@ -222,12 +239,17 @@ const shortDate = (date: Date | string): string =>
   });
 
 export default function RecategoriseSection(): React.JSX.Element {
-  const { transactions, categories, updateTransaction } = useApp();
+  const { transactions, categories, accounts, updateTransaction } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { showSuccess, showError } = useToast();
   // Closed accounts included: most of a long history's re-filing is in
   // accounts that were shut years ago, and every one of them has a name.
   const accountName = useAccountNames();
+  // The same accounts as ACCOUNTS rather than as names, because the picker
+  // bands by type and institution: a current account that was closed in 2014 is
+  // still a current account, and filing it under "Other" would be a fact the
+  // Accounts page disagrees with.
+  const historicalAccounts = useHistoricalAccounts(accounts);
 
   const [open, setOpen] = useState(false);
   const [filters, setFilters] = useState<Filter[]>(() => [newFilter()]);
@@ -245,6 +267,16 @@ export default function RecategoriseSection(): React.JSX.Element {
   const [undoable, setUndoable] = useState<PreviousFiling[]>([]);
   const [undoneCount, setUndoneCount] = useState<number | null>(null);
 
+  /**
+   * A press is in flight, so every button and plain field goes quiet.
+   *
+   * The three house pickers do NOT — they have no disabled state, here or at
+   * any other call site (the payee sweep leaves its own live through an apply
+   * for the same reason). Nothing rides on it: a run takes its rows and its
+   * category before the first write, so a filter or a picker changed halfway
+   * through cannot reach the writes still going out, and the account of the run
+   * is set when it ends.
+   */
   const running = changing !== null || undoing !== null;
 
   const categoriesById = useMemo(
@@ -266,49 +298,15 @@ export default function RecategoriseSection(): React.JSX.Element {
   }, [categoriesById]);
 
   /**
-   * Every leaf a transaction may be filed under, banded by direction.
+   * A filing the picker has no name for, because the category is gone.
    *
-   * A leaf is a category with no active children of its own, so both tree
-   * shapes are covered: the usual type → group → category, and the flatter
-   * type → category some ledgers carry. Inactive categories (a closed
-   * account's) and the account To/From categories are never offered — a whole
-   * transaction becomes a transfer through the register's own toggle, which
-   * writes both sides, and offering the category here would be a second and
-   * contradictory way to say the same thing.
+   * The house control names any category that EXISTS, offered or not, so the
+   * trigger tells the truth about a revaluation leaf, an account's To/From, or
+   * a group. A dangling id is the one case it cannot draw — and drawing nothing
+   * would read as "no category", which is the opposite of this row's problem.
    */
-  const { incomeOptions, expenseOptions, offerableIds } = useMemo(() => {
-    const childrenOf = new Map<string, Category[]>();
-    for (const category of categories) {
-      if (!category.parentId) continue;
-      const siblings = childrenOf.get(category.parentId);
-      if (siblings) siblings.push(category);
-      else childrenOf.set(category.parentId, [category]);
-    }
-    const fileable = (category: Category): boolean =>
-      category.isActive !== false && category.isTransferCategory !== true;
-    const activeChildren = (id: string): Category[] =>
-      (childrenOf.get(id) ?? []).filter(fileable);
-
-    const leavesUnder = (rootId: string): CategoryOption[] => {
-      const leaves: CategoryOption[] = [];
-      for (const child of activeChildren(rootId)) {
-        const grandchildren = activeChildren(child.id);
-        const found = grandchildren.length > 0 ? grandchildren : [child];
-        for (const leaf of found) leaves.push({ id: leaf.id, label: categoryLabel(leaf.id) });
-      }
-      return leaves.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
-    };
-
-    const rootsOf = (type: 'income' | 'expense'): Category[] =>
-      categories.filter(category => category.level === 'type' && category.type === type);
-    const income = rootsOf('income').flatMap(root => leavesUnder(root.id));
-    const expense = rootsOf('expense').flatMap(root => leavesUnder(root.id));
-    return {
-      incomeOptions: income,
-      expenseOptions: expense,
-      offerableIds: new Set([...income, ...expense].map(option => option.id)),
-    };
-  }, [categories, categoryLabel]);
+  const filingHasNoName = (categoryId: string): boolean =>
+    categoryId !== '' && !categoriesById.has(categoryId);
 
   /**
    * THE POPULATION: rows that already carry a category, transfers excluded.
@@ -349,31 +347,29 @@ export default function RecategoriseSection(): React.JSX.Element {
   }, [transactions, activeFilters]);
 
   /**
-   * The categories the population actually uses — the headline filter's list.
+   * The accounts the population sits in — and only those, because an account
+   * with nothing searchable in it is an answer of zero dressed as a choice.
    *
-   * Plus whichever one a filter is currently SET to, even when nothing is
-   * filed under it any more. That is not an edge case here, it is the tool
-   * working: filing the last of "Personal spending" into a new category empties
-   * it, and a control that stopped displaying the filter it is still applying
-   * would be lying about what is on screen.
+   * Named the way the rows below name them (closed ones marked as such), and
+   * carrying the three facts the picker bands by, so its sections are the
+   * Accounts page's sections in the Accounts page's order. An id with no
+   * account behind it keeps its name and lands under "Other Accounts", which is
+   * what that catch-all is for; it is not dropped, because it has rows.
    */
-  const categoriesInUse = useMemo(() => {
-    const ids = new Set(population.map(transaction => transaction.category));
-    for (const filter of filters) {
-      if (filter.categoryId !== '') ids.add(filter.categoryId);
-    }
-    return [...ids]
-      .map(id => ({ id, label: categoryLabel(id) }))
-      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
-  }, [population, filters, categoryLabel]);
-
-  /** The accounts the population sits in, closed ones named as such. */
-  const accountsInUse = useMemo(() => {
+  const accountsInUse = useMemo<SelectableAccount[]>(() => {
+    const byId = new Map(historicalAccounts.map(account => [account.id, account]));
     const ids = new Set(population.map(transaction => transaction.accountId));
-    return [...ids]
-      .map(id => ({ id, label: accountName(id) }))
-      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
-  }, [population, accountName]);
+    return [...ids].map(id => {
+      const account = byId.get(id);
+      return {
+        id,
+        name: accountName(id),
+        type: account?.type ?? 'other',
+        institution: account?.institution,
+        parentAccountId: account?.parentAccountId,
+      };
+    });
+  }, [population, historicalAccounts, accountName]);
 
   /** Every tag on the population, so the picker can only offer real ones. */
   const tagsInUse = useMemo(() => {
@@ -545,47 +541,56 @@ export default function RecategoriseSection(): React.JSX.Element {
   };
 
   /**
-   * A category picker as a native select: an optgroup per direction, and the
-   * row's own filing pinned on top when it is not among the leaves offered.
-   * Two hundred of these are drawn at once, so this is deliberately the plain
-   * control rather than the app's searching combobox.
+   * The app's category picker — the same control, and the same type-to-find, as
+   * editing a transaction.
+   *
+   * `includeAllTypes` is what carries the mixed-directions ruling above: both
+   * directions in every one of these, whatever the row is. It also means
+   * `transactionType` decides nothing here — the only other thing that reads it
+   * is the create form, which `allowCreate={false}` never shows. New categories
+   * are made in the tree above, which is the page this sits at the foot of.
    */
   const categoryPicker = (
     value: string,
     onChange: (id: string) => void,
     ariaLabel: string,
-    placeholder?: string
+    shape: {
+      className?: string;
+      size?: 'default' | 'row';
+      usePortal?: boolean;
+      allowGroupSelection?: boolean;
+    } = {}
   ): React.JSX.Element => (
-    <select
-      value={value}
-      onChange={event => onChange(event.target.value)}
-      aria-label={ariaLabel}
-      disabled={running}
-      className="w-full min-h-[44px] sm:min-h-0 px-2 py-2 sm:py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
-    >
-      {placeholder !== undefined && <option value="">{placeholder}</option>}
-      {value !== '' && !offerableIds.has(value) && (
-        <option value={value}>{categoryLabel(value)}</option>
-      )}
-      {incomeOptions.length > 0 && (
-        <optgroup label="Income">
-          {incomeOptions.map(option => (
-            <option key={option.id} value={option.id}>{option.label}</option>
-          ))}
-        </optgroup>
-      )}
-      {expenseOptions.length > 0 && (
-        <optgroup label="Expense">
-          {expenseOptions.map(option => (
-            <option key={option.id} value={option.id}>{option.label}</option>
-          ))}
-        </optgroup>
-      )}
-    </select>
+    <CategorySelector
+      selectedCategory={value}
+      onCategoryChange={onChange}
+      transactionType="expense"
+      includeAllTypes
+      allowCreate={false}
+      showHelperText={false}
+      placeholder="Choose a category…"
+      ariaLabel={ariaLabel}
+      className={shape.className}
+      size={shape.size}
+      usePortal={shape.usePortal}
+      allowGroupSelection={shape.allowGroupSelection}
+    />
   );
 
+  /*
+   * THE PLAIN FIELDS WEAR THE HOUSE PICKER'S BOX, because they stand beside it.
+   * 42px and a rounded-xl on a desktop is what a combobox trigger is; a 30px
+   * rounded-lg field next to one reads as a different kind of control asking a
+   * different kind of question. The 44px floor below `sm` is the touch target
+   * and is unchanged.
+   */
   const fieldClass =
-    'min-h-[44px] sm:min-h-0 px-2 py-2 sm:py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50';
+    'min-h-[44px] sm:min-h-[42px] px-3 py-2 text-sm rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50';
+
+  // The calendar field brings its own padding (`size` defaults to md, which is
+  // the same px-3 py-2), so this is the rest of the box and nothing else.
+  const dateFieldClass =
+    'min-h-[44px] sm:min-h-[42px] text-sm rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white';
 
   const renderFilterInputs = (filter: Filter, position: number): React.JSX.Element => {
     switch (filter.kind) {
@@ -602,54 +607,49 @@ export default function RecategoriseSection(): React.JSX.Element {
           />
         );
       case 'category':
-        return (
-          <select
-            value={filter.categoryId}
-            onChange={event => updateFilter(filter.id, { categoryId: event.target.value })}
-            aria-label={`Current category, filter ${position}`}
-            disabled={running}
-            className={`${fieldClass} flex-1 min-w-[12rem]`}
-          >
-            <option value="">Choose a category…</option>
-            {categoriesInUse.map(option => (
-              <option key={option.id} value={option.id}>{option.label}</option>
-            ))}
-          </select>
+        // Groups offered as well as leaves — see the note at the top of the
+        // file: a group with thousands of rows filed straight on it is exactly
+        // the search this tool exists for.
+        return categoryPicker(
+          filter.categoryId,
+          categoryId => updateFilter(filter.id, { categoryId }),
+          `Current category, filter ${position}`,
+          { className: 'flex-1 min-w-[12rem]', allowGroupSelection: true }
         );
       case 'account':
         return (
-          <select
-            value={filter.accountId}
-            onChange={event => updateFilter(filter.id, { accountId: event.target.value })}
-            aria-label={`Account, filter ${position}`}
-            disabled={running}
-            className={`${fieldClass} flex-1 min-w-[12rem]`}
-          >
-            <option value="">Choose an account…</option>
-            {accountsInUse.map(option => (
-              <option key={option.id} value={option.id}>{option.label}</option>
-            ))}
-          </select>
+          <div className="flex-1 min-w-[12rem]">
+            <AccountSelector
+              accounts={accountsInUse}
+              selectedAccountId={filter.accountId}
+              onAccountChange={accountId => updateFilter(filter.id, { accountId })}
+              placeholder="Choose an account…"
+              ariaLabel={`Account, filter ${position}`}
+            />
+          </div>
         );
       case 'date':
+        // A range is two of the app's own calendar, because the app has no
+        // range control and two ends IS what a range is here. Wide enough for
+        // dd/mm/yyyy and the glyph beside it, so neither ever ellipsises.
         return (
           <>
-            <input
-              type="date"
-              value={filter.from}
-              onChange={event => updateFilter(filter.id, { from: event.target.value })}
-              aria-label={`From date, filter ${position}`}
-              disabled={running}
-              className={fieldClass}
-            />
-            <input
-              type="date"
-              value={filter.to}
-              onChange={event => updateFilter(filter.id, { to: event.target.value })}
-              aria-label={`To date, filter ${position}`}
-              disabled={running}
-              className={fieldClass}
-            />
+            <div className="w-40">
+              <DatePicker
+                value={filter.from}
+                onChange={from => updateFilter(filter.id, { from })}
+                aria-label={`From date, filter ${position}`}
+                className={dateFieldClass}
+              />
+            </div>
+            <div className="w-40">
+              <DatePicker
+                value={filter.to}
+                onChange={to => updateFilter(filter.id, { to })}
+                aria-label={`To date, filter ${position}`}
+                className={dateFieldClass}
+              />
+            </div>
           </>
         );
       case 'amount':
@@ -855,14 +855,13 @@ export default function RecategoriseSection(): React.JSX.Element {
                     <span className="text-sm text-gray-600 dark:text-gray-400 tabular-nums">
                       {selectedRows.length.toLocaleString()} selected
                     </span>
-                    <span className="w-full sm:w-64">
+                    <div className="w-full sm:w-64">
                       {categoryPicker(
                         bulkCategory,
                         setBulkCategory,
-                        'Category to file the selected transactions under',
-                        'Choose a category…'
+                        'Category to file the selected transactions under'
                       )}
-                    </span>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setConfirming(true)}
@@ -937,11 +936,23 @@ export default function RecategoriseSection(): React.JSX.Element {
                             {transaction.amount < 0 ? '−' : '+'}
                             {formatCurrency(Math.abs(transaction.amount))}
                           </td>
+                          {/* The register's own cell-sized picker, portaled:
+                              the results sit in an `overflow-x-auto` scroller,
+                              which clips an in-flow list to the width of the
+                              column it drops out of. */}
                           <td className="block sm:table-cell col-span-2 col-start-2 row-start-3 mt-1 sm:mt-0 sm:py-2 sm:pr-2">
                             {categoryPicker(
                               chosen,
                               value => setRowChoices(previous => ({ ...previous, [transaction.id]: value })),
-                              `Category for ${transaction.description} on ${when}`
+                              `Category for ${transaction.description} on ${when}`,
+                              { size: 'row', usePortal: true }
+                            )}
+                            {/* Said in words because the picker cannot say it:
+                                the consequence, then the remedy. */}
+                            {filingHasNoName(chosen) && (
+                              <span className="mt-1 block text-xs text-amber-700 dark:text-amber-400">
+                                Filed under a category that no longer exists — choose one to put it right.
+                              </span>
                             )}
                           </td>
                           <td className="block sm:table-cell col-span-3 col-start-1 row-start-4 mt-1 sm:mt-0 sm:py-2 text-right">
