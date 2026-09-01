@@ -1,13 +1,19 @@
 /**
- * Settings → Categories: NO budget figures on this page.
+ * Settings → Categories: NO budgets on this page — neither the figures nor the
+ * way in to setting them.
  *
- * The owner's ruling (1 Sep 2026, reversing 31 Aug's "other lens"): this page
- * is for looking into categories and the transactions filed under them, and a
- * budget figure beside each row made it read as a budgeting page. A budget is
- * still a property of the category — merging and deleting still move and
- * count them (Categories.merge.test.tsx pins that) — but the AMOUNTS live on
- * the Budget page only. What this page keeps is the way in to setting them:
- * the wizard button.
+ * The ruling arrived in two halves. The first (1 Sep 2026, reversing 31 Aug's
+ * "other lens"): this page is for looking into categories and the transactions
+ * filed under them, and a budget figure beside each row made it read as a
+ * budgeting page. The second, the same day: the "Set up budgets" button went
+ * with them, because a page that shows no budgets should not be the door to
+ * setting them either — the Budget page mounts the same wizard and is where
+ * budgets live.
+ *
+ * A budget is still a property of the category, so merging and deleting still
+ * move and count them (Categories.merge.test.tsx pins that). What this file
+ * pins is the absence: no amounts on the rows, and no entry point in the
+ * header.
  *
  * Every name and amount is invented: this repo is public.
  */
@@ -106,15 +112,10 @@ describe('Categories — a budgeted category shows no figure here', () => {
   });
 });
 
-describe('Categories — the way in to setting them', () => {
-  it('offers the wizard from this page, not only from Budget', () => {
+describe('Categories — and no way in to setting them either', () => {
+  it('offers no budget entry point at all', () => {
     setup();
-    expect(screen.getByRole('button', { name: 'Set up budgets' })).toBeInTheDocument();
-  });
-
-  it('opens it on a press', async () => {
-    setup();
-    fireEvent.click(screen.getByRole('button', { name: 'Set up budgets' }));
-    expect(await screen.findByText('Do you think in months or years?')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Set up budgets' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/budget/i)).not.toBeInTheDocument();
   });
 });

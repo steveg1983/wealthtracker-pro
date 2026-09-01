@@ -9,11 +9,16 @@
  * still lets the press cover every match, the write is the three fields of a
  * filing and never a deletion, and a press that was wrong can be taken back.
  *
+ * The pickers are the app's own (owner, 1 Sep 2026): the searchable category
+ * combobox, the banded account combobox, the house calendar. So these open a
+ * list and click an option where they used to set a `<select>`'s value — the
+ * QUESTIONS are unchanged, only the control that answers them.
+ *
  * Every name and amount is invented: this repo is public.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react';
 import RecategoriseSection from './RecategoriseSection';
 import { __setAppContextValue, __resetAppContextValue } from '../test/mocks/AppContextSupabase';
 import { NO_SURVIVORS } from '../utils/transferSurvivorRelease';
@@ -105,11 +110,26 @@ const REFUND = txn({
   type: 'income',
 });
 
+/**
+ * The category walkers, exactly as the real context implements them: every
+ * child of the given parent, with no filter on level. The house picker builds
+ * its groups and leaves out of these, so a double that answered anything else
+ * would let these tests pass over a list the app never draws.
+ */
+const walkChildren = (parentId?: string): Category[] =>
+  CATEGORIES.filter(category => category.parentId === parentId);
+
 const setup = (
   transactions: Transaction[],
   overrides: Partial<Parameters<typeof __setAppContextValue>[0]> = {}
 ): void => {
-  __setAppContextValue({ transactions, categories: CATEGORIES, ...overrides });
+  __setAppContextValue({
+    transactions,
+    categories: CATEGORIES,
+    getSubCategories: walkChildren,
+    getDetailCategories: walkChildren,
+    ...overrides,
+  });
   render(<RecategoriseSection />);
   fireEvent.click(screen.getByRole('button', { name: 'Show' }));
 };
@@ -126,11 +146,32 @@ const typeWords = (position: number, value: string): void => {
   });
 };
 
-const chooseCategoryFilter = (position: number, categoryId: string): void => {
+/** One end of a range, typed into the house calendar's own field. */
+const typeDate = (label: string, typed: string): void => {
+  fireEvent.change(screen.getByLabelText(label), { target: { value: typed } });
+};
+
+/** Open one of the house comboboxes by its accessible name. */
+const openPicker = (name: string | RegExp): void => {
+  fireEvent.click(screen.getByLabelText(name));
+};
+
+/** The list of the one picker currently open. */
+const openList = (): HTMLElement => screen.getByRole('listbox');
+
+/**
+ * Open a picker and choose an option by the words on it — the mouse half of
+ * what the keyboard does by typing. Scoped to the open list because the filter
+ * row's own kind <select> carries native <option>s of its own.
+ */
+const choose = (picker: string | RegExp, option: string | RegExp): void => {
+  openPicker(picker);
+  fireEvent.click(within(openList()).getByRole('option', { name: option }));
+};
+
+const chooseCategoryFilter = (position: number, categoryName: string): void => {
   chooseKind(position, 'category');
-  fireEvent.change(screen.getByLabelText(`Current category, filter ${position}`), {
-    target: { value: categoryId },
-  });
+  choose(`Current category, filter ${position}`, categoryName);
 };
 
 const addFilter = (): void => {
@@ -151,11 +192,8 @@ const selectAll = (): void => {
   fireEvent.click(screen.getByLabelText(/^Select all/));
 };
 
-const chooseBulkCategory = (categoryId: string): void => {
-  fireEvent.change(
-    screen.getByLabelText('Category to file the selected transactions under'),
-    { target: { value: categoryId } }
-  );
+const chooseBulkCategory = (categoryName: string): void => {
+  choose('Category to file the selected transactions under', categoryName);
 };
 
 const pressBulkChange = (): void => {
@@ -187,7 +225,7 @@ describe('Re-categorise — what is searchable at all', () => {
 
   it('says nothing at all when no transfer matched', () => {
     setup([MARKET, PAY, MOVED]);
-    chooseCategoryFilter(1, 'cat-salary');
+    chooseCategoryFilter(1, 'Salary');
 
     expect(rowDescriptions()).toEqual(['Monthly pay']);
     expect(screen.queryByText(/transfer/i)).not.toBeInTheDocument();
@@ -213,7 +251,7 @@ describe('Re-categorise — the filters', () => {
 
   it('stacks filters with AND — the category and the words together', () => {
     setup([MARKET, FUEL, PAY]);
-    chooseCategoryFilter(1, 'cat-personal');
+    chooseCategoryFilter(1, 'Personal spending');
     addFilter();
     typeWords(2, 'blossom');
 
@@ -245,12 +283,11 @@ describe('Re-categorise — the filters', () => {
     const late = txn({ id: 'txn-late', description: 'Later still', date: day(2024, 1, 7) });
     setup([early, onFrom, onTo, late]);
     chooseKind(1, 'date');
-    fireEvent.change(screen.getByLabelText('From date, filter 1'), {
-      target: { value: '2024-01-01' },
-    });
-    fireEvent.change(screen.getByLabelText('To date, filter 1'), {
-      target: { value: '2024-01-06' },
-    });
+    // Typed the way the house calendar is typed — UK order, which is the app's
+    // order everywhere. A native date input took yyyy-mm-dd; nothing else about
+    // the range changed.
+    typeDate('From date, filter 1', '01/01/2024');
+    typeDate('To date, filter 1', '06/01/2024');
 
     expect(rowDescriptions().sort()).toEqual(['New year', 'Twelfth night']);
   });
@@ -260,22 +297,23 @@ describe('Re-categorise — the filters', () => {
     const later = txn({ id: 'txn-later', description: 'New year', date: day(2024, 1, 1) });
     setup([early, later]);
     chooseKind(1, 'date');
-    fireEvent.change(screen.getByLabelText('From date, filter 1'), {
-      target: { value: '2024-01-01' },
-    });
+    typeDate('From date, filter 1', '01/01/2024');
 
     expect(rowDescriptions()).toEqual(['New year']);
   });
 
-  it('narrows to one account, naming it the way the rest of the app does', () => {
+  it('narrows to one account, offering only the ones the population sits in', () => {
     setup([MARKET, FUEL]);
     chooseKind(1, 'account');
-    fireEvent.change(screen.getByLabelText('Account, filter 1'), {
-      target: { value: 'acc-joint' },
-    });
+    openPicker('Account, filter 1');
 
+    // Named the way the rest of the app names them, and nothing else offered:
+    // the ledger's other accounts hold nothing this tool can search.
+    expect(within(openList()).getAllByRole('option').map(option => option.textContent))
+      .toEqual(['Everyday account', 'Household account']);
+
+    fireEvent.click(within(openList()).getByRole('option', { name: 'Household account' }));
     expect(rowDescriptions()).toEqual(['Zenith Forecourt']);
-    expect(screen.getByRole('option', { name: 'Household account' })).toBeInTheDocument();
   });
 
   it('offers only the tags the searchable rows actually carry', () => {
@@ -317,7 +355,7 @@ describe('Re-categorise — the display cap', () => {
 
   it('draws 200, names the whole match, and still selects all of it', () => {
     setup(MANY);
-    chooseCategoryFilter(1, 'cat-personal');
+    chooseCategoryFilter(1, 'Personal spending');
 
     expect(drawnRows()).toHaveLength(200);
     expect(screen.getByText(/Showing the first 200 of 250 matched/)).toBeInTheDocument();
@@ -327,7 +365,7 @@ describe('Re-categorise — the display cap', () => {
     selectAll();
     expect(screen.getByRole('button', { name: 'Change 250 transactions' })).toBeInTheDocument();
 
-    chooseBulkCategory('cat-food');
+    chooseBulkCategory('Food shopping');
     pressBulkChange();
     expect(screen.getByText(/This files 250 transactions under/)).toBeInTheDocument();
   });
@@ -340,7 +378,7 @@ describe('Re-categorise — the bulk change', () => {
     setup([MARKET, FUEL, PAY], { updateTransaction, deleteTransaction });
     typeWords(1, 'blossom lane');
     selectAll();
-    chooseBulkCategory('cat-food');
+    chooseBulkCategory('Food shopping');
     pressBulkChange();
 
     // Nothing is written by opening the question.
@@ -365,7 +403,7 @@ describe('Re-categorise — the bulk change', () => {
     setup([MARKET, FUEL], { updateTransaction });
     typeWords(1, 'blossom lane');
     selectAll();
-    chooseBulkCategory('cat-food');
+    chooseBulkCategory('Food shopping');
     pressBulkChange();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
@@ -386,7 +424,7 @@ describe('Re-categorise — the bulk change', () => {
     selectAll();
     // An EXPENSE category for both, including the pay: the owner's ruling is
     // that a mixed move is allowed and the colours are what keep it legible.
-    chooseBulkCategory('cat-food');
+    chooseBulkCategory('Food shopping');
     pressBulkChange();
     fireEvent.click(screen.getByRole('button', { name: 'Change them' }));
 
@@ -408,7 +446,7 @@ describe('Re-categorise — the bulk change', () => {
       { target: { value: '1' } }
     );
     selectAll();
-    chooseBulkCategory('cat-food');
+    chooseBulkCategory('Food shopping');
     pressBulkChange();
     fireEvent.click(screen.getByRole('button', { name: 'Change them' }));
 
@@ -457,11 +495,11 @@ describe('Re-categorise — the migration this exists for', () => {
       __setAppContextValue({ transactions: ledger });
     });
     setup(ledger, { updateTransaction });
-    chooseCategoryFilter(1, 'cat-personal');
+    chooseCategoryFilter(1, 'Personal spending');
     expect(drawnRows()).toHaveLength(2);
 
     selectAll();
-    chooseBulkCategory('cat-food');
+    chooseBulkCategory('Food shopping');
     pressBulkChange();
     fireEvent.click(screen.getByRole('button', { name: 'Change them' }));
 
@@ -473,7 +511,8 @@ describe('Re-categorise — the migration this exists for', () => {
     expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
     // The emptied category is still nameable, so the filter still displays
     // what it is still applying.
-    expect(screen.getByLabelText('Current category, filter 1')).toHaveValue('cat-personal');
+    expect(screen.getByLabelText('Current category, filter 1'))
+      .toHaveTextContent('Day to day > Personal spending');
   });
 });
 
@@ -487,7 +526,7 @@ describe('Re-categorise — undo', () => {
       { target: { value: '1' } }
     );
     selectAll();
-    chooseBulkCategory('cat-food');
+    chooseBulkCategory('Food shopping');
     pressBulkChange();
     fireEvent.click(screen.getByRole('button', { name: 'Change them' }));
     await waitFor(() => expect(updateTransaction).toHaveBeenCalledTimes(2));
@@ -511,7 +550,7 @@ describe('Re-categorise — undo', () => {
     setup([MARKET, FUEL], { updateTransaction });
     typeWords(1, 'blossom lane');
     selectAll();
-    chooseBulkCategory('cat-food');
+    chooseBulkCategory('Food shopping');
     pressBulkChange();
     fireEvent.click(screen.getByRole('button', { name: 'Change them' }));
     await waitFor(() => expect(updateTransaction).toHaveBeenCalledTimes(2));
@@ -529,9 +568,7 @@ describe('Re-categorise — one row at a time', () => {
     setup([MARKET, FUEL], { updateTransaction, deleteTransaction });
     typeWords(1, 'blossom lane');
 
-    fireEvent.change(screen.getByLabelText(/^Category for Blossom Lane Market/), {
-      target: { value: 'cat-travel' },
-    });
+    choose(/^Category for Blossom Lane Market/, 'Travel');
     fireEvent.click(screen.getByLabelText(/^Save the category for Blossom Lane Market/));
 
     await waitFor(() => expect(updateTransaction).toHaveBeenCalledTimes(1));
@@ -548,9 +585,7 @@ describe('Re-categorise — one row at a time', () => {
 
     const save = screen.getByLabelText(/^Save the category for Blossom Lane Market/);
     expect(save).toBeDisabled();
-    fireEvent.change(screen.getByLabelText(/^Category for Blossom Lane Market/), {
-      target: { value: 'cat-food' },
-    });
+    choose(/^Category for Blossom Lane Market/, 'Food shopping');
     expect(save).toBeEnabled();
   });
 
@@ -558,12 +593,51 @@ describe('Re-categorise — one row at a time', () => {
     setup([MARKET]);
     typeWords(1, 'blossom lane');
 
-    const picker = screen.getByLabelText(/^Category for Blossom Lane Market/);
-    const bands = Array.from(picker.querySelectorAll('optgroup')).map(band => band.label);
-    expect(bands).toEqual(['Income', 'Expense']);
-    const values = Array.from(picker.querySelectorAll('option')).map(option => option.value);
-    expect(values).toContain('cat-salary');
-    expect(values).toContain('cat-food');
+    openPicker(/^Category for Blossom Lane Market/);
+    const list = openList();
+    // Groups head their own children — one long "Parent : Child" list was the
+    // owner's other complaint about the control this replaced.
+    expect(within(list).getByText('Earnings')).toBeInTheDocument();
+    expect(within(list).getByText('Day to day')).toBeInTheDocument();
+    // And an INCOME leaf is offered on an expense row: the mixed-directions
+    // ruling, which the colours on the amounts are what keep legible.
+    expect(within(list).getByRole('option', { name: 'Salary' })).toBeInTheDocument();
+    expect(within(list).getByRole('option', { name: 'Food shopping' })).toBeInTheDocument();
+  });
+
+  it('narrows the list as the row picker is typed into, and files what it finds', async () => {
+    const updateTransaction = vi.fn(async (..._args: unknown[]) => {});
+    setup([MARKET], { updateTransaction });
+    typeWords(1, 'blossom lane');
+
+    // Exactly what editing a transaction does: type at the closed picker and
+    // the character that opened the list is already filtering it — no reaching
+    // for the mouse, and nothing retyped.
+    fireEvent.keyDown(screen.getByLabelText(/^Category for Blossom Lane Market/), { key: 't' });
+    expect(within(openList()).queryByRole('option', { name: 'Salary' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Choose a category…'), {
+      target: { value: 'trav' },
+    });
+    expect(within(openList()).getAllByRole('option').map(option => option.textContent))
+      .toEqual(['Travel']);
+
+    fireEvent.click(within(openList()).getByRole('option', { name: 'Travel' }));
+    fireEvent.click(screen.getByLabelText(/^Save the category for Blossom Lane Market/));
+
+    await waitFor(() => expect(updateTransaction).toHaveBeenCalledWith('txn-market', {
+      category: 'cat-travel', categoryConfirmed: true, needsReview: false,
+    }));
+  });
+
+  it('names a filing that points at a category which no longer exists', () => {
+    const orphan = txn({ id: 'txn-orphan', description: 'Ashvale Hardware', category: 'cat-gone' });
+    setup([orphan]);
+    typeWords(1, 'ashvale');
+
+    // The picker has no name to draw for it, so the row says what it is rather
+    // than sitting there looking uncategorised.
+    expect(screen.getByText(/Filed under a category that no longer exists/)).toBeInTheDocument();
   });
 });
 

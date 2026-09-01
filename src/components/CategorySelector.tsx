@@ -122,6 +122,17 @@ interface CategorySelectorProps {
    * less operable from the keyboard.
    */
   closedEnter?: 'open' | 'pass-through';
+  /**
+   * Accessible name for the trigger, when "Category" is not enough to tell one
+   * picker from another.
+   *
+   * A screen that draws more than one of these has to say which row each
+   * belongs to — the re-categorise list puts a picker on every one of two
+   * hundred transactions, and two hundred controls all called "Category" name
+   * nothing. The account picker beside it has carried the same prop since it
+   * was written; this is that, on the other half of the pair.
+   */
+  ariaLabel?: string;
 }
 
 /**
@@ -159,6 +170,7 @@ export default function CategorySelector({
   transferSourceAccountId,
   openSearchToken,
   closedEnter = 'open',
+  ariaLabel = 'Category',
 }: CategorySelectorProps): React.JSX.Element {
   const { categories, addCategory, getSubCategories, getDetailCategories } = useApp();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -665,11 +677,25 @@ export default function CategorySelector({
     setSearchTerm('');
   };
 
-  const subCategories = getSubCategoriesForType();
-  const groupedOptions = getGroupedOptions();
+  /*
+   * NOTHING BELOW IS BUILT WHILE THE LIST IS SHUT.
+   *
+   * Every one of these walks the whole category tree, and all four are read
+   * only from inside `{showDropdown && …}` — the menu, its create form, and the
+   * search box's own key handler. A CLOSED trigger draws one string: the name
+   * of the category it is on.
+   *
+   * That is free almost everywhere, because almost everywhere there is one
+   * picker on screen. The re-categorise list draws two hundred at once, and
+   * two hundred tree walks on every keystroke of a filter is the difference
+   * between a list that types and a list that lurches.
+   */
+  const subCategories = showDropdown ? getSubCategoriesForType() : [];
+  const groupedOptions = showDropdown ? getGroupedOptions() : [];
   // "Uncategorised" stays visible while the search could still mean it
   // ('' matches everything, "unc" matches, "food" hides it).
-  const showClearOption = allowClear && 'uncategorised'.includes(searchTerm.toLowerCase());
+  const showClearOption =
+    showDropdown && allowClear && 'uncategorised'.includes(searchTerm.toLowerCase());
   // Flat view of the visible options, in render order — what the arrow keys
   // walk. With group selection on, each group's own option leads its items,
   // exactly as they are drawn.
@@ -693,7 +719,7 @@ export default function CategorySelector({
           aria-expanded={showDropdown}
           aria-haspopup="listbox"
           aria-controls={showDropdown ? listboxId : undefined}
-          aria-label="Category"
+          aria-label={ariaLabel}
           onKeyDown={handleTriggerKeyDown}
           className={`w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 shadow-sm cursor-text flex items-center ${
             size === 'compact'
