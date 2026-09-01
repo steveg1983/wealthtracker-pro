@@ -97,6 +97,17 @@ const MOVED = txn({
   amount: -400,
   needsReview: true,
 });
+/**
+ * Filed under a category somebody deleted. Counted as filing work here (its
+ * money is in no report) but reachable only where filings are CHANGED — see
+ * the loop test at the foot of this file.
+ */
+const ORPHANED = txn({
+  id: 'txn-orphaned',
+  description: 'Ashvale Hardware',
+  category: 'cat-deleted-in-2019',
+  amount: -31.05,
+});
 /** A split parent: unfiled in its LINES, which are edited in the register. */
 const SPLIT = txn({ id: 'txn-split', description: 'Ashvale Hardware', isSplit: true, amount: -90 });
 const SPLIT_LINES: TransactionSplit[] = [
@@ -396,6 +407,46 @@ describe('Categorisation — filing what the list found', () => {
     const account = await screen.findByRole('status');
     expect(account.textContent).toContain('1 transaction is now filed under Day to day : Food shopping.');
     expect(account.textContent).toContain('1 could not be filed and is still waiting.');
+  });
+});
+
+describe('Categorisation — the rows whose category is gone', () => {
+  /**
+   * THE OTHER END OF THE LOOP (owner, from a user, 1 Sep 2026).
+   *
+   * This note pointed at Manage → Categories' front door, where the data-health
+   * panel said the same thing again and offered a link back here. Two true
+   * sentences, a closed circle, and the rows never on screen. The ask now
+   * travels in the address, because it has to survive a navigation, and the
+   * page it opens shows those rows with their pickers.
+   */
+  it('carries the ask in the link, so the destination opens on the rows', () => {
+    setup([ORPHANED]);
+
+    expect(screen.getByText(/filed\s+under a category that no longer exists/))
+      .toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Manage/ }))
+      .toHaveAttribute('href', '/settings/categories?refile=dangling');
+  });
+
+  it('offers the same filter on THIS mount too — the engine is shared', () => {
+    setup([UNFILED, GUESSED]);
+    openTheList();
+
+    // The housekeeping mount is where the links land, but a filter kind is a
+    // property of the list, not of a page: a dangling row that is still
+    // awaiting review is findable from here as well.
+    expect(within(screen.getByLabelText('What to filter by, filter 1'))
+      .getByRole('option', { name: 'Filed under a category that no longer exists' }))
+      .toBeInTheDocument();
+  });
+
+  it('says nothing at all when nothing dangles', () => {
+    setup([UNFILED, GUESSED]);
+
+    // A zero renders nothing, and no link to a job that does not exist.
+    expect(screen.queryByText(/no longer exists/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Manage/ })).not.toBeInTheDocument();
   });
 });
 

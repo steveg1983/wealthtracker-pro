@@ -114,6 +114,16 @@ const REFUND = txn({
   category: 'cat-refunds',
   type: 'income',
 });
+/**
+ * Filed under a category that was deleted — the row this whole path exists
+ * for. It IS filed, which is why it is this tool's row and not the review
+ * page's; what it is filed under is gone, which is why no report can see it.
+ */
+const ORPHAN = txn({ id: 'txn-orphan', description: 'Ashvale Hardware', category: 'cat-gone' });
+
+/** What such a row says beside its picker, in full — the consequence, then the remedy. */
+const DANGLING_ROW_NOTE =
+  'Filed under a category that no longer exists — choose one to put it right.';
 
 /**
  * The category walkers, exactly as the real context implements them: every
@@ -636,13 +646,168 @@ describe('Re-categorise — one row at a time', () => {
   });
 
   it('names a filing that points at a category which no longer exists', () => {
-    const orphan = txn({ id: 'txn-orphan', description: 'Ashvale Hardware', category: 'cat-gone' });
-    setup([orphan]);
+    setup([ORPHAN]);
     typeWords(1, 'ashvale');
 
     // The picker has no name to draw for it, so the row says what it is rather
-    // than sitting there looking uncategorised.
-    expect(screen.getByText(/Filed under a category that no longer exists/)).toBeInTheDocument();
+    // than sitting there looking uncategorised. Asked for in FULL, because the
+    // filter that finds these rows now says the same words in the kind
+    // selector — deliberately, and this is the sentence beside the picker.
+    expect(screen.getByText(DANGLING_ROW_NOTE)).toBeInTheDocument();
+  });
+});
+
+/**
+ * THE FILTER THAT ENDS THE LOOP (owner, from a user, 1 Sep 2026).
+ *
+ * These rows were announced on two pages, each of which linked to the other:
+ * Categorisation said "repair them under Manage → Categories" and the
+ * data-health panel there said "re-file them" and linked back. Neither ever put
+ * a row on screen. The population here always held them — a dangling row has a
+ * category, so it is filed, so it is housekeeping — and the picker already said
+ * so beside each one. What was missing was the way to FIND them.
+ */
+describe('Re-categorise — finding the rows whose category is gone', () => {
+  /** The filter row's own element, so its shape can be asked about. */
+  const filterRow = (): HTMLElement => {
+    const row = screen.getByLabelText('What to filter by, filter 1').parentElement;
+    if (!(row instanceof HTMLElement)) throw new Error('no filter row');
+    return row;
+  };
+
+  it('is a search the moment it is chosen — it has no box to fill in', () => {
+    setup([MARKET, ORPHAN]);
+    // An untouched filter row is not a question, and nothing is listed.
+    expect(drawnRows()).toHaveLength(0);
+
+    chooseKind(1, 'dangling');
+
+    // Chosen IS asked: the rows are on screen with no further input.
+    expect(rowDescriptions()).toEqual(['Ashvale Hardware']);
+    expect(screen.queryByText(/Nothing is searched until you ask something/))
+      .not.toBeInTheDocument();
+    // And there is no second line to stack on a phone, because there is
+    // nothing to put on it — no value box of any kind.
+    expect(screen.queryByLabelText('Words to look for, filter 1')).not.toBeInTheDocument();
+    expect(filterRow().querySelector('.sm\\:contents')).toBeNull();
+    // The ✕ is still where a thumb expects it.
+    expect(screen.getByLabelText('Remove filter 1')).toBeInTheDocument();
+  });
+
+  it('matches a dead category id and nothing else — not a blank, not a live one', () => {
+    const secondOrphan = txn({
+      id: 'txn-orphan-2', description: 'Ashvale Timber', category: 'cat-also-gone',
+    });
+    setup([MARKET, PAY, UNFILED, MOVED, ORPHAN, secondOrphan]);
+    chooseKind(1, 'dangling');
+
+    // Both dangling rows, and neither the rows filed under real categories nor
+    // the blank one (which is Categorisation's work and out of the population
+    // anyway) nor the transfer.
+    expect(rowDescriptions().sort()).toEqual(['Ashvale Hardware', 'Ashvale Timber']);
+  });
+
+  it('stacks with another filter, the same as every other kind', () => {
+    const orphanedPay = txn({
+      id: 'txn-orphan-pay', description: 'Ashvale Timber', category: 'cat-gone',
+      amount: 1200, type: 'income',
+    });
+    setup([ORPHAN, orphanedPay, MARKET]);
+    chooseKind(1, 'dangling');
+    addFilter();
+    chooseKind(2, 'amount');
+    fireEvent.change(
+      screen.getByLabelText(/^Largest amount, ignoring whether it went in or out, filter 2/),
+      { target: { value: '100' } }
+    );
+
+    // AND, not OR: dangling and small, which neither filter alone would give.
+    expect(rowDescriptions()).toEqual(['Ashvale Hardware']);
+  });
+
+  it('draws the amber note on every row it found — the filter and the row agree', () => {
+    setup([ORPHAN]);
+    chooseKind(1, 'dangling');
+
+    // One definition of "dangling" behind both (FilterAndFileList's
+    // isDanglingFiling), so a list of these rows can never hold a row that
+    // says it is not one.
+    expect(screen.getByText(DANGLING_ROW_NOTE)).toBeInTheDocument();
+  });
+});
+
+describe('Re-categorise — asked for from outside', () => {
+  const askFor = (
+    transactions: Transaction[],
+    openWith: { kind: 'dangling'; token: number } | null
+  ): ReturnType<typeof render> => {
+    __setAppContextValue({
+      transactions,
+      categories: CATEGORIES,
+      getSubCategories: walkChildren,
+      getDetailCategories: walkChildren,
+    });
+    return render(<RecategoriseSection openWith={openWith} />);
+  };
+
+  it('reveals itself with the search already run, and only those rows in it', () => {
+    askFor([MARKET, ORPHAN], { kind: 'dangling', token: 1 });
+
+    // No press: the section is open…
+    expect(screen.getByRole('button', { name: 'Hide' })).toBeInTheDocument();
+    // …the search is the one that was asked for…
+    expect(screen.getByLabelText('What to filter by, filter 1')).toHaveValue('dangling');
+    // …and the rows are on screen, each with the picker that puts it right.
+    expect(rowDescriptions()).toEqual(['Ashvale Hardware']);
+    expect(screen.getByLabelText(/^Category for Ashvale Hardware/)).toBeInTheDocument();
+    expect(screen.getByText(DANGLING_ROW_NOTE)).toBeInTheDocument();
+  });
+
+  it('brings itself into view — it sits at the foot of a long page', () => {
+    // jsdom has no scrollIntoView; the arrival hook calls it optionally for
+    // that reason, so it has to be supplied to be observed.
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true, writable: true, value: scrollIntoView,
+    });
+
+    askFor([ORPHAN], { kind: 'dangling', token: 1 });
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' });
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+  });
+
+  it('opens a door rather than holding it — Hide still hides', () => {
+    askFor([ORPHAN], { kind: 'dangling', token: 1 });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide' }));
+
+    expect(screen.getByRole('button', { name: 'Show' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('What to filter by, filter 1')).not.toBeInTheDocument();
+  });
+
+  it('answers a second ask, even after the reader has moved on', () => {
+    const { rerender } = askFor([MARKET, ORPHAN], { kind: 'dangling', token: 1 });
+    // The reader narrows to something else entirely…
+    chooseKind(1, 'text');
+    typeWords(1, 'blossom');
+    expect(rowDescriptions()).toEqual(['Blossom Lane Market']);
+
+    // …and presses the panel's action again. A new token, so the same request
+    // is a second request (the openSearchToken idiom).
+    rerender(<RecategoriseSection openWith={{ kind: 'dangling', token: 2 }} />);
+
+    expect(screen.getByLabelText('What to filter by, filter 1')).toHaveValue('dangling');
+    expect(rowDescriptions()).toEqual(['Ashvale Hardware']);
+  });
+
+  it('changes nothing for a page that never asks', () => {
+    askFor([MARKET, ORPHAN], null);
+
+    expect(screen.getByRole('button', { name: 'Show' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('What to filter by, filter 1')).not.toBeInTheDocument();
   });
 });
 

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useToast } from '../../contexts/ToastContext';
 import { DEFAULT_CATEGORY_TREE } from '../../data/defaultCategoryTree';
@@ -11,6 +12,8 @@ import CategorySelector from '../../components/CategorySelector';
 import CategoryTransactionsModal from '../../components/CategoryTransactionsModal';
 import CategoryDataHealthPanel from '../../components/CategoryDataHealthPanel';
 import RecategoriseSection from '../../components/RecategoriseSection';
+import type { FilterAndFilePreset } from '../../components/FilterAndFileList';
+import { REFILE_PARAM, REFILE_DANGLING } from '../../utils/categoryRefileLink';
 import { useAttentionLadder } from '../../hooks/useAttentionLadder';
 import IncomeExpenseBreakdownModal from '../../components/IncomeExpenseBreakdownModal';
 import EditTransactionModal from '../../components/EditTransactionModal';
@@ -239,6 +242,25 @@ export default function CategoriesSettings() {
   } = useApp();
   const { showSuccess, showError } = useToast();
   const [isImporting, setIsImporting] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  /**
+   * The search the Re-categorise section at the foot of this page has been
+   * asked to run, or null while nobody has asked.
+   *
+   * Two callers, one request. The data-health panel above presses for it; the
+   * Categorisation page LINKS for it, carrying the ask in the address because a
+   * request that has to survive a navigation cannot be lifted state. Read on
+   * the first render only — the parameter is how the page was OPENED, not a
+   * standing instruction, so a reader who then hides the section has hidden it.
+   *
+   * The token is a plain counter rather than a clock: two presses in the same
+   * millisecond are a real thing on a fast machine, and a repeated token is a
+   * press that silently does nothing.
+   */
+  const [refile, setRefile] = useState<FilterAndFilePreset | null>(() =>
+    searchParams.get(REFILE_PARAM) === REFILE_DANGLING ? { kind: 'dangling', token: 1 } : null
+  );
 
   // Split parents expand into their per-line virtual rows so a split line
   // counts under ITS category, not nowhere (the parent's category is blank).
@@ -717,6 +739,25 @@ export default function CategoriesSettings() {
     setViewingCategoryId(categoryId);
     setViewingCategoryName(categories.find(c => c.id === categoryId)?.name ?? 'Unassigned');
     setShowTransactionsModal(true);
+  };
+
+  /**
+   * Data-health remedy 4: the rows filed under a category that no longer
+   * exists, in the housekeeping tool at the foot of this page.
+   *
+   * THE END OF A LOOP (owner, from a user, 1 Sep 2026). This line used to link
+   * to Categorisation, whose own note about the same rows linked back here —
+   * two true sentences pointing at each other, and the rows never on screen.
+   * They belong here because a dangling row HAS a category, a dead one, so
+   * putting it right is a change to something already filed.
+   *
+   * Nothing is handed over but the ASK: the section finds the rows by the same
+   * rule the count above was measured with, so passing ids across would be a
+   * second definition of "dangling" and eventually a disagreement between the
+   * number and the list.
+   */
+  const reviewDanglingRows = (): void => {
+    setRefile(previous => ({ kind: 'dangling', token: (previous?.token ?? 0) + 1 }));
   };
 
   /**
@@ -1203,6 +1244,7 @@ export default function CategoriesSettings() {
         onFileUnassignedBucket={fileUnassignedBucket}
         onShowEmptyCategories={showEmptyCategories}
         onFixTransferFilings={fixTransferFilings}
+        onReviewDangling={reviewDanglingRows}
       />
 
       {/* The basis the panel's money figures are on — mounted HERE rather than
@@ -1271,8 +1313,10 @@ export default function CategoriesSettings() {
           Here rather than in the review band because that band is where a
           transaction gets its first category; this is the other job, and the
           two must not compete over what has been dealt with. Collapsed until
-          asked for, so the tree stays the page. */}
-      <RecategoriseSection />
+          asked for, so the tree stays the page — and asked for by the data
+          health panel above, or by the address this page was opened at, when
+          the rows whose category is gone are what somebody came for. */}
+      <RecategoriseSection openWith={refile} />
 
       </div>{/* end desktop flex column */}
 

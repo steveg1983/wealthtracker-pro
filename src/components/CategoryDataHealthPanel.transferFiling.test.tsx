@@ -48,9 +48,11 @@ const renderPanel = (health: CategoryHealth): void => {
       <PreferencesProvider>
         <CategoryDataHealthPanel
           health={health}
+          wearsAmber={false}
           onFileUnassignedBucket={vi.fn()}
           onShowEmptyCategories={vi.fn()}
           onFixTransferFilings={onFixTransferFilings}
+          onReviewDangling={vi.fn()}
         />
       </PreferencesProvider>
     </MemoryRouter>

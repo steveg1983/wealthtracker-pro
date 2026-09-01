@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { computeIncomeExpense } from '../utils/incomeExpense';
@@ -7,6 +7,8 @@ import { expandSplitTransactions, type SplitExpandedTransaction } from '../utils
 import { groupUncategorisedByAccount } from '../utils/uncategorisedByAccount';
 import { groupSuggestedByCategory, groupSuggestedByAccount } from '../utils/categoryProvenance';
 import { awaitsFiling } from '../utils/transactionReview';
+import { CATEGORY_REFILE_DANGLING_PATH } from '../utils/categoryRefileLink';
+import { preserveDemoParam } from '../utils/navigation';
 import { preferences } from '../services/preferencesService';
 import { useAttentionLadder } from '../hooks/useAttentionLadder';
 import { useFlowConvert } from '../hooks/useFlowConvert';
@@ -60,6 +62,8 @@ export default function Categorisation(): React.JSX.Element {
   const { showSuccess, showError } = useToast();
   // One rule, app-wide — see utils/attentionLadder.
   const ladder = useAttentionLadder();
+  // Only for the demo flag on the one link that leaves this page.
+  const location = useLocation();
 
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const [showTransferSweep, setShowTransferSweep] = useState(false);
@@ -310,14 +314,25 @@ export default function Categorisation(): React.JSX.Element {
               row-local flag cannot know an id dangles). The owner met the
               unexplained two-row gap on 1 Sep 2026 and read it as a bug —
               which any user would. Named here, with the remedy, per the
-              data-health rule; at zero it renders nothing. */}
+              data-health rule; at zero it renders nothing.
+
+              THE LINK LANDS ON THE ROWS (owner, from a user, 1 Sep 2026). It
+              used to point at that page's front door, where the data-health
+              panel said the same thing again and offered a link back HERE — a
+              closed circle that never showed anybody a row. It now carries the
+              ask in the address, so the page it opens has the Re-categorise
+              section open on exactly these rows, each with its own picker. See
+              utils/categoryRefileLink. */}
           {danglingCount > 0 && (
             <p className="text-xs text-amber-700 dark:text-amber-400">
               {danglingCount.toLocaleString()} of these {danglingCount === 1 ? 'is' : 'are'} filed
               under a category that no longer exists, so {danglingCount === 1 ? 'it' : 'they'}{' '}
               {danglingCount === 1 ? 'does not' : 'do not'} show in the register's review count
               — repair {danglingCount === 1 ? 'it' : 'them'} under{' '}
-              <Link to="/settings/categories" className="underline hover:no-underline">
+              <Link
+                to={preserveDemoParam(CATEGORY_REFILE_DANGLING_PATH, location.search)}
+                className="underline hover:no-underline"
+              >
                 Manage&nbsp;→&nbsp;Categories
               </Link>.
             </p>
