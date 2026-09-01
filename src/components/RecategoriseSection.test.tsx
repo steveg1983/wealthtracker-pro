@@ -14,6 +14,11 @@
  * list and click an option where they used to set a `<select>`'s value — the
  * QUESTIONS are unchanged, only the control that answers them.
  *
+ * The list itself now serves two pages (FilterAndFileList), and this suite
+ * drives it through the housekeeping mount — so everything below is a property
+ * of the shared mechanism as much as of this section, and the first-filing
+ * mount's own half is pinned by Categorisation.filterAndFile.test.tsx.
+ *
  * Every name and amount is invented: this repo is public.
  */
 
@@ -638,6 +643,58 @@ describe('Re-categorise — one row at a time', () => {
     // The picker has no name to draw for it, so the row says what it is rather
     // than sitting there looking uncategorised.
     expect(screen.getByText(/Filed under a category that no longer exists/)).toBeInTheDocument();
+  });
+});
+
+describe('Re-categorise — a filter row on a phone', () => {
+  it('stacks the value under the kind it belongs to, and keeps the ✕ in reach', () => {
+    setup([MARKET]);
+
+    const kind = screen.getByLabelText('What to filter by, filter 1');
+    const row = kind.parentElement;
+    if (!(row instanceof HTMLElement)) throw new Error('no filter row');
+
+    // A grid below `sm`; the flex row it has always been above it.
+    expect(row.className).toContain('grid');
+    expect(row.className).toContain('sm:flex');
+
+    // Line one is the kind and the ✕, the second placed by coordinate rather
+    // than by source order so the desktop's reading order can stay as it is.
+    // The select gives up its own minimum width — the widest option it holds —
+    // only while it is a grid cell, or it would burst a phone-width track.
+    expect(kind.className).toContain('col-start-1');
+    expect(kind.className).toContain('row-start-1');
+    expect(kind.className).toContain('min-w-0');
+    expect(kind.className).toContain('sm:min-w-[auto]');
+    const remove = screen.getByLabelText('Remove filter 1');
+    expect(remove.className).toContain('col-start-2');
+    expect(remove.className).toContain('row-start-1');
+    expect(remove.className).toContain('min-h-[44px]');
+    expect(remove.className).toContain('min-w-[44px]');
+
+    // Line two is the value, indented to say whose value it is (owner, 1 Sep
+    // 2026: "a sibling to the filter option that sits above it"). The wrapper
+    // that puts it there stops existing at `sm`, so the inputs go back to
+    // being flex items of the row and nothing the desktop sees has moved.
+    const value = screen.getByLabelText('Words to look for, filter 1');
+    const stack = value.parentElement;
+    if (!(stack instanceof HTMLElement)) throw new Error('no value line');
+    expect(stack.className).toContain('row-start-2');
+    expect(stack.className).toContain('pl-4');
+    expect(stack.className).toContain('sm:contents');
+    expect(stack.parentElement).toBe(row);
+  });
+
+  it('puts every kind of value on that second line, however many boxes it has', () => {
+    setup([MARKET]);
+    chooseKind(1, 'amount');
+
+    // The amount pair is the row the owner's screenshot caught: two boxes and
+    // a note beside a selector that had taken the width.
+    const smallest = screen.getByLabelText(/^Smallest amount/);
+    const largest = screen.getByLabelText(/^Largest amount/);
+    expect(smallest.parentElement).toBe(largest.parentElement);
+    expect(smallest.parentElement?.className).toContain('sm:contents');
   });
 });
 

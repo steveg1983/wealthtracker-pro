@@ -89,6 +89,25 @@ export function isAwaitingReview(row: ReviewableRow): boolean {
   return row.needsReview === true || isUnfiled(row);
 }
 
+/**
+ * A row still waiting that ONE category would settle.
+ *
+ * The narrowing is the same one categoryProvenance's isConfirmableSuggestion
+ * makes, for the same two reasons, and it is needed because the flag arm above
+ * has no exclusions of its own: a TRANSFER can arrive from a feed flagged for
+ * review, and a SPLIT PARENT can too, but neither takes a category anybody
+ * could write to it — a transfer is filed by being a transfer, and a split
+ * files through its lines, which the database enforces.
+ *
+ * This is what a bulk filing surface may offer, as opposed to what the
+ * register bolds: the register bolds a flagged transfer because the row really
+ * does want a look, while a list that offered to file it would be offering a
+ * press that cannot land.
+ */
+export function awaitsFiling(row: ReviewableRow): boolean {
+  return row.type !== 'transfer' && row.isSplit !== true && isAwaitingReview(row);
+}
+
 /** How many of these rows are still waiting. */
 export function countAwaitingReview(rows: readonly ReviewableRow[]): number {
   let count = 0;
