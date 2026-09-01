@@ -20,6 +20,7 @@ import {
   duplicateDismissalSubjectIds,
 } from '../utils/suggestionDismissals';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
+import { createCategoryLabeller } from '../utils/categoryLabel';
 import { currentPageProvenance, withProvenance } from '../utils/navigationProvenance';
 import { ARRIVAL_ROW_CLASS, useArrivalAction, useArrivalRowFocus } from '../hooks/useArrivalFocus';
 import {
@@ -206,8 +207,21 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
     () => new Map(transactions.map(t => [t.id, t])),
     [transactions]
   );
-  const categoryName = (id: string): string | null =>
-    categories.find(c => c.id === id)?.name ?? null;
+  /**
+   * What a copy is filed as — through the register's own resolver.
+   *
+   * It was `categories.find(c => c.id === id)?.name`, which is the leaf name
+   * alone and NOTHING for a transfer, whose category is the literal
+   * 'transfer-out'. So a duplicated transfer — a pair this dialog invites you
+   * to delete half of — described itself as "Not categorised" while the
+   * register two taps away read "Transfer > Savings". The phone register told
+   * the same lie for the same reason, and was reported on 1 Sep 2026; one
+   * resolver everywhere is what stops it being told a third time.
+   */
+  const categoryLabel = useMemo(
+    () => createCategoryLabeller(categories, accounts),
+    [categories, accounts]
+  );
 
   // Memoised because the return trip's "reopen the review I was in" reads it:
   // a fresh array every render would re-fire that lookup on every render until
@@ -567,7 +581,9 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
    */
   const renderCopy = (pair: DuplicateCandidate, transaction: Transaction, label: string): React.JSX.Element => {
     const block = deleteBlockOf(transaction);
-    const category = categoryName(transaction.category);
+    // Empty is the labeller's answer for "this id resolves to nothing", and
+    // the line below already has a sentence for that.
+    const category = categoryLabel(transaction);
     const isChosen = chosenId === transaction.id;
     return (
       <div

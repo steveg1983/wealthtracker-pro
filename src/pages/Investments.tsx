@@ -878,12 +878,16 @@ function InvestmentsView() {
     false
   );
 
+  // A–Z is a claim about an alphabet, so it asks the same question the dates
+  // ask rather than pinning a region of its own. It was 'en-GB' hard-coded,
+  // which is the app's DEFAULT answer and not necessarily the reader's.
   const portfolioRootAccounts = useMemo(() => {
     const topLevelIdByAccountId = buildTopLevelIdByAccountId(openAccounts);
+    const locale = getDateLocale();
     return investmentAccounts
       .filter(acc => topLevelIdByAccountId.get(acc.id) === acc.id)
       .slice()
-      .sort((a, b) => a.name.localeCompare(b.name, 'en-GB', { sensitivity: 'base' }));
+      .sort((a, b) => a.name.localeCompare(b.name, locale, { sensitivity: 'base' }));
   }, [investmentAccounts, openAccounts]);
 
   const accountsById = useMemo(
@@ -911,11 +915,12 @@ function InvestmentsView() {
       cards. */
   const closedPortfolioRootAccounts = useMemo(() => {
     const topLevelIdByAccountId = buildTopLevelIdByAccountId(historicalAccounts);
+    const locale = getDateLocale();
     return historicalAccounts
       .filter(acc => acc.type === 'investment' && acc.isActive === false)
       .filter(acc => topLevelIdByAccountId.get(acc.id) === acc.id)
       .slice()
-      .sort((a, b) => a.name.localeCompare(b.name, 'en-GB', { sensitivity: 'base' }));
+      .sort((a, b) => a.name.localeCompare(b.name, locale, { sensitivity: 'base' }));
   }, [historicalAccounts]);
 
   /**
@@ -1592,7 +1597,7 @@ function InvestmentsView() {
                   money would be the quiet lie this page exists to avoid. */}
               {historyRange.to && dayOf(historyRange.to) !== dayOf(new Date()) && (
                 <p className="text-dense text-gray-500 dark:text-gray-400 mt-0.5">
-                  on {historyRange.to.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  on {historyRange.to.toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
               )}
               {/* The control appears ONLY when something is actually secured

@@ -55,6 +55,7 @@ import { PieChart, BarChart, ResponsiveContainer } from '../charts/DashboardChar
 import { categoricalColor, useCategoricalRamp } from '../charts/chartColors';
 import { formatDecimal } from '../../utils/decimal-format';
 import { toDecimal } from '../../utils/decimal';
+import { getDateLocale } from '../../utils/dateFormatter';
 import { expandSplitTransactions } from '../../utils/transactionSplits';
 import { computeIncomeExpense } from '../../utils/incomeExpense';
 import { computeAccountBalances } from '../../utils/accountBalances';
@@ -424,7 +425,9 @@ export function ImprovedDashboard() {
     // Only show current month's actual data
     // In the future, this will pull from historical snapshots
     const currentDate = new Date();
-    const currentMonth = currentDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    // A chart axis is a date too, so the month follows the chosen region
+    // rather than a literal 'en-US' nobody picked.
+    const currentMonth = currentDate.toLocaleDateString(getDateLocale(), { month: 'short', year: 'numeric' });
     
     // For now, we only have current data
     // As the user uses the app over time, we'll build up historical data
