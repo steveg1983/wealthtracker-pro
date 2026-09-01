@@ -736,6 +736,78 @@ describe('Re-categorise — finding the rows whose category is gone', () => {
   });
 });
 
+/**
+ * WHAT THE LIST CANNOT SHOW, IT NAMES (owner, 1 Sep 2026).
+ *
+ * The data-health panel's dangling count is measured over split-EXPANDED rows;
+ * this list writes one transaction at a time, and a split LINE is filed inside
+ * its parent. So the panel can say three where the list holds two — an
+ * unexplained gap between two counters, which is the exact thing the owner read
+ * as a bug the same week. The page hands the split-line half down off the SAME
+ * measure, and the sentence is what closes the arithmetic.
+ */
+describe('Re-categorise — the dangling rows that live inside splits', () => {
+  const withSplitLines = (transactions: Transaction[], danglingSplitLines: number): void => {
+    __setAppContextValue({
+      transactions,
+      categories: CATEGORIES,
+      getSubCategories: walkChildren,
+      getDetailCategories: walkChildren,
+    });
+    render(<RecategoriseSection danglingSplitLines={danglingSplitLines} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Show' }));
+  };
+
+  it('names them beside the rows it did find', () => {
+    withSplitLines([MARKET, ORPHAN], 2);
+    chooseKind(1, 'dangling');
+
+    expect(rowDescriptions()).toEqual(['Ashvale Hardware']);
+    expect(screen.getByText(
+      /2 of these are inside splits — edit those splits to re-file them\./
+    )).toBeInTheDocument();
+  });
+
+  it('says it in the singular for one', () => {
+    withSplitLines([ORPHAN], 1);
+    chooseKind(1, 'dangling');
+
+    expect(screen.getByText(
+      /1 of these is inside a split — edit that split to re-file it\./
+    )).toBeInTheDocument();
+  });
+
+  it('says it when the search found NOTHING — the moment it matters most', () => {
+    // Every dangling row is a split line, so this list is empty under a panel
+    // promising two. Without the sentence that reads as rows that went missing.
+    withSplitLines([MARKET], 2);
+    chooseKind(1, 'dangling');
+
+    expect(rowDescriptions()).toHaveLength(0);
+    expect(screen.getByText(/No categorised transaction matches that filter/)).toBeInTheDocument();
+    expect(screen.getByText(/2 of these are inside splits/)).toBeInTheDocument();
+  });
+
+  it('says nothing when the reader is not looking for those rows', () => {
+    withSplitLines([MARKET, ORPHAN], 2);
+    typeWords(1, 'blossom');
+
+    // A true fact about a different search is noise: the sentence belongs to
+    // the dangling filter, whoever chose it.
+    expect(rowDescriptions()).toEqual(['Blossom Lane Market']);
+    expect(screen.queryByText(/inside splits/)).not.toBeInTheDocument();
+  });
+
+  it('says nothing at zero, as every count in this app does', () => {
+    withSplitLines([ORPHAN], 0);
+    chooseKind(1, 'dangling');
+
+    expect(rowDescriptions()).toEqual(['Ashvale Hardware']);
+    expect(screen.queryByText(/inside a split/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/inside splits/)).not.toBeInTheDocument();
+  });
+});
+
 describe('Re-categorise — asked for from outside', () => {
   const askFor = (
     transactions: Transaction[],

@@ -39,6 +39,13 @@ import type { Transaction } from '../types';
  * it is one act — reveal, apply the search, scroll here. A nudge, not a lock:
  * whoever asked cannot hold the section open, and the reader's next filter is
  * their own.
+ *
+ * ── AND IT SAYS WHAT IT CANNOT SHOW (owner, 1 Sep 2026) ─────────────────────
+ *
+ * The panel's dangling count is measured over split-EXPANDED rows; this list can
+ * only hold real transactions. So the page hands down how many of those rows are
+ * split lines, off the same measure, and the list names them beneath the results
+ * — panel count = rows on screen + the number in that sentence, always.
  */
 
 /** A transaction the tree can be corrected on, and the words for correcting it. */
@@ -91,10 +98,21 @@ interface RecategoriseSectionProps {
    * changes for anyone who never asks.
    */
   openWith?: FilterAndFilePreset | null;
+  /**
+   * How many of the page's dangling rows are LINES INSIDE SPLITS, straight off
+   * the same `CategoryHealth` the panel above states its count from.
+   *
+   * This section can only list real transactions — one press here is one
+   * `updateTransaction`, and a split line is filed in its parent — so without
+   * this the panel could say three over a list of two and nothing would explain
+   * the third. Passed down whole; the list decides when to say it.
+   */
+  danglingSplitLines?: number;
 }
 
 export default function RecategoriseSection({
   openWith = null,
+  danglingSplitLines = 0,
 }: RecategoriseSectionProps): React.JSX.Element {
   const [open, setOpen] = useState(false);
 
@@ -147,6 +165,7 @@ export default function RecategoriseSection({
         population={isFiled}
         copy={CORRECTING_A_FILING}
         preset={openWith}
+        danglingSplitLines={danglingSplitLines}
       />
     </section>
   );

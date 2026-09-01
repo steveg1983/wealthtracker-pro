@@ -1316,7 +1316,13 @@ export default function CategoriesSettings() {
           asked for, so the tree stays the page — and asked for by the data
           health panel above, or by the address this page was opened at, when
           the rows whose category is gone are what somebody came for. */}
-      <RecategoriseSection openWith={refile} />
+      {/* The split lines come off the SAME health measure the panel above
+          states its dangling count from, so the list can name the rows it
+          cannot hold and the two numbers stay one arithmetic. */}
+      <RecategoriseSection
+        openWith={refile}
+        danglingSplitLines={categoryHealth.danglingSplitLineCount}
+      />
 
       </div>{/* end desktop flex column */}
 

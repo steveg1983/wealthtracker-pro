@@ -11,10 +11,11 @@
  * Every account name, figure and institution here is invented.
  */
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { ImprovedDashboard } from './ImprovedDashboard';
+import { preferences } from '../../services/preferencesService';
 import type { Account, Transaction } from '../../types';
 import type { BankConnection } from '../../services/bankConnectionService';
 import type { PeriodRange, UsePeriodResult } from '../../hooks/usePeriod';
@@ -463,5 +464,120 @@ describe('Key Account Balances — the cards sit where the user put them', () =>
     fireEvent.keyDown(first, { key: 'ArrowRight' });
 
     expect(cardNames()).toEqual(['Feed Account A', 'Feed Account B', 'Feed Account C']);
+  });
+});
+
+/**
+ * ONE WALK-THROUGH AT A TIME (owner's ruling, 1 Sep 2026).
+ *
+ * A fresh ledger with a year of statements imported and nothing filed earns BOTH
+ * cards: First steps has an unfinished step, and the history guide's hundred-row
+ * threshold is met. They then stacked, saying overlapping things in two voices —
+ * and the guide's first two steps ARE First steps, with the five that were
+ * missing after them. So while the guide is up, First steps stands down.
+ *
+ * The gate reads the guide's own `useHistoryPath`: ONE definition of "the guide
+ * is on screen", consumed by the card that draws it and by the gate that hides
+ * its predecessor. What these pin is that supersession, and — just as important
+ * — that nothing else about First steps moved.
+ *
+ * Every figure below is invented; this repo is public.
+ */
+describe('the history guide supersedes First steps', () => {
+  const ENGAGED_PREFERENCE = 'historyPath.engaged.v1';
+  const DISMISSED_PREFERENCE = 'historyPath.dismissed.v1';
+
+  /** Rows with no category: unfiled, and so awaiting review. */
+  const unfiled = (count: number): Transaction[] =>
+    Array.from({ length: count }, (_, index) => ({
+      id: `unfiled-${index}`,
+      date: new Date('2026-05-02T00:00:00.000Z'),
+      description: `Payment ${index}`,
+      amount: -12.5,
+      type: 'expense' as const,
+      accountId: 'acc-a',
+      category: '',
+    }));
+
+  /** The narrow window: an account, a year of history, nothing filed. */
+  const freshImport = (rows: number): void => {
+    mocks.app.accounts = [account({ id: 'acc-a', name: 'Feed Account A' })];
+    mocks.app.transactions = unfiled(rows);
+  };
+
+  beforeEach(() => {
+    // Through the service, not the mirror: `localStorage.clear()` above leaves
+    // the in-memory document — which is what the card actually reads — alone.
+    preferences.removeItem(ENGAGED_PREFERENCE);
+    preferences.removeItem(DISMISSED_PREFERENCE);
+    preferences.removeItem('firstStepsDismissed');
+  });
+
+  afterEach(() => {
+    preferences.removeItem(ENGAGED_PREFERENCE);
+    preferences.removeItem(DISMISSED_PREFERENCE);
+  });
+
+  it('shows the guide and hides First steps when both are earned', () => {
+    freshImport(100);
+    render(<ImprovedDashboard />);
+
+    expect(screen.getByTestId('history-path')).toBeInTheDocument();
+    expect(screen.queryByTestId('first-steps')).not.toBeInTheDocument();
+  });
+
+  it('gives First steps back the moment the guide is dismissed mid-journey', () => {
+    // The ruling is "while the guide is visible", not "once it has ever been
+    // seen": a reader who hides the guide with a step outstanding is back where
+    // they were, and the simpler card is what they have.
+    freshImport(100);
+    preferences.setItem(ENGAGED_PREFERENCE, 'true');
+    preferences.setItem(DISMISSED_PREFERENCE, 'true');
+    render(<ImprovedDashboard />);
+
+    expect(screen.queryByTestId('history-path')).not.toBeInTheDocument();
+    expect(screen.getByTestId('first-steps')).toBeInTheDocument();
+  });
+
+  it('leaves First steps alone for a ledger that never met the guide’s threshold', () => {
+    freshImport(12);
+    render(<ImprovedDashboard />);
+
+    expect(screen.queryByTestId('history-path')).not.toBeInTheDocument();
+    expect(screen.getByTestId('first-steps')).toBeInTheDocument();
+  });
+
+  it('changes nothing during boot — the guide cannot be up over a ledger it has not read', () => {
+    // The gate must not make First steps flicker while the rows are arriving:
+    // an unread ledger is not a finished one, so the guide holds its claims
+    // back, the gate is open, and this card behaves exactly as it always did.
+    mocks.app.accounts = [];
+    mocks.app.transactions = [];
+    mocks.app.isLoading = true;
+    preferences.setItem(ENGAGED_PREFERENCE, 'true');
+    render(<ImprovedDashboard />);
+
+    expect(screen.queryByTestId('history-path')).not.toBeInTheDocument();
+    expect(screen.getByTestId('first-steps')).toBeInTheDocument();
+  });
+
+  it('hides First steps by its own rule too, with no guide in sight', () => {
+    // The supersession is an ADDITION: the card's own "every step is derived
+    // and done" stand-down is untouched.
+    mocks.app.accounts = [account({ id: 'acc-a', name: 'Feed Account A' })];
+    mocks.app.transactions = [{
+      id: 'filed-1',
+      date: new Date('2026-05-02T00:00:00.000Z'),
+      description: 'Payment',
+      amount: -12.5,
+      type: 'expense',
+      accountId: 'acc-a',
+      category: 'det-food',
+      needsReview: false,
+    }];
+    render(<ImprovedDashboard />);
+
+    expect(screen.queryByTestId('history-path')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('first-steps')).not.toBeInTheDocument();
   });
 });

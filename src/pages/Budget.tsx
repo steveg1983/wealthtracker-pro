@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, Suspense } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { preserveDemoParam } from '../utils/navigation';
+import { OPEN_PARAM, OPEN_BUDGET_WIZARD } from '../utils/pageOpenLink';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -56,9 +57,19 @@ export default function Budget() {
 function BudgetView() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  /** The evidence-first setup screen (owner's spec, 29 Aug). */
-  const [isSetupOpen, setIsSetupOpen] = useState(false);
+  /**
+   * The evidence-first setup screen (owner's spec, 29 Aug), which since 1 Sep
+   * 2026 has an ADDRESS: `/budget?open=wizard`, so a surface that recommends
+   * setting budgets up can land on the thing rather than on a sentence about a
+   * button. Read once here and only here — the parameter says how the page was
+   * opened, not what it must keep doing, so closing the wizard closes it. Any
+   * other value opens nothing (see utils/pageOpenLink).
+   */
+  const [isSetupOpen, setIsSetupOpen] = useState(
+    () => searchParams.get(OPEN_PARAM) === OPEN_BUDGET_WIZARD
+  );
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   /**
    * §12 (owner, 23 Aug): ONE budgeting approach — the traditional page IS

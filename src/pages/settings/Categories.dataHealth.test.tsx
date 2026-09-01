@@ -133,8 +133,38 @@ const DANGLING_LEDGER = {
 const DANGLING_ROW_NOTE =
   'Filed under a category that no longer exists — choose one to put it right.';
 
+/**
+ * THREE DANGLING ROWS, ONE OF WHICH IS A LINE INSIDE A SPLIT.
+ *
+ * The panel measures over split-EXPANDED rows and says three; the re-file list
+ * writes one transaction at a time, so it can only ever hold the two real ones.
+ * This is the fixture that makes the sentence's arithmetic visible: 3 = 2 + 1.
+ */
+const SPLIT_WITH_A_DEAD_LINE = txn({
+  id: 'txn-split-dangling', description: 'Ashvale Builders', category: '', isSplit: true, amount: -90,
+});
+const DANGLING_AND_A_SPLIT_LINE = {
+  transactions: [
+    txn({ id: 'txn-orphan', description: 'Ashvale Hardware', category: 'was-deleted-long-ago' }),
+    txn({ id: 'txn-orphan-2', description: 'Ashvale Timber', category: 'was-deleted-long-ago' }),
+    SPLIT_WITH_A_DEAD_LINE,
+    txn({ id: 'txn-filed', description: 'Riverbank Groceries' }),
+  ],
+  transactionSplits: [
+    { id: 'line-1', transactionId: 'txn-split-dangling', category: 'was-deleted-long-ago', amount: -50, sortOrder: 1 },
+    { id: 'line-2', transactionId: 'txn-split-dangling', category: 'cat-groceries', amount: -40, sortOrder: 2 },
+  ] satisfies TransactionSplit[],
+};
+
 const healthPanel = (): HTMLElement =>
   screen.getByRole('region', { name: 'Data health' });
+
+/** The dangling FINDING alone — the panel's other lines carry counts too. */
+const danglingLine = (): HTMLElement => {
+  const line = within(healthPanel()).getByRole('button', { name: /^Re-file/ }).closest('li');
+  if (!(line instanceof HTMLElement)) throw new Error('the dangling line has no row');
+  return line;
+};
 
 beforeEach(() => {
   Object.values(toast).forEach(fn => fn.mockClear());
@@ -206,6 +236,50 @@ describe('every data-health line carries its remedy', () => {
     expect(screen.getByLabelText('What to filter by, filter 1')).toHaveValue('dangling');
     expect(screen.getByLabelText(/^Category for Ashvale Hardware/)).toBeInTheDocument();
     expect(screen.getByText(DANGLING_ROW_NOTE)).toBeInTheDocument();
+  });
+
+  /**
+   * THE COUNTER GAP, CLOSED BY A SENTENCE (owner, 1 Sep 2026).
+   *
+   * The panel counts dangling rows over split-expanded rows; the list beneath it
+   * can only show rows one `updateTransaction` can write, and a split line is
+   * filed inside its parent. Left alone that is a panel promising three over a
+   * list holding two — the unexplained-counter-gap class the owner has ruled
+   * against twice. Both numbers now come off ONE measure, so the subtraction the
+   * reader does in their head always comes out.
+   */
+  it('the panel says 3, the list shows 2, and the sentence names the third', () => {
+    setup(DANGLING_AND_A_SPLIT_LINE);
+
+    // The panel's count, over the split-expanded rows.
+    expect(within(danglingLine()).getByText('3')).toBeInTheDocument();
+    expect(within(danglingLine()).getByText(/^rows point at a category that no longer exists/))
+      .toBeInTheDocument();
+
+    fireEvent.click(within(healthPanel()).getByRole('button', { name: 'Re-file them now' }));
+
+    // Two rows on screen — every one this tool can put right…
+    expect(screen.getByLabelText(/^Category for Ashvale Hardware/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Category for Ashvale Timber/)).toBeInTheDocument();
+    expect(screen.getAllByText(DANGLING_ROW_NOTE)).toHaveLength(2);
+    // …and the split parent is not one of them: its own category is blank, and
+    // a category written to it is a write the database refuses.
+    expect(screen.queryByLabelText(/^Category for Ashvale Builders/)).not.toBeInTheDocument();
+
+    // …and the third is named, with where it is edited. 3 = 2 + 1.
+    expect(screen.getByText(/1 of these is inside a split — edit that split to re-file it\./))
+      .toBeInTheDocument();
+  });
+
+  it('says nothing about splits when every dangling row is a real transaction', () => {
+    setup(DANGLING_LEDGER);
+
+    fireEvent.click(within(healthPanel()).getByRole('button', { name: 'Re-file it now' }));
+
+    // One row, one count, nothing to explain — a zero renders nothing.
+    expect(screen.getByLabelText(/^Category for Ashvale Hardware/)).toBeInTheDocument();
+    expect(screen.queryByText(/inside a split/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/inside splits/)).not.toBeInTheDocument();
   });
 
   it('opens nothing on an ordinary visit', () => {

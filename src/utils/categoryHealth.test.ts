@@ -283,6 +283,81 @@ describe('computeCategoryHealth', () => {
       expect(health.hasWarnings).toBe(false);
     });
   });
+
+  /**
+   * THE HALF OF THE DANGLING COUNT NO LIST CAN SHOW (owner, 1 Sep 2026).
+   *
+   * The count is measured over split-EXPANDED rows; the tool that re-files them
+   * writes one transaction at a time, and a split line is filed inside its
+   * parent. So the panel could promise three and the list hold two, with nothing
+   * on screen explaining the third — the unexplained counter gap the owner has
+   * ruled against. This is the number that closes it, and it is carried on the
+   * same measure so the subtraction can never come out wrong.
+   */
+  describe('the dangling rows that live inside splits', () => {
+    it('is a SUBSET of the dangling count, not a figure beside it', () => {
+      const parent = txn({ id: 'p1', category: '', amount: -100, isSplit: true });
+      const health = computeCategoryHealth(
+        [
+          parent,
+          txn({ id: 't-real', category: 'was-deleted', amount: -25 }),
+        ],
+        [
+          split({ id: 's1', transactionId: 'p1', category: 'was-deleted', amount: -60, sortOrder: 0 }),
+          split({ id: 's2', transactionId: 'p1', category: 'cat-groceries', amount: -40, sortOrder: 1 }),
+        ],
+        CATEGORIES
+      );
+
+      // Two dangling rows in all, one of which is a line inside a split — so a
+      // list of real transactions can show exactly one, and the sentence beside
+      // it names the other.
+      expect(health.danglingCount).toBe(2);
+      expect(health.danglingSplitLineCount).toBe(1);
+      expect(health.danglingCount - health.danglingSplitLineCount).toBe(1);
+    });
+
+    it('is zero when every dangling row is a real transaction — a zero says nothing', () => {
+      const health = computeCategoryHealth(
+        [txn({ id: 't-real', category: 'was-deleted', amount: -25 })],
+        [],
+        CATEGORIES
+      );
+      expect(health.danglingCount).toBe(1);
+      expect(health.danglingSplitLineCount).toBe(0);
+    });
+
+    it('counts every dangling line when the whole split is broken', () => {
+      const parent = txn({ id: 'p1', category: '', amount: -100, isSplit: true });
+      const health = computeCategoryHealth(
+        [parent],
+        [
+          split({ id: 's1', transactionId: 'p1', category: 'was-deleted', amount: -60, sortOrder: 0 }),
+          split({ id: 's2', transactionId: 'p1', category: 'also-deleted', amount: -40, sortOrder: 1 }),
+        ],
+        CATEGORIES
+      );
+      // The list will hold NOTHING here, which is exactly the case the sentence
+      // exists for: "no transaction matches" under a panel promising two.
+      expect(health.danglingCount).toBe(2);
+      expect(health.danglingSplitLineCount).toBe(2);
+    });
+
+    it('does not count a bucket line, which is a different finding with its own line', () => {
+      const parent = txn({ id: 'p1', category: '', amount: -100, isSplit: true });
+      const health = computeCategoryHealth(
+        [parent],
+        [
+          split({ id: 's1', transactionId: 'p1', category: 'cat-unassigned', amount: -60, sortOrder: 0 }),
+          split({ id: 's2', transactionId: 'p1', category: 'was-deleted', amount: -40, sortOrder: 1 }),
+        ],
+        CATEGORIES
+      );
+      expect(health.unassignedBucketCount).toBe(1);
+      expect(health.danglingCount).toBe(1);
+      expect(health.danglingSplitLineCount).toBe(1);
+    });
+  });
 });
 
 describe('computeCategoryHealth — the flows seam (Design §5, 25 Aug)', () => {

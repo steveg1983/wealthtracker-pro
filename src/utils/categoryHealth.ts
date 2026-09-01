@@ -70,6 +70,22 @@ export interface CategoryHealth {
   unassignedBucketCategoryId: string | null;
   /** Uncategorised rows whose category id no longer exists (a subset too). */
   danglingCount: number;
+  /**
+   * How many of those dangling rows are LINES INSIDE SPLITS — the part of the
+   * count above that no list of real transactions can put on screen.
+   *
+   * A split line is filed inside its parent, so the re-file list (which writes
+   * one `updateTransaction` per row) can only ever show the OTHER part. Without
+   * this number the panel could say 3 while the list showed 2 and nothing
+   * explained the missing one, which is the unexplained-counter-gap class the
+   * owner ruled against on 1 Sep 2026. Carried on the same measure as the count
+   * it explains so the arithmetic is closed by construction:
+   *
+   *   danglingCount = the rows a list can show + danglingSplitLineCount
+   *
+   * A zero renders nothing at the surface — see FilterAndFileList.
+   */
+  danglingSplitLineCount: number;
   /** Detail categories with no transactions and no split lines. */
   emptyCategoryCount: number;
   /**
@@ -107,6 +123,34 @@ export interface CategoryHealth {
 }
 
 /**
+ * Anything that can answer "does the tree still know this id?" — a Set of
+ * category ids or a Map keyed by them, so each caller hands over the index it
+ * already holds instead of building a second one.
+ */
+export interface KnownCategories {
+  has(categoryId: string): boolean;
+}
+
+/**
+ * THE ONE DEFINITION OF A DANGLING FILING: a category id that is SET, and that
+ * no category in the tree answers to.
+ *
+ * Three things read it and they may never disagree — this file's `danglingCount`
+ * (the number the data-health panel states), the FILTER that finds those rows on
+ * Settings → Categories, and the amber note each of those rows draws beside its
+ * picker. A second predicate would eventually be a panel promising three rows
+ * over a list holding two, with nothing on screen saying which half was lying;
+ * that gap is now arithmetic between one count and one search rather than a
+ * coincidence between two definitions (owner, 1 Sep 2026).
+ *
+ * Blank is not dangling: a row with no category at all has never been filed, and
+ * that is Categorisation's work under its own count.
+ */
+export function isDanglingFiling(categoryId: string, known: KnownCategories): boolean {
+  return categoryId !== '' && !known.has(categoryId);
+}
+
+/**
  * Measure category data health over ALL transactions (no period filter — the
  * data is either clean or it is not, regardless of the window a report shows).
  */
@@ -134,13 +178,20 @@ export function computeCategoryHealth(
   // and both sit inside the uncategorised total.
   let unassignedBucketCount = 0;
   let danglingCount = 0;
+  // Split lines are counted a second time INSIDE the dangling total, never
+  // beside it: the surface that lists these rows can show the rest, and this is
+  // what it names as the difference. See the field's note.
+  let danglingSplitLineCount = 0;
   const rowsPerBucket = new Map<string, number>();
   for (const row of flows.uncategorizedRows) {
     if (!row.category) continue;
     if (bucketIds.has(row.category)) {
       unassignedBucketCount += 1;
       rowsPerBucket.set(row.category, (rowsPerBucket.get(row.category) ?? 0) + 1);
-    } else if (!categoryIds.has(row.category)) danglingCount += 1;
+    } else if (isDanglingFiling(row.category, categoryIds)) {
+      danglingCount += 1;
+      if (row.isSplitLine === true) danglingSplitLineCount += 1;
+    }
   }
 
   // The bucket the warning's action opens. Chosen by how many rows it actually
@@ -193,6 +244,7 @@ export function computeCategoryHealth(
     unassignedBucketCount,
     unassignedBucketCategoryId,
     danglingCount,
+    danglingSplitLineCount,
     emptyCategoryCount,
     emptyCategoryIds,
     transferFilingMismatchCount: transferFilingMismatchIds.length,

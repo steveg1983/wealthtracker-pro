@@ -1,9 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { preserveDemoParam } from '../../utils/navigation';
 import { preferences } from '../../services/preferencesService';
-import { countAwaitingReview } from '../../utils/transactionReview';
+import {
+  APPEARS_AT_BACKLOG,
+  DISMISSED_PREFERENCE,
+  ENGAGED_PREFERENCE,
+  useHistoryPath,
+} from './useHistoryPath';
+import {
+  BUDGET_WIZARD_PATH,
+  CATEGORISATION_FILE_PATH,
+  CATEGORISATION_PAYEES_PATH,
+  CATEGORISATION_TRANSFERS_PATH,
+} from '../../utils/pageOpenLink';
 import { CheckCircleIcon } from '../icons';
 
 /**
@@ -23,17 +34,18 @@ import { CheckCircleIcon } from '../icons';
  *
  * ── WHO SEES IT, AND WHEN IT STOPS ──────────────────────────────────────────
  * It appears at a To Review backlog of {@link APPEARS_AT_BACKLOG} or more, and
- * once it has appeared it STAYS until it is dismissed (`historyPath.engaged`).
- * The latch is the point: this card's own advice shrinks the number that
- * summoned it, so a card gated on the live count would vanish at step three of
- * seven — mid-journey, with the payoff step never seen. A fresh-start user
- * never trips the threshold and never meets it.
+ * once it has appeared it STAYS until it is dismissed. The latch is the point:
+ * this card's own advice shrinks the number that summoned it, so a card gated on
+ * the live count would vanish at step three of seven — mid-journey, with the
+ * payoff step never seen. A fresh-start user never trips the threshold and never
+ * meets it.
  *
- * The backlog is asked through `countAwaitingReview` — the ONE To Review
- * predicate, the same one the register bolds by, the same one its counter and
- * its filter use. A second derivation here would be a fourth answer to one
- * question, and the two counters that disagreed on 1 Sep are the reason that
- * matters.
+ * That whole rule — the latch, the dismissal, the boot — lives in
+ * `useHistoryPath` rather than here, because the DASHBOARD needs the same answer
+ * to know whether to mount the first-steps card: while this guide is up, that
+ * one stands down (owner, 1 Sep 2026), and "is the guide up?" may have exactly
+ * one answer. The card WRITES the latch, being the thing that appears; the hook
+ * only reads.
  *
  * ── OBSERVED, OR JUDGED BY THE PERSON ───────────────────────────────────────
  * Four steps are facts the ledger can answer honestly (accounts exist, a
@@ -67,9 +79,17 @@ import { CheckCircleIcon } from '../icons';
  * between the phone and the desktop. Per-device localStorage was deliberately
  * rejected for the balance reminder's acknowledgement for exactly this reason,
  * and a guide dismissed on a laptop that reappeared on a phone would be the
- * same bug. They are read through `subscribe` rather than once at mount,
- * because the account's document lands a few hundred milliseconds into boot —
- * a dismissal read too early is a dismissed card on screen for the session.
+ * same bug. They are read through `subscribe` rather than once at mount, because
+ * the account's document lands a few hundred milliseconds into boot — a
+ * dismissal read too early is a dismissed card on screen for the session. The
+ * subscription that keeps the ticks live is the hook's, called below.
+ *
+ * ── EVERY STEP IS A LINK INTO ITS TOOL, INCLUDING THE MODAL ONES ────────────
+ * Three of the seven end in a dialog or a disclosure that used to have no
+ * address, so those steps could only have said "go here and press that". They
+ * carry `?open=` addresses now (utils/pageOpenLink) and land on the thing
+ * itself. The link is the whole instruction; nothing on this card asks the
+ * reader to remember a second step after arriving.
  *
  * ── COLOUR ──────────────────────────────────────────────────────────────────
  * None. This is guidance, not a warning: neutral chrome throughout, no amber
@@ -78,17 +98,12 @@ import { CheckCircleIcon } from '../icons';
  * — the counter becomes a plain sentence rather than "0 left to review".
  */
 
-/** The backlog at which the sequence is worth teaching. The owner's number. */
-export const APPEARS_AT_BACKLOG = 100;
-
 /** The ledger is big enough to be "history" rather than a first week. */
 const IMPORTED_ENOUGH = 100;
 
-// Entries in the preferences document — see the header for why all three
-// travel with the account rather than with the browser. Registered in
-// PORTABLE_PREFERENCE_KEYS beside every other portable key.
-const ENGAGED_PREFERENCE = 'historyPath.engaged.v1';
-const DISMISSED_PREFERENCE = 'historyPath.dismissed.v1';
+// The third preferences entry, beside the latch and the dismissal the hook owns
+// — a statement about the USER for the same reason they are, and registered in
+// PORTABLE_PREFERENCE_KEYS with them.
 const TICKS_PREFERENCE = 'historyPath.ticks.v1';
 
 /** The three steps only the person doing them can judge. */
@@ -159,19 +174,12 @@ function readTicks(): ReadonlySet<ManualStepId> {
 const MARKER_BOX = 'w-11 h-11 shrink-0 flex items-start justify-center pt-2.5';
 
 export default function HistoryPathCard(): React.JSX.Element | null {
-  const { accounts, transactions, budgets, isLoading, transactionsLoadFailed } = useApp();
+  const { accounts, transactions, budgets } = useApp();
   const location = useLocation();
 
-  // Re-render when the account's preferences change — including the moment the
-  // stored document lands, which is after this card's first paint. The document
-  // object is only the identity React compares; the values are read below.
-  useSyncExternalStore(preferences.subscribe, preferences.getDocument, preferences.getDocument);
-
-  const engaged = preferences.getItem(ENGAGED_PREFERENCE) === 'true';
-  const dismissed = preferences.getItem(DISMISSED_PREFERENCE) === 'true';
+  // The shared answer — see the hook. This card is one of its two readers.
+  const { visible, backlog, engaged, dismissed } = useHistoryPath();
   const ticks = readTicks();
-
-  const backlog = useMemo(() => countAwaitingReview(transactions), [transactions]);
 
   // The latch. Written once, the first time the pile is big enough to be worth
   // teaching a sequence for — after which the live count no longer decides
@@ -216,7 +224,8 @@ export default function HistoryPathCard(): React.JSX.Element | null {
       title: 'Match transfers first',
       detail:
         'Money moved between your own accounts is neither income nor spending; this clears rows without a single decision.',
-      to: '/categorisation',
+      // The sweep itself, not the page it lives on — see utils/pageOpenLink.
+      to: CATEGORISATION_TRANSFERS_PATH,
       done: ticks.has('transfers'),
       judgedBy: 'you',
     },
@@ -233,7 +242,7 @@ export default function HistoryPathCard(): React.JSX.Element | null {
       id: 'payee-categories',
       title: 'Categorise by payee',
       detail: 'One decision files a whole merchant, and teaches future imports to file it for you.',
-      to: '/categorisation',
+      to: CATEGORISATION_PAYEES_PATH,
       done: ticks.has('payee-categories'),
       judgedBy: 'you',
     },
@@ -241,7 +250,9 @@ export default function HistoryPathCard(): React.JSX.Element | null {
       id: 'sweep',
       title: 'Sweep what’s left',
       detail: 'Filter the remainder on Categorisation, tick it, and file it in one press.',
-      to: '/categorisation',
+      // The list revealed, not just the page: it is a disclosure rather than a
+      // dialog, and the same parameter answers for it.
+      to: CATEGORISATION_FILE_PATH,
       done: backlog === 0,
       judgedBy: 'ledger',
     },
@@ -249,7 +260,8 @@ export default function HistoryPathCard(): React.JSX.Element | null {
       id: 'budgets',
       title: 'Set budgets from your real year',
       detail: 'A budget built from what you actually spent is what all of the above was for.',
-      to: '/budget',
+      // The wizard, which reads the year the six steps above have just tidied.
+      to: BUDGET_WIZARD_PATH,
       // Read the same way the budget card further down THIS page reads it
       // (`budgets.filter(b => b.isActive)`). Two cards on one screen disagreeing
       // about whether the user has a budget is the kind of gap that gets read as
@@ -262,20 +274,9 @@ export default function HistoryPathCard(): React.JSX.Element | null {
   // See the header: the ledger's four facts decide this, never the ticks.
   const settled = steps.every(step => step.judgedBy !== 'ledger' || step.done);
 
-  if (dismissed) return null;
-  /*
-   * A LEDGER THAT HAS NOT ARRIVED IS NOT A FINISHED ONE.
-   *
-   * Every fact this card states is read off `transactions`, which is an empty
-   * array both while the boot is in flight and when the load failed outright.
-   * Without this, an engaged user opening the dashboard would be congratulated
-   * — "Nothing left to review", and at a glance the settled card with only its
-   * dismissal on it — for a second, over a ledger the app had not read yet. The
-   * page's other sections hold their own claims back on the same flag, and this
-   * one has more to be wrong about than most.
-   */
-  if (isLoading || transactionsLoadFailed) return null;
-  if (!engaged && backlog < APPEARS_AT_BACKLOG) return null;
+  // Dismissed, still booting, or never engaged — all three are the hook's
+  // question, asked once and answered for the dashboard as well as for here.
+  if (!visible) return null;
 
   return (
     <section

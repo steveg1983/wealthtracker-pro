@@ -37,6 +37,7 @@ const CLEAN: CategoryHealth = {
   unassignedBucketCount: 0,
   unassignedBucketCategoryId: null,
   danglingCount: 0,
+  danglingSplitLineCount: 0,
   emptyCategoryCount: 0,
   emptyCategoryIds: [],
   transferFilingMismatchCount: 0,

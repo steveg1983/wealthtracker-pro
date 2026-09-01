@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { computeIncomeExpense } from '../utils/incomeExpense';
@@ -8,6 +8,12 @@ import { groupUncategorisedByAccount } from '../utils/uncategorisedByAccount';
 import { groupSuggestedByCategory, groupSuggestedByAccount } from '../utils/categoryProvenance';
 import { awaitsFiling } from '../utils/transactionReview';
 import { CATEGORY_REFILE_DANGLING_PATH } from '../utils/categoryRefileLink';
+import {
+  OPEN_PARAM,
+  OPEN_FILE_LIST,
+  OPEN_PAYEE_SWEEP,
+  OPEN_TRANSFER_SWEEP,
+} from '../utils/pageOpenLink';
 import { preserveDemoParam } from '../utils/navigation';
 import { preferences } from '../services/preferencesService';
 import { useAttentionLadder } from '../hooks/useAttentionLadder';
@@ -66,10 +72,32 @@ export default function Categorisation(): React.JSX.Element {
   const location = useLocation();
 
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
-  const [showTransferSweep, setShowTransferSweep] = useState(false);
-  const [showBulkCategorize, setShowBulkCategorize] = useState(false);
+
+  /**
+   * THE THREE WAYS THROUGH, ADDRESSED (owner, 1 Sep 2026).
+   *
+   * Two of these are modal state and the third is a disclosure, so until now the
+   * only way to send somebody to one was to land them on this page and tell them
+   * which card to press. They answer `?open=` instead — see utils/pageOpenLink
+   * for the idiom and its two rules, both of which are kept right here:
+   *
+   *  - read ONCE, in these initialisers, because the parameter says how the page
+   *    was OPENED rather than standing over the reader's shoulder. Closing the
+   *    sweep closes it, and nothing puts it back;
+   *  - an unknown value opens nothing: each of these is an equality against a
+   *    named constant, so a stale or mistyped address is an ordinary visit.
+   */
+  const [searchParams] = useSearchParams();
+  const [showTransferSweep, setShowTransferSweep] = useState(
+    () => searchParams.get(OPEN_PARAM) === OPEN_TRANSFER_SWEEP
+  );
+  const [showBulkCategorize, setShowBulkCategorize] = useState(
+    () => searchParams.get(OPEN_PARAM) === OPEN_PAYEE_SWEEP
+  );
   /** Whether the filter-and-file list below the cards is showing. */
-  const [filing, setFiling] = useState(false);
+  const [filing, setFiling] = useState(
+    () => searchParams.get(OPEN_PARAM) === OPEN_FILE_LIST
+  );
   /** Which group button is mid-confirm, so it alone can say so. */
   const [confirmingCategoryId, setConfirmingCategoryId] = useState<string | null>(null);
 
