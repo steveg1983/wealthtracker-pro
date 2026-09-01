@@ -741,8 +741,8 @@ mod tests {
     fn armed(signing: &SigningKey, home: std::path::PathBuf) -> Licensing {
         let mut licensing = Licensing::open(home);
         licensing.key = PublicKey::Armed(signing.verifying_key());
-        // The stored licence was read against the placeholder, so re-read it now
-        // there is something to check against.
+        // The stored licence was read against the committed key, so re-read it
+        // against this test's own.
         let reread = super::read_stored(&licensing.home, &licensing.key);
         if let Ok(mut held) = licensing.held.lock() {
             match reread {
@@ -785,7 +785,11 @@ mod tests {
 
     #[test]
     fn a_placeholder_build_enforces_nothing_and_says_so() {
-        let licensing = Licensing::open(temp_dir());
+        // The committed key has been real since 2026-09-01, so the placeholder
+        // state is constructed directly — the behaviour pinned here must hold
+        // through any future rotation window where the line is PLACEHOLDER again.
+        let mut licensing = Licensing::open(temp_dir());
+        licensing.key = PublicKey::Placeholder;
         let status = licensing.status();
 
         assert_eq!(status.state, State::Unenforced);

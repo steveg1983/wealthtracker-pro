@@ -18,5 +18,8 @@
 # FORMAT: one line, the raw 32-byte Ed25519 public key, base64url, unpadded.
 # Lines beginning with `#` and blank lines are ignored; the first line that is
 # neither is the key.
+#
+# ARMED 2026-09-01. The line below is the real key; the private half was
+# generated the same morning and lives only with the owner.
 
-PLACEHOLDER
+h5ppkat8LBerhUnOo77ohA5xH7OfG-uZ3Gkyj4jAJIs
