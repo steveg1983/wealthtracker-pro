@@ -17,6 +17,7 @@ import {
   budgetHistoryWindow,
   budgetPeriodSuffix,
   buildWizardRows,
+  entryInMode,
   groupWizardRows,
   indexExistingBudgets,
   isBudgetableCategory,
@@ -27,6 +28,8 @@ import {
   twinFigure,
   wizardBoxValue,
   wizardPeriodOf,
+  type BudgetMode,
+  type WizardEntries,
   type WizardRow,
 } from './budgetWizardPlan';
 import { toDecimal } from './decimal';
@@ -96,6 +99,18 @@ const budget = (over: Partial<Budget> & { id: string; categoryId: string }): Bud
   updatedAt: new Date(),
   ...over,
 });
+
+/**
+ * The boxes of one screen, all typed in the same rhythm.
+ *
+ * An entry is a string AND the rhythm it was typed in, because a change of
+ * rhythm converts what is in the boxes (owner, 2 Sep 2026) and the conversion
+ * is made from the original figure every time — see the module header. Most of
+ * this suite types in one rhythm and reads in the same one, which is what this
+ * helper says; the tests that switch say so by passing the two apart.
+ */
+const typedIn = (typedAs: BudgetMode, boxes: Record<string, string>): WizardEntries =>
+  Object.fromEntries(Object.entries(boxes).map(([id, value]) => [id, { value, typedAs }]));
 
 const rowsFor = (budgets: Budget[] = []): WizardRow[] =>
   buildWizardRows(summariseForWizard(TRANSACTIONS, [], CATEGORIES, new Date()), CATEGORIES, budgets);
@@ -337,7 +352,7 @@ describe('groupWizardRows — arrangement', () => {
 
 describe('planBudgetWrites — empty is not zero', () => {
   it('writes a typed zero: "I intend to spend nothing here" is a real budget', () => {
-    const plan = planBudgetWrites(rowsFor(), { 'det-shop': '0' }, 'monthly');
+    const plan = planBudgetWrites(rowsFor(), typedIn('monthly', { 'det-shop': '0' }), 'monthly');
     expect(plan.upserts).toHaveLength(1);
     expect(plan.upserts[0].amount.toString()).toBe('0');
     expect(plan.upserts[0].period).toBe('monthly');
@@ -345,7 +360,7 @@ describe('planBudgetWrites — empty is not zero', () => {
   });
 
   it('writes nothing for an empty box that had no budget behind it', () => {
-    const plan = planBudgetWrites(rowsFor(), { 'det-shop': '' }, 'monthly');
+    const plan = planBudgetWrites(rowsFor(), typedIn('monthly', { 'det-shop': '' }), 'monthly');
     expect(plan.upserts).toHaveLength(0);
     expect(plan.removals).toHaveLength(0);
     expect(plan.budgetedCount).toBe(0);
@@ -353,7 +368,7 @@ describe('planBudgetWrites — empty is not zero', () => {
 
   it('REMOVES the budget behind a box somebody emptied', () => {
     const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 120 })]);
-    const plan = planBudgetWrites(rows, { 'det-shop': '' }, 'monthly');
+    const plan = planBudgetWrites(rows, typedIn('monthly', { 'det-shop': '' }), 'monthly');
     expect(plan.removals).toEqual([
       { budgetId: 'b-1', categoryId: 'det-shop', categoryName: 'Food Shopping' },
     ]);
@@ -366,7 +381,7 @@ describe('planBudgetWrites — empty is not zero', () => {
       budget({ id: 'b-1', categoryId: 'det-shop', amount: 120 }),
       budget({ id: 'b-2', categoryId: 'det-dining', amount: 60 }),
     ]);
-    const plan = planBudgetWrites(rows, { 'det-shop': '0', 'det-dining': '' }, 'monthly');
+    const plan = planBudgetWrites(rows, typedIn('monthly', { 'det-shop': '0', 'det-dining': '' }), 'monthly');
     expect(plan.upserts.map(u => u.categoryId)).toEqual(['det-shop']);
     expect(plan.upserts[0].amount.toString()).toBe('0');
     expect(plan.removals.map(r => r.categoryId)).toEqual(['det-dining']);
@@ -385,20 +400,20 @@ describe('planBudgetWrites — empty is not zero', () => {
 
 describe('planBudgetWrites — what counts as a change', () => {
   it('creates where there was nothing, carrying no budget id', () => {
-    const plan = planBudgetWrites(rowsFor(), { 'det-shop': '95' }, 'monthly');
+    const plan = planBudgetWrites(rowsFor(), typedIn('monthly', { 'det-shop': '95' }), 'monthly');
     expect(plan.upserts[0].budgetId).toBeUndefined();
     expect(plan.upserts[0].categoryId).toBe('det-shop');
   });
 
   it('edits where there was something, carrying its id', () => {
     const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 120 })]);
-    const plan = planBudgetWrites(rows, { 'det-shop': '95' }, 'monthly');
+    const plan = planBudgetWrites(rows, typedIn('monthly', { 'det-shop': '95' }), 'monthly');
     expect(plan.upserts[0].budgetId).toBe('b-1');
   });
 
   it('re-typing the figure already stored is not a write', () => {
     const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 120 })]);
-    const plan = planBudgetWrites(rows, { 'det-shop': '120' }, 'monthly');
+    const plan = planBudgetWrites(rows, typedIn('monthly', { 'det-shop': '120' }), 'monthly');
     expect(plan.upserts).toHaveLength(0);
     expect(plan.budgetedCount).toBe(1);
   });
@@ -407,32 +422,32 @@ describe('planBudgetWrites — what counts as a change', () => {
     // £1,200/yr pre-fills the monthly box as £100. Agreeing with it changes no
     // money, so its stored period is not churned into 'monthly'.
     const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 1200, period: 'yearly' })]);
-    const plan = planBudgetWrites(rows, { 'det-shop': '100' }, 'monthly');
+    const plan = planBudgetWrites(rows, typedIn('monthly', { 'det-shop': '100' }), 'monthly');
     expect(plan.upserts).toHaveLength(0);
     expect(plan.monthlyTotal.toString()).toBe('100');
   });
 
   it('rewrites in the chosen mode once the money really changes', () => {
     const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 1200, period: 'yearly' })]);
-    const plan = planBudgetWrites(rows, { 'det-shop': '110' }, 'monthly');
+    const plan = planBudgetWrites(rows, typedIn('monthly', { 'det-shop': '110' }), 'monthly');
     expect(plan.upserts[0]).toMatchObject({ budgetId: 'b-1', period: 'monthly' });
     expect(plan.upserts[0].amount.toString()).toBe('110');
   });
 
   it('writes an annual figure as yearly when that is the chosen mode', () => {
-    const plan = planBudgetWrites(rowsFor(), { 'det-shop': '1500' }, 'yearly');
+    const plan = planBudgetWrites(rowsFor(), typedIn('yearly', { 'det-shop': '1500' }), 'yearly');
     expect(plan.upserts[0].period).toBe('yearly');
     expect(plan.upserts[0].amount.toString()).toBe('1500');
     expect(plan.upserts[0].monthly.toString()).toBe('125');
   });
 
   it('reads a figure typed with a currency symbol and separators', () => {
-    const plan = planBudgetWrites(rowsFor(), { 'det-shop': ' £1,250.50 ' }, 'yearly');
+    const plan = planBudgetWrites(rowsFor(), typedIn('yearly', { 'det-shop': ' £1,250.50 ' }), 'yearly');
     expect(plan.upserts[0].amount.toString()).toBe('1250.5');
   });
 
   it('never guesses at a figure it cannot read — it reports the row', () => {
-    const plan = planBudgetWrites(rowsFor(), { 'det-shop': 'about a hundred' }, 'monthly');
+    const plan = planBudgetWrites(rowsFor(), typedIn('monthly', { 'det-shop': 'about a hundred' }), 'monthly');
     expect(plan.upserts).toHaveLength(0);
     expect(plan.rejections).toEqual([
       { categoryId: 'det-shop', categoryName: 'Food Shopping', raw: 'about a hundred' },
@@ -440,14 +455,14 @@ describe('planBudgetWrites — what counts as a change', () => {
   });
 
   it('refuses a negative budget rather than storing one', () => {
-    const plan = planBudgetWrites(rowsFor(), { 'det-shop': '-50' }, 'monthly');
+    const plan = planBudgetWrites(rowsFor(), typedIn('monthly', { 'det-shop': '-50' }), 'monthly');
     expect(plan.upserts).toHaveLength(0);
     expect(plan.rejections.map(r => r.categoryId)).toEqual(['det-shop']);
   });
 
   it('leaves a weekly budget alone: neither rewritten nor removed', () => {
     const rows = rowsFor([budget({ id: 'b-wk', categoryId: 'det-shop', amount: 30, period: 'weekly' })]);
-    const plan = planBudgetWrites(rows, { 'det-shop': '200' }, 'monthly');
+    const plan = planBudgetWrites(rows, typedIn('monthly', { 'det-shop': '200' }), 'monthly');
     expect(plan.upserts).toHaveLength(0);
     expect(plan.removals).toHaveLength(0);
     // Counted, because it will still be there afterwards.
@@ -459,7 +474,7 @@ describe('planBudgetWrites — the totals step 3 states', () => {
   it('totals the month, the year and what those categories really cost', () => {
     const plan = planBudgetWrites(
       rowsFor(),
-      { 'det-shop': '90', 'det-dining': '40' },
+      typedIn('monthly', { 'det-shop': '90', 'det-dining': '40' }),
       'monthly'
     );
     expect(plan.budgetedCount).toBe(2);
@@ -469,19 +484,19 @@ describe('planBudgetWrites — the totals step 3 states', () => {
   });
 
   it('names a shortfall: budgets that allow less than the year cost', () => {
-    const plan = planBudgetWrites(rowsFor(), { 'det-shop': '90' }, 'monthly');
+    const plan = planBudgetWrites(rowsFor(), typedIn('monthly', { 'det-shop': '90' }), 'monthly');
     expect(plan.difference.toString()).toBe('-120'); // 1080 budgeted vs 1200 spent
     expect(plan.difference.isNegative()).toBe(true);
   });
 
   it('names headroom: budgets that allow more than the year cost', () => {
-    const plan = planBudgetWrites(rowsFor(), { 'det-shop': '150' }, 'monthly');
+    const plan = planBudgetWrites(rowsFor(), typedIn('monthly', { 'det-shop': '150' }), 'monthly');
     expect(plan.difference.toString()).toBe('600'); // 1800 budgeted vs 1200 spent
   });
 
   it('counts budgets left untouched in the totals, not just the ones being written', () => {
     const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-energy', amount: 80 })]);
-    const plan = planBudgetWrites(rows, { 'det-shop': '100' }, 'monthly');
+    const plan = planBudgetWrites(rows, typedIn('monthly', { 'det-shop': '100' }), 'monthly');
     expect(plan.upserts).toHaveLength(1);
     expect(plan.budgetedCount).toBe(2);
     expect(plan.monthlyTotal.toString()).toBe('180');
@@ -492,7 +507,7 @@ describe('planBudgetWrites — the totals step 3 states', () => {
       budget({ id: 'b-1', categoryId: 'det-shop', amount: 100 }),
       budget({ id: 'b-2', categoryId: 'det-dining', amount: 50 }),
     ]);
-    const plan = planBudgetWrites(rows, { 'det-dining': '' }, 'monthly');
+    const plan = planBudgetWrites(rows, typedIn('monthly', { 'det-dining': '' }), 'monthly');
     expect(plan.budgetedCount).toBe(1);
     expect(plan.monthlyTotal.toString()).toBe('100');
     expect(plan.spentTotal.toString()).toBe('1200'); // Dining's £600 is not in it
@@ -517,14 +532,14 @@ describe('totalBudgeted — the running totals', () => {
   });
 
   it('adds the typed boxes, and says the year beside the month', () => {
-    const total = totalBudgeted(rowsFor(), { 'det-shop': '90', 'det-dining': '40.50' }, 'monthly');
+    const total = totalBudgeted(rowsFor(), typedIn('monthly', { 'det-shop': '90', 'det-dining': '40.50' }), 'monthly');
     expect(total.boxes).toBe(2);
     expect(total.typed.toString()).toBe('130.5');
     expect(total.twin.toString()).toBe('1566');
   });
 
   it('counts a typed nought — a budget of nothing is a budget', () => {
-    const total = totalBudgeted(rowsFor(), { 'det-shop': '0' }, 'monthly');
+    const total = totalBudgeted(rowsFor(), typedIn('monthly', { 'det-shop': '0' }), 'monthly');
     expect(total.boxes).toBe(1);
     expect(total.typed.toString()).toBe('0');
   });
@@ -532,7 +547,7 @@ describe('totalBudgeted — the running totals', () => {
   it('stops counting a box that was emptied', () => {
     const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 120 })]);
     expect(totalBudgeted(rows, {}, 'monthly').typed.toString()).toBe('120');
-    expect(totalBudgeted(rows, { 'det-shop': '' }, 'monthly').boxes).toBe(0);
+    expect(totalBudgeted(rows, typedIn('monthly', { 'det-shop': '' }), 'monthly').boxes).toBe(0);
   });
 
   it('counts a stored budget nobody has touched, in the mode being typed', () => {
@@ -548,7 +563,7 @@ describe('totalBudgeted — the running totals', () => {
   });
 
   it('leaves out a figure that will not read as money rather than guessing at it', () => {
-    const total = totalBudgeted(rowsFor(), { 'det-shop': 'about a hundred', 'det-dining': '40' }, 'monthly');
+    const total = totalBudgeted(rowsFor(), typedIn('monthly', { 'det-shop': 'about a hundred', 'det-dining': '40' }), 'monthly');
     expect(total.boxes).toBe(1);
     expect(total.typed.toString()).toBe('40');
   });
@@ -559,7 +574,7 @@ describe('totalBudgeted — the running totals', () => {
     // write is measured in.
     const total = totalBudgeted(
       rowsFor(),
-      { 'det-shop': '100', 'det-dining': '100', 'det-energy': '100' },
+      typedIn('yearly', { 'det-shop': '100', 'det-dining': '100', 'det-energy': '100' }),
       'yearly'
     );
     expect(total.typed.toString()).toBe('300');
@@ -568,7 +583,7 @@ describe('totalBudgeted — the running totals', () => {
 
   it('is the same sum over the groups as over the whole grid', () => {
     const rows = rowsFor();
-    const entries = { 'det-shop': '90', 'det-dining': '40.50', 'det-energy': '15' };
+    const entries = typedIn('monthly', { 'det-shop': '90', 'det-dining': '40.50', 'det-energy': '15' });
     const whole = totalBudgeted(rows, entries, 'monthly');
     const groups = groupWizardRows(rows).map(group => totalBudgeted(group.rows, entries, 'monthly'));
 
@@ -578,10 +593,84 @@ describe('totalBudgeted — the running totals', () => {
   });
 });
 
+/**
+ * A CHANGE OF RHYTHM CONVERTS WHAT WAS TYPED (owner, 2 Sep 2026: "Yes, it
+ * should convert").
+ *
+ * Before this, a figure typed as £90 a month read £90 A YEAR after a trip
+ * through step 1 — a considered decision turned into a twelfth of itself in
+ * one press, silently. What is pinned here is the conversion AND the property
+ * that makes it safe to do twice: it is taken from the figure that was
+ * actually typed, never from the last conversion of it, so turning the screen
+ * over and back is a lens rather than an edit and the original comes home
+ * exactly. £100 a year is the case that proves it — £8.33 a month is not a
+ * twelfth of anything that multiplies back to £100.
+ */
+describe('entryInMode — the rhythm converts, and round-trips', () => {
+  const entry = (value: string, typedAs: BudgetMode): { value: string; typedAs: BudgetMode } =>
+    ({ value, typedAs });
+
+  it('gives back the string untouched in the rhythm it was typed in', () => {
+    // Including the half-typed decimal point: a box re-spelled between
+    // keystrokes cannot be typed in at all.
+    expect(entryInMode(entry('12.', 'monthly'), 'monthly')).toBe('12.');
+  });
+
+  it('a month becomes its year, and a year its month, at two places', () => {
+    expect(entryInMode(entry('90', 'monthly'), 'yearly')).toBe('1080');
+    expect(entryInMode(entry('100', 'yearly'), 'monthly')).toBe('8.33');
+  });
+
+  it('ROUND-TRIPS: the original figure comes home, not a rounded one', () => {
+    // The entry is never rewritten, so both directions are one conversion from
+    // what was typed. Converting in place would leave £99.96 behind here.
+    const monthly = entry('90', 'monthly');
+    expect(entryInMode(monthly, 'yearly')).toBe('1080');
+    expect(entryInMode(monthly, 'monthly')).toBe('90');
+
+    const yearly = entry('100', 'yearly');
+    expect(entryInMode(yearly, 'monthly')).toBe('8.33');
+    expect(entryInMode(yearly, 'yearly')).toBe('100');
+  });
+
+  it('leaves an emptied box empty — that is a decision about the budget', () => {
+    expect(entryInMode(entry('', 'monthly'), 'yearly')).toBe('');
+  });
+
+  it('never converts a figure it cannot read as money', () => {
+    // Guessing at it once is already refused (step 3 names the row); guessing
+    // at it and then multiplying the guess by twelve is worse.
+    expect(entryInMode(entry('about a hundred', 'monthly'), 'yearly')).toBe('about a hundred');
+  });
+
+  it('carries the conversion into the totals and the write, not just the box', () => {
+    // £90 a month, read on a screen that has been switched to years: the box
+    // says £1,080, so the total says £1,080 and the budget written is £1,080 a
+    // year. A write of 90 as a YEAR would be the whole bug this ruling names.
+    const entries = typedIn('monthly', { 'det-shop': '90' });
+    expect(wizardBoxValue(rowFor(rowsFor(), 'det-shop'), entries, 'yearly')).toBe('1080');
+    expect(totalBudgeted(rowsFor(), entries, 'yearly').typed.toString()).toBe('1080');
+
+    const plan = planBudgetWrites(rowsFor(), entries, 'yearly');
+    expect(plan.upserts[0].amount.toString()).toBe('1080');
+    expect(plan.upserts[0].period).toBe('yearly');
+    expect(plan.upserts[0].monthly.toString()).toBe('90');
+  });
+
+  it('writes what the box SHOWS when the conversion had to round', () => {
+    // £100 a year seen in monthly mode is £8.33 in the box. The write is that
+    // £8.33 — the screen may not say one figure and store another, even when
+    // the truer one is four pence away.
+    const plan = planBudgetWrites(rowsFor(), typedIn('yearly', { 'det-shop': '100' }), 'monthly');
+    expect(plan.upserts[0].amount.toString()).toBe('8.33');
+    expect(plan.upserts[0].period).toBe('monthly');
+  });
+});
+
 describe('wizardBoxValue — what a box holds', () => {
   it('gives back what was typed, exactly as typed', () => {
     const rows = rowsFor();
-    expect(wizardBoxValue(rowFor(rows, 'det-shop'), { 'det-shop': '90.5' }, 'monthly')).toBe('90.5');
+    expect(wizardBoxValue(rowFor(rows, 'det-shop'), typedIn('monthly', { 'det-shop': '90.5' }), 'monthly')).toBe('90.5');
   });
 
   it('falls back to the stored budget, in the mode being typed', () => {

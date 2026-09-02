@@ -106,6 +106,17 @@ const chooseAnnually = (): void => {
   fireEvent.click(screen.getByRole('button', { name: /Budget annually/ }));
 };
 
+/** Change your mind about the rhythm: back to step 1 and out again. */
+const turnOver = (choose: () => void): void => {
+  fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+  choose();
+};
+
+/** Open the fold, where the categories with nothing in the window are. */
+const openFold = (): void => {
+  fireEvent.click(screen.getByRole('button', { name: /categories with nothing in this window/ }));
+};
+
 const boxFor = (name: string, rhythm: 'Monthly' | 'Yearly' = 'Monthly'): HTMLElement =>
   screen.getByLabelText(`${rhythm} budget for ${name}`);
 
@@ -116,6 +127,14 @@ const rowFor = (name: string): HTMLElement =>
 const groupRow = (name: string): HTMLElement =>
   screen.getByRole('rowheader', { name }).closest('tr') as HTMLElement;
 
+/**
+ * The same, where a parent may have TWO headings: one above with its rows that
+ * have spending in the window, one inside the fold with those that have none.
+ * In document order, so [0] is the live section and [1] is the fold.
+ */
+const groupRows = (name: string): HTMLElement[] =>
+  screen.getAllByRole('rowheader', { name }).map(heading => heading.closest('tr') as HTMLElement);
+
 /** Its three figure cells, in the grid's own order: what it cost, the total, the twin. */
 const groupCells = (name: string): HTMLElement[] => within(groupRow(name)).getAllByRole('cell');
 
@@ -125,8 +144,18 @@ const penceIn = (element: HTMLElement): number[] =>
     ([, pounds, pence]) => Number(pounds) * 100 + Number(pence)
   );
 
+/** What ONE heading row claims has been budgeted across it. */
+const budgetPenceOf = (row: HTMLElement): number =>
+  penceIn(within(row).getAllByRole('cell')[1])[0] ?? 0;
+
 /** What a group heading claims has been budgeted across it, in the rhythm being typed. */
-const groupBudgetPence = (name: string): number => penceIn(groupCells(name)[1])[0] ?? 0;
+const groupBudgetPence = (name: string): number => budgetPenceOf(groupRow(name));
+
+/** Every heading on the screen, added up — folded sections included. */
+const allGroupsPence = (): number =>
+  screen
+    .getAllByRole('rowheader')
+    .reduce((sum, heading) => sum + budgetPenceOf(heading.closest('tr') as HTMLElement), 0);
 
 /** What the scoreboard claims for the whole screen, in the same rhythm. */
 const scoreboardPence = (): number => penceIn(screen.getByText(/Budgeted so far/))[0] ?? 0;
@@ -414,17 +443,69 @@ describe('step 2 — the group heading is a row of the grid', () => {
     expect(groupCells('Food')[2]).toHaveTextContent('£130.50 a month');
   });
 
-  it('turns over with a change of rhythm, scoreboard and all', () => {
+  /**
+   * REWRITTEN 2 SEP 2026, AND DELIBERATELY.
+   *
+   * This test used to pin the opposite behaviour: a figure typed as £90 a
+   * month was READ as £90 a year after a change of rhythm, and the heading's
+   * twin duly said £7.50 a month. It was a faithful test of a wrong thing —
+   * a considered monthly decision turned into a twelfth of itself by one press
+   * of Back, without a word. The owner ruled on the behaviour rather than on
+   * the test ("Yes, it should convert"), so what is pinned now is the same
+   * money said the other way round.
+   */
+  it('converts what was typed when the rhythm changes, scoreboard and all', () => {
     renderWizard();
     chooseMonthly();
     fireEvent.change(boxFor('Food Shopping'), { target: { value: '90' } });
     expect(groupCells('Food')[2]).toHaveTextContent('£1080.00 a year');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    chooseAnnually();
-    // The same figure, read as a year now — so its twin is the month.
-    expect(groupCells('Food')[2]).toHaveTextContent('£7.50 a month');
+    turnOver(chooseAnnually);
+
+    // The money carries over, not the digits: £90 a month IS £1,080 a year.
+    expect(boxFor('Food Shopping', 'Yearly')).toHaveValue('1080');
+    expect(groupCells('Food')[1]).toHaveTextContent('£1080.00');
+    expect(groupCells('Food')[2]).toHaveTextContent('£90.00 a month');
     expect(groupBudgetPence('Food')).toBe(scoreboardPence());
+  });
+});
+
+/**
+ * A CHANGE OF RHYTHM IS A LENS, NOT AN EDIT (owner, 2 Sep 2026).
+ *
+ * The conversion itself is pinned above and in budgetWizardPlan.test.ts; what
+ * these two add is the property that makes it safe to do more than once —
+ * every conversion is made from the figure that was actually typed, never from
+ * the last conversion of it, so turning the screen over and back leaves the
+ * original in the box to the penny.
+ */
+describe('step 2 — turning the screen over and back', () => {
+  it('brings a monthly figure home unchanged', () => {
+    renderWizard();
+    chooseMonthly();
+    fireEvent.change(boxFor('Food Shopping'), { target: { value: '90' } });
+
+    turnOver(chooseAnnually);
+    expect(boxFor('Food Shopping', 'Yearly')).toHaveValue('1080');
+
+    turnOver(chooseMonthly);
+    expect(boxFor('Food Shopping')).toHaveValue('90');
+  });
+
+  it('…including one the conversion has to round: £100 a year is not £99.96', () => {
+    renderWizard();
+    chooseAnnually();
+    fireEvent.change(boxFor('Food Shopping', 'Yearly'), { target: { value: '100' } });
+
+    turnOver(chooseMonthly);
+    // A year of £100 is £8.33 a month — the rounded figure is what the box
+    // shows and therefore what a save would write.
+    expect(boxFor('Food Shopping')).toHaveValue('8.33');
+
+    turnOver(chooseAnnually);
+    // …but £8.33 × 12 is £99.96, so a box rewritten at each switch would lose
+    // fourpence for changing your mind twice. Nothing was rewritten.
+    expect(boxFor('Food Shopping', 'Yearly')).toHaveValue('100');
   });
 });
 
@@ -444,6 +525,74 @@ describe('step 2 — the fold names what it hides', () => {
     fireEvent.click(screen.getByRole('button', { name: /categories with nothing in this window/ }));
     expect(screen.getByText('Never Used')).toBeInTheDocument();
     expect(boxFor('Never Used')).toBeInTheDocument();
+  });
+
+  /**
+   * THE FOLD KEEPS ITS GROUPS (owner, 2 Sep 2026: "It needs to stay honest —
+   * group them under their parents").
+   *
+   * Folded rows used to be listed flat under no heading at all, so a budget
+   * typed into one counted on the scoreboard and in no group total — the
+   * headings and the strip above them stopped adding up the moment somebody
+   * opened the fold and typed. They are the same grid now: same headings, same
+   * arithmetic, one heading per parent PER SECTION so the two sections stay a
+   * partition of the rows rather than an overlap.
+   */
+  it('files the folded rows under their parents, as the list above does', () => {
+    renderWizard();
+    chooseMonthly();
+    openFold();
+
+    // 'Food' has two children with spending and two without, so it heads both
+    // sections — one heading per parent per section, each totalling its own.
+    const [live, folded] = groupRows('Food');
+    expect(within(live.closest('tbody') as HTMLElement)
+      .getByLabelText('Monthly budget for Food Shopping')).toBeInTheDocument();
+    const foldedBody = folded.closest('tbody') as HTMLElement;
+    expect(within(foldedBody).getByLabelText('Monthly budget for Never Used')).toBeInTheDocument();
+    expect(within(foldedBody).getByLabelText('Monthly budget for Also Never Used')).toBeInTheDocument();
+  });
+
+  it('says a folded group cost nothing rather than printing £0.00 at it', () => {
+    renderWizard();
+    chooseMonthly();
+    openFold();
+
+    // A zero renders nothing, on a heading as on its rows: £0.00 under "What
+    // it cost" would be a claim about the window rather than a gap in it.
+    const [, folded] = groupRows('Food');
+    const [cost, budget] = within(folded).getAllByRole('cell');
+    expect(cost).toHaveTextContent('Nothing in this window');
+    expect(budget).toBeEmptyDOMElement();
+  });
+
+  it('counts a budget typed down there in its parent, and on the scoreboard', () => {
+    renderWizard();
+    chooseMonthly();
+    openFold();
+    fireEvent.change(boxFor('Never Used'), { target: { value: '20' } });
+
+    const [live, folded] = groupRows('Food');
+    expect(budgetPenceOf(folded)).toBe(2000);
+    // …and only there: the section above did not move.
+    expect(budgetPenceOf(live)).toBe(0);
+    expect(scoreboardPence()).toBe(2000);
+  });
+
+  it('keeps every heading adding up to the scoreboard with the fold filled in', () => {
+    renderWizard([], TWO_GROUPS);
+    chooseMonthly();
+    openFold();
+    fireEvent.change(boxFor('Food Shopping'), { target: { value: '90' } });
+    fireEvent.change(boxFor('Train Fares'), { target: { value: '15' } });
+    fireEvent.change(boxFor('Never Used'), { target: { value: '20' } });
+
+    // Food £90 above, Travel £15, Food £20 inside the fold: three headings,
+    // no row counted twice, £125.00 on the strip.
+    expect(budgetPenceOf(groupRows('Food')[0])).toBe(9000);
+    expect(budgetPenceOf(groupRows('Food')[1])).toBe(2000);
+    expect(scoreboardPence()).toBe(12500);
+    expect(allGroupsPence()).toBe(scoreboardPence());
   });
 
   it('never folds a category that already has a budget, however quiet it is', () => {
@@ -553,6 +702,22 @@ describe('what it writes', () => {
     await waitFor(() => expect(addBudget).toHaveBeenCalledTimes(1));
     expect(addBudget).toHaveBeenCalledWith(expect.objectContaining({
       amount: 1500, period: 'yearly',
+    }));
+  });
+
+  it('writes the CONVERTED figure after a change of rhythm, not the digits typed', async () => {
+    // £90 typed as a month, saved on a screen switched to years. The box says
+    // £1,080 by then and the write has to agree with it: storing 90 as a YEAR
+    // would be a twelvefold error nobody could see coming (owner, 2 Sep 2026).
+    renderWizard();
+    chooseMonthly();
+    fireEvent.change(boxFor('Food Shopping'), { target: { value: '90' } });
+    turnOver(chooseAnnually);
+    reviewAndSave();
+
+    await waitFor(() => expect(addBudget).toHaveBeenCalledTimes(1));
+    expect(addBudget).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 1080, period: 'yearly',
     }));
   });
 

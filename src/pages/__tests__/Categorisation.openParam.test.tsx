@@ -107,8 +107,26 @@ const openAt = (address: string): void => {
 const filterListIsOpen = (): boolean =>
   screen.queryByLabelText('What to filter by, filter 1') !== null;
 
+/**
+ * jsdom has no `scrollIntoView` at all, and the arrival hook calls it
+ * optionally for exactly that reason — so it has to be supplied before it can
+ * be observed. The same instrument `RecategoriseSection.test.tsx` uses for
+ * `?refile=`, because the two paths are the same behaviour.
+ */
+const watchScrolling = (): ReturnType<typeof vi.fn> => {
+  const scrollIntoView = vi.fn();
+  Object.defineProperty(Element.prototype, 'scrollIntoView', {
+    configurable: true, writable: true, value: scrollIntoView,
+  });
+  return scrollIntoView;
+};
+
 beforeEach(() => vi.clearAllMocks());
-afterEach(() => { cleanup(); __resetAppContextValue(); });
+afterEach(() => {
+  cleanup();
+  __resetAppContextValue();
+  Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+});
 
 describe('Categorisation — the address opens the tool', () => {
   it('?open=transfers brings up the transfer sweep, and nothing else', () => {
@@ -137,6 +155,50 @@ describe('Categorisation — the address opens the tool', () => {
       .toHaveAttribute('aria-expanded', 'true');
     expect(screen.queryByTestId('transfer-sweep')).not.toBeInTheDocument();
     expect(screen.queryByTestId('payee-sweep')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * REVEALING IS NOT SHOWING (2 Sep 2026).
+ *
+ * `?open=file` revealed the list and left the reader at the top of the page,
+ * with three cards, a figures panel and — on a phone — most of a screen between
+ * them and the thing the link had opened. `?refile=dangling` on Manage →
+ * Categories had brought its section into view since the morning it shipped;
+ * these pin the same behaviour here, and the limits of it.
+ */
+describe('Categorisation — the revealed list brings itself into view', () => {
+  it('scrolls the filter-and-file list into view on arrival, once', () => {
+    const scrollIntoView = watchScrolling();
+
+    openAt('/categorisation?open=file');
+
+    expect(filterListIsOpen()).toBe(true);
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' });
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+
+  it('scrolls nothing when the reader reveals the list themselves', () => {
+    const scrollIntoView = watchScrolling();
+
+    openAt('/categorisation');
+    fireEvent.click(screen.getByRole('button', { name: /^Filter and file/ }));
+
+    // They are looking at the card they just pressed; dragging the page under
+    // somebody's finger is the opposite of helping.
+    expect(filterListIsOpen()).toBe(true);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('scrolls nothing for the addresses that open a dialog', () => {
+    // A modal arrives in front of the page and takes the focus with it — there
+    // is nothing below the fold to be sent to.
+    const scrollIntoView = watchScrolling();
+
+    openAt('/categorisation?open=transfers');
+
+    expect(screen.getByTestId('transfer-sweep')).toBeInTheDocument();
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 });
 

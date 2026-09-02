@@ -98,6 +98,21 @@ export default function Categorisation(): React.JSX.Element {
   const [filing, setFiling] = useState(
     () => searchParams.get(OPEN_PARAM) === OPEN_FILE_LIST
   );
+  /**
+   * …and the same arrival as a TOKEN, because revealing that list is not the
+   * same as showing it: it sits below three cards and a panel of figures, so a
+   * link that opened it and left the reader at the top of the page has answered
+   * with something they cannot see. `?refile=dangling` on Manage → Categories
+   * has brought its section into view since the morning it shipped; this is
+   * that behaviour, for the address that reveals rather than opens.
+   *
+   * Read ONCE here like its three neighbours, which is what keeps it an arrival:
+   * pressing the card yourself scrolls nothing, because you are already looking
+   * at the control you pressed.
+   */
+  const [fileArrival] = useState<string | null>(
+    () => (searchParams.get(OPEN_PARAM) === OPEN_FILE_LIST ? OPEN_FILE_LIST : null)
+  );
   /** Which group button is mid-confirm, so it alone can say so. */
   const [confirmingCategoryId, setConfirmingCategoryId] = useState<string | null>(null);
 
@@ -425,6 +440,7 @@ export default function Categorisation(): React.JSX.Element {
         open={filing}
         onHide={() => setFiling(false)}
         splitLines={splitLinesOutstanding}
+        arrival={fileArrival}
       />
 
       {/* Which accounts the work is actually in — the same "pick one and
