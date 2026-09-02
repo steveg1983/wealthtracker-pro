@@ -41,6 +41,18 @@ constraint triggers, `ON COMMIT DELETE ROWS` and `pg_trigger_depth()` all behave
 differently from any mock of them, so the answer is only worth having from
 PostgreSQL itself.
 
+`erasure.test.sql` and `identity.test.sql` are the fourth and fifth, and both
+turn on who a session is at the moment a trigger fires. The first proves that
+`DELETE FROM public.users` completes for somebody holding a bank-fed
+transaction — under their own JWT and under the service role the API uses —
+while a live user's deletion still leaves its tombstone
+(`20260902140000_an_erased_owner_needs_no_tombstone.sql`). The second proves
+`requesting_clerk_id()` answers "nobody" rather than raising when the claims GUC
+holds the empty string a transaction-local setting leaves behind
+(`20260902150000_an_empty_claim_is_no_claim.sql`). Each reinstalls the
+superseded body inside a transaction it rolls back and watches the old failure
+happen, so neither can pass vacuously.
+
 ## Caveats, so the harness is not mistaken for the real thing
 
 - **Supabase's `auth` schema is stubbed.** `auth.uid()`, `auth.role()` and

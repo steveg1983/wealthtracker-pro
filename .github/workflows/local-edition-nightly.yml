@@ -29,7 +29,7 @@
 # did not exist until now. What HAS been done is the equivalent locally: a
 # from-scratch cluster (`WT_PGDATA=/tmp/wtpg-ci`, a different port, initdb up)
 # applied the entire migration history with zero failures, and both lanes were
-# 67/67 and 474/474 against it. The two things that can still surprise this
+# 67/67 and 501/501 against it. The two things that can still surprise this
 # workflow are Linux-specific and named where they occur: where Debian keeps
 # initdb, and Tauri's -dev packages.
 
@@ -92,8 +92,8 @@ jobs:
           restore-keys: cargo-local-core-${{ runner.os }}-
 
       # The verb lane drives the real Rust command layer against the real
-      # Postgres RPC. Release for the same reason as the PR job: 474 specs is
-      # 474 process spawns.
+      # Postgres RPC. Release for the same reason as the PR job: 501 specs is
+      # 501 process spawns.
       - name: Build the ledger bridge
         run: cargo build --manifest-path crates/Cargo.toml --features cli --release
 
@@ -115,14 +115,18 @@ jobs:
       - name: Constraint parity (67 specs)
         run: npm run test:local-sqlite
 
-      - name: Verb parity (474 specs)
+      - name: Verb parity (501 specs)
         run: npm run test:local-verbs
 
-      # NOT RUN HERE, and this is the note that stops it being re-added by
-      # accident: `bash scripts/local-db/test.sh` greps psql output and ends
-      # with a hardcoded `exit 0`. It cannot fail, so putting it in a gate would
-      # add a green tick that means nothing. Give it a real exit code first.
-
+      # THE SQL HARNESS RUNS HERE NOW (2 Sep 2026). Until 0b3629eb,
+      # `bash scripts/local-db/test.sh` greped psql output and ended with a
+      # hardcoded `exit 0`: it could not fail, so it was kept out of every
+      # gate on purpose. That commit made psql's status survive, so an aborted
+      # test file fails the step. Five proof files run here — the two restore
+      # tests, the audit triggers, erasure, and identity — each against the
+      # cluster the differential lanes just used.
+      - name: SQL proofs (scripts/local-db/*.test.sql)
+        run: bash scripts/local-db/test.sh
       - name: Tear down the cluster
         if: always()
         run: bash scripts/local-db/down.sh
