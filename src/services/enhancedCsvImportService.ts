@@ -14,7 +14,6 @@ import {
   type CsvDateFormatChoice,
   type DateFormatSample
 } from '../utils/csvDateFormat';
-import { compareText } from '../utils/localeFormat';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -2280,7 +2279,12 @@ export class EnhancedCsvImportService {
     return [...BANK_TEMPLATES].sort((a, b) => {
       const byRegion =
         BANK_TEMPLATE_REGIONS.indexOf(a.region) - BANK_TEMPLATE_REGIONS.indexOf(b.region);
-      return byRegion !== 0 ? byRegion : compareText(a.label, b.label);
+      // A codepoint tie-break, not the locale helper: this service is on the
+      // admission-parity lane, bundled bare against the Rust port, which sorts
+      // strings by their bytes and has no Region setting to consult. Reaching
+      // for compareText here dragged the preferences store into that bundle
+      // (2 Sep 2026); a preference-free order is the only one both sides share.
+      return byRegion !== 0 ? byRegion : (a.label < b.label ? -1 : a.label > b.label ? 1 : 0);
     });
   }
 
