@@ -142,7 +142,7 @@
     "src/services/userIdService.ts": {"status":"pending","ids":["#117","X-6"],"cited_by":["AUDIT3","DESIGN"]},
     "src/services/validationService.ts": {"status":"pending","ids":["#61","#131","TS-I11","TS-M1"],"cited_by":["AUDIT3"]},
     "src/utils/accessibility-testing.ts": {"status":"pending"},
-    "src/utils/accessibility.ts": {"status":"pending"},
+    "src/utils/accessibility.ts": {"status":"out-of-scope","reason":"deleted: 2 Sep 2026 - the file had no importer anywhere in src, and neither did any of its nine exports (announceToScreenReader through createSkipLinkProps). Discovery caught it for getAriaLabelForCurrency, which spoke an amount to a screen reader no component ever called it for. The manifest keeps the entry because the manifest is not allowed to forget a file."},
     "src/utils/accountBalanceReport.ts": {"status":"pending","ids":["B-1"],"cited_by":["AUDIT3"]},
     "src/utils/accountBalances.ts": {"status":"pending"},
     "src/utils/accountGrouping.ts": {"status":"pending","cited_by":["AUDIT3"]},

@@ -73,12 +73,42 @@
  * the Budget page, and is in NEITHER list: never rewritten, never removed.
  * Refusing loudly beats converting quietly.
  *
+ * ── A CHANGE OF RHYTHM CONVERTS WHAT WAS TYPED ─────────────────────────────
+ * The owner, 2 Sep 2026, asked whether switching months for years should carry
+ * the figures over: "Yes, it should convert." So typing £90 a month, going
+ * back and choosing annually leaves £1,080 in the box — the same money said
+ * the other way — rather than £90, which would turn a considered monthly
+ * decision into a twelfth of itself without a word.
+ *
+ * HOW, and the choice is the whole of it: an entry holds THE STRING AS TYPED
+ * together with the rhythm it was typed in, and every read converts from that
+ * original (`entryInMode`). The alternative — converting the stored string in
+ * place at each switch — cannot round-trip, and the counter-example is small
+ * enough to be certain about: £100 a year is £8.33 a month, and £8.33 a month
+ * is £99.96 a year. Two presses of Back would cost fourpence and twenty would
+ * cost real money. Converting from the ORIGINAL each time makes a switch a
+ * LENS RATHER THAN AN EDIT: 100 → 8.33 → 100, exactly, however often it is
+ * turned over, because nothing anybody typed was ever overwritten.
+ *
+ * It also keeps the box typeable. A value canonicalised on every keystroke
+ * would re-spell "12." as "12" while somebody was still on their way to 12.50.
+ *
+ * What is NOT converted: an empty box (emptied is emptied, in either rhythm)
+ * and a figure that will not read as money — that one is shown exactly as
+ * typed and reported by name in step 3, because converting a guess is guessing
+ * twice.
+ *
  * ── MONEY IS DECIMAL FROM END TO END ───────────────────────────────────────
  * Every figure in and out of this module is a Decimal. The typed string is
  * parsed by `parseMoneyInput` (the app's money parser: pennies, ROUND_HALF_UP,
  * and null for anything that is not a plain number) and is a Decimal from that
  * point on. The twin — ×12 or ÷12 — is Decimal arithmetic quantised to two
- * places, so £1,000/yr reads £83.33/mo rather than 83.33333333333333.
+ * places, so £1,000/yr reads £83.33/mo rather than 83.33333333333333. A
+ * converted entry is rounded by exactly that twin, so the box shows a sum
+ * somebody can hold and every figure derived from it — the row's twin, the
+ * group total, the scoreboard, the write — reads the box's own string rather
+ * than a fuller one kept out of sight. The screen cannot show 8.33 and write
+ * 8.3333.
  */
 
 import { toDecimal, parseMoneyInput, type DecimalInstance } from './decimal';
@@ -374,13 +404,46 @@ export function groupWizardRows(rows: WizardRow[]): WizardGroup[] {
 }
 
 /**
+ * One box somebody has typed in: the string exactly as they typed it, and the
+ * rhythm the screen was in at the time.
+ *
+ * BOTH HALVES ARE LOAD-BEARING. The string is kept unaltered so a box can be
+ * typed in at all (a figure re-spelled between keystrokes cannot be); the
+ * rhythm is kept so a later switch converts from what was meant rather than
+ * from a figure some earlier switch already rounded. See the header.
+ */
+export interface WizardEntry {
+  readonly value: string;
+  readonly typedAs: BudgetMode;
+}
+
+/**
  * What the user has typed, by category id.
  *
  * ABSENT   the box has not been touched — leave the world as it is.
  * ''       emptied — unbudgeted, and REMOVE any budget that was there.
  * '0'      a deliberate zero, which is a budget and is written.
  */
-export type WizardEntries = Readonly<Record<string, string | undefined>>;
+export type WizardEntries = Readonly<Record<string, WizardEntry | undefined>>;
+
+/**
+ * A typed entry as the rhythm now being typed reads it — the conversion the
+ * owner ruled on, 2 Sep 2026, in the one place every reader goes through.
+ *
+ * Same rhythm: the string back, untouched, including its half-typed decimal
+ * point. Otherwise the twin, rounded to the penny exactly as the row's twin is
+ * rounded, so what the box says and what the wizard writes are one figure.
+ *
+ * Two strings pass through unconverted, and neither is an oversight: an empty
+ * box (emptied is a decision about the budget, not about the rhythm) and one
+ * that will not read as money (never guessed at — step 3 names it instead).
+ */
+export function entryInMode(entry: WizardEntry, mode: BudgetMode): string {
+  if (entry.typedAs === mode || entry.value.trim() === '') return entry.value;
+  const parsed = parseMoneyInput(entry.value);
+  if (parsed === null) return entry.value;
+  return boxFigure(twinFigure(parsed, entry.typedAs));
+}
 
 /**
  * What a box actually holds: what was typed, else what is stored, else empty.
@@ -393,7 +456,7 @@ export type WizardEntries = Readonly<Record<string, string | undefined>>;
  */
 export function wizardBoxValue(row: WizardRow, entries: WizardEntries, mode: BudgetMode): string {
   const typed = entries[row.category.id];
-  if (typed !== undefined) return typed;
+  if (typed !== undefined) return entryInMode(typed, mode);
   if (row.existing === null || row.existing.period === null) return '';
   return boxFigure(amountInMode(row.existing.amount, row.existing.period, mode));
 }
@@ -535,7 +598,16 @@ export function planBudgetWrites(
   };
 
   for (const row of rows) {
-    const raw = entries[row.category.id];
+    const entry = entries[row.category.id];
+    /**
+     * THE FIGURE AS THE BOX SHOWS IT, never the string as it was typed: a
+     * £100-a-year entry looked at in monthly mode is the £8.33 on screen, and
+     * writing 100 as a MONTHLY budget because that is what the keystrokes said
+     * would be a twelvefold error nobody could see coming. `entryInMode` is
+     * the same conversion `wizardBoxValue` draws with, so the confirmation,
+     * the totals and the write are one figure. See the header.
+     */
+    const raw = entry === undefined ? undefined : entryInMode(entry, mode);
     const existing = row.existing;
 
     // A stored period the wizard cannot express: untouchable, but real, and

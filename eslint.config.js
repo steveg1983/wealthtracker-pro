@@ -30,7 +30,8 @@ const PORT_INDEX_MESSAGE =
   'docs/edition-gating.md.'
 
 /**
- * The six seams the mount slice added beside `@data`, as their specifiers.
+ * Every seam beside `@data`, as their specifiers — the mount slice's six and
+ * the two that followed a ruling each.
  *
  * They are listed once and used twice — banned in desktop-only code (which
  * names the device half outright, for the reason `@data` does) and required of
@@ -48,7 +49,11 @@ const EDITION_SEAMS = [
   // about WEIGHT rather than about the cloud: both halves are perfectly local,
   // and the difference between them is 488 KiB of SheetJS that a desktop binary
   // would embed for a button the owner has ruled it does not have.
-  '@spreadsheet'
+  '@spreadsheet',
+  // Listed 2 Sep 2026, having been a seam since 28 August: `@rules-store` was
+  // declared everywhere a build reads (six configs and the admission harness)
+  // and nowhere lint looks, so this one rule alone did not know it existed.
+  '@rules-store'
 ]
 
 /**
@@ -67,8 +72,8 @@ const CLOUD_EDITION_MESSAGE =
   'Importing it by path picks an edition on behalf of every ' +
   'edition, exactly as importing `services/port` by path does, and the damage appears on the day ' +
   'the importing component is mounted in a window. Import the specifier instead (`@chrome`, ' +
-  '`@identity`, `@prefs-store`, `@telemetry`, `@session`, `@service`, `@spreadsheet`) and let ' +
-  'the build choose. See docs/edition-gating.md.'
+  '`@identity`, `@prefs-store`, `@telemetry`, `@session`, `@service`, `@spreadsheet`, ' +
+  '`@rules-store`) and let the build choose. See docs/edition-gating.md.'
 
 /**
  * What a desktop-reachable module may not import, whatever it is.

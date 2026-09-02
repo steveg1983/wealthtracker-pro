@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import FilterAndFileList, { type FilterAndFileCopy } from './FilterAndFileList';
+import { useArrivalRowFocus } from '../hooks/useArrivalFocus';
 import { awaitsFiling } from '../utils/transactionReview';
 
 /**
@@ -89,49 +90,73 @@ interface FileOutstandingSectionProps {
    * cannot file — see the note at the top. Zero says nothing at all.
    */
   splitLines: number;
+  /**
+   * Non-null when the PAGE WAS OPENED at this list (`?open=file`), in which
+   * case it brings itself into view. Null on an ordinary visit, including one
+   * where the reader presses the card themselves — they are already looking at
+   * the control they just pressed, and dragging the page under somebody's
+   * finger is the opposite of helping.
+   *
+   * A token rather than a boolean because the arrival hook keys on one: it
+   * scrolls once per request and never again, however often this re-renders.
+   */
+  arrival?: string | null;
 }
 
 export default function FileOutstandingSection({
   open,
   onHide,
   splitLines,
+  arrival = null,
 }: FileOutstandingSectionProps): React.JSX.Element {
+  /**
+   * REVEALING IS NOT SHOWING. This list sits below three cards, a figures
+   * panel and, on a phone, most of a screen's worth of them — so a link that
+   * opened it and left the reader at the top of the page has answered with
+   * something they cannot see. The same arrival hook `RecategoriseSection` uses
+   * for `?refile=`, so being sent somewhere behaves identically wherever the
+   * link came from: once per request, and never dragging the view back after.
+   */
+  const { focusRef } = useArrivalRowFocus(arrival);
+
   return (
-    <FilterAndFileList
-      open={open}
-      population={awaitsFiling}
-      copy={FILING_FOR_THE_FIRST_TIME}
-      className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 p-4"
-      header={
-        <>
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-              Filter and file
-            </h2>
-            <button
-              type="button"
-              onClick={onHide}
-              className="ml-auto px-3 py-2 min-h-[44px] sm:min-h-0 sm:py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              Hide
-            </button>
-          </div>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Everything still waiting: rows with no category, and rows the app filled in that
-            nobody has agreed with yet. Filing one here ends its review.
-          </p>
-          {/* The shortfall between the count above and what this list can
-              show, named rather than left to be noticed (house rule). */}
-          {splitLines > 0 && (
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {splitLines.toLocaleString()} of those{' '}
-              {splitLines === 1 ? 'is a line inside a split' : 'are lines inside splits'} and{' '}
-              {splitLines === 1 ? 'is' : 'are'} not listed here — a split line is filed inside its
-              parent, from the register.
+    <div ref={focusRef}>
+      <FilterAndFileList
+        open={open}
+        population={awaitsFiling}
+        copy={FILING_FOR_THE_FIRST_TIME}
+        className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 p-4"
+        header={
+          <>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                Filter and file
+              </h2>
+              <button
+                type="button"
+                onClick={onHide}
+                className="ml-auto px-3 py-2 min-h-[44px] sm:min-h-0 sm:py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                Hide
+              </button>
+            </div>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              Everything still waiting: rows with no category, and rows the app filled in that
+              nobody has agreed with yet. Filing one here ends its review.
             </p>
-          )}
-        </>
-      }
-    />
+            {/* The shortfall between the count above and what this list can
+                show, named rather than left to be noticed (house rule). */}
+            {splitLines > 0 && (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {splitLines.toLocaleString()} of those{' '}
+                {splitLines === 1 ? 'is a line inside a split' : 'are lines inside splits'} and{' '}
+                {splitLines === 1 ? 'is' : 'are'} not listed here — a split line is filed inside its
+                parent, from the register.
+              </p>
+            )}
+          </>
+        }
+      />
+    </div>
   );
 }

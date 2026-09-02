@@ -85,7 +85,7 @@ export const accountSchema = z.object({
     .optional(),
   isActive: z.boolean().default(true),
   color: z.string()
-    .regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a valid hex code')
+    .regex(/^#[0-9A-Fa-f]{6}$/, 'Colour must be a valid hex code')
     .optional(),
   notes: z.string()
     .max(1000, 'Notes must be less than 1000 characters')
@@ -156,7 +156,7 @@ export const categorySchema = z.object({
     .transform(val => val.trim()),
   type: z.enum(['income', 'expense', 'both']),
   color: z.string()
-    .regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a valid hex code')
+    .regex(/^#[0-9A-Fa-f]{6}$/, 'Colour must be a valid hex code')
     .optional(),
   icon: z.string()
     .max(50, 'Icon name must be less than 50 characters')
@@ -174,7 +174,7 @@ export const tagSchema = z.object({
     .max(30, 'Tag name must be less than 30 characters')
     .transform(val => val.trim().toLowerCase()),
   color: z.string()
-    .regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a valid hex code')
+    .regex(/^#[0-9A-Fa-f]{6}$/, 'Colour must be a valid hex code')
     .optional()
 });
 

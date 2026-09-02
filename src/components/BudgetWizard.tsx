@@ -15,6 +15,7 @@ import {
   twinFigure,
   wizardBoxValue,
   type BudgetMode,
+  type WizardEntry,
   type WizardGroup,
   type WizardRow,
   type WizardWindowKind,
@@ -42,7 +43,9 @@ import { parseMoneyInput, toDecimal, type DecimalInstance } from '../utils/decim
  *      because a page mixing £500-a-month rows with £6,000-a-year rows cannot
  *      be totalled or compared — and totalling is most of what step 3 is for.
  *      It chooses only which column takes TYPING; both figures are always
- *      shown on every row.
+ *      shown on every row, and changing your mind CONVERTS what you have
+ *      already typed rather than re-reading it (owner, 2 Sep 2026: "Yes, it
+ *      should convert") — see `chooseMode` and utils/budgetWizardPlan.
  *   2. THE GRID. Evidence beside every box: what that category really cost
  *      over twelve complete months, as a year and as a month.
  *   3. WHAT WILL HAPPEN. The totals, the shortfall or headroom in words, and
@@ -128,8 +131,14 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
    * What is in each box, by category id. ABSENT means untouched — which is a
    * different instruction from '' (emptied), and the difference is the whole
    * empty-versus-zero ruling. See utils/budgetWizardPlan.
+   *
+   * Each one carries the rhythm it was typed in, because a change of rhythm
+   * CONVERTS what is in the boxes (owner, 2 Sep 2026) and converting from the
+   * original figure every time is the only way that round-trips: £100 a year
+   * shows as £8.33 a month and is £100 a year again on the way back, rather
+   * than the £99.96 a converted-in-place figure would have become.
    */
-  const [entries, setEntries] = useState<Record<string, string | undefined>>({});
+  const [entries, setEntries] = useState<Record<string, WizardEntry | undefined>>({});
   const [showQuiet, setShowQuiet] = useState(false);
   const [applying, setApplying] = useState(false);
 
@@ -170,6 +179,26 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
   }, [rows]);
 
   const groups = useMemo(() => groupWizardRows(active), [active]);
+  /**
+   * THE FOLD KEEPS ITS GROUPS (owner, 2 Sep 2026: "It needs to stay honest —
+   * group them under their parents").
+   *
+   * Folded rows used to be listed flat, under no heading at all, so a budget
+   * typed into one counted on the scoreboard and in NO group total: the sum of
+   * the headings and the strip above them stopped agreeing the moment somebody
+   * opened the fold and typed. Grouped the same way, by the same function, the
+   * two sections are a partition of the same rows and the identity holds again.
+   *
+   * ONE HEADING PER PARENT PER SECTION, and that is the deliberate choice. A
+   * parent with some children in the window and some not appears twice — once
+   * above with its live rows, once inside the fold with its quiet ones — each
+   * heading totalling only the boxes beneath it. The alternative, a single
+   * merged heading, would either count boxes that are not under it (the totals
+   * would double up across the two sections and stop adding to the scoreboard)
+   * or print a total next to rows it does not cover. Two honest headings beat
+   * one that has to be explained.
+   */
+  const quietGroups = useMemo(() => groupWizardRows(quiet), [quiet]);
   const plan = useMemo(() => planBudgetWrites(rows, entries, mode), [rows, entries, mode]);
 
   /**
@@ -180,8 +209,9 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
    */
   const valueFor = (row: WizardRow): string => wizardBoxValue(row, entries, mode);
 
+  /** A box takes what was typed AND the rhythm it was typed in — see `entries`. */
   const setValue = (categoryId: string, value: string): void =>
-    setEntries(previous => ({ ...previous, [categoryId]: value }));
+    setEntries(previous => ({ ...previous, [categoryId]: { value, typedAs: mode } }));
 
   /**
    * THE RUNNING SCOREBOARD — total spent and total budgeted so far, alive as
@@ -213,7 +243,7 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
       for (const row of rows) {
         if (row.annual.isZero()) continue;
         if (row.existing !== null && row.existing.period === null) continue;
-        next[row.category.id] = boxFigure(historyIn(row));
+        next[row.category.id] = { value: boxFigure(historyIn(row)), typedAs: mode };
       }
       return next;
     });
@@ -234,6 +264,14 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
     onClose();
   };
 
+  /**
+   * The rhythm, chosen or changed — and NOTHING ELSE IS TOUCHED, which is what
+   * makes the conversion honest (owner, 2 Sep 2026: "Yes, it should convert").
+   * Every box converts on the way to the screen, from the figure and rhythm
+   * that were actually typed, so £90 a month reads £1,080 a year here and £90
+   * a month again on the way back. Rewriting the entries at each switch would
+   * round them once per press, and £100 a year would come home as £99.96.
+   */
   const chooseMode = (chosen: BudgetMode): void => {
     setMode(chosen);
     setStep('grid');
@@ -664,23 +702,36 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
               saying how many is how a screen quietly stops being the whole
               list (house data-health rule: name what is hidden). */}
           {quiet.length > 0 && (
-            <tbody className="block sm:table-row-group">
-              <tr className="block sm:table-row">
-                <td colSpan={4} className="block sm:table-cell pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowQuiet(open => !open)}
-                    aria-expanded={showQuiet}
-                    className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 hover:underline rounded min-h-[44px]"
-                  >
-                    {showQuiet ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
-                    {quiet.length} categor{quiet.length === 1 ? 'y' : 'ies'} with nothing in this
-                    window
-                  </button>
-                </td>
-              </tr>
-              {showQuiet && quiet.map(renderRow)}
-            </tbody>
+            <>
+              <tbody className="block sm:table-row-group">
+                <tr className="block sm:table-row">
+                  <td colSpan={4} className="block sm:table-cell pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowQuiet(open => !open)}
+                      aria-expanded={showQuiet}
+                      className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 hover:underline rounded min-h-[44px]"
+                    >
+                      {showQuiet ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
+                      {quiet.length} categor{quiet.length === 1 ? 'y' : 'ies'} with nothing in this
+                      window
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+              {/* …and opened, they are the SAME GRID: filed under their parents,
+                  with the same heading row the section above draws, so a budget
+                  typed down here lands in a group total instead of only on the
+                  scoreboard (owner, 2 Sep 2026). A parent whose other children
+                  are up there gets a heading in both places — see `quietGroups`
+                  for why that is the honest arrangement rather than a merge. */}
+              {showQuiet && quietGroups.map(group => (
+                <tbody key={`quiet-${group.id || 'ungrouped'}`} className="block sm:table-row-group">
+                  {renderGroupHeading(group)}
+                  {group.rows.map(renderRow)}
+                </tbody>
+              ))}
+            </>
           )}
         </table>
       </div>
