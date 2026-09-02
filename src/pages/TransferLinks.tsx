@@ -7,6 +7,7 @@ import { toDecimal } from '../utils/decimal';
 import { buildCategoryKindLookup, classifyFlow } from '../utils/incomeExpense';
 import { transferCategoryAccounts } from '../utils/portfolioSummary';
 import TransferSweepModal from '../components/TransferSweepModal';
+import { formatCount } from '../utils/localeFormat';
 
 /**
  * Transfer Links — the audit-trail chore, as its own Manage page.
@@ -90,7 +91,7 @@ export default function TransferLinks(): React.JSX.Element {
           ) : (
             <>
               <p className="text-body text-gray-900 dark:text-white">
-                <span className="font-bold tabular-nums">{survey.unlinked.toLocaleString()}</span>
+                <span className="font-bold tabular-nums">{formatCount(survey.unlinked)}</span>
                 {' '}transfer {survey.unlinked === 1 ? 'leg has' : 'legs have'} no linked other side
                 — {formatCurrency(survey.magnitude)} of movement resting on the
                 outside-money assumption.
@@ -98,13 +99,13 @@ export default function TransferLinks(): React.JSX.Element {
               <ul className="mt-2 space-y-1 text-dense text-gray-500 dark:text-gray-400">
                 {survey.hinted > 0 && (
                   <li>
-                    {survey.hinted.toLocaleString()} name the account they moved to or from —
+                    {formatCount(survey.hinted)} name the account they moved to or from —
                     the sweep can hunt their other sides there first.
                   </li>
                 )}
                 {survey.onClosed > 0 && (
                   <li>
-                    {survey.onClosed.toLocaleString()} sit in closed accounts — read, matched
+                    {formatCount(survey.onClosed)} sit in closed accounts — read, matched
                     and linkable like any other.
                   </li>
                 )}

@@ -17,6 +17,7 @@ import {
 } from './crossCurrencyMatch';
 import type { CrossCurrency } from './crossCurrencyTransfer';
 import type { Account, Category, Transaction, TransactionSplit } from '../types';
+import { compareText } from './localeFormat';
 
 /**
  * Stranded transfers — the residue the clean sweep cannot touch.
@@ -279,7 +280,7 @@ export function findStrandedTransfers(
 
   // Deterministic order: oldest first, so a re-run lists identically.
   findings.sort(
-    (a, b) => timeOf(a.row.date) - timeOf(b.row.date) || a.row.id.localeCompare(b.row.id)
+    (a, b) => timeOf(a.row.date) - timeOf(b.row.date) || compareText(a.row.id, b.row.id)
   );
 
   return { findings, scanned: population.length };
@@ -301,7 +302,7 @@ function duplicateFindingFor(
     .filter(t => t.id !== row.id)
     .map(t => ({ transaction: t, descriptionScore: calculateStringSimilarity(row.description, t.description) }))
     .filter(c => c.descriptionScore >= DUPLICATE_DESCRIPTION_SIMILARITY)
-    .sort((a, b) => b.descriptionScore - a.descriptionScore || a.transaction.id.localeCompare(b.transaction.id));
+    .sort((a, b) => b.descriptionScore - a.descriptionScore || compareText(a.transaction.id, b.transaction.id));
 
   const best = candidates[0];
   if (!best) return null;
@@ -363,7 +364,7 @@ function claimedTwinFindingFor(
     (a, b) =>
       a.daysApart - b.daysApart ||
       b.descriptionScore - a.descriptionScore ||
-      a.counterpart.id.localeCompare(b.counterpart.id)
+      compareText(a.counterpart.id, b.counterpart.id)
   );
   return candidates[0] ?? null;
 }
@@ -421,7 +422,7 @@ function categorisedTwinFindingFor(
     (a, b) =>
       a.daysApart - b.daysApart ||
       b.descriptionScore - a.descriptionScore ||
-      a.counterpart.id.localeCompare(b.counterpart.id)
+      compareText(a.counterpart.id, b.counterpart.id)
   );
   if (candidates[0]) return candidates[0];
 
@@ -531,7 +532,7 @@ function crossCurrencyTwinFor(
 
   candidates.sort(
     (a, b) =>
-      compareCrossCurrencyCandidates(a, b) || a.counterpart.id.localeCompare(b.counterpart.id)
+      compareCrossCurrencyCandidates(a, b) || compareText(a.counterpart.id, b.counterpart.id)
   );
 
   const best = candidates[0];
@@ -690,7 +691,7 @@ export function findUnmatchedSplitLegs(
     const opposites = (byAccountAmount.get(`${leg.target}|${-pennies(leg.split.amount)}`) ?? [])
       .map(t => ({ transaction: t, daysApart: Math.abs(timeOf(t.date) - leg.time) / DAY_MS }))
       .filter(c => c.daysApart <= windowDays)
-      .sort((a, b) => a.daysApart - b.daysApart || a.transaction.id.localeCompare(b.transaction.id));
+      .sort((a, b) => a.daysApart - b.daysApart || compareText(a.transaction.id, b.transaction.id));
 
     const blocker = opposites[0]?.transaction;
     if (!blocker) {

@@ -5,6 +5,7 @@ import {
   payeeLineDismissalKey,
   payeeMerchantDismissalKey,
 } from './suggestionDismissals';
+import { compareNames, compareText } from './localeFormat';
 
 /**
  * The pure half of the Payee cleanup screen: count the distinct payees a
@@ -198,7 +199,7 @@ export function summarisePayees(transactions: Transaction[]): PayeeSummary[] {
     (a, b) =>
       b.count - a.count ||
       b.total - a.total ||
-      a.description.localeCompare(b.description, undefined, { sensitivity: 'base' })
+      compareNames(a.description, b.description)
   );
   return summaries;
 }
@@ -231,8 +232,8 @@ export function isPayeeSortField(value: string): value is PayeeSortField {
  * would shuffle every time the arrow was clicked.
  */
 const BY_NAME_THEN_EXACTLY = (a: PayeeSummary, b: PayeeSummary): number =>
-  a.description.localeCompare(b.description, undefined, { sensitivity: 'base' }) ||
-  a.description.localeCompare(b.description);
+  compareNames(a.description, b.description) ||
+  compareText(a.description, b.description);
 
 interface PayeeColumnOrder {
   /** True when this payee has no value in this column at all. */
@@ -249,7 +250,7 @@ const PAYEE_COLUMN_ORDERS: Record<PayeeSortField, PayeeColumnOrder> = {
     // reversing the column never fills the top of the screen with dashes.
     missing: (payee) => payee.merchantKey === null,
     compare: (a, b) =>
-      (a.merchantKey ?? '').localeCompare(b.merchantKey ?? '', undefined, { sensitivity: 'base' }),
+      compareNames((a.merchantKey ?? ''), b.merchantKey ?? ''),
   },
   count: { compare: (a, b) => a.count - b.count },
   // Numeric on a figure that is ALREADY a magnitude — summarisePayees sums
@@ -361,14 +362,14 @@ export type ClusterOrder = 'transactions' | 'alphabetical' | 'most-payees' | 'fe
 const BY_TRANSACTIONS = (a: PayeeCluster, b: PayeeCluster): number =>
   b.transactionCount - a.transactionCount ||
   b.members.length - a.members.length ||
-  a.key.localeCompare(b.key);
+  compareText(a.key, b.key);
 
 /**
  * A–Z on the merchant name, with the size order as the tie-break so that two
  * keys a collation happens to call equal still come out in a fixed order.
  */
 const BY_NAME = (a: PayeeCluster, b: PayeeCluster): number =>
-  a.key.localeCompare(b.key, undefined, { sensitivity: 'base' }) || BY_TRANSACTIONS(a, b);
+  compareNames(a.key, b.key) || BY_TRANSACTIONS(a, b);
 
 /**
  * Widest spread first: the group that fragmented into the most payees, however

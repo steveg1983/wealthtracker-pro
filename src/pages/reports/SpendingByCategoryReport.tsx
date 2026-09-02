@@ -15,6 +15,7 @@ import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
 import { capSeriesWithRemainder, categoricalColor, useCategoricalRamp, useChartTooltipStyle, useChartTooltipItemStyle } from '../../components/charts/chartColors';
 import { legendText } from '../../components/charts/ChartLegendText';
+import { formatCount } from '../../utils/localeFormat';
 
 /**
  * "Spending by category" — where the money went, ranked.
@@ -163,7 +164,7 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
           <p className="text-center py-16 text-gray-400">No categorised spending in this period</p>
         ) : spreadNote ? (
           <p className="text-body text-gray-600 dark:text-gray-300" data-testid="spending-spread-note">
-            Spending is spread across {spreadNote.count.toLocaleString()} categories — the
+            Spending is spread across {formatCount(spreadNote.count)} categories — the
             largest, {spreadNote.name}, is {spreadNote.share} of the total. Every category
             is ranked in the table below.
           </p>
@@ -264,7 +265,7 @@ export default function SpendingByCategoryReport({ picker, focus }: ReportViewPr
                       </button>
                     </th>
                     <td className="px-3 py-2 text-sm text-right tabular-nums text-gray-500 dark:text-gray-400">
-                      {(counts.get(entry.key) ?? 0).toLocaleString()}
+                      {formatCount(counts.get(entry.key) ?? 0)}
                     </td>
                     <td className="px-3 py-2 text-sm text-right tabular-nums text-gray-500 dark:text-gray-400">
                       {shareOf(entry.value)}

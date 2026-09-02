@@ -31,6 +31,7 @@ import {
 } from '../../utils/suggestionDismissals';
 import type { DismissalKind, SuggestionDismissal } from '../../types';
 import { getDateLocale } from '../../utils/dateFormatter';
+import { formatCount } from '../../utils/localeFormat';
 
 /**
  * Payee cleanup — one screen for the thousands of near-duplicate payees a
@@ -166,8 +167,8 @@ const SuggestionRow = React.memo(function SuggestionRow({
             active ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500 dark:text-gray-400'
           }`}
         >
-          {cluster.members.length.toLocaleString()} payees ·{' '}
-          {cluster.transactionCount.toLocaleString()} transactions
+          {formatCount(cluster.members.length)} payees ·{' '}
+          {formatCount(cluster.transactionCount)} transactions
         </span>
       </button>
     </li>
@@ -597,7 +598,7 @@ export default function PayeeCleanup(): React.JSX.Element {
       kind: 'payee-hidden',
       subjectKeys,
       success: many
-        ? `${descriptions.length.toLocaleString()} payees will not be listed or suggested here `
+        ? `${formatCount(descriptions.length)} payees will not be listed or suggested here `
           + 'again. Nothing was renamed and no transaction changed — bring any of them back from '
           + '“Dismissed suggestions” at the foot of this page.'
         : `“${descriptions[0]}” will not be listed or suggested here again. Nothing was renamed `
@@ -762,7 +763,7 @@ export default function PayeeCleanup(): React.JSX.Element {
       sortable: true,
       accessor: (payee) => (
         <span className="text-sm tabular-nums text-gray-700 dark:text-gray-300">
-          {payee.count.toLocaleString()}
+          {formatCount(payee.count)}
         </span>
       ),
     },
@@ -832,7 +833,7 @@ export default function PayeeCleanup(): React.JSX.Element {
                 ? 'These look like the same merchant'
                 : allClusters.length === 1
                   ? '1 group looks like the same merchant'
-                  : `${allClusters.length.toLocaleString()} groups look like the same merchant`}
+                  : `${formatCount(allClusters.length)} groups look like the same merchant`}
             </h2>
             {/* One suggestion has no order to choose. */}
             {dismissalsChecked && allClusters.length > 1 && (
@@ -863,8 +864,8 @@ export default function PayeeCleanup(): React.JSX.Element {
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
             {dismissalsChecked && (
               <>
-                Tidying them all would give {payeesInSuggestions.toLocaleString()} payees{' '}
-                {allClusters.length.toLocaleString()}{' '}
+                Tidying them all would give {formatCount(payeesInSuggestions)} payees{' '}
+                {formatCount(allClusters.length)}{' '}
                 {allClusters.length === 1 ? 'name' : 'names'}.{' '}
               </>
             )}
@@ -925,9 +926,9 @@ export default function PayeeCleanup(): React.JSX.Element {
                     free to untick rows, and this line must stay true when they
                     do. */}
                 <p className="text-sm text-gray-900 dark:text-gray-200">
-                  <strong>{activeCluster.key}</strong> — {activeCluster.members.length.toLocaleString()}{' '}
+                  <strong>{activeCluster.key}</strong> — {formatCount(activeCluster.members.length)}{' '}
                   payee{activeCluster.members.length === 1 ? '' : 's'},{' '}
-                  {activeCluster.transactionCount.toLocaleString()} transaction
+                  {formatCount(activeCluster.transactionCount)} transaction
                   {activeCluster.transactionCount === 1 ? '' : 's'} between them.
                 </p>
                 <button
@@ -980,12 +981,12 @@ export default function PayeeCleanup(): React.JSX.Element {
 
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-sm text-gray-600 dark:text-gray-400">
-            Showing {shown.length.toLocaleString()} of {payees.length.toLocaleString()} payees
+            Showing {formatCount(shown.length)} of {formatCount(payees.length)} payees
           </span>
           {/* Only when there are some: a nil count is not news, it is noise. */}
           {hiddenCount > 0 && (
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              {hiddenCount.toLocaleString()} hidden — bring {hiddenCount === 1 ? 'it' : 'them'} back
+              {formatCount(hiddenCount)} hidden — bring {hiddenCount === 1 ? 'it' : 'them'} back
               from “Dismissed suggestions” below.
             </span>
           )}
@@ -995,7 +996,7 @@ export default function PayeeCleanup(): React.JSX.Element {
             disabled={shown.length === 0}
             className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
           >
-            Select all shown ({shown.length.toLocaleString()})
+            Select all shown ({formatCount(shown.length)})
           </button>
           {selected.size > 0 && (
             <button
@@ -1009,8 +1010,8 @@ export default function PayeeCleanup(): React.JSX.Element {
           )}
           <div className="ml-auto flex items-center gap-3">
             <span className="text-sm text-gray-600 dark:text-gray-400">
-              {selected.size.toLocaleString()} selected ·{' '}
-              {selectedTransactionCount.toLocaleString()} transaction
+              {formatCount(selected.size)} selected ·{' '}
+              {formatCount(selectedTransactionCount)} transaction
               {selectedTransactionCount === 1 ? '' : 's'}
             </span>
             <button
@@ -1054,12 +1055,12 @@ export default function PayeeCleanup(): React.JSX.Element {
             A zero renders nothing, as everywhere: no batch, no line. */}
         {undoing !== null && (
           <p role="status" className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">
-            Putting back {undoing.done.toLocaleString()} of {undoing.total.toLocaleString()}…
+            Putting back {formatCount(undoing.done)} of {formatCount(undoing.total)}…
           </p>
         )}
         {lastRename !== null && lastRename.renamed > 0 && (
           <p role="status" className="text-sm text-gray-700 dark:text-gray-200">
-            <strong className="tabular-nums">{lastRename.renamed.toLocaleString()}</strong>{' '}
+            <strong className="tabular-nums">{formatCount(lastRename.renamed)}</strong>{' '}
             transaction{lastRename.renamed === 1 ? '' : 's'} now read “{lastRename.name}”.{' '}
             {lastRename.previous.length > 0 && (
               <button
@@ -1083,7 +1084,7 @@ export default function PayeeCleanup(): React.JSX.Element {
           <p role="status" className="text-sm text-gray-700 dark:text-gray-200">
             {undone.restored > 0 && (
               <>
-                <strong className="tabular-nums">{undone.restored.toLocaleString()}</strong>{' '}
+                <strong className="tabular-nums">{formatCount(undone.restored)}</strong>{' '}
                 transaction{undone.restored === 1 ? ' is' : 's are'} back to the payee
                 {undone.restored === 1 ? ' it' : 's they'} had.{' '}
               </>
@@ -1092,7 +1093,7 @@ export default function PayeeCleanup(): React.JSX.Element {
                 the consequence, not "3 failed". */}
             {undone.failed > 0 && (
               <span className="text-amber-700 dark:text-amber-400">
-                {undone.failed.toLocaleString()} could not be put back and still
+                {formatCount(undone.failed)} could not be put back and still
                 read “{undone.name}”.
               </span>
             )}
@@ -1107,10 +1108,10 @@ export default function PayeeCleanup(): React.JSX.Element {
             <p className="text-sm">
               {saveFailure.saved === 0
                 ? `Nothing was saved, so ${saveFailure.ifNotSaved}.`
-                : `${saveFailure.saved.toLocaleString()} of `
-                  + `${(saveFailure.saved + saveFailure.subjectKeys.length).toLocaleString()} `
+                : `${formatCount(saveFailure.saved)} of `
+                  + `${formatCount(saveFailure.saved + saveFailure.subjectKeys.length)} `
                   + 'were saved. The other '
-                  + `${saveFailure.subjectKeys.length.toLocaleString()} were not, so they will be `
+                  + `${formatCount(saveFailure.subjectKeys.length)} were not, so they will be `
                   + 'back the next time this page opens.'}
             </p>
             <p className="mt-1 text-xs">Reason given: {saveFailure.reason}</p>
@@ -1194,7 +1195,7 @@ export default function PayeeCleanup(): React.JSX.Element {
                   description={
                     <>
                       <span className="font-medium text-gray-900 dark:text-gray-100 tabular-nums">
-                        {everyPayee.length.toLocaleString()}
+                        {formatCount(everyPayee.length)}
                       </span>
                       {` ${everyPayee.length === 1 ? 'payee is' : 'payees are'} still on your transactions — they are just off this page. Bring one back from “Dismissed suggestions” below.`}
                     </>

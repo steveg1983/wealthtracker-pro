@@ -15,6 +15,7 @@ import {
   type RecurringCadence,
   type RecurringDetection,
 } from '../../utils/recurringDetection';
+import { compareNames, compareText } from '../../utils/localeFormat';
 
 /**
  * "What I'm committed to" — recurring payments, detected from the register.
@@ -285,7 +286,7 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
   const compare = (a: RecurringDetection, b: RecurringDetection): number => {
     switch (sortBy) {
       case 'az':
-        return a.description.localeCompare(b.description, undefined, { sensitivity: 'base' });
+        return compareNames(a.description, b.description);
       case 'payment':
         return b.amount.minus(a.amount).toNumber();
       case 'largest':
@@ -313,7 +314,7 @@ export default function RecurringCommitmentsReport(): React.JSX.Element {
           }
           return [...byInstitution.keys()]
             .sort((a, b) =>
-              a === NO_INSTITUTION ? 1 : b === NO_INSTITUTION ? -1 : a.localeCompare(b))
+              a === NO_INSTITUTION ? 1 : b === NO_INSTITUTION ? -1 : compareText(a, b))
             .map(institution => ({
               id: `institution-${institution}`,
               title: institution,

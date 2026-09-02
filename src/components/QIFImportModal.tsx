@@ -18,6 +18,7 @@ import ImportProgress from './common/ImportProgress';
 import AccountSelector from './common/AccountSelector';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { formatCount } from '../utils/localeFormat';
 
 interface QIFImportModalProps {
   isOpen: boolean;
@@ -479,7 +480,7 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
 
                 {importResult.matchedCategories > 0 && (
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    Matched {importResult.matchedCategories.toLocaleString()} transaction{importResult.matchedCategories === 1 ? '' : 's'} to your existing categories
+                    Matched {formatCount(importResult.matchedCategories)} transaction{importResult.matchedCategories === 1 ? '' : 's'} to your existing categories
                   </p>
                 )}
 

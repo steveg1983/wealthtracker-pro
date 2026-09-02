@@ -1,6 +1,7 @@
 import type { Category, Transaction } from '../types';
 import { buildCategoryKindLookup, classifyFlow } from './incomeExpense';
 import { FALLBACK_BANK_DESCRIPTION, normalizePayee } from './payeeAutoCategorize';
+import { compareNames } from './localeFormat';
 
 /**
  * Microsoft Money's AutoComplete, as a pair of pure functions: what the user
@@ -93,7 +94,7 @@ export function buildPayeeCompletionIndex(
       (a, b) =>
         b.count - a.count ||
         b.latest - a.latest ||
-        a.text.localeCompare(b.text, undefined, { sensitivity: 'base' })
+        compareNames(a.text, b.text)
     )
     .map(entry => ({ text: entry.text, lower: entry.text.toLowerCase() }));
 }

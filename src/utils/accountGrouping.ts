@@ -10,6 +10,7 @@
  * sections.
  */
 import type { Account } from '../types';
+import { compareNames } from './localeFormat';
 
 /** A section's identity: the key it groups by and the words it prints. */
 export interface AccountSectionDefinition {
@@ -118,7 +119,7 @@ export function accountMatchesQuery(account: GroupableAccount, rawQuery: string)
  * to mean two different things in two corners of the app.
  */
 export const compareAccountsByName = (a: GroupableAccount, b: GroupableAccount): number =>
-  a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  compareNames(a.name, b.name);
 
 /** Same shape the Accounts page's own groups use: a stable key, a heading, rows. */
 export interface AccountSectionGroup<T extends GroupableAccount> {
@@ -260,7 +261,7 @@ function groupByInstitution<T extends GroupableAccount>(
     .sort(([keyA, bandA], [keyB, bandB]) => {
       if (keyA === '') return 1;
       if (keyB === '') return -1;
-      return bandA.title.localeCompare(bandB.title, undefined, { sensitivity: 'base' });
+      return compareNames(bandA.title, bandB.title);
     })
     .map(([, band]) => band);
 }

@@ -20,6 +20,7 @@ import {
 import { crossedCurrencies } from '../utils/crossCurrencyTransfer';
 import { AlertTriangleIcon, ArrowDownIcon, ArrowRightLeftIcon, ArrowUpIcon, XIcon } from './icons';
 import { getDateLocale } from '../utils/dateFormatter';
+import { formatCount, compareNames } from '../utils/localeFormat';
 
 /**
  * Bulk categorise by payee: file a whole merchant in one decision.
@@ -68,7 +69,7 @@ type SortKey = 'payee' | 'rows' | 'total' | 'category';
 
 /** Case-insensitive, so "Boots" and "BOOTS" sit together, not in two blocks. */
 const compareText = (a: string, b: string): number =>
-  a.localeCompare(b, undefined, { sensitivity: 'base' });
+  compareNames(a, b);
 
 /**
  * What one press actually did, counted as it happens.
@@ -389,7 +390,7 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
       if (readyTransfers.length === 0) {
         if (rows > 0) {
           showSuccess(
-            `${rows.toLocaleString()} transaction${rows === 1 ? '' : 's'} categorised across ${(done - failed).toLocaleString()} payee${done - failed === 1 ? '' : 's'}.`,
+            `${formatCount(rows)} transaction${rows === 1 ? '' : 's'} categorised across ${formatCount(done - failed)} payee${done - failed === 1 ? '' : 's'}.`,
             'Categories applied'
           );
         }
@@ -608,7 +609,7 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                                  navy. The dotted rule underneath is already the
                                  affordance, so hovering firms it instead. */
                               className="text-sm text-gray-900 dark:text-white truncate max-w-[220px] lg:max-w-[340px] text-left underline decoration-dotted underline-offset-2 decoration-gray-300 dark:decoration-gray-600 hover:decoration-gray-500 dark:hover:decoration-gray-400"
-                              title={`See the ${group.count.toLocaleString()} transactions behind this payee`}
+                              title={`See the ${formatCount(group.count)} transactions behind this payee`}
                             >
                               {group.displayName}
                             </button>
@@ -651,7 +652,7 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                           )}
                         </td>
                         <td className="block sm:table-cell py-2 sm:pr-3 text-sm text-right tabular-nums text-gray-700 dark:text-gray-300">
-                          {group.count.toLocaleString()}
+                          {formatCount(group.count)}
                         </td>
                         {/* group.total is a magnitude, so the colour comes from
                             group.direction — the same signal as the arrow, so the
@@ -759,7 +760,7 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                             <span className="mt-1.5 block text-xs text-gray-500 dark:text-gray-400">
                               {group.count === 1
                                 ? `This row becomes a transfer with ${accountName(transferTarget(group))}.`
-                                : `${group.count.toLocaleString()} rows become transfers with ${accountName(transferTarget(group))}.`}
+                                : `${formatCount(group.count)} rows become transfers with ${accountName(transferTarget(group))}.`}
                               {' '}Anything already sitting over there is put to you one at a time
                               before a second copy is written.
                             </span>
@@ -771,7 +772,7 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                   {groups.length > CAP && (
                     <tr className="block sm:table-row">
                       <td colSpan={4} className="block sm:table-cell py-3 text-center text-xs text-gray-400 dark:text-gray-500">
-                        Showing the {CAP} biggest payees of {groups.length.toLocaleString()} —
+                        Showing the {CAP} biggest payees of {formatCount(groups.length)} —
                         apply these, then reopen for the next batch.
                       </td>
                     </tr>
@@ -789,13 +790,13 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
           <p className="text-sm text-gray-600 dark:text-gray-400">
             {applying
               ? creating !== null
-                ? `Creating the other side — ${creating.done.toLocaleString()} of ${creating.total.toLocaleString()}…`
-                : `Applying ${progress.toLocaleString()} of ${readyCategories.length.toLocaleString()} payees…`
+                ? `Creating the other side — ${formatCount(creating.done)} of ${formatCount(creating.total)}…`
+                : `Applying ${formatCount(progress)} of ${formatCount(readyCategories.length)} payees…`
               : (
                 <>
-                  {`${ready.length.toLocaleString()} payee${ready.length === 1 ? '' : 's'} ready — ${rowsCovered.toLocaleString()} transaction${rowsCovered === 1 ? '' : 's'}`}
+                  {`${formatCount(ready.length)} payee${ready.length === 1 ? '' : 's'} ready — ${formatCount(rowsCovered)} transaction${rowsCovered === 1 ? '' : 's'}`}
                   {transferRowsCovered > 0 &&
-                    `, ${transferRowsCovered.toLocaleString()} of them as transfers`}
+                    `, ${formatCount(transferRowsCovered)} of them as transfers`}
                 </>
               )}
           </p>
@@ -821,8 +822,8 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
               {applying
                 ? 'Applying…'
                 : transferRowsCovered > 0
-                  ? `Apply to ${rowsCovered.toLocaleString()} transaction${rowsCovered === 1 ? '' : 's'}`
-                  : `Categorise ${rowsCovered.toLocaleString()} transaction${rowsCovered === 1 ? '' : 's'}`}
+                  ? `Apply to ${formatCount(rowsCovered)} transaction${rowsCovered === 1 ? '' : 's'}`
+                  : `Categorise ${formatCount(rowsCovered)} transaction${rowsCovered === 1 ? '' : 's'}`}
             </button>
           </div>
         </div>
@@ -837,7 +838,7 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
         <IncomeExpenseBreakdownModal
           isOpen
           onClose={() => setDrillGroup(null)}
-          title={`${drillGroup.displayName} — ${drillGroup.count.toLocaleString()} uncategorised`}
+          title={`${drillGroup.displayName} — ${formatCount(drillGroup.count)} uncategorised`}
           bucket="uncategorized"
           rows={drillGroup.transactionIds
             .map(id => transactions.find(t => t.id === id))
@@ -862,7 +863,7 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
               updated += await applyCategoryToUncategorized(ids, categoryId);
             }
             showSuccess(
-              `${updated.toLocaleString()} transaction${updated === 1 ? '' : 's'} categorised.`,
+              `${formatCount(updated)} transaction${updated === 1 ? '' : 's'} categorised.`,
               'Categories applied'
             );
             return updated;
@@ -1012,28 +1013,28 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
             <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
               {tally.categorised > 0 && (
                 <li>
-                  <strong>{tally.categorised.toLocaleString()}</strong> transaction
+                  <strong>{formatCount(tally.categorised)}</strong> transaction
                   {tally.categorised === 1 ? '' : 's'} categorised across{' '}
-                  {tally.categorisedPayees.toLocaleString()} payee
+                  {formatCount(tally.categorisedPayees)} payee
                   {tally.categorisedPayees === 1 ? '' : 's'}.
                 </li>
               )}
               {tally.created > 0 && (
                 <li>
-                  <strong>{tally.created.toLocaleString()}</strong> other side
+                  <strong>{formatCount(tally.created)}</strong> other side
                   {tally.created === 1 ? '' : 's'} created — those accounts&rsquo; balances have
                   moved by the amounts written.
                 </li>
               )}
               {tally.linked > 0 && (
                 <li>
-                  <strong>{tally.linked.toLocaleString()}</strong> joined to a row that was already
+                  <strong>{formatCount(tally.linked)}</strong> joined to a row that was already
                   there. Nothing new was written and no balance moved.
                 </li>
               )}
               {tally.skipped > 0 && (
                 <li>
-                  <strong>{tally.skipped.toLocaleString()}</strong> left exactly as{' '}
+                  <strong>{formatCount(tally.skipped)}</strong> left exactly as{' '}
                   {tally.skipped === 1 ? 'it was' : 'they were'} — still uncategorised, and still
                   here the next time you open this.
                 </li>
@@ -1042,7 +1043,7 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                 <li className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
                   <AlertTriangleIcon size={14} className="mt-0.5 flex-shrink-0" />
                   <span>
-                    <strong>{tally.failed.toLocaleString()}</strong> could not be applied. Those rows
+                    <strong>{formatCount(tally.failed)}</strong> could not be applied. Those rows
                     are untouched — the message at the time said why, and they are still here to try
                     again.
                   </span>
@@ -1052,7 +1053,7 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                 <li className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
                   <AlertTriangleIcon size={14} className="mt-0.5 flex-shrink-0" />
                   <span>
-                    <strong>{tally.categoriseFailedPayees.toLocaleString()}</strong> payee
+                    <strong>{formatCount(tally.categoriseFailedPayees)}</strong> payee
                     {tally.categoriseFailedPayees === 1 ? '' : 's'} could not be categorised. Those
                     rows are untouched and still here to try again.
                   </span>
@@ -1062,7 +1063,7 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                 <li key={reason} className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
                   <AlertTriangleIcon size={14} className="mt-0.5 flex-shrink-0" />
                   <span>
-                    <strong>{count.toLocaleString()}</strong> left alone: {PAYEE_TRANSFER_REFUSALS[reason]}
+                    <strong>{formatCount(count)}</strong> left alone: {PAYEE_TRANSFER_REFUSALS[reason]}
                   </span>
                 </li>
               ))}

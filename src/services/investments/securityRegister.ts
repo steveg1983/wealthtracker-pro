@@ -36,6 +36,7 @@ import { toDecimal } from '../../utils/decimal';
 import type { DecimalInstance } from '../../utils/decimal';
 import type { InvestmentEvent } from './events';
 import type { HoldingPricePoint } from './holdingRegister';
+import { compareText } from '../../utils/localeFormat';
 
 export interface SecurityRegisterLine {
   kind: 'buy' | 'sell' | 'write_off' | 'revaluation';
@@ -98,7 +99,7 @@ export function buildSecurityRegister(
   /** The symbol's price series, any order; empty for a symbol-less security. */
   series: readonly HoldingPricePoint[]
 ): SecurityRegister {
-  const orderedEvents = events.slice().sort((a, b) => a.date.localeCompare(b.date));
+  const orderedEvents = events.slice().sort((a, b) => compareText(a.date, b.date));
   const skipped = { pricesBeforeFirstTrade: 0, pricesWhileNothingHeld: 0, pricesInOtherCurrency: 0, soldMoreThanHeld: 0 };
   // The register speaks the EVENTS' currency (account money). A price point
   // that declares another currency is not arithmetic with these figures.
@@ -111,7 +112,7 @@ export function buildSecurityRegister(
       skipped.pricesInOtherCurrency += 1;
       return false;
     })
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort((a, b) => compareText(a.date, b.date));
 
   const lines: SecurityRegisterLine[] = [];
 

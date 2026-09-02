@@ -1,6 +1,7 @@
 import { findTransferCandidates, TRANSFER_MATCH_WINDOW_DAYS, type TransferCandidate } from './transferMatch';
 import { crossedCurrencies } from './crossCurrencyTransfer';
 import type { Account, Transaction } from '../types';
+import { compareText } from './localeFormat';
 
 /**
  * "This payee is a TRANSFER": what has to be decided before a whole merchant
@@ -187,7 +188,7 @@ function refusalFor(
 function inLedgerOrder(transactions: readonly Transaction[]): Transaction[] {
   return [...transactions].sort((a, b) => {
     const byDate = new Date(a.date).getTime() - new Date(b.date).getTime();
-    return byDate !== 0 ? byDate : a.id.localeCompare(b.id);
+    return byDate !== 0 ? byDate : compareText(a.id, b.id);
   });
 }
 

@@ -18,6 +18,7 @@ import { buildSecurityRegister } from '../services/investments/securityRegister'
 import type { InvestmentEvent } from '../services/investments/events';
 import SecurityHistoryModal from './SecurityHistoryModal';
 import { formatCurrency } from '../utils/currency-decimal';
+import { compareText } from '../utils/localeFormat';
 
 interface PortfolioTradingHistoryProps {
   accountId: string;
@@ -84,7 +85,7 @@ export default function PortfolioTradingHistory({
           stillHeld: !register.endQuantity.isZero()
         };
       })
-      .sort((a, b) => a.securityName.localeCompare(b.securityName));
+      .sort((a, b) => compareText(a.securityName, b.securityName));
   }, [events]);
 
   // Still reading: say nothing yet rather than flash a wrong empty story.

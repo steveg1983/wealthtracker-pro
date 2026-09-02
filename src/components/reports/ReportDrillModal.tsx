@@ -5,6 +5,7 @@ import IncomeExpenseBreakdownModal, { type BreakdownBucket } from '../IncomeExpe
 import EditTransactionModal from '../EditTransactionModal';
 import { expandSplitTransactions, type SplitExpandedTransaction } from '../../utils/transactionSplits';
 import type { Category } from '../../types';
+import { formatCount } from '../../utils/localeFormat';
 
 /**
  * Every figure in the gallery drills into the transactions behind it — a
@@ -87,7 +88,7 @@ export default function ReportDrillModal({
           updated += await applyCategoryToUncategorized(ids, categoryId);
         }
         showSuccess(
-          `${updated.toLocaleString()} transaction${updated === 1 ? '' : 's'} categorised.`,
+          `${formatCount(updated)} transaction${updated === 1 ? '' : 's'} categorised.`,
           'Categories applied'
         );
         return updated;

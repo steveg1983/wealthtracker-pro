@@ -28,18 +28,40 @@
  *      choice either.
  *   2. A BCP-47 tag anywhere else in the code — `const LOCALE = 'en-US'` is
  *      the same bug one indirection away.
+ *   3. A call that names NO region — `(1234).toLocaleString()`,
+ *      `a.localeCompare(b)`, or either with an explicit `undefined` in the
+ *      locale slot. See below.
  *
- * ── WHAT IT DOES NOT CLAIM ──────────────────────────────────────────────────
+ * ── THE THIRD RULE, ADDED 2 SEP 2026 ────────────────────────────────────────
  *
- * A bare `toLocaleDateString()` with no argument at all also ignores the
- * setting — it takes the browser's locale — and there are ~180 of those. They
- * are a real gap and a separate piece of work; this guard is about the ones
- * that NAME a region, because naming a region the reader did not pick is the
- * bug that was reported. Widening it later is a matter of adding a third rule
- * here, not of hunting the call sites again.
+ * This guard used to say, in this spot, that it did NOT cover the bare call —
+ * that there were ~180 of them, that they were a real gap, and that widening it
+ * later would be "a matter of adding a third rule here, not of hunting the call
+ * sites again". That turned out to be exactly true, and this is that rule.
+ *
+ * The bare call is the subtler of the two bugs. `(1234).toLocaleString()` names
+ * no region, so it reads as neutral — and it is not: it asks the BROWSER. That
+ * makes Settings ▸ Region & Date Format a control which governs some of the
+ * app's output and not the rest, with the split depending on the machine rather
+ * than on anything the reader can see. It is also invisible to review from a
+ * UK desk, because a UK browser gives the same answer as the setting.
+ *
+ * The sweep that closed the gap moved 302 sites. It was safe to do at once
+ * because en-GB and en-US group numbers and order text IDENTICALLY, so only the
+ * ~20 date and time sites changed what they print — which was the reported bug.
+ *
+ * ── NO ALLOWLIST FOR RULE 3, ON PURPOSE ─────────────────────────────────────
+ *
+ * Rules 1 and 2 need exceptions: the selector must be able to OFFER 'en-US',
+ * and the default has to be written down once. Rule 3 needs none, because
+ * "whatever this machine is set to" is never the right answer for a reader who
+ * has been given a setting — not even in `dateFormatter` or `localeFormat`,
+ * which reach for `getDateLocale()` like everything else. If a genuine case
+ * ever appears, it gets an entry here and an argument beside it.
  *
  * `getDateLocale()` is the answer to every one of these: the explicit choice,
- * and en-GB when there is none.
+ * and en-GB when there is none. `utils/localeFormat.ts` wraps it for counts and
+ * for sorting, and explains why those are functions rather than an argument.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -66,6 +88,70 @@ const LOCALE_ARGUMENT: RegExp[] = [
 
 /** `en-US`, `en-GB`, `fr-CA`, `zh-Hans-CN` — a region, written down. */
 const LOCALE_TAG = /(['"])([a-z]{2,3}(?:-[A-Z][a-z]{3})?-[A-Z]{2,3})\1/g;
+
+/**
+ * Rule 3, the formatting half: a `toLocale*String` whose locale slot is empty,
+ * or holds an options bag, or holds `undefined`. All three mean the browser.
+ *
+ * Only the START of the argument list is inspected, which is all this needs to
+ * be sure — and is why it cannot be fooled by whatever the options bag says.
+ */
+const BROWSER_LOCALE_FORMAT = /\.(toLocale(?:Date|Time)?String)\(\s*(?:\)|\{|undefined\b)/g;
+
+/**
+ * Rule 3, the sorting half. `localeCompare` hides its locale in the SECOND
+ * argument, so it needs the arguments actually parsed rather than matched:
+ * a regex that stops at the first `)` reads `a.localeCompare(name(b), locale)`
+ * as a bare call, and a guard that cries wolf over a correct line is a guard
+ * somebody deletes. Returns null when the call is not bare.
+ */
+function bareLocaleCompareAt(text: string, open: number): string[] | null {
+  const args = callArguments(text, open);
+  if (args === null) return null;
+  if (args.length < 2) return args;
+  return /^undefined$/.test(args[1]) ? args : null;
+}
+
+/** The balanced argument list of a call whose `(` is at `open`. */
+function callArguments(text: string, open: number): string[] | null {
+  let depth = 0;
+  let quote: string | null = null;
+  let close = -1;
+  for (let i = open; i < text.length; i++) {
+    const c = text[i];
+    if (quote !== null) {
+      if (c === '\\') { i++; continue; }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') { quote = c; continue; }
+    if (c === '(') depth++;
+    else if (c === ')') { depth--; if (depth === 0) { close = i; break; } }
+  }
+  if (close === -1) return null;
+
+  const args: string[] = [];
+  let current = '';
+  depth = 0;
+  quote = null;
+  const inner = text.slice(open + 1, close);
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i];
+    if (quote !== null) {
+      current += c;
+      if (c === '\\') { current += inner[i + 1] ?? ''; i++; continue; }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') { quote = c; current += c; continue; }
+    if (c === '(' || c === '[' || c === '{') depth++;
+    if (c === ')' || c === ']' || c === '}') depth--;
+    if (c === ',' && depth === 0) { args.push(current.trim()); current = ''; continue; }
+    current += c;
+  }
+  if (current.trim() !== '') args.push(current.trim());
+  return args;
+}
 
 /**
  * The literals that are allowed to name a region, and why each one is.
@@ -144,6 +230,49 @@ interface Finding {
   rule: 'locale argument' | 'locale tag';
 }
 
+interface BareFinding {
+  file: string;
+  line: number;
+  call: string;
+  remedy: string;
+}
+
+/**
+ * Rule 3's findings for one file. Works on the whole comment-stripped source
+ * rather than line by line, because a `localeCompare` argument list is allowed
+ * to wrap and its locale would then sit on the next line.
+ */
+function bareCallsIn(file: string, source: string): BareFinding[] {
+  const code = codeLines(source).join('\n');
+  const lineOf = (index: number): number => code.slice(0, index).split('\n').length;
+  const found: BareFinding[] = [];
+
+  for (const match of code.matchAll(BROWSER_LOCALE_FORMAT)) {
+    const method = match[1];
+    found.push({
+      file,
+      line: lineOf(match.index),
+      call: `${method}(…)`,
+      remedy:
+        method === 'toLocaleString'
+          ? 'use formatCount() from utils/localeFormat (or getDateLocale() for a date-time)'
+          : 'pass getDateLocale(), or use formatShortDate/formatDate',
+    });
+  }
+
+  const COMPARE = '.localeCompare(';
+  for (let at = code.indexOf(COMPARE); at !== -1; at = code.indexOf(COMPARE, at + 1)) {
+    if (bareLocaleCompareAt(code, at + COMPARE.length - 1) === null) continue;
+    found.push({
+      file,
+      line: lineOf(at),
+      call: 'localeCompare(…)',
+      remedy: 'use compareText()/compareNames() from utils/localeFormat',
+    });
+  }
+  return found;
+}
+
 function findingsIn(file: string, source: string): Finding[] {
   const found: Finding[] = [];
   codeLines(source).forEach((line, index) => {
@@ -204,6 +333,15 @@ describe('the region the reader chose is the region the app prints', () => {
       // licence nobody is using and the next person will inherit.
       expect(findings.some(f => f.file === entry.file)).toBe(true);
     }
+  });
+
+  it('asks no call to fall back on whatever region the machine is set to', () => {
+    const bare = files.flatMap(file =>
+      bareCallsIn(relative(process.cwd(), file), readFileSync(file, 'utf8'))
+    );
+    const offences = bare.map(f => `${f.file}:${f.line} — bare ${f.call}, ${f.remedy}`);
+
+    expect(offences).toEqual([]);
   });
 
   it('leaves the hook the phone register formats its dates with no way to ignore the setting', () => {

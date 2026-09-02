@@ -35,6 +35,7 @@ import GroupedAccountOptions from './common/GroupedAccountOptions';
 import { AlertTriangleIcon, ArrowUpRightIcon } from './icons';
 import type { SuggestionDismissal, Transaction } from '../types';
 import { getDateLocale } from '../utils/dateFormatter';
+import { formatCount, compareNames } from '../utils/localeFormat';
 
 /**
  * Find duplicates — the same sweep shape as "Match transfers", for the other
@@ -97,7 +98,7 @@ type SortKey = DuplicateSortKey;
 
 /** Case-insensitive, so "TESCO" and "Tesco" sit together, not in two blocks. */
 const compareText = (a: string, b: string): number =>
-  a.localeCompare(b, undefined, { sensitivity: 'base' });
+  compareNames(a, b);
 
 const earlier = (candidate: DuplicateCandidate): Transaction =>
   new Date(candidate.a.date).getTime() <= new Date(candidate.b.date).getTime()
@@ -505,13 +506,13 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
     setBulkSaving(null);
     if (failed === 0) {
       showSuccess(
-        `${pairs.length.toLocaleString()} suggestion${pairs.length === 1 ? '' : 's'} will not be offered again. Bring any back from “Dismissed suggestions” at the foot of this list.`,
+        `${formatCount(pairs.length)} suggestion${pairs.length === 1 ? '' : 's'} will not be offered again. Bring any back from “Dismissed suggestions” at the foot of this list.`,
         'Not duplicates — remembered'
       );
     } else {
       showError(
         new Error(
-          `${failed.toLocaleString()} of ${pairs.length.toLocaleString()} refusals did NOT save — those are out of this sitting, but they will be offered again the next time this runs.`
+          `${formatCount(failed)} of ${formatCount(pairs.length)} refusals did NOT save — those are out of this sitting, but they will be offered again the next time this runs.`
         )
       );
     }
@@ -798,7 +799,7 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
           {total > CAP && (
             <tr className="block sm:table-row">
               <td colSpan={6} className="block sm:table-cell py-3 text-center text-xs text-gray-400 dark:text-gray-500">
-                Showing the first {CAP.toLocaleString()} of {total.toLocaleString()} —
+                Showing the first {formatCount(CAP)} of {formatCount(total)} —
                 settle these, then run this again for the rest.
               </td>
             </tr>
@@ -853,11 +854,11 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
         {dismissalsChecked && inScope.length > 0 && (
           <p className="mb-3 text-sm text-right text-gray-600 dark:text-gray-400 tabular-nums">
             <span className="font-medium text-gray-900 dark:text-white">
-              {inScope.length.toLocaleString()}
+              {formatCount(inScope.length)}
             </span>{' '}
             suggestion{inScope.length === 1 ? '' : 's'} left
             {scopedAccount !== '' && live.length !== inScope.length && (
-              <span> in this account · {live.length.toLocaleString()} across all accounts</span>
+              <span> in this account · {formatCount(live.length)} across all accounts</span>
             )}
           </p>
         )}
@@ -879,7 +880,7 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
                   of the control — which accounts still have work in them. */}
               <GroupedAccountOptions
                 accounts={accountsWithWork}
-                formatLabel={account => `${account.name} (${account.count.toLocaleString()})`}
+                formatLabel={account => `${account.name} (${formatCount(account.count)})`}
               />
             </select>
           </label>
@@ -943,14 +944,14 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
                   checked={allInScopeSelected}
                   onChange={toggleSelectAll}
                   disabled={bulkSaving !== null}
-                  aria-label={allInScopeSelected ? 'Unselect all suggestions' : `Select all ${inScope.length.toLocaleString()} suggestions`}
+                  aria-label={allInScopeSelected ? 'Unselect all suggestions' : `Select all ${formatCount(inScope.length)} suggestions`}
                 />
-                {allInScopeSelected ? 'Unselect all' : `Select all ${inScope.length.toLocaleString()}`}
+                {allInScopeSelected ? 'Unselect all' : `Select all ${formatCount(inScope.length)}`}
               </label>
               {selectedInScope > 0 && (
                 <>
                   <span className="text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                    {selectedInScope.toLocaleString()} selected
+                    {formatCount(selectedInScope)} selected
                   </span>
                   <button
                     type="button"
@@ -967,7 +968,7 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
               )}
               {bulkSaving !== null && (
                 <span className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">
-                  Remembering {bulkSaving.done.toLocaleString()} of {bulkSaving.total.toLocaleString()}…
+                  Remembering {formatCount(bulkSaving.done)} of {formatCount(bulkSaving.total)}…
                 </span>
               )}
             </div>
@@ -1176,7 +1177,7 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
             setBulkConfirm(false);
             setBulkPending([]);
           }}
-          title={`Treat ${bulkPending.length.toLocaleString()} as not duplicates?`}
+          title={`Treat ${formatCount(bulkPending.length)} as not duplicates?`}
           size="md"
         >
           <ModalBody>
@@ -1187,9 +1188,9 @@ export default function DuplicateSweepModal({ isOpen, onClose, resume = null }: 
             </p>
             {bulkPending.length > selectedInScope && (
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                Your {selectedInScope.toLocaleString()} ticked row
+                Your {formatCount(selectedInScope)} ticked row
                 {selectedInScope === 1 ? '' : 's'} share rows with other suggestions of the same
-                repeated payments, so {bulkPending.length.toLocaleString()} suggestions are
+                repeated payments, so {formatCount(bulkPending.length)} suggestions are
                 refused together — one judgment per payment, the same rule as the review dialog.
               </p>
             )}

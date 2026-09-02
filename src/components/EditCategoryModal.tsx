@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import type { Category } from '../types';
+import { formatCount } from '../utils/localeFormat';
 
 /**
  * A category's own properties, in one place.
@@ -52,9 +53,6 @@ function adjustmentBlockedReason(category: Category): string | null {
   }
   return null;
 }
-
-/** "£" is irrelevant here — this is a count of rows, not an amount. */
-const formatCount = (value: number): string => value.toLocaleString();
 
 export default function EditCategoryModal({
   isOpen,

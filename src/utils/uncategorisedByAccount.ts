@@ -1,4 +1,5 @@
 import type { SplitExpandedTransaction } from './transactionSplits';
+import { compareText } from './localeFormat';
 
 export interface UncategorisedAccountGroup {
   accountId: string;
@@ -30,6 +31,6 @@ export function groupUncategorisedByAccount(
     .sort(
       (a, b) =>
         b.rows.length - a.rows.length ||
-        accountName(a.accountId).localeCompare(accountName(b.accountId))
+        compareText(accountName(a.accountId), accountName(b.accountId))
     );
 }

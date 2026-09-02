@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatCount } from '../../utils/localeFormat';
 
 /**
  * What an import is doing, while it is doing it.
@@ -47,9 +48,9 @@ export default function ImportProgress({
     : null;
 
   const label = jobSize !== null && written !== null
-    ? `Importing… ${written.toLocaleString()} of ${jobSize.toLocaleString()} ${noun}`
+    ? `Importing… ${formatCount(written)} of ${formatCount(jobSize)} ${noun}`
     : jobSize !== null
-      ? `Importing ${jobSize.toLocaleString()} ${noun}…`
+      ? `Importing ${formatCount(jobSize)} ${noun}…`
       : 'Importing…';
 
   return (

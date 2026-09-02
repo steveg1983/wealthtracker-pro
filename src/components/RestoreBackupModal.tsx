@@ -32,6 +32,7 @@ import {
   type BackupBundle,
   type RestoreProgress,
 } from '../services/backup/format';
+import { formatCount } from '../utils/localeFormat';
 
 /**
  * Restore a backup file into this login, or into this browser.
@@ -68,9 +69,6 @@ type Phase = 'pick' | 'locked' | 'ready' | 'wiping' | 'restoring' | 'done' | 'fa
 
 const CONFIRM_PHRASE = 'DELETE EVERYTHING';
 
-/** A count with thousands separators — 50,000 reads, 50000 does not. */
-const formatCount = (value: number): string => value.toLocaleString();
-
 /** Table names become sentence-case labels for the preflight list. */
 const ENTITY_LABELS: Record<string, string> = {
   accounts: 'Accounts',
@@ -94,7 +92,7 @@ const restoreLogger = createScopedLogger('RestoreBackupModal');
 const formatExportedAt = (iso: string): string => {
   if (!iso) return 'unknown';
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString(getDateLocale());
 };
 
 export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JSX.Element {

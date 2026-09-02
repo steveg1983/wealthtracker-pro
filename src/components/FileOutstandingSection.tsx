@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import FilterAndFileList, { type FilterAndFileCopy } from './FilterAndFileList';
 import { useArrivalRowFocus } from '../hooks/useArrivalFocus';
 import { awaitsFiling } from '../utils/transactionReview';
+import { formatCount } from '../utils/localeFormat';
 
 /**
  * Filter and file — the first-filing mount of the shared list.
@@ -46,16 +47,16 @@ const FILING_FOR_THE_FIRST_TIME: FilterAndFileCopy = {
   // the press is about to overrule — and filing is what ends their review.
   bulkConsequence: (count, categoryName) => (
     <>
-      This files {count.toLocaleString()} transaction{count === 1 ? '' : 's'} under{' '}
+      This files {formatCount(count)} transaction{count === 1 ? '' : 's'} under{' '}
       <strong>{categoryName}</strong> and ends {count === 1 ? 'its' : 'their'} review, replacing
       any category the app had guessed for {count === 1 ? 'it' : 'them'}.
     </>
   ),
   bulkFailed: count =>
-    `${count.toLocaleString()} could not be filed and ${count === 1 ? 'is' : 'are'} still waiting.`,
+    `${formatCount(count)} could not be filed and ${count === 1 ? 'is' : 'are'} still waiting.`,
   undone: count => (
     <>
-      <strong>{count.toLocaleString()}</strong> transaction{count === 1 ? ' is' : 's are'} back as
+      <strong>{formatCount(count)}</strong> transaction{count === 1 ? ' is' : 's are'} back as
       {count === 1 ? ' it was' : ' they were'}, still waiting to be filed.
     </>
   ),
@@ -66,7 +67,7 @@ const FILING_FOR_THE_FIRST_TIME: FilterAndFileCopy = {
       : `No outstanding transaction matches all ${activeFilters} of those filters at once.`
     } Transactions you have already filed are not searched here, and neither are transfers.`,
   transfersExcluded: count =>
-    `${count.toLocaleString()} transfer${count === 1 ? '' : 's'} matched and ${count === 1 ? 'is' : 'are'} not shown — money moved between your own accounts takes no category. Match transfers, above, is where those are paired up.`,
+    `${formatCount(count)} transfer${count === 1 ? '' : 's'} matched and ${count === 1 ? 'is' : 'are'} not shown — money moved between your own accounts takes no category. Match transfers, above, is where those are paired up.`,
   footnote: (
     <>
       Filed something in the wrong place? Change it under{' '}
@@ -148,7 +149,7 @@ export default function FileOutstandingSection({
                 show, named rather than left to be noticed (house rule). */}
             {splitLines > 0 && (
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {splitLines.toLocaleString()} of those{' '}
+                {formatCount(splitLines)} of those{' '}
                 {splitLines === 1 ? 'is a line inside a split' : 'are lines inside splits'} and{' '}
                 {splitLines === 1 ? 'is' : 'are'} not listed here — a split line is filed inside its
                 parent, from the register.

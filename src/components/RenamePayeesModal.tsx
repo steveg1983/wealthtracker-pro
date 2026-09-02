@@ -3,6 +3,7 @@ import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useApp, type TransactionDescription } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { planRename, type PayeeSummary } from '../utils/payeeCleanup';
+import { formatCount } from '../utils/localeFormat';
 
 /**
  * Rename many payees to one name.
@@ -141,7 +142,7 @@ export default function RenamePayeesModal({
         setProgress
       );
       showSuccess(
-        `${renamed.toLocaleString()} transaction${renamed === 1 ? '' : 's'} now read "${trimmedName}".`,
+        `${formatCount(renamed)} transaction${renamed === 1 ? '' : 's'} now read "${trimmedName}".`,
         'Payees renamed'
       );
       onRenamed(trimmedName, renamed, previous);
@@ -204,9 +205,9 @@ export default function RenamePayeesModal({
             ) : (
               <>
                 This rewrites the payee on{' '}
-                <strong>{plan.transactionIds.length.toLocaleString()} transaction
+                <strong>{formatCount(plan.transactionIds.length)} transaction
                 {plan.transactionIds.length === 1 ? '' : 's'}</strong>, drawn from{' '}
-                <strong>{plan.payeesChanging.toLocaleString()} payee
+                <strong>{formatCount(plan.payeesChanging)} payee
                 {plan.payeesChanging === 1 ? '' : 's'}</strong>, so that every one of
                 them reads "{trimmedName}".
               </>
@@ -235,7 +236,7 @@ export default function RenamePayeesModal({
           </p>
           {plan.payeesUnchanged > 0 && (
             <p className="text-sm text-amber-900 dark:text-amber-200">
-              {plan.payeesUnchanged.toLocaleString()} selected payee
+              {formatCount(plan.payeesUnchanged)} selected payee
               {plan.payeesUnchanged === 1 ? ' is' : 's are'} already called
               "{trimmedName}" and will not be touched.
             </p>
@@ -254,7 +255,7 @@ export default function RenamePayeesModal({
               >
                 <span className="truncate text-gray-700 dark:text-gray-300">{payee.description}</span>
                 <span className="shrink-0 tabular-nums text-gray-400 dark:text-gray-500">
-                  {payee.count.toLocaleString()}
+                  {formatCount(payee.count)}
                 </span>
               </li>
             ))}
@@ -265,8 +266,8 @@ export default function RenamePayeesModal({
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             {renaming
-              ? `Renaming ${progress.toLocaleString()} of ${plan.transactionIds.length.toLocaleString()}…`
-              : `${selected.length.toLocaleString()} payee${selected.length === 1 ? '' : 's'} selected`}
+              ? `Renaming ${formatCount(progress)} of ${formatCount(plan.transactionIds.length)}…`
+              : `${formatCount(selected.length)} payee${selected.length === 1 ? '' : 's'} selected`}
           </p>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:ml-auto">
             <button
@@ -284,7 +285,7 @@ export default function RenamePayeesModal({
             >
               {renaming
                 ? 'Renaming…'
-                : `Rename ${plan.transactionIds.length.toLocaleString()} transaction${plan.transactionIds.length === 1 ? '' : 's'}`}
+                : `Rename ${formatCount(plan.transactionIds.length)} transaction${plan.transactionIds.length === 1 ? '' : 's'}`}
             </button>
           </div>
         </div>

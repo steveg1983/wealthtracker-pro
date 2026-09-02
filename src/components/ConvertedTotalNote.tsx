@@ -1,6 +1,7 @@
 import React from 'react';
 import type { RatesProvenance } from '../utils/currency-decimal';
 import { RATES_PROVIDER } from '../utils/currency-decimal';
+import { getDateLocale } from '../utils/dateFormatter';
 
 /**
  * What a converted total was built from, said under the total itself.
@@ -57,7 +58,7 @@ interface ConvertedTotalNoteProps {
 
 /** 14:02 — a wall-clock time, in the reader's own locale. */
 function atTime(when: Date): string {
-  return when.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return when.toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function ConvertedTotalNote({

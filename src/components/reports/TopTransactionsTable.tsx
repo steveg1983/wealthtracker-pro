@@ -7,6 +7,8 @@ import type { Category } from '../../types';
 import type { SplitExpandedTransaction } from '../../utils/transactionSplits';
 import { preferences } from '../../services/preferencesService';
 import { useAccountCurrencies } from '../../hooks/useAccountNames';
+import { formatShortDate } from '../../utils/dateFormatter';
+import { compareNames } from '../../utils/localeFormat';
 
 /**
  * The biggest real money movements of the period, on the "Monthly income and
@@ -93,9 +95,9 @@ export default function TopTransactionsTable({
     return [...top].sort((a, b) => {
       switch (sortKey) {
         case 'description':
-          return sortDir * a.description.localeCompare(b.description, undefined, { sensitivity: 'base' });
+          return sortDir * compareNames(a.description, b.description);
         case 'category':
-          return sortDir * categoryName(a.category).localeCompare(categoryName(b.category), undefined, { sensitivity: 'base' });
+          return sortDir * compareNames(categoryName(a.category), categoryName(b.category));
         case 'amount':
           return sortDir * (Math.abs(a.amount) - Math.abs(b.amount));
         default:
@@ -159,7 +161,7 @@ export default function TopTransactionsTable({
                       <p className="font-medium text-gray-900 dark:text-white">{transaction.description}</p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">{categoryName(transaction.category)}</p>
                       <p className="text-sm text-gray-500 dark:text-gray-500">
-                        {new Date(transaction.date).toLocaleDateString()}
+                        {formatShortDate(transaction.date)}
                       </p>
                     </div>
                     <p className={`text-lg font-semibold ${
@@ -226,7 +228,7 @@ export default function TopTransactionsTable({
                     className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
                   >
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
-                      {new Date(transaction.date).toLocaleDateString()}
+                      {formatShortDate(transaction.date)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
                       {transaction.description}

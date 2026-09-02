@@ -70,6 +70,7 @@ import { fetchQuotes } from '../services/stockPriceService';
 import { capSeriesWithRemainder, categoricalColor, categoricalRamp, useIsDarkGround, useChartTooltipStyle, useChartTooltipItemStyle } from '../components/charts/chartColors';
 import { resolvePeriod } from '../hooks/usePeriod';
 import DatePicker from '../components/common/DatePicker';
+import { compareNames, compareText } from '../utils/localeFormat';
 
 /**
  * Names this page's Portfolio Performance wash in the document. Stated once
@@ -883,11 +884,10 @@ function InvestmentsView() {
   // which is the app's DEFAULT answer and not necessarily the reader's.
   const portfolioRootAccounts = useMemo(() => {
     const topLevelIdByAccountId = buildTopLevelIdByAccountId(openAccounts);
-    const locale = getDateLocale();
     return investmentAccounts
       .filter(acc => topLevelIdByAccountId.get(acc.id) === acc.id)
       .slice()
-      .sort((a, b) => a.name.localeCompare(b.name, locale, { sensitivity: 'base' }));
+      .sort((a, b) => compareNames(a.name, b.name));
   }, [investmentAccounts, openAccounts]);
 
   const accountsById = useMemo(
@@ -915,12 +915,11 @@ function InvestmentsView() {
       cards. */
   const closedPortfolioRootAccounts = useMemo(() => {
     const topLevelIdByAccountId = buildTopLevelIdByAccountId(historicalAccounts);
-    const locale = getDateLocale();
     return historicalAccounts
       .filter(acc => acc.type === 'investment' && acc.isActive === false)
       .filter(acc => topLevelIdByAccountId.get(acc.id) === acc.id)
       .slice()
-      .sort((a, b) => a.name.localeCompare(b.name, locale, { sensitivity: 'base' }));
+      .sort((a, b) => compareNames(a.name, b.name));
   }, [historicalAccounts]);
 
   /**
@@ -1270,7 +1269,7 @@ function InvestmentsView() {
     if (holdingsSort === 'default') return portfolioLines;
     const lines = [...portfolioLines];
     if (holdingsSort === 'name' || holdingsSort === 'name-desc') {
-      lines.sort((a, b) => a.name.localeCompare(b.name));
+      lines.sort((a, b) => compareText(a.name, b.name));
       if (holdingsSort === 'name-desc') lines.reverse();
     } else {
       lines.sort((a, b) => b.value.comparedTo(a.value));
@@ -2813,7 +2812,7 @@ function InvestmentsView() {
                         .filter(a =>
                           a.parentAccountId === account.id &&
                           a.currency === account.currency)
-                        .sort((a, b) => a.name.localeCompare(b.name))}
+                        .sort((a, b) => compareText(a.name, b.name))}
                       onAdd={(values, purchase) => handleAddHolding(account.id, values, purchase)}
                       onEdit={handleEditHolding}
                       onDelete={handleDeleteHolding}
@@ -2929,7 +2928,7 @@ function InvestmentsView() {
               .filter(a =>
                 a.parentAccountId === live.accountId &&
                 a.currency === (portfolioAccount?.currency ?? live.currency))
-              .sort((a, b) => a.name.localeCompare(b.name))
+              .sort((a, b) => compareText(a.name, b.name))
               .map(a => ({ id: a.id, name: a.name }))}
             onBuyMore={(trade: LiveBuyDetails) => handleBuyMore(live, trade)}
             onSell={(trade: LiveSellDetails) => handleSell(live, trade)}

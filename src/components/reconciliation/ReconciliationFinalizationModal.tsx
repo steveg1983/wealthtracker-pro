@@ -7,6 +7,7 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { parseMoneyInput, toDecimal } from '../../utils/decimal';
 import { deriveAdjustment } from '../../utils/reconciliation';
 import { useBackdropDismiss } from '../../hooks/useBackdropDismiss';
+import { formatCount } from '../../utils/localeFormat';
 
 interface ReconciliationFinalizationModalProps {
   isOpen: boolean;
@@ -55,7 +56,7 @@ interface ReconciliationFinalizationModalProps {
 
 /** "1 transaction" / "12 transactions" — the count and its noun, together. */
 const transactionCount = (n: number): string =>
-  `${n.toLocaleString()} transaction${n === 1 ? '' : 's'}`;
+  `${formatCount(n)} transaction${n === 1 ? '' : 's'}`;
 
 export default function ReconciliationFinalizationModal({
   isOpen,

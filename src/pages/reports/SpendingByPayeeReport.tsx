@@ -14,6 +14,7 @@ import type { ReportViewProps } from './types';
 import { preferences } from '../../services/preferencesService';
 import { categoricalColor, useCategoricalRamp, useChartTooltipStyle, useChartTooltipItemStyle } from '../../components/charts/chartColors';
 import { getDateLocale } from '../../utils/dateFormatter';
+import { formatCount } from '../../utils/localeFormat';
 
 /**
  * "Spending by payee" — who the money actually went to.
@@ -244,7 +245,7 @@ export default function SpendingByPayeeReport({ picker }: ReportViewProps): Reac
                       {row.topCategoryName}
                     </td>
                     <td className="px-3 py-2 text-sm text-right tabular-nums text-gray-500 dark:text-gray-400">
-                      {row.count.toLocaleString()}
+                      {formatCount(row.count)}
                     </td>
                     <td className="px-3 py-2 text-sm text-right tabular-nums whitespace-nowrap text-gray-500 dark:text-gray-400">
                       {row.latest.toLocaleDateString(getDateLocale(), { day: '2-digit', month: 'short', year: '2-digit' })}

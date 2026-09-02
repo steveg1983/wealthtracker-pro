@@ -25,6 +25,7 @@ import type { Transaction } from '../types';
 import { preferences } from '../services/preferencesService';
 import { readProvenance, returnState } from '../utils/navigationProvenance';
 import { STICKY_UNDER_APP_BAR } from '../components/layout/chromeOffsets';
+import { formatCount, compareText } from '../utils/localeFormat';
 
 /**
  * Does this account still want work?
@@ -187,7 +188,7 @@ export default function Reconciliation() {
 
     const sortSummaries = (list: typeof reconciliationDetails) => {
       const sorted = [...list];
-      if (sortMode === 'name') sorted.sort((a, b) => a.account.name.localeCompare(b.account.name));
+      if (sortMode === 'name') sorted.sort((a, b) => compareText(a.account.name, b.account.name));
       else if (sortMode === 'balance-desc') sorted.sort((a, b) => b.accountBalance - a.accountBalance);
       else if (sortMode === 'balance-asc') sorted.sort((a, b) => a.accountBalance - b.accountBalance);
       return sorted;
@@ -417,7 +418,7 @@ export default function Reconciliation() {
       setConfirmedBalance(null);
       showSuccess(
         reconciled > 0
-          ? `${reconciled.toLocaleString()} transaction${reconciled === 1 ? '' : 's'} reconciled.`
+          ? `${formatCount(reconciled)} transaction${reconciled === 1 ? '' : 's'} reconciled.`
           : 'Nothing was left to reconcile; the statement balance is recorded.',
         'Account reconciled'
       );
@@ -541,7 +542,7 @@ export default function Reconciliation() {
           {totalUnreconciledCount > 0 ? (
             <>
               <p className="mt-1 text-display font-semibold text-primary dark:text-white tabular-nums">
-                {totalUnreconciledCount.toLocaleString()}
+                {formatCount(totalUnreconciledCount)}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 unreconciled {totalUnreconciledCount === 1 ? 'transaction' : 'transactions'} across all accounts

@@ -7,6 +7,7 @@
 // es-toolkit, not lodash: lodash was an UNDECLARED (phantom) dependency that
 // only resolved through hoisting and could break on any lockfile change.
 import { isEqual } from 'es-toolkit';
+import { getDateLocale } from '../utils/dateFormatter';
 
 export interface FieldChange {
   field: string;
@@ -339,8 +340,8 @@ export class ConflictResolutionService {
       if (clientValue === serverValue) return clientValue;
       
       // Concatenate with timestamp indicator
-      const clientTime = new Date(clientTimestamp).toLocaleString();
-      const _serverTime = new Date(serverTimestamp).toLocaleString();
+      const clientTime = new Date(clientTimestamp).toLocaleString(getDateLocale());
+      const _serverTime = new Date(serverTimestamp).toLocaleString(getDateLocale());
 
       return `${serverValue}\n---\n[Added ${clientTime}]: ${clientValue}`;
     }

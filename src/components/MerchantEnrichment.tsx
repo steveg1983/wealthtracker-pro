@@ -16,6 +16,7 @@ import {
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
+import { compareText } from '../utils/localeFormat';
 
 type SortOption = 'name' | 'confidence' | 'frequency' | 'lastUpdated';
 const SORT_OPTIONS: ReadonlyArray<SortOption> = ['name', 'confidence', 'frequency', 'lastUpdated'];
@@ -128,11 +129,11 @@ export default function MerchantEnrichment({ onDataChange: _onDataChange }: Merc
     .sort((a, b) => {
       switch (sortBy) {
         case 'name':
-          return a.name.localeCompare(b.name);
+          return compareText(a.name, b.name);
         case 'confidence':
           return b.confidence - a.confidence;
         case 'frequency':
-          return a.frequency.localeCompare(b.frequency);
+          return compareText(a.frequency, b.frequency);
         case 'lastUpdated':
           return b.lastUpdated.getTime() - a.lastUpdated.getTime();
         default:

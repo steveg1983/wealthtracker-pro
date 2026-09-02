@@ -30,6 +30,7 @@ import ReportDrillModal, { type ReportDrillTarget } from '../components/reports/
 import { ArrowRightLeftIcon, TagIcon, ListIcon, CheckCircleIcon, ChevronRightIcon } from '../components/icons';
 import EmptyState from '../components/EmptyState';
 import type { Transaction } from '../types';
+import { formatCount } from '../utils/localeFormat';
 
 /** Which of the two suggested views the reader last chose. */
 const SUGGESTED_VIEW_KEY = 'categorisationSuggestedView';
@@ -240,7 +241,7 @@ export default function Categorisation(): React.JSX.Element {
     try {
       const confirmed = await confirmTransactionCategories(groupRows.map(row => row.id));
       showSuccess(
-        `${confirmed.toLocaleString()} transaction${confirmed === 1 ? '' : 's'} confirmed as ${categoryLabel(categoryId)}.`,
+        `${formatCount(confirmed)} transaction${confirmed === 1 ? '' : 's'} confirmed as ${categoryLabel(categoryId)}.`,
         'Categories confirmed'
       );
     } catch (error) {
@@ -333,7 +334,7 @@ export default function Categorisation(): React.JSX.Element {
                     ? 'text-amber-700 dark:text-amber-400'
                     : 'text-gray-900 dark:text-white'
                 }`}>
-                  {count.toLocaleString()}
+                  {formatCount(count)}
                 </p>
               </div>
               <div className="text-center">
@@ -368,7 +369,7 @@ export default function Categorisation(): React.JSX.Element {
               utils/categoryRefileLink. */}
           {danglingCount > 0 && (
             <p className="text-xs text-amber-700 dark:text-amber-400">
-              {danglingCount.toLocaleString()} of these {danglingCount === 1 ? 'is' : 'are'} filed
+              {formatCount(danglingCount)} of these {danglingCount === 1 ? 'is' : 'are'} filed
               under a category that no longer exists, so {danglingCount === 1 ? 'it' : 'they'}{' '}
               {danglingCount === 1 ? 'does not' : 'do not'} show in the register's review count
               — repair {danglingCount === 1 ? 'it' : 'them'} under{' '}
@@ -421,7 +422,7 @@ export default function Categorisation(): React.JSX.Element {
                 title="Filter and file"
                 body={`${toFile.length === 1
                   ? 'Search the one outstanding transaction, tick it, and file it in one press.'
-                  : `Search the ${toFile.length.toLocaleString()} outstanding transactions, tick them, and file them in one press.`
+                  : `Search the ${formatCount(toFile.length)} outstanding transactions, tick them, and file them in one press.`
                 } Rows with no category and the app’s own guesses are both here.`}
                 onClick={() => setFiling(showing => !showing)}
                 expanded={filing}
@@ -468,7 +469,7 @@ export default function Categorisation(): React.JSX.Element {
                     wearing the attention colour at any rung, so this is
                     neutral outright rather than conditional. */}
                 <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 whitespace-nowrap">
-                  {accountRows.length.toLocaleString()}
+                  {formatCount(accountRows.length)}
                 </span>
                 <ChevronRightIcon size={18} className="text-gray-400 flex-shrink-0" />
               </button>
@@ -493,7 +494,7 @@ export default function Categorisation(): React.JSX.Element {
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
             <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Suggested categories ({suggestedCount.toLocaleString()})
+              Suggested categories ({formatCount(suggestedCount)})
             </h2>
             {/* The same segmented idiom the period picker uses. */}
             <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
@@ -540,7 +541,7 @@ export default function Categorisation(): React.JSX.Element {
                         {accountName(accountId)}
                       </span>
                       <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        {accountRows.length.toLocaleString()} suggested
+                        {formatCount(accountRows.length)} suggested
                       </span>
                     </div>
                     {accountCategories.map(({ categoryId, rows: groupRows }) => (
@@ -654,7 +655,7 @@ function SuggestedGroupRow({
       >
         {label}
         <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
-          {rows.length.toLocaleString()} transaction{rows.length === 1 ? '' : 's'}
+          {formatCount(rows.length)} transaction{rows.length === 1 ? '' : 's'}
         </span>
       </button>
       <button

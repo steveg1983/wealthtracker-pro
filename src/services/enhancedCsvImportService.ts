@@ -14,6 +14,7 @@ import {
   type CsvDateFormatChoice,
   type DateFormatSample
 } from '../utils/csvDateFormat';
+import { compareText } from '../utils/localeFormat';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -2279,7 +2280,7 @@ export class EnhancedCsvImportService {
     return [...BANK_TEMPLATES].sort((a, b) => {
       const byRegion =
         BANK_TEMPLATE_REGIONS.indexOf(a.region) - BANK_TEMPLATE_REGIONS.indexOf(b.region);
-      return byRegion !== 0 ? byRegion : a.label.localeCompare(b.label);
+      return byRegion !== 0 ? byRegion : compareText(a.label, b.label);
     });
   }
 

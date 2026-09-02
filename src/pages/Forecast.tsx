@@ -16,6 +16,7 @@ import { dataPort } from '@data';
 import { useFlowConvert } from '../hooks/useFlowConvert';
 import { useNetWorthConversion } from '../hooks/useNetWorthConversion';
 import type { ForecastAdjustment, Transaction } from '../types';
+import { compareNames } from '../utils/localeFormat';
 
 /**
  * CURRENT AND FORECAST — a P&L of what happened, and the room the scenario
@@ -265,7 +266,7 @@ function ForecastStatement(): React.JSX.Element {
     // always last, whatever its size — a remainder, not a category.
     const compare = (aLabel: string, aTotal: number, bLabel: string, bTotal: number): number =>
       sort.mode === 'name'
-        ? (sort.nameAsc ? 1 : -1) * aLabel.localeCompare(bLabel, undefined, { sensitivity: 'base' })
+        ? (sort.nameAsc ? 1 : -1) * compareNames(aLabel, bLabel)
         : sort.valueDesc ? bTotal - aTotal : aTotal - bTotal;
 
     const finishSide = (entries: Map<string, BuildEntry>): SideEntry[] =>

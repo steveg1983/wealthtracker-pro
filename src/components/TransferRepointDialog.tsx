@@ -4,6 +4,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { ArrowRightLeftIcon } from './icons';
 import type { Transaction, TransferDisplacedDisposition } from '../types';
 import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
+import { formatShortDate } from '../utils/dateFormatter';
 
 /**
  * "This transfer's other side may be a real transaction. What should happen to
@@ -95,7 +96,7 @@ export default function TransferRepointDialog({
           This transfer is moving to {targetAccountName}. Its other half is a transaction{' '}
           {where}
           {counterpart
-            ? ` for ${counterpart.amount >= 0 ? '+' : ''}${formatCurrency(counterpart.amount)} on ${new Date(counterpart.date).toLocaleDateString()}`
+            ? ` for ${counterpart.amount >= 0 ? '+' : ''}${formatCurrency(counterpart.amount)} on ${formatShortDate(counterpart.date)}`
             : ''}
           , and it might be a real one rather than one this app created —{' '}
           {reasons[0] ?? 'nothing about it says where it came from'}. Moving a transaction that

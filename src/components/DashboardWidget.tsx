@@ -12,6 +12,7 @@ import {
   CreditCardIcon,
   TargetIcon
 } from './icons';
+import { getDateLocale } from '../utils/dateFormatter';
 
 export interface WidgetConfig {
   id: string;
@@ -206,7 +207,7 @@ export default function DashboardWidget({
         {/* Last Refresh Indicator */}
         {config.lastRefresh && (
           <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Last updated: {config.lastRefresh.toLocaleTimeString()}
+            Last updated: {config.lastRefresh.toLocaleTimeString(getDateLocale())}
           </div>
         )}
       </div>

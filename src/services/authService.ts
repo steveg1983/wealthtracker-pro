@@ -10,6 +10,7 @@
  */
 
 import type { UserResource as User } from '@clerk/types';
+import { formatShortDate } from '../utils/dateFormatter';
 
 export interface AuthUser {
   id: string;
@@ -113,7 +114,7 @@ export class AuthService {
     const days = Math.floor(hours / 24);
     if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
     
-    return date.toLocaleDateString();
+    return formatShortDate(date);
   }
 }
 

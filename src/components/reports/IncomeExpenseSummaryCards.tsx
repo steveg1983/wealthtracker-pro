@@ -7,6 +7,7 @@ import { toDecimal } from '../../utils/decimal';
 import { formatDecimal } from '../../utils/decimal-format';
 import type { Category } from '../../types';
 import type { IncomeExpenseBreakdown } from '../../utils/incomeExpense';
+import { formatCount } from '../../utils/localeFormat';
 
 /**
  * Total income, total expenses, what is left and the savings rate — the four
@@ -170,7 +171,7 @@ export default function IncomeExpenseSummaryCards({
         <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
           {summary.revaluationCount === 1
             ? '1 revaluation in this period is not in the figures above.'
-            : `${summary.revaluationCount.toLocaleString()} revaluations in this period are not in the figures above.`}
+            : `${formatCount(summary.revaluationCount)} revaluations in this period are not in the figures above.`}
           {' '}
           A portfolio moving in value, or a corrected balance, changes what your accounts are
           worth without being money earned or spent. Tick “Show gains, losses &amp; adjustments”

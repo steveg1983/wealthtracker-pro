@@ -7,6 +7,8 @@ import { PlusIcon, XIcon, RefreshCwIcon, AlertCircleIcon } from './icons';
 import { formatDecimal } from '../utils/decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { normaliseWatchlist, positionMetrics, type WatchedItem } from '../utils/watchlistPositions';
+import { getDateLocale } from '../utils/dateFormatter';
+import { compareText } from '../utils/localeFormat';
 
 /**
  * A watchlist that tells the truth about what it could not fetch.
@@ -61,7 +63,7 @@ export default function StockWatchlist(): React.JSX.Element {
     if (watchlistSort === 'default') return items;
     const sorted = [...items];
     if (watchlistSort === 'name-asc' || watchlistSort === 'name-desc') {
-      sorted.sort((a, b) => a.symbol.localeCompare(b.symbol));
+      sorted.sort((a, b) => compareText(a.symbol, b.symbol));
       if (watchlistSort === 'name-desc') sorted.reverse();
       return sorted;
     }
@@ -231,7 +233,7 @@ export default function StockWatchlist(): React.JSX.Element {
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Stock Watchlist</h2>
           {lastUpdated ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Last updated: {lastUpdated.toLocaleTimeString()}
+              Last updated: {lastUpdated.toLocaleTimeString(getDateLocale())}
             </p>
           ) : (
             !isLoading && (

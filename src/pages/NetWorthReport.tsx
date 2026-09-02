@@ -43,6 +43,7 @@ import type { ReportViewProps } from './reports/types';
 import { preferences } from '../services/preferencesService';
 import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
 import { getDateLocale } from '../utils/dateFormatter';
+import { compareNames } from '../utils/localeFormat';
 
 /**
  * Net worth over time — the Microsoft Money report, rebuilt on real data.
@@ -356,8 +357,8 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
   const drillGroups = useMemo(() => {
     const sorted = [...drillBalances].sort((a, b) => {
       switch (drillSort) {
-        case 'name': return a.account.name.localeCompare(b.account.name, undefined, { sensitivity: 'base' });
-        case 'name-desc': return b.account.name.localeCompare(a.account.name, undefined, { sensitivity: 'base' });
+        case 'name': return compareNames(a.account.name, b.account.name);
+        case 'name-desc': return compareNames(b.account.name, a.account.name);
         case 'value-asc': return a.balance.comparedTo(b.balance);
         default: return b.balance.comparedTo(a.balance);
       }

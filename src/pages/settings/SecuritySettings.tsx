@@ -12,6 +12,7 @@ import PageWrapper from '../../components/PageWrapper';
 // mounted in both editions. See src/editions/service.ts.
 import { DangerZone } from '@service';
 import type { SecuritySettings as SecuritySettingsType } from '../../services/securityService';
+import { getDateLocale } from '../../utils/dateFormatter';
 
 export default function SecuritySettings() {
   const [settings, setSettings] = useState<SecuritySettingsType>(
@@ -121,7 +122,7 @@ export default function SecuritySettings() {
                 <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded">
                   <span className="text-sm text-gray-700 dark:text-gray-300">Last login</span>
                   <span className="font-medium text-gray-900 dark:text-white">
-                    {new Date(settings.lastLogin).toLocaleString()}
+                    {new Date(settings.lastLogin).toLocaleString(getDateLocale())}
                   </span>
                 </div>
               )}

@@ -1,3 +1,4 @@
+import { getDateLocale } from '../utils/dateFormatter';
 /**
  * Rate Limiting Implementation
  * Prevents abuse by limiting the frequency of operations
@@ -377,7 +378,7 @@ export const initializeRateLimiter = () => {
       const result = rateLimiters.api.check();
       
       if (!result.allowed) {
-        throw new Error(`API rate limit exceeded. ${result.remaining} requests remaining. Reset at ${new Date(result.resetTime).toLocaleTimeString()}`);
+        throw new Error(`API rate limit exceeded. ${result.remaining} requests remaining. Reset at ${new Date(result.resetTime).toLocaleTimeString(getDateLocale())}`);
       }
       
       rateLimiters.api.consume();

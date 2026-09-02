@@ -4,6 +4,7 @@ import { dailyFactorLookup, type NetWorthConversion } from './netWorthSeries';
 import { toDecimal, type DecimalInstance } from './decimal';
 import { resolveEffectiveOpeningDates } from './openingDates';
 import { buildChildrenByParent } from './accountNesting';
+import { compareNames } from './localeFormat';
 
 /**
  * "Account balances" and "Net worth" — the two Microsoft Money statements,
@@ -506,7 +507,7 @@ export function buildAccountBalanceReport(
   const groups: AccountBalanceGroup[] = [...byLabel.entries()]
     .map(([label, groupRows]) => {
       const sorted = [...groupRows].sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+        compareNames(a.name, b.name)
       );
       const sum = (pick: (row: AccountBalanceRow) => number): number =>
         sorted.reduce((acc, row) => acc.plus(toDecimal(pick(row))), toDecimal(0)).toNumber();

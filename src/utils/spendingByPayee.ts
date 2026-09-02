@@ -4,6 +4,7 @@ import { toDecimal } from './decimal';
 import { normalizePayee, FALLBACK_BANK_DESCRIPTION } from './payeeAutoCategorize';
 import { buildCategoryNameLookup } from './categoryNames';
 import type { FlowFactorResolver } from './incomeExpense';
+import { compareNames } from './localeFormat';
 
 /**
  * "Spending by payee" — the Microsoft Money report: who the money actually
@@ -150,7 +151,7 @@ export function buildPayeeTotals(
     (a, b) =>
       b.total - a.total ||
       b.count - a.count ||
-      a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' })
+      compareNames(a.displayName, b.displayName)
   );
 
   return { rows: out, total: sideTotal };

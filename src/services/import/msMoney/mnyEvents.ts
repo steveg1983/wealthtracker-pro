@@ -41,6 +41,7 @@ import MDBReader from 'mdb-reader';
 import { decryptMny } from './mnyDecrypt';
 import { normaliseMoneySymbol } from './mnyPrices';
 import { toDecimal } from '../../../utils/decimal';
+import { compareText } from '../../../utils/localeFormat';
 
 type Row = Record<string, unknown>;
 
@@ -202,14 +203,14 @@ export function eventsFromMoneyTables(
 
   events.sort(
     (a, b) =>
-      a.date.localeCompare(b.date) ||
-      a.securityName.localeCompare(b.securityName) ||
-      a.sourceRef.localeCompare(b.sourceRef)
+      compareText(a.date, b.date) ||
+      compareText(a.securityName, b.securityName) ||
+      compareText(a.sourceRef, b.sourceRef)
   );
   return {
     events,
     securities: securityKeys.size,
-    accountNames: [...accountNames].sort((a, b) => a.localeCompare(b)),
+    accountNames: [...accountNames].sort((a, b) => compareText(a, b)),
     from: events[0]?.date ?? null,
     to: events[events.length - 1]?.date ?? null,
     skipped,
@@ -262,7 +263,7 @@ export function foldOpenPositions(events: readonly MnyEventRow[]): OpenPosition[
   }
   open.sort(
     (a, b) =>
-      a.accountName.localeCompare(b.accountName) || a.securityName.localeCompare(b.securityName)
+      compareText(a.accountName, b.accountName) || compareText(a.securityName, b.securityName)
   );
   return open;
 }

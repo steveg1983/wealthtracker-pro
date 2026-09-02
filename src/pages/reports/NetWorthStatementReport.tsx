@@ -12,6 +12,7 @@ import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import NetWorthSummary from '../../components/NetWorthSummary';
 import type { ReportViewProps } from './types';
 import { getDateLocale } from '../../utils/dateFormatter';
+import { compareNames } from '../../utils/localeFormat';
 
 /**
  * "Net worth" — the Microsoft Money statement: everything you own set
@@ -73,7 +74,7 @@ export default function NetWorthStatementReport({ picker }: ReportViewProps): Re
   const sides = useMemo(() => {
     const byMagnitude = (a: AccountBalanceRow, b: AccountBalanceRow): number =>
       Math.abs(b.closing) - Math.abs(a.closing) ||
-      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+      compareNames(a.name, b.name);
     return {
       owned: report.rows.filter(row => row.closing > 0).sort(byMagnitude),
       owed: report.rows.filter(row => row.closing < 0).sort(byMagnitude),

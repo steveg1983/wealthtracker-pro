@@ -121,6 +121,7 @@ import {
 } from './categorySpendSummary';
 import { getDateLocale } from './dateFormatter';
 import type { Budget, Category, Transaction, TransactionSplit } from '../types';
+import { compareNames } from './localeFormat';
 
 const ZERO = toDecimal(0);
 const MONTHS_IN_YEAR = 12;
@@ -381,7 +382,7 @@ export function buildWizardRows(
 export function groupWizardRows(rows: WizardRow[]): WizardGroup[] {
   const byGroup = new Map<string, WizardGroup>();
   const byName = (a: WizardRow, b: WizardRow): number =>
-    a.category.name.localeCompare(b.category.name, undefined, { sensitivity: 'base' });
+    compareNames(a.category.name, b.category.name);
 
   for (const row of rows) {
     const id = row.groupId ?? '';
@@ -399,7 +400,7 @@ export function groupWizardRows(rows: WizardRow[]): WizardGroup[] {
   return [...byGroup.values()].sort(
     (a, b) =>
       b.annual.comparedTo(a.annual) ||
-      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+      compareNames(a.name, b.name)
   );
 }
 

@@ -18,6 +18,7 @@ import type {
   SyncTransactionsResponse
 } from '../types/banking-api';
 import { isRuntimeBypassAllowed } from '../utils/runtimeMode';
+import { compareText } from '../utils/localeFormat';
 
 export interface BankConnection {
   id: string;
@@ -646,7 +647,7 @@ export class BankConnectionService {
       uk('santander', 'Santander'),
       uk('starling', 'Starling Bank'),
       uk('tsb', 'TSB')
-    ].sort((a, b) => a.name.localeCompare(b.name));
+    ].sort((a, b) => compareText(a.name, b.name));
   }
 
   async connectBank(

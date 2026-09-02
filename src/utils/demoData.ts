@@ -24,6 +24,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { toDecimal } from './decimal';
 import { isDemoModeRuntimeAllowed } from './runtimeMode';
+import { compareText } from './localeFormat';
 
 export { isDemoModeRuntimeAllowed } from './runtimeMode';
 
@@ -239,7 +240,7 @@ export const generateDemoTransactions = (count: number = 50) => {
     });
   }
   
-  return transactions.sort((a, b) => b.date.localeCompare(a.date));
+  return transactions.sort((a, b) => compareText(b.date, a.date));
 };
 
 // Demo budgets

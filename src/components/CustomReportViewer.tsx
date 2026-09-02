@@ -22,6 +22,7 @@ import { lineMarkers, seriesWash, seriesWashFill } from './charts/richLine';
 import { formatDecimal } from '../utils/decimal-format';
 import type { CustomReport, ReportComponent } from './CustomReportBuilder';
 import { getDateLocale } from '../utils/dateFormatter';
+import { formatCount } from '../utils/localeFormat';
 
 /**
  * Renders a generated custom report. Until now "Generate" computed the data
@@ -118,7 +119,7 @@ export default function CustomReportViewer({
                 </p>
                 <p className="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">
                   {/count|Count/.test(key)
-                    ? value.toLocaleString()
+                    ? formatCount(value)
                     // ≈ on converted money figures — the hub's basis line
                     // states the mechanism; the mark says which figures it
                     // reached. Rates and counts are not money.

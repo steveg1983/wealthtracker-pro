@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { preserveDemoParam } from '../utils/navigation';
 import type { CategoryHealth } from '../utils/categoryHealth';
+import { formatCount } from '../utils/localeFormat';
 
 /**
  * "Data health" for the Categories page: the amber panel that points at where
@@ -146,7 +147,7 @@ export default function CategoryDataHealthPanel({
         {health.uncategorizedCount > 0 && (
           <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span>
-              <strong className="tabular-nums">{health.uncategorizedCount.toLocaleString()}</strong>{' '}
+              <strong className="tabular-nums">{formatCount(health.uncategorizedCount)}</strong>{' '}
               uncategorised transaction{plural(health.uncategorizedCount)} sit outside every report
             </span>
             <span className={`tabular-nums ${wearsAmber ? 'text-amber-700 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>
@@ -164,7 +165,7 @@ export default function CategoryDataHealthPanel({
         {health.unassignedBucketCount > 0 && bucketId !== null && (
           <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span>
-              <strong className="tabular-nums">{health.unassignedBucketCount.toLocaleString()}</strong>{' '}
+              <strong className="tabular-nums">{formatCount(health.unassignedBucketCount)}</strong>{' '}
               row{plural(health.unassignedBucketCount)} still park in the import’s “Unassigned” bucket —
               file {health.unassignedBucketCount === 1 ? 'it' : 'them'} to a real category to count in reports
             </span>
@@ -187,7 +188,7 @@ export default function CategoryDataHealthPanel({
         {health.danglingCount > 0 && (
           <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-amber-700 dark:text-amber-400">
             <span>
-              <strong className="tabular-nums">{health.danglingCount.toLocaleString()}</strong>{' '}
+              <strong className="tabular-nums">{formatCount(health.danglingCount)}</strong>{' '}
               {/* The verb agrees, as it does on every other line here
                   ("categor{y has|ies have}", "transaction{ carries|s carry}").
                   This one said "1 row point at" until the line was rewritten. */}
@@ -223,7 +224,7 @@ export default function CategoryDataHealthPanel({
                 has no other side, so nothing balances it. The balance moved;
                 the reports never heard. That is the sentence. */}
             <span>
-              <strong className="tabular-nums">{health.transferFilingMismatchCount.toLocaleString()}</strong>{' '}
+              <strong className="tabular-nums">{formatCount(health.transferFilingMismatchCount)}</strong>{' '}
               transaction{plural(health.transferFilingMismatchCount)} carr
               {health.transferFilingMismatchCount === 1 ? 'ies' : 'y'} a transfer category with no other
               side — {health.transferFilingMismatchCount === 1 ? 'it moves' : 'they move'} the account
@@ -242,7 +243,7 @@ export default function CategoryDataHealthPanel({
         {health.emptyCategoryCount > 0 && (
           <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span>
-              <strong className="tabular-nums">{health.emptyCategoryCount.toLocaleString()}</strong>{' '}
+              <strong className="tabular-nums">{formatCount(health.emptyCategoryCount)}</strong>{' '}
               categor{health.emptyCategoryCount === 1 ? 'y has' : 'ies have'} no transactions —
               candidate{plural(health.emptyCategoryCount)} to delete and simplify your list
             </span>

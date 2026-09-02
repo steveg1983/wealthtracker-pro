@@ -31,6 +31,7 @@
 
 import { toDecimal } from '../../utils/decimal';
 import type { DecimalInstance } from '../../utils/decimal';
+import { compareText } from '../../utils/localeFormat';
 
 export interface HoldingPricePoint {
   /** YYYY-MM-DD. */
@@ -85,7 +86,7 @@ export function buildHoldingRegister(
   const usable = series
     .filter((p) => purchaseDate === null || p.date >= purchaseDate)
     .slice()
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort((a, b) => compareText(a.date, b.date));
   const pricesBeforePurchase = series.length - usable.length;
 
   const lines: RegisterLine[] = [
