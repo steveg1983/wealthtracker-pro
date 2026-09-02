@@ -67,6 +67,7 @@ import { currentDeviceIdentity } from '../services/local/deviceIdentity';
 import { DESKTOP_ROUTES, type DesktopPath } from './routes';
 import { LicenceStatusLine } from './LicenceScreen';
 import { useShellInvoke } from './shellInvoke';
+import { formatCount } from '../utils/localeFormat';
 
 const Dashboard = lazyWithPreload(() => import(/* webpackChunkName: "dashboard" */ '../pages/Dashboard'));
 const Accounts = lazyWithPreload(() => import(/* webpackChunkName: "accounts" */ '../pages/Accounts'));
@@ -170,7 +171,7 @@ function WindowTitle(): null {
  * all, and is worth a whole 50,000-row read per launch.
  */
 const count = (n: number, one: string, many: string): string =>
-  `${n.toLocaleString()} ${n === 1 ? one : many}`;
+  `${formatCount(n)} ${n === 1 ? one : many}`;
 
 function OpenLedgerScreen(): ReactElement {
   const { accounts, transactions, categories, capabilities } = useApp();

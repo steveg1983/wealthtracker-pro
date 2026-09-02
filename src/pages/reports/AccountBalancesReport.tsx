@@ -11,6 +11,7 @@ import { useInvestmentValuation } from '../../hooks/useInvestmentValuation';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
 import { getDateLocale } from '../../utils/dateFormatter';
+import { formatCount } from '../../utils/localeFormat';
 
 /**
  * "Account balances" — the Microsoft Money statement: what each account was
@@ -201,7 +202,7 @@ export default function AccountBalancesReport({ picker }: ReportViewProps): Reac
                         {money(row.closing, row.currency)}
                       </td>
                       <td className={`${cell} text-gray-500 dark:text-gray-400`}>
-                        {row.count.toLocaleString()}
+                        {formatCount(row.count)}
                       </td>
                     </tr>
                   ))}

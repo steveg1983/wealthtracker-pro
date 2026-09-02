@@ -6,6 +6,7 @@ import { ArrowRightLeftIcon } from './icons';
 import type { Transaction } from '../types';
 import type { TransferCandidate } from '../utils/transferMatch';
 import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
+import { formatShortDate } from '../utils/dateFormatter';
 
 /**
  * The Money-style transfer confirmation. Shown when a transaction is filed
@@ -141,7 +142,7 @@ export default function TransferMatchDialog({
                       <div className="min-w-0">
                         <p className="font-medium text-gray-900 dark:text-white truncate">{t.description}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                          {new Date(t.date).toLocaleDateString()}
+                          {formatShortDate(t.date)}
                           {candidate.daysApart > 0 && ` • ${Math.round(candidate.daysApart)} day${Math.round(candidate.daysApart) === 1 ? '' : 's'} apart`}
                         </p>
                       </div>

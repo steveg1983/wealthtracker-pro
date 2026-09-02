@@ -11,7 +11,7 @@ import AddAccountModal from '../components/AddAccountModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import AccountBreakdownModal, { type AccountBreakdownView } from '../components/AccountBreakdownModal';
 import NetWorthSummary from '../components/NetWorthSummary';
-import { formatDate } from '../utils/dateFormatter';
+import { formatDate, getDateLocale } from '../utils/dateFormatter';
 import { accountHasHistory } from '../utils/accountHistory';
 // No longer importing from lucide-react - all icons are now custom
 import { ArchiveIcon, SettingsIcon, CheckCircleIcon, CheckIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon, SearchIcon } from '../components/icons';
@@ -89,6 +89,7 @@ import {
   withProvenance,
   type ProvenanceState,
 } from '../utils/navigationProvenance';
+import { compareNames } from '../utils/localeFormat';
 
 /**
  * What an account row is shaped like, for the placeholder that waits in its
@@ -770,7 +771,7 @@ function AccountsList() {
     }
     const sorted = [...list];
     if (sortMode === 'name' || sortMode === 'name-desc') {
-      sorted.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+      sorted.sort((a, b) => compareNames(a.name, b.name));
       if (sortMode === 'name-desc') sorted.reverse();
     } else {
       sorted.sort((a, b) => {
@@ -1001,7 +1002,7 @@ function AccountsList() {
   // triage, but an archive you're scanning for one name always wants A–Z.
   const closedAccountBands = useMemo(
     () => groupAccountsForDisplay(
-      [...matchedClosedAccounts].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+      [...matchedClosedAccounts].sort((a, b) => compareNames(a.name, b.name)),
       grouping
     ),
     [matchedClosedAccounts, grouping]
@@ -1738,7 +1739,7 @@ function AccountsList() {
                           <p className="hidden sm:block text-xs text-gray-500 dark:text-gray-300">
                             Last bank sync:{' '}
                             {bankLink.lastSync
-                              ? new Date(bankLink.lastSync).toLocaleString()
+                              ? new Date(bankLink.lastSync).toLocaleString(getDateLocale())
                               : 'Never'}
                             {bankLink.status === 'reauth_required' && (
                               <span className="ml-1 text-amber-600 dark:text-amber-400">

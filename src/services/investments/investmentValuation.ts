@@ -42,6 +42,7 @@ import { toDecimal } from '../../utils/decimal';
 import type { DecimalInstance } from '../../utils/decimal';
 import type { InvestmentEvent } from './events';
 import type { InvestmentHolding } from './holding';
+import { compareText } from '../../utils/localeFormat';
 
 /** A dated price with its symbol and currency — the user-wide price read. */
 export interface SymbolPricePoint {
@@ -164,7 +165,7 @@ export function buildInvestmentValuation(
     (pricesBySymbol.get(point.symbol) ?? pricesBySymbol.set(point.symbol, []).get(point.symbol)!).push(point);
   }
   for (const series of pricesBySymbol.values()) {
-    series.sort((a, b) => a.date.localeCompare(b.date));
+    series.sort((a, b) => compareText(a.date, b.date));
   }
 
   // ── each position folds into a delta step function; accounts sum theirs ───
@@ -174,7 +175,7 @@ export function buildInvestmentValuation(
   let currencyMismatches = 0;
 
   for (const position of positions.values()) {
-    position.moves.sort((a, b) => a.day.localeCompare(b.day));
+    position.moves.sort((a, b) => compareText(a.day, b.day));
 
     let series = position.symbol === null ? [] : pricesBySymbol.get(position.symbol) ?? [];
     if (series.length > 0 && series.some((p) => p.currency !== position.accountCurrency)) {

@@ -16,6 +16,7 @@ import {
   CATEGORISATION_TRANSFERS_PATH,
 } from '../../utils/pageOpenLink';
 import { CheckCircleIcon } from '../icons';
+import { formatCount } from '../../utils/localeFormat';
 
 /**
  * BRINGING IN YOUR HISTORY — the ORDER, which is the part nothing told anybody.
@@ -312,7 +313,7 @@ export default function HistoryPathCard(): React.JSX.Element | null {
             data-testid="history-path-counter"
           >
             {backlog > 0
-              ? `${backlog.toLocaleString()} left to review`
+              ? `${formatCount(backlog)} left to review`
               : 'Nothing left to review — the hard part is done.'}
           </p>
 

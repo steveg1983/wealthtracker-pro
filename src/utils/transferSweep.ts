@@ -10,6 +10,7 @@ import {
 } from './crossCurrencyMatch';
 import type { CrossCurrency } from './crossCurrencyTransfer';
 import type { Account, Transaction, TransactionSplit } from '../types';
+import { compareText } from './localeFormat';
 
 /**
  * Bulk transfer matching — find every unlinked equal-and-opposite pair in one
@@ -158,9 +159,9 @@ export function unmatchedSplitLegs(
   return legs.sort(
     (a, b) =>
       a.time - b.time ||
-      a.parent.id.localeCompare(b.parent.id) ||
+      compareText(a.parent.id, b.parent.id) ||
       a.split.sortOrder - b.split.sortOrder ||
-      a.split.id.localeCompare(b.split.id)
+      compareText(a.split.id, b.split.id)
   );
 }
 
@@ -215,7 +216,7 @@ export function sweepTransferPairs(
 
   // Deterministic order: oldest first, so a re-run pairs identically.
   const ordered = [...eligible].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.id.localeCompare(b.id)
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || compareText(a.id, b.id)
   );
 
   for (const row of ordered) {
@@ -477,7 +478,7 @@ function sweepCrossCurrencyPairs(
   // Deterministic order, exactly as the pass above: oldest first, id as the
   // tie-break, so a re-run over unchanged data pairs identically.
   const ordered = [...remaining].sort(
-    (a, b) => timeOf(a.date) - timeOf(b.date) || a.id.localeCompare(b.id)
+    (a, b) => timeOf(a.date) - timeOf(b.date) || compareText(a.id, b.id)
   );
 
   const suggestions: TransferPairSuggestion[] = [];

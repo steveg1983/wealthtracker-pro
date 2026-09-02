@@ -37,6 +37,7 @@ import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
 import { TrendingUpIcon } from './icons';
 import type { MnyPriceHistory } from '../services/import/msMoney/mnyPrices';
 import type { MnyEventHistory, MnyEventRow, OpenPosition } from '../services/import/msMoney/mnyEvents';
+import { formatCount, compareText } from '../utils/localeFormat';
 
 type Step =
   | { at: 'idle' }
@@ -146,7 +147,7 @@ export default function MnyHistoryImportCard(): React.JSX.Element {
         matched,
         unmatchedAccounts: [...unmatchedCounts.entries()]
           .map(([name, count]) => ({ name, trades: count }))
-          .sort((a, b) => a.name.localeCompare(b.name)),
+          .sort((a, b) => compareText(a.name, b.name)),
         openPositions: foldOpenPositions(matched)
       };
     },
@@ -276,7 +277,7 @@ export default function MnyHistoryImportCard(): React.JSX.Element {
             <>
               <div>
                 <p className="text-body text-gray-900 dark:text-white">
-                  {step.prices.prices.length.toLocaleString()} price
+                  {formatCount(step.prices.prices.length)} price
                   {step.prices.prices.length === 1 ? '' : 's'} for {step.prices.securities} securit
                   {step.prices.securities === 1 ? 'y' : 'ies'}
                   {step.prices.from ? `, ${step.prices.from} to ${step.prices.to}` : ''}.
@@ -290,7 +291,7 @@ export default function MnyHistoryImportCard(): React.JSX.Element {
 
               <div>
                 <p className="text-body text-gray-900 dark:text-white">
-                  {plan.matched.length.toLocaleString()} trade{plan.matched.length === 1 ? '' : 's'} —
+                  {formatCount(plan.matched.length)} trade{plan.matched.length === 1 ? '' : 's'} —
                   buys, sells and write-offs — across {step.trades.securities} securit
                   {step.trades.securities === 1 ? 'y' : 'ies'}
                   {step.trades.from ? `, ${step.trades.from} to ${step.trades.to}` : ''}. Trades record
@@ -383,10 +384,10 @@ export default function MnyHistoryImportCard(): React.JSX.Element {
 
       {step.at === 'done' && (
         <p className="mt-4 text-body text-gray-900 dark:text-white" role="status">
-          {step.pricesImported.toLocaleString()} price{step.pricesImported === 1 ? '' : 's'} and{' '}
-          {step.tradesImported.toLocaleString()} trade{step.tradesImported === 1 ? '' : 's'} imported
+          {formatCount(step.pricesImported)} price{step.pricesImported === 1 ? '' : 's'} and{' '}
+          {formatCount(step.tradesImported)} trade{step.tradesImported === 1 ? '' : 's'} imported
           {step.pricesPresent + step.tradesPresent > 0
-            ? ` — ${(step.pricesPresent + step.tradesPresent).toLocaleString()} already recorded here and kept as they were.`
+            ? ` — ${formatCount(step.pricesPresent + step.tradesPresent)} already recorded here and kept as they were.`
             : '.'}
         </p>
       )}

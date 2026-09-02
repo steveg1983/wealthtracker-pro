@@ -14,6 +14,7 @@ import { VirtualizedTable, Column } from '../../components/VirtualizedTable';
 import EmptyState from '../../components/EmptyState';
 import FilteredEmptyState from '../../components/FilteredEmptyState';
 import type { AuditLog } from '../../services/securityService';
+import { formatShortDate, getDateLocale } from '../../utils/dateFormatter';
 
 export default function AuditLogs() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -161,10 +162,10 @@ export default function AuditLogs() {
           <CalendarIcon size={16} className="text-gray-400" />
           <div>
             <div className="text-sm font-medium text-gray-900 dark:text-white">
-              {log.timestamp.toLocaleDateString()}
+              {formatShortDate(log.timestamp)}
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400">
-              {log.timestamp.toLocaleTimeString()}
+              {log.timestamp.toLocaleTimeString(getDateLocale())}
             </div>
           </div>
         </div>

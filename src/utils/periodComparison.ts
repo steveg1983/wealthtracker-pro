@@ -4,6 +4,7 @@ import type { IncomeExpenseBreakdown, FlowFactorResolver } from './incomeExpense
 import type { SplitExpandedTransaction } from './transactionSplits';
 import { toDecimal } from './decimal';
 import { buildCategoryNameLookup } from './categoryNames';
+import { compareNames } from './localeFormat';
 
 /**
  * "This period vs …" — the Microsoft Money comparison report.
@@ -205,7 +206,7 @@ export function buildPeriodComparison(
       (a, b) =>
         Math.abs(b.change) - Math.abs(a.change) ||
         Math.abs(b.current) - Math.abs(a.current) ||
-        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) ||
+        compareNames(a.name, b.name) ||
         (a.bucket === b.bucket ? 0 : a.bucket === 'income' ? -1 : 1)
     );
 

@@ -29,6 +29,7 @@ import {
 import { formatDate } from '../utils/dateFormatter';
 import { preferences } from '../services/preferencesService';
 import type { Account } from '../types';
+import { formatCount } from '../utils/localeFormat';
 
 /** Which bands the user has folded away, remembered like the Accounts page's. */
 const COLLAPSED_STORAGE_KEY = 'archiveManager.collapsedGroups.v1';
@@ -282,7 +283,7 @@ export default function ArchiveManager() {
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {account.archiveThroughDate
-              ? <>Archived through {formatDate(account.archiveThroughDate)} · {impact.alreadyHidden.toLocaleString()} hidden</>
+              ? <>Archived through {formatDate(account.archiveThroughDate)} · {formatCount(impact.alreadyHidden)} hidden</>
               : 'Showing all history'}
           </p>
           <p className={`text-xs mt-0.5 ${overridden ? 'text-amber-700 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>
@@ -320,7 +321,7 @@ export default function ArchiveManager() {
             title={!cutoff ? 'Pick a date range above' : describeArchiveConsequence(impact, cutoff)}
             className="px-3 py-1.5 text-sm rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1"
           >
-            {busy ? 'Working…' : impact.willHide > 0 ? `Archive ${impact.willHide.toLocaleString()}` : 'Archive'}
+            {busy ? 'Working…' : impact.willHide > 0 ? `Archive ${formatCount(impact.willHide)}` : 'Archive'}
           </button>
         </div>
       </div>
@@ -354,7 +355,7 @@ export default function ArchiveManager() {
           <span className="text-sm font-semibold text-gray-900 dark:text-white">{group.title}</span>
           <span className="text-xs text-gray-500 dark:text-gray-400">
             ({countWithNoun(group.accounts.length, 'account')}
-            {archivingCount > 0 && ` · ${archivingCount.toLocaleString()} archiving`})
+            {archivingCount > 0 && ` · ${formatCount(archivingCount)} archiving`})
           </span>
         </button>
 

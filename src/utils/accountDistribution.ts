@@ -1,4 +1,5 @@
 import { toDecimal, type DecimalInstance } from './decimal';
+import { compareText } from './localeFormat';
 
 /**
  * Who holds the money, right now.
@@ -99,7 +100,7 @@ export function buildAccountDistribution(
     .map(account => ({ id: account.id, name: account.name, value: balanceOf(account.id) }))
     // Largest first, then by name so two accounts holding the same amount keep
     // a stable order between renders instead of swapping places.
-    .sort((a, b) => (b.value - a.value) || a.name.localeCompare(b.name));
+    .sort((a, b) => (b.value - a.value) || compareText(a.name, b.name));
 
   const netWorth = balances.reduce(
     (sum, entry) => sum.plus(toDecimal(entry.value)),

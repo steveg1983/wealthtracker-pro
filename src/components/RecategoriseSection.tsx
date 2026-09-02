@@ -5,6 +5,7 @@ import FilterAndFileList, {
 } from './FilterAndFileList';
 import { useArrivalRowFocus } from '../hooks/useArrivalFocus';
 import type { Transaction } from '../types';
+import { formatCount } from '../utils/localeFormat';
 
 /**
  * Re-categorise past transactions — the housekeeping mount of the filter list.
@@ -57,15 +58,15 @@ const CORRECTING_A_FILING: FilterAndFileCopy = {
   // somebody already did.
   bulkConsequence: (count, categoryName) => (
     <>
-      This files {count.toLocaleString()} transaction{count === 1 ? '' : 's'} under{' '}
+      This files {formatCount(count)} transaction{count === 1 ? '' : 's'} under{' '}
       <strong>{categoryName}</strong>, replacing whatever category each currently has.
     </>
   ),
   bulkFailed: count =>
-    `${count.toLocaleString()} could not be changed and keep their current categories.`,
+    `${formatCount(count)} could not be changed and keep their current categories.`,
   undone: count => (
     <>
-      <strong>{count.toLocaleString()}</strong> transaction{count === 1 ? ' is' : 's are'} back
+      <strong>{formatCount(count)}</strong> transaction{count === 1 ? ' is' : 's are'} back
       under the categor{count === 1 ? 'y it' : 'ies they'} had before.
     </>
   ),
@@ -76,7 +77,7 @@ const CORRECTING_A_FILING: FilterAndFileCopy = {
       : `No categorised transaction matches all ${activeFilters} of those filters at once.`
     } Rows with no category yet are never searched here, and neither are transfers.`,
   transfersExcluded: count =>
-    `${count.toLocaleString()} transfer${count === 1 ? '' : 's'} matched and ${count === 1 ? 'is' : 'are'} not shown — transfers move money between your accounts and don’t take a category.`,
+    `${formatCount(count)} transfer${count === 1 ? '' : 's'} matched and ${count === 1 ? 'is' : 'are'} not shown — transfers move money between your accounts and don’t take a category.`,
   footnote:
     'Changing history doesn’t change future guesses — suggestions keep learning from everything you file, and bank-feed rules are unaffected.',
 };

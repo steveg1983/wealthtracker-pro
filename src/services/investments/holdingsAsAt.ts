@@ -29,6 +29,7 @@ import type { DecimalInstance } from '../../utils/decimal';
 import type { InvestmentEvent } from './events';
 import type { InvestmentHolding } from './holding';
 import type { SymbolPricePoint } from './investmentValuation';
+import { compareText } from '../../utils/localeFormat';
 
 export interface HeldPosition {
   /** Stable key for a row: account + security. */
@@ -109,7 +110,7 @@ export function buildHoldingsAsAt(
   const ordered = events
     .filter((event) => event.date <= asAt)
     .slice()
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort((a, b) => compareText(a.date, b.date));
 
   for (const event of ordered) {
     const security = event.symbol ?? `name:${event.securityName}`;
@@ -199,6 +200,6 @@ export function buildHoldingsAsAt(
     });
   }
 
-  positions.sort((a, b) => a.securityName.localeCompare(b.securityName));
+  positions.sort((a, b) => compareText(a.securityName, b.securityName));
   return { positions, unpriced, currencyMismatches };
 }

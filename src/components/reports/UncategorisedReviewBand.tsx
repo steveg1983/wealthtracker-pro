@@ -5,6 +5,7 @@ import BulkCategorizeModal from '../BulkCategorizeModal';
 import ReportDrillModal, { type ReportDrillTarget } from './ReportDrillModal';
 import type { Category } from '../../types';
 import type { IncomeExpenseBreakdown } from '../../utils/incomeExpense';
+import { formatCount } from '../../utils/localeFormat';
 
 /**
  * The review band: rows with no category are EXCLUDED from every total in the
@@ -52,7 +53,7 @@ export default function UncategorisedReviewBand({
         className="w-full flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-line dark:border-gray-700 bg-white dark:bg-gray-800 px-5 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
       >
         <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-          {count.toLocaleString()} uncategorised transaction{count === 1 ? '' : 's'} excluded from these totals
+          {formatCount(count)} uncategorised transaction{count === 1 ? '' : 's'} excluded from these totals
         </span>
         {/* The money the report cannot see, in the app's money colours: in
             green, out red, and the NET of the two — the single number that

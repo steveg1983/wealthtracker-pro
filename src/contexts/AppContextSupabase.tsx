@@ -106,6 +106,7 @@ import {
   type DeleteTransactionOutcome,
   type TransferSurvivorOutcome,
 } from '../utils/transferSurvivorRelease';
+import { formatCount } from '../utils/localeFormat';
 
 export interface Tag {
   id: string;
@@ -823,9 +824,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // not be taken. Both SENTENCES are unchanged.
         const txnStats = boot.transactionStats;
         const txnSummary = txnStats.fullFetchReason === null
-          ? `${txnStats.total.toLocaleString()} transactions ` +
-            `(${txnStats.cached.toLocaleString()} from cache + ${txnStats.fetched.toLocaleString()} delta)`
-          : `${boot.transactions.length.toLocaleString()} transactions ` +
+          ? `${formatCount(txnStats.total)} transactions ` +
+            `(${formatCount(txnStats.cached)} from cache + ${formatCount(txnStats.fetched)} delta)`
+          : `${formatCount(boot.transactions.length)} transactions ` +
             `(full fetch — ${txnStats.fullFetchReason})`;
         console.info(
           `Boot data load: ${Math.round(performance.now() - bootStart)}ms total — ` +

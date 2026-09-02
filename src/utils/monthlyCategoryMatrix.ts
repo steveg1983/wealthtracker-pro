@@ -4,6 +4,7 @@ import type { SplitExpandedTransaction } from './transactionSplits';
 import type { FlowFactorResolver } from './incomeExpense';
 import { toDecimal, type DecimalInstance } from './decimal';
 import { getDateLocale } from '../utils/dateFormatter';
+import { compareNames } from './localeFormat';
 
 /**
  * "Monthly income and expenses" — the Microsoft Money report, as a
@@ -171,7 +172,7 @@ function buildSide(
   }
 
   const byName = (a: { name: string }, b: { name: string }): number =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    compareNames(a.name, b.name);
 
   const outGroups: MatrixGroup[] = [...groups.values()]
     .filter(group => !isEmptyBucket(group) || [...group.rows.values()].some(r => !isEmptyBucket(r)))

@@ -33,6 +33,7 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import PageWrapper from '../../components/PageWrapper';
+import { formatCount } from '../../utils/localeFormat';
 
 interface Category {
   id: string;
@@ -202,13 +203,13 @@ function SortableCategory({
 function movingClause(transactions: number, splitLines: number, budgets: number): string {
   const parts: string[] = [];
   if (transactions > 0) {
-    parts.push(`${transactions.toLocaleString()} transaction${transactions === 1 ? '' : 's'}`);
+    parts.push(`${formatCount(transactions)} transaction${transactions === 1 ? '' : 's'}`);
   }
   if (splitLines > 0) {
-    parts.push(`${splitLines.toLocaleString()} split line${splitLines === 1 ? '' : 's'}`);
+    parts.push(`${formatCount(splitLines)} split line${splitLines === 1 ? '' : 's'}`);
   }
   if (budgets > 0) {
-    parts.push(`${budgets.toLocaleString()} budget${budgets === 1 ? '' : 's'}`);
+    parts.push(`${formatCount(budgets)} budget${budgets === 1 ? '' : 's'}`);
   }
   if (parts.length === 0) return '';
   if (parts.length === 1) return parts[0];
@@ -1479,7 +1480,7 @@ export default function CategoriesSettings() {
                           : <>Nothing is filed under &ldquo;{source?.name}&rdquo;, so it is simply removed.</>}
                         {' '}Payee memory and future imports follow &ldquo;{target?.name}&rdquo;.
                         {references.budgets > 0 && targetBudgets > 0 && (
-                          <> &ldquo;{target?.name}&rdquo; will then have {(targetBudgets + references.budgets).toLocaleString()} budgets — tidy them on the Budgets page.</>
+                          <> &ldquo;{target?.name}&rdquo; will then have {formatCount(targetBudgets + references.budgets)} budgets — tidy them on the Budgets page.</>
                         )}
                       </p>
                     </div>

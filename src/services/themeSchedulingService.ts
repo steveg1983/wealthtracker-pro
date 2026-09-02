@@ -1,4 +1,5 @@
 import type { SavedThemeSchedule, SavedThemePreset } from '../types/theme';
+import { compareText } from '../utils/localeFormat';
 
 interface StorageLike {
   length?: number;
@@ -295,7 +296,7 @@ export class ThemeSchedulingService {
 
   // Schedule Management
   getSchedules(): ThemeSchedule[] {
-    return this.schedules.sort((a, b) => a.name.localeCompare(b.name));
+    return this.schedules.sort((a, b) => compareText(a.name, b.name));
   }
 
   createSchedule(schedule: Omit<ThemeSchedule, 'id' | 'createdAt' | 'lastUpdated'>): ThemeSchedule {
@@ -377,7 +378,7 @@ export class ThemeSchedulingService {
     return this.presets.sort((a, b) => {
       if (!a.isCustom && b.isCustom) return -1;
       if (a.isCustom && !b.isCustom) return 1;
-      return a.name.localeCompare(b.name);
+      return compareText(a.name, b.name);
     });
   }
 

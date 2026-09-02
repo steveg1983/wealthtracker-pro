@@ -4,6 +4,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { AlertCircleIcon, CheckCircleIcon, DatabaseIcon } from './icons';
 import { TEST_DATA_COUNTS, type TestDataProgress, type TestDataSeedResult } from '../utils/testDataset';
+import { formatCount } from '../utils/localeFormat';
 
 /**
  * Load the sample dataset into this login.
@@ -28,7 +29,7 @@ const testDataLogger = createScopedLogger('LoadTestDataModal');
 
 /** "1 account" / "4 accounts" — a count that reads like English. */
 const plural = (count: number, singular: string, pluralForm = `${singular}s`): string =>
-  `${count.toLocaleString()} ${count === 1 ? singular : pluralForm}`;
+  `${formatCount(count)} ${count === 1 ? singular : pluralForm}`;
 
 /** Join a list the way a sentence does: "a, b and c". */
 const sentenceList = (parts: string[]): string =>

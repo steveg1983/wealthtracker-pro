@@ -46,6 +46,7 @@ import {
   downloadCSV,
   downloadTextFile
 } from '../utils/csvExport';
+import { formatCount } from '../utils/localeFormat';
 
 // The advanced report builder (templated PDF/Excel/CSV) and the dedicated Excel
 // exporter both used to live under Settings ▸ Data Management. They move here so
@@ -692,7 +693,7 @@ export default function ExportManager(): React.JSX.Element {
                 {backupProgress && (
                   <p className="text-body text-gray-600 dark:text-gray-400 mt-3" aria-live="polite">
                     {backupProgress.entity.replace(/_/g, ' ')} ({backupProgress.entityNumber} of{' '}
-                    {backupProgress.entityCount}) — {backupProgress.rows.toLocaleString()} rows
+                    {backupProgress.entityCount}) — {formatCount(backupProgress.rows)} rows
                   </p>
                 )}
 
@@ -720,13 +721,13 @@ export default function ExportManager(): React.JSX.Element {
                 <div className="flex justify-between gap-4">
                   <span className="text-gray-600 dark:text-gray-400">Transactions:</span>
                   <span className="text-gray-900 dark:text-white" data-testid="preview-transaction-count">
-                    {transactionCount.toLocaleString()}
+                    {formatCount(transactionCount)}
                   </span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-gray-600 dark:text-gray-400">Accounts:</span>
                   <span className="text-gray-900 dark:text-white" data-testid="preview-account-count">
-                    {accountCount.toLocaleString()}
+                    {formatCount(accountCount)}
                   </span>
                 </div>
               </div>

@@ -4,6 +4,7 @@ import { formatDecimal } from '../utils/decimal-format';
 import { buildCategoryNameLookup, UNCATEGORISED_LABEL } from '../utils/categoryNames';
 import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
 import { preferences } from './preferencesService';
+import { compareText } from '../utils/localeFormat';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -322,7 +323,7 @@ export class ExportService {
     // A copy: a getter that reorders the caller's own store is a trap.
     return [...this.templates].sort((a, b) => {
       if (a.isStarter !== b.isStarter) return a.isStarter ? -1 : 1;
-      return a.name.localeCompare(b.name);
+      return compareText(a.name, b.name);
     });
   }
 

@@ -45,6 +45,7 @@
 import { findFeedOverlap } from './feedOverlap';
 import type { ExistingFeedTransaction } from './feedOverlap';
 import type { Transaction } from '../../../types';
+import { compareText } from '../../../utils/localeFormat';
 
 /** Bumped when the plan file's shape changes; apply refuses an older one. */
 export const BACKFILL_PLAN_VERSION = 1;
@@ -312,7 +313,7 @@ export function summariseByCategoryGroup(
   }
   return [...counts.entries()]
     .map(([group, count]) => ({ group, count }))
-    .sort((a, b) => b.count - a.count || a.group.localeCompare(b.group));
+    .sort((a, b) => b.count - a.count || compareText(a.group, b.group));
 }
 
 // ── Drift: is the database still the one the dry run described? ──────────────

@@ -12,6 +12,7 @@ import type { Transaction } from '../types';
 import { toDecimal } from './decimal';
 import { isReconciled } from './transactionReconciliation';
 import { formatDate } from './dateFormatter';
+import { formatCount } from './localeFormat';
 
 export type ArchivePreset = '6m' | '12m' | '24m' | 'all' | 'custom';
 
@@ -73,7 +74,7 @@ export const EMPTY_ARCHIVE_IMPACT: ArchiveImpact = { willHide: 0, remainingVisib
 
 /** "1,204 transactions" / "1 transaction" — the count and its noun, together. */
 export function countWithNoun(n: number, noun = 'transaction'): string {
-  return `${n.toLocaleString()} ${noun}${n === 1 ? '' : 's'}`;
+  return `${formatCount(n)} ${noun}${n === 1 ? '' : 's'}`;
 }
 
 /**

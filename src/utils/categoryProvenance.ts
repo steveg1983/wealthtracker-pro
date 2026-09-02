@@ -30,6 +30,7 @@
  */
 
 import type { Transaction } from '../types';
+import { compareText } from './localeFormat';
 
 /** Enough of a transaction to judge its category provenance. */
 export type CategoryProvenanceRow = Pick<Transaction, 'category' | 'categoryConfirmed'>;
@@ -129,7 +130,7 @@ export function groupSuggestedByCategory<T extends CategoryProvenanceRow>(
   }
 
   return Array.from(byCategory, ([categoryId, groupRows]) => ({ categoryId, rows: groupRows }))
-    .sort((a, b) => b.rows.length - a.rows.length || a.categoryId.localeCompare(b.categoryId));
+    .sort((a, b) => b.rows.length - a.rows.length || compareText(a.categoryId, b.categoryId));
 }
 
 /** One account's suggestions, gathered by the category guessed for them. */
@@ -176,6 +177,6 @@ export function groupSuggestedByAccount<T extends CategoryProvenanceRow & { acco
   })).sort(
     (a, b) =>
       b.rows.length - a.rows.length ||
-      accountName(a.accountId).localeCompare(accountName(b.accountId))
+      compareText(accountName(a.accountId), accountName(b.accountId))
   );
 }

@@ -12,6 +12,7 @@ import { getDateLocale } from '../utils/dateFormatter';
 import { isDanglingFiling } from '../utils/categoryHealth';
 import { AlertTriangleIcon, PlusIcon, XIcon } from './icons';
 import type { Transaction } from '../types';
+import { formatCount, compareNames } from '../utils/localeFormat';
 
 /**
  * Filter and file — the engine both categorising surfaces are made of.
@@ -584,7 +585,7 @@ export default function FilterAndFileList({
     for (const transaction of searchable) {
       for (const tag of transaction.tags ?? []) tags.add(tag);
     }
-    return [...tags].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    return [...tags].sort((a, b) => compareNames(a, b));
   }, [searchable]);
 
   const visible = matched.slice(0, DISPLAY_CAP);
@@ -770,7 +771,7 @@ export default function FilterAndFileList({
     setUndoneCount(restored);
     if (failed > 0) {
       showError(new Error(
-        `${failed.toLocaleString()} of those could not be put back and keep the category this press gave them.`
+        `${formatCount(failed)} of those could not be put back and keep the category this press gave them.`
       ));
     }
   };
@@ -1028,19 +1029,19 @@ export default function FilterAndFileList({
               reading. */}
           {changing !== null && (
             <p role="status" className="mt-3 text-sm text-gray-500 dark:text-gray-400 tabular-nums">
-              {copy.bulkGerund} {changing.done.toLocaleString()} of {changing.total.toLocaleString()}…
+              {copy.bulkGerund} {formatCount(changing.done)} of {formatCount(changing.total)}…
             </p>
           )}
           {undoing !== null && (
             <p role="status" className="mt-3 text-sm text-gray-500 dark:text-gray-400 tabular-nums">
-              Putting back {undoing.done.toLocaleString()} of {undoing.total.toLocaleString()}…
+              Putting back {formatCount(undoing.done)} of {formatCount(undoing.total)}…
             </p>
           )}
           {summary !== null && (
             <p role="status" className="mt-3 text-sm text-gray-700 dark:text-gray-200">
               {summary.changed > 0 && (
                 <>
-                  <strong>{summary.changed.toLocaleString()}</strong> transaction
+                  <strong>{formatCount(summary.changed)}</strong> transaction
                   {summary.changed === 1 ? ' is' : 's are'} now filed under{' '}
                   {categoryLabel(summary.categoryId)}.{' '}
                 </>
@@ -1088,14 +1089,14 @@ export default function FilterAndFileList({
                     disabled={running}
                     aria-label={allSelected
                       ? 'Unselect all matched transactions'
-                      : `Select all ${matched.length.toLocaleString()} matched transactions`}
+                      : `Select all ${formatCount(matched.length)} matched transactions`}
                   />
-                  {allSelected ? 'Unselect all' : `Select all ${matched.length.toLocaleString()}`}
+                  {allSelected ? 'Unselect all' : `Select all ${formatCount(matched.length)}`}
                 </label>
                 {selectedRows.length > 0 && (
                   <>
                     <span className="text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                      {selectedRows.length.toLocaleString()} selected
+                      {formatCount(selectedRows.length)} selected
                     </span>
                     <div className="w-full sm:w-64">
                       {categoryPicker(
@@ -1110,7 +1111,7 @@ export default function FilterAndFileList({
                       disabled={running || bulkCategory === ''}
                       className="px-4 py-2 min-h-[44px] sm:min-h-0 text-sm font-medium rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {copy.bulkVerb} {selectedRows.length.toLocaleString()} transaction{selectedRows.length === 1 ? '' : 's'}
+                      {copy.bulkVerb} {formatCount(selectedRows.length)} transaction{selectedRows.length === 1 ? '' : 's'}
                     </button>
                   </>
                 )}
@@ -1217,9 +1218,9 @@ export default function FilterAndFileList({
 
               {matched.length > DISPLAY_CAP && (
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  Showing the first {DISPLAY_CAP.toLocaleString()} of {matched.length.toLocaleString()} matched —
+                  Showing the first {formatCount(DISPLAY_CAP)} of {formatCount(matched.length)} matched —
                   narrow the search, or use the bulk change (it covers all{' '}
-                  {matched.length.toLocaleString()} matched when everything is ticked).
+                  {formatCount(matched.length)} matched when everything is ticked).
                 </p>
               )}
 
@@ -1243,7 +1244,7 @@ export default function FilterAndFileList({
               have it come out. A zero says nothing, as ever. */}
           {searchingForDangling && danglingSplitLines > 0 && (
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              {danglingSplitLines.toLocaleString()} of these{' '}
+              {formatCount(danglingSplitLines)} of these{' '}
               {danglingSplitLines === 1
                 ? 'is inside a split — edit that split to re-file it.'
                 : 'are inside splits — edit those splits to re-file them.'}
@@ -1266,7 +1267,7 @@ export default function FilterAndFileList({
         <Modal
           isOpen
           onClose={() => setConfirming(false)}
-          title={`${copy.bulkVerb} ${selectedRows.length.toLocaleString()} transaction${selectedRows.length === 1 ? '' : 's'}?`}
+          title={`${copy.bulkVerb} ${formatCount(selectedRows.length)} transaction${selectedRows.length === 1 ? '' : 's'}?`}
           size="md"
         >
           <ModalBody>

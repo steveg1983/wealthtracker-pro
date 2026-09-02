@@ -34,6 +34,7 @@
 import './nodeGlobalsShim';
 import MDBReader from 'mdb-reader';
 import { decryptMny } from './mnyDecrypt';
+import { compareText } from '../../../utils/localeFormat';
 
 type Row = Record<string, unknown>;
 
@@ -145,7 +146,7 @@ export function pricesFromMoneyTables(
     prices.push({ symbol: sec.symbol, date, price: String(price), currency: sec.currency });
   }
 
-  prices.sort((a, b) => a.date.localeCompare(b.date) || a.symbol.localeCompare(b.symbol));
+  prices.sort((a, b) => compareText(a.date, b.date) || compareText(a.symbol, b.symbol));
   return {
     prices,
     securities: pricedSymbols.size,

@@ -30,6 +30,7 @@ import { useAccountNames } from '../hooks/useAccountNames';
 import { AlertTriangleIcon, ArrowRightIcon } from './icons';
 import type { DismissalKind, SuggestionDismissal, Transaction } from '../types';
 import { getDateLocale } from '../utils/dateFormatter';
+import { formatCount, compareNames } from '../utils/localeFormat';
 
 /**
  * Bulk transfer matching: find every unlinked equal-and-opposite pair in the
@@ -84,7 +85,7 @@ interface RefusalToWrite {
 
 /** Case-insensitive, so "BARCLAYS" and "Barclays" sit together, not in two blocks. */
 const compareText = (a: string, b: string): number =>
-  a.localeCompare(b, undefined, { sensitivity: 'base' });
+  compareNames(a, b);
 
 /** The one-line summary of a finding, in the list. */
 function strandedSummary(finding: StrandedFinding, accountName: (id: string) => string): string {
@@ -692,7 +693,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
       }
       if (linked > 0) {
         showSuccess(
-          `${linked.toLocaleString()} transfer pair${linked === 1 ? '' : 's'} linked${failed > 0 ? ` — ${failed} could not be linked` : ''}.`,
+          `${formatCount(linked)} transfer pair${linked === 1 ? '' : 's'} linked${failed > 0 ? ` — ${failed} could not be linked` : ''}.`,
           'Transfers matched'
         );
       }
@@ -733,13 +734,13 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
         ) : rows.length > 0 && (
           <>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              Found <strong>{rows.length.toLocaleString()}</strong> likely transfer
+              Found <strong>{formatCount(rows.length)}</strong> likely transfer
               pair{rows.length === 1 ? '' : 's'} — uncategorised rows that are exactly
               equal and opposite, in different accounts, within a few days. Linking them
               makes both sides transfers, so they leave your income and expense totals.
               {legRowCount > 0 && (
                 <>
-                  {' '}<strong>{legRowCount.toLocaleString()}</strong> of
+                  {' '}<strong>{formatCount(legRowCount)}</strong> of
                   them {legRowCount === 1 ? 'matches a single line' : 'match single lines'} inside
                   a split, not a whole row — marked <em>split line</em> below, because linking one
                   changes that line and the row it matches, and nothing else in the transaction.
@@ -931,7 +932,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                   {rows.length > CAP && (
                     <tr>
                       <td colSpan={5} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
-                        Showing the first {CAP.toLocaleString()} of {rows.length.toLocaleString()} pairs —
+                        Showing the first {formatCount(CAP)} of {formatCount(rows.length)} pairs —
                         link these, then run the sweep again for the rest.
                       </td>
                     </tr>
@@ -951,7 +952,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
               Stranded transfers
               <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
-                {liveFindings.length.toLocaleString()}
+                {formatCount(liveFindings.length)}
               </span>
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-3">
@@ -1034,7 +1035,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                   {liveFindings.length > STRANDED_CAP && (
                     <tr>
                       <td colSpan={5} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
-                        Showing the first {STRANDED_CAP.toLocaleString()} of {liveFindings.length.toLocaleString()} —
+                        Showing the first {formatCount(STRANDED_CAP)} of {formatCount(liveFindings.length)} —
                         sort these out, then run the sweep again for the rest.
                       </td>
                     </tr>
@@ -1056,7 +1057,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
               Split lines with no other side
               <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
-                {visibleLegFindings.length.toLocaleString()}
+                {formatCount(visibleLegFindings.length)}
               </span>
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-3">
@@ -1120,7 +1121,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                   {visibleLegFindings.length > STRANDED_CAP && (
                     <tr>
                       <td colSpan={5} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
-                        Showing the first {STRANDED_CAP.toLocaleString()} of {visibleLegFindings.length.toLocaleString()}.
+                        Showing the first {formatCount(STRANDED_CAP)} of {formatCount(visibleLegFindings.length)}.
                       </td>
                     </tr>
                   )}
@@ -1148,12 +1149,12 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
               button, while the real work sits in the stranded list above. */}
           <p className="text-sm text-gray-600 dark:text-gray-400">
             {applying
-              ? `Linking ${progress.toLocaleString()} of ${chosen.length.toLocaleString()}…`
+              ? `Linking ${formatCount(progress)} of ${formatCount(chosen.length)}…`
               : !dismissalsChecked
                 ? 'Checking…'
                 : rows.length === 0
                   ? 'Each row here is sorted out on its own, above.'
-                  : `${chosen.length.toLocaleString()} of ${Math.min(rows.length, CAP).toLocaleString()} selected`}
+                  : `${formatCount(chosen.length)} of ${formatCount(Math.min(rows.length, CAP))} selected`}
           </p>
           <div className="ml-auto flex items-center gap-2">
             <button
@@ -1171,7 +1172,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                 disabled={applying || chosen.length === 0}
                 className="justify-center px-4 py-2 text-sm font-medium rounded-lg bg-primary-action text-on-primary-action hover:bg-primary-action-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {applying ? 'Linking…' : `Link ${chosen.length.toLocaleString()} pair${chosen.length === 1 ? '' : 's'}`}
+                {applying ? 'Linking…' : `Link ${formatCount(chosen.length)} pair${chosen.length === 1 ? '' : 's'}`}
               </button>
             )}
           </div>

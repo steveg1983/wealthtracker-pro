@@ -3,6 +3,7 @@ import { PERIOD_LABELS, type PeriodKey, type PeriodRange } from '../hooks/usePer
 import type { DataExportTransaction } from './pdfExport';
 import { expandSplitTransactions } from './transactionSplits';
 import { buildCategoryNameLookup } from './categoryNames';
+import { compareText } from './localeFormat';
 
 /**
  * Which accounts belong in the file.
@@ -92,7 +93,7 @@ export function selectExportData(input: ExportSelectionInput): ExportSelection {
       const difference = new Date(a.date).getTime() - new Date(b.date).getTime();
       // Same-day rows keep a stable order rather than whatever sort() felt
       // like, so two exports of the same data are the same file.
-      return difference !== 0 ? difference : a.id.localeCompare(b.id);
+      return difference !== 0 ? difference : compareText(a.id, b.id);
     });
 
   if (!includeAccounts) {

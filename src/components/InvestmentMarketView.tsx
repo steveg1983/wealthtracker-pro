@@ -8,6 +8,7 @@ import { RefreshCwIcon, AlertCircleIcon, InfoIcon } from './icons';
 // module should find the lifted path already in front of them.
 import { formatUnitPrice } from '../utils/currency-decimal';
 import type { InvestmentHolding } from '../services/investments/holding';
+import { formatShortDate } from '../utils/dateFormatter';
 
 /**
  * What the holdings are worth AT THE LAST PRICE WE FETCHED.
@@ -162,7 +163,7 @@ export default function InvestmentMarketView({
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Units held × last fetched price.
             {oldestPrice
-              ? ` Oldest price on this list: ${oldestPrice.toLocaleDateString()}.`
+              ? ` Oldest price on this list: ${formatShortDate(oldestPrice)}.`
               : ' Nothing here has been priced yet.'}
           </p>
         </div>
@@ -271,7 +272,7 @@ export default function InvestmentMarketView({
                         </span>
                         {holding.lastUpdated && (
                           <span className="block text-xs text-gray-500 dark:text-gray-400">
-                            {holding.lastUpdated.toLocaleDateString()}
+                            {formatShortDate(holding.lastUpdated)}
                           </span>
                         )}
                       </>

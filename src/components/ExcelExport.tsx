@@ -4,7 +4,7 @@ import { expandSplitTransactions } from '../utils/transactionSplits';
 import { buildCategoryNameLookup } from '../utils/categoryNames';
 import { Modal } from './common/Modal';
 import DatePicker from './common/DatePicker';
-import { formatDateForInput } from '../utils/dateFormatter';
+import { formatDateForInput, getDateLocale, formatShortDate } from '../utils/dateFormatter';
 import {
   DownloadIcon,
   FileTextIcon,
@@ -22,6 +22,7 @@ import { toDecimal } from '../utils/decimal';
 import { buildCategoryKindLookup, classifyFlow } from '../utils/incomeExpense';
 import type { Transaction } from '../types';
 import { formatDecimal } from '../utils/decimal-format';
+import { compareText } from '../utils/localeFormat';
 
 interface ExcelExportProps {
   isOpen: boolean;
@@ -150,7 +151,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
       { Metric: 'Total Expenses', Value: expenses },
       { Metric: 'Net Income', Value: toDecimal(income).minus(toDecimal(expenses)).toNumber() },
       { Metric: 'Transaction Count', Value: filtered.length },
-      { Metric: 'Date Range', Value: `${options.dateRange.start?.toLocaleDateString()} - ${options.dateRange.end?.toLocaleDateString()}` }
+      { Metric: 'Date Range', Value: `${options.dateRange.start?.toLocaleDateString(getDateLocale())} - ${options.dateRange.end?.toLocaleDateString(getDateLocale())}` }
     ];
     if (currencies.size > 1) {
       overview.push({
@@ -209,7 +210,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
       const toRow = (t: Transaction): TransactionRow => {
         const tDate = t.date instanceof Date ? t.date : new Date(t.date);
         return {
-          Date: tDate.toLocaleDateString(),
+          Date: formatShortDate(tDate),
           Description: t.description,
           Category: categoryName(t.category),
           Type: t.type,
@@ -254,7 +255,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
         }, {} as Record<string, Transaction[]>);
 
         Object.entries(grouped)
-          .sort(([a], [b]) => categoryName(a).localeCompare(categoryName(b)))
+          .sort(([a], [b]) => compareText(categoryName(a), categoryName(b)))
           .forEach(([category, trans]) => {
             transactionData.push({ ...blankRow, Description: `CATEGORY: ${categoryName(category)}` });
             trans.forEach(t => transactionData.push(toRow(t)));
@@ -304,7 +305,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           'Total Expenses': expenses,
           'Net Change': toDecimal(income).minus(toDecimal(expenses)).toNumber(),
           'Transaction Count': accTransactions.length,
-          'Last Updated': (acc.lastUpdated instanceof Date ? acc.lastUpdated : new Date(acc.lastUpdated)).toLocaleDateString()
+          'Last Updated': formatShortDate(acc.lastUpdated instanceof Date ? acc.lastUpdated : new Date(acc.lastUpdated))
         };
       });
       

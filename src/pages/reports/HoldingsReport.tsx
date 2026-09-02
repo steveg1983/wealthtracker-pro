@@ -30,6 +30,7 @@ import { toDecimal, type DecimalInstance } from '../../utils/decimal';
 import { buildTopLevelIdByAccountId } from '../../utils/accountNesting';
 import { getDateLocale } from '../../utils/dateFormatter';
 import type { ReportViewProps } from './types';
+import { compareText } from '../../utils/localeFormat';
 
 type SortKey = 'name' | 'value';
 
@@ -80,7 +81,7 @@ export default function HoldingsReport({ picker }: ReportViewProps): React.JSX.E
     const topLevelIdByAccountId = buildTopLevelIdByAccountId(accounts);
     return accounts
       .filter(a => a.type === 'investment' && topLevelIdByAccountId.get(a.id) === a.id)
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => compareText(a.name, b.name));
   }, [accounts]);
 
   const held = useMemo(
@@ -102,7 +103,7 @@ export default function HoldingsReport({ picker }: ReportViewProps): React.JSX.E
       sorted.sort((a, b) => {
         // An unvalued position sorts last: it has no place on a value ladder,
         // and putting it at zero would say it is worth nothing.
-        if (a.value === null && b.value === null) return a.securityName.localeCompare(b.securityName);
+        if (a.value === null && b.value === null) return compareText(a.securityName, b.securityName);
         if (a.value === null) return 1;
         if (b.value === null) return -1;
         return b.value.comparedTo(a.value);
@@ -121,7 +122,7 @@ export default function HoldingsReport({ picker }: ReportViewProps): React.JSX.E
       if (row.value === null) entry.unvalued += 1;
       else entry.value = entry.value.plus(row.value);
     }
-    return [...byCurrency.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    return [...byCurrency.entries()].sort((a, b) => compareText(a[0], b[0]));
   }, [rows]);
 
   /**

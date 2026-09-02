@@ -10,6 +10,7 @@ import type { Category } from '../types';
 import type { SplitExpandedTransaction } from '../utils/transactionSplits';
 import { getDateLocale } from '../utils/dateFormatter';
 import { useAccountCurrencies } from '../hooks/useAccountNames';
+import { formatCount, compareNames } from '../utils/localeFormat';
 
 /**
  * The income/expense breakdown pop-up, shared by the Dashboard and Reports —
@@ -188,7 +189,7 @@ export default function IncomeExpenseBreakdownModal({
     if (sortKey === 'date') {
       sorted.sort((a, b) => sortDir * (new Date(a.date).getTime() - new Date(b.date).getTime()));
     } else if (sortKey === 'description') {
-      sorted.sort((a, b) => sortDir * a.description.localeCompare(b.description, undefined, { sensitivity: 'base' }));
+      sorted.sort((a, b) => sortDir * compareNames(a.description, b.description));
     } else if (sortKey === 'amount') {
       sorted.sort((a, b) => sortDir * (valueOf(a) - valueOf(b)));
     }
@@ -256,7 +257,7 @@ export default function IncomeExpenseBreakdownModal({
       capped.push({ ...section, rows: take });
     }
     capped.sort((a, b) =>
-      sortDir * (a.name ?? '').localeCompare(b.name ?? '', undefined, { sensitivity: 'base' })
+      sortDir * compareNames((a.name ?? ''), b.name ?? '')
     );
     return { sections: capped, truncated };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -417,7 +418,7 @@ export default function IncomeExpenseBreakdownModal({
               {view.truncated > 0 && (
                 <tr className="block sm:table-row">
                   <td colSpan={4} className="block sm:table-cell py-3 text-center text-xs text-gray-400 dark:text-gray-500">
-                    Showing {CAP.toLocaleString()} of {visibleRows.length.toLocaleString()} rows — the total below covers them all.
+                    Showing {formatCount(CAP)} of {formatCount(visibleRows.length)} rows — the total below covers them all.
                   </td>
                 </tr>
               )}

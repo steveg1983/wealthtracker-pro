@@ -13,6 +13,7 @@ import { dataPort, type WipeProgress } from '@data';
 // file put Clerk in front of the whole Data page in a desktop build. See
 // src/editions/service.ts.
 import { BankConnections } from '@service';
+import { formatCount } from '../../utils/localeFormat';
 
 const ArchiveManager = lazyWithRecovery(() => import('../../components/ArchiveManager'));
 
@@ -329,8 +330,8 @@ export default function DataManagementSettings() {
                   Step {clearProgress.step} of {clearProgress.stepCount}
                   {' — '}
                   {clearProgress.total === undefined
-                    ? `${clearProgress.deleted.toLocaleString()} rows removed`
-                    : `${clearProgress.deleted.toLocaleString()} of ${clearProgress.total.toLocaleString()} rows`}
+                    ? `${formatCount(clearProgress.deleted)} rows removed`
+                    : `${formatCount(clearProgress.deleted)} of ${formatCount(clearProgress.total)} rows`}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                   Leave this tab open until it finishes.

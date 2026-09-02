@@ -54,6 +54,7 @@ import {
   type ExistingCategoryRow,
   type ExistingTransactionLinks,
 } from './cloudPlan';
+import { formatCount } from '../../../utils/localeFormat';
 
 
 const logger = createScopedLogger('msMoneyImport');
@@ -655,8 +656,8 @@ export async function importToCloud(
         phase: 'wiping',
         fraction: 0.02 + 0.13 * ((step - 1 + within) / stepCount),
         message: total === undefined
-          ? `Backing out existing data — ${table}: ${deleted.toLocaleString()} removed…`
-          : `Backing out existing data — ${table}: ${deleted.toLocaleString()} of ${total.toLocaleString()}…`,
+          ? `Backing out existing data — ${table}: ${formatCount(deleted)} removed…`
+          : `Backing out existing data — ${table}: ${formatCount(deleted)} of ${formatCount(total)}…`,
       });
     },
   });

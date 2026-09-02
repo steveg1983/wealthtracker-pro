@@ -32,6 +32,7 @@ import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
+import { compareText } from '../utils/localeFormat';
 
 /**
  * The bulk setup flow, off the main chunk.
@@ -230,7 +231,7 @@ function BudgetView() {
    */
   const orderedBudgets = useMemo(() => {
     const label = (b: Budget): string => getBudgetCategoryLabel(b).toLocaleLowerCase();
-    const byName = (a: Budget, b: Budget): number => label(a).localeCompare(label(b));
+    const byName = (a: Budget, b: Budget): number => compareText(label(a), label(b));
     const rows = [...budgetsWithSpent];
     switch (budgetOrder) {
       case 'az':
@@ -250,7 +251,7 @@ function BudgetView() {
           const name = groupNameOfCategory(b.categoryId ?? legacy ?? '');
           return name === '' ? '\uffff' : name.toLocaleLowerCase();
         };
-        return rows.sort((a, b) => group(a).localeCompare(group(b)) || byName(a, b));
+        return rows.sort((a, b) => compareText(group(a), group(b)) || byName(a, b));
       }
     }
   }, [budgetsWithSpent, budgetOrder, getBudgetCategoryLabel, groupNameOfCategory]);

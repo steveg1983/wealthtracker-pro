@@ -10,7 +10,7 @@ import DatePicker from './common/DatePicker';
 import { expandSplitTransactions, type SplitExpandedTransaction } from '../utils/transactionSplits';
 import type { Transaction } from '../types';
 import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
-import { getDateLocale } from '../utils/dateFormatter';
+import { getDateLocale, formatShortDate } from '../utils/dateFormatter';
 
 interface CategoryTransactionsModalProps {
   isOpen: boolean;
@@ -106,7 +106,7 @@ export default function CategoryTransactionsModal({
           account?.institution || '',
           t.type,
           t.categoryName || categoryName,
-          new Date(t.date).toLocaleDateString(),
+          formatShortDate(t.date),
           new Date(t.date).toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }),
           t.notes || '',
           t.tags?.join(' ') || ''
@@ -394,7 +394,7 @@ export default function CategoryTransactionsModal({
                             )}
                           </span>
                           <span className="block text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                            {new Date(transaction.date).toLocaleDateString()} • {account?.name || 'Unknown Account'}
+                            {formatShortDate(transaction.date)} • {account?.name || 'Unknown Account'}
                           </span>
                         </div>
                         <div className="text-right ml-4">

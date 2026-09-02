@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Modal, ModalBody } from './common/Modal';
 import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSections';
 import { toDecimal } from '../utils/decimal';
+import { compareText } from '../utils/localeFormat';
 
 /**
  * The drill-in behind the Accounts page's Net Worth / Assets / Liabilities
@@ -87,7 +88,7 @@ export default function AccountBreakdownModal({
     return (list: AccountBreakdownRow[]): AccountBreakdownRow[] =>
       [...list].sort((a, b) =>
         sortKey === 'name'
-          ? sortDir * a.name.localeCompare(b.name)
+          ? sortDir * compareText(a.name, b.name)
           : sortDir * (Math.abs(a.balance) - Math.abs(b.balance))
       );
   }, [sortKey, sortDir]);

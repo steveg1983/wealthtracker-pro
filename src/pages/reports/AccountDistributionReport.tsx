@@ -15,6 +15,7 @@ import {
 } from '../../utils/accountDistribution';
 import { formatDecimal } from '../../utils/decimal-format';
 import { preserveDemoParam } from '../../utils/navigation';
+import { formatCount } from '../../utils/localeFormat';
 
 /**
  * "Account distribution" — where the money actually sits, account by account.
@@ -135,7 +136,7 @@ export default function AccountDistributionReport(): React.JSX.Element {
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-line dark:border-gray-700">
           <p className="text-dense text-gray-500 uppercase tracking-wider font-medium">Accounts</p>
           <p className="text-page font-bold mt-1 text-gray-900 dark:text-white">
-            {distribution.entries.length.toLocaleString()}
+            {formatCount(distribution.entries.length)}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-line dark:border-gray-700">
@@ -177,7 +178,7 @@ export default function AccountDistributionReport(): React.JSX.Element {
           <p className="text-center py-16 text-gray-400">No account is in credit</p>
         ) : spreadNote ? (
           <p className="text-body text-gray-600 dark:text-gray-300" data-testid="distribution-spread-note">
-            Your money is spread across {spreadNote.count.toLocaleString()} accounts — the
+            Your money is spread across {formatCount(spreadNote.count)} accounts — the
             largest, {spreadNote.name}, holds {spreadNote.share} of your net worth. Every
             account is listed below.
           </p>
@@ -243,7 +244,7 @@ export default function AccountDistributionReport(): React.JSX.Element {
                     <tr>
                       <td colSpan={3} className="px-4 pt-4 pb-1 text-dense text-gray-500 dark:text-gray-400 border-t border-line dark:border-gray-700">
                         Below here, the ring draws these accounts together as
-                        one slice — {distribution.foldedCount.toLocaleString()} of them.
+                        one slice — {formatCount(distribution.foldedCount)} of them.
                       </td>
                     </tr>
                   )}

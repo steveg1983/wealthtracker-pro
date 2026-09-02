@@ -1,5 +1,6 @@
 import React from 'react';
 import EmptyState from './EmptyState';
+import { formatCount } from '../utils/localeFormat';
 
 interface FilteredEmptyStateProps {
   /**
@@ -76,7 +77,7 @@ export default function FilteredEmptyState({
       description={
         <>
           <span className="font-medium text-gray-900 dark:text-gray-100 tabular-nums">
-            {hiddenCount.toLocaleString()}
+            {formatCount(hiddenCount)}
           </span>
           {` ${scope} ${hiddenCount === 1 ? 'is' : 'are'} hidden by `}
           {filters.length > 0 ? joinFilters(filters) : 'the filters you have set'}.

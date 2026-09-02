@@ -7,7 +7,7 @@ import MoneyInput from './common/MoneyInput';
 import { toDecimal, toStorageNumber, parseMoneyInput } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { getEffectiveBudgetAmount, sumBudgetCarry } from '../utils/budgetAmounts';
-import { getDateLocale } from '../utils/dateFormatter';
+import { getDateLocale, formatShortDate } from '../utils/dateFormatter';
 import {
   ArrowRightIcon,
   CheckCircleIcon,
@@ -590,7 +590,7 @@ export default function BudgetRollover() {
                     {getMonthName(entry.fromPeriod.month)} {entry.fromPeriod.year} → {getMonthName(entry.toPeriod.month)} {entry.toPeriod.year}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {entry.rollovers.length} categories • {entry.appliedAt.toLocaleDateString()}
+                    {entry.rollovers.length} categories • {formatShortDate(entry.appliedAt)}
                   </p>
                 </div>
                 <span className={`font-medium ${

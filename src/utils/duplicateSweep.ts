@@ -2,6 +2,7 @@ import type { Transaction } from '../types';
 import { calculateSimilarity, findDuplicateGroups, type DuplicateThresholds } from './duplicateScan';
 import { descriptionSimilarity, exactPence } from './statementDuplicates';
 import { toDecimal } from './decimal';
+import { compareText } from './localeFormat';
 
 /**
  * The duplicate sweep: which rows look like the same payment recorded twice,
@@ -247,7 +248,7 @@ function pairOnAmountAndDate(
     // whatever happened to share its amount.
     if (Number.isFinite(time)) dated.push({ txn, time, deletable: deleteBlockOf(txn) === null });
   }
-  dated.sort((a, b) => a.time - b.time || a.txn.id.localeCompare(b.txn.id));
+  dated.sort((a, b) => a.time - b.time || compareText(a.txn.id, b.txn.id));
 
   const byPence = new Map<number, DatedRow[]>();
   for (const row of dated) {

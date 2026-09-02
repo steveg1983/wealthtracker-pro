@@ -9,6 +9,7 @@ import type {
   NavigatorWithStandalone,
   NavigatorWithConnection
 } from '../types/mobile';
+import { formatShortDate } from '../utils/dateFormatter';
 
 export interface OfflineTransaction {
   id: string;
@@ -330,7 +331,7 @@ export class MobileService {
 
   private async processImage(capture: CameraCapture): Promise<CameraCapture> {
     // Mock OCR processing - in a real app, this would use a service like Google Vision API
-    const mockText = 'COFFEE SHOP\nTOTAL: $4.50\nDATE: ' + new Date().toLocaleDateString();
+    const mockText = 'COFFEE SHOP\nTOTAL: $4.50\nDATE: ' + formatShortDate(new Date());
     
     // Extract amount using regex
     const amountMatch = mockText.match(/\$?(\d+\.?\d*)/);

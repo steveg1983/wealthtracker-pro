@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { PayeeDismissalKind, SuggestionDismissal } from '../types';
 import { isPayeeDismissalKind, readPayeeDismissalKey } from '../utils/suggestionDismissals';
 import { getDateLocale } from '../utils/dateFormatter';
+import { formatCount } from '../utils/localeFormat';
 
 /**
  * The way back from a refused payee suggestion.
@@ -103,7 +104,7 @@ export default function DismissedPayeeSuggestions({
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
           Dismissed suggestions
           <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
-            {dismissals.length.toLocaleString()}
+            {formatCount(dismissals.length)}
           </span>
         </h3>
         <button
