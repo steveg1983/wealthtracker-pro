@@ -383,6 +383,10 @@ FROM before_state b;
 DELETE FROM public.users WHERE clerk_id = 'clerk_xu_c';
 INSERT INTO public.users (id, clerk_id, email)
 VALUES ('c3333333-3333-3333-3333-333333333333', 'clerk_xu_c', 'xu-c@example.test');
+-- OFF for this ONE statement, which is meant to raise; the DELETE and INSERT
+-- above it keep their protection. test.sh now fails on a non-zero psql exit,
+-- so an expected refusal has to leave psql exiting 0.
+\set ON_ERROR_STOP off
 SELECT public.restore_user_chunk('accounts',
          (SELECT rows FROM backup WHERE entity='accounts'),
          'c3333333-3333-3333-3333-333333333333');

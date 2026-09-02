@@ -124,4 +124,9 @@ FROM before_state b;
 
 -- ── The precondition must refuse a second restore ───────────────────────────
 \echo 'Expect: restore_target_not_empty'
+-- OFF for this ONE statement, which is meant to raise. Without it psql aborts
+-- and exits 3, and test.sh (which now fails on a non-zero exit, so that a file
+-- stopping early cannot be mistaken for a pass) could not tell this expected
+-- refusal from the teardown at line 8 failing.
+\set ON_ERROR_STOP off
 SELECT public.restore_user_chunk('accounts', (SELECT rows FROM backup WHERE entity='accounts'), :U);

@@ -33,6 +33,14 @@ Debian deliberately keeps them off `PATH`. `up.sh` refuses with instructions if
 none is found; `down.sh` does not, because it must still be able to clean up on
 a machine where Postgres has since been removed.
 
+`audit-trigger.test.sql` is the third test and the one that most needs a real
+server: it proves the deferred audit triggers of
+`20260902120000_a_change_is_audited_wherever_it_is_made.sql` record a change
+made in psql while adding nothing to a change an RPC already logged. Deferred
+constraint triggers, `ON COMMIT DELETE ROWS` and `pg_trigger_depth()` all behave
+differently from any mock of them, so the answer is only worth having from
+PostgreSQL itself.
+
 ## Caveats, so the harness is not mistaken for the real thing
 
 - **Supabase's `auth` schema is stubbed.** `auth.uid()`, `auth.role()` and
