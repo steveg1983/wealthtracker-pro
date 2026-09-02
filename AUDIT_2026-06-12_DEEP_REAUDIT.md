@@ -76,6 +76,7 @@ CSP `script-src`/`connect-src` whitelist only `https://*.clerk.accounts.dev` (+ 
 ### 13. Bank-imported money mutations write no `financial_audit_log` entry
 **`api/banking/sync-transactions.ts:311-333`** — the audit log is written only by the atomic RPCs; raw bank inserts (and `sync-accounts` balance overwrites) emit none, so "all money mutations are audited" doesn't hold. (Overlaps #2; called out separately as a compliance gap.)
 **Fix:** Route the bank-sync write path through the audit-emitting RPC, or explicitly call `write_financial_audit` for each inserted/updated bank transaction and balance overwrite.
+**Update 2026-09-02:** closed at the table instead. `20260902120000_a_change_is_audited_wherever_it_is_made.sql` puts deferred audit triggers on `transactions`, `accounts` and `categories`, so a raw insert or a balance overwrite writes its own entry no matter which client made it — proved for the service-role path in `scripts/local-db/audit-trigger.test.sql` section (g). The audit log is no longer written only by the atomic RPCs. The balance-invariant half of this (#2/#12) is untouched.
 
 ### 14. Bundle-size gate is a no-op
 **`scripts/bundle-size-check.mjs:59`** (`process.exit(0)`, no budget) + **`.github/workflows/handoff-snapshot.yml`** ("Run bundle check" is `continue-on-error: true`). CLAUDE.md advertises a Bundle Check gate that doesn't exist; the main chunk is already ~1,025 KB raw with a separate 551 KB chunk and nothing prevents growth.
