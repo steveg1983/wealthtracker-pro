@@ -23,10 +23,13 @@ import {
   monthlyEquivalent,
   planBudgetWrites,
   summariseForWizard,
+  totalBudgeted,
   twinFigure,
+  wizardBoxValue,
   wizardPeriodOf,
   type WizardRow,
 } from './budgetWizardPlan';
+import { toDecimal } from './decimal';
 import type { Budget, Category, Transaction } from '../types';
 
 const CATEGORIES: Category[] = [
@@ -493,5 +496,101 @@ describe('planBudgetWrites — the totals step 3 states', () => {
     expect(plan.budgetedCount).toBe(1);
     expect(plan.monthlyTotal.toString()).toBe('100');
     expect(plan.spentTotal.toString()).toBe('1200'); // Dining's £600 is not in it
+  });
+});
+
+/**
+ * THE RUNNING TOTALS — one sum, three places on screen.
+ *
+ * The scoreboard runs this over every row and each group heading runs it over
+ * its own, which is what makes them add up (owner, 2 Sep 2026: "There should
+ * be a total for each category grouping"). Pinned here rather than only
+ * through the screen because the two rules worth breaking are arithmetic:
+ * that an unfilled group has NO total rather than a total of zero, and that
+ * the twin is divided once at the end rather than row by row.
+ */
+describe('totalBudgeted — the running totals', () => {
+  it('has no total at all while every box is empty', () => {
+    const total = totalBudgeted(rowsFor(), {}, 'monthly');
+    expect(total.boxes).toBe(0);
+    expect(total.typed.toString()).toBe('0');
+  });
+
+  it('adds the typed boxes, and says the year beside the month', () => {
+    const total = totalBudgeted(rowsFor(), { 'det-shop': '90', 'det-dining': '40.50' }, 'monthly');
+    expect(total.boxes).toBe(2);
+    expect(total.typed.toString()).toBe('130.5');
+    expect(total.twin.toString()).toBe('1566');
+  });
+
+  it('counts a typed nought — a budget of nothing is a budget', () => {
+    const total = totalBudgeted(rowsFor(), { 'det-shop': '0' }, 'monthly');
+    expect(total.boxes).toBe(1);
+    expect(total.typed.toString()).toBe('0');
+  });
+
+  it('stops counting a box that was emptied', () => {
+    const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 120 })]);
+    expect(totalBudgeted(rows, {}, 'monthly').typed.toString()).toBe('120');
+    expect(totalBudgeted(rows, { 'det-shop': '' }, 'monthly').boxes).toBe(0);
+  });
+
+  it('counts a stored budget nobody has touched, in the mode being typed', () => {
+    const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 1500, period: 'yearly' })]);
+    expect(totalBudgeted(rows, {}, 'monthly').typed.toString()).toBe('125');
+    expect(totalBudgeted(rows, {}, 'yearly').typed.toString()).toBe('1500');
+  });
+
+  it('leaves out a period it will not re-express, exactly as the write does', () => {
+    const rows = rowsFor([budget({ id: 'b-wk', categoryId: 'det-shop', amount: 30, period: 'weekly' })]);
+    const total = totalBudgeted(rows, {}, 'monthly');
+    expect(total.boxes).toBe(0);
+  });
+
+  it('leaves out a figure that will not read as money rather than guessing at it', () => {
+    const total = totalBudgeted(rowsFor(), { 'det-shop': 'about a hundred', 'det-dining': '40' }, 'monthly');
+    expect(total.boxes).toBe(1);
+    expect(total.typed.toString()).toBe('40');
+  });
+
+  it('divides the twin ONCE, at the end — not row by row', () => {
+    // Three £100 years. Divided per row that is 8.33 × 3 = £24.99; divided
+    // once it is the £25.00 the year actually is, and the year is what the
+    // write is measured in.
+    const total = totalBudgeted(
+      rowsFor(),
+      { 'det-shop': '100', 'det-dining': '100', 'det-energy': '100' },
+      'yearly'
+    );
+    expect(total.typed.toString()).toBe('300');
+    expect(total.twin.toString()).toBe('25');
+  });
+
+  it('is the same sum over the groups as over the whole grid', () => {
+    const rows = rowsFor();
+    const entries = { 'det-shop': '90', 'det-dining': '40.50', 'det-energy': '15' };
+    const whole = totalBudgeted(rows, entries, 'monthly');
+    const groups = groupWizardRows(rows).map(group => totalBudgeted(group.rows, entries, 'monthly'));
+
+    const summed = groups.reduce((sum, group) => sum.plus(group.typed), toDecimal(0));
+    expect(summed.toString()).toBe(whole.typed.toString());
+    expect(groups.reduce((count, group) => count + group.boxes, 0)).toBe(whole.boxes);
+  });
+});
+
+describe('wizardBoxValue — what a box holds', () => {
+  it('gives back what was typed, exactly as typed', () => {
+    const rows = rowsFor();
+    expect(wizardBoxValue(rowFor(rows, 'det-shop'), { 'det-shop': '90.5' }, 'monthly')).toBe('90.5');
+  });
+
+  it('falls back to the stored budget, in the mode being typed', () => {
+    const rows = rowsFor([budget({ id: 'b-1', categoryId: 'det-shop', amount: 1500, period: 'yearly' })]);
+    expect(wizardBoxValue(rowFor(rows, 'det-shop'), {}, 'monthly')).toBe('125');
+  });
+
+  it('is empty for a row the wizard will not re-express — nothing is being typed there', () => {
+    const rows = rowsFor([budget({ id: 'b-wk', categoryId: 'det-shop', amount: 30, period: 'weekly' })]);
+    expect(wizardBoxValue(rowFor(rows, 'det-shop'), {}, 'monthly')).toBe('');
   });
 });

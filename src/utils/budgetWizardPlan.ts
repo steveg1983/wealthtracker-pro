@@ -172,6 +172,15 @@ export function monthlyEquivalent(amount: DecimalInstance | number | string, per
   return period === 'monthly' ? value : value.dividedBy(MONTHS_IN_YEAR);
 }
 
+/**
+ * A figure ready to sit IN a box: two places, plain, no symbol and no
+ * thousands separator, because it is going into a text input the user then
+ * edits and types over. `formatCurrency` is for reading; this is for typing.
+ */
+export function boxFigure(amount: DecimalInstance | number | string): string {
+  return toDecimal(amount).toDecimalPlaces(2).toString();
+}
+
 /** A stored amount in the mode being typed, ready to pre-fill a box. */
 export function amountInMode(
   amount: DecimalInstance | number | string,
@@ -372,6 +381,81 @@ export function groupWizardRows(rows: WizardRow[]): WizardGroup[] {
  * '0'      a deliberate zero, which is a budget and is written.
  */
 export type WizardEntries = Readonly<Record<string, string | undefined>>;
+
+/**
+ * What a box actually holds: what was typed, else what is stored, else empty.
+ *
+ * ONE function, because the grid DRAWS the boxes and three separate totals SUM
+ * them, and a screen where the drawing and the summing disagree is the bug
+ * this was written to make impossible. A row the wizard will not re-express
+ * reads empty here for the same reason its box is read-only: nothing in it is
+ * being typed.
+ */
+export function wizardBoxValue(row: WizardRow, entries: WizardEntries, mode: BudgetMode): string {
+  const typed = entries[row.category.id];
+  if (typed !== undefined) return typed;
+  if (row.existing === null || row.existing.period === null) return '';
+  return boxFigure(amountInMode(row.existing.amount, row.existing.period, mode));
+}
+
+/** What a set of boxes adds up to, both ways round, and how many were filled. */
+export interface WizardBudgetTotal {
+  /** The sum in the mode being typed — the figure under "Your budget, per …". */
+  typed: DecimalInstance;
+  /** The same money the other way round — the figure under "Which is …". */
+  twin: DecimalInstance;
+  /**
+   * How many boxes carried a figure. ZERO MEANS THERE IS NO TOTAL, not a
+   * total of zero: an empty box is unbudgeted and £0.00 is a budget of
+   * nothing, and a screen that prints the second when it means the first has
+   * invented a decision nobody made.
+   */
+  boxes: number;
+}
+
+/**
+ * The running total of a set of boxes — the scoreboard's "Budgeted so far"
+ * over every row, and each group heading's own figure over its own rows.
+ *
+ * ONE piece of arithmetic for both (owner, 2 Sep 2026: "There should be a
+ * total for each category grouping"), so the group figures and the strip above
+ * them can never disagree: in the mode being typed the group totals ADD UP to
+ * the scoreboard's, exactly, because they are the same sum taken over disjoint
+ * sets of the same boxes.
+ *
+ * Summed as a YEAR and turned back into a month once at the end, never row by
+ * row: that is the currency `planBudgetWrites` compares in, and dividing
+ * twelve rows before adding them rounds twelve times instead of once.
+ *
+ * Left out, here and in the write both: a stored period the wizard will not
+ * re-express (a week does not divide into a month without a guess) and a
+ * figure that will not parse as money (named in step 3, never guessed at).
+ */
+export function totalBudgeted(
+  rows: WizardRow[],
+  entries: WizardEntries,
+  mode: BudgetMode
+): WizardBudgetTotal {
+  let annual = ZERO;
+  let boxes = 0;
+
+  for (const row of rows) {
+    if (row.existing !== null && row.existing.period === null) continue;
+    const value = wizardBoxValue(row, entries, mode);
+    if (value.trim() === '') continue;
+    const parsed = parseMoneyInput(value);
+    if (parsed === null || parsed < 0) continue;
+    const amount = toDecimal(parsed);
+    annual = annual.plus(mode === 'monthly' ? amount.times(MONTHS_IN_YEAR) : amount);
+    boxes += 1;
+  }
+
+  const perYear = annual.toDecimalPlaces(2);
+  const perMonth = twinFigure(annual, 'yearly');
+  return mode === 'monthly'
+    ? { typed: perMonth, twin: perYear, boxes }
+    : { typed: perYear, twin: perMonth, boxes };
+}
 
 export interface BudgetUpsert {
   categoryId: string;
