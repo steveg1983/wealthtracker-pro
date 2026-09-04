@@ -20,7 +20,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   formatDate,
+  formatDateTime,
   formatShortDate,
+  formatTime,
   getDateFormatPlaceholder,
   getDateLocale,
   getMonthNames,
@@ -30,6 +32,8 @@ import {
 } from '../dateFormatter';
 
 const CHRISTMAS_EVE = new Date(2024, 11, 24);
+/** Christmas Eve, two minutes and thirty-seven seconds past two in the afternoon. */
+const CHRISTMAS_EVE_AFTERNOON = new Date(2024, 11, 24, 14, 2, 37);
 
 describe('the chosen locale', () => {
   beforeEach(() => {
@@ -102,6 +106,57 @@ describe('the chosen locale', () => {
       // The cache exists because a register renders thousands of dates; it must
       // not turn "changed the setting" into "restart the app".
       expect(getDateLocale()).toBe('en-US');
+    });
+  });
+
+  /**
+   * THE HOUSE DATE-TIME SHAPE (owner's ruling, 4 Sep 2026: "standardise them").
+   *
+   * The 2 Sep locale sweep pointed eleven date-time and time sites at the
+   * Region setting but deliberately left their SHAPE alone — a bare
+   * `toLocaleTimeString(locale)` prints seconds, and changing what a screen
+   * says is a design call, not a locale fix. The owner has now made it: one
+   * shape, short month, no seconds.
+   */
+  describe('the house date-time shape', () => {
+    it('is a short month and a clock with no seconds', () => {
+      // "24 Dec 2024, 14:02" — the shape every other date in the app wears.
+      const stamped = formatDateTime(CHRISTMAS_EVE_AFTERNOON);
+      expect(stamped).toContain('Dec');
+      expect(stamped).toContain('14:02');
+      expect(stamped).not.toContain('37');
+      expect(stamped).not.toContain('December');
+    });
+
+    it('gives the time on its own without seconds either', () => {
+      expect(formatTime(CHRISTMAS_EVE_AFTERNOON)).toBe('14:02');
+    });
+
+    it('is twenty-four hour BY LOCALE, not by force', () => {
+      // `hour12` is deliberately unset: en-GB reads 14:02, and a region that
+      // reads it as an afternoon two o'clock gets to say so.
+      setUserLocale('en-US');
+      const american = formatTime(CHRISTMAS_EVE_AFTERNOON);
+      expect(american).toContain('2:02');
+      expect(american).not.toContain('37');
+    });
+
+    it('answers nothing for a missing or unparseable time', () => {
+      // '' rather than "Invalid Date" or the word "undefined": a blank says
+      // the value is missing, which is the truth, and every other formatter
+      // in this file answers the same way.
+      expect(formatTime(null)).toBe('');
+      expect(formatTime(undefined)).toBe('');
+      expect(formatTime('not a date')).toBe('');
+    });
+
+    it('takes an ISO string as readily as a Date, like its neighbours', () => {
+      const iso = '2024-12-24T14:02:37.000Z';
+      // Asserted against the Date path rather than against a spelled-out time,
+      // because the answer depends on the machine's zone and the CLAIM does
+      // not: the two paths are one path, and neither prints the 37 seconds.
+      expect(formatTime(iso)).toBe(formatTime(new Date(iso)));
+      expect(formatTime(iso)).toMatch(/^\d{2}:\d{2}$/);
     });
   });
 

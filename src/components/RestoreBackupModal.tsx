@@ -9,7 +9,7 @@ import {
 } from '../services/backup/encryption';
 import type { BackupRestoreOutcome } from '@data';
 import { createScopedLogger } from '../loggers/scopedLogger';
-import { getDateLocale } from '../utils/dateFormatter';
+import { formatDateTime, getDateLocale } from '../utils/dateFormatter';
 import { AlertTriangleIcon, CheckCircleIcon, RefreshCwIcon, UploadIcon } from './icons';
 // THE FILE FORMAT, from the module that IS the file format.
 //
@@ -92,7 +92,10 @@ const restoreLogger = createScopedLogger('RestoreBackupModal');
 const formatExportedAt = (iso: string): string => {
   if (!iso) return 'unknown';
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString(getDateLocale());
+  // The house date-time shape (4 Sep 2026 ruling). The raw ISO string is still
+  // the answer for a stamp that will not parse: it is what the file actually
+  // says, and inventing a date for a backup is worse than showing a machine one.
+  return Number.isNaN(date.getTime()) ? iso : formatDateTime(date);
 };
 
 export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JSX.Element {

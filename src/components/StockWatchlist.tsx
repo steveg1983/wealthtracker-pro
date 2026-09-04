@@ -7,7 +7,7 @@ import { PlusIcon, XIcon, RefreshCwIcon, AlertCircleIcon } from './icons';
 import { formatDecimal } from '../utils/decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { normaliseWatchlist, positionMetrics, type WatchedItem } from '../utils/watchlistPositions';
-import { getDateLocale } from '../utils/dateFormatter';
+import { formatTime } from '../utils/dateFormatter';
 import { compareText } from '../utils/localeFormat';
 
 /**
@@ -233,7 +233,7 @@ export default function StockWatchlist(): React.JSX.Element {
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Stock Watchlist</h2>
           {lastUpdated ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Last updated: {lastUpdated.toLocaleTimeString(getDateLocale())}
+              Last updated: {formatTime(lastUpdated)}
             </p>
           ) : (
             !isLoading && (

@@ -4,7 +4,7 @@ import { expandSplitTransactions } from '../utils/transactionSplits';
 import { buildCategoryNameLookup } from '../utils/categoryNames';
 import { Modal } from './common/Modal';
 import DatePicker from './common/DatePicker';
-import { formatDateForInput, getDateLocale, formatShortDate } from '../utils/dateFormatter';
+import { formatDateForInput, formatShortDate } from '../utils/dateFormatter';
 import {
   DownloadIcon,
   FileTextIcon,
@@ -151,7 +151,13 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
       { Metric: 'Total Expenses', Value: expenses },
       { Metric: 'Net Income', Value: toDecimal(income).minus(toDecimal(expenses)).toNumber() },
       { Metric: 'Transaction Count', Value: filtered.length },
-      { Metric: 'Date Range', Value: `${options.dateRange.start?.toLocaleDateString(getDateLocale())} - ${options.dateRange.end?.toLocaleDateString(getDateLocale())}` }
+      // Through the house formatter like every other date (4 Sep 2026 ruling).
+      // These two were left behind by the locale sweep because `formatShortDate`
+      // answers '' for a missing date where the optional chain used to print the
+      // literal word "undefined" — which was never wanted: a spreadsheet cell
+      // reading "undefined - 31/12/2024" is a latent defect, not a behaviour to
+      // preserve. A blank half says the half is missing, which is the truth.
+      { Metric: 'Date Range', Value: `${formatShortDate(options.dateRange.start)} - ${formatShortDate(options.dateRange.end)}` }
     ];
     if (currencies.size > 1) {
       overview.push({

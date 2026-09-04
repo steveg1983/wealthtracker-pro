@@ -11,7 +11,7 @@ import AddAccountModal from '../components/AddAccountModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import AccountBreakdownModal, { type AccountBreakdownView } from '../components/AccountBreakdownModal';
 import NetWorthSummary from '../components/NetWorthSummary';
-import { formatDate, getDateLocale } from '../utils/dateFormatter';
+import { formatDate, formatDateTime } from '../utils/dateFormatter';
 import { accountHasHistory } from '../utils/accountHistory';
 // No longer importing from lucide-react - all icons are now custom
 import { ArchiveIcon, SettingsIcon, CheckCircleIcon, CheckIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon, SearchIcon } from '../components/icons';
@@ -1739,7 +1739,7 @@ function AccountsList() {
                           <p className="hidden sm:block text-xs text-gray-500 dark:text-gray-300">
                             Last bank sync:{' '}
                             {bankLink.lastSync
-                              ? new Date(bankLink.lastSync).toLocaleString(getDateLocale())
+                              ? formatDateTime(new Date(bankLink.lastSync))
                               : 'Never'}
                             {bankLink.status === 'reauth_required' && (
                               <span className="ml-1 text-amber-600 dark:text-amber-400">

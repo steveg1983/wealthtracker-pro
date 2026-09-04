@@ -7,7 +7,7 @@
 // es-toolkit, not lodash: lodash was an UNDECLARED (phantom) dependency that
 // only resolved through hoisting and could break on any lockfile change.
 import { isEqual } from 'es-toolkit';
-import { getDateLocale } from '../utils/dateFormatter';
+import { formatDateTime } from '../utils/dateFormatter';
 
 export interface FieldChange {
   field: string;
@@ -339,9 +339,14 @@ export class ConflictResolutionService {
     if (['notes', 'description', 'memo'].includes(field)) {
       if (clientValue === serverValue) return clientValue;
       
-      // Concatenate with timestamp indicator
-      const clientTime = new Date(clientTimestamp).toLocaleString(getDateLocale());
-      const _serverTime = new Date(serverTimestamp).toLocaleString(getDateLocale());
+      // Concatenate with a timestamp indicator, in the house date-time shape
+      // (4 Sep 2026 ruling). This one ends up INSIDE the user's note, where it
+      // outlives the merge — so it reads as the app's own dates read, and it
+      // does not carry seconds nobody recorded to.
+      //
+      // The server side of this pair was formatted into a `_serverTime` nothing
+      // ever read; removed rather than restyled.
+      const clientTime = formatDateTime(new Date(clientTimestamp));
 
       return `${serverValue}\n---\n[Added ${clientTime}]: ${clientValue}`;
     }

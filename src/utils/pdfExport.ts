@@ -6,7 +6,7 @@ import { formatCurrency as formatCurrencyDecimal } from './currency-decimal';
 import { formatDecimal } from './decimal-format';
 import { toDecimal } from './decimal';
 import { createScopedLogger } from '../loggers/scopedLogger';
-import { getDateLocale } from '../utils/dateFormatter';
+import { formatShortDate, formatTime, getDateLocale } from '../utils/dateFormatter';
 
 type JsPDFInstance = InstanceType<typeof import('jspdf').default>;
 type RGB = readonly [number, number, number];
@@ -201,7 +201,12 @@ async function loadHtml2Canvas(): Promise<typeof import('html2canvas').default> 
 function stampFooter(pdf: JsPDFInstance, writer: PdfWriter): void {
   pdf.setFontSize(8);
   pdf.setTextColor(150, 150, 150);
-  const footerText = `Generated on ${new Date().toLocaleDateString(getDateLocale())} at ${new Date().toLocaleTimeString(getDateLocale())}`;
+  // The house shapes (4 Sep 2026 ruling): the short date, and a clock without
+  // seconds — a report is not produced to the second, and printing one said it
+  // was. ONE `new Date()` rather than the two this had, because two could
+  // straddle midnight and stamp yesterday's date beside today's time.
+  const stamped = new Date();
+  const footerText = `Generated on ${formatShortDate(stamped)} at ${formatTime(stamped)}`;
   pdf.text(footerText, writer.pageWidth / 2, writer.pageHeight - 10, { align: 'center' });
 }
 

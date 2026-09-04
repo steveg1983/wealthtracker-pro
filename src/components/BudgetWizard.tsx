@@ -199,6 +199,22 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
    * one that has to be explained.
    */
   const quietGroups = useMemo(() => groupWizardRows(quiet), [quiet]);
+
+  /**
+   * WHAT IS BUDGETED BEHIND THE FOLD (owner, 4 Sep 2026: "name it").
+   *
+   * Grouping the folded rows fixed the sum; it did not fix the SHUT case. A
+   * budget typed into a folded row counts on the scoreboard, and then the fold
+   * closes over the only place it was visible — so the strip goes up by £20 and
+   * nothing on screen says where the £20 is. That is the same failure the count
+   * itself was added to prevent, one level down: money hidden without a word.
+   *
+   * `totalBudgeted` over the folded rows, which is the SAME function the
+   * scoreboard runs over every row and each heading runs over its own — never a
+   * second derivation, so the label cannot drift from the figures it belongs to.
+   */
+  const quietBudget = useMemo(() => totalBudgeted(quiet, entries, mode), [quiet, entries, mode]);
+
   const plan = useMemo(() => planBudgetWrites(rows, entries, mode), [rows, entries, mode]);
 
   /**
@@ -715,6 +731,15 @@ export default function BudgetWizard({ isOpen, onClose }: Props): React.JSX.Elem
                       {showQuiet ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
                       {quiet.length} categor{quiet.length === 1 ? 'y' : 'ies'} with nothing in this
                       window
+                      {/* …and what is budgeted behind it, in the rhythm being
+                          typed — the twin is the row's business, not a folded
+                          label's. ZERO FILLED BOXES RENDERS NOTHING AT ALL, not
+                          "· £0.00 budgeted": a zero count is not a finding, and
+                          £0.00 there would claim a budget of nothing across
+                          every hidden row (the same empty-is-not-zero rule the
+                          group headings keep). No separator either — a dangling
+                          "·" is a figure that failed to load. */}
+                      {quietBudget.boxes > 0 && ` · ${formatCurrency(quietBudget.typed)} budgeted`}
                     </button>
                   </td>
                 </tr>

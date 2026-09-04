@@ -1,7 +1,7 @@
 import React from 'react';
 import type { RatesProvenance } from '../utils/currency-decimal';
 import { RATES_PROVIDER } from '../utils/currency-decimal';
-import { getDateLocale } from '../utils/dateFormatter';
+import { formatTime } from '../utils/dateFormatter';
 
 /**
  * What a converted total was built from, said under the total itself.
@@ -56,9 +56,14 @@ interface ConvertedTotalNoteProps {
   displayCurrency?: string;
 }
 
-/** 14:02 — a wall-clock time, in the reader's own locale. */
+/**
+ * 14:02 — a wall-clock time, in the reader's own region.
+ *
+ * The house clock now writes it (4 Sep 2026 ruling); this shape was already
+ * the right one, and is no longer written out here as well as there.
+ */
 function atTime(when: Date): string {
-  return when.toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' });
+  return formatTime(when);
 }
 
 export default function ConvertedTotalNote({

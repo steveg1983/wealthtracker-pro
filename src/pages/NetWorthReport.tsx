@@ -42,7 +42,7 @@ import { DEPTH_LEVEL_1 } from '../styles/depthShading';
 import type { ReportViewProps } from './reports/types';
 import { preferences } from '../services/preferencesService';
 import { useHistoricalAccounts } from '../hooks/useHistoricalAccounts';
-import { getDateLocale } from '../utils/dateFormatter';
+import { formatTime, getDateLocale } from '../utils/dateFormatter';
 import { compareNames } from '../utils/localeFormat';
 
 /**
@@ -944,7 +944,7 @@ export default function NetWorthReport({ picker, focus }: ReportViewProps): Reac
                       figure is shown in its own currency.</>
                     : <>≈ marks totals holding another currency, converted at{' '}
                       {ratesProvenance
-                        ? <>today&rsquo;s rates (as of {ratesProvenance.asOf.toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' })})</>
+                        ? <>today&rsquo;s rates (as of {formatTime(ratesProvenance.asOf)})</>
                         : 'no available rate — those amounts are counted unconverted'}
                       {' '}applied to that day&rsquo;s balances. Each account&rsquo;s own
                       figure is shown in its own currency.</>}
