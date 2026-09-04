@@ -11,7 +11,7 @@
 import React, { useState } from 'react';
 import { useRealtimeConnectionStatus } from '../hooks/useRealtimeConnectionStatus';
 import realtimeService from '../services/realtimeService';
-import { getDateLocale } from '../utils/dateFormatter';
+import { formatTime } from '../utils/dateFormatter';
 
 interface RealtimeStatusIndicatorProps {
   /**
@@ -65,16 +65,18 @@ export function RealtimeStatusIndicator({
     }
   };
 
-  // The clock a reader recognises: 'en-US' put the last sync at "09:12:44 PM"
-  // for a user whose whole app is set to English (UK), which reads it as 21:12.
-  const formatTime = (date: Date | null) => {
-    if (!date) return 'Never';
-    return new Intl.DateTimeFormat(getDateLocale(), {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).format(date);
-  };
+  /**
+   * The clock a reader recognises — the house one (4 Sep 2026 ruling).
+   *
+   * It used to carry SECONDS, and this is the panel that shows worst: it
+   * re-renders on a connection event, so "09:12:44" was stale from the moment
+   * it was painted and stayed on screen claiming a precision it did not have.
+   *
+   * Wrapped rather than called bare because "Never" is a real answer here, and
+   * `formatTime` gives '' for a missing date — an empty space beside "Last
+   * connected" says nothing at all.
+   */
+  const clockOrNever = (date: Date | null): string => (date ? formatTime(date) : 'Never');
 
   const handleReconnect = () => {
     realtimeService.forceReconnect();
@@ -105,7 +107,7 @@ export function RealtimeStatusIndicator({
               <div>Status: <span className="font-medium">{getStatusText()}</span></div>
               <div>Subscriptions: {realtimeService.getSubscriptionCount()}</div>
               {connectionState.lastConnected && (
-                <div>Last connected: {formatTime(connectionState.lastConnected)}</div>
+                <div>Last connected: {clockOrNever(connectionState.lastConnected)}</div>
               )}
               {!connectionState.isConnected && (
                 <button
@@ -155,14 +157,14 @@ export function RealtimeStatusIndicator({
             {connectionState.lastConnected && (
               <div className="flex justify-between">
                 <span>Last connected:</span>
-                <span className="font-medium">{formatTime(connectionState.lastConnected)}</span>
+                <span className="font-medium">{clockOrNever(connectionState.lastConnected)}</span>
               </div>
             )}
             
             {connectionState.lastDisconnected && !connectionState.isConnected && (
               <div className="flex justify-between">
                 <span>Disconnected:</span>
-                <span className="font-medium">{formatTime(connectionState.lastDisconnected)}</span>
+                <span className="font-medium">{clockOrNever(connectionState.lastDisconnected)}</span>
               </div>
             )}
             

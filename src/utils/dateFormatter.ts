@@ -197,6 +197,47 @@ export function formatDateTime(date: Date | string | null | undefined): string {
   });
 }
 
+/**
+ * A wall-clock time on its own — "14:02".
+ *
+ * ─ WHY IT EXISTS (owner's ruling, 4 Sep 2026: "standardise them") ──────────
+ *
+ * The locale sweep of 2 Sep routed every date and time through the Region
+ * setting, but deliberately left eleven sites on their EXACT old shape: a
+ * `toLocaleTimeString(locale)` with no options prints SECONDS, and changing a
+ * shape is a design call rather than a locale fix. Four other places had
+ * already written `{ hour: '2-digit', minute: '2-digit' }` out by hand to
+ * avoid exactly that — a house shape with no house function, which is the
+ * state a formatter module exists to prevent.
+ *
+ * The owner has now made the call: the app has ONE date-time shape, and this
+ * is its time half. `formatDateTime` is the whole of it.
+ *
+ * ─ NO SECONDS, AND THAT IS THE POINT ──────────────────────────────────────
+ *
+ * Nothing the app times is measured to a second. "Last synced at 14:02:37"
+ * offers a precision the number does not have, and on a clock that only
+ * re-renders when something happens the seconds field is stale the instant it
+ * is drawn — it invites a reader to trust a digit that is already wrong.
+ *
+ * ─ TWENTY-FOUR HOUR BY LOCALE, NOT BY FORCE ───────────────────────────────
+ *
+ * `hour12` is left unset on purpose, so en-GB gives 14:02 and a region that
+ * reads 2:02 pm gets that. The setting is the one answer here as everywhere
+ * else in this file.
+ */
+export function formatTime(date: Date | string | null | undefined): string {
+  if (!date) return '';
+
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(dateObj.getTime())) return '';
+
+  return dateObj.toLocaleTimeString(getDateLocale(), {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 // Format relative date (e.g., "2 days ago", "in 3 weeks")
 export function formatRelativeDate(date: Date | string | null | undefined): string {
   if (!date) return '';

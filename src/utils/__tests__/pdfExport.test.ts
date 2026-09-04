@@ -204,9 +204,11 @@ describe('pdfExport', () => {
       // Transaction description is truncated to 30 characters
       expect(mockText).toHaveBeenCalledWith('Grocery Shopping at Local Mark...', expect.any(Number), expect.any(Number));
 
-      // Verify footer
+      // Verify footer. The seconds went with the 4 Sep 2026 shape ruling: the
+      // app has ONE date-time shape and a report is not produced to the second,
+      // so the stamp is the house short date and the house clock.
       expect(mockText).toHaveBeenCalledWith(
-        'Generated on 20/01/2024 at 10:30:00',
+        'Generated on 20/01/2024 at 10:30',
         105,
         287,
         { align: 'center' }

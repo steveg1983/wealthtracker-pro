@@ -112,10 +112,20 @@ const turnOver = (choose: () => void): void => {
   choose();
 };
 
+/**
+ * The fold's own button. Matched on a FRAGMENT of its label because since the
+ * 4 Sep 2026 ruling that label also carries a money figure, and a helper that
+ * pinned the whole string would have to be rewritten for every test that types
+ * into a folded box.
+ */
+const foldButton = (): HTMLElement =>
+  screen.getByRole('button', { name: /with nothing in this window/ });
+
 /** Open the fold, where the categories with nothing in the window are. */
-const openFold = (): void => {
-  fireEvent.click(screen.getByRole('button', { name: /categories with nothing in this window/ }));
-};
+const openFold = (): void => { fireEvent.click(foldButton()); };
+
+/** …and shut it again, which is the state the label's figure exists for. */
+const closeFold = (): void => { fireEvent.click(foldButton()); };
 
 const boxFor = (name: string, rhythm: 'Monthly' | 'Yearly' = 'Monthly'): HTMLElement =>
   screen.getByLabelText(`${rhythm} budget for ${name}`);
@@ -159,6 +169,9 @@ const allGroupsPence = (): number =>
 
 /** What the scoreboard claims for the whole screen, in the same rhythm. */
 const scoreboardPence = (): number => penceIn(screen.getByText(/Budgeted so far/))[0] ?? 0;
+
+/** What the fold's LABEL claims is budgeted behind it. Nothing there reads 0. */
+const foldLabelPence = (): number => penceIn(foldButton())[0] ?? 0;
 
 const budgetOf = (over: Partial<Budget> & { id: string; categoryId: string }): Budget => ({
   amount: 100, period: 'monthly', isActive: true, spent: 0,
@@ -301,7 +314,7 @@ describe('step 2 — filling boxes', () => {
   it('offers no "use my actual" on a row with nothing in the window', () => {
     renderWizard();
     chooseMonthly();
-    fireEvent.click(screen.getByRole('button', { name: /categories with nothing in this window/ }));
+    openFold();
     expect(screen.queryByLabelText('Use what Never Used actually cost')).not.toBeInTheDocument();
   });
 });
@@ -514,6 +527,69 @@ describe('step 2 — the fold names what it hides', () => {
     renderWizard();
     chooseMonthly();
     expect(screen.queryByText('Never Used')).not.toBeInTheDocument();
+    // Still the WHOLE label, exactly — and the exactness is what now carries
+    // the other half of the 4 Sep 2026 ruling: zero filled boxes behind the
+    // fold means no figure and NO SEPARATOR. A trailing "·" is a figure that
+    // failed to load, and "£0.00 budgeted" would claim a budget of nothing
+    // across every hidden row.
+    expect(
+      screen.getByRole('button', { name: '2 categories with nothing in this window' })
+    ).toBeInTheDocument();
+    expect(foldLabelPence()).toBe(0);
+  });
+
+  /**
+   * THE LABEL NAMES ITS MONEY (owner, 4 Sep 2026: "name it").
+   *
+   * Grouping the folded rows (2 Sep) fixed the sum while the fold was OPEN and
+   * left the shut case exactly as broken: a budget typed down there counted on
+   * the scoreboard, then the fold closed over the only place it was visible.
+   * The strip went up by £20 and nothing on screen said where the £20 was —
+   * the same failure the count itself was added to prevent, one level down.
+   */
+  it('names what is budgeted behind the fold, once the fold is shut again', () => {
+    renderWizard();
+    chooseMonthly();
+    openFold();
+    fireEvent.change(boxFor('Never Used'), { target: { value: '20' } });
+    closeFold();
+
+    expect(screen.queryByText('Never Used')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: '2 categories with nothing in this window · £20.00 budgeted',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('is the same total the scoreboard and the headings are, never a second one', () => {
+    renderWizard([], TWO_GROUPS);
+    chooseMonthly();
+    openFold();
+    fireEvent.change(boxFor('Food Shopping'), { target: { value: '90' } });
+    fireEvent.change(boxFor('Train Fares'), { target: { value: '15' } });
+    fireEvent.change(boxFor('Never Used'), { target: { value: '20' } });
+
+    // Open: every heading, the folded one included, adds up to the strip.
+    expect(allGroupsPence()).toBe(scoreboardPence());
+
+    closeFold();
+    // Shut: the folded heading is gone from the page, and the label carries
+    // precisely what it took with it — so the identity still closes.
+    expect(foldLabelPence()).toBe(2000);
+    expect(allGroupsPence() + foldLabelPence()).toBe(scoreboardPence());
+  });
+
+  it('drops the figure again when the last folded box is emptied', () => {
+    renderWizard();
+    chooseMonthly();
+    openFold();
+    fireEvent.change(boxFor('Never Used'), { target: { value: '20' } });
+    fireEvent.change(boxFor('Never Used'), { target: { value: '' } });
+    closeFold();
+
+    // An empty box is UNBUDGETED, not a budget of nothing, all the way up to
+    // the label: the count goes back to standing alone.
     expect(
       screen.getByRole('button', { name: '2 categories with nothing in this window' })
     ).toBeInTheDocument();
@@ -522,7 +598,7 @@ describe('step 2 — the fold names what it hides', () => {
   it('opens on a tap', () => {
     renderWizard();
     chooseMonthly();
-    fireEvent.click(screen.getByRole('button', { name: /categories with nothing in this window/ }));
+    openFold();
     expect(screen.getByText('Never Used')).toBeInTheDocument();
     expect(boxFor('Never Used')).toBeInTheDocument();
   });
@@ -600,6 +676,8 @@ describe('step 2 — the fold names what it hides', () => {
     chooseMonthly();
     // Visible without expanding anything: a removal you cannot see is not an offer.
     expect(screen.getByText('Never Used')).toBeInTheDocument();
+    // One left behind the fold, and nothing budgeted on it — so the label is
+    // the bare count, per the 4 Sep 2026 ruling's zero rule.
     expect(
       screen.getByRole('button', { name: '1 category with nothing in this window' })
     ).toBeInTheDocument();

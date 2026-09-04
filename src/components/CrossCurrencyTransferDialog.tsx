@@ -11,7 +11,7 @@ import {
   rateToDisplayString,
 } from '../utils/fx';
 import { useFxQuote } from '../hooks/useFxQuote';
-import { getDateLocale } from '../utils/dateFormatter';
+import { formatTime } from '../utils/dateFormatter';
 import type { ConfirmedConversion } from '../utils/crossCurrencyTransfer';
 import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 
@@ -202,13 +202,13 @@ export default function CrossCurrencyTransferDialog({
    * on a US-configured machine printed `08:28 PM` beside dates the same app
    * renders as `16/08/2026`. Two clock conventions on one dialog.
    *
-   * `getDateLocale()` is the same resolver every date in the app goes through,
-   * so this follows the region setting rather than the browser — and en-GB
-   * gives the 24-hour clock the rest of the product uses.
+   * `formatTime` is the house clock (4 Sep 2026 ruling), and it resolves the
+   * region the same way every date in the app does — so this follows the
+   * setting rather than the browser, and en-GB gives the 24-hour clock the
+   * rest of the product uses. The shape was already right here; what changed
+   * is that it is no longer a fourth hand-written copy of it.
    */
-  const quotedAt = quote.status === 'ready'
-    ? quote.asOf.toLocaleTimeString(getDateLocale(), { hour: '2-digit', minute: '2-digit' })
-    : '';
+  const quotedAt = quote.status === 'ready' ? formatTime(quote.asOf) : '';
 
   const controlClass =
     'w-full px-3 py-2 h-[42px] text-right tabular-nums bg-white dark:bg-gray-800 ' +

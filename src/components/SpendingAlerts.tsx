@@ -19,7 +19,7 @@ import {
   FilterIcon,
   BellOffIcon
 } from './icons';
-import { getDateLocale } from '../utils/dateFormatter';
+import { formatDateTime } from '../utils/dateFormatter';
 
 interface AlertConfig {
   id: string;
@@ -588,7 +588,7 @@ export default function SpendingAlerts() {
                     </p>
                   </div>
                   <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    {alert.timestamp.toLocaleString(getDateLocale())}
+                    {formatDateTime(alert.timestamp)}
                   </p>
                 </div>
               </div>

@@ -14,7 +14,7 @@ import { VirtualizedTable, Column } from '../../components/VirtualizedTable';
 import EmptyState from '../../components/EmptyState';
 import FilteredEmptyState from '../../components/FilteredEmptyState';
 import type { AuditLog } from '../../services/securityService';
-import { formatShortDate, getDateLocale } from '../../utils/dateFormatter';
+import { formatShortDate, formatTime } from '../../utils/dateFormatter';
 
 export default function AuditLogs() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -165,7 +165,7 @@ export default function AuditLogs() {
               {formatShortDate(log.timestamp)}
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400">
-              {log.timestamp.toLocaleTimeString(getDateLocale())}
+              {formatTime(log.timestamp)}
             </div>
           </div>
         </div>
