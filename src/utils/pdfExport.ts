@@ -6,7 +6,7 @@ import { formatCurrency as formatCurrencyDecimal } from './currency-decimal';
 import { formatDecimal } from './decimal-format';
 import { toDecimal } from './decimal';
 import { createScopedLogger } from '../loggers/scopedLogger';
-import { formatShortDate, formatTime, getDateLocale } from '../utils/dateFormatter';
+import { formatShortDate, formatTime } from '../utils/dateFormatter';
 
 type JsPDFInstance = InstanceType<typeof import('jspdf').default>;
 type RGB = readonly [number, number, number];
@@ -364,7 +364,7 @@ export async function generatePDFReport(data: ReportData, _accounts: Account[]):
   writer.heading('Top Transactions');
   writer.table({
     columns: [
-      { header: 'Date', x: 2, cell: t => new Date(t.date).toLocaleDateString(getDateLocale()) },
+      { header: 'Date', x: 2, cell: t => formatShortDate(t.date) },
       { header: 'Description', x: 25, cell: t => t.description, maxChars: 30 },
       // Never the raw id: the caller resolves the name, blank if it has none.
       { header: 'Category', x: 100, cell: t => t.categoryLabel ?? '' },
@@ -497,7 +497,7 @@ export async function generateDataExportPDF(data: DataExportPdfData): Promise<vo
     writer.heading('Transactions');
     writer.table({
       columns: [
-        { header: 'Date', x: 2, cell: t => new Date(t.date).toLocaleDateString(getDateLocale()) },
+        { header: 'Date', x: 2, cell: t => formatShortDate(t.date) },
         { header: 'Description', x: 24, cell: t => t.description, maxChars: 30 },
         { header: 'Category', x: 78, cell: t => t.categoryLabel, maxChars: 22 },
         { header: 'Account', x: 118, cell: t => t.accountLabel, maxChars: 16 },
@@ -535,7 +535,7 @@ export async function generateDataExportPDF(data: DataExportPdfData): Promise<vo
     pdf.setFontSize(8);
     pdf.setTextColor(150, 150, 150);
     pdf.text(
-      `Page ${page} of ${pageCount} — generated on ${new Date().toLocaleDateString(getDateLocale())}`,
+      `Page ${page} of ${pageCount} — generated on ${formatShortDate(new Date())}`,
       writer.pageWidth / 2,
       writer.pageHeight - 10,
       { align: 'center' }

@@ -89,7 +89,7 @@ import { dataPort } from '@data';
 import AccountSelector from '../components/common/AccountSelector';
 import type { Account, Transaction } from '../types';
 import { preferences, type PreferenceStorage } from '../services/preferencesService';
-import { getDateLocale } from '../utils/dateFormatter';
+import { formatShortDate } from '../utils/dateFormatter';
 
 /**
  * The app's one full "add a transaction" editor — the same component Layout
@@ -2729,7 +2729,7 @@ export default function AccountTransactions() {
         }`}>
           {isOpeningBalanceRow(transaction) && transaction.noDateSet
             ? <span className="italic text-gray-400">no date set</span>
-            : new Date(transaction.date).toLocaleDateString(getDateLocale())}
+            : formatShortDate(transaction.date)}
         </span>
       ),
       className: 'text-center',

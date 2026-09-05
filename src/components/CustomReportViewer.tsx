@@ -21,7 +21,7 @@ import { legendText } from './charts/ChartLegendText';
 import { lineMarkers, seriesWash, seriesWashFill } from './charts/richLine';
 import { formatDecimal } from '../utils/decimal-format';
 import type { CustomReport, ReportComponent } from './CustomReportBuilder';
-import { getDateLocale } from '../utils/dateFormatter';
+import { formatShortDate } from '../utils/dateFormatter';
 import { formatCount } from '../utils/localeFormat';
 
 /**
@@ -324,7 +324,7 @@ export default function CustomReportViewer({
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{report.name}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {report.description ? `${report.description} · ` : ''}
-            {dateRange.startDate.toLocaleDateString(getDateLocale())} – {dateRange.endDate.toLocaleDateString(getDateLocale())}
+            {formatShortDate(dateRange.startDate)} – {formatShortDate(dateRange.endDate)}
           </p>
         </div>
         <button

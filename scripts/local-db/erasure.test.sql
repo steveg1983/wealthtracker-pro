@@ -240,7 +240,13 @@ SELECT
              AND (t.tgtype & 1) = 1    -- FOR EACH ROW
              AND (t.tgtype & 2) = 2    -- BEFORE
              AND (t.tgtype & 8) = 8)   -- DELETE
-                                                           AS f_the_trigger_is_still_before_delete_correct;
+                                                           AS f_the_trigger_is_still_before_delete_correct,
+  -- 20260905120000 took the default ACL off it: no EXECUTE for anon, EXECUTE
+  -- kept for authenticated. Measured here rather than trusted.
+  NOT has_function_privilege('anon', 'public.remember_deleted_feed_transaction()', 'EXECUTE')
+                                                           AS f_anon_cannot_execute_the_function_correct,
+  has_function_privilege('authenticated', 'public.remember_deleted_feed_transaction()', 'EXECUTE')
+                                                           AS f_authenticated_still_can_correct;
 
 
 -- ════════════════════════════════════════════════════════════════════════════

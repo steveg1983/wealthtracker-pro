@@ -23,7 +23,7 @@ import {
   type FindCriteria,
 } from '../utils/findTransactions';
 import type { Transaction } from '../types';
-import { getDateLocale } from '../utils/dateFormatter';
+import { formatShortDate, getDateLocale } from '../utils/dateFormatter';
 
 /**
  * FIND — Microsoft Money's, not a second register.
@@ -514,7 +514,7 @@ export default function Find(): React.JSX.Element {
                       }`}
                     >
                       <td className={`py-2 pl-4 pr-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap ${awaitingReview ? 'font-semibold' : ''}`}>
-                        {new Date(transaction.date).toLocaleDateString(getDateLocale())}
+                        {formatShortDate(transaction.date)}
                       </td>
                       <td className="py-2 px-2 text-center text-sm">
                         {isReconciled(transaction) ? (
