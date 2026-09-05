@@ -31,7 +31,11 @@
  *
  * A specifier this map does not know is not an error — {@link walkFrom} records
  * it as a PACKAGE and stops there — which is a blind spot rather than a
- * failure, and the reason each new seam is added here as it arrives.
+ * failure, and the reason each new seam is added here as it arrives — and,
+ * since 5 Sep 2026, the reason `editionWalkAgreesWithTsconfig.test.ts` holds
+ * both maps to the two tsconfigs key for key and target for target:
+ * `@rules-store` had been in six configs and neither map since 28 August, and
+ * the cloud map's `@session` had quietly pointed at the DEVICE half.
  * `@spreadsheet` (1 Sep 2026) is the clearest case: unmapped, the walk from any
  * Export surface would have halted at the specifier and reported a graph with
  * no spreadsheet writer in it, which is the right answer for the wrong reason
@@ -42,6 +46,7 @@ export const DEVICE_ALIAS: Readonly<Record<string, string>> = {
   '@chrome': 'desktop/editions/chrome',
   '@identity': 'desktop/editions/identity',
   '@prefs-store': 'desktop/editions/preferencesStore',
+  '@rules-store': 'desktop/editions/rulesStore',
   '@telemetry': 'desktop/editions/telemetry',
   '@session': 'desktop/editions/session',
   '@service': 'desktop/editions/service',
@@ -54,8 +59,9 @@ export const CLOUD_ALIAS: Readonly<Record<string, string>> = {
   '@chrome': 'editions/cloud/chrome',
   '@identity': 'editions/cloud/identity',
   '@prefs-store': 'editions/cloud/preferencesStore',
+  '@rules-store': 'editions/cloud/rulesStore',
   '@telemetry': 'editions/cloud/telemetry',
-  '@session': 'desktop/editions/session',
+  '@session': 'editions/cloud/session',
   '@service': 'editions/cloud/service',
   '@spreadsheet': 'editions/cloud/spreadsheet'
 };

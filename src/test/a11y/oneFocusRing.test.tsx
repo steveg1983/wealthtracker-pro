@@ -18,7 +18,8 @@
  * cannot answer that question directly: it does not match `:focus-visible`,
  * and it does not implement the `!important` cascade across linked
  * stylesheets, so `getComputedStyle` on a focused node reports nothing useful
- * (see accessibility-testing.ts, which is unwired for exactly this reason).
+ * (the repo once carried a getComputedStyle-based checker, accessibility-testing.ts,
+ * that was never wired for exactly this reason; it left on 5 Sep 2026).
  *
  * So "exactly one" is proven as one plus zero, from the two sources that
  * actually decide it:

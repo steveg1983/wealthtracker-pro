@@ -521,15 +521,15 @@ export class ThemeSchedulingService {
       sunset = solarNoon + hourAngle;
     }
     
-    const formatTime = (hours: number): string => {
+    const toClockString = (hours: number): string => {
       const h = Math.floor(hours);
       const m = Math.floor((hours - h) * 60);
       return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     };
     
     return {
-      sunrise: formatTime(Math.max(0, Math.min(24, sunrise))),
-      sunset: formatTime(Math.max(0, Math.min(24, sunset)))
+      sunrise: toClockString(Math.max(0, Math.min(24, sunrise))),
+      sunset: toClockString(Math.max(0, Math.min(24, sunset)))
     };
   }
 

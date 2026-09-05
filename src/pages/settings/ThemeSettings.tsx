@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { themeSchedulingService } from '../../services/themeSchedulingService';
 import type { ThemeSchedule, ThemePreset } from '../../services/themeSchedulingService';
+import { formatTime } from '../../utils/dateFormatter';
 import {
   MoonIcon,
   SunIcon,
@@ -102,12 +103,16 @@ export default function ThemeSettings() {
     return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
   };
 
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return `${displayHour}:${minutes} ${ampm}`;
+  /**
+   * A schedule stores wall-clock "HH:MM". The house time formatter says it the
+   * way the reader's region does — 24-hour for en-GB, 12-hour where a region
+   * expects it — which the hand-rolled AM/PM this replaced (5 Sep 2026) did not.
+   */
+  const formatClock = (time: string): string => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const at = new Date();
+    at.setHours(hours, minutes, 0, 0);
+    return formatTime(at);
   };
 
   const formatDays = (days: number[]) => {
@@ -178,7 +183,7 @@ export default function ThemeSettings() {
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Next Change</p>
                 <p className="font-semibold text-gray-900 dark:text-white">
-                  {nextThemeChange ? `${formatTime(nextThemeChange.time)} (${nextThemeChange.theme})` : 'None'}
+                  {nextThemeChange ? `${formatClock(nextThemeChange.time)} (${nextThemeChange.theme})` : 'None'}
                 </p>
               </div>
             </div>
@@ -311,13 +316,13 @@ export default function ThemeSettings() {
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">Light mode:</span>
                             <span className="text-gray-900 dark:text-white">
-                              {schedule.lightModeStart ? formatTime(schedule.lightModeStart) : 'Not set'}
+                              {schedule.lightModeStart ? formatClock(schedule.lightModeStart) : 'Not set'}
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">Dark mode:</span>
                             <span className="text-gray-900 dark:text-white">
-                              {schedule.darkModeStart ? formatTime(schedule.darkModeStart) : 'Not set'}
+                              {schedule.darkModeStart ? formatClock(schedule.darkModeStart) : 'Not set'}
                             </span>
                           </div>
                         </>
