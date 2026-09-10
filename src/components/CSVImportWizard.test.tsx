@@ -95,6 +95,12 @@ vi.mock('../services/enhancedCsvImportService', async () => {
     buildRows: real.buildRows.bind(real),
     missingRequiredFields: real.missingRequiredFields.bind(real),
     listBankTemplates: real.listBankTemplates.bind(real),
+    // Real, not stubbed: both are pure functions of their arguments, and the
+    // fixture file here (no Card Member / Account # columns) matches nothing,
+    // so recognition stays out of these tests' way exactly as it would in the
+    // app. The walk test exercises the recognising path against a real file.
+    recogniseTemplate: real.recogniseTemplate.bind(real),
+    statementStyleApplies: real.statementStyleApplies.bind(real),
     // The whole ParsedCsv shape, because the wizard now uses all of it: the
     // physical line each row starts on (printed in every refusal), where the
     // headings were found, and what sat above them. Built by parsedCsv() below

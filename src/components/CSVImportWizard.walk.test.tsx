@@ -374,6 +374,106 @@ describe("the CSV wizard, walked as its owner walked it", () => {
     });
   });
 
+  // ── 4½. A card statement is recognised, and its signs turn round ──────────
+
+  describe("a card statement in Amex's shape (9 Sep 2026)", () => {
+    /**
+     * The owner's screenshot: an Amex export whose every charge previewed as
+     * INCOME, because a card issuer writes a charge positive — the mirror of a
+     * bank account. The wizard now recognises the shape by its own headers
+     * (Card Member, Account #), prefills the format, and PRE-TICKS the
+     * statement-style switch on the Preview step, where unticking it turns
+     * every row round in front of the reader. Figures invented.
+     */
+    const CARD_CSV = [
+      'Date,Description,Card Member,Account #,Amount',
+      '12/08/2026,HARBOUR VIEW HOTEL PLYMOUTH,MX A EXAMPLE,-99001,321.09',
+      '11/08/2026,PAYMENT RECEIVED - THANK YOU,MX A EXAMPLE,-99001,-250.00'
+    ].join('\n');
+
+    const cardFile = (): File => new File([CARD_CSV], 'activity.csv', { type: 'text/csv' });
+
+    const reachCardPreview = async (): Promise<void> => {
+      openWizard();
+      await uploadStatement(cardFile());
+      await chooseDestination();
+      await userEvent.click(forwardButton());
+      await waitFor(() => {
+        expect(screen.getByText('Preview Import')).toBeInTheDocument();
+      });
+    };
+
+    it('recognises the file from its headers and says who filled the columns in', async () => {
+      openWizard();
+      await uploadStatement(cardFile());
+
+      // The prefill report names the format — nothing was ticked in silence.
+      expect(screen.getByText(/American Express/)).toBeInTheDocument();
+    });
+
+    it('arrives at Preview with the switch pre-ticked and the charges the right way round', async () => {
+      await reachCardPreview();
+
+      expect(
+        screen.getByRole('checkbox', {
+          name: /positive amounts are money spent/i
+        })
+      ).toBeChecked();
+
+      // The £321.09 charge is an EXPENSE — the exact row the screenshot showed
+      // as income — and the payment to the card is money in.
+      const hotel = screen.getByText('HARBOUR VIEW HOTEL PLYMOUTH').closest('tr');
+      expect(hotel).toHaveTextContent('(£321.09)');
+      expect(hotel).toHaveTextContent('expense');
+
+      const payment = screen.getByText('PAYMENT RECEIVED - THANK YOU').closest('tr');
+      expect(payment).toHaveTextContent('£250.00');
+      expect(payment).toHaveTextContent('income');
+    });
+
+    it('unticking the switch turns every row round, live, before anything is written', async () => {
+      await reachCardPreview();
+
+      await userEvent.click(
+        screen.getByRole('checkbox', { name: /positive amounts are money spent/i })
+      );
+
+      const hotel = screen.getByText('HARBOUR VIEW HOTEL PLYMOUTH').closest('tr');
+      expect(hotel).toHaveTextContent('income');
+      const payment = screen.getByText('PAYMENT RECEIVED - THANK YOU').closest('tr');
+      expect(payment).toHaveTextContent('expense');
+      expect(dataPort.importTransactions).not.toHaveBeenCalled();
+    });
+
+    it('writes what the ticked preview showed', async () => {
+      await reachCardPreview();
+      await userEvent.click(forwardButton());
+      await waitFor(() => {
+        expect(screen.getByText('Import Complete!')).toBeInTheDocument();
+      });
+
+      const [, rows] = vi.mocked(dataPort.importTransactions).mock.calls[0];
+      expect(rows.map(row => [row.amount, row.type])).toEqual([
+        [-321.09, 'expense'],
+        [250, 'income']
+      ]);
+    });
+
+    it('offers no such switch over a Debit/Credit statement — those headings already know', async () => {
+      openWizard();
+      await uploadStatement();
+      await chooseDestination();
+      await userEvent.click(forwardButton());
+      await waitFor(() => {
+        expect(screen.getByText('Preview Import')).toBeInTheDocument();
+      });
+
+      expect(
+        screen.queryByRole('checkbox', { name: /positive amounts are money spent/i })
+      ).not.toBeInTheDocument();
+    });
+  });
+
   // ── 5. The import writes honestly ─────────────────────────────────────────
 
   describe('the Import step', () => {
