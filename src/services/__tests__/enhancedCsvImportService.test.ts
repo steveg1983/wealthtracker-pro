@@ -1189,6 +1189,157 @@ describe('EnhancedCsvImportService (deterministic)', () => {
   });
 
 
+describe("card statements write their signs the other way round (9 Sep 2026)", () => {
+  /**
+   * THE OWNER'S SCREENSHOT: an Amex export previewing a £624.41 hotel bill as
+   * INCOME. A card issuer's CSV is written from the card's side — a charge is
+   * positive, a payment or refund negative — the exact mirror of a bank
+   * account's, so the sign rule alone inverts every row consistently.
+   * `chargePositive` is the correction, and these tests pin all three of its
+   * layers: the flip itself, the template that declares it, and the
+   * recognition that pre-ticks it.
+   *
+   * Every figure and payee invented: this repository is public.
+   */
+  const AMEX_HEADERS = ['Date', 'Description', 'Card Member', 'Account #', 'Amount'];
+  const AMEX_CSV =
+    'Date,Description,Card Member,Account #,Amount\n' +
+    '12/08/2026,HARBOUR VIEW HOTEL PLYMOUTH,MX A EXAMPLE,-99001,321.09\n' +
+    '11/08/2026,PAYMENT RECEIVED - THANK YOU,MX A EXAMPLE,-99001,-250.00\n' +
+    '10/08/2026,ZERO LINE,MX A EXAMPLE,-99001,0\n';
+  const amexMappings: ColumnMapping[] = [
+    { sourceColumn: 'Date', targetField: 'date' },
+    { sourceColumn: 'Description', targetField: 'description' },
+    { sourceColumn: 'Amount', targetField: 'amount' }
+  ];
+
+  it('flips a signed amount column when told the file writes charges positive', () => {
+    const service = createService();
+    const parsed = service.parseCSV(AMEX_CSV);
+
+    const rows = service.buildRows(parsed.headers, parsed.data, amexMappings, 'DD/MM/YYYY', {
+      chargePositive: true
+    });
+
+    expect(rows.map(row => (row.ok ? [row.transaction.amount, row.transaction.type] : row))).toEqual([
+      [-321.09, 'expense'], // the hotel bill: positive in the file, an expense in the register
+      [250, 'income'],      // the payment to the card: negative in the file, money in
+      [0, 'expense']        // zero has no direction to flip; -0 must never be minted
+    ]);
+    expect(Object.is((rows[2] as { transaction: { amount: number } }).transaction.amount, -0)).toBe(false);
+  });
+
+  it('reads the same file the old way round when the switch is off — the default is unchanged', () => {
+    const service = createService();
+    const parsed = service.parseCSV(AMEX_CSV);
+
+    const rows = service.buildRows(parsed.headers, parsed.data, amexMappings, 'DD/MM/YYYY');
+
+    expect(rows.map(row => (row.ok ? row.transaction.type : row))).toEqual([
+      'income', 'expense', 'expense'
+    ]);
+  });
+
+  it('writes what the preview showed: importTransactions honours the same option', async () => {
+    const service = createService();
+
+    const result = await service.importTransactions(AMEX_CSV, amexMappings, [], new Map(), {
+      dateFormat: 'DD/MM/YYYY',
+      skipDuplicates: false,
+      chargePositive: true
+    });
+
+    expect(result.success).toBe(3);
+    expect(result.items.map(item => [item.amount, item.type])).toEqual([
+      [-321.09, 'expense'],
+      [250, 'income'],
+      [0, 'expense']
+    ]);
+  });
+
+  describe('recognising the file by its own headers', () => {
+    it('recognises the Amex shape, signature and mapped columns together', () => {
+      const service = createService();
+
+      const recognised = service.recogniseTemplate(AMEX_HEADERS);
+
+      expect(recognised?.id).toBe('american-express');
+      expect(recognised?.chargePositive).toBe(true);
+      expect(recognised?.dateFormat).toBe('DD/MM/YYYY');
+    });
+
+    it('does NOT recognise the commonest shape there is — Date, Description, Amount', () => {
+      // Recognition pre-ticks visible controls wearing the app's confidence,
+      // so a bare three-column export must never match anybody's card format.
+      const service = createService();
+
+      expect(service.recogniseTemplate(['Date', 'Description', 'Amount'])).toBeNull();
+    });
+
+    it('does NOT recognise a file missing one signature column', () => {
+      const service = createService();
+
+      expect(
+        service.recogniseTemplate(['Date', 'Description', 'Card Member', 'Amount'])
+      ).toBeNull();
+    });
+  });
+
+  describe('where the switch means anything', () => {
+    it('applies over a single signed amount column', () => {
+      const service = createService();
+
+      expect(service.statementStyleApplies(amexMappings)).toBe(true);
+    });
+
+    it('does not apply over a Debit/Credit pair — those headings already name their direction', () => {
+      const service = createService();
+
+      expect(
+        service.statementStyleApplies([
+          { sourceColumn: 'Date', targetField: 'date' },
+          { sourceColumn: 'Description', targetField: 'description' },
+          { sourceColumn: 'Paid out', targetField: 'amount' },
+          { sourceColumn: 'Paid in', targetField: 'amount' }
+        ])
+      ).toBe(false);
+    });
+
+    it('does not apply where an explicit type column decides by words', () => {
+      const service = createService();
+
+      expect(
+        service.statementStyleApplies([...amexMappings, { sourceColumn: 'Transaction Type', targetField: 'type' }])
+      ).toBe(false);
+    });
+
+    it('does not apply with no amount mapped at all', () => {
+      const service = createService();
+
+      expect(service.statementStyleApplies([{ sourceColumn: 'Date', targetField: 'date' }])).toBe(false);
+    });
+  });
+
+  it('remembers the orientation on a saved profile, and only as a real true', () => {
+    // The stored shape is JSON out of localStorage: absence and junk both mean
+    // false, because a profile from before the switch imported un-flipped.
+    const storage = createStorage({
+      [CSV_IMPORT_KEY]: [
+        { id: 'amex-monthly', name: 'Amex monthly', mappings: [], chargePositive: true },
+        { id: 'older', name: 'From before the switch', mappings: [] },
+        { id: 'junk', name: 'Junk value', mappings: [], chargePositive: 'yes' }
+      ]
+    });
+
+    const service = createService(storage);
+    const byId = new Map(service.getProfiles().map(profile => [profile.id, profile]));
+
+    expect(byId.get('amex-monthly')?.chargePositive).toBe(true);
+    expect(byId.get('older')?.chargePositive).toBeUndefined();
+    expect(byId.get('junk')?.chargePositive).toBeUndefined();
+  });
+});
+
 describe('the debit/credit INDICATOR column — the owner\'s card statement (28 Aug)', () => {
   // The measured shape: one always-positive Billing Amount column, and a
   // "Debit or Credit" column whose DBIT/CRDT cells carry the direction.

@@ -104,6 +104,14 @@ export interface ImportProfile {
    */
   skipDuplicates?: boolean;
   duplicateThreshold?: number;
+  /**
+   * Whether this file writes charges positive (a card statement). Part of the
+   * same decision as the columns: the export that calls its extra column
+   * 'Card Member' is the export whose £624.41 hotel bill is a positive number.
+   * A profile from before this field existed imported un-flipped, so absence
+   * honestly means false.
+   */
+  chargePositive?: boolean;
 }
 
 export interface DuplicateCheckResult {
@@ -225,6 +233,26 @@ export interface BankTemplate {
    * that has since changed is corrected in one click rather than argued with.
    */
   dateFormat: CsvDateFormat;
+  /**
+   * This issuer writes a CHARGE as a positive number.
+   *
+   * A current account's CSV is written from the customer's side: money in is
+   * positive. A card issuer's CSV is written from the card's: a charge is
+   * positive and a payment or refund negative — Amex is the canonical case.
+   * Read under the sign rule alone, such a file arrives perfectly inverted,
+   * every purchase an income (measured 9 Sep 2026, the owner's screenshot).
+   * Declaring it here presets the statement-style switch on the Preview step,
+   * where the flip is VISIBLE before anything is written.
+   */
+  chargePositive?: true;
+  /**
+   * Headers that identify this format on sight, over and above the mapped
+   * columns. Recognition is deliberately conservative: only a template whose
+   * signature AND mapped columns are all present in a file is offered as that
+   * file's format, so 'Date,Description,Amount' alone — the commonest shape
+   * there is — never matches anybody's card statement by accident.
+   */
+  signature?: readonly string[];
 }
 
 export type BankTemplateRegion =
@@ -379,6 +407,24 @@ const BANK_TEMPLATES: readonly BankTemplate[] = [
       { sourceColumn: 'Paid In', targetField: 'amount' },
       { sourceColumn: 'Paid Out', targetField: 'amount' },
       { sourceColumn: 'Balance', targetField: 'balance' }
+    ]
+  },
+  {
+    // The columns of amex.co.uk's own "Export … CSV". Its Amount column is
+    // charge-positive (see chargePositive above), and its two extra columns —
+    // Card Member, Account # — are distinctive enough to recognise the file
+    // by, which is what `signature` does. Neither is imported: a card member's
+    // name is not a payee and the account number fragment routes nothing.
+    id: 'american-express',
+    label: 'American Express',
+    region: 'UK',
+    dateFormat: 'DD/MM/YYYY',
+    chargePositive: true,
+    signature: ['Card Member', 'Account #'],
+    mappings: [
+      { sourceColumn: 'Date', targetField: 'date' },
+      { sourceColumn: 'Description', targetField: 'description' },
+      { sourceColumn: 'Amount', targetField: 'amount' }
     ]
   },
   {
@@ -1651,7 +1697,8 @@ export class EnhancedCsvImportService {
     row: string[],
     mappings: ColumnMapping[],
     columnIndices: Map<string, number>,
-    dateFormat: CsvDateFormat
+    dateFormat: CsvDateFormat,
+    chargePositive = false
   ): RowBuildResult {
     const transaction: Partial<Transaction> = {
       type: 'expense', // Default
@@ -1691,8 +1738,14 @@ export class EnhancedCsvImportService {
         } else if (columnKind === 'inflow') {
           inflowCell = parsedAmount;
         } else {
-          // Single signed amount column - use as is
-          transaction.amount = parsedAmount;
+          // Single signed amount column. `chargePositive` is the card-statement
+          // orientation: an issuer's export writes a CHARGE positive and a
+          // payment negative — the mirror of a bank account's — so the sign is
+          // flipped here, BEFORE the type resolution below reads it. Zero is
+          // left alone: it has no direction to flip, and -0 is a value nothing
+          // downstream should have to think about.
+          transaction.amount =
+            chargePositive && parsedAmount !== 0 ? -parsedAmount : parsedAmount;
         }
       } else if (mapping.targetField === 'type') {
         // Explicit type column (e.g. the Mint profile). Normalized here and
@@ -1896,6 +1949,12 @@ export class EnhancedCsvImportService {
       headerLine?: number;
       /** The wizard's chosen destination — see checkDuplicateTransaction. */
       destinationAccountId?: string;
+      /**
+       * This file writes charges positive (a card statement); flip every
+       * signed amount. The wizard passes the SAME answer to the preview, so
+       * the two cannot read one column two ways round.
+       */
+      chargePositive?: boolean;
     } = {}
   ): Promise<ImportResult> {
     const { headers, data, lines } = this.parseCSV(csvContent, { headerLine: options.headerLine });
@@ -1926,7 +1985,9 @@ export class EnhancedCsvImportService {
       const row = data[rowIndex];
       
       try {
-        const built = this.buildTransactionFromRow(row, mappings, columnIndices, dateFormat);
+        const built = this.buildTransactionFromRow(
+          row, mappings, columnIndices, dateFormat, options.chargePositive === true
+        );
         if (!built.ok) {
           result.failed++;
           result.errors.push({
@@ -2145,6 +2206,7 @@ export class EnhancedCsvImportService {
         if (profile.lastUsed !== undefined) rebuilt.lastUsed = toDate(profile.lastUsed);
         if (profile.bank !== undefined) rebuilt.bank = profile.bank;
         if (profile.skipDuplicates !== undefined) rebuilt.skipDuplicates = profile.skipDuplicates;
+        if (profile.chargePositive === true) rebuilt.chargePositive = true;
         if (profile.duplicateThreshold !== undefined) {
           rebuilt.duplicateThreshold = profile.duplicateThreshold;
         }
@@ -2194,12 +2256,13 @@ export class EnhancedCsvImportService {
     headers: string[],
     rows: string[][],
     mappings: ColumnMapping[],
-    dateFormat: CsvDateFormat = SUGGESTED_AMBIGUOUS_FORMAT
+    dateFormat: CsvDateFormat = SUGGESTED_AMBIGUOUS_FORMAT,
+    options: { chargePositive?: boolean } = {}
   ): { transactions: Partial<Transaction>[] } {
     const transactions: Partial<Transaction>[] = [];
 
     // Process first 10 rows as preview
-    for (const outcome of this.buildRows(headers, rows.slice(0, 10), mappings, dateFormat)) {
+    for (const outcome of this.buildRows(headers, rows.slice(0, 10), mappings, dateFormat, options)) {
       if (outcome.ok) transactions.push(outcome.transaction);
     }
 
@@ -2226,7 +2289,8 @@ export class EnhancedCsvImportService {
     headers: string[],
     rows: string[][],
     mappings: ColumnMapping[],
-    dateFormat: CsvDateFormat = SUGGESTED_AMBIGUOUS_FORMAT
+    dateFormat: CsvDateFormat = SUGGESTED_AMBIGUOUS_FORMAT,
+    options: { chargePositive?: boolean } = {}
   ): RowBuildResult[] {
     // Create column index map, keyed by SOURCE column — see importTransactions:
     // two bank columns (Debit/Credit) can map to the same 'amount' target.
@@ -2240,7 +2304,9 @@ export class EnhancedCsvImportService {
 
     return rows.map((row, rowIndex) => {
       try {
-        const built = this.buildTransactionFromRow(row, mappings, columnIndices, dateFormat);
+        const built = this.buildTransactionFromRow(
+          row, mappings, columnIndices, dateFormat, options.chargePositive === true
+        );
         if (!built.ok) return built;
         return {
           ok: true as const,
@@ -2265,6 +2331,44 @@ export class EnhancedCsvImportService {
    * no id here, so the button silently returned nothing and the wizard walked
    * the user to an empty mapping step.
    */
+  /**
+   * The template this file's headers identify, or null.
+   *
+   * Only templates carrying a `signature` can be recognised, and only when the
+   * signature headers AND every mapped column are all present — exact matches,
+   * the same standard the prefill holds a chosen template to. Conservative on
+   * purpose: recognition PRE-TICKS controls the user can see (the mapping
+   * prefill, the date format, the statement-style switch), and a wrong guess
+   * pre-ticked is worse than no guess, because it arrives wearing the app's
+   * confidence.
+   */
+  recogniseTemplate(headers: string[]): BankTemplate | null {
+    for (const template of BANK_TEMPLATES) {
+      if (!template.signature) continue;
+      const wanted = [...template.signature, ...template.mappings.map(m => m.sourceColumn)];
+      if (wanted.every(column => headers.includes(column))) return template;
+    }
+    return null;
+  }
+
+  /**
+   * Whether the statement-style switch means anything under these mappings.
+   *
+   * The flip acts on a SINGLE SIGNED amount column and nothing else: separate
+   * Debit/Credit columns already name their direction in their headings, and
+   * an explicit type column (the Mint shape) decides type by words. Offering
+   * the switch over either would be a control that does nothing — or worse,
+   * one that quietly re-signs rows a heading already signed.
+   */
+  statementStyleApplies(mappings: ColumnMapping[]): boolean {
+    const amountMappings = mappings.filter(mapping => mapping.targetField === 'amount');
+    if (amountMappings.length === 0) return false;
+    if (amountMappings.some(m => this.classifyAmountColumn(m.sourceColumn) !== 'signed')) {
+      return false;
+    }
+    return !mappings.some(mapping => mapping.targetField === 'type');
+  }
+
   getBankMappings(bank: string): ColumnMapping[] {
     const template = BANK_TEMPLATES.find(entry => entry.id === bank.toLowerCase().trim());
     return template ? template.mappings.map(mapping => ({ ...mapping })) : [];

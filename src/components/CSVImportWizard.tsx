@@ -219,6 +219,13 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
   const [importError, setImportError] = useState<string | null>(null);
   const [showDuplicates, setShowDuplicates] = useState(true);
   const [duplicateThreshold, setDuplicateThreshold] = useState(90);
+  /**
+   * This file writes charges positive — a card statement, not a bank account.
+   * Pre-ticked when the file or a template says so (Amex declares it), never
+   * flipped silently: the switch sits on the Preview step where the reader
+   * watches the charges turn to expenses before anything is written.
+   */
+  const [chargePositive, setChargePositive] = useState(false);
   /** The file in hand. Null until one has been read AND understood. */
   const [fileName, setFileName] = useState<string | null>(null);
   /** Why the file that was offered is not the file in hand. */
@@ -301,6 +308,43 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
     setProgress(null);
     setFileName(null);
     setUploadError(null);
+    setPrefillReport(null);
+    setChargePositive(false);
+  };
+
+  /**
+   * No template chosen: recognise the file, or fall back to fuzzy suggestion.
+   *
+   * Recognition is the service's conservative header match — today that means
+   * Amex's shape, whose Card Member and Account # columns identify it — and a
+   * hit is applied exactly as if the user had picked that format: mapping
+   * prefill, date format, statement orientation, and a prefill report that
+   * NAMES the format, so nothing is pre-ticked in silence. A file nobody
+   * recognises gets the fuzzy suggester, as before.
+   */
+  const applyRecognitionOrSuggest = (fileHeaders: string[]) => {
+    const recognised = enhancedCsvImportService.recogniseTemplate(fileHeaders);
+    const prefill = recognised ? applyMappingPrefill(recognised.mappings, fileHeaders) : null;
+    // Recognition requires every mapped column present, so an empty prefill is
+    // unreachable — checked anyway, because a guard is cheaper than a lie.
+    if (recognised && prefill && prefill.applied.length > 0) {
+      setSelectedTemplate(recognised);
+      setMappings(prefill.applied);
+      setDateFormatChoice(recognised.dateFormat);
+      setChargePositive(recognised.chargePositive === true);
+      setPrefillReport({
+        source: recognised.label,
+        appliedCount: prefill.applied.length,
+        notInFile: prefill.notInFile,
+        notImported: prefill.notImported,
+        fellBackToAutoDetect: false,
+        dateFormat: recognised.dateFormat
+      });
+      return;
+    }
+    setMappings(enhancedCsvImportService.suggestMappings(fileHeaders));
+    setDateFormatChoice('auto');
+    setChargePositive(false);
     setPrefillReport(null);
   };
 
@@ -388,7 +432,9 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
         // A template that matched nothing has told us nothing about this file,
         // its date format included: prefilling one off a template that turned
         // out to be for another bank would be the confident half of a guess.
+        // The same reasoning covers its statement orientation.
         setDateFormatChoice(fellBack ? 'auto' : selectedTemplate.dateFormat);
+        setChargePositive(!fellBack && selectedTemplate.chargePositive === true);
         setPrefillReport({
           source: selectedTemplate.label,
           appliedCount: prefill.applied.length,
@@ -398,9 +444,7 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
           dateFormat: fellBack ? null : selectedTemplate.dateFormat
         });
       } else {
-        setMappings(enhancedCsvImportService.suggestMappings(parsed.headers));
-        setDateFormatChoice('auto');
-        setPrefillReport(null);
+        applyRecognitionOrSuggest(parsed.headers);
       }
 
       setCurrentStep('mapping');
@@ -514,6 +558,10 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
     // that restored only the columns restored half of what it promised.
     if (profile.skipDuplicates !== undefined) setShowDuplicates(profile.skipDuplicates);
     if (profile.duplicateThreshold !== undefined) setDuplicateThreshold(profile.duplicateThreshold);
+    // Unconditional, unlike the two above: a profile from before the switch
+    // existed imported un-flipped, so its silence honestly means false —
+    // restoring it as false is restoring what that profile actually did.
+    setChargePositive(!fellBack && profile.chargePositive === true);
   };
 
   /** Save the current columns, the date format AND the duplicate settings under a name. */
@@ -530,6 +578,7 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
       lastUsed: new Date(),
       skipDuplicates: showDuplicates,
       duplicateThreshold,
+      chargePositive,
       ...(selectedTemplate ? { bank: selectedTemplate.id } : {})
     };
 
@@ -576,6 +625,7 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
     const fellBack = prefill.applied.length === 0;
     setMappings(fellBack ? enhancedCsvImportService.suggestMappings(headers) : prefill.applied);
     setDateFormatChoice(fellBack ? 'auto' : template.dateFormat);
+    setChargePositive(!fellBack && template.chargePositive === true);
     setPrefillReport({
       source: template.label,
       appliedCount: prefill.applied.length,
@@ -604,10 +654,11 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
     setPreamble(parsed.preamble);
     setHeadingCandidates(parsed.headingCandidates);
     setHeaderDetectedBecause(null);
-    setMappings(enhancedCsvImportService.suggestMappings(parsed.headers));
-    setDateFormatChoice('auto');
-    setPrefillReport(null);
+    // The columns have just changed identity, so the question of what this
+    // file IS is asked again from scratch — a card statement whose real
+    // headings were below a covering block is recognised here, not missed.
     setSelectedProfile(null);
+    applyRecognitionOrSuggest(parsed.headers);
   };
 
   /**
@@ -741,6 +792,9 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
             // a preview that is right about a column the write reads
             // differently is worse than no preview.
             dateFormat,
+            // The preview's own answer, so the write cannot read the amount
+            // column the other way round from the table the user just checked.
+            chargePositive: effectiveChargePositive,
             ...(headerLineChoice === null ? {} : { headerLine: headerLineChoice })
           }
         );
@@ -931,6 +985,22 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
   );
 
   /**
+   * Whether the statement-style switch is shown at all — the service's rule:
+   * a single signed amount column, no Debit/Credit pair, no type column.
+   */
+  const orientationApplies = useMemo(
+    () => enhancedCsvImportService.statementStyleApplies(mappings),
+    [mappings]
+  );
+  /**
+   * The answer the preview AND the import are given. Gated on applicability so
+   * a tick left over from a remapped file — recognised as Amex, then pointed
+   * at a Debit/Credit pair — cannot go on flipping rows behind a control that
+   * is no longer on screen.
+   */
+  const effectiveChargePositive = orientationApplies && chargePositive;
+
+  /**
    * EVERY row of the file, built exactly as the import will build it.
    *
    * The whole file, not the five on screen: "3 of 412 rows will be skipped" is
@@ -939,8 +1009,10 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
    */
   const rowOutcomes = useMemo(() => {
     if (data.length === 0 || resolvedDateFormat === null) return null;
-    return enhancedCsvImportService.buildRows(headers, data, mappings, resolvedDateFormat);
-  }, [headers, data, mappings, resolvedDateFormat]);
+    return enhancedCsvImportService.buildRows(headers, data, mappings, resolvedDateFormat, {
+      chargePositive: effectiveChargePositive
+    });
+  }, [headers, data, mappings, resolvedDateFormat, effectiveChargePositive]);
 
   const importableCount = useMemo(
     () => (rowOutcomes ? rowOutcomes.filter(outcome => outcome.ok).length : 0),
@@ -1747,6 +1819,36 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
                       ))}
                     </ul>
                   )}
+                </div>
+              )}
+
+              {/* Statement style: which way round this file writes its signs.
+                  Only offered where it means anything — a single signed amount
+                  column — and toggling it rebuilds every row above and below,
+                  so the reader watches the charges change side before Import
+                  is pressed. Amex's shape arrives with it pre-ticked and the
+                  prefill report naming who ticked it. */}
+              {orientationApplies && (
+                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <label className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={chargePositive}
+                      onChange={(e) => setChargePositive(e.target.checked)}
+                      className="mt-0.5 rounded border-gray-300 text-primary"
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        This is a card statement: positive amounts are money spent
+                      </span>
+                      <span className="block mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        Card issuers such as Amex write a purchase as a positive number and a
+                        payment to the card as a negative one — the mirror of a bank account.
+                        Ticked, every amount is flipped so purchases arrive as expenses; the
+                        rows below show exactly what will be written either way.
+                      </span>
+                    </span>
+                  </label>
                 </div>
               )}
 
