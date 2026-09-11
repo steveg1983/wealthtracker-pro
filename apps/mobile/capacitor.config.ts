@@ -32,6 +32,14 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'automatic',
   },
+  plugins: {
+    // A push that arrives while the app is OPEN is still shown as a banner
+    // (with its sound) rather than swallowed: the person may be on another
+    // page, and the words were chosen to be read.
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
+  },
 };
 
 export default config;

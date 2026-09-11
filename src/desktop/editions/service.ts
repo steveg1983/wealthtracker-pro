@@ -130,6 +130,12 @@ export const SubscriptionStatus: ServicePanel = () => null;
 /** No server polls anything, so there is no schedule to set. */
 export const BankFeedRefreshSettings: ServicePanel = () => null;
 
+/**
+ * No phone to push to, and no server to push from. The cloud half draws
+ * this only inside the iOS shell in any case; a desktop window is neither.
+ */
+export const PhoneNotificationSettings: ServicePanel = () => null;
+
 /** No account with anybody to close. See the header for where the wipe lives. */
 export const DangerZone: ServicePanel = () => null;
 

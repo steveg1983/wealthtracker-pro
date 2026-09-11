@@ -234,6 +234,16 @@ export const PORTABLE_PREFERENCE_KEYS: readonly string[] = [
   'historyPath.dismissed.v1',
   'historyPath.ticks.v1',
 
+  // ── Phone notifications ──────────────────────────────────────────────────
+  // The switches travel: they are what the person asked for, and the SERVER
+  // reads them from this document to decide whether to push at all
+  // (api/_lib/cloud-refresh-announce.ts, api/_lib/reminder-push.ts). The
+  // zone is a device fact kept in the account's document on purpose — see
+  // services/push/prefs.ts — and it travels for the same reason: the cron
+  // needs it, and the cron reads only this row.
+  'phoneNotifications.prefs.v1',
+  'device.timeZone.v1',
+
   // ── Formatting ───────────────────────────────────────────────────────────
   'preferredLocale',
 ] as const;

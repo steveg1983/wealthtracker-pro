@@ -15,6 +15,9 @@
     "api/cron/bank-feeds.ts": {
       "maxDuration": 120
     },
+    "api/cron/reminders.ts": {
+      "maxDuration": 60
+    },
     "api/**/*.ts": {
       "maxDuration": 10
     }
@@ -23,6 +26,10 @@
     {
       "path": "/api/cron/bank-feeds",
       "schedule": "7 * * * *"
+    },
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/stripe/reconcile",

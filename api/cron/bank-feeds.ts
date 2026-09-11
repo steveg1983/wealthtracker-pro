@@ -4,6 +4,7 @@ import { getRequiredEnv } from '../_lib/env.js';
 import { captureServerError, withSentry } from '../_lib/sentry.js';
 import { timingSafeStringEqual } from '../_lib/timing-safe.js';
 import { cloudRefreshDeps, runCloudRefresh } from '../_lib/cloud-refresh.js';
+import { announceCloudRefresh, announceDeps } from '../_lib/cloud-refresh-announce.js';
 
 /**
  * The cloud refresh: bank feeds that keep flowing while the app is closed.
@@ -51,9 +52,26 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    // Then the phones. A push that fails is a fact about a phone, never a
+    // reason to report the refresh itself as failed: the ledger is already
+    // updated by the time this runs. Inert until APNs is configured.
+    const announce = announceDeps(getServiceRoleSupabase());
+    let pushes: Record<string, number> | { skipped: string } = { skipped: 'apns_not_configured' };
+    if (announce) {
+      try {
+        pushes = { ...(await announceCloudRefresh(announce, results)) };
+        console.log('[bank-feeds] phones told', pushes);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unexpected error';
+        console.error('[bank-feeds] announcing the refresh failed', { message });
+        await captureServerError(error, { cron: 'bank-feeds', step: 'announce' });
+        pushes = { skipped: 'announce_failed' };
+      }
+    }
+
     // The per-connection results carry institution names and ids; the summary
     // is what the log and the caller need.
-    return res.status(200).json({ ...counts, connections: results.length });
+    return res.status(200).json({ ...counts, connections: results.length, pushes });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected error';
     console.error('[bank-feeds] cloud refresh failed', { message });

@@ -7,9 +7,9 @@ import LargeTransactionAlertSettings from '../../components/LargeTransactionAler
 import LocaleSelector from '../../components/settings/LocaleSelector';
 import ShowTipsAgain from '../../components/settings/ShowTipsAgain';
 import DisplayDiagnostics from '../../components/DisplayDiagnostics';
-// Through the seam: a refresh schedule is a thing a SERVER keeps.
-// See src/editions/service.ts.
-import { BankFeedRefreshSettings } from '@service';
+// Through the seam: a refresh schedule is a thing a SERVER keeps, and so is
+// a push — a phone registers with one. See src/editions/service.ts.
+import { BankFeedRefreshSettings, PhoneNotificationSettings } from '@service';
 // Directly, no seam: a balance reminder is the app talking to its own owner —
 // no bank, no server, both editions alike.
 import BalanceReminderSettings from '../../components/settings/BalanceReminderSettings';
@@ -67,6 +67,10 @@ export default function AppSettings() {
       <BankFeedRefreshSettings />
 
       <BalanceReminderSettings />
+
+      {/* Third, because it depends on the two above it — its switches say so
+          by name. Absent outside the iOS shell. */}
+      <PhoneNotificationSettings />
 
       {/* Personal Information retired 2026-08-26. The field held a first name
           whose caption made two claims the app could not keep — it named a
