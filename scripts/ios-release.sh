@@ -51,7 +51,12 @@ if [ "${1:-}" != "" ]; then
 fi
 
 echo "==> Syncing Capacitor (config and entitlements)"
-npm --prefix "$REPO_ROOT/apps/mobile" exec cap sync ios
+# In a subshell, FROM apps/mobile: `npm --prefix … exec` only relocates
+# node_modules, not the working directory, so run from the repo root it
+# looked for ios/ beside package.json and refused with "ios platform has not
+# been added yet" (11 Sep 2026, build 3). Capacitor's sync wants to be run
+# where capacitor.config.ts is.
+(cd "$REPO_ROOT/apps/mobile" && npx --no-install cap sync ios)
 
 echo "==> Archiving"
 xcodebuild archive \
@@ -74,11 +79,14 @@ APP="$ARCHIVE/Products/Applications/App.app"
 # an App Store export re-signs it "production" from the distribution profile,
 # and a build carrying NEITHER would register no token and push nothing —
 # silently. Refuse it here rather than discover it on a phone.
-if ! codesign -d --entitlements :- "$APP" 2>/dev/null | grep -q "aps-environment"; then
+APS_ENV="$(codesign -d --entitlements - --xml "$APP" 2>/dev/null | plutil -extract aps-environment raw -o - - 2>/dev/null || true)"
+if [ -z "$APS_ENV" ]; then
   echo "The archive does not carry the aps-environment entitlement — no push token would ever arrive. Refusing to upload." >&2
   exit 1
 fi
-echo "==> Push entitlement present: $(codesign -d --entitlements :- "$APP" 2>/dev/null | grep -A1 'aps-environment' | grep -o '<string>[^<]*' | sed 's/<string>//')"
+# "development" here is expected: the App Store export re-signs it
+# "production" from the distribution profile. What matters is that it exists.
+echo "==> Push entitlement present: aps-environment = $APS_ENV"
 if ! codesign -d --entitlements :- "$APP" 2>/dev/null | grep -q "webcredentials:"; then
   echo "The archive does not carry the associated-domains entitlement — refusing to upload." >&2
   exit 1

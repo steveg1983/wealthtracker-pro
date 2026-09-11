@@ -46,24 +46,40 @@ type PushPlugin = typeof import('@capacitor/push-notifications')['PushNotificati
 const loadPlugin = async (): Promise<PushPlugin> =>
   (await import('@capacitor/push-notifications')).PushNotifications;
 
-/** The token iOS answers `register()` with, or the reason it did not. */
+/**
+ * The token iOS answers `register()` with, or the reason it did not.
+ *
+ * The two listeners are AWAITED before `register()` is called. Adding a
+ * listener is itself a bridge call, and on a phone whose permission was
+ * already granted the registration event fires almost at once — on the
+ * first TestFlight build (11 Sep) it fired before the listener had
+ * attached, the token was missed, and the caller sat out the full timeout
+ * with its switches disabled. Both handles are removed afterwards so a
+ * second registration in the same session does not hear twice.
+ */
 const awaitToken = async (plugin: PushPlugin): Promise<string> => {
+  let settle: { resolve: (token: string) => void; reject: (error: Error) => void } | null = null;
   const token = new Promise<string>((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error('iOS did not hand over a device token in time')),
-      TOKEN_TIMEOUT_MS
-    );
-    void plugin.addListener('registration', (received) => {
-      clearTimeout(timer);
-      resolve(received.value);
-    });
-    void plugin.addListener('registrationError', (error) => {
-      clearTimeout(timer);
-      reject(new Error(error.error));
-    });
+    settle = { resolve, reject };
   });
-  await plugin.register();
-  return token;
+  const registered = await plugin.addListener('registration', (received) => {
+    settle?.resolve(received.value);
+  });
+  const failed = await plugin.addListener('registrationError', (error) => {
+    settle?.reject(new Error(error.error));
+  });
+  const timer = setTimeout(
+    () => settle?.reject(new Error('iOS did not hand over a device token in time')),
+    TOKEN_TIMEOUT_MS
+  );
+  try {
+    await plugin.register();
+    return await token;
+  } finally {
+    clearTimeout(timer);
+    void registered.remove();
+    void failed.remove();
+  }
 };
 
 export async function registerThisPhone(databaseUserId: string): Promise<RegistrationOutcome> {

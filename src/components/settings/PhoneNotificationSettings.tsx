@@ -24,8 +24,14 @@ import { loadReminderPrefs } from '../../utils/balanceReminders';
  *   A feed stopped        only a SERVER-side sync can notice something while
  *                         the app is closed — a browser sync shows its own
  *                         toast and has nobody to push to.
- *   Balance reminders     needs a schedule in the card above; a reminder
- *                         with no moment has nothing to say.
+ *   Balance reminders     needs In the cloud TOO (the owner's ruling, 11
+ *                         Sep: phone alerts are what a cloud user opts
+ *                         into, one decision rather than three), and a
+ *                         schedule in the card above — a reminder with no
+ *                         moment has nothing to say. The server keeps the
+ *                         same rule (api/_lib/reminder-push.ts), so a
+ *                         switch left on by a user who later leaves cloud
+ *                         mode goes quiet rather than lingering.
  *
  * A disabled switch says why in a line beneath it rather than vanishing:
  * the remedy is one card up, and naming it is what makes the pair one
@@ -114,8 +120,12 @@ export default function PhoneNotificationSettings(): React.JSX.Element | null {
       key: 'balanceReminders',
       label: 'Balance reminders',
       detail: 'Your scheduled reminder to update balances, on the lock screen rather than waiting for you to open the app.',
-      enabled: reminderScheduled,
-      needs: 'Needs a reminder schedule in Balance reminders, above.',
+      enabled: cloudMode && reminderScheduled,
+      // The first unmet need is the one named: cloud mode is the door to the
+      // whole card, so it is asked for before the schedule.
+      needs: cloudMode
+        ? 'Needs a reminder schedule in Balance reminders, above.'
+        : 'Needs Bank feed refresh set to In the cloud, above.',
     },
   ];
 
@@ -147,10 +157,15 @@ export default function PhoneNotificationSettings(): React.JSX.Element | null {
                 : 'border-gray-100 dark:border-gray-700/60'
             }`}
           >
+            {/* Never disabled by an in-flight registration: the choice is
+                saved the moment it is made, and the phone's token is a
+                separate matter that the notice below reports on. Locking the
+                other two switches while iOS answered the first (up to fifteen
+                seconds) read as "the app is broken" — 11 Sep, first build. */}
             <input
               type="checkbox"
               checked={prefs[key] && enabled}
-              disabled={!enabled || registering}
+              disabled={!enabled}
               onChange={(e) => void update({ ...prefs, [key]: e.target.checked })}
               className="mt-1"
             />
@@ -167,7 +182,12 @@ export default function PhoneNotificationSettings(): React.JSX.Element | null {
         ))}
       </div>
 
-      {notice && (
+      {registering && (
+        <p role="status" className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+          Registering this phone…
+        </p>
+      )}
+      {!registering && notice && (
         <p role="status" className="mt-3 text-xs text-gray-500 dark:text-gray-400">
           {notice}
         </p>

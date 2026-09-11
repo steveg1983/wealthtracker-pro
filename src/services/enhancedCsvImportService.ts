@@ -17,6 +17,18 @@ import {
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Whole calendar days between two dates, in the host's calendar — the
+ * distance a person would state ("the day after"), not an instant
+ * difference that reads a noon-stamped row and a midnight one as half a
+ * day apart.
+ */
+const calendarDaysApart = (a: Date, b: Date): number => {
+  const dayA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const dayB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.abs(dayA - dayB) / DAY_IN_MS;
+};
+
 // Column-name keywords marking the money-out / money-in halves of two-column
 // bank formats. Matched as substrings of the lowercased source column name,
 // so 'withdrawal' also covers 'Withdrawals' / 'WITHDRAWALS' / 'Withdrawal
@@ -114,6 +126,20 @@ export interface ImportProfile {
   chargePositive?: boolean;
 }
 
+/**
+ * Why a row was judged already present — named so the person reading the
+ * result can tell "the same money" from "the same words".
+ *
+ *   same-money     same account, same amount to the penny, within a day:
+ *                  decisive, whatever the bank called it
+ *   transfer-leg   same account, same amount, within three days, and the
+ *                  existing row is a transfer leg the owner made by hand
+ *   similar-words  same account, same amount, within three days, and the
+ *                  descriptions agree — the older rule, for the settlement
+ *                  that lands two or three days after the statement date
+ */
+export type DuplicateReason = 'same-money' | 'transfer-leg' | 'similar-words';
+
 export interface DuplicateCheckResult {
   isDuplicate: boolean;
   confidence: number; // 0-100
@@ -122,12 +148,34 @@ export interface DuplicateCheckResult {
     field: string;
     similarity: number;
   }>;
+  /** The existing row this candidate is judged to BE, when it is one. */
+  bestMatchId?: string;
+  reason?: DuplicateReason;
+}
+
+/** A row the import left out because the register already holds it. */
+export interface SkippedDuplicate {
+  /** The physical line of the file, as `errors[].line` counts it. */
+  line: number;
+  date: Date;
+  description: string;
+  amount: number;
+  /** The existing transaction it was judged to be. */
+  existingId: string;
+  reason: DuplicateReason;
 }
 
 export interface ImportResult {
   success: number;
   failed: number;
   duplicates: number;
+  /**
+   * The rows behind `duplicates`, each with the existing transaction it was
+   * judged to be. A count cannot be checked; a list can — and the person
+   * reading it has the statement in front of them. Absent from results
+   * built by older callers, never from this service's own.
+   */
+  skippedDuplicates?: SkippedDuplicate[];
   items: Array<Partial<Transaction> | Partial<Account>>;
   errors: Array<{
     /**
@@ -1854,67 +1902,120 @@ export class EnhancedCsvImportService {
   }
 
   /**
-   * Check for duplicate transactions
+   * Is this statement row already in the register?
+   *
+   * ── THE SAME MONEY IS THE SAME MONEY WHATEVER THE BANK CALLED IT ────────
+   *
+   * Reported by the owner on 11 Sep 2026, re-importing his partner's
+   * statements: the register held "PREMFINA SALARY" and the CSV said
+   * "OPERATIONAL , PREMFINA LTD , FP 24/09/25"; "NICOLA FOLEY" against
+   * "NICOLA , . , VIA MOBILE - PYMT"; "SAINSBURY'S" against "8523 23OCT25
+   * CD , SAINSBURYS PE…". Same account, same day, same penny, every one —
+   * and every one imported again, because the old score gave 40 for the
+   * amount, 30 for the date and 30 for the WORDS, and only 90 counted.
+   * Words that differ are the normal case: a feed writes a merchant's name,
+   * a person writes a payee, a statement writes whatever the bank's
+   * processor wrote. A dedup that needs them to agree is not a dedup, and
+   * the person then reads their whole statement hunting for doubles.
+   *
+   * The rules now, in the order they decide:
+   *
+   *   1. A row in ANOTHER account is never a duplicate of this one. £75.64
+   *      at Sainsbury's from two cards on one day is two payments. (Only
+   *      when the account is known — the wizard's destination or a mapped
+   *      account column; the account-blind fallback stays for the rare
+   *      file that names neither.)
+   *   2. Same account, same amount to the penny, within ONE calendar day:
+   *      decisive (95), whatever the words. ±1 rather than ±3 for the reason
+   *      services/banking/importedRowAdoption.ts gives — a bank export
+   *      carries the bank's own dates, so two records of one payment agree
+   *      to the day; the wider window below exists for dates a person set.
+   *   3. Same account, same amount, within three days, and the existing row
+   *      is a hand-made transfer leg: decisive (95) — the 28 Aug rule, kept.
+   *   4. Same account, same amount, within three days, and the words agree:
+   *      90 — the settlement that lands two days after the statement.
+   *   5. Otherwise amount + date score 70: a possible, listed in `matches`,
+   *      never skipped on its own.
+   *
+   * ── PAIRED BY COUNT ─────────────────────────────────────────────────────
+   *
+   * `claimed` is the set of existing rows earlier rows of THIS import were
+   * judged to be, and a claimed row is skipped here. Two identical £26.25
+   * rows in a file against one in the register are one duplicate and one
+   * new transaction, not two duplicates of the same row — the count rule
+   * the feed's adoption already keeps.
    */
   async checkDuplicateTransaction(
     transaction: Partial<Transaction>,
     existingTransactions: Transaction[],
     /**
      * The account this import lands in, when the file itself names none —
-     * the wizard's destination. The transfer rule below needs to know which
-     * register the row is joining.
+     * the wizard's destination.
      */
-    targetAccountId?: string
+    targetAccountId?: string,
+    claimed: ReadonlySet<string> = new Set()
   ): Promise<DuplicateCheckResult> {
     const matches: DuplicateCheckResult['matches'] = [];
     let highestConfidence = 0;
+    let bestMatchId: string | undefined;
+    let reason: DuplicateReason | undefined;
 
     const effectiveAccountId =
       typeof transaction.accountId === 'string' && transaction.accountId !== 'default'
         ? transaction.accountId
         : targetAccountId;
+    const candidateDate = new Date(transaction.date!);
 
     for (const existing of existingTransactions) {
+      if (claimed.has(existing.id)) continue;
+
+      const existingDate = new Date(existing.date);
       // Check date proximity (within 3 days)
-      const dateDiff = Math.abs(
-        new Date(transaction.date!).getTime() - new Date(existing.date).getTime()
-      );
+      const dateDiff = Math.abs(candidateDate.getTime() - existingDate.getTime());
       const dateProximity = dateDiff < 3 * DAY_IN_MS;
-      
       if (!dateProximity) continue;
-      
-      // Check amount similarity
-      const amountDiff = Math.abs((transaction.amount || 0) - existing.amount);
-      const amountMatch = amountDiff < 0.01;
-      
-      // Check description similarity
+
+      // Rule 1: a known destination makes another register's rows irrelevant.
+      const sameAccount = existing.accountId === effectiveAccountId;
+      if (effectiveAccountId !== undefined && !sameAccount) continue;
+
+      // To the penny, in pence: `Math.abs(a - b) < 0.01` read 1234.57 against
+      // 1234.56 as equal, because their float difference is 0.00999…
+      const amountMatch =
+        Math.round((transaction.amount || 0) * 100) === Math.round(existing.amount * 100);
+
       const descSimilarity = this.calculateSimilarity(
         transaction.description?.toLowerCase() || '',
         existing.description.toLowerCase()
       );
-      
-      // Calculate overall confidence
+
       let confidence = 0;
+      let matchReason: DuplicateReason | undefined;
       if (amountMatch) confidence += 40;
       if (dateProximity) confidence += 30;
-      if (descSimilarity > 0.8) confidence += 30;
+      if (descSimilarity > 0.8) {
+        confidence += 30;
+        if (amountMatch && sameAccount) matchReason = 'similar-words';
+      }
 
-      // AN EXISTING TRANSFER LEG IS THE SAME MONEY WHATEVER THE WORDS. The
-      // owner pays his card from his current account, makes the transfer,
-      // and the counterpart lands on the card as "VIRGIN MONEY"; the card's
-      // statement calls the same payment "PAYMENT DD - THANK YOU". Amount
-      // and date scored 70, the words scored nothing, and the payment
-      // imported twice — on all three of his cards (28 Aug). A statement
-      // row and a hand-made transfer leg on the SAME account, for the same
-      // amount, within the window, cannot both be true: decisive, above any
-      // sensible threshold.
-      const sameAccount =
-        effectiveAccountId !== undefined && existing.accountId === effectiveAccountId;
-      const isTransferLeg =
-        existing.type === 'transfer' ||
-        (typeof existing.linkedTransferId === 'string' && existing.linkedTransferId !== '');
-      if (amountMatch && dateProximity && sameAccount && isTransferLeg) {
-        confidence = Math.max(confidence, 95);
+      if (amountMatch && sameAccount) {
+        // Rule 3 — the 28 Aug transfer rule: the owner pays his card from
+        // his current account and the card's statement calls the same
+        // payment "PAYMENT DD - THANK YOU".
+        const isTransferLeg =
+          existing.type === 'transfer' ||
+          (typeof existing.linkedTransferId === 'string' && existing.linkedTransferId !== '');
+        if (isTransferLeg) {
+          confidence = Math.max(confidence, 95);
+          matchReason = 'transfer-leg';
+        }
+        // Rule 2 — the same money, by the calendar rather than the clock: a
+        // statement date and a register date are both days, and comparing
+        // them as instants would let a noon-stamped row miss a midnight one.
+        if (calendarDaysApart(candidateDate, existingDate) <= 1) {
+          confidence = Math.max(confidence, 95);
+          matchReason = 'same-money';
+        }
       }
 
       if (confidence >= 70) {
@@ -1923,14 +2024,20 @@ export class EnhancedCsvImportService {
           field: 'transaction',
           similarity: confidence
         });
-        highestConfidence = Math.max(highestConfidence, confidence);
+        if (confidence > highestConfidence) {
+          highestConfidence = confidence;
+          bestMatchId = existing.id;
+          reason = matchReason;
+        }
       }
     }
-    
+
     return {
       isDuplicate: highestConfidence >= 90,
       confidence: highestConfidence,
-      matches
+      matches,
+      ...(bestMatchId !== undefined ? { bestMatchId } : {}),
+      ...(reason !== undefined ? { reason } : {})
     };
   }
 
@@ -1973,9 +2080,13 @@ export class EnhancedCsvImportService {
       success: 0,
       failed: 0,
       duplicates: 0,
+      skippedDuplicates: [],
       items: [],
       errors: []
     };
+    // Existing rows earlier rows of this file were judged to be — see
+    // checkDuplicateTransaction, "paired by count".
+    const claimed = new Set<string>();
     
     // Create column index map keyed by SOURCE column (unique). Bank formats
     // (Lloyds, Halifax, Nationwide, …) map TWO source columns — "Debit Amount"
@@ -2035,11 +2146,26 @@ export class EnhancedCsvImportService {
           const duplicateCheck = await this.checkDuplicateTransaction(
             transaction,
             existingTransactions,
-            options.destinationAccountId
+            options.destinationAccountId,
+            claimed
           );
-          
+
           if (duplicateCheck.confidence >= (options.duplicateThreshold || 90)) {
             result.duplicates++;
+            if (duplicateCheck.bestMatchId !== undefined) {
+              claimed.add(duplicateCheck.bestMatchId);
+              result.skippedDuplicates?.push({
+                line: lines[rowIndex],
+                date: new Date(transaction.date!),
+                description: transaction.description ?? '',
+                amount: transaction.amount ?? 0,
+                existingId: duplicateCheck.bestMatchId,
+                // A verdict above the threshold always has a decisive reason
+                // or the words; 'similar-words' is the only way to 90 without
+                // one of the two decisive rules.
+                reason: duplicateCheck.reason ?? 'similar-words'
+              });
+            }
             continue;
           }
         }
