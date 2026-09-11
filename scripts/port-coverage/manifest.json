@@ -14,6 +14,7 @@
     "api/_lib/banking-consent.ts": {"status":"pending"},
     "api/_lib/banking-ops.ts": {"status":"pending"},
     "api/_lib/banking-sync.ts": {"status":"pending","cited_by":["AUDIT3"]},
+    "api/_lib/cloud-refresh.ts": {"status":"pending"},
     "api/_lib/cors.ts": {"status":"pending"},
     "api/_lib/csv.ts": {"status":"pending"},
     "api/_lib/encryption.ts": {"status":"pending"},
@@ -51,6 +52,7 @@
     "api/banking/sync-accounts.ts": {"status":"pending","ids":["#7","#12","B-4","B-6","TS-B3","TS-F2","TS-F7","TS-F8","TS-F9","TS-F10","TS-F12"],"cited_by":["DESIGN","PHASE1-PLAN","TS-INVARIANTS"]},
     "api/banking/sync-transactions.ts": {"status":"pending","ids":["#11","#54","#57","D-3","TS-F1","TS-F3","TS-F4","TS-F5","TS-F6"],"cited_by":["PHASE1-PLAN","TS-INVARIANTS"]},
     "api/billing/portal.ts": {"status":"out-of-scope","reason":"billing — Stripe revenue, not the user's ledger. PHASE1 §7: \"Stays cloud-only, permanently\"; invoices.amount is not ported (DESIGN §3.1 row 24). The local edition has no billing surface."},
+    "api/cron/bank-feeds.ts": {"status":"pending"},
     "api/cron/quotes.ts": {"status":"pending"},
     "api/cron/retention.ts": {"status":"pending","cited_by":["TS-INVARIANTS"]},
     "api/data/delete-transaction.ts": {"status":"pending"},
@@ -392,6 +394,7 @@
     "supabase/migrations/20260902140000_an_erased_owner_needs_no_tombstone.sql": {"status":"pending"},
     "supabase/migrations/20260902150000_an_empty_claim_is_no_claim.sql": {"status":"pending"},
     "supabase/migrations/20260905120000_the_tombstone_function_wears_the_house_grants.sql": {"status":"pending"},
-    "supabase/migrations/20260911100000_a_machine_guess_stays_a_guess.sql": {"status":"pending"}
+    "supabase/migrations/20260911100000_a_machine_guess_stays_a_guess.sql": {"status":"pending"},
+    "supabase/migrations/20260911153000_a_feed_that_refreshes_while_you_sleep.sql": {"status":"pending"}
   }
 }

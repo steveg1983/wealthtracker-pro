@@ -58,7 +58,10 @@ export const CREDIT_UTILISATION_LIMIT = 70;
  * 'daily' allows a whole day plus two hours of slack, so a run scheduled for
  * 08:00 that lands at 08:04 does not make yesterday's row stale at 08:00 the
  * next morning. 'signin' means "refreshed whenever I open the app", so a
- * working morning is the tolerance.
+ * working morning is the tolerance. 'cloud' is the server's six-hour
+ * interval (api/_lib/cloud-refresh.ts — PSD2's four unattended reads a day)
+ * plus the same two hours of slack, since the hourly run that picks a
+ * connection up lands some way after it falls due.
  *
  * 'off' is deliberately absent: the user turned automatic refresh off, and
  * nagging them about the consequence of their own setting is how a warning
@@ -67,6 +70,7 @@ export const CREDIT_UTILISATION_LIMIT = 70;
 const STALE_AFTER_MS: Record<Exclude<AutoSyncMode, 'off'>, number> = {
   daily: 26 * 60 * 60 * 1000,
   signin: 6 * 60 * 60 * 1000,
+  cloud: 8 * 60 * 60 * 1000,
 };
 
 const MINUTE_MS = 60_000;
