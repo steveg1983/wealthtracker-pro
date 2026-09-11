@@ -929,6 +929,20 @@ const VERBS = {
        FROM public.transactions t
       WHERE t.id = (${payloadLiteral}::jsonb->'ids'->>0)::uuid;`,
 
+  // The fan-out's suggesting twin (20260911100000): identical wiring, and the
+  // same non-coalescing of `p_category`, for the same reason.
+  suggest_category_to_uncategorized: (payloadLiteral) =>
+    `PERFORM public.suggest_category_to_uncategorized(
+               ARRAY(SELECT x::uuid
+                       FROM jsonb_array_elements_text(
+                              COALESCE(${payloadLiteral}::jsonb->'ids', '[]'::jsonb)) AS x),
+               ${payloadLiteral}::jsonb->>'category',
+               NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid
+             );
+     SELECT ${ROW_JSON} INTO v_row
+       FROM public.transactions t
+      WHERE t.id = (${payloadLiteral}::jsonb->'ids'->>0)::uuid;`,
+
   // The prune returns a bare integer and touches no transaction, so — like the
   // restore family — it is compared on its OWN answer, wrapped in an object so
   // the shape matches the Rust side's `answer`. Everything the count cannot

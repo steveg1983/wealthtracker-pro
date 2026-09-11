@@ -1510,25 +1510,35 @@ export class EnhancedCsvImportService {
       }
     }
 
-    // Category mapping
-    const categoryPatterns = ['category', 'cat', 'type', 'classification'];
-    const categoryIndex = this.findBestMatch(normalizedHeaders, categoryPatterns, claimed);
-    if (categoryIndex >= 0) {
-      claimed.add(categoryIndex);
+    // ── WHAT IS NO LONGER HUNTED FOR — the owner's ruling, 11 Sep 2026 ─────
+    //
+    // CATEGORY and ACCOUNT NAME used to be guessed here, and both guesses did
+    // harm on real files:
+    //
+    //   * The category hunt's patterns included 'type', so a bank's Type
+    //     column — cells like 'INT' and 'DD' — was mapped to category, and a
+    //     mapped category column arrives CONFIRMED (the user's own file said
+    //     it). Nobody's bank export names categories from this app's set, so
+    //     the best case was junk filed as if the user had filed it.
+    //   * An Account Name column holds the bank's OWN label for the account
+    //     ('MEDHURST DN'), which matches no account here — so every row
+    //     arrived naming an account that does not exist and the import ended
+    //     with a wall of unroutable-row messages. The destination picker
+    //     already answers where the rows go.
+    //
+    // Both remain OFFERED — a user can point a column at category or
+    // accountName by hand, and templates (Mint's Category is that app's own
+    // filing) still prefill them — but a guess needs to be RIGHT more often
+    // than it is wrong, and neither of these ever was. NOTES is hunted
+    // instead: free text a statement often carries and this app has a place
+    // for.
+    const notesPatterns = ['notes', 'note', 'reference'];
+    const notesIndex = this.findBestMatch(normalizedHeaders, notesPatterns, claimed);
+    if (notesIndex >= 0) {
+      claimed.add(notesIndex);
       mappings.push({
-        sourceColumn: headers[categoryIndex],
-        targetField: 'category'
-      });
-    }
-
-    // Account mapping
-    const accountPatterns = ['account', 'acc', 'account name', 'from account'];
-    const accountIndex = this.findBestMatch(normalizedHeaders, accountPatterns, claimed);
-    if (accountIndex >= 0) {
-      claimed.add(accountIndex);
-      mappings.push({
-        sourceColumn: headers[accountIndex],
-        targetField: 'accountName'
+        sourceColumn: headers[notesIndex],
+        targetField: 'notes'
       });
     }
 

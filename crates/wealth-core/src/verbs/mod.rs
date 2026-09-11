@@ -661,6 +661,7 @@ mod restore_suggestion;
 mod restore_user_chunk;
 mod seed_categories;
 mod set_transaction_splits_with_legs;
+mod suggest_category_to_uncategorized;
 mod set_transactions_archived;
 mod set_transactions_cleared;
 mod transfer;
@@ -679,6 +680,10 @@ mod wipe_user_financial_data;
 pub use apply_category_to_uncategorized::{
     apply_category_to_uncategorized, ApplyCategoryToUncategorized,
     ApplyCategoryToUncategorizedResult,
+};
+pub use suggest_category_to_uncategorized::{
+    suggest_category_to_uncategorized, SuggestCategoryToUncategorized,
+    SuggestCategoryToUncategorizedResult,
 };
 pub use clear_transfer_links::{
     clear_transfer_links, ClearTransferLinks, ClearTransferLinksResult,

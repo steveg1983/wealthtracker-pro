@@ -296,6 +296,13 @@ export interface AppContextType extends AppState {
    */
   applyCategoryToUncategorized: (ids: string[], category: string) => Promise<number>;
   /**
+   * Payee memory's automatic fan-out (11 Sep 2026): the same fill-blanks
+   * spread, written as a SUGGESTION — `categoryConfirmed: false`,
+   * `needsReview: true` — so the extrapolated rows stay in To Review wearing
+   * the Suggested badge until their owner confirms or corrects each one.
+   */
+  suggestCategoryToUncategorized: (ids: string[], category: string) => Promise<number>;
+  /**
    * Agree with the app's suggested category on the named rows, without changing
    * it. Balance-neutral — one boolean per row. Returns how many actually
    * flipped (a row someone else already confirmed does not count twice).
@@ -1316,6 +1323,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return count;
     } catch (error) {
       appLogger.error('Failed to apply category', error);
+      throw error;
+    }
+  }, [categories]);
+
+  /**
+   * The fan-out's own door (11 Sep 2026). The owner confirmed ONE suggestion
+   * and watched payee memory file the payee's other rows off the review list
+   * unseen — it was travelling through applyCategoryToUncategorized, which
+   * vouches. This one writes the guess shape instead, and the state patch
+   * mirrors it: category set, categoryConfirmed false, needsReview TRUE —
+   * true rather than untouched, because these rows sat in To Review under
+   * the unfiled arm, and gaining a category would otherwise lift them off
+   * the list at the very moment they acquire something worth checking.
+   *
+   * The transfer-filing gate is the same as the deliberate verb's, but a
+   * SILENT no-op rather than a throw: this is the app's own extrapolation,
+   * and an error toast about a bulk write nobody requested would be the app
+   * complaining about its own idea (usePayeeMemory already stops it earlier;
+   * this is the second layer).
+   */
+  const suggestCategoryToUncategorized = useCallback(async (ids: string[], category: string) => {
+    if (ids.length === 0) {
+      return 0;
+    }
+    if (categoryIdIsTransferFiling(categories, category)) {
+      return 0;
+    }
+    try {
+      const count = await dataPort.suggestCategoryToUncategorized(ids, category);
+      const idSet = new Set(ids);
+      setTransactions(prev => prev.map(t =>
+        idSet.has(t.id) && !t.isSplit && (!t.category || t.category.trim() === '')
+          ? { ...t, category, categoryConfirmed: false, needsReview: true }
+          : t
+      ));
+      return count;
+    } catch (error) {
+      appLogger.error('Failed to suggest category', error);
       throw error;
     }
   }, [categories]);
@@ -2415,6 +2460,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTransactionsCleared,
     finalizeReconciliation,
     applyCategoryToUncategorized,
+    suggestCategoryToUncategorized,
     confirmTransactionCategories,
     renameTransactionDescriptions,
     restoreTransactionDescriptions,

@@ -1232,6 +1232,57 @@ class TransactionServiceImpl {
     }
   }
 
+  /**
+   * The fan-out's own verb: write a category as a SUGGESTION onto the blanks
+   * (`category_confirmed = false`, `needs_review = true`) so the rows stay in
+   * To Review. See dataPort's doc for the 11 Sep 2026 ruling.
+   */
+  async suggestCategoryToUncategorized(ids: string[], category: string, userId?: string): Promise<number> {
+    if (ids.length === 0) {
+      return 0;
+    }
+
+    if (!this.isSupabaseReady()) {
+      const transactions = await this.readStoredTransactions();
+      const idSet = new Set(ids);
+      let count = 0;
+      const updated = transactions.map(t => {
+        if (idSet.has(t.id) && (!t.category || t.category.trim() === '')) {
+          count += 1;
+          return {
+            ...t,
+            category,
+            categoryConfirmed: false,
+            needsReview: true,
+            updatedAt: this.getCurrentDate()
+          };
+        }
+        return t;
+      });
+      await this.persistTransactions(updated);
+      return count;
+    }
+
+    try {
+      const client = this.supabaseClient!;
+      const { data, error } = await client.rpc('suggest_category_to_uncategorized', {
+        p_ids: ids,
+        p_category: category,
+        p_user_id: this.requireOwnerId(userId, 'suggestCategoryToUncategorized')
+      });
+
+      if (error) {
+        this.logger.error('Error suggesting category:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+
+      return typeof data === 'number' ? data : ids.length;
+    } catch (error) {
+      this.logger.error('TransactionService.suggestCategoryToUncategorized error:', error as Error);
+      throw error;
+    }
+  }
+
   /** Every split line of the user's transactions (for category aggregation). */
   /** DB split row → app TransactionSplit, including transfer-leg fields. */
   private mapSplitRow(row: Record<string, unknown>): TransactionSplit {
@@ -2089,6 +2140,10 @@ export class TransactionService {
 
   static applyCategoryToUncategorized(ids: string[], category: string, userId?: string): Promise<number> {
     return this.service.applyCategoryToUncategorized(ids, category, userId);
+  }
+
+  static suggestCategoryToUncategorized(ids: string[], category: string, userId?: string): Promise<number> {
+    return this.service.suggestCategoryToUncategorized(ids, category, userId);
   }
 
   static confirmTransactionCategories(ids: string[], userId?: string): Promise<number> {

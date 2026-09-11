@@ -414,6 +414,13 @@ describe('the CSV wizard against a real bank file', () => {
       );
 
       expect(screen.getByText('line 1')).toBeInTheDocument();
+      // Line 1 is the covering block ("Account Name:", "Everyday Current"), and
+      // since 11 Sep 2026 the suggester maps none of it — those cells are not a
+      // date, a payee, an amount or a note, and the account hunt that used to
+      // claim the first one is gone by ruling. So the re-read is proven through
+      // a mapping added BY HAND: its column dropdown offers the line-1 cells,
+      // which only a re-read from the chosen line could know.
+      await userEvent.click(screen.getByRole('button', { name: /add mapping/i }));
       const firstColumn = screen.getByRole('combobox', { name: 'CSV column for mapping 1' });
       expect(
         within(firstColumn).getAllByRole('option').map(option => option.textContent)

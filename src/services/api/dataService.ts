@@ -98,7 +98,7 @@ type AccountServiceLike = Pick<typeof AccountService,
   subscribeToAccounts?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type TransactionServiceLike = Pick<typeof TransactionService,
-  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'finalizeReconciliation' | 'applyCategoryToUncategorized' | 'confirmTransactionCategories' | 'getTransactionSplits' | 'setTransactionSplits' | 'setTransactionSplitsWithLegs' | 'getAllTransactionSplits' | 'linkTransferPair' | 'linkSplitLineTransfer' | 'clearTransferLinks' | 'setTransactionArchived' | 'repairClaimedTransfer' | 'createTransferCounterpart' | 'repointTransfer' | 'archiveTransactionsBefore' | 'unarchiveAccount'> & {
+  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'finalizeReconciliation' | 'applyCategoryToUncategorized' | 'suggestCategoryToUncategorized' | 'confirmTransactionCategories' | 'getTransactionSplits' | 'setTransactionSplits' | 'setTransactionSplitsWithLegs' | 'getAllTransactionSplits' | 'linkTransferPair' | 'linkSplitLineTransfer' | 'clearTransferLinks' | 'setTransactionArchived' | 'repairClaimedTransfer' | 'createTransferCounterpart' | 'repointTransfer' | 'archiveTransactionsBefore' | 'unarchiveAccount'> & {
   subscribeToTransactions?: (userId: string, callback: (payload: unknown) => void) => () => void;
   /**
    * Optional so an injected test double stays a partial stand-in; without it
@@ -958,6 +958,36 @@ class DataServiceImpl implements DataPort {
         // RPC (20260901150000_bulk_filing_ends_review.sql), the crate's
         // verb, and this one.
         return { ...t, category, categoryConfirmed: true, needsReview: false };
+      }
+      return t;
+    });
+    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, updated);
+    return count;
+  }
+
+  /**
+   * Payee memory's automatic fan-out (11 Sep 2026 ruling): write the category
+   * as a SUGGESTION — `categoryConfirmed: false`, `needsReview: true` — so
+   * the extrapolated rows stay in To Review until their owner answers for
+   * each. Fill-blanks only, balance-neutral, like the deliberate verb above.
+   */
+  async suggestCategoryToUncategorized(ids: string[], category: string): Promise<number> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.suggestCategoryToUncategorized(ids, category, userId);
+    }
+    this.guardCloudWrite();
+
+    const transactions = await this.readLocalTransactions();
+    const idSet = new Set(ids);
+    let count = 0;
+    const updated = transactions.map(t => {
+      if (idSet.has(t.id) && (!t.category || t.category.trim() === '')) {
+        count += 1;
+        // A guess, not a filing: the machine extrapolated from ONE row the
+        // user acted on, and nobody has reviewed these. The register keeps
+        // them bold, wearing the Suggested badge.
+        return { ...t, category, categoryConfirmed: false, needsReview: true };
       }
       return t;
     });
@@ -3628,6 +3658,10 @@ export class DataService {
 
   static applyCategoryToUncategorized(ids: string[], category: string): Promise<number> {
     return this.service.applyCategoryToUncategorized(ids, category);
+  }
+
+  static suggestCategoryToUncategorized(ids: string[], category: string): Promise<number> {
+    return this.service.suggestCategoryToUncategorized(ids, category);
   }
 
   static confirmTransactionCategories(ids: string[]): Promise<number> {

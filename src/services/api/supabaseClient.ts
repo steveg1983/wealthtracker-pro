@@ -58,6 +58,14 @@ type Database = {
         Args: { p_ids: string[]; p_category: string; p_user_id: string };
         Returns: number;
       };
+      // The fan-out's own verb (20260911100000): the same fill-blanks spread
+      // written as a GUESS — category_confirmed false, needs_review true — so
+      // rows the app extrapolated onto stay in To Review until their owner
+      // answers for each one.
+      suggest_category_to_uncategorized: {
+        Args: { p_ids: string[]; p_category: string; p_user_id: string };
+        Returns: number;
+      };
       // Agree with the app's suggested category. Takes no category on purpose:
       // it only flips category_confirmed (and clears needs_review, because
       // answering the question a row was asking IS reviewing that row), so it

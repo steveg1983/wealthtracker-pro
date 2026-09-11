@@ -212,6 +212,7 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   'setTransactionsCleared',
   'finalizeReconciliation',
   'applyCategoryToUncategorized',
+  'suggestCategoryToUncategorized',
   'confirmTransactionCategories',
   'setTransactionArchived',
   'archiveTransactionsBefore',
@@ -3777,6 +3778,45 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         const state = await read();
         expect(transactionOf(state, 'txn-blank')?.needsReview).toBe(false);
         expect(transactionOf(state, 'txn-filed')?.needsReview).toBe(true);
+      });
+
+      /**
+       * The fan-out's own verb (the owner's ruling, 11 Sep 2026): payee
+       * memory's automatic spread is a GUESS, and a guess must not vouch or
+       * end a review nobody did. Same fill-blanks skeleton as the deliberate
+       * verb above, opposite provenance — and the flag is SET true rather
+       * than left alone, because a blank row sat in To Review under the
+       * unfiled arm and gaining a category would otherwise lift it off the
+       * list at the moment it acquires something worth checking.
+       */
+      rule(['suggestCategoryToUncategorized'], 'writes a guess that still wants eyes, and fills only the blanks', async () => {
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          transactions: [
+            aTransaction('txn-blank', { category: '', needsReview: false }),
+            aTransaction('txn-filed', { category: 'cat-bills', needsReview: false })
+          ]
+        });
+
+        const count = await port.suggestCategoryToUncategorized(
+          ['txn-blank', 'txn-filed'],
+          'cat-everyday'
+        );
+
+        expect(count).toBe(1);
+        const state = await read();
+        expect(transactionOf(state, 'txn-blank')).toMatchObject({
+          category: 'cat-everyday',
+          categoryConfirmed: false,
+          needsReview: true
+        });
+        // The filed row is untouched in every respect — fill-blanks is the
+        // promise, and a guess overwriting a decision would be the one thing
+        // this family exists to prevent.
+        expect(transactionOf(state, 'txn-filed')).toMatchObject({
+          category: 'cat-bills',
+          needsReview: false
+        });
       });
 
       /**

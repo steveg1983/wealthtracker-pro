@@ -98,6 +98,7 @@ use crate::verbs::{
     restore_user_chunk, seed_categories,
     set_forecast_adjustment,
     set_transaction_splits_with_legs, set_transactions_archived, set_transactions_cleared,
+    suggest_category_to_uncategorized,
     splits_for, unarchive_account, update_account, update_budget, update_category,
     update_custom_report,
     update_goal, update_investment, update_transaction, user_financial_data_is_empty,
@@ -119,6 +120,7 @@ use crate::verbs::{
     RestoreUserChunk,
     SeedCategories, SetForecastAdjustment,
     SetTransactionSplitsWithLegs, SetTransactionsArchived, SetTransactionsCleared,
+    SuggestCategoryToUncategorized,
     SplitsFor, UnarchiveAccount, UpdateAccount, UpdateBudget,
     UpdateCategory, UpdateCustomReport, UpdateGoal, UpdateInvestment, UpdateTransaction,
     UserFinancialDataIsEmpty,
@@ -202,6 +204,10 @@ pub enum Command {
     MergeCategories(Box<MergeCategories>),
     /// [`crate::verbs::apply_category_to_uncategorized`].
     ApplyCategoryToUncategorized(Box<ApplyCategoryToUncategorized>),
+    /// [`crate::verbs::suggest_category_to_uncategorized`] — the fan-out's own
+    /// verb since 11 Sep 2026: the same fill-blanks skeleton writing a GUESS
+    /// (`category_confirmed = 0`, `needs_review = 1`) instead of a filing.
+    SuggestCategoryToUncategorized(Box<SuggestCategoryToUncategorized>),
     /// [`crate::verbs::confirm_transaction_categories`].
     ConfirmTransactionCategories(Box<ConfirmTransactionCategories>),
     // The fourth category verb, and the one whose every protection is a WHERE
@@ -658,6 +664,9 @@ pub fn dispatch(
         }
         Command::ApplyCategoryToUncategorized(payload) => {
             apply_category_to_uncategorized(connection, *payload).and_then(as_json)
+        }
+        Command::SuggestCategoryToUncategorized(payload) => {
+            suggest_category_to_uncategorized(connection, *payload).and_then(as_json)
         }
         Command::ConfirmTransactionCategories(payload) => {
             confirm_transaction_categories(connection, *payload).and_then(as_json)
