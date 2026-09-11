@@ -12,11 +12,18 @@
     "api/cron/quotes.ts": {
       "maxDuration": 60
     },
+    "api/cron/bank-feeds.ts": {
+      "maxDuration": 120
+    },
     "api/**/*.ts": {
       "maxDuration": 10
     }
   },
   "crons": [
+    {
+      "path": "/api/cron/bank-feeds",
+      "schedule": "7 * * * *"
+    },
     {
       "path": "/api/stripe/reconcile",
       "schedule": "15 3 * * *"

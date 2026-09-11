@@ -35,7 +35,7 @@ interface BuildOptions {
   accounts: Account[];
   balances?: Record<string, number>;
   links?: Record<string, AttentionBankLink>;
-  mode?: 'off' | 'signin' | 'daily';
+  mode?: 'off' | 'signin' | 'daily' | 'cloud';
   now?: Date;
 }
 
@@ -212,6 +212,17 @@ describe('buildAttentionItems — stale feeds', () => {
 
     const stale = { 'acc-a': link({ lastSync: new Date(NOW.getTime() - 7 * HOUR) }) };
     expect(build({ accounts: [plain], links: stale, mode: 'signin' })).toHaveLength(1);
+  });
+
+  it('allows the server\'s six-hour interval and two hours of slack for a cloud schedule', () => {
+    // The cron takes a connection up to six hours after its last sync
+    // (PSD2's four unattended reads a day) and runs hourly, so seven hours
+    // is a feed that is working as designed, and nine is one that is not.
+    const links = { 'acc-a': link({ lastSync: new Date(NOW.getTime() - 7 * HOUR) }) };
+    expect(build({ accounts: [plain], links, mode: 'cloud' })).toEqual([]);
+
+    const stale = { 'acc-a': link({ lastSync: new Date(NOW.getTime() - 9 * HOUR) }) };
+    expect(build({ accounts: [plain], links: stale, mode: 'cloud' })).toHaveLength(1);
   });
 
   it('says nothing at all when automatic refresh is off', () => {

@@ -16,11 +16,33 @@
  * It records when THIS browser last called the bank; carried to a second
  * machine it would say "already synced today" on a machine that has never
  * synced at all, and the refresh the user asked for would silently not happen.
+ *
+ * ── 'cloud': THE ONE MODE THAT IS NOT ABOUT THIS BROWSER ────────────────────
+ *
+ * The three original modes share one honest limit, stated in every caption: a
+ * web page can only act while it is open. The owner's ask (11 Sep 2026) was
+ * for feeds that keep flowing when nobody opens the app for a month — which
+ * only a server can do. In 'cloud' mode a cron on the server syncs every
+ * healthy connection on a schedule (api/cron/bank-feeds.ts, at most four
+ * times a day per connection — that ceiling is PSD2's, see api/_lib/
+ * cloud-refresh.ts), and it is what makes a phone notification about new
+ * transactions possible at all: a notification needs a server that noticed.
+ *
+ * The preference is read by BOTH sides. This module reads it for the device;
+ * the cron reads the same document row — `user_preferences.prefs.values
+ * ['bankAutoSync.prefs.v1']` — through cloud_refresh_due_connections()
+ * (migration 20260911153000). One stored value, two readers, no second
+ * switch to fall out of step.
+ *
+ * On the device, 'cloud' ALSO behaves as 'signin': a refresh on open, at most
+ * hourly. The server's four-a-day is a cap on UNATTENDED access; a person
+ * opening their app is attended, and should see this morning's transactions
+ * rather than the ones the 03:07 run found.
  */
 
 import { preferences } from '../services/preferencesService';
 
-export type AutoSyncMode = 'off' | 'signin' | 'daily';
+export type AutoSyncMode = 'off' | 'signin' | 'daily' | 'cloud';
 
 export interface AutoSyncPrefs {
   mode: AutoSyncMode;
@@ -57,7 +79,7 @@ export function loadAutoSyncPrefs(userId: string): AutoSyncPrefs {
     const mode = (parsed as AutoSyncPrefs).mode;
     const dailyTime = (parsed as AutoSyncPrefs).dailyTime;
     return {
-      mode: mode === 'signin' || mode === 'daily' ? mode : 'off',
+      mode: mode === 'signin' || mode === 'daily' || mode === 'cloud' ? mode : 'off',
       dailyTime: isValidTime(dailyTime) ? dailyTime : DEFAULT_AUTO_SYNC_PREFS.dailyTime,
     };
   } catch {
@@ -89,6 +111,9 @@ export function recordAutoSyncRun(userId: string, at: Date): void {
  * 'signin': due when the last run is absent or over an hour old — fires on
  * app open, throttled so reloads within a session do not re-sync.
  *
+ * 'cloud': the same as 'signin' on the device — see the header. The server's
+ * share of this mode is not decided here; the cron decides it from the row.
+ *
  * 'daily': due once the day's scheduled moment has passed and no run has
  * happened since that moment. An app opened AFTER the scheduled time catches
  * up immediately; an app open ACROSS it fires as the minute arrives; a run
@@ -100,7 +125,7 @@ export function recordAutoSyncRun(userId: string, at: Date): void {
 export function shouldAutoSync(prefs: AutoSyncPrefs, lastRun: Date | null, now: Date): boolean {
   if (prefs.mode === 'off') return false;
 
-  if (prefs.mode === 'signin') {
+  if (prefs.mode === 'signin' || prefs.mode === 'cloud') {
     return lastRun === null || now.getTime() - lastRun.getTime() >= SIGNIN_MODE_MIN_GAP_MS;
   }
 

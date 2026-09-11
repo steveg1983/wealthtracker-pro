@@ -14,6 +14,12 @@ import {
  * moment it changes — there is nothing to submit. The copy is honest about
  * the one physical limit: a web app can only act while it is open, so a
  * daily time means "the first opportunity on or after that time each day".
+ *
+ * The fourth option is the one that is not bound by that limit, because it is
+ * not this app doing the refreshing: 'cloud' hands the schedule to the server
+ * (utils/bankAutoSync's header says how the two sides share one preference).
+ * Its caption says what the server does and no more — it is a choice, not a
+ * recommendation, so it carries no colour.
  */
 export default function BankFeedRefreshSettings(): React.JSX.Element | null {
   const { userId, isSignedIn } = useAuth();
@@ -43,6 +49,11 @@ export default function BankFeedRefreshSettings(): React.JSX.Element | null {
       value: 'daily',
       label: 'Once a day at a set time',
       detail: 'Runs at the time below while the app is open — or catches up the next time you open it.',
+    },
+    {
+      value: 'cloud',
+      label: 'In the cloud',
+      detail: 'Refreshes on our servers every few hours whether or not the app is open, and again when you open it.',
     },
   ];
 

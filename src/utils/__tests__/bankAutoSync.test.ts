@@ -55,6 +55,17 @@ describe('shouldAutoSync', () => {
   it('daily: an invalid stored time falls back to the default rather than never firing', () => {
     expect(shouldAutoSync({ mode: 'daily', dailyTime: '99:99' }, null, at('2026-07-30T08:30:00'))).toBe(true);
   });
+
+  // The server's share of 'cloud' is the cron's decision, made from the row
+  // (api/_lib/cloud-refresh.ts). On the DEVICE the mode is 'signin': a person
+  // opening the app is attended access, outside PSD2's four-a-day, and should
+  // see this morning's rows rather than wait for the next unattended run.
+  it('cloud: on the device, behaves exactly as signin — refresh on open, hourly at most', () => {
+    const cloud: AutoSyncPrefs = { mode: 'cloud', dailyTime: '08:00' };
+    expect(shouldAutoSync(cloud, null, at('2026-07-30T09:00:00'))).toBe(true);
+    expect(shouldAutoSync(cloud, at('2026-07-30T09:00:00'), at('2026-07-30T09:20:00'))).toBe(false);
+    expect(shouldAutoSync(cloud, at('2026-07-30T09:00:00'), at('2026-07-30T10:00:00'))).toBe(true);
+  });
 });
 
 /**
@@ -100,6 +111,15 @@ describe('storage', () => {
     expect(loadLastAutoSyncRun('user_a')?.toISOString()).toBe('2026-07-30T08:00:00.000Z');
     expect(loadLastAutoSyncRun('user_b')).toBeNull();
     expect(localStorage.getItem('bankAutoSync:lastRun:user_a')).toBe('2026-07-30T08:00:00.000Z');
+  });
+
+  it('the cloud choice round-trips — it is the value the server reads, byte for byte', () => {
+    saveAutoSyncPrefs('user_a', { mode: 'cloud', dailyTime: '08:00' });
+    expect(loadAutoSyncPrefs('user_a').mode).toBe('cloud');
+    // cloud_refresh_due_connections() (migration 20260911153000) parses THIS
+    // string out of the preferences row and reads its `mode`. A change to the
+    // key or the shape here has to be a change there too.
+    expect(preferences.getItem('bankAutoSync.prefs.v1')).toBe('{"mode":"cloud","dailyTime":"08:00"}');
   });
 
   it('garbage in storage degrades to the defaults', () => {
