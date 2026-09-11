@@ -404,6 +404,7 @@
     "supabase/migrations/20260905120000_the_tombstone_function_wears_the_house_grants.sql": {"status":"pending"},
     "supabase/migrations/20260911100000_a_machine_guess_stays_a_guess.sql": {"status":"pending"},
     "supabase/migrations/20260911153000_a_feed_that_refreshes_while_you_sleep.sql": {"status":"pending"},
-    "supabase/migrations/20260911170000_a_phone_that_hears_the_server.sql": {"status":"pending"}
+    "supabase/migrations/20260911170000_a_phone_that_hears_the_server.sql": {"status":"pending"},
+    "supabase/migrations/20260911213000_a_cleared_row_that_is_filed_is_reviewed.sql": {"status":"pending"}
   }
 }

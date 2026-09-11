@@ -35,6 +35,15 @@
  *     so the two rungs partition the unfiled backlog rather than both claiming
  *     it.
  *
+ * ── WHAT ENDS THE FLAG — WIDENED 11 SEPTEMBER 2026 ──────────────────────────
+ * A save from the editor, a bulk filing (20260901150000), and now a TICK: the
+ * owner's ruling that marking a row cleared is doing something about it —
+ * "only if it has a category for expense or income, or has been assigned a
+ * transfer account." So `set_transactions_cleared` ends review on a FILED row
+ * it marks (migration 20260911213000, the crate's verb alike) and leaves an
+ * unfiled one flagged — which the unfiled arm above would hold in review
+ * anyway. `reviewAfterMarking` below is the in-memory mirror.
+ *
  * A DANGLING category id (the category was since deleted) is NOT review work
  * either: this predicate is deliberately row-local and cheap — it is asked per
  * row in render paths — and "your filing broke" is a data-health finding
@@ -87,6 +96,25 @@ export function isUnfiled(row: ReviewableRow): boolean {
  */
 export function isAwaitingReview(row: ReviewableRow): boolean {
   return row.needsReview === true || isUnfiled(row);
+}
+
+/**
+ * The flag after a row is MARKED cleared or unmarked.
+ *
+ * The owner's ruling (11 Sep 2026): ticking a row off against a statement is
+ * doing something about it, so it ends the row's review — "only if it has a
+ * category for expense or income, or has been assigned a transfer account.
+ * If it does not have a category or transfer then it has to be reviewed."
+ * An unfiled row keeps its flag (and is held in review by the unfiled arm
+ * regardless); unmarking says nothing about whether the row was looked at.
+ *
+ * This is the in-memory mirror of what the store writes —
+ * set_transactions_cleared in migration 20260911213000 and the crate's verb
+ * keep the same rule — so the counter and the bold agree with the database
+ * the moment the tick lands rather than at the next boot.
+ */
+export function reviewAfterMarking(row: ReviewableRow, cleared: boolean): boolean | undefined {
+  return cleared && !isUnfiled(row) ? false : row.needsReview;
 }
 
 /**

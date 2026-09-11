@@ -28,6 +28,7 @@ import {
   countAwaitingReviewByAccount,
   isAwaitingReview,
   isUnfiled,
+  reviewAfterMarking,
 } from './transactionReview';
 import type { Transaction } from '../types';
 
@@ -127,6 +128,32 @@ describe('awaitsFiling — what a bulk filing surface may offer', () => {
   it('refuses a flagged split parent, whose category the database rejects', () => {
     expect(isAwaitingReview(row('a', { isSplit: true, needsReview: true }))).toBe(true);
     expect(awaitsFiling(row('a', { isSplit: true, needsReview: true }))).toBe(false);
+  });
+});
+
+describe('reviewAfterMarking — a tick ends review on a FILED row (owner, 11 Sep 2026)', () => {
+  it('marking a categorised row cleared ends its review', () => {
+    expect(reviewAfterMarking(row('a', { needsReview: true }), true)).toBe(false);
+  });
+
+  it('marking a transfer cleared ends its review — it is filed by being one', () => {
+    expect(reviewAfterMarking(row('a', { needsReview: true, type: 'transfer', category: '' }), true)).toBe(false);
+  });
+
+  it('marking a split parent cleared ends its review — it files through its lines', () => {
+    expect(reviewAfterMarking(row('a', { needsReview: true, isSplit: true, category: '' }), true)).toBe(false);
+  });
+
+  it('an UNFILED row keeps its flag: "if it does not have a category or transfer then it has to be reviewed"', () => {
+    expect(reviewAfterMarking(row('a', { needsReview: true, category: '' }), true)).toBe(true);
+    expect(reviewAfterMarking(row('a', { needsReview: true, category: '   ' }), true)).toBe(true);
+  });
+
+  it('unmarking says nothing about review either way', () => {
+    expect(reviewAfterMarking(row('a', { needsReview: true }), false)).toBe(true);
+    expect(reviewAfterMarking(row('a', { needsReview: false }), false)).toBe(false);
+    // …including the flag's "absent" shape, which must not become a value.
+    expect(reviewAfterMarking(row('a', { needsReview: undefined }), false)).toBeUndefined();
   });
 });
 

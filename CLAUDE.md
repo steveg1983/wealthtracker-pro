@@ -35,7 +35,7 @@ Every one of them refuses to run without what it needs rather than skipping.
 | Contract | `npm run test:local-contract` | ✅ | 145 checks, 5 files — the real crate against real SQLite files through `DataPort` |
 | Admission | `npm run test:local-admission` | ✅ | 109 specs: the shipping TypeScript against the Rust port of it |
 | Constraint parity | `npm run test:local-sqlite` | ✅ | 67 specs, 16 declared divergences. **Needs `bash scripts/local-db/up.sh`** |
-| Verb parity | `npm run test:local-verbs` | ✅ | 502 specs, 29 declared divergences, 26 single-engine. Same cluster |
+| Verb parity | `npm run test:local-verbs` | ✅ | 505 specs, 29 declared divergences, 26 single-engine. Same cluster |
 
 **Where they run.** The desktop renderer trio, the Rust core suites, contract
 and admission are on **every PR**. The two differential lanes and

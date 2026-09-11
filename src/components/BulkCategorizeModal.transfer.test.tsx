@@ -41,6 +41,7 @@ const CATEGORIES: Category[] = [
 
 const linkTransferPair = vi.fn();
 const createTransferCounterpart = vi.fn();
+const updateTransaction = vi.fn();
 
 vi.mock('../contexts/ToastContext', () => ({
   useToast: () => ({
@@ -145,12 +146,14 @@ const summaryText = async (): Promise<string> => {
 beforeEach(() => {
   linkTransferPair.mockReset().mockResolvedValue({ a: {}, b: {} });
   createTransferCounterpart.mockReset().mockResolvedValue({ source: {}, counterpart: {} });
+  updateTransaction.mockReset().mockResolvedValue(undefined);
   __setAppContextValue({
     accounts: ACCOUNTS,
     categories: CATEGORIES,
     transactions: PAYMENTS,
     linkTransferPair,
     createTransferCounterpart,
+    updateTransaction,
   });
 });
 
@@ -223,6 +226,26 @@ describe('Categorise by payee — applying transfers', () => {
       ['pay-jun', CARD],
     ]);
     expect(linkTransferPair).not.toHaveBeenCalled();
+    // FILING ENDS REVIEW: the verb writes the link and the category and
+    // leaves `needs_review` alone, so the sweep ends review itself, exactly
+    // as the register's editor does before IT calls the verb. Without this,
+    // every row converted here stayed in To Review with nothing to answer
+    // (the owner's partner, 35 rows, 11 Sep 2026).
+    expect(updateTransaction.mock.calls).toEqual([
+      ['pay-may', { needsReview: false }],
+      ['pay-jun', { needsReview: false }],
+    ]);
+  });
+
+  it('a conversion the verb refused stays in review — nothing was filed', async () => {
+    createTransferCounterpart.mockRejectedValue(new Error('the target account refused'));
+    renderModal();
+    pressTransferToggle();
+    chooseAccount('Amex Card');
+    apply();
+
+    await summaryText();
+    expect(updateTransaction).not.toHaveBeenCalled();
   });
 
   it('asks about the row already over there, and links it when told to', async () => {
@@ -246,6 +269,13 @@ describe('Categorise by payee — applying transfers', () => {
     expect(summary).toContain('1 joined to a row that was already there');
     expect(linkTransferPair.mock.calls).toEqual([['pay-may', 'card-may']]);
     expect(createTransferCounterpart).toHaveBeenCalledTimes(1);
+    // Linking ends review on BOTH sides: the row already over there was
+    // adopted by this answer, which is the question it was asking too.
+    expect(updateTransaction.mock.calls).toEqual([
+      ['pay-jun', { needsReview: false }],
+      ['pay-may', { needsReview: false }],
+      ['card-may', { needsReview: false }],
+    ]);
   });
 
   it('writes a second row when told to create the other side regardless', async () => {
