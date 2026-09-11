@@ -1944,6 +1944,27 @@ export class EnhancedCsvImportService {
    * rows in a file against one in the register are one duplicate and one
    * new transaction, not two duplicates of the same row — the count rule
    * the feed's adoption already keeps.
+   *
+   * ── …AND PAIRED ACROSS THE FILE, NOT A ROW AT A TIME ───────────────────
+   *
+   * This method judges ONE row against the register. `pairDuplicates` is
+   * what an import calls, because the count rule makes the verdicts depend
+   * on each other and a row-at-a-time greedy pairing gets them wrong in two
+   * ways the owner's partner's statement showed on 11 Sep 2026:
+   *
+   *   - A £2 bank charge on 22 May, listed first (banks export newest
+   *     first), claimed the register's £2 parking of 21 May — the day
+   *     either side counts — and the parking line itself, one row later,
+   *     found its match taken and imported as new. The charge, which WAS
+   *     new, was the one skipped.
+   *   - Five £10 payments on one day against three in the register: the
+   *     three skipped were whichever came first in the file, so "REBECCA
+   *     TREEN , MAMA MIA" imported beside "REBECCA TREEN" while the two
+   *     strangers were the ones taken to be her.
+   *
+   * So: same day is paired before the day either side, and within a pass
+   * the best-matching WORDS are paired first across the whole file. The
+   * leftovers are the rows the register really does not have.
    */
   async checkDuplicateTransaction(
     transaction: Partial<Transaction>,
@@ -2042,6 +2063,112 @@ export class EnhancedCsvImportService {
   }
 
   /**
+   * How much a statement line and a register row SOUND like the same payment
+   * — the pairing key inside one pass of pairDuplicates, never a verdict.
+   *
+   * Edit distance alone reads "NICOLA FOLEY" as closer to "FINN NJ , NAT ,
+   * VIA MOBILE" than to "FOLEY N & J , Lapland uk" — the second is longer.
+   * A person pairs them by the surname, so the share of the register row's
+   * words found whole in the line counts as well, and the better of the two
+   * measures is the key.
+   */
+  private wordingAffinity(statementLine: string, registerDescription: string): number {
+    const line = statementLine.toLowerCase();
+    const description = registerDescription.toLowerCase();
+    const words = description.split(/[^a-z0-9]+/).filter(word => word.length >= 3);
+    const shared = words.length === 0
+      ? 0
+      : words.filter(word => new RegExp(`(^|[^a-z0-9])${word}($|[^a-z0-9])`).test(line)).length / words.length;
+    return Math.max(this.calculateSimilarity(line, description), shared);
+  }
+
+  /**
+   * Which rows of a file the register already holds — decided across the
+   * whole file, in three passes (see checkDuplicateTransaction's header for
+   * why a row at a time is not enough):
+   *
+   *   1. The same money on the SAME day: every (row, existing) pair on the
+   *      same account, to the penny, on the same calendar day, taken best
+   *      words first across the file, each side claimed once.
+   *   2. The same money on the day EITHER SIDE, for what is left, the same
+   *      way.
+   *   3. What is still left goes through the per-row rules — a transfer leg
+   *      or the same words within three days.
+   *
+   * Returns a verdict only for rows to SKIP (confidence at or above the
+   * threshold, with the existing row named); absence means "import it".
+   */
+  async pairDuplicates(
+    rows: ReadonlyMap<number, Partial<Transaction>>,
+    existingTransactions: Transaction[],
+    targetAccountId: string | undefined,
+    threshold: number
+  ): Promise<Map<number, DuplicateCheckResult>> {
+    const verdicts = new Map<number, DuplicateCheckResult>();
+    const claimed = new Set<string>();
+
+    const accountOf = (row: Partial<Transaction>): string | undefined =>
+      typeof row.accountId === 'string' && row.accountId !== 'default' ? row.accountId : targetAccountId;
+    const isTransferLeg = (existing: Transaction): boolean =>
+      existing.type === 'transfer' ||
+      (typeof existing.linkedTransferId === 'string' && existing.linkedTransferId !== '');
+
+    // Passes 1 and 2. Decisive verdicts are 95; a threshold above that is
+    // the user saying "never skip on the money alone", and is honoured.
+    if (threshold <= 95) {
+      for (const daysApart of [0, 1]) {
+        const candidates: Array<{ rowIndex: number; existing: Transaction; similarity: number; order: number }> = [];
+        let order = 0;
+        for (const [rowIndex, row] of rows) {
+          if (verdicts.has(rowIndex)) continue;
+          const account = accountOf(row);
+          // An account-blind file (names none, and the wizard chose none)
+          // has no "same account" to pair on; pass 3 keeps the old score.
+          if (account === undefined) continue;
+          const pence = Math.round((row.amount || 0) * 100);
+          const rowDate = new Date(row.date!);
+          for (const existing of existingTransactions) {
+            if (claimed.has(existing.id) || existing.accountId !== account) continue;
+            if (Math.round(existing.amount * 100) !== pence) continue;
+            if (calendarDaysApart(rowDate, new Date(existing.date)) !== daysApart) continue;
+            candidates.push({
+              rowIndex,
+              existing,
+              similarity: this.wordingAffinity(row.description ?? '', existing.description),
+              order: order++
+            });
+          }
+        }
+        // Best words first; ties in file order, then register order — so
+        // the pairing is the same on every run of the same file.
+        candidates.sort((a, b) => b.similarity - a.similarity || a.order - b.order);
+        for (const candidate of candidates) {
+          if (verdicts.has(candidate.rowIndex) || claimed.has(candidate.existing.id)) continue;
+          claimed.add(candidate.existing.id);
+          verdicts.set(candidate.rowIndex, {
+            isDuplicate: true,
+            confidence: 95,
+            matches: [{ id: candidate.existing.id, field: 'transaction', similarity: 95 }],
+            bestMatchId: candidate.existing.id,
+            reason: isTransferLeg(candidate.existing) ? 'transfer-leg' : 'same-money'
+          });
+        }
+      }
+    }
+
+    // Pass 3: the per-row rules for whatever the money alone did not pair.
+    for (const [rowIndex, row] of rows) {
+      if (verdicts.has(rowIndex)) continue;
+      const check = await this.checkDuplicateTransaction(row, existingTransactions, targetAccountId, claimed);
+      if (check.confidence >= threshold && check.bestMatchId !== undefined) {
+        claimed.add(check.bestMatchId);
+        verdicts.set(rowIndex, check);
+      }
+    }
+    return verdicts;
+  }
+
+  /**
    * Import with mapping and duplicate detection
    */
   async importTransactions(
@@ -2084,11 +2211,7 @@ export class EnhancedCsvImportService {
       items: [],
       errors: []
     };
-    // Existing rows earlier rows of this file were judged to be — see
-    // checkDuplicateTransaction, "paired by count".
-    const claimed = new Set<string>();
-    
-    // Create column index map keyed by SOURCE column (unique). Bank formats
+// Create column index map keyed by SOURCE column (unique). Bank formats
     // (Lloyds, Halifax, Nationwide, …) map TWO source columns — "Debit Amount"
     // and "Credit Amount" — to the same 'amount' target; a targetField-keyed
     // map collapsed them to one index, so the debit mapping read the credit
@@ -2101,75 +2224,78 @@ export class EnhancedCsvImportService {
       }
     });
     
-    // Process each row
+    // ── Phase 1: read every row ──────────────────────────────────────────
+    //
+    // All of them before any is judged, because the judging is a PAIRING
+    // across the whole file (pairDuplicates) and cannot be done a row at a
+    // time — see checkDuplicateTransaction's header for the two ways that
+    // went wrong.
+    const built = new Map<number, Partial<Transaction>>();
     for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
-      const row = data[rowIndex];
-      
+      const outcome = this.buildTransactionFromRow(
+        data[rowIndex], mappings, columnIndices, dateFormat, options.chargePositive === true
+      );
+      if (!outcome.ok) {
+        result.failed++;
+        result.errors.push({
+          // The row's own physical line, counted by the tokenizer. `+ 2` was
+          // only ever right for a file with no preamble and no multi-line
+          // field.
+          line: lines[rowIndex],
+          error: outcome.error
+        });
+        continue;
+      }
+      const transaction = outcome.transaction;
+
+      // ── Map account name to ID ───────────────────────────────────────────
+      //
+      // A NAME THAT MATCHED NOTHING IS KEPT. It used to be deleted either
+      // way, leaving `accountId: 'default'` and no trace of what the file had
+      // said — so the wizard, which checks for a surviving name to tell "this
+      // file named an account you do not have" apart from "this file names no
+      // account at all", could only ever report the second. A user whose CSV
+      // said "Barclays Everyday" was told no account column was mapped, and
+      // sent to fix a mapping that was already right.
+      if (transaction.accountName) {
+        const matched = accountMap.get(String(transaction.accountName));
+        if (matched) {
+          transaction.accountId = matched;
+          delete transaction.accountName;
+        } else {
+          transaction.accountId = 'default';
+        }
+      }
+      built.set(rowIndex, transaction);
+    }
+
+    // ── Phase 2: which of them the register already holds ────────────────
+    const verdicts = options.skipDuplicates !== false
+      ? await this.pairDuplicates(
+          built, existingTransactions, options.destinationAccountId, options.duplicateThreshold || 90
+        )
+      : new Map<number, DuplicateCheckResult>();
+
+    // ── Phase 3: the rows that are new ───────────────────────────────────
+    for (const [rowIndex, transaction] of built) {
       try {
-        const built = this.buildTransactionFromRow(
-          row, mappings, columnIndices, dateFormat, options.chargePositive === true
-        );
-        if (!built.ok) {
-          result.failed++;
-          result.errors.push({
-            // The row's own physical line, counted by the tokenizer. `+ 2` was
-            // only ever right for a file with no preamble and no multi-line
-            // field.
+        const verdict = verdicts.get(rowIndex);
+        if (verdict?.bestMatchId !== undefined) {
+          result.duplicates++;
+          result.skippedDuplicates?.push({
             line: lines[rowIndex],
-            error: built.error
+            date: new Date(transaction.date!),
+            description: transaction.description ?? '',
+            amount: transaction.amount ?? 0,
+            existingId: verdict.bestMatchId,
+            // A verdict above the threshold always has a decisive reason
+            // or the words; 'similar-words' is the only way to 90 without
+            // one of the two decisive rules.
+            reason: verdict.reason ?? 'similar-words'
           });
           continue;
         }
-        const transaction = built.transaction;
 
-        // ── Map account name to ID ─────────────────────────────────────────
-        //
-        // A NAME THAT MATCHED NOTHING IS KEPT. It used to be deleted either
-        // way, leaving `accountId: 'default'` and no trace of what the file had
-        // said — so the wizard, which checks for a surviving name to tell "this
-        // file named an account you do not have" apart from "this file names no
-        // account at all", could only ever report the second. A user whose CSV
-        // said "Barclays Everyday" was told no account column was mapped, and
-        // sent to fix a mapping that was already right.
-        if (transaction.accountName) {
-          const matched = accountMap.get(String(transaction.accountName));
-          if (matched) {
-            transaction.accountId = matched;
-            delete transaction.accountName;
-          } else {
-            transaction.accountId = 'default';
-          }
-        }
-        
-        // Check for duplicates
-        if (options.skipDuplicates !== false) {
-          const duplicateCheck = await this.checkDuplicateTransaction(
-            transaction,
-            existingTransactions,
-            options.destinationAccountId,
-            claimed
-          );
-
-          if (duplicateCheck.confidence >= (options.duplicateThreshold || 90)) {
-            result.duplicates++;
-            if (duplicateCheck.bestMatchId !== undefined) {
-              claimed.add(duplicateCheck.bestMatchId);
-              result.skippedDuplicates?.push({
-                line: lines[rowIndex],
-                date: new Date(transaction.date!),
-                description: transaction.description ?? '',
-                amount: transaction.amount ?? 0,
-                existingId: duplicateCheck.bestMatchId,
-                // A verdict above the threshold always has a decisive reason
-                // or the words; 'similar-words' is the only way to 90 without
-                // one of the two decisive rules.
-                reason: duplicateCheck.reason ?? 'similar-words'
-              });
-            }
-            continue;
-          }
-        }
-        
         // A category that reached this point came from a MAPPED COLUMN — the
         // user's own file said it, and the wizard's mapping is the user telling
         // us which column it is. That is their data, so it arrives confirmed.
