@@ -1608,6 +1608,79 @@ describe('the same money is the same money whatever the bank called it (owner, 1
     ]);
   });
 
+  it('pairs the same day before the day either side — a charge the day after cannot take the parking\'s match', async () => {
+    // Observed (the owner's partner, 11 Sep 2026): the file lists newest
+    // first, so a £2 bank charge on 22 May was judged before the £2 parking
+    // of 21 May. Row at a time, the charge claimed the register's parking
+    // row (the day either side counts), the parking line then found its
+    // match taken and imported as new — and the charge, which WAS new, was
+    // the one skipped.
+    const service = createService();
+    const csv =
+      'Date,Description,Amount\n' +
+      '22/05/2026,01MAY A/C 79061958,-2.00\n' +
+      '21/05/2026,8523 20MAY26 D BROMLEY RINGO,-2.00';
+    const mappings: ColumnMapping[] = [
+      { sourceColumn: 'Date', targetField: 'date' },
+      { sourceColumn: 'Description', targetField: 'description' },
+      { sourceColumn: 'Amount', targetField: 'amount' }
+    ];
+    const register = [
+      existing({ id: 'parking', date: '2026-05-21', description: '8523 20MAY26 D BROMLEY RINGO ECOMUXBRIDG', amount: -2, type: 'expense' })
+    ];
+
+    const result = await service.importTransactions(csv, mappings, register, new Map(), {
+      skipDuplicates: true,
+      destinationAccountId: 'current-1',
+      dateFormat: 'DD/MM/YYYY'
+    });
+
+    expect(result.skippedDuplicates).toEqual([
+      expect.objectContaining({ line: 3, description: '8523 20MAY26 D BROMLEY RINGO', existingId: 'parking', reason: 'same-money' })
+    ]);
+    expect(result.items.map(item => item.description)).toEqual(['01MAY A/C 79061958']);
+  });
+
+  it('pairs by the words when several rows on one day are the same money — the strangers are the new ones', async () => {
+    // Five £10 payments in on one day; the register holds three. Which two
+    // import must be the two it does not have — not whichever came last in
+    // the file, which left "REBECCA TREEN , MAMA MIA" beside "REBECCA TREEN"
+    // and the owner deleting it as a double.
+    const service = createService();
+    const csv =
+      'Date,Description,Amount\n' +
+      '05/05/2026,"M WEBB , GIRLS NIGHT FOOD , FP 02/05/26",10.00\n' +
+      '05/05/2026,"FINN NJ , NAT , VIA MOBILE - PYMT",10.00\n' +
+      '05/05/2026,"FOLEY N & J , Lapland uk , VIA MOBILE",10.00\n' +
+      '05/05/2026,"REBECCA TREEN , MAMA MIA , FP 02/05/26",10.00\n' +
+      '05/05/2026,"CLAIRE JONES , FOOD , FP 02/05/26 0819",10.00';
+    const mappings: ColumnMapping[] = [
+      { sourceColumn: 'Date', targetField: 'date' },
+      { sourceColumn: 'Description', targetField: 'description' },
+      { sourceColumn: 'Amount', targetField: 'amount' }
+    ];
+    const register = [
+      existing({ id: 'foley', date: '2026-05-05', description: 'NICOLA FOLEY', amount: 10, type: 'income' }),
+      existing({ id: 'treen', date: '2026-05-05', description: 'REBECCA TREEN', amount: 10, type: 'income' }),
+      existing({ id: 'jones', date: '2026-05-05', description: 'CLAIRE JONES', amount: 10, type: 'income' })
+    ];
+
+    const result = await service.importTransactions(csv, mappings, register, new Map(), {
+      skipDuplicates: true,
+      destinationAccountId: 'current-1',
+      dateFormat: 'DD/MM/YYYY'
+    });
+
+    const paired = new Map(result.skippedDuplicates?.map(row => [row.existingId, row.description]));
+    expect(paired.get('treen')).toBe('REBECCA TREEN , MAMA MIA , FP 02/05/26');
+    expect(paired.get('jones')).toBe('CLAIRE JONES , FOOD , FP 02/05/26 0819');
+    expect(paired.get('foley')).toBe('FOLEY N & J , Lapland uk , VIA MOBILE');
+    expect(result.items.map(item => item.description).sort()).toEqual([
+      'FINN NJ , NAT , VIA MOBILE - PYMT',
+      'M WEBB , GIRLS NIGHT FOOD , FP 02/05/26'
+    ]);
+  });
+
   it('"skip duplicates" off still imports everything, and lists nothing as skipped', async () => {
     const service = createService();
     const csv = 'Date,Description,Amount\n25/09/2025,SHOP A,-26.25';
