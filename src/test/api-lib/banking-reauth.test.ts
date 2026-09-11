@@ -86,22 +86,35 @@ describe('an unreadable stored credential is a reauth fact, not a crash', () => 
 describe('an already-marked connection is refused before any work', () => {
   /**
    * The guard lives in each handler between loading the connection and the
-   * first provider call. Source-read, the house pattern for api/ behaviour
-   * the jsdom suite cannot execute (serverlessImportClosure precedent): the
-   * pin is that BOTH handlers refuse with the same 409 the transition gave,
-   * and that the refusal sits BEFORE withProviderAccessToken.
+   * hand-off to the sync core — and the core is where the first provider
+   * call lives, so "before the core" is "before the provider". Source-read,
+   * the house pattern for api/ behaviour the jsdom suite cannot execute
+   * (serverlessImportClosure precedent): the pin is that BOTH handlers refuse
+   * with the same 409 the transition gave, that the refusal sits BEFORE the
+   * core is entered, and that the core itself is where the provider is
+   * spoken to (so a guard that moved INTO the core would still be checked
+   * against the provider call, not against nothing).
    */
-  const handlers = ['api/banking/sync-accounts.ts', 'api/banking/sync-transactions.ts'];
+  const handlers = [
+    { handler: 'api/banking/sync-accounts.ts', core: 'api/_lib/sync-accounts-core.ts', entry: 'await runAccountSync(' },
+    { handler: 'api/banking/sync-transactions.ts', core: 'api/_lib/sync-transactions-core.ts', entry: 'await runTransactionSync(' },
+  ];
 
-  it.each(handlers)('%s refuses reauth_required connections before the provider', (handler) => {
+  it.each(handlers)('$handler refuses reauth_required connections before the provider', ({ handler, core, entry }) => {
     const source = readFileSync(resolve(__dirname, '../../../', handler), 'utf8');
     const guardAt = source.indexOf("connection.needs_reauth || connection.status === 'reauth_required'");
-    // The CALL, not the import at the top of the file.
-    const providerAt = source.indexOf('await withProviderAccessToken(');
+    // The CALL into the core, not the import at the top of the file.
+    const entryAt = source.indexOf(entry);
     expect(guardAt).toBeGreaterThan(-1);
-    expect(providerAt).toBeGreaterThan(-1);
-    expect(guardAt).toBeLessThan(providerAt);
+    expect(entryAt).toBeGreaterThan(-1);
+    expect(guardAt).toBeLessThan(entryAt);
     // The refusal speaks the transition's own words, so the client has one path.
     expect(source.slice(guardAt, guardAt + 400)).toContain("'reauth_required'");
+
+    // …and the core is the party that talks to the bank, with no guard of its
+    // own: the refusal is the CALLER's job, once, whichever caller it is.
+    const coreSource = readFileSync(resolve(__dirname, '../../../', core), 'utf8');
+    expect(coreSource).toContain('await withProviderAccessToken(');
+    expect(coreSource).not.toContain("connection.status === 'reauth_required'");
   });
 });

@@ -29,6 +29,9 @@
     "api/_lib/stripe.ts": {"status":"out-of-scope","reason":"billing — Stripe revenue, not the user's ledger. PHASE1 §7: \"Stays cloud-only, permanently\"; invoices.amount is not ported (DESIGN §3.1 row 24). The local edition has no billing surface."},
     "api/_lib/supabase.ts": {"status":"pending","cited_by":["DESIGN"]},
     "api/_lib/symbolSearch.ts": {"status":"pending"},
+    "api/_lib/sync-accounts-core.ts": {"status":"pending"},
+    "api/_lib/sync-outcome.ts": {"status":"pending"},
+    "api/_lib/sync-transactions-core.ts": {"status":"pending"},
     "api/_lib/timing-safe.ts": {"status":"pending"},
     "api/_lib/truelayer.ts": {"status":"pending","ids":["#1","#10","#79","TS-F2","TS-F12"],"cited_by":["AUDIT3"]},
     "api/_lib/twelvedata.ts": {"status":"pending"},
@@ -387,6 +390,8 @@
     "supabase/migrations/20260901150000_bulk_filing_ends_review.sql": {"status":"pending"},
     "supabase/migrations/20260902120000_a_change_is_audited_wherever_it_is_made.sql": {"status":"pending"},
     "supabase/migrations/20260902140000_an_erased_owner_needs_no_tombstone.sql": {"status":"pending"},
-    "supabase/migrations/20260902150000_an_empty_claim_is_no_claim.sql": {"status":"pending"}
+    "supabase/migrations/20260902150000_an_empty_claim_is_no_claim.sql": {"status":"pending"},
+    "supabase/migrations/20260905120000_the_tombstone_function_wears_the_house_grants.sql": {"status":"pending"},
+    "supabase/migrations/20260911100000_a_machine_guess_stays_a_guess.sql": {"status":"pending"}
   }
 }
