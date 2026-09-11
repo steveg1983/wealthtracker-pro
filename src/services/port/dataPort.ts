@@ -573,12 +573,23 @@ export interface DataPortTransactionWrites {
   /**
    * Fill-blanks only: rows that already carry a category are left alone.
    *
-   * Leaves `needsReview` alone too, and the contrast with
-   * `confirmTransactionCategories` is deliberate: this is a decision about a
-   * CATEGORY taken from a list of payees, not a decision about each row, so the
-   * rows it fills stay in the register's To Review list.
+   * Ends `needsReview` on the rows it files (the owner's ruling of 1 Sep 2026,
+   * reversing what this doc used to say): answering the question a row was
+   * asking IS reviewing it, and every caller here is the user filing a
+   * population they chose. The AUTOMATIC fan-out is not — see the verb below.
    */
   applyCategoryToUncategorized(ids: string[], category: string): Promise<number>;
+  /**
+   * Payee memory's fan-out, as the GUESS it is (owner's ruling, 11 Sep 2026).
+   *
+   * Same fill-blanks, split-skipping, balance-neutral skeleton as the verb
+   * above, writing the opposite provenance: `categoryConfirmed: false` and
+   * `needsReview: true`, so a row the machine extrapolated onto STAYS on the
+   * review list wearing the Suggested badge until its owner answers for it.
+   * The deliberate bulk surfaces keep the verb above; only the automatic
+   * spread from a single row's save comes through here.
+   */
+  suggestCategoryToUncategorized(ids: string[], category: string): Promise<number>;
   /**
    * Agree with a suggested category; one boolean, never the category itself.
    *

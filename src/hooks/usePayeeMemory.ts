@@ -21,7 +21,7 @@ export function usePayeeMemory(): {
     excludeId?: string;
   }) => Promise<void>;
 } {
-  const { transactions, categories, applyCategoryToUncategorized } = useApp();
+  const { transactions, categories, suggestCategoryToUncategorized } = useApp();
   const { showSuccess } = useToast();
   const logger = useMemo(() => createScopedLogger('usePayeeMemory'), []);
 
@@ -57,18 +57,24 @@ export function usePayeeMemory(): {
       return;
     }
     try {
-      const appliedCount = await applyCategoryToUncategorized(targets, categoryId);
-      if (appliedCount > 0) {
+      // A SUGGESTION, not a filing (the owner's ruling, 11 Sep 2026): he
+      // confirmed one row and the fan-out filed the payee's other rows off
+      // the review list unseen. The spread is welcome; the vouching was not.
+      // These rows stay in To Review wearing the Suggested badge until he
+      // answers for each one — or picks a different category for the odd one
+      // out, which is the whole reason they must still be on the list.
+      const suggestedCount = await suggestCategoryToUncategorized(targets, categoryId);
+      if (suggestedCount > 0) {
         const categoryName = categories.find(c => c.id === categoryId)?.name ?? 'this category';
         showSuccess(
-          `Also applied "${categoryName}" to ${appliedCount} other "${description}" transaction${appliedCount === 1 ? '' : 's'}.`,
+          `Also suggested "${categoryName}" for ${suggestedCount} other "${description}" transaction${suggestedCount === 1 ? '' : 's'} — still in To Review for you to confirm.`,
           'Payee memory'
         );
       }
     } catch (error) {
       logger.error('Payee-memory propagation failed', error as Error);
     }
-  }, [transactions, categories, applyCategoryToUncategorized, showSuccess, logger]);
+  }, [transactions, categories, suggestCategoryToUncategorized, showSuccess, logger]);
 
   return { propagateCategory };
 }

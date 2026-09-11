@@ -947,6 +947,18 @@ export class LocalDataPort implements DataPort {
   }
 
   /**
+   * Payee memory's automatic fan-out, as the guess it is (owner's ruling,
+   * 11 Sep 2026): same fill-blanks skeleton as the verb above, writing
+   * `category_confirmed = 0` and `needs_review = 1` so the extrapolated rows
+   * stay on the review list wearing the Suggested badge. The crate's verb and
+   * the cloud's 20260911100000 say the same together.
+   */
+  async suggestCategoryToUncategorized(ids: string[], category: string): Promise<number> {
+    const answer = await this.#ask('suggest_category_to_uncategorized', { ids, category });
+    return countOf(answer, 'suggest_category_to_uncategorized', 'suggested');
+  }
+
+  /**
    * Agree with the suggested category on a set of rows — and end their review
    * with it, because answering the question a row was asking IS reviewing it.
    */

@@ -1602,9 +1602,9 @@ being visible.
 | | count | oracle | where it runs |
 | --- | --- | --- | --- |
 | constraint specs (`run.mjs`) | 67 | the cloud's Postgres schema | nightly (needs the cluster) |
-| verb specs (`verbs.mjs`) | 501 | the live Postgres RPCs | nightly (needs the cluster) |
+| verb specs (`verbs.mjs`) | 502 | the live Postgres RPCs | nightly (needs the cluster) |
 | admission specs (`admission.mjs`) | 109 | the TypeScript modules that ship today | **every PR** |
-| crate tests (`cargo test`) | 526 | — | **every PR** |
+| crate tests (`cargo test`) | 530 | — | **every PR** |
 
 **677 specs and 33 declared divergences, every divergence pinned from both
 sides.** Of the 677, **651 actually compare two implementations**: the other 26

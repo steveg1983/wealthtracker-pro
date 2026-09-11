@@ -37,7 +37,9 @@ use rusqlite::Connection;
 use wealth_core::db;
 use wealth_core::verbs::{
     apply_category_to_uncategorized, confirm_transaction_categories, merge_categories,
+    suggest_category_to_uncategorized,
     ApplyCategoryToUncategorized, ConfirmTransactionCategories, MergeCategories,
+    SuggestCategoryToUncategorized,
 };
 
 const OWNER: &str = "11111111-1111-1111-1111-111111111111";
@@ -648,6 +650,108 @@ fn the_fan_out_counts_only_the_rows_it_filled() {
             &format!("SELECT balance_minor FROM accounts WHERE id = '{EVERYDAY}'")
         ),
         -3000
+    );
+}
+
+#[test]
+fn the_suggesting_fan_out_writes_a_guess_that_still_wants_eyes() {
+    // The 11 Sep 2026 ruling: payee memory's automatic spread stays on the
+    // review list. Same fill-blanks skeleton as its sibling above; what is
+    // written is a SUGGESTION — category_confirmed 0, needs_review 1 — so the
+    // row wears the Suggested badge instead of vanishing as if reviewed.
+    let mut connection = fixture();
+    every_shape_of_filing(&connection);
+
+    let result = suggest_category_to_uncategorized(
+        &mut connection,
+        SuggestCategoryToUncategorized {
+            ids: Some(vec![
+                BLANK_ROW.to_owned(),
+                "70000000-0000-0000-0000-000000000022".to_owned(),
+                "70000000-0000-0000-0000-000000000023".to_owned(),
+                CONFIRMED_ROW.to_owned(),
+                GUESSED_ROW.to_owned(),
+                "70000000-0000-0000-0000-0000000000ff".to_owned(),
+            ]),
+            category: Some(WEEKLY_SHOP.to_owned()),
+            user_id: Some(OWNER.to_owned()),
+        },
+    )
+    .expect("suggesting fan out");
+
+    assert_eq!(result.suggested, 3, "three blanks, and nothing else");
+    assert_eq!(result.transactions.len(), 3);
+    for row in &result.transactions {
+        assert_eq!(
+            (row.category.as_deref(), row.category_confirmed, row.needs_review),
+            (Some(WEEKLY_SHOP), false, true),
+            "a guess, on a row that still wants eyes"
+        );
+    }
+    // The row a human already vouched for, and the row already carrying a
+    // guess, are both untouched — fill-blanks is the promise.
+    assert_eq!(
+        scalar(
+            &connection,
+            &format!(
+                "SELECT COUNT(*) FROM transactions
+                  WHERE id = '{CONFIRMED_ROW}' AND category_confirmed = 1 AND needs_review = 0"
+            )
+        ),
+        1,
+        "the confirmed row keeps its confirmation and its ended review"
+    );
+    assert_eq!(
+        scalar(&connection, "SELECT COUNT(*) FROM financial_audit_log"),
+        3,
+        "one entry per row changed"
+    );
+    // Balance-neutral, measured rather than assumed.
+    assert_eq!(
+        scalar(
+            &connection,
+            &format!("SELECT balance_minor FROM accounts WHERE id = '{EVERYDAY}'")
+        ),
+        -3000
+    );
+}
+
+#[test]
+fn the_suggesting_fan_out_skips_a_split_parent_like_its_sibling() {
+    // The same defence-in-depth skip the sibling carries: a split parent's
+    // category is blank BY DESIGN, and a stale client list naming one must
+    // cost that row alone, not the call.
+    let mut connection = fixture();
+    every_shape_of_filing(&connection);
+    connection
+        .execute_batch(&format!(
+            "INSERT INTO _rpc_guard VALUES ('split');
+             UPDATE transactions SET is_split = 1, category = '' WHERE id = '{CORNER_SHOP}';
+             INSERT INTO transaction_splits (id, transaction_id, user_id, category, amount_minor, sort_order) VALUES
+               ('{LEG_LINE}', '{CORNER_SHOP}', '{OWNER}', '{WEEKLY_SHOP}', -1500, 0),
+               ('{PLAIN_LINE}', '{CORNER_SHOP}', '{OWNER}', '{WEEKLY_SHOP}', -1000, 1);
+             DELETE FROM _rpc_guard;"
+        ))
+        .expect("split parent");
+
+    let result = suggest_category_to_uncategorized(
+        &mut connection,
+        SuggestCategoryToUncategorized {
+            ids: Some(vec![BLANK_ROW.to_owned(), CORNER_SHOP.to_owned()]),
+            category: Some(WEEKLY_SHOP.to_owned()),
+            user_id: Some(OWNER.to_owned()),
+        },
+    )
+    .expect("the split parent is skipped, not refused");
+
+    assert_eq!(result.suggested, 1, "the blank row alone");
+    assert_eq!(
+        text(
+            &connection,
+            &format!("SELECT COALESCE(category, 'NULL') FROM transactions WHERE id = '{CORNER_SHOP}'")
+        ),
+        "",
+        "the parent's category is still blank"
     );
 }
 

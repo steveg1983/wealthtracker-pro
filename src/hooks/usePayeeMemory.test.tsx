@@ -52,7 +52,7 @@ const TRANSACTIONS: Transaction[] = [
   },
 ];
 
-const applyCategoryToUncategorized = vi.fn(async () => 1);
+const suggestCategoryToUncategorized = vi.fn(async () => 1);
 
 type Propagate = ReturnType<typeof usePayeeMemory>['propagateCategory'];
 let propagate: Propagate;
@@ -63,11 +63,11 @@ function Harness(): React.JSX.Element {
 }
 
 beforeEach(() => {
-  applyCategoryToUncategorized.mockClear();
+  suggestCategoryToUncategorized.mockClear();
   __setAppContextValue({
     transactions: TRANSACTIONS,
     categories: CATEGORIES,
-    applyCategoryToUncategorized,
+    suggestCategoryToUncategorized,
   });
   render(<Harness />);
 });
@@ -86,21 +86,25 @@ const spread = (categoryId: string): Promise<void> => propagate({
 });
 
 describe('payee memory', () => {
-  it('spreads an ordinary category to the same payee’s unfiled rows', async () => {
+  it('spreads an ordinary category as a SUGGESTION — never through the vouching verb', async () => {
+    // The 11 Sep 2026 ruling: the owner confirmed one row and the fan-out,
+    // then travelling through applyCategoryToUncategorized, filed the payee's
+    // other rows off the review list unseen. The spread now goes through the
+    // suggesting verb, so those rows keep their bold and their badge.
     await spread('det-utilities');
-    expect(applyCategoryToUncategorized).toHaveBeenCalledWith(['txn-b'], 'det-utilities');
+    expect(suggestCategoryToUncategorized).toHaveBeenCalledWith(['txn-b'], 'det-utilities');
   });
 
   it('never spreads an account’s To/From category', async () => {
     await spread('tofrom-thrift');
-    expect(applyCategoryToUncategorized).not.toHaveBeenCalled();
+    expect(suggestCategoryToUncategorized).not.toHaveBeenCalled();
   });
 
   it('never spreads a legacy transfer sentinel either', async () => {
     // It names no account at all, so a counterpart could not be created even in
     // principle — and every report would still drop the rows it was stamped on.
     await spread('transfer-out');
-    expect(applyCategoryToUncategorized).not.toHaveBeenCalled();
+    expect(suggestCategoryToUncategorized).not.toHaveBeenCalled();
   });
 
   it('says nothing when it declines — the user asked to save ONE row', async () => {

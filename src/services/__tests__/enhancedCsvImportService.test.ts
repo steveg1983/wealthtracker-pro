@@ -751,12 +751,17 @@ describe('EnhancedCsvImportService (deterministic)', () => {
     ]);
   });
 
-  it('still finds a real account column when the file has one', () => {
+  it('no longer guesses at a real Account column either — superseded 11 Sep 2026', () => {
+    // This test used to pin the opposite. The owner reversed it: a bank's
+    // Account column holds the BANK'S label for the account, which matches no
+    // account here, so the guess produced unroutable rows every time it fired.
+    // The destination picker answers where rows go; the mapping stays
+    // available by hand.
     const service = createService();
 
     const mappings = service.suggestMappings(['Date', 'Description', 'Amount', 'Account']);
 
-    expect(mappings.find(m => m.targetField === 'accountName')?.sourceColumn).toBe('Account');
+    expect(mappings.some(m => m.targetField === 'accountName')).toBe(false);
   });
 
   it('gives a plain three-column file rows that can actually be filed', async () => {
@@ -1188,6 +1193,50 @@ describe('EnhancedCsvImportService (deterministic)', () => {
     });
   });
 
+
+describe('what the suggester hunts for — and what it no longer guesses (11 Sep 2026)', () => {
+  /**
+   * The owner's screenshot: a file whose Type column (cells 'INT') was
+   * auto-mapped to CATEGORY — and a mapped category column arrives confirmed,
+   * so junk was filed as if he had filed it — while Account Name ('MEDHURST
+   * DN', the bank's own label) was mapped to accountName and made every row
+   * unroutable. The ruling: by default an import looks for date, description,
+   * amount and notes, nothing else. Both fields remain available by hand and
+   * in templates.
+   */
+  it('suggests date, description, amount and notes — never category or account name', () => {
+    const service = createService();
+
+    const mappings = service.suggestMappings(['Date', 'Description', 'Value', 'Type', 'Account Name', 'Notes']);
+
+    expect(mappings.map(m => [m.sourceColumn, m.targetField])).toEqual([
+      ['Date', 'date'],
+      ['Description', 'description'],
+      ['Value', 'amount'],
+      ['Notes', 'notes']
+    ]);
+  });
+
+  it('leaves a Category column of the file unsuggested too — a guessed filing is still a filing', () => {
+    const service = createService();
+
+    const mappings = service.suggestMappings(['Date', 'Description', 'Amount', 'Category']);
+
+    expect(mappings.some(m => m.targetField === 'category')).toBe(false);
+    expect(mappings.some(m => m.targetField === 'accountName')).toBe(false);
+  });
+
+  it('still suggests the debit/credit INDICATOR column as type — that is direction, not filing', () => {
+    // The 28 Aug fix: a "Debit or Credit" column holds DBIT/CRDT cells that
+    // give an unsigned amount its sign. It maps to `type`, and removing the
+    // category hunt must not take it with it.
+    const service = createService();
+
+    const mappings = service.suggestMappings(['Date', 'Description', 'Amount', 'Debit or Credit']);
+
+    expect(mappings.find(m => m.sourceColumn === 'Debit or Credit')?.targetField).toBe('type');
+  });
+});
 
 describe("card statements write their signs the other way round (9 Sep 2026)", () => {
   /**
