@@ -192,13 +192,37 @@ pub fn set_transactions_cleared(
             false
         };
 
+        // Marking a FILED row is doing something about it, so its review ends
+        // (the owner's ruling, 11 Sep 2026 — migration 20260911213000 has the
+        // words). Filed is the register's `isUnfiled` inverted: a transfer is
+        // filed by being one, a split parent files through its lines, and
+        // anything else needs a category that is not blank. Unmarking says
+        // nothing either way and leaves the flag alone.
+        let filed = before.kind == "transfer"
+            || before.is_split
+            || before
+                .category
+                .as_deref()
+                .is_some_and(|category| !category.trim().is_empty());
+        // The stored flag is not on `TransactionRow` (it is the one field
+        // `WrittenTransaction` adds), so the CASE is written in SQL, as the
+        // Postgres verb writes it: end the review, or leave the column as it is.
+        let ends_review = cleared && filed;
+
         let changed = write.execute(
             "UPDATE transactions
                 SET is_cleared    = ?1,
                     is_reconciled = ?2,
-                    updated_at    = ?3
-              WHERE id = ?4",
-            params![i64::from(cleared), i64::from(reconciled), now, before.id],
+                    needs_review  = CASE WHEN ?3 = 1 THEN 0 ELSE needs_review END,
+                    updated_at    = ?4
+              WHERE id = ?5",
+            params![
+                i64::from(cleared),
+                i64::from(reconciled),
+                i64::from(ends_review),
+                now,
+                before.id
+            ],
         )?;
         if changed != 1 {
             return Err(CoreError::refuse(

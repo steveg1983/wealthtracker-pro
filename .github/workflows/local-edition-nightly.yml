@@ -92,7 +92,7 @@ jobs:
           restore-keys: cargo-local-core-${{ runner.os }}-
 
       # The verb lane drives the real Rust command layer against the real
-      # Postgres RPC. Release for the same reason as the PR job: 502 specs is
+      # Postgres RPC. Release for the same reason as the PR job: 505 specs is
       # 502 process spawns.
       - name: Build the ledger bridge
         run: cargo build --manifest-path crates/Cargo.toml --features cli --release
@@ -115,7 +115,7 @@ jobs:
       - name: Constraint parity (67 specs)
         run: npm run test:local-sqlite
 
-      - name: Verb parity (502 specs)
+      - name: Verb parity (505 specs)
         run: npm run test:local-verbs
 
       # THE SQL HARNESS RUNS HERE NOW (2 Sep 2026). Until 0b3629eb,

@@ -65,6 +65,7 @@ import {
   isReconciled,
   reconciledAfterMarking
 } from '../utils/transactionReconciliation';
+import { reviewAfterMarking } from '../utils/transactionReview';
 import {
   buildTestDataset,
   planTestDataCategories,
@@ -1203,9 +1204,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // reconciledAfterMarking, not a bare `{ cleared }`: the state this mirrors
       // is what the store just wrote, and the store cleared the committed flag
       // on anything unmarked. Leaving it here would show an R against a row
-      // that is no longer even ticked, until the next boot disagreed.
+      // that is no longer even ticked, until the next boot disagreed. The
+      // review flag is mirrored for the same reason — the store ends review
+      // on a filed row it marks (20260911213000), and the counter should say
+      // so now.
       setTransactions(prev => prev.map(t => (
-        idSet.has(t.id) ? { ...t, cleared, reconciled: reconciledAfterMarking(t, cleared) } : t
+        idSet.has(t.id)
+          ? { ...t, cleared, reconciled: reconciledAfterMarking(t, cleared), needsReview: reviewAfterMarking(t, cleared) }
+          : t
       )));
     } catch (error) {
       appLogger.error('Failed to set cleared status', error);

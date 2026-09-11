@@ -123,8 +123,23 @@ const gapPhrase = (daysApart: number): string => {
 export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.JSX.Element {
   const {
     transactions, categories, accounts,
-    applyCategoryToUncategorized, linkTransferPair, createTransferCounterpart,
+    applyCategoryToUncategorized, linkTransferPair, createTransferCounterpart, updateTransaction,
   } = useApp();
+
+  /**
+   * FILING ENDS REVIEW — here too. The two transfer verbs write the link and
+   * the category and leave `needs_review` alone; the register's editor ends
+   * review with a save of its own before it calls them (QuickEditRow). This
+   * sweep called only the verbs, so every row it converted stayed bold: the
+   * owner's partner had 35 linked transfers sitting in To Review with nothing
+   * left to answer (11 Sep 2026). The same explicit save, after the verb has
+   * succeeded — a refused conversion keeps its row bold, which is right.
+   */
+  const endReview = async (...ids: string[]): Promise<void> => {
+    for (const id of ids) {
+      await updateTransaction(id, { needsReview: false });
+    }
+  };
   const { formatCurrency } = useCurrencyDecimal();
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
@@ -433,6 +448,7 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
       for (const [index, conversion] of plan.createOutright.entries()) {
         try {
           await createTransferCounterpart(conversion.transaction.id, conversion.targetAccountId);
+          await endReview(conversion.transaction.id);
           createdSoFar++;
         } catch (error) {
           // The FIRST failure is shown in full, because it names the reason.
@@ -497,9 +513,13 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
     try {
       if (action === 'link') {
         await linkTransferPair(question.transaction.id, question.candidate.transaction.id);
+        // Both sides: the row over there was adopted by this answer, which is
+        // the question IT was asking too.
+        await endReview(question.transaction.id, question.candidate.transaction.id);
         bump(t => ({ linked: t.linked + 1 }));
       } else {
         await createTransferCounterpart(question.transaction.id, question.targetAccountId);
+        await endReview(question.transaction.id);
         bump(t => ({ created: t.created + 1 }));
       }
       setFailedIds(prev => {

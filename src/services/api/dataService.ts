@@ -91,6 +91,7 @@ import {
   isReconciled,
   reconciledAfterMarking
 } from '../../utils/transactionReconciliation';
+import { reviewAfterMarking } from '../../utils/transactionReview';
 
  type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
 type AccountServiceLike = Pick<typeof AccountService,
@@ -803,7 +804,15 @@ class DataServiceImpl implements DataPort {
     const updated = transactions.map(t => {
       if (idSet.has(t.id)) {
         count += 1;
-        return { ...t, cleared, reconciled: reconciledAfterMarking(t, cleared) };
+        // The same three answers the cloud verb writes (20260911213000): the
+        // tick, the committed flag it implies or clears, and review ended on
+        // a filed row.
+        return {
+          ...t,
+          cleared,
+          reconciled: reconciledAfterMarking(t, cleared),
+          needsReview: reviewAfterMarking(t, cleared),
+        };
       }
       return t;
     });
