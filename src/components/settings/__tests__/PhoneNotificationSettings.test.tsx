@@ -63,12 +63,23 @@ describe('PhoneNotificationSettings', () => {
     const feedAttention = screen.getByRole('checkbox', { name: /A feed needs reconnecting/ });
     const reminders = screen.getByRole('checkbox', { name: /Balance reminders/ });
 
-    // Bank feed refresh is not 'cloud' and no reminder is scheduled, so every
-    // switch is disabled — and each says which card above would enable it.
+    // Bank feed refresh is not 'cloud', so every switch is disabled — cloud
+    // mode is the door to the whole card (the owner's ruling, 11 Sep), and
+    // each switch names it before anything else it might also need.
     expect(feedActivity).toBeDisabled();
     expect(feedAttention).toBeDisabled();
     expect(reminders).toBeDisabled();
-    expect(screen.getAllByText('Needs Bank feed refresh set to In the cloud, above.')).toHaveLength(2);
+    expect(screen.getAllByText('Needs Bank feed refresh set to In the cloud, above.')).toHaveLength(3);
+    expect(screen.queryByText(/Needs a reminder schedule/)).not.toBeInTheDocument();
+  });
+
+  it('in cloud mode with no schedule, only the reminder switch stays off — and says why', () => {
+    pretendToBeTheShell();
+    preferences.setItem('bankAutoSync.prefs.v1', '{"mode":"cloud","dailyTime":"08:00"}');
+    render(<PhoneNotificationSettings />);
+
+    expect(screen.getByRole('checkbox', { name: /New transactions/ })).toBeEnabled();
+    expect(screen.getByRole('checkbox', { name: /Balance reminders/ })).toBeDisabled();
     expect(screen.getByText('Needs a reminder schedule in Balance reminders, above.')).toBeInTheDocument();
   });
 

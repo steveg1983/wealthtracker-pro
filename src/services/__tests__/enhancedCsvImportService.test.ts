@@ -1491,12 +1491,139 @@ describe('the transfer rule — a statement row and a hand-made transfer leg are
     expect(check.confidence).toBeLessThan(90);
   });
 
-  it('does NOT fire for an ordinary same-amount transaction — words still matter there', async () => {
+  it('an ordinary same-day, same-amount row on the same account is the same money too (superseded 11 Sep)', async () => {
+    // This spec used to pin the opposite — "words still matter there" — and
+    // that pin is exactly how the owner's partner's statements imported
+    // twice. See the block below for the ruling.
     const service = createService();
     const ordinary = { ...cardLeg, type: 'income', linkedTransferId: undefined } as never;
     const check = await service.checkDuplicateTransaction(statementRow, [ordinary], 'card-1');
 
-    expect(check.confidence).toBeLessThan(90);
+    expect(check.confidence).toBeGreaterThanOrEqual(95);
+    expect(check.reason).toBe('same-money');
+  });
+});
+
+describe('the same money is the same money whatever the bank called it (owner, 11 Sep 2026)', () => {
+  // The register row, as a feed or a person wrote it; the statement row, as
+  // the bank's processor wrote it. Names invented, shapes real.
+  const existing = (over: Partial<Transaction> = {}): Transaction =>
+    ({
+      id: 'row-1',
+      accountId: 'current-1',
+      date: new Date('2025-09-25T12:00:00'),
+      description: 'SAMPLECO SALARY',
+      amount: 1234.56,
+      type: 'income',
+      category: 'salary',
+      cleared: true,
+      ...over
+    }) as Transaction;
+
+  const statementRow = {
+    date: '2025-09-25',
+    description: 'OPERATIONAL , SAMPLECO LTD , FP 24/09/25 09:41',
+    amount: 1234.56,
+    type: 'income' as const
+  };
+
+  it('same account, same day, same penny, different words: decisive', async () => {
+    const service = createService();
+    const check = await service.checkDuplicateTransaction(statementRow, [existing()], 'current-1');
+    expect(check.isDuplicate).toBe(true);
+    expect(check.confidence).toBeGreaterThanOrEqual(95);
+    expect(check.reason).toBe('same-money');
+    expect(check.bestMatchId).toBe('row-1');
+  });
+
+  it('a day apart is still the same money; two days apart with different words is not', async () => {
+    const service = createService();
+    const dayLater = await service.checkDuplicateTransaction(
+      { ...statementRow, date: '2025-09-26' }, [existing()], 'current-1'
+    );
+    expect(dayLater.isDuplicate).toBe(true);
+
+    const twoDaysLater = await service.checkDuplicateTransaction(
+      { ...statementRow, date: '2025-09-27' }, [existing()], 'current-1'
+    );
+    // Amount and date score 70 — listed as a possible, never skipped alone.
+    expect(twoDaysLater.isDuplicate).toBe(false);
+    expect(twoDaysLater.confidence).toBe(70);
+  });
+
+  it('a penny out is a different payment', async () => {
+    const service = createService();
+    const check = await service.checkDuplicateTransaction(
+      { ...statementRow, amount: 1234.57 }, [existing()], 'current-1'
+    );
+    expect(check.isDuplicate).toBe(false);
+  });
+
+  it('a row in ANOTHER account is never a duplicate of this one, even with identical words', async () => {
+    const service = createService();
+    const check = await service.checkDuplicateTransaction(
+      { ...statementRow, description: 'SAMPLECO SALARY' },
+      [existing({ accountId: 'savings-9' })],
+      'current-1'
+    );
+    // Before: 40 + 30 + 30 = 100 with no account in the sum — a payment
+    // from a second card on the same day was "already imported".
+    expect(check.confidence).toBe(0);
+    expect(check.isDuplicate).toBe(false);
+  });
+
+  it('a mapped account column decides the account when the file names one', async () => {
+    const service = createService();
+    const check = await service.checkDuplicateTransaction(
+      { ...statementRow, accountId: 'current-1' }, [existing()], 'some-other-destination'
+    );
+    expect(check.isDuplicate).toBe(true);
+  });
+
+  it('pairs by count: two identical rows in the file against one in the register are one duplicate and one new', async () => {
+    const service = createService();
+    const csv =
+      'Date,Description,Amount\n' +
+      '25/09/2025,SHOP A,-26.25\n' +
+      '25/09/2025,SHOP A,-26.25\n' +
+      '26/09/2025,SHOP B,-9.99';
+    const mappings: ColumnMapping[] = [
+      { sourceColumn: 'Date', targetField: 'date' },
+      { sourceColumn: 'Description', targetField: 'description' },
+      { sourceColumn: 'Amount', targetField: 'amount' }
+    ];
+    const register = [existing({ id: 'row-a', description: 'SHOP A', amount: -26.25, type: 'expense' })];
+
+    const result = await service.importTransactions(csv, mappings, register, new Map(), {
+      skipDuplicates: true,
+      destinationAccountId: 'current-1',
+      dateFormat: 'DD/MM/YYYY'
+    });
+
+    expect(result.duplicates).toBe(1);
+    expect(result.success).toBe(2);
+    // …and the skipped row is NAMED, with the register row it was taken to be.
+    expect(result.skippedDuplicates).toEqual([
+      expect.objectContaining({ line: 2, description: 'SHOP A', amount: -26.25, existingId: 'row-a', reason: 'same-money' })
+    ]);
+  });
+
+  it('"skip duplicates" off still imports everything, and lists nothing as skipped', async () => {
+    const service = createService();
+    const csv = 'Date,Description,Amount\n25/09/2025,SHOP A,-26.25';
+    const mappings: ColumnMapping[] = [
+      { sourceColumn: 'Date', targetField: 'date' },
+      { sourceColumn: 'Description', targetField: 'description' },
+      { sourceColumn: 'Amount', targetField: 'amount' }
+    ];
+    const register = [existing({ description: 'SHOP A', amount: -26.25, type: 'expense' })];
+    const result = await service.importTransactions(csv, mappings, register, new Map(), {
+      skipDuplicates: false,
+      destinationAccountId: 'current-1',
+      dateFormat: 'DD/MM/YYYY'
+    });
+    expect(result.success).toBe(1);
+    expect(result.skippedDuplicates).toEqual([]);
   });
 });
 });

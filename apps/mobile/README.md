@@ -127,6 +127,29 @@ ask iOS for a token and to hand it to `push_devices`, which
    distribution profile itself — the same mechanism that carried Associated
    Domains.
 
+**How build 3 actually went up (11 Sep 2026), so build 4 needs no detective
+work.** `scripts/ios-release.sh 3` archived cleanly and proved both
+entitlements, then `-exportArchive` refused: *"You haven't been given access
+to cloud-managed distribution certificates."* Adding a capability to the App
+ID means the distribution profile must be regenerated, and regenerating it
+wanted a cloud-managed distribution certificate — which the App Store Connect
+API key (`K3X6D83JFR`, App Manager role) is not permitted to create. Two
+things had to be done by hand, once each:
+
+1. **The App ID capability**: developer.apple.com → Identifiers →
+   `com.wealthtracker.mobile` → tick *Push Notifications* → Save. (No SSL
+   certificates: the key is how the server authenticates.)
+2. **The export**: the archive the script had built was opened in Xcode's
+   Organizer (`open /path/to/wt-ios-<ts>.xcarchive`) and uploaded with
+   *Distribute App → App Store Connect → Upload*, signed in as the Account
+   Holder. Xcode minted the certificate and profile the key could not.
+
+To make the script self-sufficient again, give it a key with the **Admin**
+role (App Store Connect → Users and Access → Integrations → App Store Connect
+API; a new key, since a key's role cannot be changed) and put its id in
+`ASC_KEY_ID`. Until then, the script gets as far as a proven archive and the
+Organizer finishes the job.
+
 **Sandbox versus production, and why the server does not care.** A build run
 from Xcode registers a *sandbox* token; a TestFlight or App Store build a
 *production* one; the phone cannot tell which. The server assumes production

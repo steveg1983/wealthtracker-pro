@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { pushDueReminders, BALANCE_REMINDER_NOTE, type ReminderPushDeps } from '../../../api/_lib/reminder-push';
+import { pushDueReminders, BALANCE_REMINDER_NOTE, BANK_AUTO_SYNC_PREFS_KEY, type ReminderPushDeps } from '../../../api/_lib/reminder-push';
 import { DEVICE_TIME_ZONE_KEY, PHONE_NOTIFICATION_PREFS_KEY } from '../../../src/services/push/prefs';
 import { REMINDER_PREFS_KEY, REMINDER_STATE_KEY } from '../../../src/services/reminders/schedule';
 
@@ -17,6 +17,8 @@ interface UserSetup {
   state?: object;
   zone?: string;
   mark?: Date | null;
+  /** Bank feed refresh mode; every user is 'cloud' unless a case says otherwise. */
+  feedMode?: string;
 }
 
 function harness(users: Record<string, UserSetup>) {
@@ -34,6 +36,7 @@ function harness(users: Record<string, UserSetup>) {
         if (u.schedule) values[REMINDER_PREFS_KEY] = JSON.stringify(u.schedule);
         if (u.state) values[REMINDER_STATE_KEY] = JSON.stringify(u.state);
         if (u.zone) values[DEVICE_TIME_ZONE_KEY] = u.zone;
+        values[BANK_AUTO_SYNC_PREFS_KEY] = JSON.stringify({ mode: u.feedMode ?? 'cloud', dailyTime: '08:00' });
         map.set(id, values);
       }
       return map;
@@ -108,6 +111,16 @@ describe('pushDueReminders', () => {
     const summary = await pushDueReminders(h.deps);
     expect(h.pushed).toEqual([]);
     expect(summary.users).toBe(3);
+  });
+
+  it('a switch left on by someone who is no longer in cloud mode goes quiet — the owner\'s ruling, kept server-side', async () => {
+    const h = harness({
+      'user-a': { phone: { balanceReminders: true }, schedule: daily0830, state: acknowledgedYesterday, zone: 'Europe/London', feedMode: 'signin' },
+      'user-b': { phone: { balanceReminders: true }, schedule: daily0830, state: acknowledgedYesterday, zone: 'Europe/London', feedMode: 'cloud' },
+    });
+    const summary = await pushDueReminders(h.deps);
+    expect(h.pushed).toEqual(['user-b']);
+    expect(summary.notCloud).toBe(1);
   });
 
   it('marks BEFORE notifying, so a run that dies mid-push cannot repeat itself', async () => {

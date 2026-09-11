@@ -2074,6 +2074,42 @@ export default function CSVImportWizard({ isOpen, onClose, initialFile }: CSVImp
                 )}
               </div>
 
+              {/* The rows behind the "skipped as duplicates" count, each with
+                  why — same money, a transfer leg, or the same words. A count
+                  cannot be checked against a statement; a list can, and an
+                  over-eager skip is as much a bug as an under-eager one
+                  (11 Sep 2026, when the latter cost an evening of hunting). */}
+              {(importResult.parsed.skippedDuplicates?.length ?? 0) > 0 && (
+                <details className="mb-6 rounded-lg border border-line dark:border-gray-700 p-4">
+                  <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300">
+                    The {importResult.parsed.skippedDuplicates?.length} skipped
+                    {importResult.parsed.skippedDuplicates?.length === 1 ? ' row is' : ' rows are'} already in this account
+                  </summary>
+                  <ul className="mt-3 space-y-1 text-sm">
+                    {importResult.parsed.skippedDuplicates?.map((skipped) => (
+                      <li key={`${skipped.line}-${skipped.existingId}`} className="flex flex-wrap items-baseline gap-x-3 text-gray-700 dark:text-gray-300">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">line {skipped.line}</span>
+                        <span>{formatShortDate(skipped.date)}</span>
+                        <span className="min-w-0 truncate">{skipped.description}</span>
+                        <span className="tabular-nums">
+                          {formatCurrency(
+                            skipped.amount,
+                            accounts.find(account => account.id === destinationAccountId)?.currency ?? 'GBP'
+                          )}
+                        </span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                          {skipped.reason === 'same-money'
+                            ? 'same amount, same day'
+                            : skipped.reason === 'transfer-leg'
+                              ? 'matches a transfer you recorded'
+                              : 'same amount and description'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+
               {/* Rows a write refused, named per account — the count alone
                   cannot be acted on, and the person reading this has the file
                   in front of them. */}

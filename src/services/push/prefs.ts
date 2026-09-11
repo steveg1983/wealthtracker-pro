@@ -22,6 +22,11 @@
  *                     Settings, delivered to the lock screen rather than
  *                     waiting for the app to be opened
  *
+ * All three need Bank feed refresh = In the cloud — the owner's ruling (11
+ * Sep): phone alerts are what a cloud user opts into, one decision rather
+ * than three. The first two need it by nature; the third is held to it by
+ * the settings card and by api/_lib/reminder-push.ts alike.
+ *
  * All off by default: a notification nobody asked for is not a feature.
  */
 
