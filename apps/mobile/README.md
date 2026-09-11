@@ -94,3 +94,54 @@ it, and the fix is a JPEG round-trip through `sips`.
 A **native** change (icons, `Info.plist`, permissions, entitlements, the shell
 itself) is the only reason to cut a new build. Everything else arrives by
 deploying the web app.
+
+## Push notifications (11 Sep 2026)
+
+The shell carries `@capacitor/push-notifications`, the `aps-environment`
+entitlement, and the two `AppDelegate` methods that hand the APNs token to
+the plugin. Everything that DECIDES to push lives on the server (the cloud
+refresh cron and the reminders cron under `api/cron/`), and everything a
+person can choose lives in the web app (Settings → App Settings → Phone
+notifications, drawn only inside this shell). The phone's only jobs are to
+ask iOS for a token and to hand it to `push_devices`, which
+`src/services/push/pushRegistration.ts` does on every launch.
+
+**Three things this needs that the code cannot supply:**
+
+1. **An APNs key.** Apple Developer → Keys → `+` → tick *Apple Push
+   Notifications service (APNs)*. Download the `.p8` **once** (Apple never
+   offers it again — keep it beside the App Store Connect key in
+   `~/Documents/WealthTracker-signing/`) and note the ten-character Key ID.
+2. **Three Vercel environment variables**, server-side, none `VITE_`-prefixed:
+   `APNS_TEAM_ID` (`VT6W829WRX`), `APNS_KEY_ID`, and `APNS_PRIVATE_KEY` (the
+   `.p8` contents — pasted with real newlines, or with the two characters
+   `\n` where a one-line field forces it; both are read). Until all three are
+   set every push is skipped and logged once per cold start; nothing else
+   changes.
+3. **A new TestFlight build.** The entitlement and the plugin are native, so
+   this is one of the rare changes a deploy cannot carry:
+   `scripts/ios-release.sh <next build number>`. The script now refuses to
+   upload an archive whose signed entitlements lack `aps-environment`. With
+   automatic signing and the App Store Connect key, `-allowProvisioningUpdates`
+   adds the Push Notifications capability to the App ID and regenerates the
+   distribution profile itself — the same mechanism that carried Associated
+   Domains.
+
+**Sandbox versus production, and why the server does not care.** A build run
+from Xcode registers a *sandbox* token; a TestFlight or App Store build a
+*production* one; the phone cannot tell which. The server assumes production
+and, on Apple's `BadDeviceToken`, tries the sandbox host once and remembers
+the answer on the row (`api/_lib/push.ts`). A token Apple reports
+`Unregistered` is retired, never deleted.
+
+**Proving it on a phone.** Switch on any phone notification in Settings (the
+one act that shows Apple's permission prompt), then trigger a push from the
+server side: run the cron by hand —
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://www.wealthtrackerpro.co.uk/api/cron/reminders
+```
+
+— with a balance reminder scheduled for a minute ago and not yet acknowledged.
+The response says how many were `pushed`; the phone says the rest. The
+simulator receives no APNs pushes at all, so this is a real-device check.

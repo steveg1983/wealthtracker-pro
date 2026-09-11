@@ -27,6 +27,7 @@
  */
 
 import { preferences } from '../services/preferencesService';
+import { hostTimeZone, mostRecentScheduledMomentInZone } from '../services/reminders/schedule';
 
 export type ReminderSchedule = 'off' | 'daily' | 'weekly' | 'monthly';
 
@@ -158,43 +159,17 @@ export function snoozeReminderUntilTomorrow(prefs: BalanceReminderPrefs, now: Da
  * The most recent scheduled moment at or before `now`, or null when the
  * schedule is off. Pure, and the whole of the arithmetic — everything else is
  * a comparison against what this returns.
+ *
+ * The arithmetic itself lives in services/reminders/schedule.ts since the
+ * reminder learned to reach a phone (11 Sep 2026): the server runs the same
+ * function with the phone's zone, and this page runs it with its own. One
+ * implementation, so the push and the card can never disagree about when.
  */
 export function mostRecentScheduledMoment(
   prefs: BalanceReminderPrefs,
   now: Date
 ): Date | null {
-  if (prefs.schedule === 'off') return null;
-  const time = isValidTime(prefs.time) ? prefs.time : DEFAULT_REMINDER_PREFS.time;
-  const [hh, mm] = time.split(':').map(Number);
-
-  const at = (base: Date): Date => {
-    const d = new Date(base);
-    d.setHours(hh, mm, 0, 0);
-    return d;
-  };
-
-  if (prefs.schedule === 'daily') {
-    const today = at(now);
-    if (today <= now) return today;
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    return at(yesterday);
-  }
-
-  if (prefs.schedule === 'weekly') {
-    const weekday = clampInt(prefs.weekday, 0, 6, DEFAULT_REMINDER_PREFS.weekday);
-    const candidate = new Date(now);
-    candidate.setDate(candidate.getDate() - ((candidate.getDay() - weekday + 7) % 7));
-    if (at(candidate) <= now) return at(candidate);
-    candidate.setDate(candidate.getDate() - 7);
-    return at(candidate);
-  }
-
-  const monthDay = clampInt(prefs.monthDay, 1, 28, DEFAULT_REMINDER_PREFS.monthDay);
-  const thisMonth = new Date(now.getFullYear(), now.getMonth(), monthDay);
-  if (at(thisMonth) <= now) return at(thisMonth);
-  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, monthDay);
-  return at(lastMonth);
+  return mostRecentScheduledMomentInZone(prefs, now, hostTimeZone());
 }
 
 /**

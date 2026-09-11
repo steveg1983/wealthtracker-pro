@@ -25,6 +25,13 @@
  *     /accounts, /dashboard, the register
  *                        useBankConnectionSnapshot      banking
  *     /settings          SignOutPanel                   auth      ← added later
+ *     /settings/app      PhoneNotificationSettings      banking   ← added 11 Sep
+ *
+ * The tenth is a push notification's switchboard, and it is `banking` rather
+ * than a region of its own because every push the server sends is about a
+ * feed the server refreshed or a reminder the server kept: a phone registers
+ * a token WITH somebody, which is exactly this seam's one idea. The cloud
+ * half draws it only inside the iOS shell; a device window is not a phone.
  *
  * The eighth is the one that did not come from the measurement, and the way it
  * arrived is worth keeping: the owner could not find any way to sign out on his

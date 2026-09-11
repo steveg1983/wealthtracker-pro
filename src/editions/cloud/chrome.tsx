@@ -30,6 +30,7 @@ import GlobalSearchComponent from '../../components/GlobalSearch';
 import { MobileBreadcrumb as MobileBreadcrumbComponent } from '../../components/layout/Breadcrumbs';
 import { RealtimeStatusDot } from '../../components/RealtimeStatusIndicator';
 import { useAutoBankSync } from '../../hooks/useAutoBankSync';
+import { usePhonePushRegistration } from '../../hooks/usePhonePushRegistration';
 import type {
   ChromeHasBankFeeds,
   ChromeHasPriceHistory,
@@ -81,6 +82,9 @@ export const IdentityMenu: ChromeOrnament = () => (
  */
 export const BackgroundWork: ChromeOrnament = () => {
   useAutoBankSync();
+  // …and the phone's push registration, which is background work of the
+  // same kind: a server-side fact (a token) kept current from the frame.
+  usePhonePushRegistration();
   return null;
 };
 

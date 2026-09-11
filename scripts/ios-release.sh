@@ -66,9 +66,19 @@ xcodebuild archive \
   -authenticationKeyIssuerID "$ISSUER_ID" \
   DEVELOPMENT_TEAM=VT6W829WRX
 
-# Prove the entitlement survived into the SIGNED BINARY rather than trusting
+# Prove the entitlements survived into the SIGNED BINARY rather than trusting
 # the project file. This is the whole point of the build, and it is cheap.
 APP="$ARCHIVE/Products/Applications/App.app"
+# Push notifications (11 Sep 2026): the aps-environment entitlement is what
+# lets iOS hand the app an APNs token. The project file says "development";
+# an App Store export re-signs it "production" from the distribution profile,
+# and a build carrying NEITHER would register no token and push nothing —
+# silently. Refuse it here rather than discover it on a phone.
+if ! codesign -d --entitlements :- "$APP" 2>/dev/null | grep -q "aps-environment"; then
+  echo "The archive does not carry the aps-environment entitlement — no push token would ever arrive. Refusing to upload." >&2
+  exit 1
+fi
+echo "==> Push entitlement present: $(codesign -d --entitlements :- "$APP" 2>/dev/null | grep -A1 'aps-environment' | grep -o '<string>[^<]*' | sed 's/<string>//')"
 if ! codesign -d --entitlements :- "$APP" 2>/dev/null | grep -q "webcredentials:"; then
   echo "The archive does not carry the associated-domains entitlement — refusing to upload." >&2
   exit 1

@@ -58,6 +58,10 @@
  *                                 There is no server, so there is no schedule —
  *                                 the same reason `@chrome`'s `BackgroundWork`
  *                                 draws nothing.
+ *   PhoneNotificationSettings     what a phone may push. No server to push
+ *                                 from, no token to push to — and the cloud
+ *                                 half draws it only inside the iOS shell in
+ *                                 any case. A desktop window is neither.
  *   BankingCriticalIncidentBadge  "the bank feed is having an incident". There
  *                                 is no feed and no service to have one.
  *   BankConnections               the modal that lists a person's bank logins.
@@ -129,6 +133,12 @@ export const SubscriptionStatus: ServicePanel = () => null;
 
 /** No server polls anything, so there is no schedule to set. */
 export const BankFeedRefreshSettings: ServicePanel = () => null;
+
+/**
+ * No phone to push to, and no server to push from. The cloud half draws
+ * this only inside the iOS shell in any case; a desktop window is neither.
+ */
+export const PhoneNotificationSettings: ServicePanel = () => null;
 
 /** No account with anybody to close. See the header for where the wipe lives. */
 export const DangerZone: ServicePanel = () => null;

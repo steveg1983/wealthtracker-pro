@@ -48,7 +48,11 @@ const EXPECTED = [
   'SENTRY_DSN',
   // Shared-store rate limiter (Upstash / Vercel KV) — in-memory fallback when absent.
   'UPSTASH_REDIS_REST_URL',
-  'UPSTASH_REDIS_REST_TOKEN'
+  'UPSTASH_REDIS_REST_TOKEN',
+  // Apple push (api/_lib/apns.ts) — every push is skipped, once-logged, when absent.
+  'APNS_TEAM_ID',
+  'APNS_KEY_ID',
+  'APNS_PRIVATE_KEY'
 ];
 
 // Vars that must NOT exist: VITE_-prefixed secrets get inlined into the

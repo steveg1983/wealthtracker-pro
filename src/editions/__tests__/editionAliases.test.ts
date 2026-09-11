@@ -291,6 +291,7 @@ describe('the edition seams', () => {
       'BankFeedRefreshSettings',
       'BankingCriticalIncidentBadge',
       'DangerZone',
+      'PhoneNotificationSettings',
       'SessionGuard',
       'SignOutPanel',
       'SubscriptionStatus',

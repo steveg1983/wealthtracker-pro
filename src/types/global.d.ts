@@ -52,4 +52,14 @@ interface Window {
   };
   // Realtime sync action timestamp updater for echo prevention
   __updateRealtimeActionTimestamp?: (entity: string, actionType: string) => void;
+  /**
+   * The bridge the iOS shell injects before the page's own scripts run.
+   * Only the one question the web app asks of it is declared — whether it is
+   * there at all; the plugins are reached through @capacitor/core's typed
+   * proxies, never through this object. See services/push/nativeShell.ts.
+   */
+  Capacitor?: {
+    isNativePlatform?: () => boolean;
+    getPlatform?: () => string;
+  };
 }
