@@ -16,7 +16,7 @@
  * in exactly this list is the bug that produced this module: `RestoreBackupModal`
  * warned a person, before a restore, that a file held rows the target could not
  * keep — built from the browser's bindings, chosen by `backupTarget !== 'login'`.
- * A device edition matches that condition and keeps all fourteen tables, so it
+ * A device edition matches that condition and keeps all sixteen tables, so it
  * would have been told its own budgets and goals could not be restored. A false
  * warning about data loss, in front of somebody deciding whether to press a
  * button.
@@ -28,14 +28,17 @@
  *
  * This module imports two TYPES and nothing else, so it is erased to a single
  * frozen array at build. That matters: `localBackupService.ts` reaches the
- * storage adapter, `Decimal`, and fourteen row mappers, and `dataService` is in
+ * storage adapter, `Decimal`, and a row mapper per stored table, and `dataService` is in
  * the boot chunk. The arrow points from the heavy module to the light one and
  * never the other way.
  *
  * ── COMPLETENESS IS STILL localBackupService's TO GUARANTEE ─────────────────
  *
  * There is no `Record<BackupEntity, …>` here, because this list is deliberately
- * PARTIAL — it names the seven a browser has nowhere for, not all fourteen.
+ * PARTIAL — it names the eight a browser has nowhere for, not all sixteen.
+ * (Seven of fourteen when first written; `custom_reports` and
+ * `forecast_adjustments` joined the format, and `forecast_adjustments`
+ * joined this list.)
  * What stops a table joining the format with no decision recorded about it is
  * unchanged and lives where it always did: `LOCAL_BACKUP_BINDINGS` is keyed by
  * `BackupEntity`, so a missing key is a compile error, and the runtime check
@@ -46,7 +49,7 @@ import type { BackupEntity } from './format';
 import type { UnstorableEntity } from '../port/dataPort';
 
 /**
- * The seven tables a backup file can carry that browser storage has no home
+ * The eight tables a backup file can carry that browser storage has no home
  * for, each with the sentence a person reading a restore warning is owed.
  *
  * Every one is a decision rather than an omission: local mode has no screen, no
@@ -115,7 +118,7 @@ export const BROWSER_CANNOT_KEEP: readonly UnstorableEntity[] = [
 export const browserAbsence = (entity: BackupEntity): UnstorableEntity => {
   const found = BROWSER_CANNOT_KEEP.find(entry => entry.entity === entity);
   if (!found) {
-    // Unreachable from `LOCAL_BACKUP_BINDINGS`, which only asks about the seven
+    // Unreachable from `LOCAL_BACKUP_BINDINGS`, which only asks about the eight
     // it declares `stored: false`. Named rather than defaulted, because a blank
     // reason is a warning that tells somebody nothing.
     throw new Error(

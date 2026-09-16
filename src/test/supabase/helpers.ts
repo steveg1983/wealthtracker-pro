@@ -104,13 +104,21 @@ export async function recordTransaction(userId: string, accountId: string) {
   return data;
 }
 
-export async function fetchTransactionsAsUser(userId: string) {
+/**
+ * Read as the ANON key, returning the refusal rather than throwing on it.
+ *
+ * Since 20260916161455 the anon role holds no table privileges at all, so
+ * this is refused at the privilege check (SQLSTATE 42501) before RLS is even
+ * consulted. The old shape of this helper threw on error and returned rows,
+ * which was right when the contract was "anon's SELECT succeeds and matches
+ * nothing" — the contract is now "anon's SELECT does not run".
+ */
+export async function tryFetchTransactionsAsAnon(userId: string) {
   const { data, error } = await supabaseAnon
     .from('transactions')
     .select()
     .eq('user_id', userId);
-  if (error) throw error;
-  return data;
+  return { data, error };
 }
 
 export async function fetchTransactionByIdService(id: string) {
