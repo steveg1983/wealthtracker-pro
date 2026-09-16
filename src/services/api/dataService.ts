@@ -19,10 +19,10 @@ import { SuggestionDismissalService } from './suggestionDismissalService';
 import { isSupabaseConfigured, supabase } from './supabaseClient';
 import { getSupabaseAccessToken, hasSupabaseTokenGetter } from '../../lib/supabaseToken';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
-// The seven tables the browser's store has nowhere for, and the sentence each
+// The eight tables the browser's store has nowhere for, and the sentence each
 // one is owed. A module of TYPES and one frozen array — see its header for why
 // it is not declared here and not read out of `localBackupService`, which
-// reaches the storage adapter, Decimal and fourteen row mappers.
+// reaches the storage adapter, Decimal and a row mapper per stored table.
 import { BROWSER_CANNOT_KEEP } from '../backup/browserCoverage';
 import { userIdService } from '../userIdService';
 // This engine's own boot-snapshot cache. See `wipeAllFinancialData`.
@@ -1238,7 +1238,7 @@ class DataServiceImpl implements DataPort {
     const { databaseId, clerkId } = this.userIdService.getCurrentUserIds();
     if (databaseId && this.supabaseChecker()) {
       const { collectBackupBundle } = await this.cloudBackupEngine();
-      // The Clerk id travels beside the database id because ONE of the fourteen
+      // The Clerk id travels beside the database id because ONE of the sixteen
       // tables is keyed by it (recurring_transactions). Resolving both here is
       // the whole of what the export page used to do for itself.
       return collectBackupBundle(
@@ -3583,7 +3583,7 @@ class DataServiceImpl implements DataPort {
       // — it is derived from which STORE is answering, which happens to be the
       // same predicate today and is a different question. A login holds every
       // table the backup format carries, because the format was read off the
-      // database; the browser's store holds seven of the fourteen. See
+      // database; the browser's store holds eight of the sixteen. See
       // `BROWSER_CANNOT_KEEP`.
       cannotKeep: ready ? [] : BROWSER_CANNOT_KEEP
     };

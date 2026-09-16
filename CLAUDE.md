@@ -2,7 +2,7 @@
 
 **Owner**: Frontend/Platform (ChatGPT)  
 **Branch**: `claude-lint-cleanup`  
-**Updated**: 2026‑08‑13
+**Updated**: 2026‑09‑16
 
 ---
 
@@ -104,8 +104,20 @@ Latest Vercel preview: `wealthtracker-l514dsq11` (2025‑10‑29 21:33 UTC). B
 | Area | Owner | Description |
 | --- | --- | --- |
 | **Mobile** | Frontend | The August 13th sweep fixed the status-bar overlap, the floating button's overlap, Settings, onboarding and the count colours — but the phone is where the last three days' bugs came from, and it is still the least-tested surface. Test there first. |
-| **Clerk production instance** | Platform | `docs/clerk-production-runbook.md`. Blocks a second person signing in on a phone at all (Safari's tracking prevention refuses the dev instance's cross-domain flow), and therefore blocks TestFlight, a Capacitor edition, and both testers. Highest-value unblocking task in the repo. |
 | **Supabase coverage** | BE + Platform | Continue monitoring nightly Supabase smoke logs; add RLS/import edge cases as regressions appear. |
+| **Supabase org transfer** | Platform | The production project (`nqbacrjjgdjabygqtcah`, eu‑west‑2) lives in a **Vercel‑Marketplace‑managed** Supabase org (`vercel_icfg_…`): owners cannot be added in the Supabase dashboard, plan/support run through Vercel, and transfers are supported Vercel‑managed → Supabase‑managed but **not back**. Before commercial launch, create a Supabase‑managed org and transfer the project into it (one‑way door, in the direction we want). Decided 2026‑09‑16. |
+| **PITR** | Platform | Verify point‑in‑time recovery is enabled on the production project (Pro/Team add‑on, ~$100/mo per 7 days retention; needs ≥ Small compute). Daily backups alone mean a worst case of losing a day of a customer's finances. Check in the dashboard — the tier isn't readable through the API. |
+
+### Clerk production instance: DONE (2026‑08‑26), and the doc trap it left
+
+This table listed Clerk production as "the highest‑value unblocking task in the
+repo" for a month after it shipped, and the stale row cost a planning day on
+29 Aug and misled again on 16 Sep. It is **live**: `pk_live_…` in the served
+production bundle (re‑verified 2026‑09‑16), all three social providers on our
+own credentials, the Supabase JWT bridge on the production instance.
+`docs/clerk-production-runbook.md` is now the record of what exists — read its
+"traps that remain true" (dev keys still in `.env.local` on the Mac; dev→prod
+users need a `clerk_id` repoint; `AUTHORIZED_PARTIES`) before touching auth.
 
 ### The design pass is closed
 

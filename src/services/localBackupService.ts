@@ -661,7 +661,7 @@ export type LocalEntityBinding = StoredLocally | NotStoredLocally;
 /**
  * One table this store has nowhere for, with its reason.
  *
- * The seven sentences live in `backup/browserCoverage.ts` rather than here, and
+ * The eight sentences live in `backup/browserCoverage.ts` rather than here, and
  * the arrow points that way rather than this way, because the SEAM needs the
  * same list SYNCHRONOUSLY in a render: `capabilities().cannotKeep` is what
  * `RestoreBackupModal` asks now, instead of reading this table directly.

@@ -4,7 +4,7 @@ import {
   cleanupProfile,
   createAccount,
   recordTransaction,
-  fetchTransactionsAsUser,
+  tryFetchTransactionsAsAnon,
   tryDeleteTransactionAsAnon,
   fetchTransactionByIdService,
 } from './helpers';
@@ -39,24 +39,29 @@ describe.skipIf(!shouldRunTests)('Supabase smoke', { timeout: 60000 }, () => {
     expect(serviceRow.type).toBe('expense');
   });
 
-  it('enforces RLS: anon cannot delete OR read another user\'s rows', async () => {
+  it('refuses anon outright: no read, no delete, and the row survives', async () => {
     const inserted = await recordTransaction(userId, accountId);
-    const { error, data } = await tryDeleteTransactionAsAnon(inserted.id);
+    const del = await tryDeleteTransactionAsAnon(inserted.id);
 
-    // RLS silently blocks the delete — no error, zero rows affected (the row
-    // is invisible to the anon key, so the DELETE matches nothing).
-    expect(error).toBeNull();
-    expect(Array.isArray(data) ? data.length : 0).toBe(0);
+    // 20260916161455 revoked every table privilege from anon, so the DELETE
+    // is refused at the privilege check (SQLSTATE 42501) before RLS is even
+    // consulted. This is one rung stronger than what this test asserted
+    // before that migration — error:null with zero rows affected, the grant
+    // present and RLS doing all the work — and one stronger again than the
+    // pre-2026-06-11 state, when anon SELECT was USING (true) and the
+    // assertion was inverted. If 42501 ever stops arriving here, a grant has
+    // come back; that is a finding, not a flake.
+    expect(del.error?.code).toBe('42501');
+    expect(del.data ?? []).toHaveLength(0);
 
-    // Hardened RLS (2026-06-11): the anon key can no longer READ the row
-    // either. Per-user isolation means an unauthenticated request sees an
-    // empty set, not the row. (This assertion was inverted before the
-    // RLS-data-isolation migration, when anon SELECT was USING (true).)
-    const anonRows = await fetchTransactionsAsUser(userId);
-    expect(anonRows.some((row) => row.id === inserted.id)).toBe(false);
+    // Reads are refused the same way — an unauthenticated request no longer
+    // even gets its empty set.
+    const read = await tryFetchTransactionsAsAnon(userId);
+    expect(read.error?.code).toBe('42501');
+    expect(read.data ?? []).toHaveLength(0);
 
-    // The service role bypasses RLS and confirms the blocked delete did NOT
-    // actually remove the row — it still exists, it's just invisible to anon.
+    // The service role bypasses all of it and confirms the refused delete
+    // did NOT remove the row.
     const serviceRow = await fetchTransactionByIdService(inserted.id);
     expect(serviceRow.id).toBe(inserted.id);
   });
