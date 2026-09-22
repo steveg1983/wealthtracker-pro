@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { describeSupabaseFailure } from './supabase-failure.js';
 import {
   parseReminderSchedule,
   parseReminderState,
@@ -143,11 +144,11 @@ export const reminderPushDeps = (supabase: SupabaseClient): ReminderPushDeps | n
     loadMarks: async (userIds) => {
       const marks = new Map<string, Date | null>();
       if (userIds.length === 0) return marks;
-      const { data, error } = await supabase
+      const { data, error, status } = await supabase
         .from('push_notification_marks')
         .select('user_id, balance_reminder_notified_for')
         .in('user_id', [...userIds]);
-      if (error) throw new Error(`Failed to load push marks: ${error.message}`);
+      if (error) throw new Error(`Failed to load push marks: ${describeSupabaseFailure(error, status)}`);
       for (const row of (data ?? []) as Array<{ user_id: string; balance_reminder_notified_for: string | null }>) {
         marks.set(row.user_id, row.balance_reminder_notified_for ? new Date(row.balance_reminder_notified_for) : null);
       }
@@ -155,13 +156,13 @@ export const reminderPushDeps = (supabase: SupabaseClient): ReminderPushDeps | n
     },
     notify: (userId, note) => notifyUser(push, userId, note),
     mark: async (userId, scheduledFor) => {
-      const { error } = await supabase
+      const { error, status } = await supabase
         .from('push_notification_marks')
         .upsert(
           { user_id: userId, balance_reminder_notified_for: scheduledFor.toISOString() },
           { onConflict: 'user_id' }
         );
-      if (error) throw new Error(`Failed to record the reminder push: ${error.message}`);
+      if (error) throw new Error(`Failed to record the reminder push: ${describeSupabaseFailure(error, status)}`);
     }
   };
 };

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { describeSupabaseFailure } from './supabase-failure.js';
 import {
   apnsConfig,
   sendApnsAlert,
@@ -119,28 +120,28 @@ export const pushDeps = (supabase: SupabaseClient): PushDeps | null => {
   if (!config) return null;
   return {
     listEnabledDevices: async (userId) => {
-      const { data, error } = await supabase
+      const { data, error, status } = await supabase
         .from('push_devices')
         .select('id, token, apns_environment')
         .eq('user_id', userId)
         .is('disabled_at', null);
-      if (error) throw new Error(`Failed to list push devices: ${error.message}`);
+      if (error) throw new Error(`Failed to list push devices: ${describeSupabaseFailure(error, status)}`);
       return (data ?? []) as PushDeviceRow[];
     },
     send: (device, environment, note) => sendApnsAlert(config, environment, device.token, note),
     retireDevice: async (deviceId, reason) => {
-      const { error } = await supabase
+      const { error, status } = await supabase
         .from('push_devices')
         .update({ disabled_at: new Date().toISOString(), disabled_reason: reason.slice(0, 200) })
         .eq('id', deviceId);
-      if (error) throw new Error(`Failed to retire push device: ${error.message}`);
+      if (error) throw new Error(`Failed to retire push device: ${describeSupabaseFailure(error, status)}`);
     },
     rememberEnvironment: async (deviceId, environment) => {
-      const { error } = await supabase
+      const { error, status } = await supabase
         .from('push_devices')
         .update({ apns_environment: environment })
         .eq('id', deviceId);
-      if (error) throw new Error(`Failed to record push environment: ${error.message}`);
+      if (error) throw new Error(`Failed to record push environment: ${describeSupabaseFailure(error, status)}`);
     }
   };
 };
@@ -156,11 +157,11 @@ export const loadPreferenceValues = async (
 ): Promise<Map<string, Record<string, string>>> => {
   const values = new Map<string, Record<string, string>>();
   if (userIds.length === 0) return values;
-  const { data, error } = await supabase
+  const { data, error, status } = await supabase
     .from('user_preferences')
     .select('user_id, prefs')
     .in('user_id', [...userIds]);
-  if (error) throw new Error(`Failed to load preferences: ${error.message}`);
+  if (error) throw new Error(`Failed to load preferences: ${describeSupabaseFailure(error, status)}`);
   for (const row of (data ?? []) as Array<{ user_id: string; prefs: unknown }>) {
     values.set(row.user_id, parsePreferencesDocument(row.prefs).values);
   }
@@ -169,10 +170,10 @@ export const loadPreferenceValues = async (
 
 /** Every user with at least one phone still listening. */
 export const usersWithEnabledDevices = async (supabase: SupabaseClient): Promise<string[]> => {
-  const { data, error } = await supabase
+  const { data, error, status } = await supabase
     .from('push_devices')
     .select('user_id')
     .is('disabled_at', null);
-  if (error) throw new Error(`Failed to list push users: ${error.message}`);
+  if (error) throw new Error(`Failed to list push users: ${describeSupabaseFailure(error, status)}`);
   return [...new Set(((data ?? []) as Array<{ user_id: string }>).map((row) => row.user_id))];
 };
