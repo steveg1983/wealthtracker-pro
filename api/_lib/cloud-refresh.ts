@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { describeSupabaseFailure } from './supabase-failure.js';
 import type { SyncAccountsResponse, SyncTransactionsResponse } from '../../src/types/banking-api.js';
 import { getUserBankConnection, type BankConnectionRow } from './banking-sync.js';
 import { runAccountSync } from './sync-accounts-core.js';
@@ -237,22 +238,22 @@ const refreshOne = async (deps: CloudRefreshDeps, due: DueConnection): Promise<C
 export const cloudRefreshDeps = (supabase: SupabaseClient): CloudRefreshDeps => ({
   now: () => new Date(),
   listDue: async (notSince, limit) => {
-    const { data, error } = await supabase.rpc('cloud_refresh_due_connections', {
+    const { data, error, status } = await supabase.rpc('cloud_refresh_due_connections', {
       p_not_since: notSince.toISOString(),
       p_limit: limit
     });
     if (error) {
-      throw new Error(`Failed to list due connections: ${error.message}`);
+      throw new Error(`Failed to list due connections: ${describeSupabaseFailure(error, status)}`);
     }
     return (data ?? []) as DueConnection[];
   },
   stampAttempt: async (connectionId, at) => {
-    const { error } = await supabase
+    const { error, status } = await supabase
       .from('bank_connections')
       .update({ cloud_refresh_attempted_at: at.toISOString() })
       .eq('id', connectionId);
     if (error) {
-      throw new Error(`Failed to stamp the refresh attempt: ${error.message}`);
+      throw new Error(`Failed to stamp the refresh attempt: ${describeSupabaseFailure(error, status)}`);
     }
   },
   loadConnection: (userId, connectionId) => getUserBankConnection(supabase, userId, connectionId),
