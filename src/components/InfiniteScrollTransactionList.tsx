@@ -83,6 +83,14 @@ interface InfiniteScrollTransactionListProps {
   onEdit: (transaction: Transaction) => void;
   onDelete: (id: string) => void;
   onView: (transaction: Transaction) => void;
+  /**
+   * The row being edited IN PLACE, and what to draw there. The register
+   * hands these across so a phone card can become the editor where it
+   * stands (MobileQuickEditCard) instead of opening the modal; every other
+   * card is drawn as before. Absent, nothing changes.
+   */
+  editingId?: string | null;
+  renderEditor?: (transaction: Transaction) => React.ReactNode;
   selectedTransactions?: Set<string>;
   onSelectionChange?: (selected: Set<string>) => void;
   isLoading?: boolean;
@@ -156,6 +164,8 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
   onEdit,
   onDelete,
   onView,
+  editingId = null,
+  renderEditor,
   selectedTransactions,
   onSelectionChange,
   isLoading = false,
@@ -584,6 +594,13 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
       {/* Transaction list */}
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
         {visibleTransactions.map((transaction) => {
+          if (renderEditor && editingId === transaction.id) {
+            return (
+              <div key={transaction.id} data-testid="register-phone-editor">
+                {renderEditor(transaction)}
+              </div>
+            );
+          }
           const account = namesTheAccount ? accountById.get(transaction.accountId) : undefined;
           const isSelected = selectedTransactions?.has(transaction.id) || false;
           // An id that resolves to nothing reads as nothing — the labeller's
