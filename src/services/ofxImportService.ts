@@ -76,6 +76,23 @@ interface OFXParseResult {
   unreadableRows: number;
 }
 
+/**
+ * Does a statement line's MEMO say anything its NAME does not?
+ *
+ * Kept: a reference ("83 SAG BP", "Loan BP", "S GREEN CR"), a place
+ * ("Caterham )))"), a card channel with a place ("PLYMOUTH VIS"). Dropped: the
+ * memo repeating the payee, and a bare transaction-type code on its own —
+ * "DD", "CR", "BP", "VIS", "ATM", "SO", "TFR" — which the row's type already
+ * says and which would otherwise put the same two letters in a thousand notes.
+ */
+export const memoWorthKeeping = (memo: string | undefined, name: string): boolean => {
+  if (!memo) return false;
+  const trimmed = memo.trim();
+  if (trimmed === '') return false;
+  if (trimmed.toLowerCase() === name.trim().toLowerCase()) return false;
+  return !/^[A-Za-z]{2,4}$/.test(trimmed);
+};
+
 export class OFXImportService {
   /**
    * Parse OFX file content
@@ -204,11 +221,13 @@ export class OFXImportService {
       
       const fitId = this.readTag(transBlock, 'FITID');
       
-      const name = this.readTag(transBlock, 'NAME') || 
-                  'Unknown';
-      
       const memo = this.readTag(transBlock, 'MEMO');
-      
+
+      // NAME is the payee — what a bank statement prints in its description
+      // column. A file with no NAME at all falls back to the memo, then to
+      // "Unknown", so a row is never described as nothing.
+      const name = this.readTag(transBlock, 'NAME') || memo || 'Unknown';
+
       const checkNum = this.readTag(transBlock, 'CHECKNUM');
       
       const refNum = this.readTag(transBlock, 'REFNUM');
@@ -538,12 +557,25 @@ export class OFXImportService {
       const amount = ofxTrx.amount;
       const type = this.getTransactionType(ofxTrx.type, ofxTrx.amount);
 
-      // Build description
-      const description = ofxTrx.memo || ofxTrx.name;
+      // THE PAYEE IS THE DESCRIPTION. This read `memo || name`, which is
+      // backwards for every UK bank that fills both: HSBC's NAME is the
+      // payee ("PAYPAL PAYMENT", "PIZZA FEDERICCI") and its MEMO is the
+      // channel or the place ("DD", "SEVENOAKS )))"), so the register showed
+      // a column of "DD"s where the statement showed names (owner, 29 Sep
+      // 2026). The memo goes to notes when it says something the payee does
+      // not — a reference like "83 SAG BP" — and is dropped when it is a bare
+      // type code the description would only be muddied by.
+      const description = ofxTrx.name;
 
-      // Add notes with OFX metadata
+      // No FITID line. It lived here from before `import_source_id` existed,
+      // because notes was the only place a running app could read it back
+      // from; the bank's id now rides in `import_source_id` (fitid:…) and the
+      // import RPC refuses a repeat by it, so the note was doing nothing but
+      // filling the notes column with a 31-digit number (owner, 29 Sep 2026).
+      // readFitId in utils/statementDuplicates still reads the OLD notes, so
+      // rows written before this keep their certainty.
       const notes = [
-        `FITID: ${ofxTrx.fitId}`,
+        memoWorthKeeping(ofxTrx.memo, ofxTrx.name) ? ofxTrx.memo : null,
         ofxTrx.checkNum ? `Check #: ${ofxTrx.checkNum}` : null,
         ofxTrx.refNum ? `Ref: ${ofxTrx.refNum}` : null
       ].filter(Boolean).join('\n');

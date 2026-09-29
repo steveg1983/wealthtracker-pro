@@ -573,12 +573,16 @@ export function QuickEditRowProvider({
           date: parsedDate,
           description: description.trim(),
           notes,
-          // Reviewed, even though the transfer half of this save has not
-          // happened yet: this write COMMITTED the user's field edits, and it
-          // was a save button that made it. Cancelling the transfer prompt
-          // leaves those edits in place, so leaving the row bold afterwards
-          // would call an edit the user made and kept "not looked at".
-          needsReview: false,
+          // NOT reviewed yet. This used to write `needsReview: false` here,
+          // before the transfer half had happened, and in a "To Review"
+          // register that was fatal: the row left the filtered list the moment
+          // the flag dropped, the editor's target became null, its reset wiped
+          // this very prompt, and the link/create verbs never ran — the row
+          // kept its suggested category and the owner found it there a day
+          // later (Coutts sweeps, 28 Sep 2026: every audit entry shows one
+          // save of notes + needs_review and nothing else). Review ends in
+          // completeTransfer, after the other side is written; a cancelled
+          // prompt leaves the row in review, because the filing did not happen.
         });
         advanceAfterTransferRef.current = advance;
         setTransferPrompt({
@@ -858,6 +862,12 @@ export function QuickEditRowProvider({
     setSavingAction(advanceAfterTransferRef.current ? 'next' : 'save');
     try {
       await action();
+      // FILING ENDS REVIEW — after the verb, never before it (see save). The
+      // transfer verbs write the link and the category and leave the flag
+      // alone, exactly as the bulk sweep found on 11 Sep (#569).
+      if (transaction) {
+        await updateTransaction(transaction.id, { needsReview: false });
+      }
       showSuccess(successMessage);
       setTransferPrompt(null);
       // THE CATEGORY DIES HERE, and only here. The row is a transfer now; its
@@ -874,7 +884,7 @@ export function QuickEditRowProvider({
     } finally {
       setSavingAction(null);
     }
-  }, [finishSave, showSuccess, showError]);
+  }, [transaction, updateTransaction, finishSave, showSuccess, showError]);
 
   const linkTransfer = useCallback((candidateId: string): void => {
     if (!transaction || !transferPrompt) return;
@@ -953,8 +963,10 @@ export function QuickEditRowProvider({
     setTransferPrompt(null);
     advanceAfterTransferRef.current = false;
     // The field edits were committed by the save that opened this; only the
-    // transfer half is abandoned. The toggle stays as the user left it so the
-    // account can be corrected and saved again.
+    // transfer half is abandoned, and with it the review: the row still
+    // carries whatever it carried before (a suggestion, or nothing), so it
+    // stays in the list until it is actually filed. The toggle stays as the
+    // user left it so the account can be corrected and saved again.
     restoreFocusRef.current = true;
     focusRunButton();
   }, [focusRunButton]);

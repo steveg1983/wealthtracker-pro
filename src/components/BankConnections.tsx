@@ -35,6 +35,13 @@ interface BankConnectionsProps {
   defaultOpsAuditDateRangePreset?: BankingAuditDateRangePreset;
 }
 
+/** The catch-up window's first day, YYYY-MM-DD: thirty days ago, today's clock. */
+const thirtyDaysAgoIso = (): string => {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 30);
+  return d.toISOString().slice(0, 10);
+};
+
 export default function BankConnections({
   onAccountsLinked,
   defaultOpsOnlyAboveThreshold = false,
@@ -241,11 +248,17 @@ export default function BankConnections({
     }
   };
 
-  const handleSync = async (connectionId: string) => {
+  /**
+   * @param startDate — a catch-up: re-read from this day rather than the
+   *   routine window (the last successful read, less a week). Offered as
+   *   "Re-read 30 days" beside Sync now, for the week away that the window
+   *   cannot reach back to on its own.
+   */
+  const handleSync = async (connectionId: string, startDate?: string) => {
     setSyncingConnections(prev => new Set(prev).add(connectionId));
-    
+
     try {
-      const result = await bankConnectionService.syncConnection(connectionId);
+      const result = await bankConnectionService.syncConnection(connectionId, startDate ? { startDate } : {});
 
       if (result.success) {
         setNotice(null);
@@ -540,12 +553,20 @@ export default function BankConnections({
                     className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
                     title="Sync now"
                   >
-                    <RefreshCwIcon 
-                      size={20} 
+                    <RefreshCwIcon
+                      size={20}
                       className={syncingConnections.has(connection.id) ? 'animate-spin' : ''}
                     />
                   </button>
-                  {connection.status === 'reauth_required' && (
+                  <button
+                    onClick={() => handleSync(connection.id, thirtyDaysAgoIso())}
+                    disabled={syncingConnections.has(connection.id) || connection.status === 'reauth_required'}
+                    className="px-2 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
+                    title="Re-read the last 30 days — for a gap the routine sync cannot reach back to"
+                  >
+                    Re-read 30 days
+                  </button>
+{connection.status === 'reauth_required' && (
                     <button
                       onClick={() => handleReauthorize(connection.id)}
                       disabled={isLoading}

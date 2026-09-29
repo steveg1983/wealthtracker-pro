@@ -700,7 +700,13 @@ export class BankConnectionService {
     return this.connections.find((connection) => connection.id === response.connectionId) ?? null;
   }
 
-  async syncConnection(connectionId: string): Promise<SyncResult> {
+  /**
+   * @param options.startDate — read from this day (YYYY-MM-DD) instead of the
+   *   routine window. The "re-read the last 30 days" catch-up: a user who was
+   *   away longer than the window reaches, or who suspects a gap, names the
+   *   range and the server honours it (an explicit start always wins there).
+   */
+  async syncConnection(connectionId: string, options: { startDate?: string } = {}): Promise<SyncResult> {
     try {
       const accountsResponse = await this.request<SyncAccountsResponse>('/api/banking/sync-accounts', {
         method: 'POST',
@@ -709,7 +715,7 @@ export class BankConnectionService {
 
       const transactionsResponse = await this.request<SyncTransactionsResponse>('/api/banking/sync-transactions', {
         method: 'POST',
-        body: JSON.stringify({ connectionId })
+        body: JSON.stringify(options.startDate ? { connectionId, startDate: options.startDate } : { connectionId })
       });
 
       await this.refreshConnections();

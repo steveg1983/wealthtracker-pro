@@ -20,6 +20,7 @@ import { resolveImportedRowAdoption } from '../../src/services/banking/importedR
 import { partitionOfferedRows } from '../../src/services/banking/ownerDeletions.js';
 import { applyFeedRules } from '../../src/services/banking/feedRules.js';
 import { stampBackfillDecision } from '../../src/services/banking/backfillStamp.js';
+import { lastSuccessfulTransactionSyncAt } from './sync-window-anchor.js';
 import { syncWindowStart } from '../../src/services/banking/syncWindow.js';
 
 /**
@@ -159,7 +160,11 @@ export const runTransactionSync = async (
   connection: BankConnectionRow,
   body: TransactionSyncOptions
 ): Promise<SyncTransactionsResponse> => {
-  const dateRange = getDateRange(body, connection.last_sync);
+  // Anchored on the last successful TRANSACTIONS read, not on `last_sync`,
+  // which the account sync seconds earlier has just stamped — see
+  // sync-window-anchor.ts for the fortnight that went missing because of it.
+  const anchor = (await lastSuccessfulTransactionSyncAt(supabase, connection.id)) ?? connection.last_sync;
+  const dateRange = getDateRange(body, anchor);
 
   const linkedAccountsResult = await supabase
     .from('linked_accounts')
