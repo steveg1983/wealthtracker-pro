@@ -38,17 +38,33 @@ const mobileNavItems: MobileNavItem[] = [
   { to: '/accounts', icon: WalletIcon, label: 'Accounts' },
   { to: '/find', icon: SearchIcon, label: 'Find' },
   { to: '/reconciliation', icon: CheckCircleIcon, label: 'Reconcile' },
-  { to: '/categorisation', icon: TagIcon, label: 'Categorise' },
+  // The review ROUND, not Manage → Categorisation: the owner pressed this
+  // expecting the To Review flow and landed on category admin (29 Sep 2026).
+  // ?focus=review is consumed by the Accounts page, which then walks the
+  // accounts that still have rows to review (see Accounts.tsx, ARRIVING BACK).
+  { to: '/accounts?focus=review', icon: TagIcon, label: 'Categorise' },
 ];
 
 export default function MobileBottomNav(): React.JSX.Element {
   const location = useLocation();
   const [showQuickActions, setShowQuickActions] = useState(false);
 
-  const isActive = (path: string): boolean => {
-    if (path === '/') return location.pathname === '/';
-    return location.pathname.startsWith(path);
+  // WHICH SLOT IS CURRENT. A destination may carry a query ("/accounts
+  // ?focus=review" is the review round, a mode of the Accounts page), and
+  // then it is current only while that query is in the address — and it
+  // outranks the plain Accounts slot, so one tab lights, not two. Once the
+  // Accounts page has consumed the param the address is plain /accounts and
+  // Accounts is the current slot again, which is what the screen then is.
+  const matches = (to: string): boolean => {
+    const [pathname, search = ''] = to.split('?');
+    if (pathname === '/') return location.pathname === '/';
+    if (!location.pathname.startsWith(pathname)) return false;
+    return search === '' || location.search.includes(search);
   };
+  const currentTo =
+    mobileNavItems.find(item => item.to.includes('?') && matches(item.to))?.to ??
+    mobileNavItems.find(item => matches(item.to))?.to ?? null;
+  const isActive = (to: string): boolean => to === currentTo;
 
   return (
     <>

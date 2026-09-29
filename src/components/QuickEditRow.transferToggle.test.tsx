@@ -226,7 +226,11 @@ describe('The register row editor — the inline Transfer toggle', () => {
       // The category is not written: this row is becoming a transfer, and its
       // category will be the account it faces.
       expect(updates).not.toHaveProperty('category');
-      expect(updates).toMatchObject({ needsReview: false });
+      // Nor the review flag: ending review here dropped the row out of a "To
+      // Review" register before the hand-over could be answered, and the
+      // prompt died with it (owner's Coutts sweeps, 28 Sep 2026). Review ends
+      // once the other side is written — see the transfer flow's own specs.
+      expect(updates).not.toHaveProperty('needsReview');
     });
 
     it('creates the other side when the answer is given', async () => {

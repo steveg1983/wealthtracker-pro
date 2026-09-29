@@ -46,18 +46,29 @@ describe('MobileBottomNav', () => {
     expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/dashboard');
   });
 
-  it('points the two cleanup chores at their own pages', () => {
+  it('points the two cleanup chores at the work, not at admin', () => {
     renderAt('/dashboard');
-
     expect(screen.getByRole('link', { name: 'Reconcile' })).toHaveAttribute('href', '/reconciliation');
-    expect(screen.getByRole('link', { name: 'Categorise' })).toHaveAttribute('href', '/categorisation');
+    // The review ROUND — the Accounts page walking every account with rows
+    // to review — not Manage → Categorisation, which is category admin. The
+    // owner pressed this expecting the To Review flow (29 Sep 2026).
+    expect(screen.getByRole('link', { name: 'Categorise' })).toHaveAttribute('href', '/accounts?focus=review');
   });
 
   it('marks only the current destination as the current page', () => {
-    renderAt('/categorisation');
-
+    renderAt('/accounts?focus=review');
     expect(screen.getByRole('link', { name: 'Categorise' })).toHaveAttribute('aria-current', 'page');
+    // The round is a mode of the Accounts page, and while its query is in
+    // the address the Categorise slot outranks the plain Accounts slot —
+    // one tab lights, not two.
+    expect(screen.getByRole('link', { name: 'Accounts' })).not.toHaveAttribute('aria-current');
     expect(screen.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current');
+  });
+
+  it("hands the current mark back to Accounts once the round's query is consumed", () => {
+    renderAt('/accounts');
+    expect(screen.getByRole('link', { name: 'Accounts' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Categorise' })).not.toHaveAttribute('aria-current');
   });
 
   it('does not treat the dashboard as current while reconciling', () => {

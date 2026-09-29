@@ -161,10 +161,15 @@ describe('The register row editor — transfer flow', () => {
     expect(
       screen.getByRole('button', { name: 'Link' }).title
     ).toContain('FASTER PAYMENT RECEIVED');
-    // The field edits were saved WITHOUT the category
+    // The field edits were saved WITHOUT the category…
     expect(mocks.updateTransaction).toHaveBeenCalledTimes(1);
     const updates = mocks.updateTransaction.mock.calls[0][1] as Record<string, unknown>;
     expect(updates).not.toHaveProperty('category');
+    // …and WITHOUT ending the review. In a "To Review" register a row whose
+    // flag drops leaves the list at once, the editor's target goes null and
+    // this very dialog is reset — the verbs never ran and the row kept its
+    // suggested category (the owner's Coutts sweeps, 28 Sep 2026).
+    expect(updates).not.toHaveProperty('needsReview');
   });
 
   it('links the pair when confirmed', async () => {
@@ -176,6 +181,14 @@ describe('The register row editor — transfer flow', () => {
     });
     expect(mocks.createTransferCounterpart).not.toHaveBeenCalled();
     expect(mocks.showSuccess).toHaveBeenCalled();
+    // FILING ENDS REVIEW — after the verb. The link wrote the pair; only now
+    // is the row something the user has dealt with.
+    await waitFor(() => {
+      expect(mocks.updateTransaction).toHaveBeenLastCalledWith('src', { needsReview: false });
+    });
+    const linkedAt = mocks.linkTransferPair.mock.invocationCallOrder[0];
+    const reviewedAt = mocks.updateTransaction.mock.invocationCallOrder.at(-1) ?? 0;
+    expect(reviewedAt).toBeGreaterThan(linkedAt);
   });
 
   it('creates the counterpart when the user chooses to', async () => {
@@ -186,6 +199,9 @@ describe('The register row editor — transfer flow', () => {
       expect(mocks.createTransferCounterpart).toHaveBeenCalledWith('src', 'acc-b');
     });
     expect(mocks.linkTransferPair).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mocks.updateTransaction).toHaveBeenLastCalledWith('src', { needsReview: false });
+    });
   });
 
   it("is not even offered the source account's own To/From category", () => {
@@ -232,5 +248,9 @@ describe('The register row editor — transfer flow', () => {
     ).not.toBeInTheDocument();
     expect(mocks.linkTransferPair).not.toHaveBeenCalled();
     expect(mocks.createTransferCounterpart).not.toHaveBeenCalled();
+    // …and the row stays in review: nothing was filed, so there is nothing
+    // to call "dealt with". Only the field save happened.
+    expect(mocks.updateTransaction).toHaveBeenCalledTimes(1);
+    expect(mocks.updateTransaction.mock.calls[0][1]).not.toHaveProperty('needsReview');
   });
 });

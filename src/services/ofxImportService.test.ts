@@ -599,10 +599,12 @@ NEWFILEUID:NONE
       
       const [trx1, trx2, trx3] = result.transactions;
       
-      // Check first transaction (signed convention: expense stored negative)
+      // Check first transaction (signed convention: expense stored negative).
+      // Called by its payee (NAME); the memo is a note — see the description
+      // spec below for the HSBC statement that settled which is which.
       expect(trx1).toMatchObject({
         date: expect.any(Date),
-        description: 'Grocery shopping',
+        description: 'TESCO STORES',
         amount: -25.50,
         type: 'expense',
         accountId: 'acc1',
@@ -612,12 +614,14 @@ NEWFILEUID:NONE
         cleared: false
       });
       expectDateOnly(trx1.date, '2024-01-15');
-      expect(trx1.notes).toContain('FITID: 2024011501');
+      // The memo, and only the memo: no FITID line (the bank's id rides in
+      // import_source_id and the import RPC refuses a repeat by it).
+      expect(trx1.notes).toBe('Grocery shopping');
 
       // Check second transaction
       expect(trx2).toMatchObject({
         date: expect.any(Date),
-        description: 'Salary',
+        description: 'EMPLOYER PAYMENT',
         amount: 2500,
         type: 'income',
         accountId: 'acc1',
@@ -635,7 +639,7 @@ NEWFILEUID:NONE
         cleared: false
       });
       expectDateOnly(trx3.date, '2024-01-10');
-      expect(trx3.notes).toContain('Check #: 1234');
+      expect(trx3.notes).toBe('Check #: 1234');
     });
 
     it('uses specified account ID', async () => {
@@ -720,10 +724,10 @@ NEWFILEUID:NONE
       (smartCategorizationService.learnFromTransactions as any).mockImplementation(() => {});
       (smartCategorizationService.suggestCategories as any).mockImplementation((transaction: any) => {
         // Check the description field of the transaction
-        if (transaction.description?.includes('Grocery')) {
+        if (transaction.description?.includes('TESCO')) {
           return [{ categoryId: 'food', confidence: 0.8, reason: 'Merchant match' }];
         }
-        if (transaction.description?.includes('Salary')) {
+        if (transaction.description?.includes('EMPLOYER')) {
           return [{ categoryId: 'salary', confidence: 0.9, reason: 'Keyword match' }];
         }
         return [];
@@ -758,7 +762,7 @@ NEWFILEUID:NONE
     it('marks an auto-categorized row as SUGGESTED, not as the user\'s choice', async () => {
       vi.mocked(smartCategorizationService.learnFromTransactions).mockImplementation(() => {});
       vi.mocked(smartCategorizationService.suggestCategories).mockImplementation(transaction =>
-        transaction.description?.includes('Grocery')
+        transaction.description?.includes('TESCO')
           ? [{ categoryId: 'food', confidence: 0.8, reason: 'Merchant match' }]
           : []
       );
@@ -840,16 +844,21 @@ NEWFILEUID:NONE
       expect(result.transactions.every(t => t.accountId === 'default')).toBe(true);
     });
 
-    it('uses description from memo when available', async () => {
+    it('calls a row by its payee (NAME), and keeps an informative memo as a note', async () => {
+      // This used to pin `memo || name`. On the owner's HSBC statement (29 Sep
+      // 2026) NAME is the payee ("PAYPAL PAYMENT") and MEMO the channel
+      // ("DD"), so the register showed a column of "DD"s where the bank's own
+      // statement showed names. The payee is the description; the memo is a
+      // note when it says something the payee does not.
       const result = await ofxImportService.importTransactions(
         validOFXContent,
         mockAccounts,
         []
       );
 
-      // First transaction has memo
-      expect(result.transactions[0].description).toBe('Grocery shopping');
-      // Third transaction has no memo, uses name
+      expect(result.transactions[0].description).toBe('TESCO STORES');
+      expect(result.transactions[0].notes).toBe('Grocery shopping');
+      // No memo: the name alone, and nothing invented for the notes.
       expect(result.transactions[2].description).toBe('Check #1234');
     });
 
