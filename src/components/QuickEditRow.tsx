@@ -1099,6 +1099,21 @@ function QuickEditCellShell({
  * The Date, Description or Category cell of the row being edited — the control
  * in the place the value was being read, under its own column header.
  */
+/**
+ * Every field the provider offers, in its order, each handed to `children` to
+ * draw. For a layout that is not the register's row — the phone card stacks
+ * them under captions — without exporting the context hook itself (a hook
+ * export would break fast refresh for the whole file).
+ */
+export function QuickEditFieldList({
+  children,
+}: {
+  children: (field: QuickEditField) => React.ReactNode;
+}): React.JSX.Element {
+  const { fields } = useQuickEditRow();
+  return <>{fields.map((field) => <React.Fragment key={field}>{children(field)}</React.Fragment>)}</>;
+}
+
 export function QuickEditFieldCell({ field }: { field: QuickEditField }): React.JSX.Element {
   const {
     transaction, date, setDate, description, setDescription, notes, setNotes,
@@ -1311,7 +1326,14 @@ export function QuickEditFieldCell({ field }: { field: QuickEditField }): React.
  * the rest of the strip, so ending a run on one row is Enter, →, Enter. See
  * moveAlongStrip.
  */
-export function QuickEditActionStrip(): React.JSX.Element {
+/**
+ * @param layout — 'row' (default) is the strip as the register draws it, the
+ *   bottom half of the highlighted row's card. 'card' is the same strip inside
+ *   MobileQuickEditCard: its own rounded border, buttons free to wrap on a
+ *   375px screen, and no keyboard rhythm to explain because a phone has no
+ *   Enter key to explain it to.
+ */
+export function QuickEditActionStrip({ layout = 'row' }: { layout?: 'row' | 'card' } = {}): React.JSX.Element {
   const {
     showingSuggestion, savingAction, hasNext, saveButtonRef, saveAndNextButtonRef,
     handleKeyDown, requestSave, confirmSuggestion, dismiss,
@@ -1424,7 +1446,9 @@ export function QuickEditActionStrip(): React.JSX.Element {
         if (moveAlongStrip(e)) return;
         handleKeyDown(e);
       }}
-      className="relative z-20 -mt-1 h-full flex items-center justify-between gap-3 px-3 rounded-b-xl border-x border-b border-[#6B86B3]/60 bg-navy-400/10 dark:bg-navy-400/25 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.12)]"
+      className={layout === 'card'
+        ? 'relative z-20 flex flex-wrap items-center justify-end gap-2 px-3 py-2 rounded-xl border border-[#6B86B3]/60 bg-white/70 dark:bg-gray-800/70'
+        : 'relative z-20 -mt-1 h-full flex items-center justify-between gap-3 px-3 rounded-b-xl border-x border-b border-[#6B86B3]/60 bg-navy-400/10 dark:bg-navy-400/25 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.12)]'}
     >
       {transferPrompt ? (
         /* The whole strip becomes the question, so nothing is competing with
@@ -1434,7 +1458,9 @@ export function QuickEditActionStrip(): React.JSX.Element {
            anything on screen having moved. */
         <>
           <span
-            className="min-w-0 truncate text-[11px] font-normal text-gray-700 dark:text-gray-300"
+            className={layout === 'card'
+              ? 'basis-full text-xs font-normal text-gray-700 dark:text-gray-300'
+              : 'min-w-0 truncate text-[11px] font-normal text-gray-700 dark:text-gray-300'}
             aria-live="polite"
           >
             {transferPrompt.candidates.length === 0
@@ -1503,11 +1529,13 @@ export function QuickEditActionStrip(): React.JSX.Element {
           It changes on the last row because there is nothing to move on to
           there, and a hint that promises a move that cannot happen is worse
           than no hint at all. */}
-      <span className="min-w-0 truncate text-[11px] font-normal text-gray-500 dark:text-gray-400">
-        {hasNext
-          ? 'Enter accepts · Enter again saves & moves on · Esc closes'
-          : 'Enter accepts · Enter again saves · Esc closes'}
-      </span>
+      {layout === 'row' && (
+        <span className="min-w-0 truncate text-[11px] font-normal text-gray-500 dark:text-gray-400">
+          {hasNext
+            ? 'Enter accepts · Enter again saves & moves on · Esc closes'
+            : 'Enter accepts · Enter again saves · Esc closes'}
+        </span>
+      )}
 
       <div className="flex shrink-0 items-center gap-2">
         {/* The guess, and the one click that agrees with it. The badge says in

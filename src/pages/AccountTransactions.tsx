@@ -38,6 +38,8 @@ import { usePreferences } from '../contexts/PreferencesContext';
 import { useToast } from '../contexts/ToastContext';
 import { VirtualizedTable, type Column, type RowDetail } from '../components/VirtualizedTable';
 import { InfiniteScrollTransactionList } from '../components/InfiniteScrollTransactionList';
+import MobileQuickEditCard from '../components/MobileQuickEditCard';
+import { useIsMobileViewport } from '../hooks/useMediaQuery';
 import { TableSkeleton } from '../components/loading/TableSkeleton';
 import { useDelayedFlag } from '../hooks/useDelayedFlag';
 import EmptyState from '../components/EmptyState';
@@ -2026,6 +2028,22 @@ export default function AccountTransactions() {
     return (landOn: QuickEditFocusRequest): void => { handleQuickEditNext(currentId, landOn); };
   }, [quickEditRow, getNextTransactionId, handleQuickEditNext]);
 
+  // THE PHONE'S OWN "NEXT". Its list is drawn in `phoneListRows` order, which
+  // reverses the register's default (newest at the top), so Save & Next on a
+  // phone has to walk the order the person is looking at, not the table's.
+  const isPhoneLayout = useIsMobileViewport();
+  const phoneQuickEditNext = useMemo<((landOn: QuickEditFocusRequest) => void) | undefined>(() => {
+    if (!quickEditRow) return undefined;
+    const index = phoneListRows.findIndex(row => row.id === quickEditRow.id);
+    if (index === -1 || index + 1 >= phoneListRows.length) return undefined;
+    const nextId = phoneListRows[index + 1].id;
+    return (landOn: QuickEditFocusRequest): void => {
+      setSelectedTransactionId(nextId);
+      setSelectedTransaction(transactionsWithBalance.find(t => t.id === nextId) ?? null);
+      setQuickEditFocus(landOn);
+    };
+  }, [quickEditRow, phoneListRows, transactionsWithBalance]);
+
   /**
    * Keys the register claims while the table has focus.
    *
@@ -3003,6 +3021,13 @@ export default function AccountTransactions() {
       return field !== 'category' || canEditCategoryInPlace;
     });
   }, [columns, canEditCategoryInPlace]);
+  // A phone card has no column choices to honour: every field, every time.
+  const phoneQuickEditFields = useMemo<QuickEditField[]>(
+    () => (['date', 'description', 'category', 'notes'] as const).filter(
+      field => field !== 'category' || canEditCategoryInPlace
+    ),
+    [canEditCategoryInPlace]
+  );
 
   /**
    * The row editor, as the register draws it: the row's own Date, Description
@@ -3013,7 +3038,12 @@ export default function AccountTransactions() {
    * without the eye ever leaving the line being edited.
    */
   const quickEditRowDetail = useMemo<RowDetail<DisplayRow> | null>(() => {
-    if (!quickEditRow) return null;
+    // ONE editor on screen at a time. Both layouts are always in the DOM and
+    // CSS chooses which is seen, so on a phone the table's editor cells must
+    // not mount underneath the card's — the field refs would land on the
+    // hidden copy and the cursor with them. The phone list gates its card the
+    // same way, on the same flag.
+    if (!quickEditRow || isPhoneLayout) return null;
     const editableFields = new Set(quickEditFields);
     return {
       key: quickEditRow.id,
@@ -3028,7 +3058,7 @@ export default function AccountTransactions() {
       },
       render: () => <QuickEditActionStrip />,
     };
-  }, [quickEditRow, quickEditFields]);
+  }, [quickEditRow, quickEditFields, isPhoneLayout]);
 
   if (!account) {
     // Still finding out which of the three it is — the open list may not have
@@ -3727,6 +3757,25 @@ export default function AccountTransactions() {
           they shrink into each other and the headers paint on top of one
           another. A register is also read differently on a phone: tap a row to
           see or change everything. */}
+      {/* The row editor's state, the keys it answers to and the writes it makes
+          — held ABOVE the table so that typing a description re-renders three
+          cells and a strip rather than eleven thousand rows, and mounted
+          ALWAYS, editor or no editor, because a wrapper that comes and goes
+          changes the shape of the tree beneath it and this register has already
+          been through what that does to a virtualised list.
+
+          It wraps the PHONE list too (29 Sep 2026): a tapped card becomes this
+          same editor, stacked (MobileQuickEditCard), so the two layouts share
+          one editor state and one set of writes. Which "next" and which fields
+          are handed over depends on which layout is on screen. */}
+      <QuickEditRowProvider
+        transaction={quickEditRow}
+        fields={isPhoneLayout ? phoneQuickEditFields : quickEditFields}
+        onNext={isPhoneLayout ? phoneQuickEditNext : quickEditNext}
+        onDismiss={handleQuickEditDismiss}
+        focusRequest={quickEditFocus}
+        onFocusRequestHandled={handleQuickEditFocusHandled}
+      >
       <div
         // The phone's half of the register, named so a test can ask it what it
         // is showing separately from the table's. Both are in the DOM at once
@@ -3787,7 +3836,20 @@ export default function AccountTransactions() {
           isLoading={isLoading}
           formatCurrency={formatRegisterMoney}
           onEdit={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setIsEditModalOpen(true); }}
-          onView={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setIsEditModalOpen(true); }}
+          /* A TAP EDITS IN PLACE, as a click does on the desktop: the card
+             becomes the editor where it stands. The long-press and the swipe's
+             Edit (onEdit, above) still open the full modal. */
+          onView={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setQuickEditOpen(true); }}
+          editingId={isPhoneLayout ? (quickEditRow?.id ?? null) : null}
+          renderEditor={(t) => (
+            <MobileQuickEditCard
+              transaction={t}
+              onFullEditor={(row) => {
+                const withBalance = transactionsWithBalance.find(item => item.id === row.id);
+                if (withBalance) openFullEditor(withBalance);
+              }}
+            />
+          )}
           onDelete={(id) => {
             const target = transactionsWithBalance.find(t => t.id === id);
             if (target) setDeleteConfirmTransaction(target);
@@ -3812,21 +3874,7 @@ export default function AccountTransactions() {
         </p>
       )}
 
-      {/* The row editor's state, the keys it answers to and the writes it makes
-          — held ABOVE the table so that typing a description re-renders three
-          cells and a strip rather than eleven thousand rows, and mounted
-          ALWAYS, editor or no editor, because a wrapper that comes and goes
-          changes the shape of the tree beneath it and this register has already
-          been through what that does to a virtualised list. */}
-      <QuickEditRowProvider
-        transaction={quickEditRow}
-        fields={quickEditFields}
-        onNext={quickEditNext}
-        onDismiss={handleQuickEditDismiss}
-        focusRequest={quickEditFocus}
-        onFocusRequestHandled={handleQuickEditFocusHandled}
-      >
-      {/* The register is one ARIA grid, focusable as a whole and driven from
+{/* The register is one ARIA grid, focusable as a whole and driven from
           the keyboard: arrows and page keys walk the highlight, Enter opens the
           highlighted row, and aria-activedescendant tells a screen reader which
           row that is. Clicking a row focuses this wrapper (the browser focuses
