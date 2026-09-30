@@ -378,6 +378,43 @@ describe('BankConnectionService', () => {
     });
   });
 
+  it('a re-read asks for transactions only, from the day named, and never touches the account sync', async () => {
+    // "Re-read 30 days" (1 Oct 2026): a Sync All followed by a re-read on
+    // every bank tripped the account sync's per-minute limit, and the panel
+    // reported the throttle as transactions that had not come through. A
+    // catch-up is about transactions; the balances were refreshed moments
+    // before.
+    const fetchMock = createFetchMock();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true, transactionsImported: 24, duplicatesSkipped: 0 }));
+    fetchMock.mockResolvedValueOnce(jsonResponse([] satisfies ConnectionsResponse));
+    const { service } = createService(fetchMock);
+
+    const result = await service.syncTransactionsOnly('conn_123', { startDate: '2026-09-01' });
+
+    expect(result).toEqual({ success: true, accountsUpdated: 0, transactionsImported: 24, errors: [] });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/banking/sync-transactions');
+    expect(getJsonBody(fetchMock.mock.calls[0]?.[1])).toEqual({ connectionId: 'conn_123', startDate: '2026-09-01' });
+    expect(fetchMock.mock.calls.map(call => call[0])).not.toContain('/api/banking/sync-accounts');
+  });
+
+  it('a throttle comes back named, so the panel can say "too often" rather than "lost transactions"', async () => {
+    const fetchMock = createFetchMock();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ error: 'Too many requests, please try again shortly', code: 'rate_limited' }, 429)
+    );
+    const { service } = createService(fetchMock);
+
+    const result = await service.syncConnection('conn_123');
+
+    expect(result).toEqual({
+      success: false,
+      accountsUpdated: 0,
+      transactionsImported: 0,
+      errors: ['Too many requests, please try again shortly'],
+      code: 'rate_limited'
+    });
+  });
+
   it('loads ops alert stats with query filters', async () => {
     const fetchMock = createFetchMock();
     const payload: OpsAlertStatsResponse = {

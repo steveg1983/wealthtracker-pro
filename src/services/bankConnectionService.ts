@@ -53,7 +53,22 @@ export interface SyncResult {
   accountsUpdated: number;
   transactionsImported: number;
   errors: string[];
+  /**
+   * The API's own name for why it refused, when it did: 'rate_limited' is the
+   * one the connections panel tells apart, because a throttle is not a sync
+   * that lost transactions and must not be reported as one (owner, 1 Oct
+   * 2026: three "Re-read 30 days" presses after a Sync All tripped the
+   * per-minute limit and the panel said "some transactions didn't come
+   * through" over a re-read that had brought back every one of them).
+   */
+  code?: string;
 }
+
+/** The refusal code off a thrown request, if the API gave one. */
+const refusalCode = (error: unknown): string | undefined =>
+  error instanceof Error && typeof (error as Partial<BankingApiError>).code === 'string'
+    ? (error as BankingApiError).code
+    : undefined;
 
 export interface ConnectBankOptions {
   mode?: 'connect' | 'reauth';
@@ -736,11 +751,13 @@ export class BankConnectionService {
       };
     } catch (error) {
       this.logger.error('Failed to sync bank connection', error as Error);
+      const code = refusalCode(error);
       return {
         success: false,
         accountsUpdated: 0,
         transactionsImported: 0,
-        errors: [error instanceof Error ? error.message : 'Unknown sync error']
+        errors: [error instanceof Error ? error.message : 'Unknown sync error'],
+        ...(code ? { code } : {})
       };
     }
   }
@@ -790,11 +807,18 @@ export class BankConnectionService {
     });
   }
 
-  async syncTransactionsOnly(connectionId: string): Promise<SyncResult> {
+  /**
+   * @param options.startDate — read from this day (YYYY-MM-DD) instead of the
+   *   routine window. The "Re-read 30 days" catch-up comes through HERE, not
+   *   syncConnection: a catch-up is about transactions, the balances were
+   *   refreshed by the routine sync moments before, and the account sync's
+   *   own per-minute limit is what a Sync All plus three re-reads tripped.
+   */
+  async syncTransactionsOnly(connectionId: string, options: { startDate?: string } = {}): Promise<SyncResult> {
     try {
       const transactionsResponse = await this.request<SyncTransactionsResponse>('/api/banking/sync-transactions', {
         method: 'POST',
-        body: JSON.stringify({ connectionId })
+        body: JSON.stringify(options.startDate ? { connectionId, startDate: options.startDate } : { connectionId })
       });
 
       await this.refreshConnections();
@@ -807,11 +831,13 @@ export class BankConnectionService {
       };
     } catch (error) {
       this.logger.error('Failed to sync transactions', error as Error);
+      const code = refusalCode(error);
       return {
         success: false,
         accountsUpdated: 0,
         transactionsImported: 0,
-        errors: [error instanceof Error ? error.message : 'Unknown sync error']
+        errors: [error instanceof Error ? error.message : 'Unknown sync error'],
+        ...(code ? { code } : {})
       };
     }
   }

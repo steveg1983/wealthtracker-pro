@@ -20,7 +20,11 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  if (await applyRateLimit(req, res, { name: 'sync-accounts', limit: 6, windowMs: 60_000 })) {
+  // 12, not 6: a Sync All on three banks plus the sign-in refresh is six
+  // account syncs in a minute already, and the seventh was refused (1 Oct
+  // 2026). This limit guards the function, not the provider — a user
+  // pressing buttons is not the unattended access PSD2 counts.
+  if (await applyRateLimit(req, res, { name: 'sync-accounts', limit: 12, windowMs: 60_000 })) {
     return;
   }
 
