@@ -22,7 +22,9 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  if (await applyRateLimit(req, res, { name: 'sync-transactions', limit: 6, windowMs: 60_000 })) {
+  // 12, for the same reason as sync-accounts: a Sync All plus a re-read on
+  // every bank must fit inside a minute.
+  if (await applyRateLimit(req, res, { name: 'sync-transactions', limit: 12, windowMs: 60_000 })) {
     return;
   }
 

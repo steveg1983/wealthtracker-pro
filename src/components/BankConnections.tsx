@@ -258,12 +258,28 @@ export default function BankConnections({
     setSyncingConnections(prev => new Set(prev).add(connectionId));
 
     try {
-      const result = await bankConnectionService.syncConnection(connectionId, startDate ? { startDate } : {});
+      // A catch-up re-reads TRANSACTIONS only: the balances were refreshed by
+      // the routine sync moments before, and the account sync has its own
+      // per-minute limit that a Sync All followed by three re-reads tripped
+      // (1 Oct 2026) — the re-reads all succeeded and the panel said they had
+      // lost transactions.
+      const result = startDate
+        ? await bankConnectionService.syncTransactionsOnly(connectionId, { startDate })
+        : await bankConnectionService.syncConnection(connectionId);
 
       if (result.success) {
         setNotice(null);
         void loadConnections();
         onAccountsLinked?.();
+      } else if (result.code === 'rate_limited') {
+        // A throttle is not a sync that lost anything. Say so, and say what
+        // to do — which is nothing, for a minute.
+        setNotice({
+          title: 'Synced too often',
+          body:
+            'The feeds can be refreshed a few times a minute, and that was more. ' +
+            'Nothing was lost — wait a minute and try again.'
+        });
       } else {
         logger.error('Sync failed', result.errors);
         // CONSEQUENCE, THEN REMEDY — not "Transaction sync failed", which is
