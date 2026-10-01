@@ -12,18 +12,16 @@
  */
 import { execSync } from 'node:child_process';
 
-const ALLOWLIST = [
-  {
-    id: 'GHSA-qwww-vcr4-c8h2',
-    reason:
-      'React Router RSC-mode CSRF. This app is a Vite SPA using react-router-dom ' +
-      '7.18.1 purely client-side: no SSR, no React Server Components, no RSC ' +
-      'action endpoints exist to CSRF. The fixed release line (react-router 8.3+) ' +
-      'retires the react-router-dom package entirely — a deliberate migration, ' +
-      'tracked separately, not a version bump.',
-    reviewBy: '2026-10-01',
-  },
-];
+/**
+ * Shape of an entry: `{ id: 'GHSA-…', reason: 'why it cannot reach this app',
+ * reviewBy: 'YYYY-MM-DD' }`. Empty since 2 Oct 2026: the one exception
+ * (GHSA-qwww-vcr4-c8h2, React Router RSC-mode CSRF, review due 2026-10-01)
+ * was retired on its review date because the lockfile had moved to
+ * react-router 7.18.2 — the patched version — and the advisory no longer
+ * appears in the audit at all. An expired entry fails the build (below), and
+ * that is what made this one get looked at.
+ */
+const ALLOWLIST = [];
 
 const today = new Date().toISOString().slice(0, 10);
 const expired = ALLOWLIST.filter(e => e.reviewBy <= today);
