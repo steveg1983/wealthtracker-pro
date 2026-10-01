@@ -743,11 +743,23 @@ export default function CategorySelector({
                   // Filtering a list of the user's own category names.
                   spellCheck={false}
                   autoCapitalize="none"
-                  placeholder={placeholder}
+                  // THE CURRENT CATEGORY STAYS READABLE WHILE THE LIST IS OPEN.
+                  // A Save & Next run lands here with the list open and the
+                  // search empty, and an empty box said "Search or select
+                  // category…" over a row that already carried the app's
+                  // suggestion — the owner had to click out to see what he was
+                  // being asked to confirm (1 Oct 2026). So with nothing typed,
+                  // the placeholder is the selection itself, in the text
+                  // colour rather than the placeholder grey; the generic prompt
+                  // is for a row with no category at all. Typing still replaces
+                  // it, because a placeholder is not a value.
+                  placeholder={selectedCategory ? getSelectedCategoryName() : placeholder}
                   aria-autocomplete="list"
                   aria-controls={listboxId}
                   aria-activedescendant={highlightedId ? optionDomId(highlightedId) : undefined}
-                  className="w-full bg-transparent text-gray-900 dark:text-white !border-0 focus:!outline-none focus-visible:!outline-none"
+                  className={`w-full bg-transparent text-gray-900 dark:text-white !border-0 focus:!outline-none focus-visible:!outline-none ${
+                    selectedCategory ? 'placeholder:text-gray-900 dark:placeholder:text-white' : ''
+                  }`}
                   autoFocus
                 />
               ) : (

@@ -631,9 +631,12 @@ describe('Re-categorise — one row at a time', () => {
     fireEvent.keyDown(screen.getByLabelText(/^Category for Blossom Lane Market/), { key: 't' });
     expect(within(openList()).queryByRole('option', { name: 'Salary' })).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText('Choose a category…'), {
-      target: { value: 'trav' },
-    });
+    // By role, not by placeholder: an open picker's placeholder is the row's
+    // current category when it has one, and the prompt only when it does not.
+    fireEvent.change(
+      within(screen.getByLabelText(/^Category for Blossom Lane Market/)).getByRole('textbox'),
+      { target: { value: 'trav' } }
+    );
     expect(within(openList()).getAllByRole('option').map(option => option.textContent))
       .toEqual(['Travel']);
 
