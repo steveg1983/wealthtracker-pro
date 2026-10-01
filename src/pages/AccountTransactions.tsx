@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback, useId, Suspense } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 // Through `@identity`, not through Clerk. The only thing the register wanted a
 // session for is a KEY to namespace a stored setting by — see
 // src/editions/identity.ts, and the same change in ImprovedDashboard.
@@ -81,6 +81,7 @@ import {
 import PayeeAutoCompleteInput from '../components/PayeeAutoCompleteInput';
 import AddWithoutCategoryConfirm from '../components/AddWithoutCategoryConfirm';
 import { countAwaitingReview, isAwaitingReview } from '../utils/transactionReview';
+import { countUnreconciled } from '../utils/transactionReconciliation';
 import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { formatCardNumberForDisplay, isCardAccountType } from '../utils/accountNumberInput';
 import { buildAttentionItems } from '../utils/attentionItems';
@@ -1224,6 +1225,14 @@ export default function AccountTransactions() {
   // Unreconciled column answers in rows, and it has to be the same answer. A
   // marked-but-unfinalized row is still outstanding here, exactly as it is
   // there. Decimal, because this is money on screen.
+  // How many rows a reconciliation would still have to tick — the number on
+  // the "Reconcile" button that stands where To Review stood once the review
+  // is done (see the toolbar).
+  const unreconciledCount = useMemo(
+    () => (account ? countUnreconciled(accountTransactions) : 0),
+    [account, accountTransactions]
+  );
+
   const unreconciledTotal = useMemo(() => {
     if (!account) return 0;
 
@@ -3575,6 +3584,30 @@ export default function AccountTransactions() {
             an empty register behind).
 
             Beside View rather than in it: this is a job, not a preference. */}
+        {/* THE NEXT JOB, where the last one stood. With nothing left to review
+            and rows still to tick, the slot To Review occupied offers the
+            reconciliation for THIS account — straight there, not back to the
+            Accounts page and in again from its row (the owner, 2 Oct 2026:
+            "more clicks than are needed"). The same destination that row's
+            own Reconcile button reaches, carrying `from=accounts` so the
+            reconciliation's own way back works as it does from there.
+
+            Same rule as To Review: nothing at zero. An account with nothing
+            to review AND nothing to tick shows neither — that is what "done"
+            looks like. The count is neutral, not amber: rows waiting to be
+            ticked are a job, not a thing gone wrong. */}
+        {toReviewCount === 0 && unreconciledCount > 0 && account && (
+          <Link
+            to={preserveDemoParam(`/reconciliation?account=${account.id}&from=accounts`, location.search)}
+            className={`${TOOLBAR_QUIET_BUTTON} ${TOOLBAR_QUIET_IDLE}`}
+            title="Nothing left to review here — go straight to reconciling this account against its statement."
+          >
+            Reconcile
+            <span className="inline-flex items-center px-1.5 py-0 rounded-full text-xs font-semibold tabular-nums bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+              {unreconciledCount}
+            </span>
+          </Link>
+        )}
         {toReviewCount > 0 && (
           <button
             type="button"
@@ -3772,6 +3805,9 @@ export default function AccountTransactions() {
         transaction={quickEditRow}
         fields={isPhoneLayout ? phoneQuickEditFields : quickEditFields}
         onNext={isPhoneLayout ? phoneQuickEditNext : quickEditNext}
+        // The To Review list drops a row as it is filed, so a plain Save or a
+        // Confirm there moves on to the next row (see the prop's note).
+        moveOnAfterSave={reviewOnly}
         onDismiss={handleQuickEditDismiss}
         focusRequest={quickEditFocus}
         onFocusRequestHandled={handleQuickEditFocusHandled}

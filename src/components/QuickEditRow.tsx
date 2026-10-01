@@ -249,6 +249,15 @@ export interface QuickEditRowProviderProps {
    */
   onNext?: (landOn: QuickEditFocusRequest) => void;
   /**
+   * The list DROPS a row the moment it is saved — the "To Review" filter,
+   * where filing is what ends review — so there is no row to stay on, and a
+   * plain Save or a Confirm moves on to the next row exactly as Save & Next
+   * does. Without this, every row cost a click to re-select the next one
+   * (the owner, 1 Oct 2026: "this could save a click per line all the way
+   * down"). The last row still closes the editor, as it always did.
+   */
+  moveOnAfterSave?: boolean;
+  /**
    * Stop editing — Escape, the ×, or a finished Save — leaving the row itself
    * highlighted.
    *
@@ -282,6 +291,7 @@ export function QuickEditRowProvider({
   onDismiss,
   focusRequest,
   onFocusRequestHandled,
+  moveOnAfterSave = false,
   children,
 }: QuickEditRowProviderProps): React.JSX.Element {
   const {
@@ -529,12 +539,12 @@ export function QuickEditRowProvider({
    * rather than scrolling from a button nobody can see.
    */
   const finishSave = useCallback((advance: boolean): void => {
-    if (advance && onNext) {
+    if ((advance || moveOnAfterSave) && onNext) {
       onNext({ field: lastFieldRef.current ?? 'date', openCalendar: false });
       return;
     }
     onDismiss();
-  }, [onNext, onDismiss]);
+  }, [onNext, onDismiss, moveOnAfterSave]);
 
   const save = useCallback(async (advance: boolean): Promise<void> => {
     if (!transaction || isSaving) return;
@@ -787,6 +797,14 @@ export function QuickEditRowProvider({
           ));
         } else {
           showSuccess('Category confirmed.');
+          // In a list that drops the confirmed row, move on to the next one
+          // rather than leaving the person to click it (see moveOnAfterSave).
+          // The cursor lands on the category, which is the field a confirm
+          // was about and the one the next row most likely wants.
+          if (moveOnAfterSave) {
+            if (onNext) onNext({ field: 'category', openCalendar: false });
+            else onDismiss();
+          }
         }
       } catch (error) {
         showError(error);
@@ -794,7 +812,7 @@ export function QuickEditRowProvider({
         setSavingAction(null);
       }
     })();
-  }, [transaction, isSaving, confirmTransactionCategories, showSuccess, showError]);
+  }, [transaction, isSaving, confirmTransactionCategories, showSuccess, showError, moveOnAfterSave, onNext, onDismiss]);
 
   /**
    * Is the category in the cell still only the app's guess?

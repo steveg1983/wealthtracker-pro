@@ -245,3 +245,61 @@ describe('The register row editor — suggested categories', () => {
     expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument();
   });
 });
+
+/**
+ * A list that DROPS a saved row — the To Review filter, where filing is what
+ * ends review — has no row to stay on. The owner (1 Oct 2026): "once you save
+ * or confirm a line, the next line should be automatically selected… this
+ * could save a click per line all the way down."
+ */
+describe('The register row editor — moving on when the list drops the saved row', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('a plain Save moves on to the next row, as Save & Next does', async () => {
+    const onNext = vi.fn();
+    const onDismiss = vi.fn();
+    render(<RowEditor transaction={suggested} onNext={onNext} onDismiss={onDismiss} moveOnAfterSave />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(onNext).toHaveBeenCalledTimes(1));
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it('a Confirm moves on too, landing the cursor on the category', async () => {
+    const onNext = vi.fn();
+    const onDismiss = vi.fn();
+    render(<RowEditor transaction={suggested} onNext={onNext} onDismiss={onDismiss} moveOnAfterSave />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => expect(onNext).toHaveBeenCalledWith({ field: 'category', openCalendar: false }));
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it('the last row closes the editor — there is nothing to move on to', async () => {
+    const onDismiss = vi.fn();
+    render(<RowEditor transaction={suggested} onDismiss={onDismiss} moveOnAfterSave />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => expect(onDismiss).toHaveBeenCalledTimes(1));
+  });
+
+  it('in an ordinary register a plain Save still stays put, and a Confirm still only confirms', async () => {
+    const onNext = vi.fn();
+    const onDismiss = vi.fn();
+    render(<RowEditor transaction={suggested} onNext={onNext} onDismiss={onDismiss} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(mocks.confirmTransactionCategories).toHaveBeenCalledTimes(1));
+    expect(onNext).not.toHaveBeenCalled();
+    expect(onDismiss).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(onDismiss).toHaveBeenCalledTimes(1));
+    expect(onNext).not.toHaveBeenCalled();
+  });
+});

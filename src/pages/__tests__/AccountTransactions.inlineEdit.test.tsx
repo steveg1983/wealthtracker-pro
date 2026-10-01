@@ -148,8 +148,18 @@ const descriptionField = (): HTMLInputElement => {
 
 const dateField = (): HTMLElement => screen.getByLabelText('Transaction date');
 
-const categorySearch = (): HTMLElement =>
-  screen.getByPlaceholderText('Search or select category…');
+// By role, not by placeholder: the open search box's placeholder is the
+// row's CURRENT category whenever it has one (so a suggestion stays readable
+// while the list is open), and only the generic prompt on an unfiled row.
+const categorySearch = (): HTMLElement => {
+  // The OPEN picker: the quick-add dock has a Category picker of its own, and
+  // only the one whose list is open holds a search box.
+  const open = screen
+    .getAllByRole('combobox', { name: 'Category' })
+    .find(picker => picker.getAttribute('aria-expanded') === 'true');
+  if (!open) throw new Error('no category picker is open');
+  return within(open).getByRole('textbox');
+};
 
 /** The run button — the one a field's Enter hands the cursor to. */
 const saveAndNext = (): HTMLElement => within(strip()).getByRole('button', { name: 'Save & Next' });

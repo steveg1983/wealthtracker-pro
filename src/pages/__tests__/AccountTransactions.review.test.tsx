@@ -286,6 +286,49 @@ describe('Account register — the To Review counter', () => {
     await waitFor(() => expect(queryToReviewButton()).not.toBeInTheDocument());
     expect(within(grid()).getByText('Portway Hardware')).toBeInTheDocument();
   });
+
+  it('offers the reconciliation where To Review stood, once the review is done', async () => {
+    // The next job, in the same slot, straight to THIS account's
+    // reconciliation — not back to Accounts and in again from its row (the
+    // owner, 2 Oct 2026). Three rows, none ticked: the count says so.
+    const { rerender } = renderRegister();
+    await screen.findByRole('heading', { level: 1, name: 'Synthetic Register' });
+    // While anything is still to review, the slot is To Review's.
+    expect(screen.queryByRole('link', { name: /Reconcile/ })).not.toBeInTheDocument();
+
+    seed([{ ...NEW_ROW, needsReview: false }, REVIEWED_ROW, UNMARKED_ROW]);
+    rerender(
+      <MemoryRouter initialEntries={[`/accounts/${ACCOUNT.id}`]}>
+        <PreferencesProvider>
+          <ToastProvider>
+            <NotificationProvider>
+              <Routes>
+                <Route path="/accounts/:accountId" element={<AccountTransactions />} />
+              </Routes>
+            </NotificationProvider>
+          </ToastProvider>
+        </PreferencesProvider>
+      </MemoryRouter>
+    );
+
+    const reconcile = await screen.findByRole('link', { name: /Reconcile/ });
+    expect(reconcile).toHaveAttribute('href', `/reconciliation?account=${ACCOUNT.id}&from=accounts`);
+    expect(reconcile).toHaveTextContent('3');
+    expect(queryToReviewButton()).not.toBeInTheDocument();
+  });
+
+  it('shows neither button when there is nothing to review and nothing to tick', async () => {
+    seed([
+      { ...NEW_ROW, needsReview: false, cleared: true, reconciled: true },
+      { ...REVIEWED_ROW, cleared: true, reconciled: true },
+      { ...UNMARKED_ROW, cleared: true, reconciled: true },
+    ]);
+    renderRegister();
+    await screen.findByRole('heading', { level: 1, name: 'Synthetic Register' });
+
+    expect(queryToReviewButton()).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Reconcile/ })).not.toBeInTheDocument();
+  });
 });
 
 describe('Account register — what ends a review, and what does not', () => {

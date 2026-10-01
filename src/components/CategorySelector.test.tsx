@@ -79,6 +79,41 @@ function renderOpen(props: Partial<React.ComponentProps<typeof CategorySelector>
   return { onCategoryChange };
 }
 
+describe('CategorySelector — the current category stays readable while the list is open', () => {
+  // A Save & Next run lands on the category with the list open and the search
+  // empty. The box said "Search or select category…" over a row that already
+  // carried the app's suggestion, so the owner had to click out to see what
+  // he was being asked to confirm (1 Oct 2026).
+  it('shows the selection as the open search box\'s placeholder, in the text colour', () => {
+    render(
+      <CategorySelector
+        selectedCategory="det-groceries"
+        onCategoryChange={vi.fn()}
+        transactionType="expense"
+        placeholder={PLACEHOLDER}
+      />
+    );
+    fireEvent.click(screen.getByRole('combobox', { name: 'Category' }));
+
+    const search = screen.getByRole('combobox', { name: 'Category' }).querySelector('input');
+    expect(search).not.toBeNull();
+    expect(search).toHaveAttribute('placeholder', 'Food > Groceries');
+    expect(search?.className).toContain('placeholder:text-gray-900');
+    // A placeholder is not a value: nothing is typed, so the list is unfiltered
+    // — every expense detail is offered, not only the one that reads as the
+    // placeholder.
+    expect(search).toHaveValue('');
+    expect(screen.getByRole('option', { name: /Groceries/ })).toBeInTheDocument();
+  });
+
+  it('keeps the generic prompt, in placeholder grey, for a row with no category', () => {
+    renderOpen();
+    const search = screen.getByRole('combobox', { name: 'Category' }).querySelector('input');
+    expect(search).toHaveAttribute('placeholder', PLACEHOLDER);
+    expect(search?.className).not.toContain('placeholder:text-gray-900');
+  });
+});
+
 describe('CategorySelector', () => {
   it('lists only the transaction direction by default', () => {
     renderOpen();
