@@ -303,3 +303,47 @@ describe('The register row editor — moving on when the list drops the saved ro
     expect(onNext).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Where a category run LANDS. A row that already carries the app's suggestion
+ * lands on Confirm with the list closed, so the suggestion is read in the box
+ * and the next Enter agrees with it and moves on. Opening the list hid the
+ * very thing being asked about behind a search box (the owner, 2 Oct 2026).
+ * A row the user has vouched for keeps the earlier ruling: the list opens, to
+ * type the next search into.
+ */
+describe('The register row editor — landing on the category', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('a suggested row lands on Confirm, list closed, suggestion readable', () => {
+    render(
+      <RowEditor
+        transaction={suggested}
+        onDismiss={vi.fn()}
+        focusRequest={{ field: 'category', openCalendar: false }}
+        onFocusRequestHandled={vi.fn()}
+      />
+    );
+
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Confirm' }));
+    const picker = screen.getByRole('combobox', { name: 'Category' });
+    expect(picker).toHaveAttribute('aria-expanded', 'false');
+    expect(picker).toHaveTextContent('Council Tax');
+  });
+
+  it('a row the user has vouched for opens the list to type into, as before', () => {
+    render(
+      <RowEditor
+        transaction={{ ...suggested, categoryConfirmed: true } as Transaction}
+        onDismiss={vi.fn()}
+        focusRequest={{ field: 'category', openCalendar: false }}
+        onFocusRequestHandled={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('combobox', { name: 'Category' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument();
+  });
+});
