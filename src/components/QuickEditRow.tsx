@@ -17,6 +17,8 @@ import DatePicker from './common/DatePicker';
 import SuggestedCategoryBadge from './SuggestedCategoryBadge';
 import { findTransferCandidates, type TransferCandidate } from '../utils/transferMatch';
 import { isConfirmableSuggestion } from '../utils/categoryProvenance';
+import { transferEvidenceFor, type TransferEvidence } from '../utils/transferEvidence';
+import { formatCount } from '../utils/localeFormat';
 // The mark every part of this editor wears (data-quick-edit), and the question
 // the register asks of it before claiming a key. Written down there because the
 // register needs the same answer and neither should own the other's copy.
@@ -192,6 +194,15 @@ interface QuickEditRowContextValue {
   chooseTransferAccount: (accountId: string) => void;
   /** Every OTHER active account — the row's own is never a transfer target. */
   transferTargets: readonly Account[];
+  /**
+   * The ledger's own proposal that this row is a transfer, or null. See
+   * proposeTransfer: it is what put the toggle on and the account in the box
+   * as the row opened, and the strip names it as a suggestion for as long as
+   * that account is the one in the box.
+   */
+  transferSuggestion: TransferEvidence | null;
+  /** Is the account in the box still only the proposal? */
+  showingTransferSuggestion: boolean;
   dateFocusToken: number;
   categoryOpenToken: number;
   showingSuggestion: boolean;
@@ -356,6 +367,38 @@ export function QuickEditRowProvider({
    */
   const lastFieldRef = useRef<QuickEditField | null>(null);
   /**
+   * ─ A TRANSFER THE LEDGER PROPOSES ─────────────────────────────────────────
+   *
+   * The categoriser never suggests a transfer (utils/transferEvidence has the
+   * whole story): a "To/From Savings" written as a category is half a
+   * transfer with no other side. But a swept account's nightly sweep IS a
+   * transfer, two hundred times over, and offering nothing — or worse, the
+   * minority category that outvoted the sweeps — made the owner file the
+   * same movement by hand every night (2 Oct 2026: "can we make the system a
+   * little smarter… if the overwhelming evidence of past transactions is
+   * that this is the case?").
+   *
+   * So the proposal is made HERE, in the editor, and only here: the toggle
+   * comes on and the account goes in the box, badged as a suggestion. Saving
+   * it runs the same match-or-create question a hand-picked account runs —
+   * the pair is written by the user's answer, never by the proposal — and
+   * the toggle is one click from a category if the ledger was wrong. Rows
+   * already linked, already transfers, already split or already filed under
+   * a category the user vouched for are never asked: those have an answer.
+   *
+   * The target must be an account the picker could offer — open, and not the
+   * row's own — or the proposal would sit in a box with no such option.
+   */
+  const proposeTransfer = useCallback((row: Transaction): TransferEvidence | null => {
+    if (row.linkedTransferId) return null;
+    const evidence = transferEvidenceFor(transactions, categories, row);
+    if (!evidence) return null;
+    const target = accounts.find(a => a.id === evidence.targetAccountId);
+    if (!target || target.isActive === false || target.id === row.accountId) return null;
+    return evidence;
+  }, [transactions, categories, accounts]);
+
+  /**
    * ─ TRANSFER MODE ──────────────────────────────────────────────────────────
    *
    * The Category cell answers one of two questions: "what was this spent on?"
@@ -376,8 +419,11 @@ export function QuickEditRowProvider({
    * exactly once: when a transfer is actually committed, because the row is
    * then a transfer and its category belongs to the account it faces.
    */
-  const [transferMode, setTransferMode] = useState(false);
-  const [transferAccountId, setTransferAccountId] = useState('');
+  const [transferSuggestion, setTransferSuggestion] = useState<TransferEvidence | null>(
+    () => (transaction ? proposeTransfer(transaction) : null)
+  );
+  const [transferMode, setTransferMode] = useState(transferSuggestion !== null);
+  const [transferAccountId, setTransferAccountId] = useState(transferSuggestion?.targetAccountId ?? '');
   // Money-style transfer flow: committing a transfer asks match-or-create
   // rather than writing blindly — in the strip, not a dialog. See TRANSFER
   // PROMPT on QuickEditActionStrip.
@@ -429,8 +475,14 @@ export function QuickEditRowProvider({
     // Transfer mode is about the ROW being edited, so it does not travel to the
     // next one: a Save & Next that landed with the account picker still up
     // would offer to move money the moment the user typed.
-    setTransferMode(false);
-    setTransferAccountId('');
+    //
+    // Unless the ledger's own history makes the case for THIS row — then the
+    // toggle is on and the account is in the box as the row opens, as a
+    // suggestion. See proposeTransfer for what that takes and why it is safe.
+    const proposal = transaction ? proposeTransfer(transaction) : null;
+    setTransferSuggestion(proposal);
+    setTransferMode(proposal !== null);
+    setTransferAccountId(proposal?.targetAccountId ?? '');
     setTransferPrompt(null);
     // The run is over when the editor closes; the next one starts its own
     // memory rather than inheriting where the last one happened to end.
@@ -490,6 +542,16 @@ export function QuickEditRowProvider({
         // hid the very thing being asked about behind a search box (the
         // owner, 2 Oct 2026). A row with no category, or one the user has
         // already vouched for, opens the list to type into, as before.
+        //
+        // The same for a row the ledger proposes as a TRANSFER: the account is
+        // already in the box, so the cursor lands on Save & Next and Enter
+        // asks the match-or-create question. Opening the account list would
+        // hide the proposal behind a search box exactly as the category one
+        // was hidden.
+        if (transferMode && transferAccountId) {
+          focusRunButton();
+          return;
+        }
         if (transaction && isConfirmableSuggestion(transaction) && category === (transaction.category ?? '')) {
           confirmButtonRef.current?.focus();
           return;
@@ -506,7 +568,7 @@ export function QuickEditRowProvider({
         setDateFocusToken(token => token + 1);
         return;
     }
-  }, [fields, focusRunButton, transaction, category]);
+  }, [fields, focusRunButton, transaction, category, transferMode, transferAccountId]);
 
   // The register's request — F2, or the landing after a Save & Next. Honoured
   // once and handed straight back, so nothing about it survives to fire again.
@@ -841,7 +903,26 @@ export function QuickEditRowProvider({
     // asks the same question of the same rule.
     transaction !== null &&
     isConfirmableSuggestion(transaction) &&
-    category === (transaction.category ?? '');
+    category === (transaction.category ?? '') &&
+    // And never while the Transfer toggle is on. The category underneath
+    // survives the flip (see toggleTransferMode), so the predicate above
+    // still held — and Confirm stayed on the strip beside an ACCOUNT picker,
+    // where the owner pressed it meaning "confirm the transfer I just chose"
+    // and got the guessed category confirmed instead, the account thrown
+    // away (2 Oct 2026). With the toggle on there is no suggestion on screen
+    // to agree with, so there is no button to agree with it. It comes back
+    // with the category when the toggle goes off.
+    !transferMode;
+  /**
+   * The account in the box is still only the ledger's proposal: the toggle is
+   * on, a proposal was made for this row, and nobody has picked a different
+   * account since. Picking one takes the badge off at once, as choosing a
+   * category takes the category badge off.
+   */
+  const showingTransferSuggestion =
+    transferMode &&
+    transferSuggestion !== null &&
+    transferAccountId === transferSuggestion.targetAccountId;
 
   /**
    * Flip the Category cell between the category list and the account list.
@@ -855,10 +936,15 @@ export function QuickEditRowProvider({
    */
   const toggleTransferMode = useCallback((): void => {
     setTransferMode(on => {
-      if (on) setTransferAccountId('');
+      // Off forgets a chosen account; on brings the ledger's proposal back,
+      // if it made one — the proposal was never the user's decision to
+      // abandon, and a toggle that flipped between "the suggested category"
+      // and "an empty account box" would lose the suggested transfer on the
+      // way past.
+      setTransferAccountId(on ? '' : (transferSuggestion?.targetAccountId ?? ''));
       return !on;
     });
-  }, []);
+  }, [transferSuggestion]);
 
   /**
    * An account chosen hands the cursor to Save & Next, exactly as a category
@@ -1021,6 +1107,8 @@ export function QuickEditRowProvider({
       transferAccountId,
       chooseTransferAccount,
       transferTargets,
+      transferSuggestion,
+      showingTransferSuggestion,
       dateFocusToken,
       categoryOpenToken,
       showingSuggestion,
@@ -1045,6 +1133,7 @@ export function QuickEditRowProvider({
   }, [
     transaction, fields, date, description, notes, category, chooseCategory,
     transferMode, toggleTransferMode, transferAccountId, chooseTransferAccount, transferTargets,
+    transferSuggestion, showingTransferSuggestion,
     dateFocusToken, categoryOpenToken, showingSuggestion, savingAction, onNext,
     transferPrompt, linkTransfer, createTransfer, cancelTransferPrompt,
     handleKeyDown, noteFocus, requestSave, confirmSuggestion, onDismiss,
@@ -1371,6 +1460,9 @@ export function QuickEditActionStrip({ layout = 'row' }: { layout?: 'row' | 'car
     showingSuggestion, savingAction, hasNext, saveButtonRef, saveAndNextButtonRef, confirmButtonRef,
     handleKeyDown, requestSave, confirmSuggestion, dismiss,
     transferPrompt, linkTransfer, createTransfer, cancelTransferPrompt,
+    // The ledger's transfer proposal, named here beside the save that acts on
+    // it, with the account it names for the sentence.
+    showingTransferSuggestion, transferSuggestion, transferTargets,
     // The row itself, for the one sentence that has to name BOTH figures: a
     // converted pair's two amounts differ, and the strip is where the user
     // agrees to that.
@@ -1575,6 +1667,18 @@ export function QuickEditActionStrip({ layout = 'row' }: { layout?: 'row' | 'car
             words what the amber says in colour — the register's own Category
             column carries the identical one on rows that are not being edited,
             so nothing changes meaning as an editor opens. */}
+        {/* The ledger's proposal that this row is a transfer, worn as the same
+            badge the guessed category wears, because to the user it is the
+            same kind of thing: the app's reading of what they filed before.
+            No Confirm beside it — a transfer is committed by the save that
+            asks match-or-create, and a second button that skipped the
+            question would write a pair nobody answered for. */}
+        {showingTransferSuggestion && transferSuggestion && (
+          <SuggestedCategoryBadge
+            size="field"
+            title={`The app proposes a transfer from what you have filed before: ${formatCount(transferSuggestion.transfers)} of ${formatCount(transferSuggestion.transfers + transferSuggestion.otherwise)} rows worded like this in this account were transfers to ${transferTargets.find(a => a.id === transferSuggestion.targetAccountId)?.name ?? 'that account'}. Save to match or create the other side, or switch the toggle off to file it under a category instead.`}
+          />
+        )}
         {showingSuggestion && (
           <>
             <SuggestedCategoryBadge
