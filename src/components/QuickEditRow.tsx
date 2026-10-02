@@ -207,6 +207,8 @@ interface QuickEditRowContextValue {
   notesRef: React.RefObject<HTMLInputElement>;
   saveButtonRef: React.RefObject<HTMLButtonElement>;
   saveAndNextButtonRef: React.RefObject<HTMLButtonElement>;
+  /** The strip's Confirm, where a run lands on a row that carries a suggestion. */
+  confirmButtonRef: React.RefObject<HTMLButtonElement>;
   handleKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   noteFocus: (field: QuickEditField) => void;
   requestSave: (advance: boolean) => void;
@@ -335,6 +337,7 @@ export function QuickEditRowProvider({
   // comment on focusRunButton.
   const saveButtonRef = useRef<HTMLButtonElement>(null);
   const saveAndNextButtonRef = useRef<HTMLButtonElement>(null);
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
   // Pulses asking the two pickers for the cursor. They own their own DOM, so a
   // number they watch is how the editor asks without reaching into it.
   const [dateFocusToken, setDateFocusToken] = useState(0);
@@ -480,6 +483,17 @@ export function QuickEditRowProvider({
         notesRef.current?.select();
         return;
       case 'category':
+        // A row that already carries the app's SUGGESTION lands on Confirm,
+        // list closed, so the suggestion is read in the box and the next
+        // Enter agrees with it and moves on — a one-key run through a
+        // statement the app has mostly guessed right. Opening the list here
+        // hid the very thing being asked about behind a search box (the
+        // owner, 2 Oct 2026). A row with no category, or one the user has
+        // already vouched for, opens the list to type into, as before.
+        if (transaction && isConfirmableSuggestion(transaction) && category === (transaction.category ?? '')) {
+          confirmButtonRef.current?.focus();
+          return;
+        }
         setCategoryOpenToken(token => token + 1);
         return;
       case 'date':
@@ -492,7 +506,7 @@ export function QuickEditRowProvider({
         setDateFocusToken(token => token + 1);
         return;
     }
-  }, [fields, focusRunButton]);
+  }, [fields, focusRunButton, transaction, category]);
 
   // The register's request — F2, or the landing after a Save & Next. Honoured
   // once and handed straight back, so nothing about it survives to fire again.
@@ -1021,6 +1035,7 @@ export function QuickEditRowProvider({
       notesRef,
       saveButtonRef,
       saveAndNextButtonRef,
+      confirmButtonRef,
       handleKeyDown,
       noteFocus,
       requestSave,
@@ -1353,7 +1368,7 @@ export function QuickEditFieldCell({ field }: { field: QuickEditField }): React.
  */
 export function QuickEditActionStrip({ layout = 'row' }: { layout?: 'row' | 'card' } = {}): React.JSX.Element {
   const {
-    showingSuggestion, savingAction, hasNext, saveButtonRef, saveAndNextButtonRef,
+    showingSuggestion, savingAction, hasNext, saveButtonRef, saveAndNextButtonRef, confirmButtonRef,
     handleKeyDown, requestSave, confirmSuggestion, dismiss,
     transferPrompt, linkTransfer, createTransfer, cancelTransferPrompt,
     // The row itself, for the one sentence that has to name BOTH figures: a
@@ -1568,6 +1583,7 @@ export function QuickEditActionStrip({ layout = 'row' }: { layout?: 'row' | 'car
             />
             <button
               type="button"
+              ref={confirmButtonRef}
               onClick={confirmSuggestion}
               disabled={isSaving}
               className="px-3 h-[28px] inline-flex items-center justify-center text-xs font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"

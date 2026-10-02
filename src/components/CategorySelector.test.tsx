@@ -79,38 +79,55 @@ function renderOpen(props: Partial<React.ComponentProps<typeof CategorySelector>
   return { onCategoryChange };
 }
 
-describe('CategorySelector — the current category stays readable while the list is open', () => {
-  // A Save & Next run lands on the category with the list open and the search
-  // empty. The box said "Search or select category…" over a row that already
-  // carried the app's suggestion, so the owner had to click out to see what
-  // he was being asked to confirm (1 Oct 2026).
-  it('shows the selection as the open search box\'s placeholder, in the text colour', () => {
+describe('CategorySelector — the current category is in the box when the list opens', () => {
+  // The owner (2 Oct 2026): "that box should be populated with that choice
+  // until another is picked". Opened on a row with a category, the search
+  // box holds it, selected; the list is still every category; Enter with the
+  // box untouched chooses nothing; typing replaces it and filters.
+  const openOn = (selectedCategory: string) => {
+    const onCategoryChange = vi.fn();
     render(
       <CategorySelector
-        selectedCategory="det-groceries"
-        onCategoryChange={vi.fn()}
+        selectedCategory={selectedCategory}
+        onCategoryChange={onCategoryChange}
         transactionType="expense"
+        includeAllTypes
         placeholder={PLACEHOLDER}
       />
     );
     fireEvent.click(screen.getByRole('combobox', { name: 'Category' }));
-
     const search = screen.getByRole('combobox', { name: 'Category' }).querySelector('input');
-    expect(search).not.toBeNull();
-    expect(search).toHaveAttribute('placeholder', 'Food > Groceries');
-    expect(search?.className).toContain('placeholder:text-gray-900');
-    // A placeholder is not a value: nothing is typed, so the list is unfiltered
-    // — every expense detail is offered, not only the one that reads as the
-    // placeholder.
-    expect(search).toHaveValue('');
+    if (!(search instanceof HTMLInputElement)) throw new Error('the list did not open');
+    return { search, onCategoryChange };
+  };
+
+  it('holds the current category, selected, over an unfiltered list', () => {
+    const { search } = openOn('det-groceries');
+    expect(search).toHaveValue('Food > Groceries');
+    expect(search.selectionStart).toBe(0);
+    expect(search.selectionEnd).toBe('Food > Groceries'.length);
+    // Not a filter: the income detail is still offered beside the expense one.
     expect(screen.getByRole('option', { name: /Groceries/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Payslip/ })).toBeInTheDocument();
   });
 
-  it('keeps the generic prompt, in placeholder grey, for a row with no category', () => {
+  it('Enter with the box untouched chooses nothing; typing replaces it and filters', () => {
+    const { search, onCategoryChange } = openOn('det-groceries');
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(onCategoryChange).not.toHaveBeenCalled();
+
+    fireEvent.change(search, { target: { value: 'pay' } });
+    expect(screen.queryByRole('option', { name: /Groceries/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Payslip/ })).toBeInTheDocument();
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(onCategoryChange).toHaveBeenCalledWith('det-payslip');
+  });
+
+  it('opens empty, with the generic prompt, on a row with no category', () => {
     renderOpen();
     const search = screen.getByRole('combobox', { name: 'Category' }).querySelector('input');
+    expect(search).toHaveValue('');
     expect(search).toHaveAttribute('placeholder', PLACEHOLDER);
-    expect(search?.className).not.toContain('placeholder:text-gray-900');
   });
 });
 
