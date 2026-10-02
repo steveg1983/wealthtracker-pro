@@ -107,6 +107,7 @@ function RowEditor(props: Omit<QuickEditRowProviderProps, 'children'>): React.JS
         <div role="gridcell"><QuickEditFieldCell field="date" /></div>
         <div role="gridcell"><QuickEditFieldCell field="description" /></div>
         <div role="gridcell"><QuickEditFieldCell field="category" /></div>
+        <div role="gridcell"><QuickEditFieldCell field="notes" /></div>
       </div>
       <div role="row">
         <div role="gridcell"><QuickEditActionStrip /></div>
@@ -136,10 +137,71 @@ describe('The register row editor — suggested categories', () => {
     await waitFor(() => {
       expect(mocks.confirmTransactionCategories).toHaveBeenCalledWith(['txn-suggested']);
     });
-    // Confirming is agreeing. It must not go near the ordinary update path,
-    // which is what moves categories, amounts and balances.
+    // Confirming is agreeing. With nothing typed over, it must not go near the
+    // ordinary update path, which is what moves categories, amounts and
+    // balances — one click, one write of one boolean.
     expect(mocks.updateTransaction).not.toHaveBeenCalled();
     expect(mocks.showSuccess).toHaveBeenCalled();
+  });
+
+  /**
+   * The owner, 2 Oct 2026: he tidied an import's description, left the
+   * suggested category alone, pressed Confirm — and the import's wording was
+   * still there. What is in the row when the button is pressed is what is
+   * saved; the category and the amount still are not.
+   */
+  describe('Confirm carries what was typed in the row', () => {
+    const description = (): HTMLElement => screen.getByRole('textbox', { name: 'Transaction description' });
+    const notes = (): HTMLElement => screen.getByRole('textbox', { name: 'Transaction notes' });
+
+    it('saves the tidied description and the note, then confirms', async () => {
+      render(<RowEditor transaction={suggested} onDismiss={vi.fn()} />);
+      fireEvent.change(description(), { target: { value: 'Northgate Market' } });
+      fireEvent.change(notes(), { target: { value: 'Weekly shop' } });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      await waitFor(() => expect(mocks.confirmTransactionCategories).toHaveBeenCalledWith(['txn-suggested']));
+      expect(mocks.updateTransaction).toHaveBeenCalledTimes(1);
+      const [id, updates] = mocks.updateTransaction.mock.calls[0] as [string, Record<string, unknown>];
+      expect(id).toBe('txn-suggested');
+      expect(updates).toMatchObject({ description: 'Northgate Market', notes: 'Weekly shop' });
+      // The fields, and only the fields: vouching and ending review are the
+      // confirming verb's, and the category never travels through here.
+      expect(updates).not.toHaveProperty('category');
+      expect(updates).not.toHaveProperty('categoryConfirmed');
+      expect(updates).not.toHaveProperty('needsReview');
+      // Fields first, so the confirm vouches for the row as it now reads.
+      expect(mocks.updateTransaction.mock.invocationCallOrder[0])
+        .toBeLessThan(mocks.confirmTransactionCategories.mock.invocationCallOrder[0]);
+      expect(mocks.showSuccess).toHaveBeenCalled();
+    });
+
+    it('refuses a blank description and writes nothing at all', async () => {
+      render(<RowEditor transaction={suggested} onDismiss={vi.fn()} />);
+      fireEvent.change(description(), { target: { value: '   ' } });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      await waitFor(() => expect(mocks.showError).toHaveBeenCalled());
+      expect(mocks.updateTransaction).not.toHaveBeenCalled();
+      expect(mocks.confirmTransactionCategories).not.toHaveBeenCalled();
+    });
+
+    it('leaves the guess unconfirmed when the fields could not be saved', async () => {
+      mocks.updateTransaction.mockRejectedValueOnce(new Error('offline'));
+      render(<RowEditor transaction={suggested} onDismiss={vi.fn()} />);
+      fireEvent.change(description(), { target: { value: 'Northgate Market' } });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      await waitFor(() => expect(mocks.showError).toHaveBeenCalled());
+      // Not vouched for on the strength of a row that did not save, and the
+      // typed description is still there to try again with.
+      expect(mocks.confirmTransactionCategories).not.toHaveBeenCalled();
+      expect(description()).toHaveValue('Northgate Market');
+      expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+    });
   });
 
   it('does not claim a confirmation the store did not make', async () => {

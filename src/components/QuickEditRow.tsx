@@ -622,17 +622,29 @@ export function QuickEditRowProvider({
     onDismiss();
   }, [onNext, onDismiss, moveOnAfterSave]);
 
-  const save = useCallback(async (advance: boolean): Promise<void> => {
-    if (!transaction || isSaving) return;
+  /**
+   * The row's three fields as the user has them, checked — or null with the
+   * reason already shown. Shared by Save and Confirm so the two buttons cannot
+   * disagree about what a row needs before anything is written.
+   */
+  const readFields = useCallback((): { date: Date; description: string; notes: string } | null => {
     if (!description.trim()) {
       showError(new Error('Description is required.'));
-      return;
+      return null;
     }
     const parsedDate = new Date(date);
     if (!date || Number.isNaN(parsedDate.getTime())) {
       showError(new Error('Enter a valid date.'));
-      return;
+      return null;
     }
+    return { date: parsedDate, description: description.trim(), notes };
+  }, [date, description, notes, showError]);
+
+  const save = useCallback(async (advance: boolean): Promise<void> => {
+    if (!transaction || isSaving) return;
+    const fields = readFields();
+    if (!fields) return;
+    const parsedDate = fields.date;
     // "Make this a transfer" arrives two ways and they mean the same thing: the
     // Transfer toggle with an account chosen, or a "To/From <account>" category
     // picked out of the ordinary list (which is still how a filed transfer is
@@ -765,7 +777,7 @@ export function QuickEditRowProvider({
       setSavingAction(null);
     }
   }, [
-    transaction, isSaving, description, notes, date, category, categories, isTransfer, isSplit,
+    transaction, isSaving, readFields, description, notes, category, categories, isTransfer, isSplit,
     transferMode, transferAccountId, accounts,
     transactions, updateTransaction, propagateCategory, finishSave, showError,
   ]);
@@ -848,8 +860,19 @@ export function QuickEditRowProvider({
 
   /**
    * The one-click half of "confirm or edit": agree with the guess exactly as it
-   * stands. Writes a single boolean — no category, no amount, no balance — and
-   * leaves the editor open so the row visibly settles before moving on.
+   * stands. The confirming verb writes a single boolean — no category, no
+   * amount, no balance — and the editor stays open so the row visibly settles
+   * before moving on.
+   *
+   * WHAT IS IN THE ROW IS WHAT IS SAVED. A description tidied or a note typed
+   * before the button is pressed goes with the confirm — the owner tidied an
+   * import's wording, pressed Confirm, and found the import's wording still
+   * there (2 Oct 2026): the button had agreed with the category and silently
+   * dropped the rest of what was on screen. The fields are written through the
+   * ordinary update path, as a Save writes them, and only when something was
+   * actually typed over, so an untouched row still costs one write of one
+   * boolean. No category and no review flag travel with them — the verb is
+   * what vouches, and the verb is what ends the row's review.
    *
    * Its own button disappears as it succeeds — the badge it agreed with goes,
    * and the button goes with it — so the cursor is handed on to Save & Next,
@@ -857,11 +880,24 @@ export function QuickEditRowProvider({
    */
   const confirmSuggestion = useCallback((): void => {
     if (!transaction || isSaving) return;
+    const fields = readFields();
+    if (!fields) return;
     const id = transaction.id;
+    const typedOver =
+      fields.description !== transaction.description ||
+      fields.notes !== (transaction.notes ?? '') ||
+      toDateInputValue(fields.date) !== toDateInputValue(transaction.date);
     setSavingAction('confirm');
     restoreFocusRef.current = true;
     void (async (): Promise<void> => {
       try {
+        if (typedOver) {
+          await updateTransaction(id, {
+            date: fields.date,
+            description: fields.description,
+            notes: fields.notes,
+          });
+        }
         const confirmed = await confirmTransactionCategories([id]);
         if (confirmed === 0) {
           // The store did not confirm this row, and saying so is the whole
@@ -888,7 +924,10 @@ export function QuickEditRowProvider({
         setSavingAction(null);
       }
     })();
-  }, [transaction, isSaving, confirmTransactionCategories, showSuccess, showError, moveOnAfterSave, onNext, onDismiss]);
+  }, [
+    transaction, isSaving, readFields, updateTransaction, confirmTransactionCategories,
+    showSuccess, showError, moveOnAfterSave, onNext, onDismiss,
+  ]);
 
   /**
    * Is the category in the cell still only the app's guess?
@@ -1691,7 +1730,7 @@ export function QuickEditActionStrip({ layout = 'row' }: { layout?: 'row' | 'car
               onClick={confirmSuggestion}
               disabled={isSaving}
               className="px-3 h-[28px] inline-flex items-center justify-center text-xs font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-              title="Agree with the suggested category — nothing else about the transaction changes"
+              title="Agree with the suggested category. The description and notes as you have them are saved with it; the category and the amount do not change"
             >
               Confirm
             </button>
