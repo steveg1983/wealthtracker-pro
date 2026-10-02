@@ -175,6 +175,23 @@ export default function CategorySelector({
   const { categories, addCategory, getSubCategories, getDetailCategories } = useApp();
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  /**
+   * THE CURRENT CATEGORY IS IN THE BOX WHEN THE LIST OPENS. Opened by a click,
+   * a key or a run landing here, the search box holds the row's current
+   * category — selected, so typing replaces it — and it stays until another
+   * is picked. The owner (2 Oct 2026): "that box should be populated with
+   * that choice until another is picked". It used to open EMPTY, which on a
+   * suggested row hid the one thing being asked about, and on a chosen row
+   * hid what was about to be changed.
+   *
+   * A prefill is not a filter: while the box still holds exactly what was
+   * put there, the list is every category, and Enter chooses nothing (there
+   * is no "search" to be top of). The moment the text differs — typed over,
+   * or trimmed — it is the user's search and filters as one. `prefill`
+   * remembers what was put there so the two can be told apart.
+   */
+  const [prefill, setPrefill] = useState<string | null>(null);
+  const filterTerm = prefill !== null && searchTerm === prefill ? '' : searchTerm;
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [selectedParentId, setSelectedParentId] = useState('');
@@ -352,13 +369,13 @@ export default function CategorySelector({
   const getFilteredOptions = (): Category[] => {
     const allDetails = getAllDetailCategories();
 
-    if (!searchTerm) {
+    if (!filterTerm) {
       return allDetails;
     }
 
     return allDetails.filter(cat =>
-      cat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      getParentCategoryName(cat.id).toLowerCase().includes(searchTerm.toLowerCase())
+      cat.name.toLowerCase().includes(filterTerm.toLowerCase()) ||
+      getParentCategoryName(cat.id).toLowerCase().includes(filterTerm.toLowerCase())
     );
   };
 
@@ -374,7 +391,7 @@ export default function CategorySelector({
   }> => {
     const matchedIds = new Set(getFilteredOptions().map(c => c.id));
     const groupMatchesSearch = (name: string): boolean =>
-      allowGroupSelection && name.toLowerCase().includes(searchTerm.toLowerCase());
+      allowGroupSelection && name.toLowerCase().includes(filterTerm.toLowerCase());
     const groups = getSubCategoriesForType()
       .map(sub => ({
         id: sub.id,
@@ -484,6 +501,25 @@ export default function CategorySelector({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setSearchTerm(e.target.value);
+    setPrefill(null);
+    setShowDropdown(true);
+  };
+
+  // The prefilled current category arrives SELECTED, so the first keystroke
+  // replaces it and End or → keeps it to edit. An effect rather than the
+  // input's onFocus: the box is autoFocused as it mounts, and that focus
+  // lands before React's own handler is listening.
+  useEffect(() => {
+    if (!showDropdown || prefill === null) return;
+    const input = searchInputRef.current;
+    if (input && input.value === prefill) input.select();
+  }, [showDropdown, prefill]);
+
+  /** Open the list with the current category in the box — see `prefill`. */
+  const openWithCurrent = (): void => {
+    const current = selectedCategory ? getSelectedCategoryName() : '';
+    setSearchTerm(current);
+    setPrefill(current === '' ? null : current);
     setShowDropdown(true);
   };
 
@@ -503,7 +539,12 @@ export default function CategorySelector({
   };
 
   const handleInputClick = (): void => {
-    setShowDropdown(!showDropdown);
+    if (showDropdown) {
+      setShowDropdown(false);
+      setSearchTerm('');
+      return;
+    }
+    openWithCurrent();
   };
 
   // A caller asking for the cursor (see openSearchToken). The search input is
@@ -534,8 +575,9 @@ export default function CategorySelector({
     if (token === handledSearchToken.current) return;
     handledSearchToken.current = token;
     if (!token) return;
-    setSearchTerm('');
-    setShowDropdown(true);
+    openWithCurrent();
+    // openWithCurrent reads the selection; the token is the only trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openSearchToken]);
 
   // ── Keyboard support (combobox pattern) ────────────────────────────────────
@@ -563,7 +605,7 @@ export default function CategorySelector({
     if (e.key === 'Enter' && closedEnter === 'pass-through') return; // the form's key
     if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
-      setShowDropdown(true);
+      openWithCurrent();
     } else if (allowClear && selectedCategory && (e.key === 'Delete' || e.key === 'Backspace')) {
       // Money-style: clearing the category un-categorises the transaction.
       e.preventDefault();
@@ -625,7 +667,7 @@ export default function CategorySelector({
          * doing nothing, so the old behaviour stands there.
          */
         const chosen = flatOptions[highlightIndex]
-          ?? (searchTerm.trim() !== '' || flatOptions.length === 1 ? flatOptions[0] : undefined);
+          ?? (filterTerm.trim() !== '' || flatOptions.length === 1 ? flatOptions[0] : undefined);
         if (chosen) handleCategorySelect(chosen.id);
         break;
       }
@@ -695,7 +737,7 @@ export default function CategorySelector({
   // "Uncategorised" stays visible while the search could still mean it
   // ('' matches everything, "unc" matches, "food" hides it).
   const showClearOption =
-    showDropdown && allowClear && 'uncategorised'.includes(searchTerm.toLowerCase());
+    showDropdown && allowClear && 'uncategorised'.includes(filterTerm.toLowerCase());
   // Flat view of the visible options, in render order — what the arrow keys
   // walk. With group selection on, each group's own option leads its items,
   // exactly as they are drawn.
@@ -743,23 +785,11 @@ export default function CategorySelector({
                   // Filtering a list of the user's own category names.
                   spellCheck={false}
                   autoCapitalize="none"
-                  // THE CURRENT CATEGORY STAYS READABLE WHILE THE LIST IS OPEN.
-                  // A Save & Next run lands here with the list open and the
-                  // search empty, and an empty box said "Search or select
-                  // category…" over a row that already carried the app's
-                  // suggestion — the owner had to click out to see what he was
-                  // being asked to confirm (1 Oct 2026). So with nothing typed,
-                  // the placeholder is the selection itself, in the text
-                  // colour rather than the placeholder grey; the generic prompt
-                  // is for a row with no category at all. Typing still replaces
-                  // it, because a placeholder is not a value.
-                  placeholder={selectedCategory ? getSelectedCategoryName() : placeholder}
+                  placeholder={placeholder}
                   aria-autocomplete="list"
                   aria-controls={listboxId}
                   aria-activedescendant={highlightedId ? optionDomId(highlightedId) : undefined}
-                  className={`w-full bg-transparent text-gray-900 dark:text-white !border-0 focus:!outline-none focus-visible:!outline-none ${
-                    selectedCategory ? 'placeholder:text-gray-900 dark:placeholder:text-white' : ''
-                  }`}
+                  className="w-full bg-transparent text-gray-900 dark:text-white !border-0 focus:!outline-none focus-visible:!outline-none"
                   autoFocus
                 />
               ) : (

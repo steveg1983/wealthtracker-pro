@@ -617,14 +617,16 @@ describe('Account register — Enter accepts, and the Enter after it moves you o
     }));
 
     // "…and then the next line defaults into the category box again, so you can
-    // just start typing the search again": open, empty, and holding the cursor.
+    // just start typing the search again": open, holding the cursor, with the
+    // row's CURRENT category in the box and selected — so typing replaces it,
+    // and what is about to change is read first (owner, 2 Oct 2026).
     await waitFor(() => {
       expect(descriptionField()).toHaveValue('Cobblestone Cafe');
     });
     await waitFor(() => {
       expect(document.activeElement).toBe(categorySearch());
     });
-    expect(categorySearch()).toHaveValue('');
+    expect(categorySearch()).toHaveValue('Food > Groceries');
   });
 
   it('keeps the run going row after row, not just for the first hop', async () => {
