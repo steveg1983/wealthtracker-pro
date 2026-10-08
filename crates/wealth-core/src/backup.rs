@@ -1048,11 +1048,11 @@ pub fn insert_row(
             Kind::Flag => {
                 let flag: crate::wire::Flag = serde_json::from_value(value.clone())
                     .map_err(|error| CoreError::InvalidCommand(error.to_string()))
-                    .map_err(&named)?;
+                    .map_err(named)?;
                 let resolved = flag
                     .resolve()
                     .map_err(|message| CoreError::refuse("invalid_boolean", &message))
-                    .map_err(&named)?;
+                    .map_err(named)?;
                 SqlValue::Integer(i64::from(resolved))
             }
             Kind::Ordinal => {
@@ -1077,7 +1077,7 @@ pub fn insert_row(
                             &format!("{} holds {text}, which this ledger cannot store: {error}", column.key),
                         )
                     })
-                    .map_err(&named)?;
+                    .map_err(named)?;
                 SqlValue::Integer(scaled)
             }
             Kind::Date => {
@@ -1112,7 +1112,7 @@ pub fn insert_row(
     if entity == Entity::Transactions {
         let mut metadata = row.get("metadata").cloned().unwrap_or(Value::Null);
         if !metadata.is_null() {
-            let strip = strip_metadata_money(&mut metadata).map_err(&named)?;
+            let strip = strip_metadata_money(&mut metadata).map_err(named)?;
             for note in strip.dropped {
                 dropped.push(Dropped { entity: entity.as_str().to_owned(), id: id.clone(), what: note });
             }
@@ -1138,7 +1138,7 @@ pub fn insert_row(
     connection.execute(&sql, bound.as_slice()).map_err(|error| named(error.into()))?;
 
     if let Some((key, members)) = child_array(entity, row) {
-        write_child_array(connection, entity, &id, key, members, owner, dropped).map_err(&named)?;
+        write_child_array(connection, entity, &id, key, members, owner, dropped).map_err(named)?;
     }
 
     Ok(())
@@ -1591,8 +1591,8 @@ mod tests {
     fn a_blob_with_no_money_in_it_is_left_alone() {
         let mut metadata = json!({ "transferMetadata": { "transferType": "wire" } });
         let strip = strip_metadata_money(&mut metadata).unwrap();
-        assert!(strip.promoted.is_empty());
-        assert!(strip.dropped.is_empty());
+        assert_eq!(strip.promoted, [] as [(&str, rusqlite::types::Value); 0]);
+        assert_eq!(strip.dropped, [] as [String; 0]);
         assert_eq!(metadata, json!({ "transferMetadata": { "transferType": "wire" } }));
     }
 
