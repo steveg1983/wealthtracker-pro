@@ -2,7 +2,7 @@
 
 **Owner**: Frontend/Platform (ChatGPT)  
 **Branch**: `claude-lint-cleanup`  
-**Updated**: 2026‑09‑16
+**Updated**: 2026‑10‑08
 
 ---
 
@@ -105,8 +105,27 @@ Latest Vercel preview: `wealthtracker-l514dsq11` (2025‑10‑29 21:33 UTC). B
 | --- | --- | --- |
 | **Mobile** | Frontend | The August 13th sweep fixed the status-bar overlap, the floating button's overlap, Settings, onboarding and the count colours — but the phone is where the last three days' bugs came from, and it is still the least-tested surface. Test there first. |
 | **Supabase coverage** | BE + Platform | Continue monitoring nightly Supabase smoke logs; add RLS/import edge cases as regressions appear. |
-| **Supabase org transfer** | Platform | The production project (`nqbacrjjgdjabygqtcah`, eu‑west‑2) lives in a **Vercel‑Marketplace‑managed** Supabase org (`vercel_icfg_…`): owners cannot be added in the Supabase dashboard, plan/support run through Vercel, and transfers are supported Vercel‑managed → Supabase‑managed but **not back**. Before commercial launch, create a Supabase‑managed org and transfer the project into it (one‑way door, in the direction we want). Decided 2026‑09‑16. |
-| **PITR** | Platform | Verify point‑in‑time recovery is enabled on the production project (Pro/Team add‑on, ~$100/mo per 7 days retention; needs ≥ Small compute). Daily backups alone mean a worst case of losing a day of a customer's finances. Check in the dashboard — the tier isn't readable through the API. |
+| **PITR — a LAUNCH GATE, not a todo** | Platform | Point‑in‑time recovery is **off by decision** (owner, 2026‑10‑08): it was enabled, costed at ~$100/mo for the 7‑day window, and switched back off because the database today holds the owner's, Danielle's and a test account's money, bank‑feed rows re‑import on the next sync, and launch is months out. Daily backups (Pro, 7 days, included) are the cover until then. **It goes on the day before the first external user's money goes in** — Add‑ons → Point in time recovery → Enable → 7 days. Compute is already Small (the PITR minimum), so it is one click. Nothing in CI can check this; it is a human gate. |
+
+### Supabase org transfer: DONE (2026‑10‑08)
+
+Production (`nqbacrjjgdjabygqtcah`, eu‑west‑2 London) now lives in the
+Supabase‑managed **Reckley** org (Pro), transferred out of the
+Vercel‑Marketplace‑managed org — ref, URL, keys, data and migration history all
+unchanged, no downtime. `wealthtracker-scratch` (a July rehearsal copy in
+Frankfurt, idle since 23 Jul, no migration history, nothing referenced it) was
+deleted rather than moved; the old Vercel org is empty. Compute went Nano → Small
+at the same time (+$5.15/mo net of the Pro credit; Nano was billed at Micro's
+rate, so the "upgrade" was mostly paying for what we already had). Two things
+that follow from the move:
+
+- **Any tool authorised against the old org is now blind.** The Supabase
+  connector/MCP was granted on "Steven Green's projects" and sees nothing;
+  re‑authorise it against Reckley before the next database task.
+- **The marketplace link to Vercel is gone, and that is intended.** Do NOT
+  install the Vercel integration on Reckley: the three env vars the app reads
+  (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`)
+  are set by hand in Vercel and the project URL did not change.
 
 ### Clerk production instance: DONE (2026‑08‑26), and the doc trap it left
 
