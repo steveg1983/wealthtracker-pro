@@ -18,7 +18,7 @@ import { SubscriptionStatus, SignOutPanel } from '@service';
  * filled, on the one page whose visitors are disproportionately people for
  * whom something has gone wrong — and in the exact idiom this product's
  * personality is defined against. What replaced it is nothing: the block was a
- * 64px badge reading "WT" directly above a heading reading "WealthTracker",
+ * 64px badge reading "WT" directly above a heading reading "Reckley",
  * so removing the tile and keeping the glyph would have kept the redundancy
  * and only quietened it. P1 charges chrome rent, and this was paying none.
  *
@@ -71,7 +71,7 @@ export default function Settings() {
             rendered at, so nothing moves; it just stops being a colour of its
             own. */}
         <h2 className="text-page font-semibold text-gray-900 dark:text-white">
-          WealthTracker
+          Reckley
         </h2>
         <p className="mt-1 text-body text-gray-500 dark:text-gray-400">Version 1.0</p>
 

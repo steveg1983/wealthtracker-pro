@@ -168,11 +168,11 @@ export default function ExportManager(): React.JSX.Element {
   const handleExport = async (): Promise<void> => {
     setIsLoading(true);
     try {
-      const stem = `wealthtracker-export-${isoDay(new Date())}`;
+      const stem = `reckley-export-${isoDay(new Date())}`;
 
       if (format === 'pdf') {
         await generateDataExportPDF({
-          title: 'WealthTracker export',
+          title: 'Reckley export',
           dateRange: rangeDescription,
           currency: displayCurrency,
           transactions: selection.transactions ?? undefined,

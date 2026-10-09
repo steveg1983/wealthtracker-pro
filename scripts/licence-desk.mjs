@@ -166,7 +166,7 @@ const PAGE = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WealthTracker licence desk</title>
+<title>Reckley licence desk</title>
 <style>
   :root { color-scheme: light dark; }
   body {
@@ -200,7 +200,7 @@ const PAGE = `<!doctype html>
 </style>
 </head>
 <body>
-<h1>WealthTracker licence desk</h1>
+<h1>Reckley licence desk</h1>
 <p class="quiet">Licences are signed on this machine — the private key never leaves it.
 The record lives next to the key in Documents&thinsp;/&thinsp;WealthTracker-signing.</p>
 

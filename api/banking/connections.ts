@@ -35,7 +35,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const connectionIds = (data ?? []).map((connection) => connection.id);
-    // Collect the WealthTracker account ids each connection is linked to, so the
+    // Collect the Reckley account ids each connection is linked to, so the
     // client can map an account → its connection (for a per-account "last synced"
     // label and sync button on the Accounts page).
     const linkedAccountIdsByConnection = new Map<string, string[]>();

@@ -109,7 +109,7 @@ async function runBatch(batch) {
 
 async function main() {
   console.log('╔════════════════════════════════════════════════════════════════════════════╗');
-  console.log('║                    WealthTracker Test Suite Runner                        ║');
+  console.log('║                    Reckley Test Suite Runner                        ║');
   console.log('║              Bypasses npm script timeouts by running direct Vitest        ║');
   console.log('╚════════════════════════════════════════════════════════════════════════════╝\n');
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "WealthTracker",
+  "productName": "Reckley",
   "version": "0.1.5",
   "identifier": "com.wealthtracker.desktop",
   "build": {
@@ -11,7 +11,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "WealthTracker",
+        "title": "Reckley",
         "width": 1280,
         "height": 860,
         "minWidth": 960,

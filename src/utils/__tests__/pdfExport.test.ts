@@ -537,10 +537,10 @@ describe('pdfExport', () => {
     });
 
     const baseData = {
-      title: 'WealthTracker export',
+      title: 'Reckley export',
       dateRange: 'This month: 01/03/2025 to 31/03/2025',
       currency: 'GBP',
-      filename: 'wealthtracker-export-2025-03-31.pdf'
+      filename: 'reckley-export-2025-03-31.pdf'
     };
 
     it('prints the category NAME and never the stored id', async () => {
@@ -620,7 +620,7 @@ describe('pdfExport', () => {
     it('saves under the filename it was given', async () => {
       await generateDataExportPDF({ ...baseData, transactions: [makeRow(1)] });
 
-      expect(mockSave).toHaveBeenCalledWith('wealthtracker-export-2025-03-31.pdf');
+      expect(mockSave).toHaveBeenCalledWith('reckley-export-2025-03-31.pdf');
     });
   });
 });

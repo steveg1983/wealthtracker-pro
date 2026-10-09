@@ -57,9 +57,9 @@
          device half names no spreadsheet writer, which is what keeps SheetJS out
          of a binary that embeds every chunk the renderer builds. */
       "@spreadsheet": ["./src/desktop/editions/spreadsheet.ts"],
-      "@wealthtracker/utils": ["./packages/utils/index.ts"],
-      "@wealthtracker/utils/*": ["./packages/utils/*"],
-      "@wealthtracker/types/*": ["./packages/types/*"],
+      "@reckley/utils": ["./packages/utils/index.ts"],
+      "@reckley/utils/*": ["./packages/utils/*"],
+      "@reckley/types/*": ["./packages/types/*"],
       "@app-types/*": ["./src/types/*"]
     }
   },

@@ -200,7 +200,7 @@ describe('persistRuntimeControlSanitizationSignal', () => {
     );
 
     expect(setItem).toHaveBeenCalledTimes(1);
-    expect(setItem.mock.calls[0]?.[0]).toBe('wealthtracker.runtime_control_sanitization');
+    expect(setItem.mock.calls[0]?.[0]).toBe('reckley.runtime_control_sanitization');
     const payload = JSON.parse(setItem.mock.calls[0]?.[1] ?? '{}') as {
       removedQueryParams: string[];
       removedStorageKeys: string[];

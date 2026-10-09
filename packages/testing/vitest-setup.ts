@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import './mock-indexeddb';
 import { getSupabaseTestClient } from './supabaseClient';
-import { setSupabaseClient } from '@wealthtracker/core';
+import { setSupabaseClient } from '@reckley/core';
 
 interface ConfigureOptions {
   cleanup: () => void;

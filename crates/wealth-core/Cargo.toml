@@ -1,7 +1,7 @@
 [package]
 name = "wealth-core"
 version = "0.1.0"
-description = "WealthTracker local edition — the command layer that owns every money write."
+description = "Reckley local edition — the command layer that owns every money write."
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true

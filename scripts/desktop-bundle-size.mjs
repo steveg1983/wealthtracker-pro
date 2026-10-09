@@ -71,7 +71,7 @@ import { fileURLToPath } from 'node:url';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(REPO, 'apps', 'desktop', 'dist');
-const BINARY = path.join(REPO, 'apps', 'desktop', 'src-tauri', 'target', 'release', 'wealthtracker-desktop');
+const BINARY = path.join(REPO, 'apps', 'desktop', 'src-tauri', 'target', 'release', 'reckley-desktop');
 
 /**
  * BASELINE, re-measured 2026-08-12 at the mount slice's second half, on

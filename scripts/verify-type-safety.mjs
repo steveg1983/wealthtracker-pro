@@ -69,7 +69,7 @@ const results = {
   total: 0
 };
 
-console.log('🔒 WealthTracker Type Safety Audit');
+console.log('🔒 Reckley Type Safety Audit');
 console.log('Enforcing RULE #4: ABSOLUTE TYPE SAFETY - ZERO "AS ANY" TOLERANCE\n');
 console.log('Scanning: src/');
 console.log('═'.repeat(70));

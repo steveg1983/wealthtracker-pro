@@ -20,7 +20,7 @@ export const colors = {
     950: '#030712',
   },
   
-  // The WealthTracker brand navy. Mirrors --color-primary / --color-secondary in
+  // The Reckley brand navy. Mirrors --color-primary / --color-secondary in
   // index.css, so anything structural (focus rings, accents) can be drawn from
   // the app's own identity instead of a generic blue. 400 exists because a navy
   // dark enough to read on white is invisible on a near-black panel.

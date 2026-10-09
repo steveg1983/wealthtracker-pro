@@ -61,7 +61,7 @@ export class LazyErrorBoundary extends Component<Props, State> {
             <AlertCircleIcon className="w-12 h-12 text-red-500 mb-4" aria-hidden="true" />
           )}
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            {staleChunk ? 'WealthTracker has been updated' : 'Something went wrong'}
+            {staleChunk ? 'Reckley has been updated' : 'Something went wrong'}
           </h3>
           <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
             {staleChunk

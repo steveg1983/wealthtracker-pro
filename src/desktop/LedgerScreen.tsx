@@ -63,7 +63,7 @@ export function LedgerChooser({
 }: LedgerChooserProps): ReactElement {
   return (
     <main className="ledger-screen">
-      <h1>WealthTracker</h1>
+      <h1>Reckley</h1>
       <p>
         No ledger is open. Open one, or make a new one — it is a single file, and it stays on
         this machine.

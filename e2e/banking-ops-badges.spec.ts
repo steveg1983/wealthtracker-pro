@@ -168,7 +168,7 @@ const setupBankingApiStubs = async (page: Page): Promise<{ authHeaders: string[]
 
 const waitForDataManagementPage = async (page: Page): Promise<void> => {
   await page.goto(DATA_MANAGEMENT_URL, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('text=Loading Wealth Tracker...', {
+  await page.waitForSelector('text=Loading Reckley...', {
     state: 'detached',
     timeout: 45_000
   }).catch(() => undefined);

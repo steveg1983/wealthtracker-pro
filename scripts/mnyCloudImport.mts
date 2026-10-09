@@ -1,5 +1,5 @@
 /**
- * MS Money → WealthTracker CLOUD migration (one-shot, destructive).
+ * MS Money → Reckley CLOUD migration (one-shot, destructive).
  *
  * Takes the transformed seed produced by scripts/mnyLocalImport.mts and
  * migrates it into the production Supabase under the user's account:
@@ -11,7 +11,7 @@
  *      identifiable.
  *   2. BACKUP   — every current row (accounts, categories, transactions,
  *      splits, budgets, goals, linked_accounts) is written to
- *      ~/WealthTracker-backups/ BEFORE anything is touched.
+ *      ~/Reckley-backups/ BEFORE anything is touched.
  *   3. WIPE     — deletes ALL of the user's financial data (FK order).
  *   4. IMPORT   — inserts the full Money dataset with fresh UUIDs, remapping
  *      every cross-reference (accounts, categories incl. To/From, transfer
@@ -194,7 +194,7 @@ const dbAccountType = (t: string): string => (t === 'current' ? 'checking' : t);
   const acctIds = new Set(current.accounts.map(a => String(a.id)));
   current.linked_accounts = (await fetchAll('linked_accounts')).filter(r => acctIds.has(String(r.account_id)));
 
-  const backupDir = join(homedir(), 'WealthTracker-backups');
+  const backupDir = join(homedir(), 'Reckley-backups');
   mkdirSync(backupDir, { recursive: true });
   const backupPath = join(backupDir, `prod-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
   writeFileSync(backupPath, JSON.stringify({ userId, backedUpAt: new Date().toISOString(), ...current }));
@@ -452,6 +452,6 @@ async function verifyImport(userId: string, expectedSplits: number): Promise<voi
     `${badPairs} broken pairs, ${badLegs} broken legs`);
 
   if (badLedger || badSplits || badPairs || badLegs) {
-    fail('verification FAILED — see ~/WealthTracker-backups for the pre-wipe backups');
+    fail('verification FAILED — see ~/Reckley-backups for the pre-wipe backups');
   }
 }

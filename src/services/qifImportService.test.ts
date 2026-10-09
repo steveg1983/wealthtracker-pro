@@ -242,7 +242,7 @@ PTest Transaction
       // Regression: inside an !Account block, 'N' is the account NAME, 'T' the
       // account TYPE (e.g. "Bank") and '$' the balance. The parser used to feed
       // "Bank" into the amount parser and crash with a DecimalError, so QIF
-      // files with account headers — including WealthTracker's own exports —
+      // files with account headers — including Reckley's own exports —
       // could never be re-imported.
       const qifWithAccountHeader = `!Account
 NEveryday Checking

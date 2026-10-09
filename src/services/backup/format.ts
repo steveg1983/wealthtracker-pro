@@ -50,7 +50,7 @@ import {
 } from '../preferences/document';
 
 /** The format tag written into every file from now on. */
-export const BACKUP_FORMAT = 'wealthtracker-backup-v2';
+export const BACKUP_FORMAT = 'reckley-backup-v2';
 
 /**
  * Format tags restore ACCEPTS — forever.
@@ -340,13 +340,13 @@ export function buildBackupBundle(input: BuildBundleInput): BackupBundle {
 export function preferenceCount(bundle: BackupBundle): number {
   return bundle.preferences === null ? 0 : Object.keys(bundle.preferences.values).length;
 }
-/** wealthtracker-backup-2026-08-07.json */
+/** reckley-backup-2026-08-07.json */
 export function backupFileName(exportedAt: string): string {
   const date = new Date(exportedAt);
   const stamp = Number.isNaN(date.getTime())
     ? new Date().toISOString().slice(0, 10)
     : date.toISOString().slice(0, 10);
-  return `wealthtracker-backup-${stamp}.json`;
+  return `reckley-backup-${stamp}.json`;
 }
 // ── Reading a file back ─────────────────────────────────────────────────────
 

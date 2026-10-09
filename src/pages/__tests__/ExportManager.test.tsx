@@ -380,7 +380,7 @@ describe('Export Data page', () => {
       download();
 
       await waitFor(() => expect(downloads).toHaveLength(1));
-      expect(downloads[0].filename).toBe('wealthtracker-backup-2026-03-04.json');
+      expect(downloads[0].filename).toBe('reckley-backup-2026-03-04.json');
       expect(JSON.parse(downloads[0].text)).toEqual(JSON.parse(JSON.stringify(bundle)));
     });
 
@@ -577,7 +577,7 @@ describe('Export Data page', () => {
       expect(written).not.toContain('10.00');
       expect(written).not.toContain('acct-1');
       // And it still says what it is, so a reader is not left guessing.
-      expect(written).toContain('wealthtracker-encrypted-backup');
+      expect(written).toContain('reckley-encrypted-backup');
       expect(written).toContain('PBKDF2');
     });
 

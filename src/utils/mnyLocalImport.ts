@@ -10,7 +10,7 @@ import { createScopedLogger } from '../loggers/scopedLogger';
  * served at /mny-local-seed.json by a dev-only Vite middleware — never part
  * of a build) and
  * writes it into local storage exactly the way demo mode seeds data, so the
- * whole Microsoft Money file can be browsed in a purely local WealthTracker —
+ * whole Microsoft Money file can be browsed in a purely local Reckley —
  * no cloud, no live data.
  *
  * Activate with `?demo=true&mnyimport=local` on localhost:

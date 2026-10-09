@@ -17,7 +17,7 @@
       'white-space:pre-wrap;color:#7f1d1d;background:#fef2f2;' +
       'border:1px solid #fecaca;border-radius:12px;';
     pre.textContent =
-      'WealthTracker could not start.\n\n' + kind + ': ' + message +
+      'Reckley could not start.\n\n' + kind + ': ' + message +
       (detail ? '\n\n' + detail : '') +
       '\n\nPlease screenshot this window.';
     document.body.replaceChildren(pre);

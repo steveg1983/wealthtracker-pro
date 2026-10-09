@@ -1,5 +1,5 @@
 /**
- * Stripe Service - Premium subscription management for WealthTracker
+ * Stripe Service - Premium subscription management for Reckley
  * 
  * Features:
  * - Subscription creation and management

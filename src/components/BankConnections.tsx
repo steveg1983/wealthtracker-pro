@@ -140,7 +140,7 @@ export default function BankConnections({
         error?: string;
         connectionId?: string;
       } | null;
-      if (!payload || payload.type !== 'wealthtracker:bank-oauth-complete') {
+      if (!payload || payload.type !== 'reckley:bank-oauth-complete') {
         return;
       }
 
@@ -350,7 +350,7 @@ export default function BankConnections({
           title: 'Your bank may still hold this authorisation',
           body:
             'The feed is removed here and won’t sync again, but the bank didn’t confirm that it ' +
-            'had dropped WealthTracker’s access. Remove it in your bank’s own app or online ' +
+            'had dropped Reckley’s access. Remove it in your bank’s own app or online ' +
             'banking, under connected apps or third-party access.'
         });
       }

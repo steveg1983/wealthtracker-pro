@@ -556,7 +556,7 @@ fn verify(key: &VerifyingKey, pasted: &str) -> Result<Claims, String> {
 
     let Some(body) = trimmed.strip_prefix(PREFIX) else {
         return Err(format!(
-            "That does not look like a WealthTracker licence key: they all begin with {PREFIX}."
+            "That does not look like a Reckley licence key: they all begin with {PREFIX}."
         ));
     };
 

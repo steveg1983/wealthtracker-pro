@@ -291,7 +291,7 @@ describe('RestoreBackupModal', () => {
       await screen.findByText('Restore finished');
       expect(restoreCalls()).toBe(1);
       const [bundle, options] = seam.restoreBackup.mock.calls[0];
-      expect(bundle.format).toBe('wealthtracker-backup-v2');
+      expect(bundle.format).toBe('reckley-backup-v2');
       expect(bundle.counts.transactions).toBe(1);
       expect(typeof options.onProgress).toBe('function');
 

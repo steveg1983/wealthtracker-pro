@@ -93,7 +93,7 @@ describe('when the bank did not confirm the revocation', () => {
     // reach and so has to be named precisely.
     const notice = await screen.findByText(/Your bank may still hold this authorisation/i);
     expect(notice).toBeTruthy();
-    expect(screen.getByText(/didn’t\s+confirm that it had dropped WealthTracker’s access/i)).toBeTruthy();
+    expect(screen.getByText(/didn’t\s+confirm that it had dropped Reckley’s access/i)).toBeTruthy();
     expect(screen.getByText(/your bank’s own app or online banking/i)).toBeTruthy();
   });
 

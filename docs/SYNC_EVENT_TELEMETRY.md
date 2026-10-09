@@ -1,13 +1,13 @@
 # Sync Event & Telemetry Types
 
 ## Packages
-- `@wealthtracker/types`: sync contracts (operations, conflicts, telemetry payload shape)
-- `@wealthtracker/core`: runtime auto-sync service
+- `@reckley/types`: sync contracts (operations, conflicts, telemetry payload shape)
+- `@reckley/core`: runtime auto-sync service
 - `src/services/analyticsBridge.ts`: forwards `analyticsEngine.track` events to the network and offline buffer
 
 ## Telemetry payload type
 ```ts
-import type { ConflictAnalyticsPayload } from '@wealthtracker/types';
+import type { ConflictAnalyticsPayload } from '@reckley/types';
 ```
 
 Example payload for conflict detection:

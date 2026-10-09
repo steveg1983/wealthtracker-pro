@@ -1,4 +1,4 @@
-# WealthTracker Shared Packages
+# Reckley Shared Packages
 
 This workspace directory will host reusable modules shared across apps:
 - `config/` – lint, TypeScript, Vite/Vitest presets
