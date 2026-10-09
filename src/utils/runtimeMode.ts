@@ -28,7 +28,7 @@ export const isAuthBypassRuntimeAllowed = isRuntimeBypassAllowed;
 
 const RUNTIME_CONTROL_QUERY_PARAMS = ['demo', 'testMode'] as const;
 const RUNTIME_CONTROL_STORAGE_KEYS = ['isTestMode', 'demoMode'] as const;
-const RUNTIME_CONTROL_SANITIZATION_SIGNAL_KEY = 'wealthtracker.runtime_control_sanitization';
+const RUNTIME_CONTROL_SANITIZATION_SIGNAL_KEY = 'reckley.runtime_control_sanitization';
 
 export type RuntimeControlQueryParam = typeof RUNTIME_CONTROL_QUERY_PARAMS[number];
 export type RuntimeControlStorageKey = typeof RUNTIME_CONTROL_STORAGE_KEYS[number];

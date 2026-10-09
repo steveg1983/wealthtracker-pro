@@ -216,7 +216,7 @@ export interface BankConnection {
   status: 'connected' | 'error' | 'reauth_required';
   lastSync?: string;
   accountsCount: number;
-  /** WealthTracker account ids linked to this connection (for per-account UI). */
+  /** Reckley account ids linked to this connection (for per-account UI). */
   linkedAccountIds: string[];
   expiresAt?: string;
   /**

@@ -33,7 +33,7 @@ const renderWelcome = (): void => {
 describe('the signed-out front door', () => {
   it('offers the wordmark and the two account actions', () => {
     renderWelcome();
-    expect(screen.getAllByText('WealthTracker').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Reckley').length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: 'Sign in' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Create an account' })).toBeInTheDocument();
   });

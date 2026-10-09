@@ -34,7 +34,7 @@ describe('ErrorBoundary', () => {
         </ErrorBoundary>
       );
 
-      expect(screen.getByText('WealthTracker has been updated')).toBeInTheDocument();
+      expect(screen.getByText('Reckley has been updated')).toBeInTheDocument();
       expect(screen.getByText(/still running the older version/)).toBeInTheDocument();
       expect(screen.getByText(/nothing you've saved is affected/)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument();
@@ -49,7 +49,7 @@ describe('ErrorBoundary', () => {
         </ErrorBoundary>
       );
 
-      expect(screen.getByText('WealthTracker has been updated')).toBeInTheDocument();
+      expect(screen.getByText('Reckley has been updated')).toBeInTheDocument();
     });
 
     it('says the honest thing when the tab is offline', () => {
@@ -63,7 +63,7 @@ describe('ErrorBoundary', () => {
 
       expect(screen.getByText("You're offline")).toBeInTheDocument();
       expect(screen.getByText(/Reconnect and reload/)).toBeInTheDocument();
-      expect(screen.queryByText('WealthTracker has been updated')).not.toBeInTheDocument();
+      expect(screen.queryByText('Reckley has been updated')).not.toBeInTheDocument();
     });
   });
 
@@ -78,7 +78,7 @@ describe('ErrorBoundary', () => {
       expect(screen.getByText('Oops! Something went wrong')).toBeInTheDocument();
       expect(screen.getByText("Cannot read properties of undefined (reading 'balance')")).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument();
-      expect(screen.queryByText('WealthTracker has been updated')).not.toBeInTheDocument();
+      expect(screen.queryByText('Reckley has been updated')).not.toBeInTheDocument();
     });
 
     it('does not mistake a failed API call for a stale chunk', () => {
@@ -89,7 +89,7 @@ describe('ErrorBoundary', () => {
       );
 
       expect(screen.getByText('Oops! Something went wrong')).toBeInTheDocument();
-      expect(screen.queryByText('WealthTracker has been updated')).not.toBeInTheDocument();
+      expect(screen.queryByText('Reckley has been updated')).not.toBeInTheDocument();
     });
   });
 

@@ -142,8 +142,8 @@ export default function PhoneNotificationSettings(): React.JSX.Element | null {
 
       {permission === 'denied' && (
         <p role="status" className="mb-4 text-sm text-gray-700 dark:text-gray-300">
-          Notifications are turned off for WealthTracker in iOS Settings. Turn them on there
-          (Settings → Notifications → WealthTracker), then come back and switch these on.
+          Notifications are turned off for Reckley in iOS Settings. Turn them on there
+          (Settings → Notifications → Reckley), then come back and switch these on.
         </p>
       )}
 

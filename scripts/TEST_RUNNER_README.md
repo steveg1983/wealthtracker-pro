@@ -2,7 +2,7 @@
 
 ## Problem
 
-The Codex CLI harness and some CI environments abort `npm run` scripts that take too long. The WealthTracker test suite is comprehensive and slow, causing timeouts.
+The Codex CLI harness and some CI environments abort `npm run` scripts that take too long. The Reckley test suite is comprehensive and slow, causing timeouts.
 
 ## Solution
 

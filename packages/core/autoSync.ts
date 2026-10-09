@@ -3,7 +3,7 @@ import type {
   SyncData,
   SyncEntityType,
   SyncOperation,
-} from '@wealthtracker/types/sync';
+} from '@reckley/types/sync';
 
 export type SyncOperationType = 'CREATE' | 'UPDATE' | 'DELETE';
 

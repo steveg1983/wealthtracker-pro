@@ -5,7 +5,7 @@
  * runs the real transform, and writes a local seed to the gitignored
  * `mny-local-seed.json` at the project root. The dev-only loader in the app
  * (?mnyimport=local) injects that seed into local storage so the whole file
- * can be browsed in a purely local WealthTracker — no cloud, no live data.
+ * can be browsed in a purely local Reckley — no cloud, no live data.
  *
  * Usage:  npx tsx scripts/mnyLocalImport.mts <exportDir>
  * The seed contains real financial data and is gitignored — delete it after
@@ -55,7 +55,7 @@ const outPath = join(outDir, 'mny-local-seed.json');
 writeFileSync(outPath, JSON.stringify(seed));
 
 const s = result.summary;
-console.log('MS Money → WealthTracker local seed written:', outPath);
+console.log('MS Money → Reckley local seed written:', outPath);
 console.log(`  accounts:     ${s.accounts.total} (${s.accounts.open} open, ${s.accounts.closed} closed)`);
 console.log(`  categories:   ${s.categories.subs} sub + ${s.categories.details} detail (${s.categories.hidden} hidden→inactive)`);
 console.log(`  transactions: ${s.transactions.imported} imported`);

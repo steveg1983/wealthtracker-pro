@@ -14,7 +14,7 @@ export default function TermsOfService(): React.JSX.Element {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-3xl mx-auto px-4 py-12">
         <Link to="/" className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-          ← Back to WealthTracker
+          ← Back to Reckley
         </Link>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mt-4 mb-2">Terms of Service</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">Last updated: 11 June 2026</p>
@@ -28,7 +28,7 @@ export default function TermsOfService(): React.JSX.Element {
 
         <h2 className={H2}>The service</h2>
         <p className={P}>
-          WealthTracker provides personal finance tracking tools: account and
+          Reckley provides personal finance tracking tools: account and
           transaction management, budgeting, goals, reporting, and optional
           open-banking imports. It is an information tool, not financial advice.
         </p>

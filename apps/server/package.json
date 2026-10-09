@@ -1,7 +1,7 @@
 {
-  "name": "wealthtracker-backend",
+  "name": "reckley-backend",
   "version": "1.0.0",
-  "description": "WealthTracker Backend API Server with Stripe integration",
+  "description": "Reckley Backend API Server with Stripe integration",
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon src/server.ts",
@@ -14,14 +14,14 @@
     "test:watch": "jest --watch"
   },
   "keywords": [
-    "wealthtracker",
+    "reckley",
     "express",
     "typescript",
     "stripe",
     "supabase",
     "clerk"
   ],
-  "author": "WealthTracker Team",
+  "author": "Reckley Team",
   "license": "MIT",
   "engines": {
     "node": ">=20 <21"

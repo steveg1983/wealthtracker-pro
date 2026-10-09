@@ -11,7 +11,7 @@ import path from 'path';
 
 async function runTests() {
   console.log('╔════════════════════════════════════════════════════════════════════════════╗');
-  console.log('║               WealthTracker Direct Test Runner (No npm)                   ║');
+  console.log('║               Reckley Direct Test Runner (No npm)                   ║');
   console.log('╚════════════════════════════════════════════════════════════════════════════╝\n');
 
   const startTime = Date.now();

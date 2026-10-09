@@ -94,7 +94,7 @@ const main = async () => {
   const manifest = {
     backedUpAt: startedAt.toISOString(),
     source: url,
-    format: 'wealthtracker-logical-backup-v1',
+    format: 'reckley-logical-backup-v1',
     tables: {}
   };
 

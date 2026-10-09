@@ -146,7 +146,7 @@ $ npm run build:check
 ```bash
 $ npm run verify:financial
 
-🔍 WealthTracker Financial Safety Audit
+🔍 Reckley Financial Safety Audit
 
 🚨  Checking for: parseFloat
   ✅ Clean in src/services

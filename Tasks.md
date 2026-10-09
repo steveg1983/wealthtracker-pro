@@ -1,4 +1,4 @@
-# WealthTracker UI Transformation Plan
+# Reckley UI Transformation Plan
 ## "Microsoft Money for the 2020s"
 
 **Created**: 2026-04-07
@@ -9,7 +9,7 @@
 
 ## THE CORE INSIGHT
 
-PocketSmith has **5 pages** and feels like a polished product. WealthTracker has **52 pages** and feels like an engineering project. The transformation isn't about adding features — it's about **consolidating, polishing, and creating visual identity**.
+PocketSmith has **5 pages** and feels like a polished product. Reckley has **52 pages** and feels like an engineering project. The transformation isn't about adding features — it's about **consolidating, polishing, and creating visual identity**.
 
 ---
 
@@ -393,7 +393,7 @@ Reports > [Income & Expense] [Cash Flows] [Net Worth] [Trends] [Digest] [Custom]
 7. **Accounting Notation** — parentheses for negatives, green/red coding
 8. **Saved Configurations** — let users save report/search setups
 
-### What WealthTracker Has That PocketSmith Doesn't
+### What Reckley Has That PocketSmith Doesn't
 - Real-time Supabase sync with conflict resolution
 - PWA with offline support and background sync
 - Accessibility audit dashboard built-in
@@ -416,7 +416,7 @@ Reports > [Income & Expense] [Cash Flows] [Net Worth] [Trends] [Digest] [Custom]
 4. **Phase 3 DONE**: Hero card restyled to navy, all dashboard cards to white + subtle border, quick action icons branded
 5. **Global card sweep**: 186 files updated from `bg-card-bg-light` to `bg-white`, 219 glass-morphism refs cleaned to solid white
 6. **Global colour sweep**: Replaced blue-600 links/buttons/gradients with emerald/brand colours across all pages and components
-7. **Brand unification**: "Wealth Tracker" -> "WealthTracker" everywhere, HTML title, loading screen, mobile header
+7. **Brand unification**: "Reckley" -> "Reckley" everywhere, HTML title, loading screen, mobile header
 8. **Focus rings**: blue -> emerald across all components
 9. **Background**: App background changed from blue-tinted #f0f7ff to clean #f8f9fb
 10. **Empty state component**: Upgraded with rounded icon container, better spacing, secondary action support

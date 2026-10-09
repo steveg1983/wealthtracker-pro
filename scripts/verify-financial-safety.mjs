@@ -3,7 +3,7 @@
 /**
  * Financial Code Safety Auditor
  *
- * Scans for violations of WealthTracker financial software standards:
+ * Scans for violations of Reckley financial software standards:
  * - parseFloat usage in financial code
  * - Missing Decimal.js usage
  * - "as any" casts in financial services
@@ -53,7 +53,7 @@ const results = {
   clean: []
 };
 
-console.log('🔍 WealthTracker Financial Safety Audit\n');
+console.log('🔍 Reckley Financial Safety Audit\n');
 console.log('Scanning paths:', FINANCIAL_PATHS.join(', '));
 console.log('─'.repeat(70));
 

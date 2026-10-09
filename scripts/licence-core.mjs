@@ -144,7 +144,7 @@ export function verifyLicence(licence) {
   }
 
   if (!licence || !licence.startsWith(PREFIX)) {
-    throw new Error(`that does not begin with ${PREFIX}, so it is not a WealthTracker licence key.`);
+    throw new Error(`that does not begin with ${PREFIX}, so it is not a Reckley licence key.`);
   }
   const [claimsPart, signaturePart, ...rest] = licence.slice(PREFIX.length).split('.');
   if (signaturePart === undefined || rest.length > 0) {

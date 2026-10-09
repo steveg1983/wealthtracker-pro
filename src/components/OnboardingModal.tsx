@@ -117,7 +117,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
       >
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Welcome to WealthTracker
+            Welcome to Reckley
           </h2>
         </div>
 
@@ -130,7 +130,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
         {/* Purpose before manner (Design, 17 Aug §3): a reader learns what
             the app is FOR before how it feels to use. Same length. */}
         <p className="text-gray-600 dark:text-gray-400 mb-6">
-          One answer and you're in. WealthTracker is a ledger, not an
+          One answer and you're in. Reckley is a ledger, not an
           estimator — every figure traces to something you entered or
           imported, and every report says what it leaves out.
         </p>

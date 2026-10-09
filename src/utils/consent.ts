@@ -27,7 +27,7 @@ export function getConsent(): ConsentLevel | null {
  * `storage` events do not fire in the tab that wrote the value, so this is
  * the only in-tab signal available.
  */
-export const CONSENT_CHANGED_EVENT = 'wealthtracker:consent-changed';
+export const CONSENT_CHANGED_EVENT = 'reckley:consent-changed';
 
 export function setConsent(level: ConsentLevel): void {
   try {

@@ -230,7 +230,7 @@
 
 
 -- ============================================================================
--- WealthTracker — local edition core schema (SQLite)
+-- Reckley — local edition core schema (SQLite)
 -- Phase 1 design draft. NOT applied anywhere. NOT a migration.
 -- ============================================================================
 --

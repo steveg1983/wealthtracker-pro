@@ -159,7 +159,7 @@ export function DesktopApp({ invoke }: DesktopAppProps): ReactElement {
       <Suspense
         fallback={
           <main className="ledger-screen">
-            <h1>WealthTracker</h1>
+            <h1>Reckley</h1>
             <p>Opening {ledgerPath}…</p>
           </main>
         }

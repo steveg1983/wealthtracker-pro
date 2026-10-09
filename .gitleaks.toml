@@ -1,4 +1,4 @@
-title = "WealthTracker gitleaks config"
+title = "Reckley gitleaks config"
 
 # CRITICAL: a custom config REPLACES gitleaks' built-in ruleset. Without this
 # extend block (and with no [[rules]] of our own) the scan would run with zero

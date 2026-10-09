@@ -11,7 +11,7 @@ import { formatDecimal } from '../../utils/decimal-format';
 vi.mock('../../pages/Dashboard', () => ({
   default: () => (
     <div>
-      <h1>WealthTracker</h1>
+      <h1>Reckley</h1>
       <div>Dashboard content</div>
     </div>
   )
@@ -99,7 +99,7 @@ describe('Error Handling Integration Tests', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
 
       // App should continue to work even if persistence fails
@@ -129,7 +129,7 @@ describe('Error Handling Integration Tests', () => {
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
 
       // Should have logged the parse error
@@ -152,7 +152,7 @@ describe('Error Handling Integration Tests', () => {
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
 
       // Should initialize with empty state without errors
@@ -173,7 +173,7 @@ describe('Error Handling Integration Tests', () => {
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
 
       // Should handle empty string gracefully
@@ -190,7 +190,7 @@ describe('Error Handling Integration Tests', () => {
 
       await waitFor(() => {
         // Should handle invalid accounts gracefully
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
     });
 
@@ -202,7 +202,7 @@ describe('Error Handling Integration Tests', () => {
 
       await waitFor(() => {
         // Should handle invalid transactions gracefully  
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
     });
 
@@ -214,7 +214,7 @@ describe('Error Handling Integration Tests', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
 
       // Should not crash the app but should log validation errors
@@ -287,7 +287,7 @@ describe('Error Handling Integration Tests', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
 
       // Should continue to work despite network error
@@ -310,7 +310,7 @@ describe('Error Handling Integration Tests', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
 
       // Should continue to work despite timeout
@@ -382,7 +382,7 @@ describe('Error Handling Integration Tests', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
 
       // Try to trigger form validation errors
@@ -401,7 +401,7 @@ describe('Error Handling Integration Tests', () => {
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
 
       // Try to submit forms with missing data
@@ -413,7 +413,7 @@ describe('Error Handling Integration Tests', () => {
       });
 
       // Should not crash
-      expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+      expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
     });
   });
 
@@ -426,7 +426,7 @@ describe('Error Handling Integration Tests', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
 
       // Should have logged date parsing errors
@@ -445,7 +445,7 @@ describe('Error Handling Integration Tests', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
 
       // Should handle future dates without errors
@@ -464,7 +464,7 @@ describe('Error Handling Integration Tests', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
 
       const endTime = performance.now();
@@ -502,7 +502,7 @@ describe('Error Handling Integration Tests', () => {
         }
         
         // Either it throws or handles gracefully
-        expect(errorThrown || screen.queryByText(/WealthTracker/i)).toBeTruthy();
+        expect(errorThrown || screen.queryByText(/Reckley/i)).toBeTruthy();
       } finally {
         // Restore localStorage
         global.localStorage = originalLocalStorage;
@@ -519,7 +519,7 @@ describe('Error Handling Integration Tests', () => {
       try {
         const Dashboard = (await import('../../pages/Dashboard')).default;
         renderWithProviders(<Dashboard />);
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       } finally {
         Number.prototype.toLocaleString = originalToLocaleString;
       }
@@ -564,7 +564,7 @@ describe('Error Handling Integration Tests', () => {
       }
 
       await waitFor(() => {
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
 
       // Should handle rapid updates without errors

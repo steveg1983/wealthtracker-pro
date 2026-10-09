@@ -1,8 +1,8 @@
 {
   "id": "wealth-tracker-pwa",
-  "name": "WealthTracker - Personal Finance Manager",
-  "short_name": "WealthTracker",
-  "description": "Track your finances, manage budgets, and achieve your financial goals with WealthTracker",
+  "name": "Reckley - Personal Finance Manager",
+  "short_name": "Reckley",
+  "description": "Track your finances, manage budgets, and achieve your financial goals with Reckley",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -104,7 +104,7 @@ const ALERT_PREFS_MIGRATION_KEY = 'wt_alert_prefs_migrated_v1';
  * The old build did not merely DEFAULT these two toggles to off: it read an
  * absent preference as `saved === 'true'` (i.e. false), and the persistence
  * effect beside it then WROTE that false straight back to localStorage on first
- * mount. So every browser that has ever opened WealthTracker is carrying an
+ * mount. So every browser that has ever opened Reckley is carrying an
  * explicit `"false"` for both alert toggles that its user never picked, and a
  * corrected default will never be consulted again.
  *

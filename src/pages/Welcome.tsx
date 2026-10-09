@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * THE LANDING PAGE — Claude Design's 29 Aug 2026 handover, ported section by
- * section from `WealthTracker Landing.dc.html`. The copy is the design's, not
+ * section from `Reckley Landing.dc.html`. The copy is the design's, not
  * this file's; §7 of the handover forbids softening the editions comparison
  * or the limits section, and the colour/radius/no-shadow rules are §4's.
  *
@@ -74,7 +74,7 @@ const IMPORT_FORMATS: ReadonlyArray<{ format: string; carries: string }> = [
 ];
 
 const VENDORS: ReadonlyArray<{ name: string; role: string }> = [
-  { name: 'Clerk', role: 'Sign-in and passwords. WealthTracker never stores a password of yours.' },
+  { name: 'Clerk', role: 'Sign-in and passwords. Reckley never stores a password of yours.' },
   {
     name: 'TrueLayer',
     role: "Bank connections, FCA-regulated. You authorise on your bank's own site — your banking credentials never pass through this app.",
@@ -192,7 +192,7 @@ export default function Welcome(): React.JSX.Element {
           else (handover §5.1). Create an account yields to the hero CTA below
           640px rather than crowding the bar (§6). */}
       <header className={`flex items-center justify-between px-6 sm:px-12 py-[18px] border-b border-[#1e2838] sticky top-0 ${DARK_GROUND} z-10`}>
-        <span className="text-base font-semibold tracking-[-0.01em]">WealthTracker</span>
+        <span className="text-base font-semibold tracking-[-0.01em]">Reckley</span>
         <div className="flex items-center gap-2.5">
           <SignInButton mode="modal">
             <button
@@ -219,7 +219,7 @@ export default function Welcome(): React.JSX.Element {
         <h1 className="m-0 max-w-[900px] text-[clamp(32px,6vw,58px)] leading-[1.07] font-semibold tracking-[-0.035em] text-balance">
           Other apps show you a number.
           {/* §6: the two-line break is a <br> and goes on narrow screens. */}
-          <br className="hidden md:inline" /> WealthTracker lets you prove it.
+          <br className="hidden md:inline" /> Reckley lets you prove it.
         </h1>
         <p className="m-0 max-w-[620px] text-lg leading-7 text-[#a9b6c9] text-pretty">
           Every figure traces back to a line you entered, categorised and reconciled against your
@@ -243,7 +243,7 @@ export default function Welcome(): React.JSX.Element {
       </section>
 
       {/* The four ethos cards — existing copy, kept (handover §1.3). */}
-      <section aria-label="What WealthTracker stands for" className="px-6 sm:px-12 pb-[88px] max-w-[1240px] mx-auto">
+      <section aria-label="What Reckley stands for" className="px-6 sm:px-12 pb-[88px] max-w-[1240px] mx-auto">
         <div className={`grid sm:grid-cols-2 lg:grid-cols-4 gap-px ${DARK_HAIRLINE} bg-[#23304a] border rounded-[10px] overflow-hidden`}>
           {ETHOS.map(({ title, body }) => (
             <div key={title} className={`${DARK_CARD} p-[22px] pt-6 flex flex-col gap-[9px]`}>
@@ -639,7 +639,7 @@ export default function Welcome(): React.JSX.Element {
 
       <footer className={`${DARK_GROUND} px-6 sm:px-12 py-[30px] border-t border-[#1e2838]`}>
         <div className="max-w-[1160px] mx-auto flex items-center justify-between gap-6">
-          <span className="text-[13px] text-[#7c8ba3]">© {year} WealthTracker</span>
+          <span className="text-[13px] text-[#7c8ba3]">© {year} Reckley</span>
           <nav aria-label="Legal" className="flex gap-5">
             <Link to="/privacy" className="text-[13px] text-[#93a1b6] hover:text-[#f1f3f7]">
               Privacy

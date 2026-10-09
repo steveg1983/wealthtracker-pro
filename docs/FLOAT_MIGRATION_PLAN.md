@@ -11,7 +11,7 @@
 
 ## Strategy
 1. **Audit validation** – confirm audit list matches current tree (run `rg 'parseFloat\('` etc.).
-2. **Introduce Money helpers** – verify shared `@wealthtracker/utils` Decimal helpers, expand as needed (format, compare, addition, rounding). `src/utils/currency.ts` now proxies to the Decimal implementation; migrate remaining call sites to async helpers. Document usage in README.
+2. **Introduce Money helpers** – verify shared `@reckley/utils` Decimal helpers, expand as needed (format, compare, addition, rounding). `src/utils/currency.ts` now proxies to the Decimal implementation; migrate remaining call sites to async helpers. Document usage in README.
 3. **File-by-file migration**
    - Replace `number` money fields with Money type alias.
    - Swap `parseFloat` for Decimal constructors.

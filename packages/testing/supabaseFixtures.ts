@@ -1,4 +1,4 @@
-import type { Database } from '@wealthtracker/types';
+import type { Database } from '@reckley/types';
 
 type Tables = Database['public']['Tables'];
 

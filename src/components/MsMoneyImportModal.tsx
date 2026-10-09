@@ -249,7 +249,7 @@ export default function MsMoneyImportModal({ isOpen, onClose, onBackup, onExecut
               <CheckCircleIcon size={40} className="text-green-600 dark:text-green-400 mx-auto mb-3" />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Import complete</h3>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                {s.accounts.total} accounts and {formatCount(s.transactions.imported)} transactions are now in WealthTracker.
+                {s.accounts.total} accounts and {formatCount(s.transactions.imported)} transactions are now in Reckley.
               </p>
               <button onClick={handleClose}
                 className="px-5 py-2 bg-primary-action text-on-primary-action rounded-lg hover:bg-primary-action-hover font-medium">

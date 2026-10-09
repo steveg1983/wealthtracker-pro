@@ -33,7 +33,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * The seam entries of one tsconfig's `paths`, spelt the way the walker spells a
- * target: `src/`-relative, no extension. `@wealthtracker/utils` is skipped —
+ * target: `src/`-relative, no extension. `@reckley/utils` is skipped —
  * a workspace package with one target in both projects is not a seam, because
  * there is nothing for an edition to choose between.
  */

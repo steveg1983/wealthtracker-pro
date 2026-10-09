@@ -89,7 +89,7 @@ export function initSentry() {
   Sentry.init({
     dsn: SENTRY_DSN,
     environment: APP_ENV,
-    release: `wealthtracker@${APP_VERSION}`,
+    release: `reckley@${APP_VERSION}`,
     integrations: analyticsConsent ? [buildReplayIntegration()] : [],
     tracesSampleRate: analyticsConsent ? (APP_ENV === 'production' ? 0.1 : 1.0) : 0,
     beforeSend: (event, _hint) => {

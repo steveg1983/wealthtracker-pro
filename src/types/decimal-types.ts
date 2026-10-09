@@ -1,4 +1,4 @@
-import type { DecimalInstance } from '@wealthtracker/utils';
+import type { DecimalInstance } from '@reckley/utils';
 import type { Budget } from './index';
 import type { AccountType } from './accountType';
 
@@ -7,7 +7,7 @@ import type { AccountType } from './accountType';
  * These will gradually replace the number-based types
  */
 
-export type { DecimalInstance } from '@wealthtracker/utils';
+export type { DecimalInstance } from '@reckley/utils';
 
 export interface DecimalHolding {
   ticker: string;

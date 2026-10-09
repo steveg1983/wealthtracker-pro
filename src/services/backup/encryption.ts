@@ -36,7 +36,7 @@
  */
 import type { BackupBundle } from './format';
 
-export const ENCRYPTED_BACKUP_FORMAT = 'wealthtracker-encrypted-backup';
+export const ENCRYPTED_BACKUP_FORMAT = 'reckley-encrypted-backup';
 /**
  * Envelope tags we have EVER written. Read forever, for the reason
  * `format.ts` gives beside `LEGACY_BACKUP_FORMATS`: the file is on somebody's
@@ -239,7 +239,7 @@ export async function decryptBackupBundle(
  */
 export function encryptedBackupFileName(exportedAt: string): string {
   const stamp = exportedAt.slice(0, 10);
-  return `wealthtracker-backup-${stamp}-encrypted.json`;
+  return `reckley-backup-${stamp}-encrypted.json`;
 }
 
 /** The sibling of `downloadBackupBundle`, kept beside what it writes. */

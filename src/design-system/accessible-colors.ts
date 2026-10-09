@@ -3,7 +3,7 @@
  * All color combinations meet WCAG 2.1 AA standards
  *
  * ⚠️ THE `primary` HEX BLOCK BELOW IS A MEASUREMENT TABLE, NOT THIS APP'S
- * PRIMARY. Its blues predate the palette: WealthTracker's primary is the brand
+ * PRIMARY. Its blues predate the palette: Reckley's primary is the brand
  * navy (`--color-primary`, rgb 26 35 50) and its primary ACTION is the
  * ground-aware `primary-action` token pair in `tailwind.config.js`. Nothing
  * reads this block today, and nothing new should — the ratios it records are

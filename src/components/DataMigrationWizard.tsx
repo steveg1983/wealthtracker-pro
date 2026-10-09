@@ -44,7 +44,7 @@ const SOURCES: MigrationSource[] = [
     icon: DatabaseIcon,
     instructions: [
       'Locate your Money file (usually My Documents, ending in .mny).',
-      'No export needed — WealthTracker reads the file directly in your browser.',
+      'No export needed — Reckley reads the file directly in your browser.',
     ],
     tools: [{ tool: 'msmoney', label: 'Open the Microsoft Money importer', hint: 'Reads the .mny natively' }],
     destructiveNote:

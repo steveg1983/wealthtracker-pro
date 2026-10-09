@@ -184,14 +184,14 @@ describe('validateBackupBundle', () => {
 
   it('names the old export format instead of failing vaguely', () => {
     const result = validateBackupBundle({
-      format: 'wealthtracker-complete-export-v1',
+      format: 'reckley-complete-export-v1',
       data: {},
       counts: {},
     });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.problem).toContain('wealthtracker-complete-export-v1');
+    expect(result.problem).toContain('reckley-complete-export-v1');
     expect(result.problem).toContain(BACKUP_FORMAT);
   });
 
@@ -395,11 +395,11 @@ describe('transactionDateRange', () => {
 
 describe('backupFileName', () => {
   it('dates the file from when it was exported', () => {
-    expect(backupFileName('2026-08-07T09:30:00.000Z')).toBe('wealthtracker-backup-2026-08-07.json');
+    expect(backupFileName('2026-08-07T09:30:00.000Z')).toBe('reckley-backup-2026-08-07.json');
   });
 
   it('still produces a usable name when the timestamp is unreadable', () => {
-    expect(backupFileName('not a date')).toMatch(/^wealthtracker-backup-\d{4}-\d{2}-\d{2}\.json$/);
+    expect(backupFileName('not a date')).toMatch(/^reckley-backup-\d{4}-\d{2}-\d{2}\.json$/);
   });
 });
 

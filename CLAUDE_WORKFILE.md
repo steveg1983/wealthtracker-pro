@@ -248,7 +248,7 @@ Remove any references/imports to these from other files.
 
 ## KEY TECHNICAL CONTEXT
 
-- **TrueLayer**: Live production environment (`TRUELAYER_ENVIRONMENT=production`). Client ID: `wealthtracker-dd0b41`. User's HSBC connected successfully.
+- **TrueLayer**: Live production environment (`TRUELAYER_ENVIRONMENT=production`). Client ID: `reckley-dd0b41`. User's HSBC connected successfully.
 - **Supabase**: Frontend uses anon key (no Supabase auth session). RLS policies on transactions were blocking reads — fixed with permissive SELECT.
 - **TransactionService bug**: `updateTransaction` sends camelCase fields via `as never` to Supabase. Fields like `cleared`, `accountId` silently fail because DB uses `is_cleared`, `account_id`. This is a critical bug to fix in Phase 1b.
 - **Account balance**: Currently `accounts.balance` gets overwritten by TrueLayer sync. Need to separate into `balance` (ledger) and `bank_balance` (from bank).
