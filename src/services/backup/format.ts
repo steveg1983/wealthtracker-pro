@@ -49,8 +49,27 @@ import {
   type PreferencesDocument,
 } from '../preferences/document';
 
-/** The format tag written into every file, and the only one restore accepts. */
+/** The format tag written into every file from now on. */
 export const BACKUP_FORMAT = 'wealthtracker-backup-v2';
+
+/**
+ * Format tags restore ACCEPTS — forever.
+ *
+ * A backup lives on a user's disk, outside any release we ship, so a tag we
+ * once wrote can never stop being read: the day it does, every file carrying
+ * it stops restoring and the person holding it finds out when they need it.
+ * `BACKUP_FORMAT` is what we write today; the rest of this list is what we
+ * have written before. Append to it when the writer changes; never remove.
+ *
+ * The version number stays at v2 across a brand change on purpose — a bump
+ * tells a reader the SHAPE changed, and it has not.
+ */
+export const LEGACY_BACKUP_FORMATS = ['wealthtracker-backup-v2'] as const;
+export const ACCEPTED_BACKUP_FORMATS: ReadonlySet<string> = new Set<string>([
+  BACKUP_FORMAT,
+  ...LEGACY_BACKUP_FORMATS,
+]);
+export type AcceptedBackupFormat = typeof BACKUP_FORMAT | (typeof LEGACY_BACKUP_FORMATS)[number];
 
 /**
  * The newest migration timestamp at the moment this format was written —
@@ -147,7 +166,7 @@ export interface BackupLinks {
 }
 
 export interface BackupBundle {
-  format: typeof BACKUP_FORMAT;
+  format: AcceptedBackupFormat;
   schemaVersion: string;
   exportedAt: string;
   sourceUserId: string;
@@ -418,10 +437,10 @@ export function validateBackupBundle(parsed: unknown): BackupValidation {
     return { ok: false, problem: `The file should contain a JSON object, but it contains ${describeValue(parsed)}.` };
   }
 
-  if (parsed.format !== BACKUP_FORMAT) {
+  if (typeof parsed.format !== 'string' || !ACCEPTED_BACKUP_FORMATS.has(parsed.format)) {
     return {
       ok: false,
-      problem: `This is not a WealthTracker backup: "format" should be "${BACKUP_FORMAT}" but it is ${describeValue(parsed.format)}. Files from the old "Export everything" button say "wealthtracker-complete-export-v1" and cannot be restored — they were never complete enough to put back.`,
+      problem: `This is not a backup this app can restore: "format" should be "${BACKUP_FORMAT}" but it is ${describeValue(parsed.format)}. Files from the old "Export everything" button say "wealthtracker-complete-export-v1" and cannot be restored — they were never complete enough to put back.`,
     };
   }
 

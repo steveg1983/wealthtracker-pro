@@ -44,7 +44,7 @@ describe('ErrorHandlingService', () => {
     service.handleError(new Error('Network down'), { category: ErrorCategory.NETWORK });
 
     expect(storage.setItem).toHaveBeenCalledWith(
-      'wealthtracker_error_log',
+      'ledger_error_log',
       expect.stringContaining('Network down')
     );
     expect(service.getErrorsByCategory(ErrorCategory.NETWORK)).toHaveLength(1);

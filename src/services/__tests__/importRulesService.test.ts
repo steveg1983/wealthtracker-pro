@@ -68,7 +68,7 @@ describe('ImportRulesService', () => {
       const newService = new ImportRulesService({ storage });
       const rules = newService.getRules();
       
-      expect(storage.getItem).toHaveBeenCalledWith('wealthtracker_import_rules');
+      expect(storage.getItem).toHaveBeenCalledWith('ledger_import_rules');
       expect(rules).toHaveLength(1);
       expect(rules[0].name).toBe('Test Rule');
     });

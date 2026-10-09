@@ -340,7 +340,7 @@ describe('Currency Integration Tests', () => {
 
     it('updates when currency preference changes', () => {
       // Set initial currency to GBP
-      localStorageMock.setItem('wealthtracker_preferences', JSON.stringify({ currency: 'GBP', theme: 'light' }));
+      localStorageMock.setItem('ledger_preferences', JSON.stringify({ currency: 'GBP', theme: 'light' }));
       
       const { rerender } = renderWithProviders(<CurrencyTestComponent />, {
       });
@@ -349,7 +349,7 @@ describe('Currency Integration Tests', () => {
       expect(screen.getByTestId('currency-symbol')).toHaveTextContent('£');
 
       // Update localStorage to simulate preference change
-      localStorageMock.setItem('wealthtracker_preferences', JSON.stringify({ currency: 'EUR', theme: 'light' }));
+      localStorageMock.setItem('ledger_preferences', JSON.stringify({ currency: 'EUR', theme: 'light' }));
 
       // Rerender - but note the currency won't change automatically without state update
       rerender(<CurrencyTestComponent />);

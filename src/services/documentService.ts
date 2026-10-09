@@ -1,3 +1,4 @@
+import { storageKey } from '../brand';
 import { performOCR } from './ocrService';
 import { indexedDBService, migrateFromLocalStorage } from './indexedDBService';
 
@@ -93,7 +94,7 @@ export interface DocumentServiceOptions {
 
 export class DocumentService {
   private initialized = false;
-  private storageKey = 'wealthtracker_documents';
+  private storageKey = storageKey('documents');
   private maxFileSize = 10 * 1024 * 1024; // 10MB
   private allowedMimeTypes = [
     'image/jpeg',

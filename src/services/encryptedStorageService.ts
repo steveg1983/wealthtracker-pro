@@ -1,3 +1,4 @@
+import { storageKey } from '../brand';
 import CryptoJS from '../security/cryptoSuite';
 import { indexedDBService } from './indexedDBService';
 import type { JsonValue } from '../types/common';
@@ -489,15 +490,24 @@ export class EncryptedStorageService {
 // Create singleton instance
 export const encryptedStorage = new EncryptedStorageService();
 
-// Storage key constants
+// Storage key constants.
+//
+// Two vocabularies, on purpose — see `brand.ts` for the full argument:
+//   `storageKey(...)` — the data. These were `wealthtracker_*` until the 2026
+//     rename; `lib/storageMigration.ts` copies every device's records across at
+//     boot, and its test asserts this table and that module agree.
+//   `money_management_*` — the preference set, which is also a wire format in
+//     the cloud preferences document and in every backup file, and so is NOT
+//     renamed. Nobody sees these strings; renaming them would cost a server-side
+//     remap and a backup-file remap and buy nothing.
 export const STORAGE_KEYS = {
-  ACCOUNTS: 'wealthtracker_accounts',
-  TRANSACTIONS: 'wealthtracker_transactions',
-  TRANSACTION_SPLITS: 'wealthtracker_transaction_splits',
+  ACCOUNTS: storageKey('accounts'),
+  TRANSACTIONS: storageKey('transactions'),
+  TRANSACTION_SPLITS: storageKey('transaction_splits'),
   /** Sweep suggestions the user has refused for good (local/demo mirror). */
-  SUGGESTION_DISMISSALS: 'wealthtracker_suggestion_dismissals',
-  BUDGETS: 'wealthtracker_budgets',
-  GOALS: 'wealthtracker_goals',
+  SUGGESTION_DISMISSALS: storageKey('suggestion_dismissals'),
+  BUDGETS: storageKey('budgets'),
+  GOALS: storageKey('goals'),
   /**
    * Reports somebody built (local/demo mirror).
    *
@@ -507,11 +517,11 @@ export const STORAGE_KEYS = {
    * and then never again. Reusing its name here would make the migration read
    * its own output and lose the ability to tell "already adopted" from "not yet".
    */
-  CUSTOM_REPORTS: 'wealthtracker_custom_reports',
-  TAGS: 'wealthtracker_tags',
-  RECURRING: 'wealthtracker_recurring',
-  CATEGORIES: 'wealthtracker_categories',
-  PREFERENCES: 'wealthtracker_preferences',
+  CUSTOM_REPORTS: storageKey('custom_reports'),
+  TAGS: storageKey('tags'),
+  RECURRING: storageKey('recurring'),
+  CATEGORIES: storageKey('categories'),
+  PREFERENCES: storageKey('preferences'),
   THEME: 'money_management_theme',
   ACCENT_COLOR: 'money_management_accent_color',
   NOTIFICATIONS: 'money_management_notifications',

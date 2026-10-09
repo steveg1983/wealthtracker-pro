@@ -1,4 +1,5 @@
 
+import { storageKey } from '../../brand';
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
 import type { User } from '../../types';
 import { storageAdapter } from '../storageAdapter';
@@ -148,7 +149,7 @@ class UserServiceImpl {
 
   async updatePreferences(clerkId: string, preferences: Record<string, unknown>): Promise<void> {
     if (!this.isSupabaseReady()) {
-      this.persistLocally('wealthtracker_preferences', preferences);
+      this.persistLocally(storageKey('preferences'), preferences);
       return;
     }
 
@@ -171,7 +172,7 @@ class UserServiceImpl {
 
   async updateSettings(clerkId: string, settings: Record<string, unknown>): Promise<void> {
     if (!this.isSupabaseReady()) {
-      this.persistLocally('wealthtracker_settings', settings);
+      this.persistLocally(storageKey('settings'), settings);
       return;
     }
 

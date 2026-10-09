@@ -553,14 +553,14 @@ describe('EncryptedStorageService', () => {
       });
 
       vi.mocked(indexedDBService.get).mockResolvedValue(record);
-      const first = await reader.getItem('wealthtracker_accounts');
-      const second = await reader.getItem('wealthtracker_transactions');
+      const first = await reader.getItem('ledger_accounts');
+      const second = await reader.getItem('ledger_transactions');
 
       expect(first).toBeNull();
       expect(second).toBeNull();
       // Both poisoned entries purged so the failure never repeats…
-      expect(indexedDBService.delete).toHaveBeenCalledWith('secureData', 'wealthtracker_accounts');
-      expect(indexedDBService.delete).toHaveBeenCalledWith('secureData', 'wealthtracker_transactions');
+      expect(indexedDBService.delete).toHaveBeenCalledWith('secureData', 'ledger_accounts');
+      expect(indexedDBService.delete).toHaveBeenCalledWith('secureData', 'ledger_transactions');
       // …and exactly ONE warning, not an error per entry per load.
       expect(warn).toHaveBeenCalledTimes(1);
     });
@@ -580,7 +580,7 @@ describe('EncryptedStorageService', () => {
       sharedLocal.map.set('wt_enc_key', 'key-B');
 
       vi.mocked(indexedDBService.get).mockResolvedValueOnce(record);
-      const result = await reader.getItem('wealthtracker_transactions');
+      const result = await reader.getItem('ledger_transactions');
 
       // The reader adopts the persisted key and reads the data — no purge.
       expect(result).toEqual({ fresh: 'write' });
@@ -709,11 +709,11 @@ describe('EncryptedStorageService', () => {
 
   describe('Storage Key Constants', () => {
     it('exports all required storage keys', () => {
-      expect(STORAGE_KEYS.ACCOUNTS).toBe('wealthtracker_accounts');
-      expect(STORAGE_KEYS.TRANSACTIONS).toBe('wealthtracker_transactions');
-      expect(STORAGE_KEYS.BUDGETS).toBe('wealthtracker_budgets');
-      expect(STORAGE_KEYS.GOALS).toBe('wealthtracker_goals');
-      expect(STORAGE_KEYS.PREFERENCES).toBe('wealthtracker_preferences');
+      expect(STORAGE_KEYS.ACCOUNTS).toBe('ledger_accounts');
+      expect(STORAGE_KEYS.TRANSACTIONS).toBe('ledger_transactions');
+      expect(STORAGE_KEYS.BUDGETS).toBe('ledger_budgets');
+      expect(STORAGE_KEYS.GOALS).toBe('ledger_goals');
+      expect(STORAGE_KEYS.PREFERENCES).toBe('ledger_preferences');
     });
   });
 });

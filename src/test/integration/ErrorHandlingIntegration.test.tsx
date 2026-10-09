@@ -116,7 +116,7 @@ describe('Error Handling Integration Tests', () => {
         value: {
           ...localStorageMock,
           getItem: vi.fn((key) => {
-            if (key === 'wealthtracker_accounts') {
+            if (key === 'ledger_accounts') {
               return '{"invalid": json}'; // Invalid JSON
             }
             return null;
@@ -558,7 +558,7 @@ describe('Error Handling Integration Tests', () => {
 
       // Simulate rapid state updates
       for (let i = 0; i < 10; i++) {
-        localStorageMock.setItem(`wealthtracker_accounts`, JSON.stringify([
+        localStorageMock.setItem(`ledger_accounts`, JSON.stringify([
           { ...testData.accounts[0], id: `${i}`, name: `Account ${i}` }
         ]));
       }

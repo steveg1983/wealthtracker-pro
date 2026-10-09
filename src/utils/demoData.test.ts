@@ -12,12 +12,12 @@ vi.mock('../services/storageAdapter', () => ({
     })
   },
   STORAGE_KEYS: {
-    ACCOUNTS: 'wealthtracker_accounts',
-    TRANSACTIONS: 'wealthtracker_transactions',
-    BUDGETS: 'wealthtracker_budgets',
-    GOALS: 'wealthtracker_goals',
-    CATEGORIES: 'wealthtracker_categories',
-    RECURRING: 'wealthtracker_recurring'
+    ACCOUNTS: 'ledger_accounts',
+    TRANSACTIONS: 'ledger_transactions',
+    BUDGETS: 'ledger_budgets',
+    GOALS: 'ledger_goals',
+    CATEGORIES: 'ledger_categories',
+    RECURRING: 'ledger_recurring'
   }
 }));
 
@@ -90,31 +90,31 @@ describe('initializeDemoData seeding', () => {
   it('seeds every collection through the storage the app reads from', async () => {
     await initializeDemoData();
 
-    expect(storedValues.get('wealthtracker_accounts')).toEqual(demoAccounts);
-    expect(storedValues.get('wealthtracker_transactions')).toHaveLength(100);
-    expect(storedValues.get('wealthtracker_categories')).toBeDefined();
-    expect(storedValues.get('wealthtracker_budgets')).toBeDefined();
-    expect(storedValues.get('wealthtracker_goals')).toBeDefined();
-    expect(storedValues.get('wealthtracker_recurring')).toBeDefined();
+    expect(storedValues.get('ledger_accounts')).toEqual(demoAccounts);
+    expect(storedValues.get('ledger_transactions')).toHaveLength(100);
+    expect(storedValues.get('ledger_categories')).toBeDefined();
+    expect(storedValues.get('ledger_budgets')).toBeDefined();
+    expect(storedValues.get('ledger_goals')).toBeDefined();
+    expect(storedValues.get('ledger_recurring')).toBeDefined();
     expect(window.localStorage.getItem('demoMode')).toBe('true');
   });
 
   it('re-seeds when storage holds an empty account list', async () => {
     // The dead state this fixes: something (Clear All Data) left an empty
     // array behind, which used to shadow the seed forever.
-    storedValues.set('wealthtracker_accounts', []);
+    storedValues.set('ledger_accounts', []);
 
     await initializeDemoData();
 
-    expect(storedValues.get('wealthtracker_accounts')).toEqual(demoAccounts);
+    expect(storedValues.get('ledger_accounts')).toEqual(demoAccounts);
   });
 
   it('leaves an existing demo session alone', async () => {
-    storedValues.set('wealthtracker_accounts', [{ id: 'edited-by-the-visitor' }]);
+    storedValues.set('ledger_accounts', [{ id: 'edited-by-the-visitor' }]);
 
     await initializeDemoData();
 
-    expect(storedValues.get('wealthtracker_accounts')).toEqual([{ id: 'edited-by-the-visitor' }]);
+    expect(storedValues.get('ledger_accounts')).toEqual([{ id: 'edited-by-the-visitor' }]);
     expect(storageAdapter.set).not.toHaveBeenCalled();
   });
 
