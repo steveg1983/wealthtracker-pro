@@ -1,5 +1,6 @@
 // FIRST import: configures zod before any module-scope schema is built.
 // See the file for why (it removes a per-load CSP violation).
+import { migrateStorage } from './lib/storageMigration'
 import './lib/zodConfig'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -300,37 +301,50 @@ const clerkAppearance: Appearance = {
 // Remove any pre-existing dark class on app start
 document.documentElement.classList.remove('dark');
 
-try {
-  const root = document.getElementById('root');
-  if (!root) {
-    bootstrapLogger.error('Root element not found');
-  } else {
-    bootstrapLogger.info('Starting React app');
-    createRoot(root).render(
-      <StrictMode>
-        <ClerkErrorBoundary>
-          <ClerkProvider
-            publishableKey={PUBLISHABLE_KEY}
-            afterSignOutUrl="/"
-            appearance={clerkAppearance}
-            allowedRedirectOrigins={[window.location.origin]}
-            // Clerk's usage telemetry posts to clerk-telemetry.com, which the
-            // CSP's connect-src deliberately does not list — so every page load
-            // logged a CSP violation for a request we do not need. Widening the
-            // policy to admit an analytics host would be the wrong trade: a
-            // console full of expected errors is where a real one goes unseen.
-            telemetry={{ disabled: true }}
-          >
-            <App />
-          </ClerkProvider>
-        </ClerkErrorBoundary>
-      </StrictMode>,
-    );
-    bootstrapLogger.info('React app rendered');
+const renderApp = (): void => {
+  try {
+    const root = document.getElementById('root');
+    if (!root) {
+      bootstrapLogger.error('Root element not found');
+    } else {
+      bootstrapLogger.info('Starting React app');
+      createRoot(root).render(
+        <StrictMode>
+          <ClerkErrorBoundary>
+            <ClerkProvider
+              publishableKey={PUBLISHABLE_KEY}
+              afterSignOutUrl="/"
+              appearance={clerkAppearance}
+              allowedRedirectOrigins={[window.location.origin]}
+              // Clerk's usage telemetry posts to clerk-telemetry.com, which the
+              // CSP's connect-src deliberately does not list — so every page load
+              // logged a CSP violation for a request we do not need. Widening the
+              // policy to admit an analytics host would be the wrong trade: a
+              // console full of expected errors is where a real one goes unseen.
+              telemetry={{ disabled: true }}
+            >
+              <App />
+            </ClerkProvider>
+          </ClerkErrorBoundary>
+        </StrictMode>,
+      );
+      bootstrapLogger.info('React app rendered');
+    }
+  } catch (error) {
+    bootstrapLogger.error('Error rendering app', error);
   }
-} catch (error) {
-  bootstrapLogger.error('Error rendering app', error);
-}
+};
+
+// The storage-generation migration runs to completion BEFORE the first render,
+// because the first thing the app does after mounting is read storage, and the
+// migration is what puts the data under the names it will read. It is
+// copy-not-move and never blocks boot: a failure is logged and the app renders
+// against whatever is there (the old keys still are). See lib/storageMigration.
+void migrateStorage()
+  .catch(error => {
+    bootstrapLogger.error('Storage migration failed; rendering anyway', error);
+  })
+  .then(renderApp);
 
 /*
  * THERE IS NO SERVICE WORKER, ON PURPOSE (31 Aug 2026).

@@ -1,3 +1,4 @@
+import { storageKey } from '../brand';
 // Centralized Error Handling Service
 // Provides consistent error handling, logging, and user notifications
 
@@ -71,7 +72,7 @@ export class ErrorHandlingService {
   private errors: AppError[] = [];
   private handlers: Map<ErrorCategory, ErrorHandler[]> = new Map();
   private maxErrors = 100; // Keep last 100 errors in memory
-  private storageKey = 'wealthtracker_error_log';
+  private storageKey = storageKey('error_log');
 
   private storage: StorageLike | null;
   private windowRef: WindowLike | null;

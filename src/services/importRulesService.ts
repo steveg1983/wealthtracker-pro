@@ -1,3 +1,4 @@
+import { storageKey } from '../brand';
 import type { ImportRule, ImportRuleTest } from '../types/importRules';
 import type { Transaction } from '../types';
 import { applyRules, checkCondition } from './importRules/engine';
@@ -19,7 +20,7 @@ export class ImportRulesService {
   private readonly storage: StorageLike | null;
   private readonly logger: Logger;
   private readonly nowProvider: NowFn;
-  private readonly storageKey = 'wealthtracker_import_rules';
+  private readonly storageKey = storageKey('import_rules');
 
   /**
    * Where rules are kept beyond this browser — or `null`, meaning this machine

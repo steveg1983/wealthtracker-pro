@@ -1,3 +1,4 @@
+import { KEY_PREFIX } from '../brand';
 import { encryptedStorage, STORAGE_KEYS } from './encryptedStorageService';
 import { indexedDBService } from './indexedDBService';
 
@@ -119,7 +120,7 @@ export class SecureStorageAdapter implements StorageAdapter {
     const storageLength = this.localStorageRef?.length ?? 0;
     for (let i = 0; i < storageLength; i++) {
       const key = this.localStorageRef?.key?.(i);
-      if (key && (key.startsWith('wealthtracker_') || key.startsWith('money_management_'))) {
+      if (key && (key.startsWith(`${KEY_PREFIX}_`) || key.startsWith('wealthtracker_') || key.startsWith('money_management_'))) {
         if (!keysToMigrate.includes(key)) {
           keysToMigrate.push(key);
         }
@@ -274,7 +275,7 @@ export class SecureStorageAdapter implements StorageAdapter {
       const storageLength = this.localStorageRef?.length ?? 0;
       for (let i = 0; i < storageLength; i++) {
         const key = this.localStorageRef?.key?.(i);
-        if (key && (key.startsWith('wealthtracker_') || key.startsWith('money_management_'))) {
+        if (key && (key.startsWith(`${KEY_PREFIX}_`) || key.startsWith('wealthtracker_') || key.startsWith('money_management_'))) {
           keysToRemove.push(key);
         }
       }

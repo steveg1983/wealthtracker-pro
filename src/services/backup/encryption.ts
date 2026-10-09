@@ -37,6 +37,16 @@
 import type { BackupBundle } from './format';
 
 export const ENCRYPTED_BACKUP_FORMAT = 'wealthtracker-encrypted-backup';
+/**
+ * Envelope tags we have EVER written. Read forever, for the reason
+ * `format.ts` gives beside `LEGACY_BACKUP_FORMATS`: the file is on somebody's
+ * disk and outlives every release. Append when the writer changes; never remove.
+ */
+export const LEGACY_ENCRYPTED_BACKUP_FORMATS = ['wealthtracker-encrypted-backup'] as const;
+export const ACCEPTED_ENCRYPTED_BACKUP_FORMATS: ReadonlySet<string> = new Set<string>([
+  ENCRYPTED_BACKUP_FORMAT,
+  ...LEGACY_ENCRYPTED_BACKUP_FORMATS,
+]);
 export const ENCRYPTED_BACKUP_VERSION = 1;
 
 /**
@@ -169,7 +179,8 @@ export function isEncryptedBackup(parsed: unknown): parsed is EncryptedBackupEnv
   if (typeof parsed !== 'object' || parsed === null) return false;
   const candidate = parsed as Partial<EncryptedBackupEnvelope>;
   return (
-    candidate.format === ENCRYPTED_BACKUP_FORMAT &&
+    typeof candidate.format === 'string' &&
+    ACCEPTED_ENCRYPTED_BACKUP_FORMATS.has(candidate.format) &&
     typeof candidate.ciphertext === 'string' &&
     typeof candidate.kdf?.salt === 'string' &&
     typeof candidate.kdf?.iterations === 'number' &&

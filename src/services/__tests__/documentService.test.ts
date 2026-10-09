@@ -64,7 +64,7 @@ describe('DocumentService (deterministic)', () => {
       fullUrl: 'doc-1'
     };
     storage.getItem.mockImplementation((key: string) =>
-      key === 'wealthtracker_documents' ? JSON.stringify([storedDoc]) : null
+      key === 'ledger_documents' ? JSON.stringify([storedDoc]) : null
     );
     mockedDb.getAll.mockRejectedValueOnce(new Error('db unavailable'));
 

@@ -26,7 +26,7 @@ describe('UserService (fallback + DI)', () => {
 
     await service.updatePreferences('user', { theme: 'dark' });
     expect(localStorage.setItem).toHaveBeenCalledWith(
-      'wealthtracker_preferences',
+      'ledger_preferences',
       JSON.stringify({ theme: 'dark' })
     );
     expect(logger.warn).not.toHaveBeenCalled();
@@ -42,7 +42,7 @@ describe('UserService (fallback + DI)', () => {
 
     await service.updateSettings('user', { language: 'en' });
     expect(logger.warn).toHaveBeenCalledWith(
-      'Local storage unavailable; skipping write for wealthtracker_settings'
+      'Local storage unavailable; skipping write for ledger_settings'
     );
   });
 
@@ -57,7 +57,7 @@ describe('UserService (fallback + DI)', () => {
 
     await UserService.updatePreferences('user', { notifications: true });
     expect(localStorage.setItem).toHaveBeenCalledWith(
-      'wealthtracker_preferences',
+      'ledger_preferences',
       JSON.stringify({ notifications: true })
     );
   });

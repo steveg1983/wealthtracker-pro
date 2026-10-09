@@ -154,7 +154,7 @@ describe('App Integration Tests', () => {
       });
 
       // Store data in localStorage
-      localStorageMock.setItem('wealthtracker_accounts', JSON.stringify(accounts));
+      localStorageMock.setItem('ledger_accounts', JSON.stringify(accounts));
 
       // Unmount and re-render to simulate app reload
       unmount();
