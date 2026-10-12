@@ -1,5 +1,6 @@
 import type { Transaction, Category } from '../types';
 import { isTransferFiling } from '../utils/transferCoherence';
+import { buildTransferEvidenceIndex, type TransferEvidenceIndex } from '../utils/transferEvidence';
 
 interface CategoryPattern {
   categoryId: string;
@@ -22,6 +23,13 @@ export class SmartCategorizationService {
   private learningHistory: Map<string, { merchantConfidence: number; keywordConfidence: number }> = new Map();
   private userCorrections: Map<string, Map<string, number>> = new Map(); // merchant -> categoryId -> count
   private rejectedSuggestions: Map<string, Set<string>> = new Map(); // transactionDescription -> rejected categoryIds
+  /**
+   * What the history says is a TRANSFER, per account and wording. Not a
+   * pattern the model suggests from — see learnFromTransactions on why it
+   * never learns transfers — but the one thing that can make it hold its
+   * tongue. Null until the first learn.
+   */
+  private transferEvidence: TransferEvidenceIndex | null = null;
 
   /**
    * Learn from existing categorized transactions
@@ -43,12 +51,27 @@ export class SmartCategorizationService {
    * The importers' own `isSelfTransferCategory` check is narrower — it refuses
    * only the row's OWN account's To/From — and stays where it is: two guards
    * for a rule this expensive to break is the right number.
+   *
+   * ─ …AND THE EDGE THAT EXCLUSION HAD ────────────────────────────────────────
+   * Leaving transfers out of the lesson left the floor to whatever ELSE the
+   * same wording had ever been filed as. On a swept account the nightly
+   * "Two Way Sweep from account …" is a linked transfer two hundred and
+   * fifty-eight times over, and the three rows the owner once filed as
+   * "Account Adjustment" to tidy a stranded pair were the only ones the model
+   * was allowed to see — so every new sweep arrived suggested as an
+   * adjustment, with a confidence of 0.76 (2 Oct 2026). The transfers are
+   * still not learned as a category. They are tallied as EVIDENCE, by account
+   * and wording (utils/transferEvidence), and a row the ledger says is
+   * overwhelmingly a transfer gets no category suggestion at all: it arrives
+   * blank, and the row editor proposes the transfer from the same evidence,
+   * through the match-or-create question that writes a real pair.
    */
   learnFromTransactions(transactions: Transaction[], categories: Category[]) {
     // Reset patterns
     this.patterns.clear();
     this.merchantCategoryMap.clear();
     this.keywordCategoryMap.clear();
+    this.transferEvidence = buildTransferEvidenceIndex(transactions, categories);
 
     const transferCategoryIds = new Set(
       categories.filter(c => isTransferFiling(c)).map(c => c.id)
@@ -105,6 +128,11 @@ export class SmartCategorizationService {
    * Suggest categories for a transaction
    */
   suggestCategories(transaction: Transaction, maxSuggestions: number = 3): CategorizationSuggestion[] {
+    // Silence, on purpose: the history says this wording in this account is a
+    // transfer, and the only category the model could offer is the minority
+    // that outvoted it. See learnFromTransactions.
+    if (this.transferEvidence?.lookup(transaction)) return [];
+
     const suggestions: CategorizationSuggestion[] = [];
     const merchant = this.extractMerchant(transaction.description);
     const descriptionLower = transaction.description.toLowerCase();

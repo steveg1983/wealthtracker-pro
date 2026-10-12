@@ -20,6 +20,9 @@ import {
 import type { Transaction } from '../types';
 
 const mocks = vi.hoisted(() => ({
+  /** The rest of the ledger, as a spec needs it — emptied before each. */
+  history: [] as Transaction[],
+  confirmTransactionCategories: vi.fn(async () => 0),
   updateTransaction: vi.fn(async () => {}),
   linkTransferPair: vi.fn(async () => ({ a: {}, b: {} })),
   createTransferCounterpart: vi.fn(async () => ({ source: {}, counterpart: {} })),
@@ -52,28 +55,31 @@ const unrelated: Transaction = {
 
 vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
-    transactions: [row, unrelated],
+    transactions: [row, unrelated, ...mocks.history],
     accounts: [
       { id: 'acc-a', name: 'Current Account', type: 'checking', balance: 100, currency: 'GBP', isActive: true },
       { id: 'acc-b', name: 'Savings', type: 'savings', balance: 100, currency: 'GBP', isActive: true },
+      { id: 'acc-c', name: 'Cash ISA', type: 'savings', balance: 100, currency: 'GBP', isActive: true },
       { id: 'acc-z', name: 'Old ISA', type: 'savings', balance: 0, currency: 'GBP', isActive: false },
     ],
     categories: [
       { id: 'type-expense', name: 'Expenses', type: 'expense', level: 'type' },
       { id: 'sub-x', name: 'Bills', type: 'expense', level: 'sub', parentId: 'type-expense' },
       { id: 'det-x', name: 'Council Tax', type: 'expense', level: 'detail', parentId: 'sub-x' },
+      { id: 'det-w', name: 'Water', type: 'expense', level: 'detail', parentId: 'sub-x' },
     ],
     getSubCategories: (parentId?: string) => [
       { id: 'sub-x', name: 'Bills', type: 'expense', level: 'sub', parentId: 'type-expense' },
     ].filter(c => c.parentId === parentId),
     getDetailCategories: (parentId?: string) => [
       { id: 'det-x', name: 'Council Tax', type: 'expense', level: 'detail', parentId: 'sub-x' },
+      { id: 'det-w', name: 'Water', type: 'expense', level: 'detail', parentId: 'sub-x' },
     ].filter(c => c.parentId === parentId),
     updateTransaction: mocks.updateTransaction,
     linkTransferPair: mocks.linkTransferPair,
     createTransferCounterpart: mocks.createTransferCounterpart,
     applyCategoryToUncategorized: vi.fn(async () => 0),
-    confirmTransactionCategories: vi.fn(async () => 0),
+    confirmTransactionCategories: mocks.confirmTransactionCategories,
   }),
 }));
 
@@ -121,6 +127,7 @@ const accountBox = (): HTMLElement | null => screen.queryByRole('combobox', { na
 describe('The register row editor — the inline Transfer toggle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.history.length = 0;
   });
 
   it('swaps the category combobox for the account picker, and back', () => {
@@ -325,6 +332,202 @@ describe('The register row editor — the inline Transfer toggle', () => {
 
       expect(categoryBox()).toBeInTheDocument();
       expect(accountBox()).not.toBeInTheDocument();
+    });
+  });
+
+  /**
+   * The owner, 2 Oct 2026: with the toggle on and an account chosen he pressed
+   * the orange Confirm, "assuming that this means confirming the category or
+   * account THEY have picked" — and got the guessed category confirmed, the
+   * account thrown away. Any change to the suggestion takes Confirm with it:
+   * picking another category always did, and the toggle now does too.
+   */
+  describe('Confirm, and the suggestion it agrees with', () => {
+    const guessed = { ...row, categoryConfirmed: false } as Transaction;
+    const confirm = (): HTMLElement | null => screen.queryByRole('button', { name: 'Confirm' });
+
+    it('disappears the moment the Transfer toggle goes on, and returns when it goes off', () => {
+      render(<RowEditor transaction={guessed} onDismiss={vi.fn()} />);
+      expect(confirm()).toBeInTheDocument();
+
+      fireEvent.click(toggle());
+      expect(confirm()).not.toBeInTheDocument();
+      // No Confirm, so the only buttons left are the saves — which is the point.
+      expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+
+      fireEvent.click(toggle());
+      expect(confirm()).toBeInTheDocument();
+    });
+
+    it('disappears when a different category is picked — any change to the guess is the user’s choice', () => {
+      render(<RowEditor transaction={guessed} onDismiss={vi.fn()} />);
+      expect(confirm()).toBeInTheDocument();
+
+      fireEvent.click(categoryBox()!);
+      fireEvent.click(screen.getByText('Water'));
+
+      expect(confirm()).not.toBeInTheDocument();
+      expect(categoryBox()).toHaveTextContent('Water');
+    });
+
+    it('cannot confirm the guess from under a chosen account', async () => {
+      render(<RowEditor transaction={guessed} onDismiss={vi.fn()} />);
+      fireEvent.click(toggle());
+      fireEvent.click(accountBox()!);
+      fireEvent.click(screen.getByRole('option', { name: /Savings/ }));
+
+      expect(confirm()).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      // The save is the transfer's: the match-or-create question, not a
+      // category confirmation.
+      expect(await screen.findByRole('group', { name: 'Make this a transfer with Savings' })).toBeInTheDocument();
+      expect(mocks.confirmTransactionCategories).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * The ledger's own proposal. The categoriser never suggests a transfer —
+   * a "To/From" written as a category is half a transfer — so a swept
+   * account's nightly sweep arrived with nothing, or worse, with the minority
+   * category that had outvoted it. Now the history makes the case in the
+   * editor: toggle on, account in the box, badged as a suggestion, and the
+   * save runs the same match-or-create question a hand-picked account runs.
+   */
+  describe('a transfer the ledger proposes', () => {
+    const SWEEP = 'Two Way Sweep from account 00001234';
+    /** The sweep as it arrives: no category, in review. */
+    const sweep = { ...row, id: 'sweep', description: SWEEP, category: '', categoryConfirmed: true } as Transaction;
+    const pastSweep = (i: number, overrides: Partial<Transaction> = {}): Transaction => ({
+      ...row,
+      id: `past-${i}`,
+      description: SWEEP,
+      type: 'transfer',
+      category: '',
+      transferAccountId: 'acc-b',
+      linkedTransferId: `far-${i}`,
+      ...overrides,
+    } as Transaction);
+    const badge = (): HTMLElement | null => screen.queryByTitle(/proposes a transfer/);
+
+    it('opens with the toggle on and the account in the box, badged as a suggestion', () => {
+      mocks.history.push(pastSweep(1), pastSweep(2), pastSweep(3));
+      render(<RowEditor transaction={sweep} onDismiss={vi.fn()} />);
+
+      expect(toggle()).toHaveAttribute('aria-pressed', 'true');
+      expect(accountBox()).toHaveTextContent('Savings');
+      expect(badge()).toBeInTheDocument();
+      // The badge says how it knows, in the user's own numbers.
+      expect(badge()).toHaveAttribute('title', expect.stringContaining('3 of 3'));
+      expect(badge()).toHaveAttribute('title', expect.stringContaining('Savings'));
+      // And nothing to Confirm: a transfer is committed by the save that asks.
+      expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument();
+    });
+
+    it('lands the cursor on Save & Next, so Enter asks the question — the proposal is read, not hidden in a list', async () => {
+      mocks.history.push(pastSweep(1), pastSweep(2), pastSweep(3));
+      render(
+        <RowEditor
+          transaction={sweep}
+          onNext={vi.fn()}
+          onDismiss={vi.fn()}
+          focusRequest={{ field: 'category', openCalendar: false }}
+          onFocusRequestHandled={vi.fn()}
+        />
+      );
+
+      const next = screen.getByRole('button', { name: 'Save & Next' });
+      await waitFor(() => expect(document.activeElement).toBe(next));
+    });
+
+    it('saves into the match-or-create question for the proposed account', async () => {
+      mocks.history.push(pastSweep(1), pastSweep(2), pastSweep(3));
+      render(<RowEditor transaction={sweep} onDismiss={vi.fn()} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(await screen.findByRole('group', { name: 'Make this a transfer with Savings' })).toBeInTheDocument();
+      // Nothing was written by the proposal itself: the pair waits on the answer.
+      expect(mocks.createTransferCounterpart).not.toHaveBeenCalled();
+      expect(mocks.linkTransferPair).not.toHaveBeenCalled();
+    });
+
+    it('takes the badge off the moment a different account is picked', () => {
+      mocks.history.push(pastSweep(1), pastSweep(2), pastSweep(3));
+      render(<RowEditor transaction={sweep} onDismiss={vi.fn()} />);
+
+      fireEvent.click(accountBox()!);
+      fireEvent.click(screen.getByRole('option', { name: /Cash ISA/ }));
+
+      expect(accountBox()).toHaveTextContent('Cash ISA');
+      expect(badge()).not.toBeInTheDocument();
+    });
+
+    it('is one click from a category, and one more from the proposal again', () => {
+      mocks.history.push(pastSweep(1), pastSweep(2), pastSweep(3));
+      render(<RowEditor transaction={sweep} onDismiss={vi.fn()} />);
+
+      fireEvent.click(toggle());
+      expect(categoryBox()).toBeInTheDocument();
+      expect(badge()).not.toBeInTheDocument();
+
+      fireEvent.click(toggle());
+      expect(accountBox()).toHaveTextContent('Savings');
+      expect(badge()).toBeInTheDocument();
+    });
+
+    it('is not made on two sweeps — three is the bar', () => {
+      mocks.history.push(pastSweep(1), pastSweep(2));
+      render(<RowEditor transaction={sweep} onDismiss={vi.fn()} />);
+
+      expect(toggle()).toHaveAttribute('aria-pressed', 'false');
+      expect(categoryBox()).toBeInTheDocument();
+    });
+
+    it('is not made for a row the user has already filed', () => {
+      mocks.history.push(pastSweep(1), pastSweep(2), pastSweep(3));
+      const filed = { ...sweep, category: 'det-x', categoryConfirmed: true } as Transaction;
+      render(<RowEditor transaction={filed} onDismiss={vi.fn()} />);
+
+      expect(toggle()).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('IS made for a row carrying only the app’s guess — the guess it corrects', () => {
+      mocks.history.push(pastSweep(1), pastSweep(2), pastSweep(3));
+      const guessed = { ...sweep, category: 'det-x', categoryConfirmed: false } as Transaction;
+      render(<RowEditor transaction={guessed} onDismiss={vi.fn()} />);
+
+      expect(toggle()).toHaveAttribute('aria-pressed', 'true');
+      expect(accountBox()).toHaveTextContent('Savings');
+      // The guessed category is still there under the toggle, Confirm and all,
+      // for anyone who disagrees with the ledger.
+      fireEvent.click(toggle());
+      expect(categoryBox()).toHaveTextContent('Council Tax');
+      expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+    });
+
+    it('is not made to an account the picker could not offer', () => {
+      // Three sweeps to the closed ISA: a proposal nobody could act on.
+      mocks.history.push(
+        pastSweep(1, { transferAccountId: 'acc-z' }),
+        pastSweep(2, { transferAccountId: 'acc-z' }),
+        pastSweep(3, { transferAccountId: 'acc-z' })
+      );
+      render(<RowEditor transaction={sweep} onDismiss={vi.fn()} />);
+
+      expect(toggle()).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('does not travel to the next row', () => {
+      mocks.history.push(pastSweep(1), pastSweep(2), pastSweep(3));
+      const { rerender } = render(<RowEditor transaction={sweep} onDismiss={vi.fn()} />);
+      expect(accountBox()).toBeInTheDocument();
+
+      const next = { ...row, id: 'next', description: 'Something else', category: '' } as Transaction;
+      rerender(<RowEditor transaction={next} onDismiss={vi.fn()} />);
+
+      expect(categoryBox()).toBeInTheDocument();
+      expect(badge()).not.toBeInTheDocument();
     });
   });
 });

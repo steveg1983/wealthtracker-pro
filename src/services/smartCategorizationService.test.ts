@@ -772,3 +772,100 @@ describe('SmartCategorizationService', () => {
     });
   });
 });
+/**
+ * The exclusion's edge. Transfers are never learned as a category — the right
+ * rule — but it left the floor to whatever ELSE the same wording had been
+ * filed as. On the owner's swept account that was three "Account Adjustment"
+ * tidy-ups against two hundred and fifty-eight linked sweeps, and every new
+ * sweep arrived suggested as an adjustment. The history is now tallied as
+ * evidence (utils/transferEvidence), and a row it says is overwhelmingly a
+ * transfer gets NO category suggestion: blank, not wrong.
+ */
+describe('SmartCategorizationService — a wording that has always been a transfer', () => {
+  const categories: Category[] = [
+    { id: 'adjust', name: 'Account Adjustment', type: 'expense', icon: 'wrench' },
+    { id: 'utilities', name: 'Utilities', type: 'expense', icon: 'bolt' },
+  ];
+  const SWEEP = 'Two Way Sweep from account 00001234';
+
+  const transfer = (i: number, accountId = 'current', description = SWEEP): Transaction => ({
+    id: `t${i}`,
+    accountId,
+    date: '2026-09-01',
+    description,
+    amount: 141.5,
+    type: 'transfer',
+    category: '',
+    transferAccountId: 'reserve',
+    linkedTransferId: `other-${i}`,
+    cleared: true,
+    recurring: false,
+  });
+  const filed = (i: number, accountId = 'current', description = SWEEP): Transaction => ({
+    id: `f${i}`,
+    accountId,
+    date: '2026-09-01',
+    description,
+    amount: 141.5,
+    type: 'income',
+    category: 'adjust',
+    categoryConfirmed: true,
+    cleared: true,
+    recurring: false,
+  });
+  const incoming = (accountId = 'current', description = SWEEP): Transaction => ({
+    id: 'new',
+    accountId,
+    date: '2026-10-01',
+    description,
+    amount: 141.5,
+    type: 'income',
+    category: '',
+    cleared: false,
+    recurring: false,
+  });
+
+  it('says nothing, rather than offering the minority category that outvoted the sweeps', () => {
+    const history = [
+      ...Array.from({ length: 12 }, (_, i) => transfer(i)),
+      filed(1), filed(2), filed(3),
+    ];
+    smartCategorizationService.learnFromTransactions(history, categories);
+
+    expect(smartCategorizationService.suggestCategories(incoming(), 1)).toEqual([]);
+  });
+
+  it('still suggests the category when the history is genuinely mixed', () => {
+    // Four adjustments against two transfers: the wording is the user's call,
+    // and the model's merchant memory is the best advice there is.
+    const history = [transfer(1), transfer(2), filed(1), filed(2), filed(3), filed(4)];
+    smartCategorizationService.learnFromTransactions(history, categories);
+
+    const suggestions = smartCategorizationService.suggestCategories(incoming(), 1);
+    expect(suggestions[0]?.categoryId).toBe('adjust');
+  });
+
+  it('is keyed by account — the same wording elsewhere keeps its suggestion', () => {
+    const history = [
+      ...Array.from({ length: 12 }, (_, i) => transfer(i)),
+      filed(1), filed(2), filed(3),
+      // The same words in another account, filed and never a transfer there.
+      filed(4, 'joint'), filed(5, 'joint'),
+    ];
+    smartCategorizationService.learnFromTransactions(history, categories);
+
+    expect(smartCategorizationService.suggestCategories(incoming(), 1)).toEqual([]);
+    expect(smartCategorizationService.suggestCategories(incoming('joint'), 1)[0]?.categoryId).toBe('adjust');
+  });
+
+  it('forgets the evidence with the rest of the lesson on the next learn', () => {
+    smartCategorizationService.learnFromTransactions(
+      Array.from({ length: 6 }, (_, i) => transfer(i)),
+      categories
+    );
+    expect(smartCategorizationService.suggestCategories(incoming(), 1)).toEqual([]);
+
+    smartCategorizationService.learnFromTransactions([filed(1), filed(2)], categories);
+    expect(smartCategorizationService.suggestCategories(incoming(), 1)[0]?.categoryId).toBe('adjust');
+  });
+});
