@@ -1,5 +1,5 @@
 {
-  "name": "@wealthtracker/core",
+  "name": "@reckley/core",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
-    "@wealthtracker/types": "workspace:*",
-    "@wealthtracker/utils": "workspace:*"
+    "@reckley/types": "workspace:*",
+    "@reckley/utils": "workspace:*"
   }
 }

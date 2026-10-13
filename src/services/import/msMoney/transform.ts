@@ -3,7 +3,7 @@ import { isDeletedAccountTransferCategory } from '../../../utils/moneyCategoryAr
 import type { Account, Category, Transaction, TransactionSplit } from '../../../types';
 
 /**
- * Microsoft Money → WealthTracker transform.
+ * Microsoft Money → Reckley transform.
  *
  * Input is the normalised JSON produced by the native .mny reader (Jackcess +
  * Jackcess-Encrypt): every account, transaction, category and payee, with

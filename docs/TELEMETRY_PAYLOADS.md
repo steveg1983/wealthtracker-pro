@@ -1,6 +1,6 @@
 # Telemetry Event Contract
 
-WealthTracker emits client-side analytics events via `analyticsEngine.track`.
+Reckley emits client-side analytics events via `analyticsEngine.track`.
 `analyticsBridge` fans these events to the configured endpoint (`VITE_ANALYTICS_ENDPOINT`).
 
 ## Event envelope

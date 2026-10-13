@@ -21,22 +21,22 @@
       "@app-types/*": [
         "packages/types/*"
       ],
-      "@wealthtracker/core": [
+      "@reckley/core": [
         "packages/core/index.ts"
       ],
-      "@wealthtracker/core/*": [
+      "@reckley/core/*": [
         "packages/core/*"
       ],
-      "@wealthtracker/utils": [
+      "@reckley/utils": [
         "packages/utils/index.ts"
       ],
-      "@wealthtracker/utils/*": [
+      "@reckley/utils/*": [
         "packages/utils/*"
       ],
-      "@wealthtracker/types": [
+      "@reckley/types": [
         "packages/types/index.ts"
       ],
-      "@wealthtracker/types/*": [
+      "@reckley/types/*": [
         "packages/types/*"
       ]
     }

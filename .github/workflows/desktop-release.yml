@@ -177,7 +177,7 @@ jobs:
           # What an INSTALLED app downloads, and the two platforms do NOT
           # agree on its shape:
           #
-          #   macOS   a SEPARATE archive, WealthTracker.app.tar.gz, beside the
+          #   macOS   a SEPARATE archive, Reckley.app.tar.gz, beside the
           #           .dmg a person downloads;
           #   Windows the SAME -setup.exe a person downloads, with a .sig next
           #           to it. (Tauri v1 produced a -setup.nsis.zip here and v2
@@ -191,7 +191,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wealthtracker-${{ matrix.artifact }}
+          name: reckley-${{ matrix.artifact }}
           path: out/*
           if-no-files-found: error
 

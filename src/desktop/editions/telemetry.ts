@@ -34,10 +34,10 @@ export type { CaptureException, CaptureMessage, TelemetryContext, TelemetryLevel
 export const captureException: CaptureException = (error, context) => {
   // `console.error` rather than the app's logger: this module is what the
   // logger's own sink resolves to, so calling it back would be a loop.
-  console.error('[wealthtracker]', error.message, { error, ...(context ?? {}) });
+  console.error('[reckley]', error.message, { error, ...(context ?? {}) });
 };
 
 export const captureMessage: CaptureMessage = (message, level = 'info', context) => {
   const write = level === 'fatal' || level === 'error' ? console.error : console.warn;
-  write('[wealthtracker]', `[${level}] ${message}`, context ?? {});
+  write('[reckley]', `[${level}] ${message}`, context ?? {});
 };

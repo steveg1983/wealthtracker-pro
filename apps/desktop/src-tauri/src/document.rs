@@ -152,7 +152,7 @@ pub fn open(path: &Path) -> Result<Document, String> {
     let connection = db::open(path).map_err(|error| {
         format!(
             "This file could not be opened as a ledger: {error}\n\nIf it is a \
-             WealthTracker backup (.json) rather than a ledger (.db), restore it into a \
+             Reckley backup (.json) rather than a ledger (.db), restore it into a \
              new ledger instead."
         )
     })?;
@@ -373,7 +373,7 @@ mod tests {
     fn a_file_that_is_not_a_ledger_says_so_and_points_at_the_restore() {
         let dir = temp_dir();
         let path = dir.join("backup.json");
-        std::fs::write(&path, b"{\"format\":\"wealthtracker-backup-v2\"}").unwrap();
+        std::fs::write(&path, b"{\"format\":\"reckley-backup-v2\"}").unwrap();
 
         let refused = open(&path).expect_err("a backup file is not a ledger");
         assert!(refused.contains("could not be opened as a ledger"), "{refused}");

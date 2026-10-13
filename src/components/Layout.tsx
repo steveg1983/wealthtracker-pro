@@ -333,7 +333,7 @@ export default function Layout(): React.JSX.Element {
             to={isDemoModeRoutingEnabled ? '/dashboard?demo=true' : '/dashboard'}
             className="text-white font-semibold text-base mr-8 shrink-0 hover:text-white/90 transition-colors flex items-center h-full tracking-tight"
           >
-            WealthTracker
+            Reckley
           </Link>
 
           {/* Primary Nav — 5 core pages */}
@@ -557,7 +557,7 @@ export default function Layout(): React.JSX.Element {
             {isMobileMenuOpen ? <XIcon size={24} className="text-gray-700 dark:text-gray-200" /> : <MenuIcon size={24} className="text-gray-700 dark:text-gray-200" />}
           </button>
           
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white tracking-tight" id="mobile-app-title">WealthTracker</h1>
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-white tracking-tight" id="mobile-app-title">Reckley</h1>
           
           <div className="flex items-center gap-2">
             <NotificationBell />
@@ -611,7 +611,7 @@ export default function Layout(): React.JSX.Element {
             // on an installed home-screen app is under the status bar (and an
             // arriving notification banner), not below it. Both fixed headers
             // already stand off by this constant; the drawer was the one piece
-            // of top chrome that didn't, so its "WealthTracker" title sat
+            // of top chrome that didn't, so its "Reckley" title sat
             // behind the clock. Padding, not `top`, because the panel's
             // background should still reach the physical top of the screen.
             style={{ paddingTop: TOP_CHROME_OFFSET }}
@@ -626,7 +626,7 @@ export default function Layout(): React.JSX.Element {
             <div className="p-4" style={{ paddingBottom: BOTTOM_CHROME_OFFSET }}>
               {/* Mobile header with close button */}
               <header className="flex justify-between items-center mb-8" role="banner">
-                <h2 id="mobile-menu-title" className="text-2xl font-semibold text-white dark:text-white tracking-tight">WealthTracker</h2>
+                <h2 id="mobile-menu-title" className="text-2xl font-semibold text-white dark:text-white tracking-tight">Reckley</h2>
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => {

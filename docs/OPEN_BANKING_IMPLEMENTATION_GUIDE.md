@@ -1,5 +1,5 @@
 # Open Banking Implementation Guide
-**WealthTracker - TrueLayer Integration**
+**Reckley - TrueLayer Integration**
 **Last Updated**: 2026-01-02
 **Status**: Database ready, awaiting backend implementation
 
@@ -60,14 +60,14 @@ You started implementing UK Open Banking with TrueLayer but paused for a while. 
 **How**:
 1. Go to https://console.truelayer.com/
 2. Login to your account
-3. Find your WealthTracker application
+3. Find your Reckley application
 4. Navigate to "API Credentials" or "Settings"
 5. Click "Regenerate Client Secret" (or similar)
 6. **Copy the new credentials immediately** (secret only shows once)
 7. Save them somewhere secure temporarily
 
 **What you'll get**:
-- New Client ID (format: `sandbox-wealthtracker-xxxxx`)
+- New Client ID (format: `sandbox-reckley-xxxxx`)
 - New Client Secret (format: UUID)
 
 **Keep these private!** Only share with ChatGPT via secure channel.

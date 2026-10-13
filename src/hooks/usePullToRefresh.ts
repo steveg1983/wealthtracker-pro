@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
  *
  * ── WHY THIS EXISTS AT ALL ──────────────────────────────────────────────────
  *
- * The owner added WealthTracker to his home screen, and two days later the
+ * The owner added Reckley to his home screen, and two days later the
  * Accounts page was drawing itself the way it had before that morning's fixes:
  * the header under the iOS clock, the controls squashed. Fully closing the app
  * and reopening it fixed everything.

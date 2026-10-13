@@ -213,7 +213,7 @@ describe('the desktop router', () => {
     window.location.hash = '#/open-banking';
     render(<DesktopApp invoke={silentShell} />);
 
-    expect(screen.getByRole('heading', { name: 'WealthTracker' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Reckley' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open a ledger…' })).toBeInTheDocument();
     expect(screen.queryByText(/bank/i)).toBeNull();
   });

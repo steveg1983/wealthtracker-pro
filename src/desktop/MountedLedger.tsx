@@ -132,7 +132,7 @@ function RedirectWithSearch({ to }: { to: string }): ReactElement {
  *
  * This is what makes `DesktopRoute.title` load-bearing rather than
  * documentation. A browser tab has a strip and an address bar; a window has one
- * line of chrome, and if it always says "WealthTracker" then the application has
+ * line of chrome, and if it always says "Reckley" then the application has
  * declined to tell you which of its thirty screens you are looking at.
  *
  * Matched on `at` against the hash path, longest first, so `settings/security/
@@ -151,7 +151,7 @@ const titleFor = (pathname: string): string => {
       return route.title;
     }
   }
-  return 'WealthTracker';
+  return 'Reckley';
 };
 
 function WindowTitle(): null {
@@ -180,7 +180,7 @@ function OpenLedgerScreen(): ReactElement {
 
   return (
     <main className="ledger-screen">
-      <h1>{identity?.path ?? 'WealthTracker'}</h1>
+      <h1>{identity?.path ?? 'Reckley'}</h1>
       <p>
         {count(accounts.length, 'account', 'accounts')},{' '}
         {count(transactions.length, 'transaction', 'transactions')},{' '}

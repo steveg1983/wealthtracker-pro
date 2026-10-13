@@ -46,7 +46,7 @@ export const HISTORICAL_RATES_PROVIDER = 'European Central Bank reference rates'
 /** The first date the ECB series exists for. */
 const SERIES_EPOCH = '1999-01-04';
 
-const DB_NAME = 'wealthtracker-fx-history';
+const DB_NAME = 'reckley-fx-history';
 const STORE = 'rates';
 const OPEN_TIMEOUT_MS = 10_000;
 

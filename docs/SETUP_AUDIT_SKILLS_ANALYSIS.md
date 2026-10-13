@@ -1,4 +1,4 @@
-# WealthTracker Setup Audit & Skills Analysis
+# Reckley Setup Audit & Skills Analysis
 **Date**: 2026-01-11
 **Auditor**: Claude Code
 **Purpose**: Evaluate whether custom Claude Code skills would add value vs. current setup

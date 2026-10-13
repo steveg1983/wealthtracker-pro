@@ -170,7 +170,7 @@ export interface DesktopRoute {
  * has nothing else it could show.
  */
 export const DESKTOP_ROUTES = [
-  { path: '/', at: '', title: 'WealthTracker' },
+  { path: '/', at: '', title: 'Reckley' },
   { path: 'dashboard', at: 'dashboard', title: 'Dashboard' },
   { path: 'accounts', at: 'accounts', title: 'Accounts' },
   { path: 'accounts/:accountId', at: 'accounts/:accountId', title: 'Account' },
@@ -232,7 +232,7 @@ export const DESKTOP_ROUTES = [
   // that does not exist, and it goes home rather than telling the user about our
   // mistake. Last in the list for a reader's benefit only: react-router v6 ranks
   // by specificity and would put it last wherever it was written.
-  { path: '*', at: '*', title: 'WealthTracker' }
+  { path: '*', at: '*', title: 'Reckley' }
 ] as const satisfies readonly DesktopRoute[];
 
 /**

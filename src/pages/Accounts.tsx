@@ -3218,7 +3218,7 @@ function AccountsList() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
           <EmptyState
             title="No accounts yet"
-            description="Every balance, report and budget in WealthTracker is built up from accounts, so until there is one here the rest of the app has nothing to show. Nothing here is estimated, so nothing appears until you add it."
+            description="Every balance, report and budget in Reckley is built up from accounts, so until there is one here the rest of the app has nothing to show. Nothing here is estimated, so nothing appears until you add it."
             action={{ label: 'Add Account', onClick: () => setIsAddModalOpen(true) }}
           />
         </div>

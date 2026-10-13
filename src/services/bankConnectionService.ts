@@ -30,7 +30,7 @@ export interface BankConnection {
   lastSync?: Date;
   accounts: string[];
   accountsCount?: number;
-  /** WealthTracker account ids linked to this connection. */
+  /** Reckley account ids linked to this connection. */
   linkedAccountIds: string[];
   createdAt?: Date;
   expiresAt?: Date;
@@ -89,7 +89,7 @@ export interface ConnectBankOptions {
  * accounts on the next sync, and reports the provider's answer separately.
  */
 export interface DisconnectOutcome {
-  /** The connection is gone from WealthTracker. */
+  /** The connection is gone from Reckley. */
   removed: boolean;
   /**
    * Whether the PROVIDER confirmed it had dropped the consent.

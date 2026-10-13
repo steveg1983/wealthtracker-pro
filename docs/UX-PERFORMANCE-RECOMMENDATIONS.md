@@ -1,4 +1,4 @@
-# WealthTracker UX & Performance Recommendations
+# Reckley UX & Performance Recommendations
 
 ## Executive Summary
 The app currently has significant performance issues that create a "clunky" user experience:

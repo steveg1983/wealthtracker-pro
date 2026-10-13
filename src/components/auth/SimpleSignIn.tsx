@@ -22,7 +22,7 @@ export default function SimpleSignIn(): React.JSX.Element {
         <div className="text-center">
           <div className="flex items-center justify-center gap-2 text-gray-900 dark:text-white">
             <WalletIcon size={22} />
-            <span className="text-lg font-bold tracking-tight">WealthTracker</span>
+            <span className="text-lg font-bold tracking-tight">Reckley</span>
           </div>
           <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">Sign in</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">

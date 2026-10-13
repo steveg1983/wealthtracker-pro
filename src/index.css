@@ -242,7 +242,7 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 }
 
-/* WealthTracker Brand Colors */
+/* Reckley Brand Colors */
 :root {
   /*
    * THE BRAND NAVY, AS A TRIPLE AND AS A COLOUR — one source, two forms.
@@ -414,7 +414,7 @@ html.dark body {
 }
 
 /* The colour-theme variants (green/red/pink primary swaps) were retired
-   2026-07-10: WealthTracker has one brand identity — the navy scheme in :root,
+   2026-07-10: Reckley has one brand identity — the navy scheme in :root,
    accents included — plus light/dark modes. (Both of the 2026-07-10 audit's
    colour regressions lived in theme-variant CSS.) */
 
@@ -874,7 +874,7 @@ button.rounded-full:focus-visible,
      and home indicator, insetting the webview — and STILL reports the full
      notch/home-indicator values through env(). Every consumer that padded
      by env() then padded a second time over the system's own bars (owner's
-     phone, 1 Sep 2026: "dead dark blue space" above the WealthTracker bar
+     phone, 1 Sep 2026: "dead dark blue space" above the Reckley bar
      and below the pill). In standalone the inset is therefore zeroed — the
      system bars already clear the hardware. Safari tabs keep the real env()
      because there the page genuinely runs under the hardware cut-outs.

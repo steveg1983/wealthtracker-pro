@@ -69,7 +69,7 @@ export function countFeedsNeedingAttention(connections: readonly BankConnection[
 
 /**
  * Flatten bank connections into an account-id → link map. A connection can back
- * several WealthTracker accounts, so each linked id points back at the shared
+ * several Reckley accounts, so each linked id points back at the shared
  * connection metadata. Pure to keep the mapping unit-testable.
  */
 export function buildAccountBankLinks(connections: BankConnection[]): Map<string, AccountBankLink> {

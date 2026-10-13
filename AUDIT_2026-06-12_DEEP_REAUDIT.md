@@ -1,4 +1,4 @@
-# WealthTracker Post-Rollout Re-Audit — Consolidated Findings
+# Reckley Post-Rollout Re-Audit — Consolidated Findings
 
 ## Executive Summary
 

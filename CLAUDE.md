@@ -1,8 +1,8 @@
-# Engineering Bible – WealthTracker Web
+# Engineering Bible – Reckley Web
 
 **Owner**: Frontend/Platform (ChatGPT)  
 **Branch**: `claude-lint-cleanup`  
-**Updated**: 2026‑10‑08
+**Updated**: 2026‑10‑09
 
 ---
 
@@ -21,7 +21,7 @@
 | Desktop bundle | `npm run desktop:verify` | ✅ | Builds `src/desktop` → `apps/desktop/dist`, then PHASE3-PLAN §5’s two bundle greps **plus the one that is about weight rather than the cloud** (`xlsx`, 1 Sep 2026), then the size ratchet, then the mount run. REFUSES rather than skips when there is no build |
 | Desktop size | `npm run bundle:check:desktop` | ✅ | 3,790.5 KiB raw / 1,163.8 KiB gz; budgets 3830 / 1176 KiB. **Raw** is the gate — nothing is downloaded, the bytes are embedded in the binary. Binary size recorded, never gated. Budgets sit ~1 % above measured, which is tight ON PURPOSE: the last move was DOWN (−498.6 KiB raw, the spreadsheet writer, owner's ruling 1 Sep 2026 — "lose excel is fine as long as they can keep csv"), and leaving 4320 would have banked the win as silent permission. The next intended growth raises these two numbers in the commit that causes it; the header of `scripts/desktop-bundle-size.mjs` narrates every step. |
 | Desktop shell | `npm run desktop:check` | ✅ | clippy `-D warnings` + the shell crate's own 38 tests (`apps/desktop/src-tauri`). Was 12; licensing brought 26 — the offline verifier, the clock's high-water mark, the read allowlist held to the crate's own enum by asking serde to recite it, and a real ledger proving that an expired window is refused a write BY NAME while a read and the export both still answer |
-| Desktop build | `npm run desktop:build` | ✅ | `vite` → `apps/desktop/dist`, then `cargo build --release` → ~20 MB arm64 (was 16.1 MB; the 0.1.1 updater brings an HTTP/TLS stack with it). The renderer must be built first: `generate_context!` embeds it. Since 0.1.1 a release build also emits `WealthTracker.app.tar.gz` + `.sig` — what an INSTALLED copy downloads, which is not the installer |
+| Desktop build | `npm run desktop:build` | ✅ | `vite` → `apps/desktop/dist`, then `cargo build --release` → ~20 MB arm64 (was 16.1 MB; the 0.1.1 updater brings an HTTP/TLS stack with it). The renderer must be built first: `generate_context!` embeds it. Since 0.1.1 a release build also emits `Reckley.app.tar.gz` + `.sig` — what an INSTALLED copy downloads, which is not the installer |
 
 ### The local edition's lanes
 
@@ -106,6 +106,32 @@ Latest Vercel preview: `wealthtracker-l514dsq11` (2025‑10‑29 21:33 UTC). B
 | **Mobile** | Frontend | The August 13th sweep fixed the status-bar overlap, the floating button's overlap, Settings, onboarding and the count colours — but the phone is where the last three days' bugs came from, and it is still the least-tested surface. Test there first. |
 | **Supabase coverage** | BE + Platform | Continue monitoring nightly Supabase smoke logs; add RLS/import edge cases as regressions appear. |
 | **PITR — a LAUNCH GATE, not a todo** | Platform | Point‑in‑time recovery is **off by decision** (owner, 2026‑10‑08): it was enabled, costed at ~$100/mo for the 7‑day window, and switched back off because the database today holds the owner's, Danielle's and a test account's money, bank‑feed rows re‑import on the next sync, and launch is months out. Daily backups (Pro, 7 days, included) are the cover until then. **It goes on the day before the first external user's money goes in** — Add‑ons → Point in time recovery → Enable → 7 days. Compute is already Small (the PITR minimum), so it is one click. Nothing in CI can check this; it is a human gate. |
+| **Rename — phases 6 and 7** | Platform + owner | Phases 1–4 shipped (see below). **Phase 6** is identity: the domain move to `www.reckley.co.uk` (Vercel domain + redirect from the old host, CSP `connect-src`, `CLERK_AUTHORIZED_PARTIES`, the Clerk production instance's CNAMEs/DKIM/social‑provider redirect URIs, `App.entitlements` `webcredentials` + the AASA served at the new host while the old one keeps serving), Stripe product names and the statement descriptor (dashboard, after the app shows the new name — never before), and the GitHub repo rename **with the desktop updater's `latest.json` redirect verified against the installed copy on the owner's Mac before anything is announced**. **Phase 7**, a release after 6 is stable: delete the old `wealthtracker_*` copies behind a second watermark in `lib/storageMigration.ts`. Never the legacy backup tags — files are not on our release schedule. |
+
+### The rename: phases 1–4 DONE (2026‑10‑09)
+
+WealthTracker is **Reckley** everywhere a person can see it, and the storage
+underneath moved first so the words could follow safely:
+
+- **Phases 1–2 (#580).** Every brand‑carrying browser key moved to the neutral
+  `ledger_*` prefix via `lib/storageMigration.ts` — copy‑not‑move, envelopes
+  verbatim, awaited before first render — and the backup readers accept every
+  tag ever written. `src/brand.ts` holds the prefix and the reasons it is not
+  the brand. `money_management_*` (a wire format in the cloud preferences
+  document and in backup files) and `wt_*` (the encryption key lives there)
+  stay, on purpose.
+- **Phase 3** collapsed to a day: three known users each opened the app once.
+- **Phase 4** was one sweep over 144 files plus the backup writer
+  (`reckley-backup-v2`). **What stays, by the owner's ruling that an identifier
+  nobody sees is not worth its migration:** `com.wealthtracker.desktop` and
+  `com.wealthtracker.mobile` (registered with the OS and TestFlight; the mobile
+  one is permanent), the PWA manifest `id`, `WealthTrackerDB`, the legacy
+  `wealthtracker_*` literals in the migration table, the `wealth-core` crate
+  (descriptive, not brand), the owner's on‑disk paths
+  (`~/Documents/WealthTracker-signing/`, `WealthTracker-Backups/`) and the
+  `WEALTHTRACKER_*` env knobs, and — until phase 6 — every host string and the
+  GitHub repo path in the updater endpoint. The sweep protected each of these
+  by name; `git log -p` on the phase‑4 commit shows the exact regex.
 
 ### Supabase org transfer: DONE (2026‑10‑08)
 

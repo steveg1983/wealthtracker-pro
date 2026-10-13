@@ -144,7 +144,7 @@ class ErrorBoundaryClass extends Component<Props & { resetKey?: string }, State>
 
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
               {staleChunk
-                ? (offline ? "You're offline" : 'WealthTracker has been updated')
+                ? (offline ? "You're offline" : 'Reckley has been updated')
                 : 'Oops! Something went wrong'}
             </h3>
 

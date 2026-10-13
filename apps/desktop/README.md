@@ -195,7 +195,7 @@ ever drawn — on the arm64 macOS build, driven end to end:
 * **`tauri build` and the icon set.** The CLI now lives in this directory's own
   `package.json` (the web manifest still carries no desktop dependencies), the
   platform icons are generated (`.icns`, `.ico`, the iOS and Android sets for
-  later), and `npx tauri build` produced `WealthTracker.app` and a 6.1 MB
+  later), and `npx tauri build` produced `Reckley.app` and a 6.1 MB
   `.dmg`.
 
 **Still NOT verified:**

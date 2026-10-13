@@ -6,7 +6,7 @@
 
 ## Context
 
-I'm building WealthTracker, a professional personal finance SaaS application. I've been implementing TrueLayer Open Banking integration to allow users to connect their bank accounts and import transactions automatically.
+I'm building Reckley, a professional personal finance SaaS application. I've been implementing TrueLayer Open Banking integration to allow users to connect their bank accounts and import transactions automatically.
 
 After several debugging sessions, I now have a working OAuth flow, but I'm concerned the code may be "bloated" from all the troubleshooting attempts. I need an independent analysis to determine what should be cleaned up, what security issues exist, and what's needed to use REAL bank accounts (not just mock/sandbox).
 

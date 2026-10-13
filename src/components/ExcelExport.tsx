@@ -442,7 +442,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
       }
       
       const wb = createStyledWorkbook();
-      const filename = `wealth-tracker-export-${new Date().toISOString().split('T')[0]}.xlsx`;
+      const filename = `reckley-export-${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(wb, filename);
       onClose();
     } catch (error) {

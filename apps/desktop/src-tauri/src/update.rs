@@ -55,7 +55,7 @@ pub fn offer_any_update(app: &AppHandle) {
     tauri::async_runtime::spawn(async move {
         if let Err(error) = look(handle).await {
             // Deliberately stderr and nothing else. See the module header.
-            eprintln!("wealthtracker-desktop: the update check did not complete: {error}");
+            eprintln!("reckley-desktop: the update check did not complete: {error}");
         }
     });
 }
@@ -73,7 +73,7 @@ async fn look(app: AppHandle) -> Result<(), tauri_plugin_updater::Error> {
     let accepted = app
         .dialog()
         .message(format!(
-            "WealthTracker {offered} is available. You are running {installed}.\n\n\
+            "Reckley {offered} is available. You are running {installed}.\n\n\
              Downloading takes a moment, and the app will close and reopen to \
              finish. Your data is untouched — it stays in your ledger file."
         ))

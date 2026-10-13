@@ -67,7 +67,7 @@ export const composeFeedActivity = (
 
 export const composeFeedAttention = (institutionName: string, connectionId: string): PushNote => ({
   title: `${institutionName} needs reconnecting`,
-  body: `Its bank connection has stopped, so nothing new will arrive from it until you reconnect. Open WealthTracker to do that.`,
+  body: `Its bank connection has stopped, so nothing new will arrive from it until you reconnect. Open Reckley to do that.`,
   url: RECONNECT_URL,
   collapseId: `feed-attention:${connectionId}`,
   threadId: 'feed-attention'

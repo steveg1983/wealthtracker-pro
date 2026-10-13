@@ -61,7 +61,7 @@ export class DebugErrorBoundary extends Component<Props, State> {
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-6">
           <div className="max-w-md w-full text-center">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
-              {staleChunk ? 'WealthTracker has been updated' : 'Something went wrong'}
+              {staleChunk ? 'Reckley has been updated' : 'Something went wrong'}
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
               {staleChunk

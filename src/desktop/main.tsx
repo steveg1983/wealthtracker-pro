@@ -65,7 +65,7 @@ if (root === null) {
   createRoot(root).render(
     <StrictMode>
       <main className="ledger-screen">
-        <h1>This window is not the WealthTracker app</h1>
+        <h1>This window is not the Reckley app</h1>
         <p>
           The desktop renderer only works inside the shell, which is what provides the ledger.
         </p>

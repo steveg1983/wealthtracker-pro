@@ -5,7 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 /**
- * Bank-connection metadata for a single WealthTracker account, surfaced on the
+ * Bank-connection metadata for a single Reckley account, surfaced on the
  * Accounts page so each linked account can show its last sync time and offer a
  * one-click "pull fresh bank data" action.
  */

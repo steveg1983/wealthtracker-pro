@@ -13,7 +13,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ComponentName from './ComponentName'; // REPLACE with actual component
 import { renderWithProviders } from '@/test/utils/renderWithProviders';
-import { RealTestDatabase, testDb, withRealDatabase } from '@wealthtracker/testing';
+import { RealTestDatabase, testDb, withRealDatabase } from '@reckley/testing';
 
 type UserRecord = Awaited<ReturnType<RealTestDatabase['createUser']>>;
 type AccountRecord = Awaited<ReturnType<RealTestDatabase['createAccount']>>;

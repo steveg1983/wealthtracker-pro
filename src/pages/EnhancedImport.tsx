@@ -386,7 +386,7 @@ export default function EnhancedImport(): React.JSX.Element {
         </div>
       )}
 
-      <PageTip id="import-intro" title="Import your data" description="Migrate a Microsoft Money file, restore one of your own backups, or upload CSV, OFX, or QIF files from your bank. WealthTracker auto-detects columns and matches your existing categories." />
+      <PageTip id="import-intro" title="Import your data" description="Migrate a Microsoft Money file, restore one of your own backups, or upload CSV, OFX, or QIF files from your bank. Reckley auto-detects columns and matches your existing categories." />
     </PageWrapper>
   );
 }

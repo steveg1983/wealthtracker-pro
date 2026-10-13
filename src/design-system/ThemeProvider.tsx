@@ -23,7 +23,7 @@ interface ThemeProviderProps {
 export function ThemeProvider({ 
   children, 
   defaultTheme = 'lightBlue',
-  storageKey = 'wealthtracker-theme'
+  storageKey = 'reckley-theme'
 }: ThemeProviderProps): React.JSX.Element {
   const [currentThemeId, setCurrentThemeId] = useState(() => {
     if (typeof window !== 'undefined') {

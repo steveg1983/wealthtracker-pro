@@ -21,9 +21,9 @@
 # compiling, which is the correct failure.
 
 [package]
-name = "wealthtracker-desktop"
+name = "reckley-desktop"
 version = "0.1.5"
-description = "WealthTracker local edition — the desktop shell."
+description = "Reckley local edition — the desktop shell."
 edition = "2021"
 rust-version = "1.89"
 license = "UNLICENSED"
@@ -35,7 +35,7 @@ publish = false
 [workspace]
 
 [[bin]]
-name = "wealthtracker-desktop"
+name = "reckley-desktop"
 path = "src/main.rs"
 
 [build-dependencies]

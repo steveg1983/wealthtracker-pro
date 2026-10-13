@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
-import type { SupabaseClientLike } from '@wealthtracker/core';
-import type { Database } from '@wealthtracker/types';
+import type { SupabaseClientLike } from '@reckley/core';
+import type { Database } from '@reckley/types';
 
 type Tables = Database['public']['Tables'];
 type TableName = keyof Tables;

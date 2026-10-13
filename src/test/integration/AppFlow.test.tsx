@@ -7,7 +7,7 @@ import { renderWithProviders, createTestData, mockLocalStorage } from './test-ut
 vi.mock('../../App', () => ({
   default: () => (
     <div>
-      <h1>WealthTracker</h1>
+      <h1>Reckley</h1>
       <nav>
         <button>Dashboard</button>
         <button>Accounts</button>
@@ -40,7 +40,7 @@ describe('App Integration Tests', () => {
 
       // Check if app loads
       await waitFor(() => {
-        expect(screen.getByText('WealthTracker')).toBeInTheDocument();
+        expect(screen.getByText('Reckley')).toBeInTheDocument();
         expect(screen.getByText('Dashboard')).toBeInTheDocument();
       });
     });
@@ -53,7 +53,7 @@ describe('App Integration Tests', () => {
 
       // Check if app loads with navigation
       await waitFor(() => {
-        expect(screen.getByText('WealthTracker')).toBeInTheDocument();
+        expect(screen.getByText('Reckley')).toBeInTheDocument();
         expect(screen.getByText('Dashboard')).toBeInTheDocument();
       });
     });
@@ -75,7 +75,7 @@ describe('App Integration Tests', () => {
       fireEvent.click(accountsButton);
 
       // Should show accounts section
-      expect(screen.getByText('WealthTracker')).toBeInTheDocument();
+      expect(screen.getByText('Reckley')).toBeInTheDocument();
     });
   });
 
@@ -97,7 +97,7 @@ describe('App Integration Tests', () => {
       fireEvent.click(transactionsButton);
 
       // Should remain on app
-      expect(screen.getByText('WealthTracker')).toBeInTheDocument();
+      expect(screen.getByText('Reckley')).toBeInTheDocument();
     });
   });
 
@@ -132,7 +132,7 @@ describe('App Integration Tests', () => {
       fireEvent.click(goalsButton);
 
       // Should remain on app
-      expect(screen.getByText('WealthTracker')).toBeInTheDocument();
+      expect(screen.getByText('Reckley')).toBeInTheDocument();
     });
   });
 
@@ -150,7 +150,7 @@ describe('App Integration Tests', () => {
       });
       
       await waitFor(() => {
-        expect(screen.getByText('WealthTracker')).toBeInTheDocument();
+        expect(screen.getByText('Reckley')).toBeInTheDocument();
       });
 
       // Store data in localStorage
@@ -163,7 +163,7 @@ describe('App Integration Tests', () => {
 
       // App should load again
       await waitFor(() => {
-        expect(screen.getByText('WealthTracker')).toBeInTheDocument();
+        expect(screen.getByText('Reckley')).toBeInTheDocument();
       });
     });
   });
@@ -177,7 +177,7 @@ describe('App Integration Tests', () => {
 
       // Check app loads
       await waitFor(() => {
-        expect(screen.getByText('WealthTracker')).toBeInTheDocument();
+        expect(screen.getByText('Reckley')).toBeInTheDocument();
       });
     });
 
@@ -228,7 +228,7 @@ describe('App Integration Tests', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText(/WealthTracker/i)).toBeInTheDocument();
+        expect(screen.getByText(/Reckley/i)).toBeInTheDocument();
       });
     });
   });

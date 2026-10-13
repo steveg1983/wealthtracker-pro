@@ -434,7 +434,7 @@ describe('ExcelExport', () => {
       });
       
       const filename = mockWriteFile.mock.calls[0][1];
-      expect(filename).toMatch(/^wealth-tracker-export-\d{4}-\d{2}-\d{2}\.xlsx$/);
+      expect(filename).toMatch(/^reckley-export-\d{4}-\d{2}-\d{2}\.xlsx$/);
     });
 
     it('closes modal after successful export', async () => {

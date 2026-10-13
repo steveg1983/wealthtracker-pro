@@ -1,4 +1,4 @@
-# The public half of the WealthTracker licence signing key.
+# The public half of the Reckley licence signing key.
 #
 # The shell reads this file at COMPILE TIME — `include_str!` in
 # `src-tauri/src/license.rs` — so rotating the key is one commit and one

@@ -57,7 +57,7 @@ export default function PWAInstallPrompt() {
               <span className="text-white font-bold text-lg">W</span>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">Install WealthTracker</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white">Install Reckley</h3>
               <p className="text-xs text-gray-500 dark:text-gray-400">Get the full app experience</p>
             </div>
           </div>
@@ -74,7 +74,7 @@ export default function PWAInstallPrompt() {
             installed copy needs a connection exactly as the browser tab does.
             Do not put the claim back without a worker that actually caches. */}
         <div className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-          Install WealthTracker for its own icon, a full screen, and quick access — the same
+          Install Reckley for its own icon, a full screen, and quick access — the same
           app, one tap away.
         </div>
         

@@ -26,7 +26,7 @@ export default function BankingCallback() {
     if (window.opener && !window.opener.closed) {
       window.opener.postMessage(
         {
-          type: 'wealthtracker:bank-oauth-complete',
+          type: 'reckley:bank-oauth-complete',
           ...payload
         },
         window.location.origin

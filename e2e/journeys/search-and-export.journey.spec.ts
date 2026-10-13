@@ -29,7 +29,7 @@ test('export everything downloads a complete JSON bundle', async ({ page }) => {
   await page.getByRole('button', { name: /export everything/i }).click();
   const download = await downloadPromise;
 
-  expect(download.suggestedFilename()).toMatch(/wealthtracker-complete-export-.*\.json/);
+  expect(download.suggestedFilename()).toMatch(/reckley-complete-export-.*\.json/);
 
   // The bundle contains the expected top-level entity keys.
   const stream = await download.createReadStream();

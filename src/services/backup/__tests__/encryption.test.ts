@@ -25,7 +25,7 @@ import type { BackupBundle } from '../format';
 /** Shaped like a bundle, with values chosen so a partial decrypt is obvious. */
 function bundleFixture(): BackupBundle {
   return {
-    format: 'wealthtracker-backup-v2',
+    format: 'reckley-backup-v2',
     version: '20260812140000',
     exportedAt: '2026-08-15T09:30:00.000Z',
     rows: {
@@ -228,7 +228,7 @@ describe('backup encryption', () => {
   describe('the file name', () => {
     it('carries the date and says it is encrypted', () => {
       expect(encryptedBackupFileName('2026-08-15T09:30:00.000Z')).toBe(
-        'wealthtracker-backup-2026-08-15-encrypted.json'
+        'reckley-backup-2026-08-15-encrypted.json'
       );
     });
   });

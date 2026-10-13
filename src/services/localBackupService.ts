@@ -36,7 +36,7 @@ import {
  * Browser storage holds the APP's types — camelCase, `openingBalance`,
  * `linkedTransferId`. The backup format holds DATABASE rows — snake_case,
  * `initial_balance`, `linked_transfer_id`. Writing the app's shape into a file
- * tagged `wealthtracker-backup-v2` would be a second format wearing the first
+ * tagged `reckley-backup-v2` would be a second format wearing the first
  * one's name, and it would also be broken: `remapBackupIds` looks up
  * `account_id`, `transfer_account_id`, `parent_account_id` and friends BY
  * COLUMN NAME, so an app-shaped bundle would come back with every transaction

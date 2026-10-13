@@ -122,7 +122,7 @@ export class AuthService {
 export const authConfig = {
   // Production settings
   production: {
-    allowedRedirectUrls: ['https://wealthtracker.app/*'],
+    allowedRedirectUrls: ['https://reckley.app/*'],
     sessionTimeout: 60 * 60 * 1000, // 1 hour
     requireEmailVerification: true,
     requireMFA: false, // Optional but recommended

@@ -51,7 +51,7 @@ export default function OpenBanking() {
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
-      if (event.data?.type === 'wealthtracker:bank-oauth-complete') {
+      if (event.data?.type === 'reckley:bank-oauth-complete') {
         void loadConnections();
         // Open linking modal if we have a connectionId from a successful OAuth flow
         if (event.data.status === 'success' && event.data.connectionId) {
@@ -166,7 +166,7 @@ export default function OpenBanking() {
           title: 'Your bank may still hold this authorisation',
           body:
             `${institutionName} is disconnected here and won’t sync again, but the bank didn’t ` +
-            'confirm that it had dropped WealthTracker’s access. Remove it in your bank’s own app ' +
+            'confirm that it had dropped Reckley’s access. Remove it in your bank’s own app ' +
             'or online banking, under connected apps or third-party access.'
         });
       }

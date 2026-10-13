@@ -50,9 +50,9 @@
          desktop project — so a shared Export surface that assumed a spreadsheet
          writer exists is a compile error in whichever project it broke. */
       "@spreadsheet": ["./src/editions/cloud/spreadsheet.ts"],
-      "@wealthtracker/utils": ["./packages/utils/index.ts"],
-      "@wealthtracker/utils/*": ["./packages/utils/*"],
-      "@wealthtracker/types/*": ["./packages/types/*"],
+      "@reckley/utils": ["./packages/utils/index.ts"],
+      "@reckley/utils/*": ["./packages/utils/*"],
+      "@reckley/types/*": ["./packages/types/*"],
       "@app-types/*": ["./src/types/*"]
     }
   },

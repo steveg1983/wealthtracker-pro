@@ -1,4 +1,4 @@
-# WealthTracker Backend – Coding Guardrails
+# Reckley Backend – Coding Guardrails
 
 ## Mission
 Professional‑grade API with zero tolerance for regressions. Follow these rules precisely to avoid breaking production.

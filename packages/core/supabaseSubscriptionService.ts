@@ -11,8 +11,8 @@
 
 import { ensureSupabaseClient, isSupabaseStub, type SupabaseDatabase } from './supabase';
 import type { StructuredLogger } from './serviceFactory';
-import { toDecimal } from '@wealthtracker/utils';
-import type { UserSubscription, PaymentMethod, Invoice, SubscriptionUsage } from '@wealthtracker/types/subscription';
+import { toDecimal } from '@reckley/utils';
+import type { UserSubscription, PaymentMethod, Invoice, SubscriptionUsage } from '@reckley/types/subscription';
 
 type SubscriptionLogger = Pick<StructuredLogger, 'debug' | 'info' | 'warn' | 'error'>;
 

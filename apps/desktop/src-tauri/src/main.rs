@@ -406,7 +406,7 @@ async fn open_ledger(app: tauri::AppHandle, shell: State<'_, Shell>) -> Result<O
     let chosen = app
         .dialog()
         .file()
-        .add_filter("WealthTracker ledger", &["db"])
+        .add_filter("Reckley ledger", &["db"])
         .blocking_pick_file()
         .ok_or_else(|| CHOOSER_CANCELLED.to_owned())?;
 
@@ -428,7 +428,7 @@ async fn create_ledger(app: tauri::AppHandle, shell: State<'_, Shell>) -> Result
     let chosen = app
         .dialog()
         .file()
-        .add_filter("WealthTracker ledger", &["db"])
+        .add_filter("Reckley ledger", &["db"])
         .set_file_name("My money.db")
         .blocking_save_file()
         .ok_or_else(|| CHOOSER_CANCELLED.to_owned())?;
@@ -542,7 +542,7 @@ fn main() {
                     Ok(dir) => dir,
                     Err(error) => {
                         eprintln!(
-                            "wealthtracker-desktop: this machine has no readable config \
+                            "reckley-desktop: this machine has no readable config \
                              directory, so a licence will not be remembered between launches: \
                              {error}"
                         );
@@ -571,7 +571,7 @@ fn main() {
         // process ends, which is what every Tauri binary does and the only thing
         // available.
         .unwrap_or_else(|error| {
-            eprintln!("wealthtracker-desktop: the window could not be started: {error}");
+            eprintln!("reckley-desktop: the window could not be started: {error}");
             std::process::exit(1);
         });
 }

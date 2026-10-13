@@ -1,4 +1,4 @@
-//! WealthTracker local edition — the command layer.
+//! Reckley local edition — the command layer.
 //!
 //! # The dividing line
 //!
