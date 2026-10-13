@@ -2,7 +2,7 @@
 
 **Owner**: Frontend/Platform (ChatGPT)  
 **Branch**: `claude-lint-cleanup`  
-**Updated**: 2026‑10‑09
+**Updated**: 2026‑10‑12
 
 ---
 
@@ -106,7 +106,7 @@ Latest Vercel preview: `wealthtracker-l514dsq11` (2025‑10‑29 21:33 UTC). B
 | **Mobile** | Frontend | The August 13th sweep fixed the status-bar overlap, the floating button's overlap, Settings, onboarding and the count colours — but the phone is where the last three days' bugs came from, and it is still the least-tested surface. Test there first. |
 | **Supabase coverage** | BE + Platform | Continue monitoring nightly Supabase smoke logs; add RLS/import edge cases as regressions appear. |
 | **PITR — a LAUNCH GATE, not a todo** | Platform | Point‑in‑time recovery is **off by decision** (owner, 2026‑10‑08): it was enabled, costed at ~$100/mo for the 7‑day window, and switched back off because the database today holds the owner's, Danielle's and a test account's money, bank‑feed rows re‑import on the next sync, and launch is months out. Daily backups (Pro, 7 days, included) are the cover until then. **It goes on the day before the first external user's money goes in** — Add‑ons → Point in time recovery → Enable → 7 days. Compute is already Small (the PITR minimum), so it is one click. Nothing in CI can check this; it is a human gate. |
-| **Rename — phases 6 and 7** | Platform + owner | Phases 1–4 shipped (see below). **Phase 6** is identity: the domain move to `www.reckley.co.uk` (Vercel domain + redirect from the old host, CSP `connect-src`, `CLERK_AUTHORIZED_PARTIES`, the Clerk production instance's CNAMEs/DKIM/social‑provider redirect URIs, `App.entitlements` `webcredentials` + the AASA served at the new host while the old one keeps serving), Stripe product names and the statement descriptor (dashboard, after the app shows the new name — never before), and the GitHub repo rename **with the desktop updater's `latest.json` redirect verified against the installed copy on the owner's Mac before anything is announced**. **Phase 7**, a release after 6 is stable: delete the old `wealthtracker_*` copies behind a second watermark in `lib/storageMigration.ts`. Never the legacy backup tags — files are not on our release schedule. |
+| **Rename — phases 6 and 7** | Platform + owner | Phases 1–4 shipped (see below). **Phase 6** is identity: the domain move to `www.reckley.co.uk` (Vercel domain + redirect from the old host, CSP `connect-src`, `CLERK_AUTHORIZED_PARTIES`, the Clerk production instance's CNAMEs/DKIM/social‑provider redirect URIs, `App.entitlements` `webcredentials` + the AASA served at the new host while the old one keeps serving, and `BANKING_ALLOWED_ORIGINS` carrying the new origin or Checkout refuses its own return URL), **Stripe — a go‑live, not a rename; the sequence is its own section below**, and the GitHub repo rename **with the desktop updater's `latest.json` redirect verified against the installed copy on the owner's Mac before anything is announced**. **Phase 7**, a release after 6 is stable: delete the old `wealthtracker_*` copies behind a second watermark in `lib/storageMigration.ts`. Never the legacy backup tags — files are not on our release schedule. |
 
 ### The rename: phases 1–4 DONE (2026‑10‑09)
 
@@ -132,6 +132,63 @@ underneath moved first so the words could follow safely:
   `WEALTHTRACKER_*` env knobs, and — until phase 6 — every host string and the
   GitHub repo path in the updater endpoint. The sweep protected each of these
   by name; `git log -p` on the phase‑4 commit shows the exact regex.
+
+### Stripe: a go‑live, not a rename (2026‑10‑12)
+
+Stripe has never taken a real payment. Vercel holds test keys only, the owner
+has never run a transaction, and the sandbox he opened on 10 Oct was empty — so
+the "rename the Stripe products" step this table carried for three days was a
+step for products that do not exist. What was measured, not assumed:
+
+- **The production bundle carries no Stripe publishable key, and needs none.**
+  The one `pk_live_…` in the served JS is **Clerk's** (what follows the prefix
+  is base64 of `clerk.`; a Stripe key continues `pk_live_51`). All 183 chunks
+  were grepped. `services/stripeService.ts` reads `import.meta.env` as a whole
+  object and the production build inlines `{}` for it, so
+  `VITE_STRIPE_PUBLISHABLE_KEY` could not reach the browser even if it were
+  set; and nothing outside the service calls `getStripe()`. Checkout is
+  `window.location.href = session.url` to Stripe‑hosted Checkout, and the
+  billing portal has the same shape. **The three `VITE_STRIPE_*` variables are
+  dead wherever they exist** (`.env.example` still lists one; a follow‑up).
+- **The live integration is four server variables**, and
+  `scripts/verify-server-env.mjs` already refuses to build without them:
+  `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PREMIUM_MONTHLY`,
+  `STRIPE_PRICE_PRO_MONTHLY`. The code is mode‑agnostic. Going live is
+  configuration, not a change to the repo.
+- **A sandbox is a copy, not a view.** Settings are snapshotted into it at
+  creation and nothing edited inside it reaches the live account — the business
+  name changed on 10 Oct renamed the sandbox. Leave it (account picker, top
+  left) before touching anything that matters.
+
+**The sequence**, after `www.reckley.co.uk` is live — the webhook URL and the
+redirect‑origin allow‑list in `api/_lib/cors.ts` both depend on the host:
+
+1. **Live account, outside the sandbox.** Business name Reckley, support email
+   and URL at the new domain, statement descriptor `RECKLEY` (Settings →
+   Business details; 5–22 Latin characters, shortened prefix 2–10, must reflect
+   the trading name). Activation complete — payout bank account, identity —
+   which takes days, so it starts first.
+2. **Live product catalogue.** Two products with recurring GBP monthly prices
+   matching the catalogue in `services/stripeService.ts`: **Reckley Premium
+   £7.99**, **Reckley Pro £15.99**. The app's plan names and prices come from
+   that file; Stripe's product name appears only on hosted Checkout, receipts
+   and invoices, and the Customer Portal. Copy the two `price_…` IDs.
+3. **Live Customer Portal configuration** (Settings → Billing → Customer
+   portal), saved once. `api/billing/portal.ts` creates portal sessions with no
+   explicit configuration, which fails until a live default exists.
+4. **Live webhook** at `https://www.reckley.co.uk/api/stripe/webhook`, with
+   exactly the five events `api/stripe/webhook.ts` handles:
+   `checkout.session.completed`, `customer.subscription.created`, `.updated`,
+   `.deleted`, `invoice.payment_failed`. Copy the signing secret.
+5. **Vercel, Production scope only.** The four variables above → live values,
+   then redeploy. Preview keeps the test values so previews keep hitting the
+   sandbox. Never a `VITE_` prefix on any of them.
+6. **First transaction — sandbox before live.** One full loop against a preview
+   deployment with a test card: Checkout → webhook received (every delivery is
+   a `subscription_logs` row, inserted before handling and marked `processed`
+   after, so there is a row to look at, not a feeling) → the subscription row →
+   the app shows Premium. Then the first live charge is the owner's own card,
+   refunded straight after.
 
 ### Supabase org transfer: DONE (2026‑10‑08)
 
