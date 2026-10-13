@@ -104,8 +104,18 @@ export class TypeScriptOracle {
       // else declares aliases for this bundle, so a new seam reachable from
       // the oracle's graph must be added here as well as to the six configs
       // `editions/__tests__/editionAliases.test.ts` counts.
+      //
+      // `@prefs-store` and `@telemetry` became reachable on 2 Oct 2026, when
+      // the categoriser's transfer evidence (utils/transferEvidence) reached
+      // the provenance rule, whose grouping sorts by the locale setting —
+      // categoryProvenance → localeFormat → dateFormatter → preferencesService,
+      // and the logger beside it. Neither is CALLED by anything the oracle
+      // answers; they are bundled because esbuild follows every import, and
+      // both device halves are inert under node (a null store, the console).
       alias: {
         '@rules-store': path.join(this.#repo, 'src', 'desktop', 'editions', 'rulesStore.ts'),
+        '@prefs-store': path.join(this.#repo, 'src', 'desktop', 'editions', 'preferencesStore.ts'),
+        '@telemetry': path.join(this.#repo, 'src', 'desktop', 'editions', 'telemetry.ts'),
       },
     });
     const bundleMs = performance.now() - started;

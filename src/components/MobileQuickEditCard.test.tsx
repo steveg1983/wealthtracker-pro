@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 const source: Transaction = {
   id: 'src',
   date: new Date('2026-09-21'),
-  description: 'Two Way Sweep to account 04357299',
+  description: 'Two Way Sweep to account 00001234',
   amount: -28500,
   type: 'expense',
   accountId: 'acc-a',
@@ -73,7 +73,7 @@ describe('the phone card editor — the register editor, stacked', () => {
     );
 
     expect(screen.getByLabelText('Transaction date')).toBeInTheDocument();
-    expect(screen.getByLabelText('Transaction description')).toHaveValue('Two Way Sweep to account 04357299');
+    expect(screen.getByLabelText('Transaction description')).toHaveValue('Two Way Sweep to account 00001234');
     expect(screen.getByRole('combobox', { name: 'Category' })).toBeInTheDocument();
     expect(screen.getByLabelText('Transaction notes')).toBeInTheDocument();
     expect(screen.getByText('(£28500.00)')).toBeInTheDocument();
