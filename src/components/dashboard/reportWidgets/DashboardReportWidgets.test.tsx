@@ -228,7 +228,7 @@ describe('a report card’s period pin', () => {
   it('says where a locked card gets its window, and names the card it follows', () => {
     // Performance is the total of the numbers Income vs Expenses charts, so the
     // two can be tied. The declaration names the PARTNER rather than a window,
-    // because "12 months" would not say why this card moved when the other did.
+    // because "Rolling 12 months" would not say why this card moved when the other did.
     const lockToPartner = vi.fn();
     render(<NetWorthWidget picker={pickerOn('last-12-months')} pin={lockedTo('Income vs Expenses')} />);
 
@@ -267,7 +267,7 @@ describe('a report card’s period pin', () => {
     const menu = screen.getByRole('menu', { name: 'Window for Expense Categories' });
     expect(within(menu).getByRole('menuitemradio', { name: 'Tax year' }))
       .toHaveAttribute('aria-checked', 'true');
-    // All SIX windows, Custom included. This asserted the opposite until
+    // All SEVEN windows, Custom included. This asserted the opposite until
     // 2026-08-13, on the reasoning that a custom range is a statement about a
     // whole page while a pin is the narrower claim that one lens wants a
     // different STANDARD window. The owner asked for it, and his use of the
@@ -276,11 +276,15 @@ describe('a report card’s period pin', () => {
     // could hold any window except that one sent him back to the page bar,
     // moving every other card with it.
     expect(within(menu).getByRole('menuitemradio', { name: 'Custom' })).toBeInTheDocument();
-    // Seven: Default, then the six windows. Default is not a window — it is the
-    // absence of a choice — but it is an answer to the same question, so it
+    // Both twelve-months, side by side (the owner, 15 Oct 2026): the whole
+    // calendar months before this one, and the rolling year the app always had.
+    expect(within(menu).getByRole('menuitemradio', { name: 'Last 12 months' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitemradio', { name: 'Rolling 12 months' })).toBeInTheDocument();
+    // Eight: Default, then the seven windows. Default is not a window — it is
+    // the absence of a choice — but it is an answer to the same question, so it
     // belongs in the same list and carries the same tick.
     expect(within(menu).getByRole('menuitemradio', { name: 'Default' })).toBeInTheDocument();
-    expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(7);
+    expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(8);
   });
 
   it('asks for the two dates when Custom is chosen, and keeps the menu open to take them', () => {

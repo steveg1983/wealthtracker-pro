@@ -79,7 +79,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const isPeriodKey = (value: unknown): value is PeriodKey =>
   value === 'this-month' || value === 'last-month' || value === 'tax-year' ||
-  value === 'last-12-months' || value === 'all' || value === 'custom';
+  value === 'last-12-full-months' || value === 'last-12-months' ||
+  value === 'all' || value === 'custom';
 
 const isExportFormat = (value: unknown): value is ExportFormat =>
   typeof value === 'string' && EXPORT_FORMATS.some(format => format === value);

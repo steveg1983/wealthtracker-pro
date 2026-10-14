@@ -50,6 +50,7 @@ const PINNABLE_PERIODS: PeriodKey[] = [
   'this-month',
   'last-month',
   'tax-year',
+  'last-12-full-months',
   'last-12-months',
   'all',
   'custom',
