@@ -181,11 +181,13 @@ step for products that do not exist. What was measured, not assumed:
   `window.location.href = session.url` to Stripe‑hosted Checkout, and the
   billing portal has the same shape. **The three `VITE_STRIPE_*` variables are
   dead wherever they exist** (`.env.example` still lists one; a follow‑up).
-- **The live integration is four server variables**, and
-  `scripts/verify-server-env.mjs` already refuses to build without them:
+- **The live integration is four server variables**:
   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PREMIUM_MONTHLY`,
   `STRIPE_PRICE_PRO_MONTHLY`. The code is mode‑agnostic. Going live is
-  configuration, not a change to the repo.
+  configuration, not a change to the repo. `scripts/verify-server-env.mjs`
+  lists all four as EXPECTED, which only **warns** in the build log — a
+  production build fails only on the REQUIRED Supabase and Clerk secrets. (This
+  line said "refuses to build" from 12 to 14 Oct; it never did.)
 - **A fifth variable it cannot go live without, which the build does not
   check.** `BANKING_ALLOWED_ORIGINS` is the allow‑list `isRedirectUrlAllowed`
   holds Checkout's and the portal's return URLs to, and it was **absent in
@@ -193,7 +195,7 @@ step for products that do not exist. What was measured, not assumed:
   deployment's own hash host, so the first live Checkout would have answered
   `400 Invalid redirect URLs` (`api/subscriptions/create-checkout.ts`).
   Created that day with both `www` hosts. `verify-server-env.mjs` does not
-  know it exists; until it does, check it by hand before step 5.
+  name it at all. Check all five by hand before step 5.
 - **A sandbox is a copy, not a view.** Settings are snapshotted into it at
   creation and nothing edited inside it reaches the live account — the business
   name changed on 10 Oct renamed the sandbox. Leave it (account picker, top
