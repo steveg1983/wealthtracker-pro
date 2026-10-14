@@ -69,6 +69,10 @@ import {
 import { groupAccountsBySection } from '../../utils/accountGrouping';
 import { swapPositions, moveBySteps, previewStep } from '../../utils/reorderList';
 import { buildCategoryNameLookup } from '../../utils/categoryNames';
+import { evaluateBudgets } from '../../utils/budgetEvaluation';
+import { foreignCurrencyAccountIds } from '../../utils/budgetSpending';
+import type { BudgetPeriodWindow } from '../../utils/budgetPeriods';
+import ReportDrillModal, { type ReportDrillTarget } from '../reports/ReportDrillModal';
 import { buildAttentionItems } from '../../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../../utils/bankAutoSync';
 import { buildAccountBankLinks } from '../../hooks/accountBankLinks';
@@ -134,6 +138,26 @@ const ACCOUNT_CARD_HEIGHT = 120;
  * 3. Actionable insights - every section leads somewhere
  * 4. Mobile-optimized - works great on all screen sizes
  */
+/**
+ * The window a budget is measured over, as a person would say it —
+ * "1–31 Oct 2026" — in the date locale the rest of the app uses. A budget's
+ * figure without its period was the owner's complaint about this card: an
+ * overspend is only a fact about some stretch of days, and the card never
+ * said which.
+ */
+/** What the budget card's drill needs of a row: enough to name it and find its rows. */
+interface BudgetStatusRow {
+  categoryName: string;
+  spent: number;
+  window: BudgetPeriodWindow;
+  countedRowIds: ReadonlySet<string>;
+}
+
+function describeBudgetWindow(window: BudgetPeriodWindow): string {
+  return new Intl.DateTimeFormat(getDateLocale(), { day: 'numeric', month: 'short', year: 'numeric' })
+    .formatRange(window.start, window.end);
+}
+
 export function ImprovedDashboard() {
   // `customReports` comes from the context because the picker below lists them
   // INLINE in a modal body — there is no await to put a fetch in, and this used
@@ -253,6 +277,16 @@ export function ImprovedDashboard() {
   // neighbours instead of growing a second one that drifts.
   const openReport = useReportDrill();
 
+  /**
+   * The transactions behind a budget's figure, in the same drill the report
+   * cards open — the rows, their total, and the row editor inside it. The
+   * card used to answer a click with nothing, and "£655 of £500" with no way
+   * to see the £655 is a verdict without the evidence (the owner, 15 Oct
+   * 2026). The rows are the ones the evaluation COUNTED, by id, so the drill
+   * can never list a row the figure left out or leave out one it took.
+   */
+  const [budgetDrill, setBudgetDrill] = useState<ReportDrillTarget | null>(null);
+
   const togglePinnedReport = (id: PinnableReportId): void => {
     setPinnedReports(prev => {
       const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id];
@@ -352,54 +386,45 @@ export function ImprovedDashboard() {
 
     const netWorth = toDecimal(totalAssets).minus(toDecimal(totalLiabilities)).toNumber();
 
-    // Budget progress reads the last 30 days — a rolling month of spending,
-    // deliberately independent of the Performance card's chosen period.
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const recentTransactions = transactions.filter(t =>
-      new Date(t.date) >= thirtyDaysAgo
-    );
-
-    // Calculate budget status for active budgets
-    const activeBudgets = budgets.filter(b => b.isActive);
-    
-    // Split parents expand into per-line rows so a split line spends
-    // against ITS category's budget. Money-style netting: a refund filed to
-    // the budget's category REDUCES spend (refunds arrive as income-typed
-    // rows, so there is deliberately no type filter — only transfers skip).
-    const recentExpanded = expandSplitTransactions(recentTransactions, transactionSplits);
+    // Budget status reads each budget over ITS OWN period — the calendar
+    // month for a monthly budget, the week for a weekly one — through the one
+    // evaluation the Budget page uses (utils/budgetEvaluation): group budgets
+    // roll their children up, a rollover is carried into the allowance,
+    // refunds net off, a legacy category name is healed. It used to sum the
+    // budget's own category over a rolling thirty days against the base
+    // amount here, which is no period a budget has — so the same budget read
+    // one figure on this card and another on the Budget page, and this card
+    // could not say what stretch of days its figure was for (the owner,
+    // 15 Oct 2026: "I cannot easily see what period that is for").
     const categoryNameFor = buildCategoryNameLookup(categories);
-    const budgetStatus = activeBudgets.map(budget => {
-      const categoryTransactions = recentExpanded.filter(t =>
-        t.category === budget.categoryId && t.type !== 'transfer'
-      );
-      const netSpent = categoryTransactions.reduce(
-        (sum, t) => sum.minus(toDecimal(t.amount)), toDecimal(0));
-      const spent = netSpent.isNegative() ? 0 : netSpent.toNumber();
-      const remaining = toDecimal(budget.amount).minus(toDecimal(spent)).toNumber();
-      const percentUsed = budget.amount > 0
-        ? toDecimal(spent).dividedBy(toDecimal(budget.amount)).times(100).toNumber()
-        : 0;
+    const budgetStatus = evaluateBudgets(budgets.filter(b => b.isActive), {
+      transactions,
+      transactionSplits,
+      categories,
+      foreignAccountIds: foreignCurrencyAccountIds(accounts, displayCurrency),
+    }).map(({ budget, categoryId, effectiveAmount, spent, remaining, percentage, window, countedRowIds }) => ({
+      ...budget,
+      categoryId,
+      // The budget's own category, NAMED. It was rendering `categoryId`
+      // straight onto the screen — three raw UUIDs down the dashboard where
+      // "Food & Drink" belongs — which is precisely what
+      // `buildCategoryNameLookup` exists to prevent, in its own words: "a raw
+      // category id must never reach a screen." Resolved once here so the
+      // label, the group's aria-label and the progress bar's all say the same
+      // thing.
+      categoryName: categoryNameFor(categoryId),
+      // The allowance for the window with any rollover carried in — the figure
+      // the Budget page's card shows, so "£655 / £500" reads the same there.
+      amount: effectiveAmount.toNumber(),
+      spent: spent.toNumber(),
+      remaining: remaining.toNumber(),
+      percentUsed: percentage,
+      isOverBudget: spent.gt(effectiveAmount),
+      window,
+      countedRowIds,
+    }));
 
-      return {
-        ...budget,
-        // The budget's own category, NAMED. It was rendering `categoryId`
-        // straight onto the screen — three raw UUIDs down the dashboard where
-        // "Food & Drink" belongs — which is precisely what
-        // `buildCategoryNameLookup` exists to prevent, in its own words: "a raw
-        // category id must never reach a screen." Resolved once here so the
-        // label, the group's aria-label and the progress bar's all say the same
-        // thing.
-        categoryName: categoryNameFor(budget.categoryId),
-        spent,
-        remaining,
-        percentUsed,
-        isOverBudget: spent > budget.amount
-      };
-    });
-
-    const totalBudgeted = activeBudgets.reduce((sum, b) => sum.plus(toDecimal(b.amount)), toDecimal(0)).toNumber();
+    const totalBudgeted = budgetStatus.reduce((sum, b) => sum.plus(toDecimal(b.amount)), toDecimal(0)).toNumber();
     const totalSpentOnBudgets = budgetStatus.reduce((sum, b) => sum.plus(toDecimal(b.spent)), toDecimal(0)).toNumber();
     const overallBudgetPercent = totalBudgeted > 0
       ? toDecimal(totalSpentOnBudgets).dividedBy(toDecimal(totalBudgeted)).times(100).toNumber()
@@ -414,7 +439,18 @@ export function ImprovedDashboard() {
       totalSpentOnBudgets,
       overallBudgetPercent
     };
-  }, [accounts, accountBalanceMap, transactions, transactionSplits, budgets, categories, valuation, valuationDayKey]);
+  }, [accounts, accountBalanceMap, transactions, transactionSplits, budgets, categories, displayCurrency, valuation, valuationDayKey]);
+
+  const openBudgetDrill = useCallback((status: BudgetStatusRow): void => {
+    const rows = expandSplitTransactions(transactions, transactionSplits)
+      .filter(row => status.countedRowIds.has(row.id));
+    setBudgetDrill({
+      title: `${status.categoryName} — ${describeBudgetWindow(status.window)}`,
+      bucket: 'expense',
+      rows,
+      total: status.spent,
+    });
+  }, [transactions, transactionSplits]);
 
   // Performance figures for the SELECTED period. Income/expenses come from
   // CATEGORY SEMANTICS (utils/incomeExpense): a refund filed under an expense
@@ -1246,7 +1282,13 @@ export function ImprovedDashboard() {
         />
       )}
 
-      {/* Budget Status Section - Shows current budget progress */}
+      {/* The rows behind a budget's figure. Mounted only while open: the modal
+          reads context the Dashboard's own harness does not provide. */}
+      {budgetDrill && (
+        <ReportDrillModal target={budgetDrill} onClose={() => setBudgetDrill(null)} categories={categories} />
+      )}
+
+      {/* Budget Status Section - each budget over its own period, click for the rows */}
       {metrics.budgetStatus.length > 0 && (
         <section 
           aria-labelledby="budget-status-heading"
@@ -1263,32 +1305,50 @@ export function ImprovedDashboard() {
           
           <div className="space-y-3">
             {metrics.budgetStatus.slice(0, 3).map(budget => (
-              <div key={budget.id} className="space-y-2" role="group" aria-label={`Budget for ${budget.categoryName}`}>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-gray-700 dark:text-gray-300">
-                    {budget.categoryName}
+              /* The whole row is the button: name, period, figures and bar
+                 together are one claim, and the click asks for its evidence.
+                 Spans inside, because a button holds phrasing content only. */
+              <button
+                key={budget.id}
+                type="button"
+                onClick={() => openBudgetDrill(budget)}
+                className="block w-full text-left space-y-2 -mx-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                aria-label={`${budget.categoryName}: ${formatCurrencyWithSymbol(budget.spent)} of ${formatCurrencyWithSymbol(budget.amount)}, ${budget.window.label.toLowerCase()}, ${describeBudgetWindow(budget.window)}. Show the transactions`}
+                title="Show the transactions behind this figure"
+                data-testid="budget-status-row"
+              >
+                <span className="flex items-center justify-between gap-3 text-sm">
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-gray-700 dark:text-gray-300">
+                      {budget.categoryName}
+                    </span>
+                    {/* The period, said in full: the budget's own kind of
+                        period and the exact days it covers right now. */}
+                    <span className="block text-xs text-gray-500 dark:text-gray-400">
+                      {budget.window.label} · {describeBudgetWindow(budget.window)}
+                    </span>
                   </span>
-                  <span className={`font-medium ${
+                  <span className={`shrink-0 font-medium ${
                     budget.isOverBudget ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'
                   }`}>
                     {formatCurrencyWithSymbol(budget.spent)} / {formatCurrencyWithSymbol(budget.amount)}
                   </span>
-                </div>
-                <div 
-                  className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden"
+                </span>
+                <span
+                  className="block w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden"
                   role="progressbar"
                   aria-valuenow={Math.min(budget.percentUsed, 100)}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-label={`${budget.categoryName} budget: ${Math.min(budget.percentUsed, 100).toFixed(0)}% used`}
                 >
-                  <div
+                  <span
                     // The fourth rung is a progress fill, not a severity: at
                     // 60–80% used nothing is wrong yet. So it wears the app's
                     // meter colour (LoadTestDataModal, MsMoneyImportModal,
                     // ImportProgress) rather than a stock blue between the
                     // yellow and the green (ruling, 28 Aug 2026).
-                    className={`h-full transition-all duration-300 ${
+                    className={`block h-full transition-all duration-300 ${
                       budget.percentUsed > 100 ? 'bg-red-500' :
                       budget.percentUsed > 80 ? 'bg-yellow-500' :
                       budget.percentUsed > 60 ? 'bg-navy-400 dark:bg-primary-action' :
@@ -1296,10 +1356,10 @@ export function ImprovedDashboard() {
                     }`}
                     style={{ width: `${Math.min(budget.percentUsed, 100)}%` }}
                   />
-                </div>
-              </div>
+                </span>
+              </button>
             ))}
-            
+
             {metrics.budgetStatus.length > 3 && (
               <button
                 onClick={() => navigate(preserveDemoParam('/budget', location.search))}

@@ -14,20 +14,13 @@ import BudgetModal from '../components/BudgetModal';
 import BudgetRollover from '../components/BudgetRollover';
 import SpendingAlerts from '../components/SpendingAlerts';
 import type { Budget } from '../types';
-import { getEffectiveBudgetAmount } from '../utils/budgetAmounts';
 import PageWrapper from '../components/PageWrapper';
 import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { WholePoundsScope, WholePoundsToggle } from '../contexts/WholePoundsContext';
 import PageTip from '../components/PageTip';
 import EmptyState from '../components/EmptyState';
-import { calculateBudgetPercentage } from '../utils/calculations-decimal';
-import {
-  buildCategoryChildIndex,
-  calculateBudgetSpend,
-  collectBudgetCategoryIds,
-  foreignCurrencyAccountIds,
-  prepareBudgetTransactions
-} from '../utils/budgetSpending';
+import { foreignCurrencyAccountIds } from '../utils/budgetSpending';
+import { evaluateBudgets } from '../utils/budgetEvaluation';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
@@ -103,9 +96,6 @@ function BudgetView() {
   // describes the same "now".
   const evaluatedAt = useMemo(() => new Date(), []);
 
-  // Parent → children, so a group budget can roll its descendants up.
-  const categoryChildIndex = useMemo(() => buildCategoryChildIndex(categories), [categories]);
-
   // Rows on accounts held in another currency cannot join this total without a
   // rate; they are left out and the card says so.
   const foreignAccountIds = useMemo(
@@ -113,71 +103,26 @@ function BudgetView() {
     [accounts, displayCurrency]
   );
 
-  // Legacy healing for the SPEND path, not just the modal: budgets saved by
-  // the old picker carry a category NAME where the id belongs, and matched
-  // nothing until each was opened and re-saved. Resolve a name-keyed (or
-  // legacy `category`-field) budget to its real category id before matching.
-  const categoryIdByName = useMemo(() => {
-    const map = new Map<string, string>();
-    categories.forEach(category => {
-      if (category?.name && category.id) map.set(category.name, category.id);
-    });
-    return map;
-  }, [categories]);
-  const categoryIdSet = useMemo(() => new Set(categories.map(c => c.id)), [categories]);
-  const resolveBudgetCategoryId = useCallback((budget: Budget): string => {
-    if (budget.categoryId && categoryIdSet.has(budget.categoryId)) return budget.categoryId;
-    const legacy = (budget as Budget & { category?: string }).category ?? budget.categoryId;
-    return (legacy && categoryIdByName.get(legacy)) || budget.categoryId;
-  }, [categoryIdSet, categoryIdByName]);
-
-  // Calculate spent amounts for each budget with memoization
+  // ONE evaluation per budget — window, group roll-up, legacy category
+  // healing, rollover, netting — from utils/budgetEvaluation, which the
+  // Dashboard's Budget Status card reads too, so the two can never show the
+  // same budget as two different figures again. `remaining` is UNCLAMPED: an
+  // overspent budget must read "over budget by £30.00" rather than "£0.00
+  // remaining" while the page total says something else.
   const budgetsWithSpent = useMemo(() => {
-    // Split parents expand into their per-line rows first, so a split line
-    // spends against ITS category's budget. Converted to decimal once, not
-    // per budget.
-    const prepared = prepareBudgetTransactions(transactions, transactionSplits);
-
-    return budgets
-      .filter(budget => budget !== null && budget !== undefined)
-      .map((budget) => {
-        // Effective amount = base budget plus any rollover carried in — the
-        // same figure the Rollover and Alerts folds use, so the surfaces can
-        // never disagree.
-        const effectiveAmount = getEffectiveBudgetAmount(budget);
-
-        // A budget on a GROUP category counts every detail category beneath
-        // it. A detail budget's set is just itself, so it keeps the plain
-        // equality match it has always used.
-        const resolvedCategoryId = resolveBudgetCategoryId(budget);
-        const categoryIds = collectBudgetCategoryIds(resolvedCategoryId, categoryChildIndex);
-        const { spent, window, excludedForeignCount } = calculateBudgetSpend(
-          { ...budget, categoryId: resolvedCategoryId },
-          prepared,
-          {
-            now: evaluatedAt,
-            categoryIds: categoryIds.size > 1 ? categoryIds : undefined,
-            foreignAccountIds
-          }
-        );
-
-        const percentage = calculateBudgetPercentage({ amount: effectiveAmount }, spent);
-        // UNCLAMPED, unlike calculateBudgetRemaining's floored figure: an
-        // overspent budget must read "over budget by £30.00" rather than
-        // "£0.00 remaining" while the page total says something else.
-        const remaining = effectiveAmount.minus(spent);
-
-        return {
-          ...budget,
-          effectiveAmount,
-          spent: spent.toNumber(),
-          percentage,
-          remaining: remaining.toNumber(),
-          periodLabel: window.label,
-          excludedForeignCount
-        };
-      });
-  }, [budgets, transactions, transactionSplits, categoryChildIndex, foreignAccountIds, evaluatedAt, resolveBudgetCategoryId]);
+    return evaluateBudgets(
+      budgets.filter((budget): budget is Budget => budget !== null && budget !== undefined),
+      { transactions, transactionSplits, categories, foreignAccountIds, now: evaluatedAt }
+    ).map(({ budget, effectiveAmount, spent, percentage, remaining, window, excludedForeignCount }) => ({
+      ...budget,
+      effectiveAmount,
+      spent: spent.toNumber(),
+      percentage,
+      remaining: remaining.toNumber(),
+      periodLabel: window.label,
+      excludedForeignCount
+    }));
+  }, [budgets, transactions, transactionSplits, categories, foreignAccountIds, evaluatedAt]);
 
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>();

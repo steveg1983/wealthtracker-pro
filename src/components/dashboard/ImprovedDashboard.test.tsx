@@ -103,6 +103,16 @@ vi.mock('../charts/DashboardCharts', () => ({
 }));
 
 vi.mock('../EditTransactionModal', () => ({ default: () => null }));
+vi.mock('../reports/ReportDrillModal', () => ({
+  default: ({ target }: { target: { title: string; rows: { id: string }[]; total: number | null } | null }) =>
+    target ? (
+      <div data-testid="budget-drill">
+        <span data-testid="budget-drill-title">{target.title}</span>
+        <span data-testid="budget-drill-rows">{target.rows.map(row => row.id).join(',')}</span>
+        <span data-testid="budget-drill-total">{String(target.total)}</span>
+      </div>
+    ) : null,
+}));
 vi.mock('../IncomeExpenseBreakdownModal', () => ({ default: () => null }));
 vi.mock('../common/Modal', () => ({
   Modal: ({ isOpen, children }: { isOpen: boolean; children: ReactNode }) =>
@@ -581,3 +591,113 @@ describe('the history guide supersedes First steps', () => {
     expect(screen.queryByTestId('first-steps')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Budget Status — each budget over its OWN period, and a click for the rows.
+ *
+ * The card used to sum a rolling thirty days against the base amount, which
+ * is no period a budget has: the figure disagreed with the Budget page, could
+ * not say what stretch of days it covered, and a click did nothing (the
+ * owner, 15 Oct 2026). Now it reads the one evaluation the Budget page reads
+ * (utils/budgetEvaluation) and names the window beside the figure, and the
+ * row opens the transactions it was summed from.
+ */
+describe('Budget Status', () => {
+  const TODAY = new Date(2026, 9, 15, 12, 0, 0); // 15 October 2026
+
+  const txn = (over: Partial<Transaction> & { id: string; date: Date; amount: number }): Transaction => ({
+    description: 'Shop',
+    type: over.amount < 0 ? 'expense' : 'income',
+    accountId: 'acc-a',
+    category: 'cat-food',
+    cleared: false,
+    ...over,
+  } as Transaction);
+
+  beforeEach(() => {
+    // An earlier describe may have left Date mocked; start from real time so
+    // the clock below is this describe's and nobody else's.
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(TODAY);
+    mocks.app.accounts = [account({ id: 'acc-a', name: 'Current Account', openingBalance: 1000 })];
+    mocks.app.categories = [
+      { id: 'cat-food', name: 'Food Shopping', type: 'expense', level: 'detail' },
+      { id: 'cat-fuel', name: 'Fuel', type: 'expense', level: 'detail' },
+    ] as never[];
+    mocks.app.budgets = [{
+      id: 'b-food',
+      categoryId: 'cat-food',
+      amount: 500,
+      period: 'monthly',
+      isActive: true,
+      createdAt: new Date(2026, 0, 1),
+      updatedAt: new Date(2026, 0, 1),
+      spent: 0,
+    }] as never[];
+    mocks.app.transactions = [
+      // 1 October: inside the calendar month, and exactly what the old
+      // thirty-day window also caught — so far so equal.
+      txn({ id: 'r-first', date: new Date(2026, 9, 1), amount: -400 }),
+      // 20 September: within thirty days of the 15th, OUTSIDE the budget's
+      // month. The old card counted this; the Budget page never did.
+      txn({ id: 'r-sept', date: new Date(2026, 8, 20), amount: -300 }),
+      // Another category in the month: not this budget's.
+      txn({ id: 'r-fuel', date: new Date(2026, 9, 5), amount: -50, category: 'cat-fuel' }),
+      // A refund in the month: nets off, as the Budget page nets it.
+      txn({ id: 'r-refund', date: new Date(2026, 9, 9), amount: 20, type: 'income' }),
+    ];
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    mocks.app.budgets = [];
+    mocks.app.categories = [];
+  });
+
+  it('reads the budget’s own calendar month, exactly as the Budget page does', () => {
+    render(<ImprovedDashboard />);
+
+    const row = screen.getByTestId('budget-status-row');
+    // 400 spent, 20 refunded; the September 300 is not this month's.
+    expect(row).toHaveTextContent('£380.00 / £500.00');
+    expect(row).not.toHaveTextContent('£680.00');
+  });
+
+  it('says what period the figure is for, in words and in days', () => {
+    render(<ImprovedDashboard />);
+
+    const row = screen.getByTestId('budget-status-row');
+    expect(row).toHaveTextContent(/Monthly · 1\s*[–-]\s*31 Oct 2026/);
+    // And to a screen reader, on the one control the row is.
+    expect(screen.getByRole('button', { name: /Food Shopping: £380\.00 of £500\.00, monthly, 1\s*[–-]\s*31 Oct 2026/ })).toBeInTheDocument();
+  });
+
+  it('opens the transactions behind the figure — the rows it counted, and no others', () => {
+    render(<ImprovedDashboard />);
+    expect(screen.queryByTestId('budget-drill')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('budget-status-row'));
+
+    expect(screen.getByTestId('budget-drill-title')).toHaveTextContent(/Food Shopping — 1\s*[–-]\s*31 Oct 2026/);
+    const rows = screen.getByTestId('budget-drill-rows').textContent!.split(',').sort();
+    expect(rows).toEqual(['r-first', 'r-refund']);
+    expect(screen.getByTestId('budget-drill-total')).toHaveTextContent('380');
+  });
+
+  it('marks an overspend against the allowance the Budget page shows — rollover carried in', () => {
+    mocks.app.budgets = [{
+      ...(mocks.app.budgets[0] as object),
+      rollover: true,
+      rolloverAmount: 100,
+    }] as never[];
+    mocks.app.transactions = [txn({ id: 'big', date: new Date(2026, 9, 2), amount: -655 })];
+
+    render(<ImprovedDashboard />);
+
+    const row = screen.getByTestId('budget-status-row');
+    expect(row).toHaveTextContent('£655.00 / £600.00');
+    expect(screen.getByRole('progressbar', { name: /Food Shopping budget: 100% used/ })).toBeInTheDocument();
+  });
+});
+
