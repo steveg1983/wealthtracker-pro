@@ -166,10 +166,13 @@ inside `index.html`, and `design-system/brandIdentity.ts`. Then
 
 ### Stripe: a go‑live, not a rename (2026‑10‑12)
 
-Stripe has never taken a real payment. Vercel holds test keys only, the owner
-has never run a transaction, and the sandbox he opened on 10 Oct was empty — so
-the "rename the Stripe products" step this table carried for three days was a
-step for products that do not exist. What was measured, not assumed:
+Stripe has never taken a real payment. The owner has never run a transaction,
+and the sandbox he opened on 10 Oct was empty — so the "rename the Stripe
+products" step this table carried for three days was a step for products that
+do not exist. Vercel holds **no Stripe variable at all**: the Production and
+Preview build logs both list all four as unset (measured 14 Oct; until then
+this paragraph said Vercel held "test keys only" — those are in the Stripe
+dashboard). What was measured, not assumed:
 
 - **The production bundle carries no Stripe publishable key, and needs none.**
   The one `pk_live_…` in the served JS is **Clerk's** (what follows the prefix
@@ -184,18 +187,27 @@ step for products that do not exist. What was measured, not assumed:
 - **The live integration is four server variables**:
   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PREMIUM_MONTHLY`,
   `STRIPE_PRICE_PRO_MONTHLY`. The code is mode‑agnostic. Going live is
-  configuration, not a change to the repo. `scripts/verify-server-env.mjs`
-  lists all four as EXPECTED, which only **warns** in the build log — a
-  production build fails only on the REQUIRED Supabase and Clerk secrets. (This
-  line said "refuses to build" from 12 to 14 Oct; it never did.)
-- **A fifth variable it cannot go live without, which the build does not
-  check.** `BANKING_ALLOWED_ORIGINS` is the allow‑list `isRedirectUrlAllowed`
-  holds Checkout's and the portal's return URLs to, and it was **absent in
+  configuration, not a change to the repo.
+- **The build judges them as a set (14 Oct), with the allow‑list below.**
+  `scripts/verify-server-env.mjs`: no `STRIPE_SECRET_KEY` builds anywhere with
+  one warning — that is today. A `STRIPE_SECRET_KEY` in a **production** build
+  fails it unless the webhook secret (`whsec_`), both price ids (`price_` — a
+  pasted `prod_` is the mistake this catches) and a well‑formed allow‑list are
+  all there, test key or live. Elsewhere the same findings only warn, plus one
+  for a live key in a preview. Values are never printed. It also refuses any
+  `VITE_` variable holding a Stripe secret, under any name.
+  `src/test/serverEnvPreflight.test.ts` runs the script as Vercel does. (From
+  12 to 14 Oct this line said the build already "refused" without the four; it
+  only ever warned.)
+- **A fifth variable it cannot go live without.** `BANKING_ALLOWED_ORIGINS`
+  is the allow‑list `isRedirectUrlAllowed` holds Checkout's and the portal's
+  return URLs to, and it was **absent in
   Production** until 14 Oct — the only origin trusted was `VERCEL_URL`, the
   deployment's own hash host, so the first live Checkout would have answered
   `400 Invalid redirect URLs` (`api/subscriptions/create-checkout.ts`).
-  Created that day with both `www` hosts. `verify-server-env.mjs` does not
-  name it at all. Check all five by hand before step 5.
+  Created that day with both `www` hosts. `cors.ts` compares each entry to the
+  browser's `Origin` header exactly, so the guard requires each to be a bare
+  `https` origin — a trailing slash, a path or a capital never matches.
 - **A sandbox is a copy, not a view.** Settings are snapshotted into it at
   creation and nothing edited inside it reaches the live account — the business
   name changed on 10 Oct renamed the sandbox. Leave it (account picker, top
@@ -222,10 +234,18 @@ redirect‑origin allow‑list in `api/_lib/cors.ts` both depend on the host:
    `checkout.session.completed`, `customer.subscription.created`, `.updated`,
    `.deleted`, `invoice.payment_failed`. Copy the signing secret.
 5. **Vercel, Production scope only.** The four variables above → live values,
-   then redeploy. Preview keeps the test values so previews keep hitting the
-   sandbox. Never a `VITE_` prefix on any of them.
-6. **First transaction — sandbox before live.** One full loop against a preview
-   deployment with a test card: Checkout → webhook received (every delivery is
+   then redeploy. A production build holding the key without the rest now
+   fails, naming each gap, so a half‑finished step 5 stops at the build and
+   the deployment already live keeps serving. Never a `VITE_` prefix on any of
+   them (the build refuses that too).
+6. **First transaction — sandbox before live.** Preview holds no Stripe
+   variable today, so this starts by putting the sandbox's test key, webhook
+   secret and price ids into the **Preview** scope. Preview has no
+   `BANKING_ALLOWED_ORIGINS` either, so open the preview at its own deployment
+   URL (the host `VERCEL_URL` names), not the branch alias — only that host is
+   a trusted return URL there. No deployment protection is on, so the
+   sandbox's webhook can reach it. One full loop
+   with a test card: Checkout → webhook received (every delivery is
    a `subscription_logs` row, inserted before handling and marked `processed`
    after, so there is a row to look at, not a feeling) → the subscription row →
    the app shows Premium. Then the first live charge is the owner's own card,
