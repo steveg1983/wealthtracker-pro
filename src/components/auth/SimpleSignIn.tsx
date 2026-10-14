@@ -6,7 +6,7 @@ import {
   SignUpButton,
   UserButton,
 } from "@clerk/clerk-react";
-import { WalletIcon } from "../icons";
+import { ReckleyLockup } from "../brand/ReckleyLockup";
 
 // The /login surface renders outside the app Layout, so it carries its own
 // full-height background — kept to the app's surface colours, not a gradient.
@@ -20,9 +20,11 @@ export default function SimpleSignIn(): React.JSX.Element {
     <div className="min-h-screen flex items-center justify-center bg-surface-secondary dark:bg-gray-900 px-4">
       <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-lg p-8">
         <div className="text-center">
-          <div className="flex items-center justify-center gap-2 text-gray-900 dark:text-white">
-            <WalletIcon size={22} />
-            <span className="text-lg font-bold tracking-tight">Reckley</span>
+          {/* Sign-in takes the stacked lockup (identity handover §5): navy on
+              the white card, white on the dark one. It replaced a wallet icon
+              that stood in for a mark the product did not yet have. */}
+          <div className="flex justify-center text-[#1a2332] dark:text-white">
+            <ReckleyLockup layout="stacked" width={112} />
           </div>
           <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">Sign in</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">

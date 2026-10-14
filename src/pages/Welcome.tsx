@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { SignInButton, SignUpButton, useAuth } from '@clerk/clerk-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ReckleyLockup } from '../components/brand/ReckleyLockup';
 
 /**
  * THE LANDING PAGE — Claude Design's 29 Aug 2026 handover, ported section by
@@ -192,7 +193,11 @@ export default function Welcome(): React.JSX.Element {
           else (handover §5.1). Create an account yields to the hero CTA below
           640px rather than crowding the bar (§6). */}
       <header className={`flex items-center justify-between px-6 sm:px-12 py-[18px] border-b border-[#1e2838] sticky top-0 ${DARK_GROUND} z-10`}>
-        <span className="text-base font-semibold tracking-[-0.01em]">Reckley</span>
+        {/* The horizontal lockup at its 96px minimum. The identity handover
+            drew this header navy-on-white; the landing has been on its dark
+            ground since August, and a one-colour mark takes the header's
+            light text colour here rather than asking for a white bar. */}
+        <ReckleyLockup layout="horizontal" width={96} />
         <div className="flex items-center gap-2.5">
           <SignInButton mode="modal">
             <button

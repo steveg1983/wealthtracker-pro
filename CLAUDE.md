@@ -2,7 +2,7 @@
 
 **Owner**: Frontend/Platform (ChatGPT)  
 **Branch**: `claude-lint-cleanup`  
-**Updated**: 2026‑10‑12
+**Updated**: 2026‑10‑14
 
 ---
 
@@ -19,7 +19,7 @@
 | Supabase smoke | `npm run test:supabase-smoke` | ✅ | Logs saved to `logs/supabase-smoke/` |
 | Build parity | `npm run build` | ✅ | Mirrors Vercel’s `vite build` via `scripts/build-web.mjs` |
 | Desktop bundle | `npm run desktop:verify` | ✅ | Builds `src/desktop` → `apps/desktop/dist`, then PHASE3-PLAN §5’s two bundle greps **plus the one that is about weight rather than the cloud** (`xlsx`, 1 Sep 2026), then the size ratchet, then the mount run. REFUSES rather than skips when there is no build |
-| Desktop size | `npm run bundle:check:desktop` | ✅ | 3,790.5 KiB raw / 1,163.8 KiB gz; budgets 3830 / 1176 KiB. **Raw** is the gate — nothing is downloaded, the bytes are embedded in the binary. Binary size recorded, never gated. Budgets sit ~1 % above measured, which is tight ON PURPOSE: the last move was DOWN (−498.6 KiB raw, the spreadsheet writer, owner's ruling 1 Sep 2026 — "lose excel is fine as long as they can keep csv"), and leaving 4320 would have banked the win as silent permission. The next intended growth raises these two numbers in the commit that causes it; the header of `scripts/desktop-bundle-size.mjs` narrates every step. |
+| Desktop size | `npm run bundle:check:desktop` | ✅ | 3,814.4 KiB raw / 1,173.4 KiB gz; budgets 3854 / 1186 KiB. **Raw** is the gate — nothing is downloaded, the bytes are embedded in the binary. Binary size recorded, never gated. Budgets sit ~1 % above measured, which is tight ON PURPOSE: the big move was DOWN (−498.6 KiB raw, the spreadsheet writer, owner's ruling 1 Sep 2026 — "lose excel is fine as long as they can keep csv"), and leaving 4320 would have banked the win as silent permission. The last move was UP +7.8 KiB, the outlined identity (14 Oct), re-recorded with the +16.1 KiB that had drifted in unrecorded since 1 Sep. The next intended growth raises these two numbers in the commit that causes it; the header of `scripts/desktop-bundle-size.mjs` narrates every step. |
 | Desktop shell | `npm run desktop:check` | ✅ | clippy `-D warnings` + the shell crate's own 38 tests (`apps/desktop/src-tauri`). Was 12; licensing brought 26 — the offline verifier, the clock's high-water mark, the read allowlist held to the crate's own enum by asking serde to recite it, and a real ledger proving that an expired window is refused a write BY NAME while a read and the export both still answer |
 | Desktop build | `npm run desktop:build` | ✅ | `vite` → `apps/desktop/dist`, then `cargo build --release` → ~20 MB arm64 (was 16.1 MB; the 0.1.1 updater brings an HTTP/TLS stack with it). The renderer must be built first: `generate_context!` embeds it. Since 0.1.1 a release build also emits `Reckley.app.tar.gz` + `.sig` — what an INSTALLED copy downloads, which is not the installer |
 
@@ -82,7 +82,7 @@ Latest Vercel preview: `wealthtracker-l514dsq11` (2025‑10‑29 21:33 UTC). B
   service or the web's choosing line. Checked at three altitudes: lint, two import-graph
   walks, and the bundle greps.
 - The renderer also has a **size** ratchet, because growth that is perfectly cloud-free
-  passes all three of those. 3,790.5 KiB raw today, budget 3830 — ~1 % of headroom,
+  passes all three of those. 3,814.4 KiB raw today, budget 3854 — ~1 % of headroom,
   because the last move was a deliberate 498.6 KiB DOWN and that slack was spent
   rather than banked. Intended growth raises the budget in the commit that causes it.
 - A seam may also be about **weight** rather than the cloud. `@spreadsheet` is the
@@ -106,7 +106,7 @@ Latest Vercel preview: `wealthtracker-l514dsq11` (2025‑10‑29 21:33 UTC). B
 | **Mobile** | Frontend | The August 13th sweep fixed the status-bar overlap, the floating button's overlap, Settings, onboarding and the count colours — but the phone is where the last three days' bugs came from, and it is still the least-tested surface. Test there first. |
 | **Supabase coverage** | BE + Platform | Continue monitoring nightly Supabase smoke logs; add RLS/import edge cases as regressions appear. |
 | **PITR — a LAUNCH GATE, not a todo** | Platform | Point‑in‑time recovery is **off by decision** (owner, 2026‑10‑08): it was enabled, costed at ~$100/mo for the 7‑day window, and switched back off because the database today holds the owner's, Danielle's and a test account's money, bank‑feed rows re‑import on the next sync, and launch is months out. Daily backups (Pro, 7 days, included) are the cover until then. **It goes on the day before the first external user's money goes in** — Add‑ons → Point in time recovery → Enable → 7 days. Compute is already Small (the PITR minimum), so it is one click. Nothing in CI can check this; it is a human gate. |
-| **Rename — phases 6 and 7** | Platform + owner | Phases 1–4 shipped (see below). **Phase 6** is identity: the domain move to `www.reckley.co.uk` (Vercel domain + redirect from the old host, CSP `connect-src`, `CLERK_AUTHORIZED_PARTIES`, the Clerk production instance's CNAMEs/DKIM/social‑provider redirect URIs, `App.entitlements` `webcredentials` + the AASA served at the new host while the old one keeps serving, and `BANKING_ALLOWED_ORIGINS` carrying the new origin or Checkout refuses its own return URL), **Stripe — a go‑live, not a rename; the sequence is its own section below**, and the GitHub repo rename **with the desktop updater's `latest.json` redirect verified against the installed copy on the owner's Mac before anything is announced**. **Phase 7**, a release after 6 is stable: delete the old `wealthtracker_*` copies behind a second watermark in `lib/storageMigration.ts`. Never the legacy backup tags — files are not on our release schedule. |
+| **Rename — phases 6 and 7** | Platform + owner | Phases 1–4 shipped (see below). **Phase 6** is identity: the domain move to `www.reckley.co.uk` (Vercel domain + redirect from the old host, CSP `connect-src`, `CLERK_AUTHORIZED_PARTIES`, the Clerk production instance's CNAMEs/DKIM/social‑provider redirect URIs, `App.entitlements` `webcredentials` + the AASA served at the new host while the old one keeps serving, `BANKING_ALLOWED_ORIGINS` carrying the new origin or Checkout refuses its own return URL, and `og:image` in `index.html`, which must be absolute and so names the serving host), **Stripe — a go‑live, not a rename; the sequence is its own section below**, and the GitHub repo rename **with the desktop updater's `latest.json` redirect verified against the installed copy on the owner's Mac before anything is announced**. **Phase 7**, a release after 6 is stable: delete the old `wealthtracker_*` copies behind a second watermark in `lib/storageMigration.ts`. Never the legacy backup tags — files are not on our release schedule. |
 
 ### The rename: phases 1–4 DONE (2026‑10‑09)
 
@@ -132,6 +132,37 @@ underneath moved first so the words could follow safely:
   `WEALTHTRACKER_*` env knobs, and — until phase 6 — every host string and the
   GitHub repo path in the updater endpoint. The sweep protected each of these
   by name; `git log -p` on the phase‑4 commit shows the exact regex.
+
+### Identity: the mark is outlined and placed (2026‑10‑14)
+
+Claude Design's handover (16 Sep, mark **2a**: a capital R in IBM Plex Sans 600
+ruled off with a double underline) is built. **`node scripts/brand/build-identity.mjs`
+is the only way any logo file changes** — it outlines the glyphs from the
+committed font (`scripts/brand/`, OFL) and writes every SVG, PNG and ICO, the
+iOS icon and splash (light and dark), the desktop master, the boot splash
+inside `index.html`, and `design-system/brandIdentity.ts`. Then
+`npm run tauri --prefix apps/desktop -- icon app-icon.png` for the desktop set.
+`brandIdentity.test.ts` reruns it with `--check`, so a hand-edited asset fails CI.
+
+- **In the app:** `<ReckleyLockup>` (one colour — `currentColor` — two rules,
+  never under 96px, named "Reckley" as text for headings and tests). Top bar,
+  mobile bar and menu, landing header: horizontal. Sign-in and the desktop's
+  two entry screens: stacked. Every PDF page: horizontal, navy, footer left, as
+  vector paths (`utils/pdfBrand.ts`) — no PDF reader has Plex.
+- **Decided where the handover was silent, and recorded in the generator's
+  header:** ink centred on x=24 (the text anchor put it at 25.26); the word set
+  at the mark's own size on its baseline; gaps measured ink to ink with "mark
+  height" = the 48 box; lockups cropped to ink + one rule stroke; tiles centre
+  the ink; the .ico and favicon.svg snapped to whole pixels.
+- **Two deliberate departures.** §5 drew the signed‑out landing header navy on
+  white; the landing has been on a dark ground since August, so its lockup is
+  light. And §5's "21px" mark in the header is read as the visible mark: at a
+  21px *box* the lockup is 74px wide, under §4's own 96px minimum.
+- **Not in the repo:** `Reckley Identity.dc.html`, the full spec the handover
+  cites. If its lockup proportions differ from the decisions above, they are
+  constants at the top of the generator — change, rerun, commit.
+- **Reaches people only when shipped:** the iOS icon and splash need a new
+  TestFlight build; the desktop icon needs a desktop release.
 
 ### Stripe: a go‑live, not a rename (2026‑10‑12)
 

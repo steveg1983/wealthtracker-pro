@@ -49,6 +49,16 @@ const printedText = (): string =>
 let pageCount = 1;
 const mockSetPage = vi.fn();
 const mockGetNumberOfPages = vi.fn(() => pageCount);
+// The footer lockup is drawn as vector paths (utils/pdfBrand.ts); one even-odd
+// fill per lockup, so counting fills counts the pages that carry the mark.
+const mockFillEvenOdd = vi.fn();
+const pathOps = {
+  moveTo: vi.fn(),
+  lineTo: vi.fn(),
+  curveTo: vi.fn(),
+  close: vi.fn(),
+  fillEvenOdd: mockFillEvenOdd
+};
 
 const mockJsPDF = vi.fn(() => ({
   save: mockSave,
@@ -62,6 +72,8 @@ const mockJsPDF = vi.fn(() => ({
   splitTextToSize: mockSplitTextToSize,
   getNumberOfPages: mockGetNumberOfPages,
   setPage: mockSetPage,
+  getCurrentPageInfo: () => ({ pageNumber: pageCount }),
+  ...pathOps,
   internal: {
     pageSize: {
       getWidth: () => 210, // A4 width in mm
@@ -164,6 +176,17 @@ describe('pdfExport', () => {
   });
 
   describe('generatePDFReport', () => {
+    it('brands every page of the report in its footer, and leaves the cursor on the last page', async () => {
+      pageCount = 3;
+
+      await generatePDFReport(mockReportData, mockAccounts);
+
+      expect(mockFillEvenOdd).toHaveBeenCalledTimes(mockGetNumberOfPages());
+      // The "Generated on" stamp writes after the branding pass, so the pass
+      // must hand back the page it found rather than strand the stamp on page 1.
+      expect(mockSetPage).toHaveBeenLastCalledWith(mockGetNumberOfPages());
+    });
+
     it('generates PDF with all sections', async () => {
       await generatePDFReport(mockReportData, mockAccounts);
 
@@ -596,6 +619,17 @@ describe('pdfExport', () => {
       expect(pages).toBeGreaterThan(1);
       expect(mockSetPage).toHaveBeenCalledTimes(pages);
       expect(printedText()).toContain(`Page 1 of ${pages}`);
+    });
+
+    it('puts the lockup in the footer of every page, once each, drawn in the navy', async () => {
+      const rows = Array.from({ length: 120 }, (_, index) => makeRow(index));
+
+      await generateDataExportPDF({ ...baseData, transactions: rows });
+
+      const pages = mockGetNumberOfPages();
+      expect(pages).toBeGreaterThan(1);
+      expect(mockFillEvenOdd).toHaveBeenCalledTimes(pages);
+      expect(mockSetFillColor).toHaveBeenCalledWith(26, 35, 50);
     });
 
     it('totals the accounts section in Decimal', async () => {

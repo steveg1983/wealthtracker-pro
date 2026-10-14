@@ -66,6 +66,7 @@ import type { Invoke } from '../services/local/coreTransport';
 import { LedgerChooser } from './LedgerScreen';
 import { LicenceStatusLine } from './LicenceScreen';
 import { ShellInvokeContext } from './shellInvoke';
+import { ReckleyLockup } from '../components/brand/ReckleyLockup';
 
 /**
  * The application, and everything it reaches. See the header: this import may
@@ -159,7 +160,9 @@ export function DesktopApp({ invoke }: DesktopAppProps): ReactElement {
       <Suspense
         fallback={
           <main className="ledger-screen">
-            <h1>Reckley</h1>
+            <h1>
+              <ReckleyLockup layout="stacked" width={112} />
+            </h1>
             <p>Opening {ledgerPath}…</p>
           </main>
         }

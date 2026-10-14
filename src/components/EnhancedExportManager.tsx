@@ -10,6 +10,7 @@ import { formatDecimal } from '../utils/decimal-format';
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import { buildCategoryNameLookup } from '../utils/categoryNames';
 import { csvDocument } from '../utils/csvExport';
+import { drawPdfLockup } from '../utils/pdfBrand';
 // WHETHER THIS EDITION WRITES .xlsx, and the writer that does it. Through the
 // seam rather than by path, and the spreadsheet library is no longer named on
 // this line at all: a dynamic import of it here put a 488 KiB chunk in the
@@ -291,6 +292,9 @@ export default function EnhancedExportManager(): React.JSX.Element {
     const pageCount = pdf.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       pdf.setPage(i);
+      // The lockup, navy, footer left (identity handover §5), its word on the
+      // footer line's baseline; the content's own left margin is 20mm.
+      drawPdfLockup(pdf, 20, pdf.internal.pageSize.getHeight() - 10);
       pdf.setFontSize(8);
       pdf.setTextColor(150);
       pdf.text(
