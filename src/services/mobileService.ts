@@ -455,8 +455,8 @@ export class MobileService {
     if (this.notificationSettings.enabled) {
       this.notificationAdapter.show(title, {
         body,
-        icon: '/icon-192x192.png',
-        badge: '/icon-192x192.png',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
         data
       });
     }

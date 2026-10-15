@@ -9,6 +9,14 @@ TestFlight since 26 August 2026.
 so the web view loads production. **A deploy IS the mobile release** — a web
 fix reaches the phone with no rebuild and no review.
 
+**The domain move (rename phase 6).** `www.reckley.co.uk` has served the same
+deployment since 14 Oct 2026, but `server.url` stays on the old host until
+Clerk's production domain has moved, because the new host signs nobody in
+before then. `server.allowNavigation` already lists the new host, so a build
+installed today follows the old host's redirect after cutover instead of
+handing it to Safari. The URL itself changes in the first build after Clerk
+moves — the one change here that a deploy cannot deliver.
+
 That is the opposite of the desktop edition, which embeds its renderer at
 compile time and is frozen until someone cuts a release. The two are not
 comparable and the difference has caught us out once already: a fix reported
@@ -35,7 +43,7 @@ believes neither:
 
 | half | where | says |
 | --- | --- | --- |
-| the claim | `ios/App/App/App.entitlements` | `webcredentials:www.wealthtrackerpro.co.uk` |
+| the claim | `ios/App/App/App.entitlements` | `webcredentials:www.wealthtrackerpro.co.uk` and `webcredentials:www.reckley.co.uk` |
 | the answer | `public/.well-known/apple-app-site-association` | `VT6W829WRX.com.wealthtracker.mobile` |
 
 Three things that are easy to get wrong, all of which we did:
@@ -45,8 +53,11 @@ Three things that are easy to get wrong, all of which we did:
   `index.html` for it. The rewrite now exempts `/.well-known`, and a header
   rule pins `application/json`. A `200` is not evidence; check the
   content-type.
-- **Only `www` is claimed.** The apex `wealthtrackerpro.co.uk` 308-redirects
-  to it (measured) and Apple does not follow redirects. `www` is also the
+- **Only `www` is claimed, on each domain.** Both apexes 308-redirect to
+  their `www` (measured) and Apple does not follow redirects. Both hosts serve
+  the same association file from the same deployment (measured 14 Oct: `200`,
+  `application/json`), and both are claimed for the length of the move, so a
+  credential saved under either keeps filling. `www` is also the
   origin the web view actually loads, so it is the origin a saved credential
   is scoped to.
 - **The entitlement is Xcode's file, not ours.** Xcode rewrites it and strips

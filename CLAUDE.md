@@ -2,7 +2,7 @@
 
 **Owner**: Frontend/Platform (ChatGPT)  
 **Branch**: `claude-lint-cleanup`  
-**Updated**: 2026‑10‑12
+**Updated**: 2026‑10‑14
 
 ---
 
@@ -19,7 +19,7 @@
 | Supabase smoke | `npm run test:supabase-smoke` | ✅ | Logs saved to `logs/supabase-smoke/` |
 | Build parity | `npm run build` | ✅ | Mirrors Vercel’s `vite build` via `scripts/build-web.mjs` |
 | Desktop bundle | `npm run desktop:verify` | ✅ | Builds `src/desktop` → `apps/desktop/dist`, then PHASE3-PLAN §5’s two bundle greps **plus the one that is about weight rather than the cloud** (`xlsx`, 1 Sep 2026), then the size ratchet, then the mount run. REFUSES rather than skips when there is no build |
-| Desktop size | `npm run bundle:check:desktop` | ✅ | 3,790.5 KiB raw / 1,163.8 KiB gz; budgets 3830 / 1176 KiB. **Raw** is the gate — nothing is downloaded, the bytes are embedded in the binary. Binary size recorded, never gated. Budgets sit ~1 % above measured, which is tight ON PURPOSE: the last move was DOWN (−498.6 KiB raw, the spreadsheet writer, owner's ruling 1 Sep 2026 — "lose excel is fine as long as they can keep csv"), and leaving 4320 would have banked the win as silent permission. The next intended growth raises these two numbers in the commit that causes it; the header of `scripts/desktop-bundle-size.mjs` narrates every step. |
+| Desktop size | `npm run bundle:check:desktop` | ✅ | 3,814.4 KiB raw / 1,173.4 KiB gz; budgets 3854 / 1186 KiB. **Raw** is the gate — nothing is downloaded, the bytes are embedded in the binary. Binary size recorded, never gated. Budgets sit ~1 % above measured, which is tight ON PURPOSE: the big move was DOWN (−498.6 KiB raw, the spreadsheet writer, owner's ruling 1 Sep 2026 — "lose excel is fine as long as they can keep csv"), and leaving 4320 would have banked the win as silent permission. The last move was UP +7.8 KiB, the outlined identity (14 Oct), re-recorded with the +16.1 KiB that had drifted in unrecorded since 1 Sep. The next intended growth raises these two numbers in the commit that causes it; the header of `scripts/desktop-bundle-size.mjs` narrates every step. |
 | Desktop shell | `npm run desktop:check` | ✅ | clippy `-D warnings` + the shell crate's own 38 tests (`apps/desktop/src-tauri`). Was 12; licensing brought 26 — the offline verifier, the clock's high-water mark, the read allowlist held to the crate's own enum by asking serde to recite it, and a real ledger proving that an expired window is refused a write BY NAME while a read and the export both still answer |
 | Desktop build | `npm run desktop:build` | ✅ | `vite` → `apps/desktop/dist`, then `cargo build --release` → ~20 MB arm64 (was 16.1 MB; the 0.1.1 updater brings an HTTP/TLS stack with it). The renderer must be built first: `generate_context!` embeds it. Since 0.1.1 a release build also emits `Reckley.app.tar.gz` + `.sig` — what an INSTALLED copy downloads, which is not the installer |
 
@@ -82,7 +82,7 @@ Latest Vercel preview: `wealthtracker-l514dsq11` (2025‑10‑29 21:33 UTC). B
   service or the web's choosing line. Checked at three altitudes: lint, two import-graph
   walks, and the bundle greps.
 - The renderer also has a **size** ratchet, because growth that is perfectly cloud-free
-  passes all three of those. 3,790.5 KiB raw today, budget 3830 — ~1 % of headroom,
+  passes all three of those. 3,814.4 KiB raw today, budget 3854 — ~1 % of headroom,
   because the last move was a deliberate 498.6 KiB DOWN and that slack was spent
   rather than banked. Intended growth raises the budget in the commit that causes it.
 - A seam may also be about **weight** rather than the cloud. `@spreadsheet` is the
@@ -106,7 +106,7 @@ Latest Vercel preview: `wealthtracker-l514dsq11` (2025‑10‑29 21:33 UTC). B
 | **Mobile** | Frontend | The August 13th sweep fixed the status-bar overlap, the floating button's overlap, Settings, onboarding and the count colours — but the phone is where the last three days' bugs came from, and it is still the least-tested surface. Test there first. |
 | **Supabase coverage** | BE + Platform | Continue monitoring nightly Supabase smoke logs; add RLS/import edge cases as regressions appear. |
 | **PITR — a LAUNCH GATE, not a todo** | Platform | Point‑in‑time recovery is **off by decision** (owner, 2026‑10‑08): it was enabled, costed at ~$100/mo for the 7‑day window, and switched back off because the database today holds the owner's, Danielle's and a test account's money, bank‑feed rows re‑import on the next sync, and launch is months out. Daily backups (Pro, 7 days, included) are the cover until then. **It goes on the day before the first external user's money goes in** — Add‑ons → Point in time recovery → Enable → 7 days. Compute is already Small (the PITR minimum), so it is one click. Nothing in CI can check this; it is a human gate. |
-| **Rename — phases 6 and 7** | Platform + owner | Phases 1–4 shipped (see below). **Phase 6** is identity: the domain move to `www.reckley.co.uk` (Vercel domain + redirect from the old host, CSP `connect-src`, `CLERK_AUTHORIZED_PARTIES`, the Clerk production instance's CNAMEs/DKIM/social‑provider redirect URIs, `App.entitlements` `webcredentials` + the AASA served at the new host while the old one keeps serving, and `BANKING_ALLOWED_ORIGINS` carrying the new origin or Checkout refuses its own return URL), **Stripe — a go‑live, not a rename; the sequence is its own section below**, and the GitHub repo rename **with the desktop updater's `latest.json` redirect verified against the installed copy on the owner's Mac before anything is announced**. **Phase 7**, a release after 6 is stable: delete the old `wealthtracker_*` copies behind a second watermark in `lib/storageMigration.ts`. Never the legacy backup tags — files are not on our release schedule. |
+| **Rename — phases 6 and 7** | Platform + owner | Phases 1–4 shipped (see below). **Phase 6 is the domain and identity move, in this order — each step is safe before the next and none is safe after it:** **(a) DONE 14 Oct** — `www.reckley.co.uk` serves the same deployment (GoDaddy A `@` → 216.150.1.1/216.150.16.1, CNAME `www` → Vercel's per‑project host; apex 308 → www; Let's Encrypt via Vercel), both CSPs admit `clerk.reckley.co.uk` beside the old Clerk host (`connectSrcCoversFetchOrigins.test.ts` holds both), `App.entitlements` claims both `www` hosts, and `capacitor.config.ts` `allowNavigation` lists the new host so installed builds survive cutover. **(b) DONE 14 Oct** — Vercel env, Production: `CLERK_AUTHORIZED_PARTIES` and `BANKING_ALLOWED_ORIGINS` each hold both `www` hosts, redeployed (a stale `AUTHORIZED_PARTIES` 401s every API route while Clerk shows green). `BANKING_ALLOWED_ORIGINS` did not exist in Production until that day — see the Stripe section. Measured: a CORS preflight from either host gets 200 and its own origin back, a foreign origin gets 403. **(c)** Clerk production domain → `reckley.co.uk`: its CNAMEs/DKIM at GoDaddy, social‑provider redirect URIs, the new `pk_live` into `VITE_CLERK_PUBLISHABLE_KEY`, and **Supabase third‑party auth trusting `clerk.reckley.co.uk` before the switch** — the session token's issuer changes with the domain, and an untrusted issuer fails every data request. **(d) Cutover:** old host → new host in `vercel.json` (exempting `/.well-known` until a TestFlight build with both entitlements is installed), the `vercel.app` redirect target, `og:image`, `server.url` in the next TestFlight build, then retire the old Clerk host from both CSPs. Then **Stripe — a go‑live, not a rename; its sequence is its own section below**, and the GitHub repo rename **with the desktop updater's `latest.json` redirect verified against the installed copy on the owner's Mac before anything is announced**. **Phase 7**, a release after 6 is stable: delete the old `wealthtracker_*` copies behind a second watermark in `lib/storageMigration.ts`. Never the legacy backup tags — files are not on our release schedule. |
 
 ### The rename: phases 1–4 DONE (2026‑10‑09)
 
@@ -133,12 +133,46 @@ underneath moved first so the words could follow safely:
   GitHub repo path in the updater endpoint. The sweep protected each of these
   by name; `git log -p` on the phase‑4 commit shows the exact regex.
 
+### Identity: the mark is outlined and placed (2026‑10‑14)
+
+Claude Design's handover (16 Sep, mark **2a**: a capital R in IBM Plex Sans 600
+ruled off with a double underline) is built. **`node scripts/brand/build-identity.mjs`
+is the only way any logo file changes** — it outlines the glyphs from the
+committed font (`scripts/brand/`, OFL) and writes every SVG, PNG and ICO, the
+iOS icon and splash (light and dark), the desktop master, the boot splash
+inside `index.html`, and `design-system/brandIdentity.ts`. Then
+`npm run tauri --prefix apps/desktop -- icon app-icon.png` for the desktop set.
+`brandIdentity.test.ts` reruns it with `--check`, so a hand-edited asset fails CI.
+
+- **In the app:** `<ReckleyLockup>` (one colour — `currentColor` — two rules,
+  never under 96px, named "Reckley" as text for headings and tests). Top bar,
+  mobile bar and menu, landing header: horizontal. Sign-in and the desktop's
+  two entry screens: stacked. Every PDF page: horizontal, navy, footer left, as
+  vector paths (`utils/pdfBrand.ts`) — no PDF reader has Plex.
+- **Decided where the handover was silent, and recorded in the generator's
+  header:** ink centred on x=24 (the text anchor put it at 25.26); the word set
+  at the mark's own size on its baseline; gaps measured ink to ink with "mark
+  height" = the 48 box; lockups cropped to ink + one rule stroke; tiles centre
+  the ink; the .ico and favicon.svg snapped to whole pixels.
+- **Two deliberate departures.** §5 drew the signed‑out landing header navy on
+  white; the landing has been on a dark ground since August, so its lockup is
+  light. And §5's "21px" mark in the header is read as the visible mark: at a
+  21px *box* the lockup is 74px wide, under §4's own 96px minimum.
+- **Not in the repo:** `Reckley Identity.dc.html`, the full spec the handover
+  cites. If its lockup proportions differ from the decisions above, they are
+  constants at the top of the generator — change, rerun, commit.
+- **Reaches people only when shipped:** the iOS icon and splash need a new
+  TestFlight build; the desktop icon needs a desktop release.
+
 ### Stripe: a go‑live, not a rename (2026‑10‑12)
 
-Stripe has never taken a real payment. Vercel holds test keys only, the owner
-has never run a transaction, and the sandbox he opened on 10 Oct was empty — so
-the "rename the Stripe products" step this table carried for three days was a
-step for products that do not exist. What was measured, not assumed:
+Stripe has never taken a real payment. The owner has never run a transaction,
+and the sandbox he opened on 10 Oct was empty — so the "rename the Stripe
+products" step this table carried for three days was a step for products that
+do not exist. Vercel holds **no Stripe variable at all**: the Production and
+Preview build logs both list all four as unset (measured 14 Oct; until then
+this paragraph said Vercel held "test keys only" — those are in the Stripe
+dashboard). What was measured, not assumed:
 
 - **The production bundle carries no Stripe publishable key, and needs none.**
   The one `pk_live_…` in the served JS is **Clerk's** (what follows the prefix
@@ -150,11 +184,30 @@ step for products that do not exist. What was measured, not assumed:
   `window.location.href = session.url` to Stripe‑hosted Checkout, and the
   billing portal has the same shape. **The three `VITE_STRIPE_*` variables are
   dead wherever they exist** (`.env.example` still lists one; a follow‑up).
-- **The live integration is four server variables**, and
-  `scripts/verify-server-env.mjs` already refuses to build without them:
+- **The live integration is four server variables**:
   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PREMIUM_MONTHLY`,
   `STRIPE_PRICE_PRO_MONTHLY`. The code is mode‑agnostic. Going live is
   configuration, not a change to the repo.
+- **The build judges them as a set (14 Oct), with the allow‑list below.**
+  `scripts/verify-server-env.mjs`: no `STRIPE_SECRET_KEY` builds anywhere with
+  one warning — that is today. A `STRIPE_SECRET_KEY` in a **production** build
+  fails it unless the webhook secret (`whsec_`), both price ids (`price_` — a
+  pasted `prod_` is the mistake this catches) and a well‑formed allow‑list are
+  all there, test key or live. Elsewhere the same findings only warn, plus one
+  for a live key in a preview. Values are never printed. It also refuses any
+  `VITE_` variable holding a Stripe secret, under any name.
+  `src/test/serverEnvPreflight.test.ts` runs the script as Vercel does. (From
+  12 to 14 Oct this line said the build already "refused" without the four; it
+  only ever warned.)
+- **A fifth variable it cannot go live without.** `BANKING_ALLOWED_ORIGINS`
+  is the allow‑list `isRedirectUrlAllowed` holds Checkout's and the portal's
+  return URLs to, and it was **absent in
+  Production** until 14 Oct — the only origin trusted was `VERCEL_URL`, the
+  deployment's own hash host, so the first live Checkout would have answered
+  `400 Invalid redirect URLs` (`api/subscriptions/create-checkout.ts`).
+  Created that day with both `www` hosts. `cors.ts` compares each entry to the
+  browser's `Origin` header exactly, so the guard requires each to be a bare
+  `https` origin — a trailing slash, a path or a capital never matches.
 - **A sandbox is a copy, not a view.** Settings are snapshotted into it at
   creation and nothing edited inside it reaches the live account — the business
   name changed on 10 Oct renamed the sandbox. Leave it (account picker, top
@@ -181,10 +234,18 @@ redirect‑origin allow‑list in `api/_lib/cors.ts` both depend on the host:
    `checkout.session.completed`, `customer.subscription.created`, `.updated`,
    `.deleted`, `invoice.payment_failed`. Copy the signing secret.
 5. **Vercel, Production scope only.** The four variables above → live values,
-   then redeploy. Preview keeps the test values so previews keep hitting the
-   sandbox. Never a `VITE_` prefix on any of them.
-6. **First transaction — sandbox before live.** One full loop against a preview
-   deployment with a test card: Checkout → webhook received (every delivery is
+   then redeploy. A production build holding the key without the rest now
+   fails, naming each gap, so a half‑finished step 5 stops at the build and
+   the deployment already live keeps serving. Never a `VITE_` prefix on any of
+   them (the build refuses that too).
+6. **First transaction — sandbox before live.** Preview holds no Stripe
+   variable today, so this starts by putting the sandbox's test key, webhook
+   secret and price ids into the **Preview** scope. Preview has no
+   `BANKING_ALLOWED_ORIGINS` either, so open the preview at its own deployment
+   URL (the host `VERCEL_URL` names), not the branch alias — only that host is
+   a trusted return URL there. No deployment protection is on, so the
+   sandbox's webhook can reach it. One full loop
+   with a test card: Checkout → webhook received (every delivery is
    a `subscription_logs` row, inserted before handling and marked `processed`
    after, so there is a row to look at, not a feeling) → the subscription row →
    the app shows Premium. Then the first live charge is the owner's own card,

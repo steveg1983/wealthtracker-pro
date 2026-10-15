@@ -7,6 +7,7 @@
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>webcredentials:www.wealthtrackerpro.co.uk</string>
+		<string>webcredentials:www.reckley.co.uk</string>
 	</array>
 </dict>
 </plist>

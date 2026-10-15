@@ -71,6 +71,11 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       // no CSP. Both policies carry it; the browser enforces their
       // intersection.
       'https://clerk.wealthtrackerpro.co.uk',
+      // ...and its address after the rename's domain move (phase 6). Both are
+      // listed until Clerk's production domain has moved to reckley.co.uk and
+      // the old one is retired: the publishable key names exactly one of them,
+      // so for the length of the move either may be the one in use.
+      'https://clerk.reckley.co.uk',
       // Turnstile's own telemetry/result calls from the widget.
       'https://challenges.cloudflare.com',
       'https://*.clerk.accounts.dev', // Clerk authentication (dev instance)

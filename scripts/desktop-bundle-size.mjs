@@ -233,16 +233,35 @@ const BINARY = path.join(REPO, 'apps', 'desktop', 'src-tauri', 'target', 'releas
  * slice 31 did for three routes and as #253/#254 should have. That is the
  * difference between a ratchet and a number that drifts, and it is cheap: it
  * costs one line in a commit that was going to be written anyway.
+ *
+ * ── RE-RECORDED 2026-10-14: THE OUTLINED IDENTITY ────────────────────────────
+ *
+ * Two movements, measured separately by building main at ec8b63f on its own:
+ *
+ *     1 Sep baseline      3790.5 KiB raw   1163.8 KiB gzip
+ *     main at ec8b63f     3806.6 KiB raw   1169.8 KiB gzip   +16.1 / +6.0
+ *     + the identity      3814.4 KiB raw   1173.4 KiB gzip    +7.8 / +3.6
+ *
+ * The +16.1 arrived across the PRs since 1 September, every one inside the
+ * budget, so none was asked to say what it was — the case this paragraph's
+ * predecessor said a ratchet exists to prevent, recorded here so the next
+ * reader does not have to rediscover it. The +7.8 is this commit's and is
+ * intended: the Reckley lockup as outlined geometry (`design-system/
+ * brandIdentity.ts`), drawn by the desktop's two entry screens and by every
+ * PDF footer, which is the one place the mark can only exist as paths.
+ *
+ * Budgets reset to the standing rule, ~1% above measured: 3854 / 1186
+ * (+39.6 KiB raw, +1.04%; +12.6 KiB gzip, +1.07%).
  */
-const BASELINE_TOTAL_RAW_KIB = 3790.5;
-const BASELINE_TOTAL_GZIP_KIB = 1163.8;
+const BASELINE_TOTAL_RAW_KIB = 3814.4;
+const BASELINE_TOTAL_GZIP_KIB = 1173.4;
 
 // ~1% above measured — see "WHY THE NEW BUDGETS ARE WHERE THEY ARE" above. The
 // convention this file inherited was ~10%; the eviction of 2026-09-01 spent that
 // slack deliberately rather than banking it, so this is tight ON PURPOSE and
 // intended growth is expected to raise it in the commit that causes it.
-const MAX_TOTAL_RAW_KIB = Number(process.env.DESKTOP_MAX_TOTAL_RAW_KIB ?? 3830);
-const MAX_TOTAL_GZIP_KIB = Number(process.env.DESKTOP_MAX_TOTAL_GZIP_KIB ?? 1176);
+const MAX_TOTAL_RAW_KIB = Number(process.env.DESKTOP_MAX_TOTAL_RAW_KIB ?? 3854);
+const MAX_TOTAL_GZIP_KIB = Number(process.env.DESKTOP_MAX_TOTAL_GZIP_KIB ?? 1186);
 
 const isReport = process.argv.includes('--report');
 

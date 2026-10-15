@@ -7,6 +7,7 @@ import { formatDecimal } from './decimal-format';
 import { toDecimal } from './decimal';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { formatShortDate, formatTime } from '../utils/dateFormatter';
+import { drawPdfLockup } from './pdfBrand';
 
 type JsPDFInstance = InstanceType<typeof import('jspdf').default>;
 type RGB = readonly [number, number, number];
@@ -197,6 +198,19 @@ async function loadHtml2Canvas(): Promise<typeof import('html2canvas').default> 
   return html2canvas;
 }
 
+/**
+ * The horizontal lockup, navy, footer left, on every page (identity handover
+ * §5) — its word on the same baseline as the footer's line of text.
+ */
+function brandEveryPage(pdf: JsPDFInstance, writer: PdfWriter): void {
+  const current = pdf.getCurrentPageInfo().pageNumber;
+  for (let page = 1; page <= pdf.getNumberOfPages(); page += 1) {
+    pdf.setPage(page);
+    drawPdfLockup(pdf, writer.margin, writer.pageHeight - 10);
+  }
+  pdf.setPage(current);
+}
+
 /** "Generated on …" — the same stamp on every document this app writes. */
 function stampFooter(pdf: JsPDFInstance, writer: PdfWriter): void {
   pdf.setFontSize(8);
@@ -381,6 +395,7 @@ export async function generatePDFReport(data: ReportData, _accounts: Account[]):
     rowFontSize: 9
   });
 
+  brandEveryPage(pdf, writer);
   stampFooter(pdf, writer);
 
   // Save the PDF
@@ -532,6 +547,7 @@ export async function generateDataExportPDF(data: DataExportPdfData): Promise<vo
   const pageCount = pdf.getNumberOfPages();
   for (let page = 1; page <= pageCount; page += 1) {
     pdf.setPage(page);
+    drawPdfLockup(pdf, writer.margin, writer.pageHeight - 10);
     pdf.setFontSize(8);
     pdf.setTextColor(150, 150, 150);
     pdf.text(

@@ -26,6 +26,7 @@ import { PageTransition, NavigationProgress } from './layout/SimplePageTransitio
 import { EnhancedSkipLinks, FocusIndicator, RouteAnnouncer } from './layout/AccessibilityImprovements';
 import PullToRefreshIndicator from './PullToRefreshIndicator';
 import OfflineIndicator from './OfflineIndicator';
+import { ReckleyLockup } from './brand/ReckleyLockup';
 import BalanceReminderCard from './BalanceReminderCard';
 import PWAInstallPrompt from './PWAInstallPrompt';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
@@ -328,12 +329,14 @@ export default function Layout(): React.JSX.Element {
           style={{ height: TOP_CHROME_OFFSET }}
         />
         <div className="px-4 flex items-center h-12">
-          {/* Brand */}
+          {/* Brand — the horizontal lockup, light on the navy bar (identity
+              handover §5). 96px is the lockup's minimum width, and at 96 the
+              mark itself stands 21px, the size the handover names for here. */}
           <Link
             to={isDemoModeRoutingEnabled ? '/dashboard?demo=true' : '/dashboard'}
-            className="text-white font-semibold text-base mr-8 shrink-0 hover:text-white/90 transition-colors flex items-center h-full tracking-tight"
+            className="text-white mr-8 shrink-0 hover:text-white/90 transition-colors flex items-center h-full"
           >
-            Reckley
+            <ReckleyLockup layout="horizontal" width={96} />
           </Link>
 
           {/* Primary Nav — 5 core pages */}
@@ -557,7 +560,11 @@ export default function Layout(): React.JSX.Element {
             {isMobileMenuOpen ? <XIcon size={24} className="text-gray-700 dark:text-gray-200" /> : <MenuIcon size={24} className="text-gray-700 dark:text-gray-200" />}
           </button>
           
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white tracking-tight" id="mobile-app-title">Reckley</h1>
+          {/* Navy on the white bar, white on the dark one: the lockup has one
+              colour and takes it from here. */}
+          <h1 className="text-[#1a2332] dark:text-white" id="mobile-app-title">
+            <ReckleyLockup layout="horizontal" width={96} />
+          </h1>
           
           <div className="flex items-center gap-2">
             <NotificationBell />
@@ -626,7 +633,9 @@ export default function Layout(): React.JSX.Element {
             <div className="p-4" style={{ paddingBottom: BOTTOM_CHROME_OFFSET }}>
               {/* Mobile header with close button */}
               <header className="flex justify-between items-center mb-8" role="banner">
-                <h2 id="mobile-menu-title" className="text-2xl font-semibold text-white dark:text-white tracking-tight">Reckley</h2>
+                <h2 id="mobile-menu-title" className="text-white">
+                  <ReckleyLockup layout="horizontal" width={120} />
+                </h2>
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => {

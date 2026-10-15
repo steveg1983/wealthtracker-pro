@@ -26,6 +26,7 @@
  */
 
 import type { ReactElement, ReactNode } from 'react';
+import { ReckleyLockup } from '../components/brand/ReckleyLockup';
 
 export interface LedgerChooserProps {
   /** Set while the shell's chooser is up or a ledger is being opened. */
@@ -63,7 +64,11 @@ export function LedgerChooser({
 }: LedgerChooserProps): ReactElement {
   return (
     <main className="ledger-screen">
-      <h1>Reckley</h1>
+      {/* The desktop's front door, so it takes the stacked lockup the way the
+          web's sign-in does. The heading is still named "Reckley". */}
+      <h1>
+        <ReckleyLockup layout="stacked" width={112} />
+      </h1>
       <p>
         No ledger is open. Open one, or make a new one — it is a single file, and it stays on
         this machine.

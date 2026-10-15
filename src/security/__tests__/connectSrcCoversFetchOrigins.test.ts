@@ -38,8 +38,8 @@ const ORIGINS_THE_CODE_FETCHES: ReadonlyArray<{ origin: string; fetchedBy: strin
   },
 ];
 
-/** The connect-src list from the vercel.json header production actually sends. */
-function vercelConnectSrc(): string {
+/** One directive from the vercel.json header production actually sends. */
+function vercelDirective(name: 'connect-src' | 'script-src'): string {
   const raw = readFileSync(resolve(process.cwd(), 'vercel.json'), 'utf8');
   const config = JSON.parse(raw) as {
     headers?: Array<{ headers?: Array<{ key: string; value: string }> }>;
@@ -48,13 +48,16 @@ function vercelConnectSrc(): string {
     .flatMap(entry => entry.headers ?? [])
     .find(header => header.key === 'Content-Security-Policy');
   if (!csp) throw new Error('vercel.json no longer carries a Content-Security-Policy header');
-  const connect = csp.value
+  const directive = csp.value
     .split(';')
-    .map(directive => directive.trim())
-    .find(directive => directive.startsWith('connect-src'));
-  if (!connect) throw new Error("vercel.json's CSP no longer has a connect-src directive");
-  return connect;
+    .map(entry => entry.trim())
+    .find(entry => entry.startsWith(`${name} `));
+  if (!directive) throw new Error(`vercel.json's CSP no longer has a ${name} directive`);
+  return directive;
 }
+
+/** The connect-src list from the vercel.json header production actually sends. */
+const vercelConnectSrc = (): string => vercelDirective('connect-src');
 
 describe('every fetched origin is allowed by both content security policies', () => {
   const metaConnectSrc = getCSPDirectives()['connect-src'] ?? [];
@@ -67,6 +70,40 @@ describe('every fetched origin is allowed by both content security policies', ()
 
     it(`${origin} — the production meta-tag policy (src/security/csp.ts) allows it too`, () => {
       expect(metaConnectSrc).toContain(origin);
+    });
+  }
+});
+
+/**
+ * The production Clerk frontend API — where clerk-js is loaded from and every
+ * auth call goes. It is a subdomain of the app's own domain, so no wildcard in
+ * either policy covers it, and losing it from either kills sign-in in
+ * production only (dev servers send no CSP).
+ *
+ * TWO hosts while the rename's domain move is in flight (phase 6): the
+ * publishable key names exactly one, and which one changes on the day Clerk's
+ * production domain moves to reckley.co.uk. Retire the old host here and from
+ * both policies only after that day, never before it.
+ */
+const CLERK_FRONTEND_HOSTS = ['https://clerk.wealthtrackerpro.co.uk', 'https://clerk.reckley.co.uk'] as const;
+
+describe('both policies admit the Clerk frontend API, at either address, for the length of the move', () => {
+  const meta = getCSPDirectives();
+  const headerConnectSrc = vercelConnectSrc();
+  const headerScriptSrc = vercelDirective('script-src');
+
+  for (const host of CLERK_FRONTEND_HOSTS) {
+    it(`${host} — the vercel.json header lets the app call it and load clerk-js from it`, () => {
+      expect(headerConnectSrc.split(' ')).toContain(host);
+      expect(headerScriptSrc.split(' ')).toContain(host);
+    });
+
+    it(`${host} — the production meta-tag policy lets the app call it and load clerk-js from it`, () => {
+      expect(meta['connect-src']).toContain(host);
+      // The meta policy admits scripts from any https origin; it must keep
+      // doing so, or name the host.
+      const scriptSrc = meta['script-src'] ?? [];
+      expect(scriptSrc.includes(host) || scriptSrc.includes('https:')).toBe(true);
     });
   }
 });
