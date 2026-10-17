@@ -7,11 +7,11 @@
     "cap": "cap"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7"
+    "@capacitor/cli": "^7.6.9"
   },
   "dependencies": {
-    "@capacitor/core": "^7",
-    "@capacitor/ios": "^7",
+    "@capacitor/core": "^7.6.9",
+    "@capacitor/ios": "^7.6.9",
     "@capacitor/push-notifications": "^7.0.7"
   }
 }
