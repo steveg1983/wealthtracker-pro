@@ -34,6 +34,31 @@ ISSUER_ID="${ASC_ISSUER_ID:-5eefcc4c-7800-4c5f-b6ac-3ffb9c88655a}"
 KEY_PATH="$KEY_DIR/AuthKey_${KEY_ID}.p8"
 ARCHIVE="${TMPDIR:-/tmp}/wt-ios-$(date +%s).xcarchive"
 
+# A BETA XCODE BUILDS, ARCHIVES AND SIGNS — AND THEN APPLE REFUSES THE UPLOAD.
+# Build 4 (17 Oct 2026) went all the way to "Completing upload…" under
+# /Applications/Xcode-beta.app (SDK iPhoneOS27.0, Xcode 27A5252f) and came
+# back "Unsupported SDK or Xcode version … you need to use the latest Release
+# Candidates (RC) for SDKs and Xcode to submit the app". Ask the question in
+# the first second instead. `xcrun --find` honours DEVELOPER_DIR, so
+#   DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer scripts/ios-release.sh 5
+# picks a released Xcode for one run without touching `xcode-select`.
+# Betas install as Xcode-beta.app; an RC Apple ships under that name can be
+# let through with ALLOW_BETA_XCODE=1.
+XCODEBUILD_PATH="$(xcrun --find xcodebuild 2>/dev/null || true)"
+case "$XCODEBUILD_PATH" in
+  *-beta.app/*|*-Beta.app/*)
+    if [ "${ALLOW_BETA_XCODE:-}" != "1" ]; then
+      echo "The selected Xcode is a beta: $XCODEBUILD_PATH" >&2
+      echo "App Store Connect refuses uploads built with a beta SDK, after the whole archive and upload." >&2
+      echo "Install the released Xcode, then run:" >&2
+      echo "  DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer scripts/ios-release.sh <build-number>" >&2
+      echo "(If this beta is in fact a Release Candidate, ALLOW_BETA_XCODE=1 lets it through.)" >&2
+      exit 1
+    fi
+    ;;
+esac
+echo "==> Using $(xcodebuild -version 2>/dev/null | tr '\n' ' ')from ${XCODEBUILD_PATH%/usr/bin/xcodebuild}"
+
 if [ ! -f "$KEY_PATH" ]; then
   echo "No App Store Connect key at $KEY_PATH" >&2
   echo "Apple allows the .p8 to be downloaded ONCE; if it is lost, revoke the" >&2

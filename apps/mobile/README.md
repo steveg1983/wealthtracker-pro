@@ -99,6 +99,15 @@ A build number already on App Store Connect is rejected *after* the upload
 rather than before, so the script sets it deliberately and refuses to let
 Xcode renumber.
 
+**Build with a released Xcode, never a beta.** Build 4 (17 Oct 2026)
+archived and signed under `Xcode-beta.app`, the only Xcode on the MacBook
+then, and App Store Connect refused it at the very end of the upload:
+"Unsupported SDK or Xcode version". The script now refuses a beta before it
+starts. With both installed, `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+scripts/ios-release.sh <n>` picks the released one for that run and leaves
+`xcode-select` alone. Whether a refused upload uses up its build number is
+not documented, so the retry took the next number.
+
 App Store icons must carry **no alpha channel** — the upload is rejected for
 it, and the fix is a JPEG round-trip through `sips`.
 
