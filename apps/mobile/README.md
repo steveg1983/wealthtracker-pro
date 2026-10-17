@@ -106,6 +106,17 @@ A **native** change (icons, `Info.plist`, permissions, entitlements, the shell
 itself) is the only reason to cut a new build. Everything else arrives by
 deploying the web app.
 
+**Capacitor is held at ≥ 7.6.9** (17 Oct 2026, build 4). Every 7.x before it
+carries GHSA-rvm3-566m-v7fv (critical): the navigation guard checked a link's
+host but not its path, so a tapped link to the internal proxy path
+`/_capacitor_http_interceptor_` could fetch any URL and run it at the app's
+own origin, with every plugin in reach, whether or not `CapacitorHttp` is
+enabled. A native fix reaches a phone only in a new build, so a security
+release of `@capacitor/ios` is itself a reason to cut one. The pin lives in
+three places that must agree: `package.json`/`package-lock.json`,
+`ios/App/CapApp-SPM/Package.swift` (written by `cap sync`) and Xcode's
+`Package.resolved`.
+
 ## Push notifications (11 Sep 2026)
 
 The shell carries `@capacitor/push-notifications`, the `aps-environment`
