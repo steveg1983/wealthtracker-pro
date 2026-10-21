@@ -1,6 +1,6 @@
-import type { Category, Transaction, TransactionSplit } from '../types';
-import { toDecimal, type DecimalInstance } from './decimal';
-import { expandSplitTransactions, type SplitExpandedTransaction } from './transactionSplits';
+import type { Category, Transaction, TransactionSplit } from '../types/index.js';
+import { toDecimal, type DecimalInstance } from './decimal.js';
+import { expandSplitTransactions, type SplitExpandedTransaction } from './transactionSplits.js';
 
 /**
  * Income/expense classification by CATEGORY SEMANTICS — the Microsoft Money

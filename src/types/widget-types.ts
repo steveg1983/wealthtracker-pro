@@ -1,4 +1,4 @@
-import type { JsonValue } from './common';
+import type { JsonValue } from './common.js';
 
 /**
  * Base type for widget settings that allows nested JSON-compatible values.

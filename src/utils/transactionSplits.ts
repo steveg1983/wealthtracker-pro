@@ -1,5 +1,5 @@
-import { toDecimal, parseMoneyInput, type DecimalInstance } from './decimal';
-import type { Transaction, TransactionSplit, TransactionSplitInput } from '../types';
+import { toDecimal, parseMoneyInput, type DecimalInstance } from './decimal.js';
+import type { Transaction, TransactionSplit, TransactionSplitInput } from '../types/index.js';
 
 /**
  * Split-editor money maths. Everything runs through Decimal — the "totals
