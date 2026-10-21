@@ -8,10 +8,6 @@ export type JsonValue = string | number | boolean | null | JsonObject | JsonArra
 export type JsonObject = { [key: string]: JsonValue };
 export type JsonArray = JsonValue[];
 
-// For form/input events
-export type InputChangeEvent = React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>;
-export type FormSubmitEvent = React.FormEvent<HTMLFormElement>;
-
 // For API responses
 export interface ApiResponse<T = unknown> {
   data?: T;
@@ -24,13 +20,6 @@ export type StorageValue = JsonValue | undefined;
 
 // For financial calculations
 export type NumericValue = number | string | { toString(): string };
-
-// For DOM elements
-export type AnyElement = HTMLElement | SVGElement;
-
-// For event handlers
-export type EventHandler<T = Event> = (event: T) => void;
-export type AsyncEventHandler<T = Event> = (event: T) => Promise<void>;
 
 // For Redux actions
 export interface Action<T = string, P = unknown> {

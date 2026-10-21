@@ -18,6 +18,12 @@
     "api/cron/reminders.ts": {
       "maxDuration": 60
     },
+    "api/mcp.ts": {
+      "maxDuration": 30
+    },
+    "api/mcp-read.ts": {
+      "maxDuration": 30
+    },
     "api/**/*.ts": {
       "maxDuration": 10
     }

@@ -1,4 +1,4 @@
-import type { AccountType } from './accountType';
+import type { AccountType } from './accountType.js';
 
 export type { AccountType };
 
@@ -711,7 +711,7 @@ export interface Investment {
 }
 
 // Export AppState
-export type { AppState, Tag } from './app-state';
+export type { AppState, Tag } from './app-state.js';
 
 // User type for authentication
 export interface User {
@@ -743,7 +743,7 @@ export interface RecurringTransaction {
 }
 
 // Re-export widget types
-export * from './widget-types';
+export * from './widget-types.js';
 
 // Re-export subscription types
 export * from '@app-types/subscription';

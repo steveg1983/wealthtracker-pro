@@ -2,23 +2,32 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.api.tsbuildinfo",
     "target": "ES2022",
-    "lib": ["ES2023"],
+    "lib": [
+      "ES2023"
+    ],
     "module": "ESNext",
     "skipLibCheck": true,
-
     "moduleResolution": "bundler",
     "verbatimModuleSyntax": false,
     "moduleDetection": "force",
     "noEmit": true,
-    "types": ["node"],
-
+    "types": [
+      "node"
+    ],
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": false,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "paths": {
+      "@app-types/*": [
+        "./src/types/*"
+      ]
+    }
   },
-  "include": ["api"]
+  "include": [
+    "api"
+  ]
 }

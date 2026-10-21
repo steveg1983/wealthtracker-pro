@@ -2,8 +2,8 @@
  * AppState interface for application state management
  */
 
-import type { Account, Transaction, Budget, Goal, Category, RecurringTransaction, Investment } from './index';
-import type { TestDataProgress, TestDataSeedResult } from '../utils/testDataset';
+import type { Account, Transaction, Budget, Goal, Category, RecurringTransaction, Investment } from './index.js';
+import type { TestDataProgress, TestDataSeedResult } from './testData.js';
 
 export interface Tag {
   id: string;

@@ -64,7 +64,7 @@
  * check, read the same way by every surface that asks.
  */
 
-import type { Transaction } from '../types';
+import type { Transaction } from '../types/index.js';
 
 /** Enough of a transaction to judge whether it still wants looking at. */
 export type ReviewableRow = Pick<

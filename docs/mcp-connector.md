@@ -1,0 +1,204 @@
+# The Reckley connector for Claude
+
+**Status**: in build, branch `feat/mcp-connector` (started 21 Oct 2026)
+**Owner**: Platform
+**Decided with**: the owner, 21 Oct 2026
+
+A Claude connector is a remote MCP server: an HTTPS endpoint speaking the
+Model Context Protocol, where each user signs in to Reckley with OAuth and
+Claude then calls named tools on that user's ledger. This document records
+what we are building, why it has the shape it has, and the rulings that
+shaped it. The submission rules it answers to are Anthropic's
+[connector submission](https://claude.com/docs/connectors/building/submission),
+[authentication](https://claude.com/docs/connectors/building/authentication)
+and [review criteria](https://claude.com/docs/connectors/building/review-criteria)
+pages, read on 21 Oct 2026.
+
+---
+
+## 1. One server, two listings — and why not one listing with a choice
+
+The owner asked (21 Oct): is it better to do one connector with a list of
+options — full access, ask approval, read only — than two separate ones?
+
+**The permission has to live in the token, not in a menu.** When a user
+connects a listing, Claude asks Reckley's authorization server for the
+scopes that listing advertises, the user consents on Clerk's screen, and the
+access token carries exactly those scopes for as long as the connection
+lives. There is no later moment in Claude's connector flow where the user
+picks a level, and a scope the token does not carry cannot be exercised by
+anyone — not by Claude, not by a prompt-injection hidden in a bank
+description, not by a user clicking "approve" without reading. A single
+listing can only advertise one scope set, so "read-only" as a promise on the
+directory card needs its own listing with its own scopes. That is what
+PocketSmith is doing and it is the right shape.
+
+**"Ask approval" already exists, and it is Claude's.** Every write tool is
+annotated `destructiveHint: true`, and Claude prompts the user before each
+such call; read-only tools run without prompts. So the three levels the owner
+named map like this:
+
+| Level | How it is delivered |
+| --- | --- |
+| Read only | the **Reckley Read-Only** listing: token carries `reckley:read` only; the server does not even list the write tools to it |
+| Ask approval | the **Reckley Complete Access** listing: token carries `reckley:read reckley:write`; every write prompts the user, because Claude prompts on every destructive-annotated tool |
+| Full access without asking | not something we offer. Claude may let a user mark a tool "always allow" in its own settings; that is the user's choice in Claude, not a mode of ours |
+
+**One codebase.** Both listings point at the same function with different
+URLs (`/api/mcp-read` and `/api/mcp`), because the protected-resource
+metadata's `resource` field must equal the listing's URL exactly and its
+`scopes_supported` is what Claude asks for. Same tools, same data port, same
+tests; the only difference is which scopes the metadata advertises and which
+tools the server registers for the token it was handed.
+
+## 2. What already exists, and is reused rather than rebuilt
+
+- **Identity → ledger user.** Every API route verifies a Clerk token and
+  resolves it to the `users` row (`api/_lib/auth.ts`). The connector does
+  the same with Clerk **OAuth** tokens instead of session tokens
+  (`clerkClient.authenticateRequest(request, { acceptsToken: 'oauth_token' })`,
+  which returns `userId`, `clientId` and `scopes`).
+- **The verbs.** The database exposes the atomic operations the app itself
+  uses — `update_transaction_atomic`, `apply_category_to_uncategorized`,
+  `confirm_transaction_categories`, `set_transactions_cleared`,
+  `link_transfer_pair`, `create_transfer_counterpart`,
+  `create_transaction_atomic` and the rest — each carrying the audit log,
+  row-level security and the review semantics. Write tools call those and
+  nothing else, so Claude can do nothing the register cannot.
+- **Hosting.** Vercel functions, stateless per request, which is exactly
+  what the v2 SDK's `createMcpHandler` wants. Rate limiting and CORS helpers
+  already in `api/_lib`.
+- **A reviewer account.** Anthropic requires credentials for a fully
+  populated account. The seeded demo account is that.
+
+## 3. Authentication
+
+Clerk is the OAuth 2.0 authorization server. Nothing about tokens is written
+by us.
+
+- **Client registration**: Clerk supports both modes Claude uses — Client ID
+  Metadata Documents (preferred; no registration call) and Dynamic Client
+  Registration (fallback). Both are enabled in the Clerk dashboard under
+  OAuth applications → Settings → Client onboarding. PKCE S256 is required.
+- **Scopes**: custom scopes have been available in Clerk since Aug 2026.
+  Two are defined and advertised in Clerk's metadata: `reckley:read`,
+  `reckley:write`.
+- **Discovery**: an unauthenticated call to the MCP endpoint answers `401`
+  with `WWW-Authenticate: Bearer resource_metadata="<url>"`. That URL is
+  served by our own function (`/api/mcp-oauth-protected-resource`) and
+  names Clerk's issuer in `authorization_servers`; Clerk serves its own
+  authorization-server metadata. The `401` is required — Claude ignores the
+  header on a `200`.
+- **Callbacks**: `https://claude.ai/api/mcp/auth_callback` for the hosted
+  apps and a loopback redirect on any port for Claude Code. Clerk's dynamic
+  registration accepts what the client registers; nothing to configure
+  per listing.
+- **Token verification**: `@clerk/backend`'s `authenticateRequest` with
+  `acceptsToken: 'oauth_token'`, networkless when `CLERK_JWT_KEY` is set.
+  The verified `userId` is mapped to the `users` row exactly as
+  `requireAuth` does today. The scopes on the token decide which tools are
+  registered for that request.
+- **Timeouts that matter**: Claude gives discovery, registration and token
+  endpoints 10 seconds. Discovery is ours and is static JSON; the rest is
+  Clerk's.
+
+## 4. The tools
+
+Names are `reckley_*`, snake_case, 64 characters or fewer, every one with a
+`title`, a description that says when to use it, and `readOnlyHint` or
+`destructiveHint`. Read and write never share a tool — Anthropic rejects a
+tool that does both.
+
+**Read (both listings)**
+
+| Tool | Returns |
+| --- | --- |
+| `reckley_list_accounts` | accounts with type, currency, computed balance, cleared/bank balance where known |
+| `reckley_search_transactions` | one page of rows matching text, account, category, date range, amount range, review/cleared state; `next_offset` when more |
+| `reckley_get_transaction` | one row with its splits and transfer counterpart |
+| `reckley_list_categories` | the category tree with ids, so filing can name a category correctly |
+| `reckley_spending_by_category` | totals per category over a period, refunds netted |
+| `reckley_spending_by_payee` | totals per payee over a period |
+| `reckley_income_vs_expenses` | income, expenses, net, month by month over a period |
+| `reckley_net_worth` | assets, liabilities, net worth today, and the series over a period |
+| `reckley_budget_status` | each budget over its own period, through `utils/budgetEvaluation` — lands once the dashboard batch that carries that evaluation merges |
+| `reckley_review_queue` | what is in To Review, grouped by account |
+
+**Write (Complete Access only)** — each calls one existing verb, each
+prompts in Claude:
+
+| Tool | Verb |
+| --- | --- |
+| `reckley_set_category` | one or many rows → a category; a suggestion unless told to confirm (see §5) |
+| `reckley_confirm_categories` | `confirm_transaction_categories` |
+| `reckley_update_transaction_text` | description and notes only, via `update_transaction_atomic` |
+| `reckley_mark_reviewed` | ends review on the named rows |
+| `reckley_mark_cleared` | `set_transactions_cleared` |
+| `reckley_link_transfer` | `link_transfer_pair` with an existing counterpart |
+| `reckley_create_transfer_counterpart` | `create_transfer_counterpart` |
+| `reckley_add_transaction` | `create_transaction_atomic`, manual rows only |
+
+Not in the first release: deletes, splits, bank connections, billing,
+budgets and categories themselves. A delete is a verb with a confirmation
+in the app; Claude's prompt is not that confirmation.
+
+**Policy fit.** The directory refuses connectors that "transfer money,
+cryptocurrency, or other financial assets". Ours moves none: a "transfer"
+here is bookkeeping between two of the user's own ledgers, and the tool
+descriptions say so in those words.
+
+## 5. Rulings that shape the writes
+
+- **A filing by Claude is a suggestion unless the user says confirm.** The
+  app's standing rule (11 Sep 2026) is that an automatic filing is a
+  suggestion that stays in review until a person agrees. Claude acting on a
+  conversation is closer to the categoriser than to a person at the
+  register, so `reckley_set_category` writes `category_confirmed = false`
+  and leaves `needs_review` alone by default. A `confirm: true` argument,
+  which Claude passes only when the user has said so, uses the deliberate
+  verb instead. Either way the To Review list keeps the trail.
+- **Bank text is untrusted.** Descriptions and notes come from banks and
+  files. Tool results return them as data, never as anything
+  instruction-shaped, and tool descriptions describe the tool, never tell
+  Claude how to behave.
+- **Small answers.** Every list is paginated with `limit`/`offset` and
+  capped at 25,000 characters by returning fewer rows, never by cutting
+  text. Money is a string with its currency.
+- **Provenance.** Every write goes through the same verbs as the register,
+  so the audit log records it; a `source` of `mcp` is carried where the verb
+  accepts metadata so a row can later say Claude filed it.
+
+## 6. Hosting and URLs
+
+- `api/mcp.ts` — the Complete Access endpoint, `POST` only, stateless.
+- `api/mcp-read.ts` — the Read-Only endpoint, same handler, read scope only.
+- `api/mcp-oauth-protected-resource.ts` — RFC 9728 metadata for both,
+  chosen by a query or path parameter, `resource` built from the request
+  host so previews and production each name themselves.
+- The MCP functions get a longer `maxDuration` than the API default of ten
+  seconds.
+- **The listing URL is permanent** and the metadata `resource` must match
+  it exactly, so the listings are submitted only after the domain move
+  (rename phase 6). Until then the server is tested as a custom connector,
+  which works on any host including previews.
+
+## 7. Sequence
+
+1. Scopes, the filing ruling and the first tool list — this document.
+2. Clerk dashboard (owner): enable CIMD and DCR, require PKCE, create the
+   two scopes, advertise them; set `CLERK_JWT_KEY` in Vercel for networkless
+   verification. Check the plan includes OAuth applications.
+3. Read-only server: data port, tools, metadata, 401 handshake, in-process
+   specs through a real MCP client.
+4. MCP Inspector, then a custom connector in the owner's own Claude.
+5. Write tools, each behind the write scope, each with specs.
+6. Ten evaluation questions against the demo ledger, per the MCP guide.
+7. After phase 6: submit both listings. Any paid Claude plan can submit;
+   listings go live as Community connectors after an automated scan.
+
+## 8. The desktop edition
+
+The directory no longer accepts local servers on their own; they ship
+inside a plugin. The Rust bridge (`wealth-core-cli`) could power a local
+stdio MCP server over an open ledger file later, with the same tool names.
+Not in scope here.

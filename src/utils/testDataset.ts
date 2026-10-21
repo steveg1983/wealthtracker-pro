@@ -390,28 +390,9 @@ export function planTestDataCategories(
 
 // ── What a load does, and how it reports itself ──────────────────────────────
 
-export type TestDataPhase =
-  | 'categories'
-  | 'accounts'
-  | 'transactions'
-  | 'budgets'
-  | 'goals'
-  | 'refreshing';
-
-export interface TestDataProgress {
-  phase: TestDataPhase;
-  /** 0–1, for a progress bar. */
-  fraction: number;
-  message: string;
-}
-
-/** What actually got written. Every figure is counted, never predicted. */
-export interface TestDataSeedResult {
-  categoriesCreated: number;
-  accounts: number;
-  transactions: number;
-  budgets: number;
-}
+// The three shapes below moved to `types/testData.ts` so the type barrel no
+// longer reaches this module (see the note there); re-exported for callers.
+export type { TestDataPhase, TestDataProgress, TestDataSeedResult } from '../types/testData';
 
 /**
  * What a load creates, for the confirmation dialog to quote before the user
