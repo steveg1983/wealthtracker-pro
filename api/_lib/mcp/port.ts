@@ -21,6 +21,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Budget, Category, Transaction, TransactionSplit } from '../../../src/types/index.js';
+import { readAllPages } from './paging.js';
 
 /** Which rows a search wants with respect to review. */
 export type ReviewFilter = 'awaiting' | 'done' | 'any';
@@ -274,17 +275,44 @@ const fail = (what: string, error: { message: string }): never => {
  * tool argument could supply.
  */
 export function createSupabasePort(supabase: SupabaseClient, userId: string): ReckleyPort {
-  const accountBalances = async (): Promise<Map<string, number>> => {
-    // Opening balance plus every row the account holds — the figure the
-    // register shows. Summed here in one pass rather than per account; the
-    // numeric comes back as a string and is summed in pence to stay exact.
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('account_id, amount')
-      .eq('user_id', userId);
-    if (error) return fail('account balances', error);
+  /**
+   * Opening balance plus every row the account holds — the figure the
+   * register shows — by account id.
+   *
+   * The database does the sum (`account_balances_for_user`, the server-side
+   * twin of the app's `account_balances()`): one round trip, exact numeric
+   * arithmetic, every row. The first version of this summed through
+   * PostgREST, which caps a select at 1,000 rows and says nothing, so an
+   * account with 1,859 rows read −438,191.80 where the app shows 0.00 (the
+   * owner's first question to the connector, 21 Oct 2026). Until the
+   * migration that adds the function has been applied, the paged read below
+   * gives the same answer more slowly, in pence so the float never drifts.
+   */
+  const accountBalances = async (accounts: AccountRow[]): Promise<Map<string, number>> => {
+    const viaRpc = await supabase.rpc('account_balances_for_user', { p_user_id: userId });
+    if (!viaRpc.error) {
+      const rows = (viaRpc.data ?? []) as { account_id: string; balance: number | string }[];
+      return new Map(rows.map(row => [row.account_id, num(row.balance)]));
+    }
+    const missing = viaRpc.error.code === '42883' || /does not exist|not find the function/i.test(viaRpc.error.message);
+    if (!missing) return fail('account balances', viaRpc.error);
+    console.warn('[mcp] account_balances_for_user is not installed yet; summing by pages (apply migration 20261022090000)');
+
+    const paged = await readAllPages<{ account_id: string; amount: number | string }>(async (from, to) => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('account_id, amount')
+        .eq('user_id', userId)
+        .order('id')
+        .range(from, to);
+      if (error) return fail('account balances', error);
+      return (data ?? []) as { account_id: string; amount: number | string }[];
+    }, 500_000);
     const pence = new Map<string, bigint>();
-    for (const row of (data ?? []) as { account_id: string; amount: number | string }[]) {
+    for (const account of accounts) {
+      pence.set(account.id, BigInt(Math.round(num(account.initial_balance) * 100)));
+    }
+    for (const row of paged.rows) {
       const value = BigInt(Math.round(num(row.amount) * 100));
       pence.set(row.account_id, (pence.get(row.account_id) ?? 0n) + value);
     }
@@ -293,23 +321,24 @@ export function createSupabasePort(supabase: SupabaseClient, userId: string): Re
 
   return {
     async listAccounts() {
-      const [{ data, error }, sums] = await Promise.all([
-        supabase
-          .from('accounts')
-          .select('id, name, type, currency, is_active, institution, initial_balance, bank_balance, bank_balance_date, last_reconciled_date')
-          .eq('user_id', userId)
-          .order('name'),
-        accountBalances(),
-      ]);
+      const { data, error } = await supabase
+        .from('accounts')
+        .select('id, name, type, currency, is_active, institution, initial_balance, bank_balance, bank_balance_date, last_reconciled_date')
+        .eq('user_id', userId)
+        .order('name');
       if (error) return fail('accounts', error);
-      return ((data ?? []) as AccountRow[]).map(row => ({
+      const rows = (data ?? []) as AccountRow[];
+      const balances = await accountBalances(rows);
+      return rows.map(row => ({
         id: row.id,
         name: row.name,
         type: row.type,
         currency: row.currency ?? 'GBP',
         isActive: row.is_active !== false,
         institution: row.institution,
-        balance: Math.round((num(row.initial_balance) + (sums.get(row.id) ?? 0)) * 100) / 100,
+        // An account the balance function did not list has no rows: its
+        // balance is its opening balance.
+        balance: balances.get(row.id) ?? num(row.initial_balance),
         bankBalance: row.bank_balance === null ? null : num(row.bank_balance),
         bankBalanceDate: row.bank_balance_date,
         lastReconciledDate: row.last_reconciled_date,
@@ -398,20 +427,24 @@ export function createSupabasePort(supabase: SupabaseClient, userId: string): Re
     },
 
     async transactionsBetween(from, to, cap) {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select<string, TransactionRow>(TRANSACTION_COLUMNS)
-        .eq('user_id', userId)
-        .or('archived.is.null,archived.eq.false')
-        .gte('date', from)
-        .lte('date', to)
-        .order('date', { ascending: true })
-        .order('id', { ascending: true })
-        .range(0, cap);
-      if (error) return fail('transactions', error);
-      const all = (data ?? []).map(toTransaction);
-      const capped = all.length > cap;
-      const rows = capped ? all.slice(0, cap) : all;
+      // Paged, because the transport clamps a select at 1,000 rows however
+      // wide the range asked for (see paging.ts).
+      const paged = await readAllPages<TransactionRow>(async (pageFrom, pageTo) => {
+        const { data, error } = await supabase
+          .from('transactions')
+          .select<string, TransactionRow>(TRANSACTION_COLUMNS)
+          .eq('user_id', userId)
+          .or('archived.is.null,archived.eq.false')
+          .gte('date', from)
+          .lte('date', to)
+          .order('date', { ascending: true })
+          .order('id', { ascending: true })
+          .range(pageFrom, pageTo);
+        if (error) return fail('transactions', error);
+        return data ?? [];
+      }, cap);
+      const rows = paged.rows.map(toTransaction);
+      const capped = paged.capped;
       const parentIds = rows.filter(row => row.isSplit).map(row => row.id);
       let splits: TransactionSplit[] = [];
       if (parentIds.length > 0) {
