@@ -120,7 +120,7 @@ tool that does both.
 | `reckley_spending_by_category` | totals per category over a period, refunds netted |
 | `reckley_spending_by_payee` | totals per payee over a period |
 | `reckley_income_vs_expenses` | income, expenses, net, month by month over a period |
-| `reckley_net_worth` | assets, liabilities, net worth today, and the series over a period |
+| `reckley_net_worth` | assets, liabilities and net worth today, per currency, from the register; the series over a period waits on a browser-free `netWorthSeries` |
 | `reckley_budget_status` | each budget over its own period, through `utils/budgetEvaluation` — lands once the dashboard batch that carries that evaluation merges |
 | `reckley_review_queue` | what is in To Review, grouped by account |
 

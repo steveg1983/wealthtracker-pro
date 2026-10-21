@@ -18,7 +18,7 @@ import {
   createReckleyServer,
 } from '../../../../api/_lib/mcp/server';
 import type { ReckleyPort } from '../../../../api/_lib/mcp/port';
-import { fakePort, transactions } from './fakePort';
+import { accounts, fakePort, transactions } from './fakePort';
 
 const NOW = new Date(2026, 9, 15, 12, 0, 0); // 15 October 2026
 
@@ -229,3 +229,97 @@ describe('reckley_spending_by_category', () => {
     expect(result.isError).toBe(true);
   });
 });
+
+describe('reckley_income_vs_expenses', () => {
+  it('buckets by calendar month with the chart’s own rule, and totals the range', async () => {
+    const result = await call('reckley_income_vs_expenses', { from: '2026-09-01', to: '2026-10-31', response_format: 'json' });
+    const body = result.structuredContent as {
+      months: { month: string; income: string; expenses: string; net: string }[];
+      income: string; expenses: string; net: string; uncategorised_rows: number;
+    };
+    expect(body.months).toEqual([
+      { month: '2026-09', income: '0.00 GBP', expenses: '60.00 GBP', net: '-60.00 GBP' },
+      // October: 45 + 30 + 70 + 30 spent, 12.50 refunded; the transfer and the cash row are not counted.
+      { month: '2026-10', income: '2000.00 GBP', expenses: '162.50 GBP', net: '1837.50 GBP' },
+    ]);
+    expect(body.expenses).toBe('222.50 GBP');
+    expect(body.net).toBe('1777.50 GBP');
+    expect(body.uncategorised_rows).toBe(1);
+  });
+
+  it('reads as one line per month', async () => {
+    const text = textOf(await call('reckley_income_vs_expenses', { from: '2026-10-01', to: '2026-10-31' }));
+    expect(text).toContain('- 2026-10: income 2000.00 GBP, spending 162.50 GBP, net 1837.50 GBP');
+  });
+});
+
+describe('reckley_spending_by_payee', () => {
+  it('names each payee as the bank wrote it, biggest first, with the refund as its own negative line', async () => {
+    const result = await call('reckley_spending_by_payee', { from: '2026-10-01', to: '2026-10-31', response_format: 'json' });
+    const body = result.structuredContent as { expenses: string; payees: { payee: string; spent: string; rows: number; share: number; usual_category: string | null }[] };
+    expect(body.expenses).toBe('162.50 GBP');
+    expect(body.payees.map(p => [p.payee, p.spent, p.rows])).toEqual([
+      ['BIG SHOP', '100.00 GBP', 2],
+      ['NORTHGATE MARKET', '45.00 GBP', 1],
+      ['Direct Debit - SKYLINE TELECOM', '30.00 GBP', 1],
+      ['NORTHGATE MARKET REFUND', '-12.50 GBP', 1],
+    ]);
+    expect(body.payees[0].usual_category).toBe('Food > Groceries');
+    expect(body.payees[0].share).toBeCloseTo(61.5, 1);
+  });
+
+  it('honours the limit and reads as a list', async () => {
+    const text = textOf(await call('reckley_spending_by_payee', { from: '2026-10-01', to: '2026-10-31', limit: 2 }));
+    expect(text).toContain('- BIG SHOP: 100.00 GBP over 2 rows (61.5%), usually Food > Groceries');
+    expect(text).not.toContain('SKYLINE');
+  });
+});
+
+describe('reckley_net_worth', () => {
+  it('sums positive balances as assets and negative ones as liabilities, per currency, open accounts only', async () => {
+    await client.close();
+    await handler.close();
+    await connect(fakePort({
+      accounts: [
+        ...accounts,
+        { id: 'acc-card', name: 'Credit Card', type: 'credit', currency: 'GBP', isActive: true, institution: null, balance: -500, bankBalance: null, bankBalanceDate: null, lastReconciledDate: null },
+        { id: 'acc-eur', name: 'Euro Account', type: 'checking', currency: 'EUR', isActive: true, institution: null, balance: 250, bankBalance: null, bankBalanceDate: null, lastReconciledDate: null },
+        { id: 'acc-zero', name: 'Empty', type: 'cash', currency: 'GBP', isActive: true, institution: null, balance: 0, bankBalance: null, bankBalanceDate: null, lastReconciledDate: null },
+      ],
+    }));
+
+    const result = await call('reckley_net_worth', { response_format: 'json' });
+    const body = result.structuredContent as { open_accounts: number; currencies: Record<string, unknown>[] };
+    // The closed Old Card is not counted; the zero-balance account is neither side.
+    expect(body.open_accounts).toBe(5);
+    expect(body.currencies).toEqual([
+      { currency: 'EUR', assets: '250.00 EUR', liabilities: '0.00 EUR', net_worth: '250.00 EUR', accounts_counted: 1 },
+      { currency: 'GBP', assets: '6234.56 GBP', liabilities: '500.00 GBP', net_worth: '5734.56 GBP', accounts_counted: 3 },
+    ]);
+  });
+
+  it('says what the figures are and are not', async () => {
+    const text = textOf(await call('reckley_net_worth'));
+    expect(text).toContain('- GBP: own 6234.56 GBP, owe 0.00 GBP, net 6234.56 GBP (2 accounts)');
+    expect(text).toContain('investments at their ledger value, no currency conversion, closed accounts excluded');
+  });
+});
+
+describe('reckley_review_queue', () => {
+  it('counts the To Review rows by account, the suggested and the unfiled apart', async () => {
+    const result = await call('reckley_review_queue', { response_format: 'json' });
+    const body = result.structuredContent as { total: number; accounts: Record<string, unknown>[] };
+    expect(body.total).toBe(2);
+    expect(body.accounts).toEqual([
+      { account_id: 'acc-current', account: 'Current Account', count: 2, suggested: 1, unfiled: 1, oldest: '2026-10-03', newest: '2026-10-09' },
+    ]);
+  });
+
+  it('says so when nothing is waiting', async () => {
+    await client.close();
+    await handler.close();
+    await connect(fakePort({ transactions: [transactions[0]] }));
+    expect(textOf(await call('reckley_review_queue'))).toBe('Nothing is waiting for review.');
+  });
+});
+
