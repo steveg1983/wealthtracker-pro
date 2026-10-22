@@ -19,8 +19,8 @@
  * ── THE ARITHMETIC IS THE APP'S ─────────────────────────────────────────────
  * Spending by category goes through `computeIncomeExpense` — the function
  * the reports call — so a figure Claude quotes is the figure the screen
- * shows. Budget status joins once the shared budget evaluation lands on main
- * (it is in the dashboard batch). See docs/mcp-connector.md.
+ * shows, and budgets through `evaluateBudgets` — the Budget page's and the
+ * Dashboard card's one evaluation. See docs/mcp-connector.md.
  *
  * ── NOTHING HERE IS A TYPESCRIPT ENUM OR A PARAMETER PROPERTY ──────────────
  * The API project compiles with `erasableSyntaxOnly`: the runtime is Node
@@ -31,6 +31,7 @@ import { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod/v4';
 import type { Category, Transaction } from '../../../src/types/index.js';
 import { computeIncomeExpense } from '../../../src/utils/incomeExpense.js';
+import { evaluateBudgets } from '../../../src/utils/budgetEvaluation.js';
 import { bucketByCategoryDirection } from '../../../src/utils/categoryNetting.js';
 import { expandSplitTransactions } from '../../../src/utils/transactionSplits.js';
 import { FALLBACK_BANK_DESCRIPTION, normalizePayee } from '../../../src/utils/payeeAutoCategorize.js';
@@ -96,6 +97,14 @@ const isoDay = z
 
 const dayOf = (date: Date | string): string =>
   (typeof date === 'string' ? new Date(date) : date).toISOString().slice(0, 10);
+
+/**
+ * A budget window's bounds are LOCAL midnights (utils/budgetPeriods), so they
+ * are named by their local calendar parts — through toISOString, 1 October
+ * at 00:00 BST would read as 30 September.
+ */
+const localDay = (date: Date): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 /** "-12.34 GBP": a signed magnitude and the currency code, nothing a locale could misread. */
 export const money = (amount: number, currency: string): string => {
@@ -182,6 +191,7 @@ function rowLine(row: DescribedRow): string {
  */
 export function createReckleyServer(options: ReckleyServerOptions): McpServer {
   const { port } = options;
+  const now = options.now ?? (() => new Date());
   const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION });
 
   const lookups = async (): Promise<Lookups> => {
@@ -732,6 +742,63 @@ Use reckley_search_transactions with review='awaiting' and an account_id for the
     }
   );
 
+  server.registerTool(
+    'reckley_budget_status',
+    {
+      title: 'Budget status',
+      description: `Every active budget measured over its own period — the calendar month for a monthly budget, the week for a weekly one — exactly as the app's Budget page shows it: the allowance (with any rollover carried in), what has been spent, what is left or by how much it is over, and the days the period covers.`,
+      inputSchema: z.strictObject({
+        response_format: responseFormat,
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ response_format }) => {
+      const [budgets, categories, look] = await Promise.all([port.listBudgets(), port.listCategories(), lookups()]);
+      const active = budgets.filter(budget => budget.isActive);
+      if (active.length === 0) {
+        const body = { count: 0, budgets: [] as never[] };
+        return response_format === ResponseFormat.JSON
+          ? { content: [{ type: 'text', text: JSON.stringify(body) }], structuredContent: body }
+          : { content: [{ type: 'text', text: 'No active budgets.' }] };
+      }
+      // Budgets are measured over their own windows; the widest any of them
+      // can reach is the calendar year, so that is the range read.
+      const today = now();
+      const range = await port.transactionsBetween(`${today.getFullYear()}-01-01`, `${today.getFullYear()}-12-31`, AGGREGATE_ROW_CAP);
+      const currency = look.accounts.values().next().value?.currency ?? 'GBP';
+      const evaluated = evaluateBudgets(active, {
+        transactions: range.rows,
+        transactionSplits: range.splits,
+        categories,
+        now: today,
+      });
+      const described = evaluated.map(entry => ({
+        id: entry.budget.id,
+        name: entry.budget.name || (categoryPath(entry.categoryId, look.categories) ?? entry.categoryId),
+        category: categoryPath(entry.categoryId, look.categories),
+        period: entry.window.label,
+        from: localDay(entry.window.start),
+        to: localDay(entry.window.end),
+        allowance: money(entry.effectiveAmount.toNumber(), currency),
+        spent: money(entry.spent.toNumber(), currency),
+        remaining: money(entry.remaining.toNumber(), currency),
+        percent_used: Number(entry.percentage.toFixed(1)),
+        over_budget: entry.remaining.isNegative(),
+      }));
+      const body = { count: described.length, budgets: described };
+      if (response_format === ResponseFormat.JSON) {
+        return { content: [{ type: 'text', text: JSON.stringify(body, null, 2) }], structuredContent: body };
+      }
+      const lines = ['# Budgets', ''];
+      lines.push(...described.map(entry =>
+        `- ${entry.name}: ${entry.spent} of ${entry.allowance} (${entry.percent_used}%), ${entry.period} ${entry.from} to ${entry.to}` +
+          (entry.over_budget ? ` · OVER by ${entry.remaining.replace('-', '')}` : ` · ${entry.remaining} left`) +
+          ` · id ${entry.id}`
+      ));
+      return { content: [{ type: 'text', text: lines.join('\n') }] };
+    }
+  );
+
   // Write tools arrive in the next slice; a token without the write scope will
   // never see them, because they are registered here only when it has it.
 
@@ -749,4 +816,5 @@ export const READ_TOOL_NAMES = [
   'reckley_spending_by_payee',
   'reckley_net_worth',
   'reckley_review_queue',
+  'reckley_budget_status',
 ] as const;

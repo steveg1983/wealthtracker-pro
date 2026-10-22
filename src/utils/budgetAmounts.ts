@@ -1,5 +1,5 @@
-import { toDecimal } from './decimal';
-import type { DecimalInstance } from './decimal';
+import { toDecimal } from './decimal.js';
+import type { DecimalInstance } from './decimal.js';
 
 /**
  * The subset of a budget that decides how much may be spent in the current

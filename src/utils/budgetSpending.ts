@@ -15,20 +15,20 @@
  *   utils/calculations-decimal → the netting/Decimal sum itself
  */
 
-import type { Account, Transaction, TransactionSplit } from '../types';
-import type { DecimalBudget } from '../types/decimal-types';
-import { expandSplitTransactions } from './transactionSplits';
-import { toDecimal } from './decimal';
-import type { DecimalInstance } from './decimal';
+import type { Account, Transaction, TransactionSplit } from '../types/index.js';
+import type { DecimalBudget } from '../types/decimal-types.js';
+import { expandSplitTransactions } from './transactionSplits.js';
+import { toDecimal } from './decimal.js';
+import type { DecimalInstance } from './decimal.js';
 import {
   calculateBudgetSpendingBreakdown,
   type DatedDecimalTransaction
-} from './calculations-decimal';
+} from './calculations-decimal.js';
 import {
   getBudgetPeriodWindow,
   type BudgetPeriodSource,
   type BudgetPeriodWindow
-} from './budgetPeriods';
+} from './budgetPeriods.js';
 
 /** What `calculateBudgetSpend` needs of a budget: its category and its period. */
 export interface BudgetSpendable extends BudgetPeriodSource, Pick<DecimalBudget, 'categoryId'> {}

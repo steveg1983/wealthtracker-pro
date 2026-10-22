@@ -28,7 +28,7 @@
  * filter, which is what a garbage string did before this module existed.
  */
 
-import type { Transaction } from '../types';
+import type { Transaction } from '../types/index.js';
 
 /**
  * A Date — including one built in ANOTHER realm.

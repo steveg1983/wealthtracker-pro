@@ -11,9 +11,9 @@
 import Decimal from 'decimal.js';
 import type {
   DecimalAccount, DecimalTransaction, DecimalBudget, DecimalGoal
-} from '../types/decimal-types';
-import { sumDecimals } from './decimal';
-import { toDateMs } from './dateBoundary';
+} from '../types/decimal-types.js';
+import { sumDecimals } from './decimal.js';
+import { toDateMs } from './dateBoundary.js';
 
 // Type alias for cleaner code
 type DecimalInstance = InstanceType<typeof Decimal>;

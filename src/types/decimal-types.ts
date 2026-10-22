@@ -1,6 +1,6 @@
 import type { DecimalInstance } from '@reckley/utils';
-import type { Budget } from './index';
-import type { AccountType } from './accountType';
+import type { Budget } from './index.js';
+import type { AccountType } from './accountType.js';
 
 /**
  * Decimal-based types for financial calculations

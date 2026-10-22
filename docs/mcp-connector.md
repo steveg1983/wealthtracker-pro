@@ -121,7 +121,7 @@ tool that does both.
 | `reckley_spending_by_payee` | totals per payee over a period |
 | `reckley_income_vs_expenses` | income, expenses, net, month by month over a period |
 | `reckley_net_worth` | assets, liabilities and net worth today, per currency, from the register; the series over a period waits on a browser-free `netWorthSeries` |
-| `reckley_budget_status` | each budget over its own period, through `utils/budgetEvaluation` — lands once the dashboard batch that carries that evaluation merges |
+| `reckley_budget_status` | each budget over its own period, through `utils/budgetEvaluation` — the Budget page's and the Dashboard card's one evaluation |
 | `reckley_review_queue` | what is in To Review, grouped by account |
 
 **Write (Complete Access only)** — each calls one existing verb, each
@@ -149,9 +149,11 @@ descriptions say so in those words.
 
 ## 5. Rulings that shape the writes
 
-- **A filing by Claude is a suggestion unless the user says confirm.** The
-  app's standing rule (11 Sep 2026) is that an automatic filing is a
-  suggestion that stays in review until a person agrees. Claude acting on a
+- **A filing by Claude is a suggestion unless the user says confirm** —
+  proposed here, and ruled by the owner on 22 Oct 2026: "I agree, it stays a
+  suggestion and in 'to review'." The app's standing rule (11 Sep 2026) is
+  that an automatic filing is a suggestion that stays in review until a
+  person agrees. Claude acting on a
   conversation is closer to the categoriser than to a person at the
   register, so `reckley_set_category` writes `category_confirmed = false`
   and leaves `needs_review` alone by default. A `confirm: true` argument,

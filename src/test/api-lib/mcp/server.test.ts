@@ -323,3 +323,30 @@ describe('reckley_review_queue', () => {
   });
 });
 
+describe('reckley_budget_status', () => {
+  it('measures each active budget over its own period, as the Budget page does', async () => {
+    const result = await call('reckley_budget_status', { response_format: 'json' });
+    const body = result.structuredContent as { count: number; budgets: Record<string, unknown>[] };
+    expect(body.count).toBe(1);
+    expect(body.budgets[0]).toMatchObject({
+      id: 'b-groceries',
+      name: 'Groceries',
+      period: 'Monthly',
+      from: '2026-10-01',
+      to: '2026-10-31',
+      allowance: '150.00 GBP',
+      // 45 + 70 (split line) − 12.50 refund; September's 60 is another month.
+      spent: '102.50 GBP',
+      remaining: '47.50 GBP',
+      over_budget: false,
+    });
+  });
+
+  it('says so when there are none', async () => {
+    await client.close();
+    await handler.close();
+    await connect(fakePort({ budgets: [] }));
+    expect(textOf(await call('reckley_budget_status'))).toBe('No active budgets.');
+  });
+});
+

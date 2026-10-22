@@ -19,7 +19,7 @@
  * local under BST, which is already past a midnight boundary).
  */
 
-import { toDateMs } from './dateBoundary';
+import { toDateMs } from './dateBoundary.js';
 
 /** Every period a budget can be measured over. */
 export type BudgetPeriodName = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';

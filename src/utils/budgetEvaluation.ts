@@ -29,17 +29,17 @@
  * counted and nothing a second filter might have chosen differently.
  */
 
-import type { Budget, Category, Transaction, TransactionSplit } from '../types';
-import type { DecimalInstance } from './decimal';
-import { getEffectiveBudgetAmount } from './budgetAmounts';
-import { calculateBudgetPercentage } from './calculations-decimal';
-import type { BudgetPeriodWindow } from './budgetPeriods';
+import type { Budget, Category, Transaction, TransactionSplit } from '../types/index.js';
+import type { DecimalInstance } from './decimal.js';
+import { getEffectiveBudgetAmount } from './budgetAmounts.js';
+import { calculateBudgetPercentage } from './calculations-decimal.js';
+import type { BudgetPeriodWindow } from './budgetPeriods.js';
 import {
   buildCategoryChildIndex,
   calculateBudgetSpend,
   collectBudgetCategoryIds,
   prepareBudgetTransactions,
-} from './budgetSpending';
+} from './budgetSpending.js';
 
 /** Enough of a category to resolve a budget's target and walk its children. */
 export type BudgetCategoryRef = Pick<Category, 'id' | 'name' | 'parentId'>;
