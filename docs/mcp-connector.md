@@ -212,7 +212,8 @@ descriptions say so in those words.
    specs through a real MCP client.
 4. MCP Inspector, then a custom connector in the owner's own Claude.
 5. Write tools, each behind the write scope, each with specs.
-6. Ten evaluation questions against the demo ledger, per the MCP guide.
+6. Ten evaluation questions against the showcase ledger, per the MCP guide —
+   written and verified 22 Oct 2026, §9.
 7. After phase 6: submit both listings. Any paid Claude plan can submit;
    listings go live as Community connectors after an automated scan.
 
@@ -222,3 +223,34 @@ The directory no longer accepts local servers on their own; they ship
 inside a plugin. The Rust bridge (`wealth-core-cli`) could power a local
 stdio MCP server over an open ledger file later, with the same tool names.
 Not in scope here.
+
+## 9. The evaluation set, and the connector on localhost
+
+Anthropic's MCP guide asks for ten questions a model with no other context
+must answer through the server's tools alone, each with one verifiable
+answer. Ours are in `docs/mcp-evaluation.xml`, against the **showcase ledger**
+(`scripts/seedShowcaseUser.mts`: ten deterministic, invented years to a fixed
+29 August 2026, seeded into the review account — the Danielle demo login is
+empty). Every question is pinned to a closed window — a calendar year, a tax
+year, "the first ever" — so the answer cannot drift as the account is used,
+and every answer was derived through the tools themselves, two of them
+cross-checked two ways (the mortgage balance at a past month-end equals the
+series' "owe" for that month, the cards being clear). The file says what each
+question exercises. **Re-verify after any reseed that changes the seeder.**
+
+Two scripts make this possible without OAuth, and are never deployed:
+
+- `scripts/mcp-local.mts --email <users.email> [--env .env.local] [--port 8787] [--write]`
+  serves the production server code for one ledger on 127.0.0.1, read-only
+  unless `--write`, resolving the ledger by the email on the `users` row and
+  the service-role key from the env file. The harness connects to it over
+  Streamable HTTP, which is the only transport it has.
+- `scripts/mcp-call.mts <url> list | <tool> '<json>' [--json]` calls one tool
+  and prints what the model would read (or, with `--json` and
+  `response_format: 'json'`, the structured content).
+
+Running the harness: `pip install anthropic mcp`, an `ANTHROPIC_API_KEY`, then
+`python3 <mcp-builder skill>/scripts/evaluation.py -t http -u http://127.0.0.1:8788/mcp -o mcp-eval-report.md docs/mcp-evaluation.xml`.
+The report's per-question feedback is what to read when a tool description
+needs tightening; the accuracy figure is what the directory review will see.
+
