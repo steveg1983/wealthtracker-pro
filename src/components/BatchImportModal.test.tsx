@@ -117,24 +117,27 @@ describe('BatchImportModal (a queue over the real importers)', () => {
       selectFiles([makeFile('january.ofx'), makeFile('ledger.csv'), makeFile('quicken.qif')]);
       fireEvent.click(screen.getByRole('button', { name: /^Start/ }));
 
+      // The stub records the opening in an effect, which flushes AFTER the
+      // paragraph's commit — so the spy is awaited too, not read the instant
+      // the text appears. (CI caught the gap once: text present, spy at 0.)
       await waitFor(() => {
         expect(screen.getByText('OFX importer open for january.ofx')).toBeInTheDocument();
+        expect(ofxOpened).toHaveBeenCalledWith('january.ofx');
       });
-      expect(ofxOpened).toHaveBeenCalledWith('january.ofx');
       // One dialog at a time: the queue's own screen is gone while this is up.
       expect(screen.queryByRole('button', { name: /^Start/ })).not.toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('button', { name: 'Close OFX importer' }));
       await waitFor(() => {
         expect(screen.getByText('CSV wizard open for ledger.csv')).toBeInTheDocument();
+        expect(csvOpened).toHaveBeenCalledWith('ledger.csv');
       });
-      expect(csvOpened).toHaveBeenCalledWith('ledger.csv');
 
       fireEvent.click(screen.getByRole('button', { name: 'Close CSV wizard' }));
       await waitFor(() => {
         expect(screen.getByText('QIF importer open for quicken.qif')).toBeInTheDocument();
+        expect(qifOpened).toHaveBeenCalledWith('quicken.qif');
       });
-      expect(qifOpened).toHaveBeenCalledWith('quicken.qif');
     });
 
     it('steps over a file it cannot read instead of stopping on it', async () => {
@@ -162,12 +165,12 @@ describe('BatchImportModal (a queue over the real importers)', () => {
       });
       fireEvent.click(screen.getByRole('button', { name: 'Close OFX importer' }));
 
-      await waitFor(() => {
-        expect(screen.getByText('OFX importer open for february.ofx')).toBeInTheDocument();
-      });
       // Mounted twice, not re-rendered once: the second file must not inherit
       // the first one's parse, chosen account or result screen.
-      expect(ofxOpened).toHaveBeenCalledTimes(2);
+      await waitFor(() => {
+        expect(screen.getByText('OFX importer open for february.ofx')).toBeInTheDocument();
+        expect(ofxOpened).toHaveBeenCalledTimes(2);
+      });
     });
   });
 
