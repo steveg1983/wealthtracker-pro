@@ -1,4 +1,7 @@
-import type { Account, Transaction } from '../types';
+import type { Account, Transaction } from '../types/index.js';
+
+/** The fields the opening-date rule reads; a full Account is one of these. */
+export type OpeningDateAccount = Pick<Account, 'id' | 'name' | 'openingBalanceDate'>;
 
 /**
  * When does an account's opening balance take effect?
@@ -65,7 +68,7 @@ export function findSiblingAccount(
  *                            sibling's transactions, or undefined
  */
 export function effectiveOpeningDate(
-  account: Account,
+  account: OpeningDateAccount,
   firstOwnTxnDate: Date | undefined,
   siblingFirstTxnDate: Date | undefined
 ): Date | undefined {
@@ -103,8 +106,8 @@ export function effectiveOpeningDate(
  * undefined for the flagged rung-4 accounts.
  */
 export function resolveEffectiveOpeningDates(
-  accounts: Account[],
-  transactions: Transaction[]
+  accounts: readonly OpeningDateAccount[],
+  transactions: readonly Pick<Transaction, 'accountId' | 'date'>[]
 ): Map<string, Date | undefined> {
   // Earliest own-transaction date per account — the single expensive pass.
   const firstTxn = new Map<string, number>();
@@ -114,10 +117,22 @@ export function resolveEffectiveOpeningDates(
     const existing = firstTxn.get(t.accountId);
     if (existing === undefined || time < existing) firstTxn.set(t.accountId, time);
   }
+  return resolveEffectiveOpeningDatesFromFirstActivity(accounts, firstTxn);
+}
 
+/**
+ * The same rule, from each account's earliest transaction time already known
+ * — what a caller that cannot hold the whole ledger has (the Claude
+ * connector asks the database for the minimum per account instead of
+ * reading fifty thousand rows). One rule, two ways of learning the dates.
+ */
+export function resolveEffectiveOpeningDatesFromFirstActivity(
+  accounts: readonly OpeningDateAccount[],
+  firstTxn: ReadonlyMap<string, number>
+): Map<string, Date | undefined> {
   // Name → account index, so the sibling lookup is O(1) and the whole resolver
   // stays linear in the number of accounts.
-  const byLowerName = new Map<string, Account>();
+  const byLowerName = new Map<string, OpeningDateAccount>();
   for (const a of accounts) {
     const key = a.name.trim().toLowerCase();
     if (!byLowerName.has(key)) byLowerName.set(key, a);

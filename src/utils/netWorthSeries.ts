@@ -1,6 +1,7 @@
 import type { Account, Transaction } from '../types';
 import { toDecimal, type DecimalInstance } from './decimal';
 import { resolveEffectiveOpeningDates } from './openingDates';
+import { endOfPoint, netWorthPoints } from './netWorthCadence';
 import type { PeriodRange } from '../hooks/usePeriod';
 import { getDateLocale } from '../utils/dateFormatter';
 
@@ -161,20 +162,9 @@ export function buildNetWorthSnapshots(
   const end = range.to ?? now;
   if (start > end) return [];
 
-  const spanDays = (end.getTime() - start.getTime()) / 86_400_000;
-  const points: Date[] = [];
-  if (spanDays <= 92) {
-    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      points.push(new Date(d));
-    }
-  } else {
-    const cursor = new Date(start.getFullYear(), start.getMonth() + 1, 0);
-    while (cursor < end) {
-      points.push(new Date(cursor));
-      cursor.setMonth(cursor.getMonth() + 2, 0);
-    }
-    points.push(new Date(end));
-  }
+  // The cadence is shared with the connector's walk (utils/netWorthCadence),
+  // so both series land on the same days.
+  const { points, monthly } = netWorthPoints(start, end);
 
   // Seed every account at zero. An opening balance is a dated lump folded in on
   // its effective date, NOT a figure present from the start; only accounts with
@@ -194,13 +184,11 @@ export function buildNetWorthSnapshots(
   }
   openingEvents.sort((x, y) => x.time - y.time);
 
-  const monthly = spanDays > 92;
   let i = 0;
   let j = 0;
   const out: NetWorthSnapshot[] = [];
   for (const point of points) {
-    const cutoff = new Date(point);
-    cutoff.setHours(23, 59, 59, 999);
+    const cutoff = endOfPoint(point);
     const cutoffTime = cutoff.getTime();
     // Each opening lump appears the moment its effective date is reached — same
     // chronological walk as the transactions, so a point before an account's

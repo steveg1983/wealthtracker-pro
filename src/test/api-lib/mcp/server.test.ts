@@ -378,6 +378,53 @@ describe('reckley_budget_status', () => {
   });
 });
 
+describe('reckley_net_worth_series', () => {
+  it('defaults to the twelve whole months to today, month-end points, one line per currency, from the register', async () => {
+    const result = await call('reckley_net_worth_series', { response_format: 'json' });
+    const body = result.structuredContent as {
+      from: string; to: string; cadence: string; notes: string[];
+      currencies: { currency: string; accounts_counted: number; points: { date: string; net_worth: string; assets: string; liabilities: string }[] }[];
+    };
+    expect(body.from).toBe('2025-11-01');
+    expect(body.to).toBe('2026-10-15');
+    expect(body.cadence).toBe('month-end');
+    expect(body.currencies.map(line => line.currency)).toEqual(['GBP']);
+    const gbp = body.currencies[0];
+    expect(gbp.accounts_counted).toBe(3);
+    expect(gbp.points.map(point => point.date)).toEqual([
+      '2025-11-30', '2025-12-31', '2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30',
+      '2026-05-31', '2026-06-30', '2026-07-31', '2026-08-31', '2026-09-30', '2026-10-15',
+    ]);
+    // Savings (undated opening) counts throughout; the current account's
+    // opening lands on 1 Jan; its rows then fall where they are dated.
+    expect(gbp.points[0].net_worth).toBe('5000.00 GBP');
+    expect(gbp.points[2].net_worth).toBe('4977.06 GBP');
+    expect(gbp.points[10].net_worth).toBe('4917.06 GBP');
+    expect(gbp.points[11].net_worth).toBe('6234.56 GBP');
+    expect(body.notes[0]).toMatch(/no currency conversion, closed accounts included/);
+    expect(body.notes[1]).toMatch(/1 account has an opening balance with no date/);
+  });
+
+  it('gives daily points for a short window and refuses an inverted one', async () => {
+    const result = await call('reckley_net_worth_series', { from: '2026-10-01', to: '2026-10-10', response_format: 'json' });
+    const body = result.structuredContent as { cadence: string; currencies: { points: { date: string; net_worth: string }[] }[] };
+    expect(body.cadence).toBe('daily');
+    expect(body.currencies[0].points.length).toBe(10);
+    expect(body.currencies[0].points[0]).toMatchObject({ date: '2026-10-01', net_worth: '4872.06 GBP' });
+    expect(body.currencies[0].points[9]).toMatchObject({ date: '2026-10-10', net_worth: '6234.56 GBP' });
+
+    const inverted = await call('reckley_net_worth_series', { from: '2026-10-10', to: '2026-10-01' });
+    expect(inverted.isError).toBe(true);
+  });
+
+  it('reads as a list in words', async () => {
+    const text = textOf(await call('reckley_net_worth_series', { from: '2026-10-14', to: '2026-10-15' }));
+    expect(text).toMatch(/^# Net worth 2026-10-14 to 2026-10-15 \(daily points\)/);
+    expect(text).toMatch(/## GBP \(3 accounts\)/);
+    expect(text).toMatch(/- 2026-10-15: net 6234\.56 GBP \(own 6234\.56 GBP, owe 0\.00 GBP\)/);
+  });
+});
+
 // ── The write side ──────────────────────────────────────────────────────────
 
 describe('the tool list with the write scope', () => {
