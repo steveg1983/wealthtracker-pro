@@ -53,6 +53,12 @@ export interface BudgetSpend {
   spent: DecimalInstance;
   /** The window `spent` covers. */
   window: BudgetPeriodWindow;
+  /**
+   * The rows `spent` was summed from — expanded, so a split line stands as
+   * its own row. Returned so a surface can show the transactions BEHIND the
+   * figure without a second filter that might choose differently.
+   */
+  counted: DatedDecimalTransaction[];
   /** In-period rows left out because their account is in another currency. */
   excludedForeignCount: number;
 }
@@ -156,6 +162,7 @@ export function calculateBudgetSpend(
   return {
     spent: breakdown.spent,
     window,
+    counted: breakdown.counted,
     excludedForeignCount: breakdown.excluded.length
   };
 }

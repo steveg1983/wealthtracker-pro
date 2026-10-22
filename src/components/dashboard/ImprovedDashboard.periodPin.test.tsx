@@ -180,7 +180,7 @@ describe('a card that has not been pinned', () => {
     expect(screen.queryByText(/^pinned ·/)).toBeNull();
     expect(screen.queryByRole('button', { name: /follow the page period/ })).toBeNull();
     // The window it is on is still named, exactly as before.
-    expect(within(performanceCard()).getByText('12 months')).toBeInTheDocument();
+    expect(within(performanceCard()).getByText('Rolling 12 months')).toBeInTheDocument();
   });
 
   it('writes nothing, so a dashboard with no pins is the dashboard it always was', () => {
@@ -264,7 +264,7 @@ describe('pinning a card to a window of its own', () => {
 
     // Exactly one declaration on the page, and the page's own bar is unmoved.
     expect(screen.getAllByText(/^pinned ·/)).toHaveLength(1);
-    expect(within(periodBar()).getByRole('button', { name: '12 months' }))
+    expect(within(periodBar()).getByRole('button', { name: 'Rolling 12 months' }))
       .toHaveAttribute('aria-pressed', 'true');
   });
 
@@ -305,6 +305,6 @@ describe('releasing a card back to the page', () => {
     render(<ImprovedDashboard />);
 
     expect(screen.queryByText(/^pinned ·/)).toBeNull();
-    expect(within(performanceCard()).getByText('12 months')).toBeInTheDocument();
+    expect(within(performanceCard()).getByText('Rolling 12 months')).toBeInTheDocument();
   });
 });

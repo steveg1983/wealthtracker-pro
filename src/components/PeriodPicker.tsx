@@ -2,7 +2,15 @@ import React from 'react';
 import { PERIOD_LABELS, type PeriodKey, type UsePeriodResult } from '../hooks/usePeriod';
 import DatePicker from './common/DatePicker';
 
-const ORDER: PeriodKey[] = ['this-month', 'last-month', 'tax-year', 'last-12-months', 'all', 'custom'];
+const ORDER: PeriodKey[] = [
+  'this-month',
+  'last-month',
+  'tax-year',
+  'last-12-full-months',
+  'last-12-months',
+  'all',
+  'custom',
+];
 
 /**
  * The shared reporting-period control (pair with usePeriod). Same segmented
@@ -25,9 +33,9 @@ export default function PeriodPicker({ picker, label }: {
       role={label ? 'group' : undefined}
       aria-label={label}
     >
-      {/* flex-wrap is the phone story: six segments need ~490px and a phone
+      {/* flex-wrap is the phone story: seven segments need ~620px and a phone
           offers ~340, so the pill breaks into two rows there — the options
-          stack rather than run off the screen edge. One row from md up. */}
+          stack rather than run off the screen edge. One row from lg up. */}
       <div className="inline-flex flex-wrap rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
         {ORDER.map(key => (
           <button

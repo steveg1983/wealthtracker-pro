@@ -186,7 +186,7 @@ const openReportAndPick = async (linkName: RegExp, heading: string, period: stri
     await screen.findByRole('heading', { name: 'Income against spending' }, LOADS_LAZY_REPORT);
 
     await waitFor(
-      () => expect(screen.getByRole('button', { name: '12 months' })).toHaveAttribute('aria-pressed', 'true'),
+      () => expect(screen.getByRole('button', { name: 'Rolling 12 months' })).toHaveAttribute('aria-pressed', 'true'),
       LOADS_LAZY_REPORT
     );
   });
@@ -238,7 +238,7 @@ const openReportAndPick = async (linkName: RegExp, heading: string, period: stri
     await screen.findByRole('heading', { name: 'Income against spending' }, LOADS_LAZY_REPORT);
 
     expect(screen.getByRole('button', { name: 'Tax year' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: '12 months' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Rolling 12 months' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('remembers the choice after a reload, so no report can undo it', async () => {

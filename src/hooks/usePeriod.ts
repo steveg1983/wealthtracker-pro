@@ -8,8 +8,26 @@ import { preferences, type PreferenceStorage } from '../services/preferencesServ
  * same words).
  *
  * 'tax-year' is the UK tax year: 6 April to 5 April.
+ *
+ * ── TWO TWELVE-MONTHS, AND WHY THE KEYS READ BACKWARDS ─────────────────────
+ * 'last-12-months' is the ROLLING year: from today's date a year ago to now,
+ * so a month-by-month chart over it starts and ends on a part month. It was
+ * the only twelve months the app had, and it is stored under that key in
+ * every user's preferences — so the key stays, whatever its name suggests.
+ * 'last-12-full-months' is the CALENDAR one the owner asked for beside it
+ * (15 Oct 2026: "we should offer both"): the twelve whole months before this
+ * one, 1st to last day, the way "Last month" is the whole previous month.
+ * On screen the rolling one says it is rolling; the full one is "Last 12
+ * months", the plural of "Last month" and the same kind of thing.
  */
-export type PeriodKey = 'this-month' | 'last-month' | 'tax-year' | 'last-12-months' | 'all' | 'custom';
+export type PeriodKey =
+  | 'this-month'
+  | 'last-month'
+  | 'tax-year'
+  | 'last-12-full-months'
+  | 'last-12-months'
+  | 'all'
+  | 'custom';
 
 export interface PeriodRange {
   /** Inclusive start, or null for unbounded (All time). */
@@ -22,7 +40,8 @@ export const PERIOD_LABELS: Record<PeriodKey, string> = {
   'this-month': 'This month',
   'last-month': 'Last month',
   'tax-year': 'Tax year',
-  'last-12-months': '12 months',
+  'last-12-full-months': 'Last 12 months',
+  'last-12-months': 'Rolling 12 months',
   all: 'All time',
   custom: 'Custom',
 };
@@ -55,7 +74,15 @@ export function resolvePeriod(
         : now.getFullYear() - 1;
       return { from: new Date(startYear, 3, 6), to: null };
     }
+    case 'last-12-full-months': {
+      // The twelve whole months before this one: on 15 October that is
+      // 1 October last year to 30 September, inclusive of its last day.
+      const from = new Date(now.getFullYear(), now.getMonth() - 12, 1);
+      const to = endOfDay(new Date(now.getFullYear(), now.getMonth(), 0));
+      return { from, to };
+    }
     case 'last-12-months': {
+      // Rolling: this date a year ago, to now.
       const from = new Date(now);
       from.setFullYear(from.getFullYear() - 1);
       return { from, to: null };

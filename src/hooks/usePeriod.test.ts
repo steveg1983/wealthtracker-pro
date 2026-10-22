@@ -17,6 +17,36 @@ describe('resolvePeriod', () => {
     expect(to?.getHours()).toBe(23);
   });
 
+  /**
+   * Two twelve-months, side by side (the owner, 15 Oct 2026: "we should
+   * offer both"). The rolling one is what the app always had — this date a
+   * year ago, to now. The full one is the twelve whole months before this
+   * one, the plural of "Last month".
+   */
+  it('last-12-full-months is the twelve whole months before this one', () => {
+    const { from, to } = resolvePeriod('last-12-full-months', '', '', new Date(2026, 9, 15));
+    expect(from).toEqual(new Date(2025, 9, 1));
+    expect(to?.getFullYear()).toBe(2026);
+    expect(to?.getMonth()).toBe(8);
+    expect(to?.getDate()).toBe(30); // September has 30 days
+    expect(to?.getHours()).toBe(23);
+  });
+
+  it('last-12-full-months crosses a year end whole', () => {
+    const { from, to } = resolvePeriod('last-12-full-months', '', '', new Date(2026, 0, 31));
+    expect(from).toEqual(new Date(2025, 0, 1));
+    expect(to?.getMonth()).toBe(11);
+    expect(to?.getDate()).toBe(31);
+  });
+
+  it('last-12-months is still rolling — this date a year ago, open-ended', () => {
+    const { from, to } = resolvePeriod('last-12-months', '', '', new Date(2026, 9, 15, 10, 30));
+    expect(from?.getFullYear()).toBe(2025);
+    expect(from?.getMonth()).toBe(9);
+    expect(from?.getDate()).toBe(15);
+    expect(to).toBeNull();
+  });
+
   it('UK tax year starts 6 April — after the boundary', () => {
     const { from } = resolvePeriod('tax-year', '', '', new Date(2026, 6, 21));
     expect(from).toEqual(new Date(2026, 3, 6));
