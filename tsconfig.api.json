@@ -24,6 +24,15 @@
     "paths": {
       "@app-types/*": [
         "./src/types/*"
+      ],
+      "@reckley/utils": [
+        "./packages/utils/index.ts"
+      ],
+      "@reckley/utils/*": [
+        "./packages/utils/*"
+      ],
+      "@reckley/types/*": [
+        "./packages/types/*"
       ]
     }
   },
