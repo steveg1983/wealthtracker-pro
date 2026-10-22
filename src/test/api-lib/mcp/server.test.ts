@@ -408,6 +408,53 @@ describe('what the evaluation asked for (22 Oct 2026)', () => {
   });
 });
 
+describe('the three the evaluation asked for and deferred', () => {
+  it('list_accounts with as_of gives each balance at the end of that day, closed accounts with money included', async () => {
+    const result = await call('reckley_list_accounts', { as_of: '2026-10-05', response_format: 'json' });
+    const body = result.structuredContent as { as_of: string; count: number; accounts: { name: string; balance: string; closed: boolean }[] };
+    expect(body.as_of).toBe('2026-10-05');
+    // −22.94 opening (1 Jan) − 60 − 45 − 30 + 2000 = 1842.06; the closed card held nothing.
+    expect(body.accounts.map(a => [a.name, a.balance])).toEqual([['Current Account', '1842.06 GBP'], ['Savings', '5000.00 GBP']]);
+    const before = await call('reckley_list_accounts', { as_of: '2025-12-31', response_format: 'json' });
+    expect((before.structuredContent as { accounts: { name: string; balance: string }[] }).accounts.map(a => a.balance)).toEqual(['0.00 GBP', '5000.00 GBP']);
+  });
+
+  it('account_activity splits a month into income, spending, transfers by counterpart and the balances either side', async () => {
+    const result = await call('reckley_account_activity', { account_id: 'acc-current', from: '2026-10-01', to: '2026-10-31', response_format: 'json' });
+    const body = result.structuredContent as Record<string, unknown> & { transfers: { account: string; in: string; out: string; rows: number }[] };
+    expect(body).toMatchObject({
+      account: 'Current Account',
+      opening_balance: '-82.94 GBP',
+      closing_balance: '1234.56 GBP',
+      change: '1317.50 GBP',
+      income: '2000.00 GBP',
+      // 45 + 30 + 70 + 30 − 12.50 refund
+      spending: '162.50 GBP',
+      uncategorised_out: '20.00 GBP',
+      transfers_in: '0.00 GBP',
+      transfers_out: '500.00 GBP',
+      rows_counted: 7,
+    });
+    expect(body.transfers).toEqual([{ account_id: 'acc-savings', account: 'Savings', in: '0.00 GBP', out: '500.00 GBP', rows: 1 }]);
+    const unknown = await call('reckley_account_activity', { account_id: 'nope', from: '2026-10-01', to: '2026-10-31' });
+    expect(unknown.isError).toBe(true);
+  });
+
+  it('payee_history collapses a payee into runs of the same amount, oldest first, one payee per distinct description', async () => {
+    const result = await call('reckley_payee_history', { text: 'northgate', response_format: 'json' });
+    const body = result.structuredContent as { matched_rows: number; payees: { payee: string; rows: number; runs: { amount: string; times: number; first: string; last: string }[] }[] };
+    expect(body.matched_rows).toBe(3);
+    expect(body.payees.map(p => p.payee)).toEqual(['NORTHGATE MARKET', 'NORTHGATE MARKET REFUND']);
+    expect(body.payees[0].runs).toEqual([
+      { amount: '-60.00 GBP', times: 1, first: '2026-09-28', last: '2026-09-28' },
+      { amount: '-45.00 GBP', times: 1, first: '2026-10-01', last: '2026-10-01' },
+    ]);
+    const text = textOf(await call('reckley_payee_history', { text: 'northgate' }));
+    expect(text).toMatch(/## NORTHGATE MARKET — 2 rows, 2026-09-28 to 2026-10-01, net -105\.00 GBP/);
+    expect(textOf(await call('reckley_payee_history', { text: 'zzz' }))).toMatch(/No transaction description contains "zzz"/);
+  });
+});
+
 describe('reckley_net_worth_series', () => {
   it('defaults to the twelve whole months to today, month-end points, one line per currency, from the register', async () => {
     const result = await call('reckley_net_worth_series', { response_format: 'json' });

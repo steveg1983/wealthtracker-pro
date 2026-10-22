@@ -113,7 +113,7 @@ tool that does both.
 
 | Tool | Returns |
 | --- | --- |
-| `reckley_list_accounts` | accounts with type, currency, computed balance, cleared/bank balance where known |
+| `reckley_list_accounts` | accounts with type, currency, computed balance, cleared/bank balance where known; with `as_of`, every balance at the end of that past day |
 | `reckley_search_transactions` | one page of rows matching text, account, category, date range, amount range, review/cleared state; `next_offset` when more |
 | `reckley_get_transaction` | one row with its splits and transfer counterpart |
 | `reckley_list_categories` | the category tree with ids, so filing can name a category correctly |
@@ -123,6 +123,8 @@ tool that does both.
 | `reckley_net_worth` | assets, liabilities and net worth today, per currency, from the register |
 | `reckley_net_worth_series` | the Net Worth report's points over a period, per currency — the app's cadence (`utils/netWorthCadence`) and opening-date rule (`utils/openingDates`), walked BACKWARDS from today's balances over the rows after the window's first day (`api/_lib/mcp/netWorthSeries.ts`), so a year costs a few thousand rows however long the history; each account's first activity comes from `account_first_activity_for_user` (migration 20261022180000, service role only) |
 | `reckley_budget_status` | each budget over its own period, through `utils/budgetEvaluation` — the Budget page's and the Dashboard card's one evaluation |
+| `reckley_account_activity` | one account between two dates: opening and closing balance (the series' walk, one day each), income and spending by the app's rule, transfers in and out by counterpart, revaluations, uncategorised money |
+| `reckley_payee_history` | one payee's payments in date order collapsed into runs of the same amount — a subscription's steps, a fee's rises |
 | `reckley_review_queue` | what is in To Review, grouped by account |
 
 **Write (Complete Access only)** — each calls one existing verb, each
@@ -268,7 +270,32 @@ the first run, and what was done the same day: a transfer row now always names t
 other account (it had read "Transfer with X" beside a null id); search takes
 `sort: 'oldest'`; the search description says text matches the description
 only, that every bound is inclusive, and that a page may be shorter than
-`limit`; spending by payee takes `category_id`. Asked for and deferred: an
-account balance as of a date, a one-call total of one account's transfers over
-a period, and a payee's price history.
+`limit`; spending by payee takes `category_id`. Asked for and built the next
+morning (23 Oct): `as_of` on `reckley_list_accounts`,
+`reckley_account_activity`, `reckley_payee_history`.
+
+## 10. The directory submission, prepared
+
+Everything the listing form asks for that does not depend on the host, so
+the day rename phase 6 lands is a paste, not a project. Submitted at
+claude.ai/directory/manage, on the owner's paid plan, once per listing.
+
+| Field | Read-Only | Complete Access |
+| --- | --- | --- |
+| Name | Reckley (Read-Only) | Reckley |
+| Server URL | `https://www.reckley.co.uk/api/mcp-read` | `https://www.reckley.co.uk/api/mcp` |
+| Metadata | `/api/mcp-oauth-protected-resource?listing=read` | `…?listing=full` |
+| Scopes | `reckley:read` | `reckley:read reckley:write` |
+| Short description | Ask Claude about your money in Reckley: balances, spending, net worth, budgets, what is waiting for review. Reads only. | Ask Claude about your money in Reckley, and let it tidy the ledger: file and confirm categories, mark rows cleared or reviewed, link transfers, add a transaction. Every change asks first and leaves a trail. |
+| What it never does | Both: moves no money anywhere. A "transfer" is bookkeeping between the person's own accounts. No deletes, no bank connections, no billing. |
+| Privacy policy | `https://www.reckley.co.uk/privacy` |
+| Documentation | this file, on the public repository |
+| Support | the support address at the new domain (the Stripe section's) |
+| Test account | **undecided (23 Oct 2026):** the Danielle demo login is empty; either reseed it with the showcase ledger (`seedShowcaseUser.mts --user-id <her users.id> --replace`, deterministic, invented) or hand over the review account, which already holds it and which Apple's reviewer also uses |
+
+The listing URL is permanent and the metadata `resource` must equal it
+exactly, so neither form is filled in until the host is final. The OAuth
+flow needs nothing from the form: Clerk's CIMD and DCR are on, so Claude
+registers itself on first connect, as the custom-connector tests have shown
+since 21 Oct.
 

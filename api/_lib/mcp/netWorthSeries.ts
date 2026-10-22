@@ -90,21 +90,34 @@ export interface NetWorthSeriesResult {
 
 const byCodePoint = (x: string, y: string): number => (x < y ? -1 : x > y ? 1 : 0);
 
-export function netWorthSeriesByCurrency(input: NetWorthSeriesInput): NetWorthSeriesResult {
-  const { accounts, rows, from, to } = input;
-  const { points, monthly } = netWorthPoints(from, to);
-  if (accounts.length === 0 || points.length === 0) return { series: [], monthly, undatedOpenings: 0 };
+export interface BalanceWalkInput {
+  accounts: readonly SeriesAccount[];
+  firstActivity: ReadonlyMap<string, number> | null;
+  /** Every row dated after the EARLIEST point asked for, archived rows included. */
+  rows: readonly SeriesRow[];
+}
 
+export interface BalanceWalk {
+  /** Each account's balance at the end of each point's day, in the order the points were given. */
+  atPoints: Map<string, DecimalInstance>[];
+  undatedOpenings: number;
+}
+
+/**
+ * The walk itself: from today's balances back through the points, oldest
+ * last. `netWorthSeriesByCurrency` sums what this gives; `reckley_list_accounts`
+ * with `as_of` and `reckley_account_activity` read one day of it.
+ */
+export function walkBalances(input: BalanceWalkInput, points: readonly Date[]): BalanceWalk {
+  const { accounts, rows } = input;
   const openingDates = resolveEffectiveOpeningDatesFromFirstActivity(accounts, input.firstActivity ?? new Map());
 
   // Today's balances, the walk's starting point.
   const balances = new Map<string, DecimalInstance>();
-  const currencyOf = new Map<string, string>();
   let undatedOpenings = 0;
   const openingEvents: Array<{ accountId: string; time: number; amount: DecimalInstance }> = [];
   for (const account of accounts) {
     balances.set(account.id, toDecimal(account.balance));
-    currencyOf.set(account.id, account.currency);
     const opening = toDecimal(account.openingBalance ?? 0);
     const eff = openingDates.get(account.id);
     if (eff === undefined) {
@@ -120,14 +133,11 @@ export function netWorthSeriesByCurrency(input: NetWorthSeriesInput): NetWorthSe
     .map(row => ({ ...row, time: row.date.getTime() }))
     .sort((x, y) => y.time - x.time);
 
-  const currencies = [...new Set(accounts.map(account => account.currency))].sort(byCodePoint);
-  const perCurrency = new Map<string, SeriesPoint[]>(currencies.map(currency => [currency, []]));
-
+  const atPoints: Map<string, DecimalInstance>[] = new Array(points.length);
   let i = 0;
   let j = 0;
   for (let p = points.length - 1; p >= 0; p -= 1) {
-    const point = points[p];
-    const cutoffTime = endOfPoint(point).getTime();
+    const cutoffTime = endOfPoint(points[p]).getTime();
     // Everything dated after this point has not happened yet: take it away.
     while (i < sorted.length && sorted[i].time > cutoffTime) {
       const row = sorted[i];
@@ -139,8 +149,30 @@ export function netWorthSeriesByCurrency(input: NetWorthSeriesInput): NetWorthSe
       balances.set(event.accountId, balances.get(event.accountId)!.minus(event.amount));
       j += 1;
     }
+    atPoints[p] = new Map(balances);
+  }
+  return { atPoints, undatedOpenings };
+}
+
+/** Every account's balance at the end of one day. */
+export function balancesAt(input: BalanceWalkInput, day: Date): BalanceWalk & { balances: Map<string, DecimalInstance> } {
+  const walk = walkBalances(input, [day]);
+  return { ...walk, balances: walk.atPoints[0] ?? new Map() };
+}
+
+export function netWorthSeriesByCurrency(input: NetWorthSeriesInput): NetWorthSeriesResult {
+  const { accounts, from, to } = input;
+  const { points, monthly } = netWorthPoints(from, to);
+  if (accounts.length === 0 || points.length === 0) return { series: [], monthly, undatedOpenings: 0 };
+
+  const walk = walkBalances(input, points);
+  const currencyOf = new Map(accounts.map(account => [account.id, account.currency]));
+  const currencies = [...new Set(accounts.map(account => account.currency))].sort(byCodePoint);
+  const perCurrency = new Map<string, SeriesPoint[]>(currencies.map(currency => [currency, []]));
+
+  points.forEach((point, p) => {
     const sides = new Map<string, { assets: DecimalInstance; liabilities: DecimalInstance }>();
-    for (const [accountId, balance] of balances) {
+    for (const [accountId, balance] of walk.atPoints[p]) {
       const currency = currencyOf.get(accountId)!;
       const side = sides.get(currency) ?? { assets: toDecimal(0), liabilities: toDecimal(0) };
       if (balance.greaterThan(0)) side.assets = side.assets.plus(balance);
@@ -156,7 +188,7 @@ export function netWorthSeriesByCurrency(input: NetWorthSeriesInput): NetWorthSe
         netWorth: side.assets.minus(side.liabilities).toNumber(),
       });
     }
-  }
+  });
 
   const counts = new Map<string, number>();
   for (const account of accounts) counts.set(account.currency, (counts.get(account.currency) ?? 0) + 1);
@@ -164,9 +196,9 @@ export function netWorthSeriesByCurrency(input: NetWorthSeriesInput): NetWorthSe
     series: currencies.map(currency => ({
       currency,
       accounts: counts.get(currency) ?? 0,
-      points: perCurrency.get(currency)!.reverse(),
+      points: perCurrency.get(currency)!,
     })),
     monthly,
-    undatedOpenings,
+    undatedOpenings: walk.undatedOpenings,
   };
 }

@@ -49,7 +49,7 @@ import { isAwaitingReview, isUnfiled } from '../../../src/utils/transactionRevie
 import { signTransactionAmount } from '../../../src/utils/transactionAmount.js';
 import { toDecimal } from '../../../src/utils/decimal.js';
 import { PortRefusal, type PortAccount, type ReckleyPort, type ReviewFilter, type TransactionPatch } from './port.js';
-import { netWorthSeriesByCurrency } from './netWorthSeries.js';
+import { balancesAt, netWorthSeriesByCurrency, type SeriesAccount } from './netWorthSeries.js';
 
 export const READ_SCOPE = 'reckley:read';
 export const WRITE_SCOPE = 'reckley:write';
@@ -77,6 +77,26 @@ const localDate = (day: string): Date => {
   const [y, m, d] = day.split('-').map(Number);
   return new Date(y, m - 1, d);
 };
+
+/** The day before, YYYY-MM-DD. */
+const dayBefore = (day: string): string => {
+  const date = localDate(day);
+  date.setDate(date.getDate() - 1);
+  return localDay(date);
+};
+
+/** A port account as the balance walk wants it. */
+const toSeriesAccount = (account: PortAccount): SeriesAccount => ({
+  id: account.id,
+  name: account.name,
+  currency: account.currency,
+  openingBalance: account.openingBalance,
+  openingBalanceDate: account.openingBalanceDate === null ? undefined : new Date(`${account.openingBalanceDate}T00:00:00.000Z`),
+  balance: account.balance,
+});
+
+/** Rows the payee history will read before it says the answer is partial. */
+const PAYEE_HISTORY_CAP = 2_000;
 
 /** Rows the review queue will read before it says the count is partial. */
 const REVIEW_QUEUE_CAP = 5_000;
@@ -244,19 +264,59 @@ export function createReckleyServer(options: ReckleyServerOptions): McpServer {
     'reckley_list_accounts',
     {
       title: 'List accounts',
-      description: `List the person's accounts with today's balance.
+      description: `List the person's accounts with today's balance, or with the balance at the end of a past day.
 
 Returns each account's id, name, kind (checking, savings, credit, cash, investment, loan, assets, other), currency, the balance the register shows (opening balance plus every transaction), and what the bank last reported where a feed or statement said. Closed accounts are left out unless include_closed is true.
+
+With as_of (YYYY-MM-DD), every balance is what the register held at the end of that day — the same figures the net-worth series is built from — and a closed account that still held money then is listed too; the bank's figures are omitted, since they are today's.
 
 Use this first to learn account ids for reckley_search_transactions.`,
       inputSchema: z.strictObject({
         include_closed: z.boolean().default(false).describe('Also list accounts that have been closed'),
+        as_of: isoDay.optional().describe('Balances at the end of this past day instead of today'),
         response_format: responseFormat,
       }),
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
-    async ({ include_closed, response_format }) => {
+    async ({ include_closed, as_of, response_format }) => {
       const all = await port.listAccounts();
+      if (as_of !== undefined) {
+        const [firstActivity, range] = await Promise.all([
+          port.firstActivityDates(),
+          port.transactionsBetween(as_of, '9999-12-31', AGGREGATE_ROW_CAP, { includeArchived: true }),
+        ]);
+        if (range.capped) {
+          return { content: [{ type: 'text', text: `More than ${AGGREGATE_ROW_CAP.toLocaleString('en-GB')} transactions fall after ${as_of}; ask for a later day.` }], isError: true };
+        }
+        const walk = balancesAt(
+          {
+            accounts: all.map(toSeriesAccount),
+            firstActivity: firstActivity === null ? null : new Map(Array.from(firstActivity, ([id, day]) => [id, new Date(`${day}T00:00:00.000Z`).getTime()])),
+            rows: range.rows.map(row => ({ accountId: row.accountId, date: row.date, amount: row.amount })),
+          },
+          localDate(as_of)
+        );
+        const then = all
+          .map(account => ({ account, balance: walk.balances.get(account.id)?.toNumber() ?? account.openingBalance }))
+          .filter(({ account, balance }) => include_closed || account.isActive || balance !== 0)
+          .map(({ account, balance }) => ({
+            id: account.id,
+            name: account.name,
+            type: account.type,
+            currency: account.currency,
+            balance: money(balance, account.currency),
+            institution: account.institution,
+            closed: !account.isActive,
+          }));
+        const body = { as_of, count: then.length, accounts: then };
+        if (response_format === ResponseFormat.JSON) {
+          return { content: [{ type: 'text', text: JSON.stringify(body, null, 2) }], structuredContent: body };
+        }
+        const lines = [`# Accounts at the end of ${as_of}`, ''];
+        lines.push(...then.map(account => `- ${account.name} (${account.type}${account.closed ? ', closed' : ''}) · ${account.balance} · id ${account.id}`));
+        if (then.length === 0) lines.push('No accounts held money on that day.');
+        return { content: [{ type: 'text', text: lines.join('\n') }] };
+      }
       const accounts = all.filter(account => include_closed || account.isActive);
       const described = accounts.map(account => ({
         id: account.id,
@@ -833,6 +893,183 @@ For today's figure alone use reckley_net_worth; for the balances behind a point 
   );
 
   server.registerTool(
+    'reckley_account_activity',
+    {
+      title: 'One account over a period',
+      description: `What happened in one account between two dates: the balance at the start and the end, and the movement between them split into income, spending, transfers in and out (by the other account), revaluations, and money with no category.
+
+Income and spending follow the app's own rule (a refund to a spending category nets spending down; revaluations are neither). Transfers are bookkeeping between the person's own accounts and are totalled by counterpart, so "how much went into the ISA this tax year" is one call with the ISA's id. Dates are YYYY-MM-DD, inclusive.`,
+      inputSchema: z.strictObject({
+        account_id: z.string().min(1).describe('The account, from reckley_list_accounts'),
+        from: isoDay,
+        to: isoDay,
+        response_format: responseFormat,
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ account_id, from, to, response_format }) => {
+      if (from > to) {
+        return { content: [{ type: 'text', text: `from (${from}) is after to (${to}); swap them.` }], isError: true };
+      }
+      const [all, look, categories, firstActivity, inRange, after] = await Promise.all([
+        port.listAccounts(),
+        lookups(),
+        port.listCategories(),
+        port.firstActivityDates(),
+        port.transactionsBetween(from, to, AGGREGATE_ROW_CAP),
+        port.transactionsBetween(from, '9999-12-31', AGGREGATE_ROW_CAP, { includeArchived: true }),
+      ]);
+      const account = all.find(entry => entry.id === account_id);
+      if (!account) {
+        return { content: [{ type: 'text', text: `No account has id ${account_id}. Find ids with reckley_list_accounts.` }], isError: true };
+      }
+      const rows = inRange.rows.filter(row => row.accountId === account_id);
+      const flows = computeIncomeExpense(rows, inRange.splits, categories);
+      interface Counterpart { name: string; inward: ReturnType<typeof toDecimal>; outward: ReturnType<typeof toDecimal>; rows: number }
+      const counterparts = new Map<string, Counterpart>();
+      let transfersIn = toDecimal(0);
+      let transfersOut = toDecimal(0);
+      for (const row of rows) {
+        if (row.type !== 'transfer') continue;
+        const otherId = row.transferAccountId ?? look.categories.get(row.category)?.accountId ?? 'unknown';
+        const entry = counterparts.get(otherId) ?? { name: look.accounts.get(otherId)?.name ?? 'another account', inward: toDecimal(0), outward: toDecimal(0), rows: 0 };
+        const amount = toDecimal(row.amount);
+        if (amount.isNegative()) { entry.outward = entry.outward.plus(amount.abs()); transfersOut = transfersOut.plus(amount.abs()); }
+        else { entry.inward = entry.inward.plus(amount); transfersIn = transfersIn.plus(amount); }
+        entry.rows += 1;
+        counterparts.set(otherId, entry);
+      }
+      const walkInput = {
+        accounts: all.map(toSeriesAccount),
+        firstActivity: firstActivity === null ? null : new Map(Array.from(firstActivity, ([id, day]) => [id, new Date(`${day}T00:00:00.000Z`).getTime()])),
+        rows: after.rows.map(row => ({ accountId: row.accountId, date: row.date, amount: row.amount })),
+      };
+      const opening = after.capped ? null : (balancesAt(walkInput, localDate(dayBefore(from))).balances.get(account_id)?.toNumber() ?? account.openingBalance);
+      const closing = after.capped ? null : (balancesAt(walkInput, localDate(to)).balances.get(account_id)?.toNumber() ?? account.openingBalance);
+      const currency = account.currency;
+      const body = {
+        account: account.name,
+        account_id,
+        currency,
+        from,
+        to,
+        opening_balance: opening === null ? null : money(opening, currency),
+        closing_balance: closing === null ? null : money(closing, currency),
+        change: opening === null || closing === null ? null : money(closing - opening, currency),
+        income: money(flows.income.toNumber(), currency),
+        spending: money(flows.expenses.toNumber(), currency),
+        revaluation: money(flows.revaluation.toNumber(), currency),
+        uncategorised_in: money(flows.uncategorizedIn.toNumber(), currency),
+        uncategorised_out: money(flows.uncategorizedOut.abs().toNumber(), currency),
+        transfers_in: money(transfersIn.toNumber(), currency),
+        transfers_out: money(transfersOut.toNumber(), currency),
+        transfers: Array.from(counterparts.entries())
+          .sort(([, a], [, b]) => b.inward.plus(b.outward).comparedTo(a.inward.plus(a.outward)) || byCodePoint(a.name, b.name))
+          .map(([id, entry]) => ({ account_id: id, account: entry.name, in: money(entry.inward.toNumber(), currency), out: money(entry.outward.toNumber(), currency), rows: entry.rows })),
+        rows_counted: rows.length,
+        ...(inRange.capped || after.capped ? { partial: `More than ${AGGREGATE_ROW_CAP.toLocaleString('en-GB')} transactions were in play; narrow the dates for exact figures${after.capped ? ' (balances could not be walked)' : ''}.` } : {}),
+      };
+      if (response_format === ResponseFormat.JSON) {
+        return { content: [{ type: 'text', text: JSON.stringify(body, null, 2) }], structuredContent: body };
+      }
+      const lines = [
+        `# ${body.account} ${from} to ${to}`,
+        `Balance ${body.opening_balance ?? 'unknown'} → ${body.closing_balance ?? 'unknown'}${body.change ? ` (${body.change})` : ''}`,
+        '',
+        `- Income ${body.income} · spending ${body.spending} · revaluation ${body.revaluation}`,
+        `- Transfers in ${body.transfers_in} · out ${body.transfers_out}`,
+        ...(flows.uncategorizedRows.length > 0 ? [`- No category: in ${body.uncategorised_in}, out ${body.uncategorised_out}`] : []),
+      ];
+      if (body.transfers.length > 0) {
+        lines.push('', 'Transfers by counterpart:');
+        lines.push(...body.transfers.map(t => `- ${t.account}: in ${t.in}, out ${t.out} over ${t.rows} rows · id ${t.account_id}`));
+      }
+      if (body.partial) lines.push('', body.partial);
+      return { content: [{ type: 'text', text: lines.join('\n') }] };
+    }
+  );
+
+  server.registerTool(
+    'reckley_payee_history',
+    {
+      title: 'A payee over time',
+      description: `Every payment to or from one payee in date order, collapsed into runs of the same amount — so a subscription's price steps, a termly fee's rises, or a salary's increases read as a short list: amount, how many times, first and last date.
+
+text is matched against the description as the bank wrote it (any case); each distinct description that matches is its own payee. Optionally within one account or a date range (YYYY-MM-DD, inclusive). For the rows themselves use reckley_search_transactions.`,
+      inputSchema: z.strictObject({
+        text: z.string().min(1).max(200).describe('Words in the payee description, any case'),
+        account_id: z.string().optional().describe('Only this account'),
+        from: isoDay.optional(),
+        to: isoDay.optional(),
+        response_format: responseFormat,
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ text, account_id, from, to, response_format }) => {
+      if (from && to && from > to) {
+        return { content: [{ type: 'text', text: `from (${from}) is after to (${to}); swap them.` }], isError: true };
+      }
+      const look = await lookups();
+      const rows: Transaction[] = [];
+      let offset = 0;
+      let total = 0;
+      do {
+        const page = await port.searchTransactions({ text, accountId: account_id, from, to }, { limit: 100, offset, oldestFirst: true });
+        rows.push(...page.rows);
+        total = page.total;
+        offset += page.rows.length;
+        if (page.rows.length === 0) break;
+      } while (offset < total && rows.length < PAYEE_HISTORY_CAP);
+      interface Run { amount: number; count: number; first: string; last: string }
+      interface History { payee: string; currency: string; rows: number; first: string; last: string; total: ReturnType<typeof toDecimal>; runs: Run[] }
+      const byPayee = new Map<string, History>();
+      for (const row of rows) {
+        const key = payeeKey(row.description) ?? '(no payee)';
+        const day = dayOf(row.date);
+        const currency = look.accounts.get(row.accountId)?.currency ?? 'GBP';
+        const history = byPayee.get(key) ?? { payee: row.description.trim(), currency, rows: 0, first: day, last: day, total: toDecimal(0), runs: [] };
+        history.rows += 1;
+        history.last = day;
+        history.total = history.total.plus(toDecimal(row.amount));
+        const current = history.runs[history.runs.length - 1];
+        if (current && current.amount === row.amount) { current.count += 1; current.last = day; }
+        else history.runs.push({ amount: row.amount, count: 1, first: day, last: day });
+        byPayee.set(key, history);
+      }
+      const payees = Array.from(byPayee.values())
+        .sort((a, b) => b.rows - a.rows || byCodePoint(a.payee, b.payee))
+        .map(history => ({
+          payee: history.payee,
+          rows: history.rows,
+          first: history.first,
+          last: history.last,
+          net: money(history.total.toNumber(), history.currency),
+          runs: history.runs.map(run => ({ amount: money(run.amount, history.currency), times: run.count, first: run.first, last: run.last })),
+        }));
+      const body = {
+        text,
+        matched_rows: rows.length,
+        payees,
+        ...(rows.length < total ? { partial: `Only the first ${rows.length} of ${total} matching rows were read; narrow the dates.` } : {}),
+      };
+      if (response_format === ResponseFormat.JSON) {
+        return { content: [{ type: 'text', text: JSON.stringify(body, null, 2) }], structuredContent: body };
+      }
+      if (payees.length === 0) {
+        return { content: [{ type: 'text', text: `No transaction description contains "${text}".` }] };
+      }
+      const lines = [`# Payees matching "${text}"`, ''];
+      for (const payee of payees) {
+        lines.push(`## ${payee.payee} — ${payee.rows} rows, ${payee.first} to ${payee.last}, net ${payee.net}`);
+        lines.push(...payee.runs.map(run => `- ${run.amount} × ${run.times}, ${run.first}${run.last !== run.first ? ` to ${run.last}` : ''}`));
+        lines.push('');
+      }
+      if (body.partial) lines.push(body.partial);
+      return { content: [{ type: 'text', text: lines.join('\n') }] };
+    }
+  );
+
+  server.registerTool(
     'reckley_review_queue',
     {
       title: 'What is waiting for review',
@@ -1261,6 +1498,8 @@ export const READ_TOOL_NAMES = [
   'reckley_spending_by_payee',
   'reckley_net_worth',
   'reckley_net_worth_series',
+  'reckley_account_activity',
+  'reckley_payee_history',
   'reckley_review_queue',
   'reckley_budget_status',
 ] as const;
