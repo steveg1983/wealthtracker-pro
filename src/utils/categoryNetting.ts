@@ -1,6 +1,6 @@
-import { toDecimal } from './decimal';
-import { categoryKindOf, type FlowFactorResolver } from './incomeExpense';
-import type { Transaction, Category } from '../types';
+import { toDecimal } from './decimal.js';
+import { categoryKindOf, type FlowFactorResolver } from './incomeExpense.js';
+import type { Transaction, Category } from '../types/index.js';
 
 export interface CategoryNetTotal {
   /** Category id. */

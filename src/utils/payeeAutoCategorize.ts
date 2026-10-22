@@ -1,4 +1,4 @@
-import type { Transaction } from '../types';
+import type { Transaction } from '../types/index.js';
 
 /**
  * Payee normalization for auto-categorization matching. Mirrors the SQL side

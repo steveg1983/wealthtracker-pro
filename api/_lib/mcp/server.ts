@@ -31,7 +31,10 @@ import { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod/v4';
 import type { Category, Transaction } from '../../../src/types/index.js';
 import { computeIncomeExpense } from '../../../src/utils/incomeExpense.js';
-import { isAwaitingReview } from '../../../src/utils/transactionReview.js';
+import { bucketByCategoryDirection } from '../../../src/utils/categoryNetting.js';
+import { expandSplitTransactions } from '../../../src/utils/transactionSplits.js';
+import { FALLBACK_BANK_DESCRIPTION, normalizePayee } from '../../../src/utils/payeeAutoCategorize.js';
+import { isAwaitingReview, isUnfiled } from '../../../src/utils/transactionReview.js';
 import { toDecimal } from '../../../src/utils/decimal.js';
 import type { PortAccount, ReckleyPort, ReviewFilter } from './port.js';
 
@@ -55,6 +58,18 @@ export const CHARACTER_LIMIT = 25_000;
 
 /** Rows an aggregate will read before it says the answer is partial. */
 const AGGREGATE_ROW_CAP = 20_000;
+
+/** Rows the review queue will read before it says the count is partial. */
+const REVIEW_QUEUE_CAP = 5_000;
+
+/** The register's own payee identity: the description upper-cased and trimmed; the feed's placeholder is no payee at all. */
+const payeeKey = (description: string): string | null => {
+  const key = normalizePayee(description);
+  return key === '' || key === FALLBACK_BANK_DESCRIPTION ? null : key;
+};
+
+/** A code-point order for strings a model reads; the app's locale comparer sits behind a browser-only seam. */
+const byCodePoint = (x: string, y: string): number => (x < y ? -1 : x > y ? 1 : 0);
 
 export interface ReckleyServerOptions {
   port: ReckleyPort;
@@ -462,6 +477,261 @@ Give from and to as YYYY-MM-DD, inclusive. For individual rows use reckley_searc
     }
   );
 
+  server.registerTool(
+    'reckley_income_vs_expenses',
+    {
+      title: 'Income vs expenses by month',
+      description: `Income, spending and the net for each calendar month in a date range, plus the totals.
+
+The same rule as the app's Income vs Expenses chart: a row counts by its category's direction, so a refund filed to a spending category reduces that month's spending; transfers between the person's own accounts and revaluations are not counted; rows with no category are left out of the totals and counted separately.
+
+Give from and to as YYYY-MM-DD, inclusive. For the categories behind a month use reckley_spending_by_category; for the rows use reckley_search_transactions.`,
+      inputSchema: z.strictObject({
+        from: isoDay,
+        to: isoDay,
+        account_id: z.string().optional().describe('Only this account'),
+        response_format: responseFormat,
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ from, to, account_id, response_format }) => {
+      if (from > to) {
+        return { content: [{ type: 'text', text: `from (${from}) is after to (${to}); swap them.` }], isError: true };
+      }
+      const [range, look] = await Promise.all([
+        port.transactionsBetween(from, to, AGGREGATE_ROW_CAP),
+        lookups(),
+      ]);
+      const rows = expandSplitTransactions(
+        account_id ? range.rows.filter(row => row.accountId === account_id) : range.rows,
+        range.splits
+      );
+      const currency = account_id
+        ? (look.accounts.get(account_id)?.currency ?? 'GBP')
+        : (look.accounts.values().next().value?.currency ?? 'GBP');
+      const byMonth = new Map<string, { income: ReturnType<typeof toDecimal>; expenses: ReturnType<typeof toDecimal> }>();
+      let uncategorised = 0;
+      for (const row of rows) {
+        const bucket = bucketByCategoryDirection(row, look.categories);
+        if (bucket === 'uncategorized') { uncategorised += 1; continue; }
+        if (bucket !== 'income' && bucket !== 'expense') continue;
+        const key = dayOf(row.date).slice(0, 7);
+        const month = byMonth.get(key) ?? { income: toDecimal(0), expenses: toDecimal(0) };
+        if (bucket === 'income') month.income = month.income.plus(toDecimal(row.amount));
+        else month.expenses = month.expenses.minus(toDecimal(row.amount));
+        byMonth.set(key, month);
+      }
+      const months = Array.from(byMonth.entries()).sort(([a], [b]) => byCodePoint(a, b)).map(([key, month]) => ({
+        month: key,
+        income: money(month.income.toNumber(), currency),
+        expenses: money(month.expenses.toNumber(), currency),
+        net: money(month.income.minus(month.expenses).toNumber(), currency),
+      }));
+      const totalIncome = Array.from(byMonth.values()).reduce((sum, m) => sum.plus(m.income), toDecimal(0));
+      const totalExpenses = Array.from(byMonth.values()).reduce((sum, m) => sum.plus(m.expenses), toDecimal(0));
+      const body = {
+        from,
+        to,
+        currency,
+        months,
+        income: money(totalIncome.toNumber(), currency),
+        expenses: money(totalExpenses.toNumber(), currency),
+        net: money(totalIncome.minus(totalExpenses).toNumber(), currency),
+        uncategorised_rows: uncategorised,
+        ...(range.capped ? { partial: `Only the first ${AGGREGATE_ROW_CAP} rows in the range were read; narrow the dates for exact totals.` } : {}),
+      };
+      if (response_format === ResponseFormat.JSON) {
+        return { content: [{ type: 'text', text: JSON.stringify(body, null, 2) }], structuredContent: body };
+      }
+      const lines = [
+        `# Income vs expenses ${from} to ${to}`,
+        `Income ${body.income} · Spending ${body.expenses} · Net ${body.net}` +
+          (uncategorised > 0 ? ` · ${uncategorised} rows with no category are not in these totals` : ''),
+        '',
+      ];
+      lines.push(...months.map(m => `- ${m.month}: income ${m.income}, spending ${m.expenses}, net ${m.net}`));
+      if (months.length === 0) lines.push('Nothing in this range.');
+      if (body.partial) lines.push('', body.partial);
+      return { content: [{ type: 'text', text: lines.join('\n') }] };
+    }
+  );
+
+  server.registerTool(
+    'reckley_spending_by_payee',
+    {
+      title: 'Spending by payee',
+      description: `Who the person paid over a date range, biggest first: each payee's net spend, how many rows, the first and last dates, and the category most of its rows carry.
+
+A payee is the description as the bank wrote it, so "NORTHGATE MARKET" and "NORTHGATE MARKET REFUND" are two payees — the refund appears as a negative spend of its own, exactly as the app's Spending by Payee report shows it. Transfers and rows with no category are not spending and are left out.
+
+Give from and to as YYYY-MM-DD, inclusive.`,
+      inputSchema: z.strictObject({
+        from: isoDay,
+        to: isoDay,
+        account_id: z.string().optional().describe('Only this account'),
+        limit: z.number().int().min(1).max(200).default(30).describe('Payees to list'),
+        response_format: responseFormat,
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ from, to, account_id, limit, response_format }) => {
+      if (from > to) {
+        return { content: [{ type: 'text', text: `from (${from}) is after to (${to}); swap them.` }], isError: true };
+      }
+      const [range, look, categories] = await Promise.all([
+        port.transactionsBetween(from, to, AGGREGATE_ROW_CAP),
+        lookups(),
+        port.listCategories(),
+      ]);
+      const rows = account_id ? range.rows.filter(row => row.accountId === account_id) : range.rows;
+      const flows = computeIncomeExpense(rows, range.splits, categories);
+      const currency = account_id
+        ? (look.accounts.get(account_id)?.currency ?? 'GBP')
+        : (look.accounts.values().next().value?.currency ?? 'GBP');
+      interface PayeeGroup { name: string; spent: ReturnType<typeof toDecimal>; count: number; earliest: string; latest: string; categories: Map<string, number> }
+      const groups = new Map<string, PayeeGroup>();
+      for (const row of flows.expenseRows) {
+        const key = payeeKey(row.description) ?? '(no payee)';
+        const day = dayOf(row.date);
+        const group = groups.get(key) ?? {
+          name: key === '(no payee)' ? 'No payee recorded' : row.description.trim(),
+          spent: toDecimal(0), count: 0, earliest: day, latest: day, categories: new Map(),
+        };
+        group.spent = group.spent.minus(toDecimal(row.amount));
+        group.count += 1;
+        if (day < group.earliest) group.earliest = day;
+        if (day > group.latest) group.latest = day;
+        if (row.category) group.categories.set(row.category, (group.categories.get(row.category) ?? 0) + 1);
+        groups.set(key, group);
+      }
+      const total = flows.expenses;
+      const listed = Array.from(groups.values())
+        .sort((a, b) => b.spent.comparedTo(a.spent) || byCodePoint(a.name, b.name))
+        .slice(0, limit)
+        .map(group => {
+          const top = Array.from(group.categories.entries()).sort((a, b) => b[1] - a[1])[0];
+          return {
+            payee: group.name,
+            spent: money(group.spent.toNumber(), currency),
+            rows: group.count,
+            first: group.earliest,
+            last: group.latest,
+            share: total.isZero() ? 0 : Number(group.spent.dividedBy(total).times(100).toFixed(1)),
+            usual_category: top ? categoryPath(top[0], look.categories) : null,
+          };
+        });
+      const body = {
+        from,
+        to,
+        currency,
+        expenses: money(total.toNumber(), currency),
+        payees: listed,
+        ...(range.capped ? { partial: `Only the first ${AGGREGATE_ROW_CAP} rows in the range were read; narrow the dates for exact totals.` } : {}),
+      };
+      if (response_format === ResponseFormat.JSON) {
+        return { content: [{ type: 'text', text: JSON.stringify(body, null, 2) }], structuredContent: body };
+      }
+      const lines = [`# Spending by payee ${from} to ${to}`, `Spending ${body.expenses}`, ''];
+      lines.push(...listed.map(p => `- ${p.payee}: ${p.spent} over ${p.rows} rows (${p.share}%)${p.usual_category ? `, usually ${p.usual_category}` : ''}`));
+      if (listed.length === 0) lines.push('No spending in this range.');
+      if (body.partial) lines.push('', body.partial);
+      return { content: [{ type: 'text', text: lines.join('\n') }] };
+    }
+  );
+
+  server.registerTool(
+    'reckley_net_worth',
+    {
+      title: 'Net worth today',
+      description: `What the person owns and owes today, from the register: assets are the accounts with a positive balance, liabilities the size of the negative ones, net worth the difference — the Dashboard's rule — reported per currency, since this tool converts nothing.
+
+Ledger figures only: an investment account counts at the value its register carries, not at today's prices, and closed accounts are left out. For the balances behind these totals use reckley_list_accounts.`,
+      inputSchema: z.strictObject({
+        response_format: responseFormat,
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ response_format }) => {
+      const accounts = (await port.listAccounts()).filter(account => account.isActive);
+      interface Side { assets: ReturnType<typeof toDecimal>; liabilities: ReturnType<typeof toDecimal>; counted: number }
+      const byCurrency = new Map<string, Side>();
+      for (const account of accounts) {
+        const amount = toDecimal(account.balance);
+        if (amount.isZero()) continue;
+        const side = byCurrency.get(account.currency) ?? { assets: toDecimal(0), liabilities: toDecimal(0), counted: 0 };
+        if (amount.isNegative()) side.liabilities = side.liabilities.plus(amount.abs());
+        else side.assets = side.assets.plus(amount);
+        side.counted += 1;
+        byCurrency.set(account.currency, side);
+      }
+      const currencies = Array.from(byCurrency.entries()).sort(([a], [b]) => byCodePoint(a, b)).map(([currency, side]) => ({
+        currency,
+        assets: money(side.assets.toNumber(), currency),
+        liabilities: money(side.liabilities.toNumber(), currency),
+        net_worth: money(side.assets.minus(side.liabilities).toNumber(), currency),
+        accounts_counted: side.counted,
+      }));
+      const body = { as_of: dayOf(new Date()), open_accounts: accounts.length, currencies };
+      if (response_format === ResponseFormat.JSON) {
+        return { content: [{ type: 'text', text: JSON.stringify(body, null, 2) }], structuredContent: body };
+      }
+      const lines = [`# Net worth as of ${body.as_of}`, ''];
+      lines.push(...currencies.map(c => `- ${c.currency}: own ${c.assets}, owe ${c.liabilities}, net ${c.net_worth} (${c.accounts_counted} accounts)`));
+      if (currencies.length === 0) lines.push('No open accounts with a balance.');
+      lines.push('', 'Register figures: investments at their ledger value, no currency conversion, closed accounts excluded.');
+      return { content: [{ type: 'text', text: lines.join('\n') }] };
+    }
+  );
+
+  server.registerTool(
+    'reckley_review_queue',
+    {
+      title: 'What is waiting for review',
+      description: `The rows the app's To Review list holds, counted by account: how many, how many carry only the app's suggested category, how many have no category at all, and the oldest and newest dates. The same rule as the register: a row is awaiting review when it is flagged, or when it has no category and is neither a transfer nor a split.
+
+Use reckley_search_transactions with review='awaiting' and an account_id for the rows themselves.`,
+      inputSchema: z.strictObject({
+        response_format: responseFormat,
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ response_format }) => {
+      const [queue, look] = await Promise.all([port.reviewQueue(REVIEW_QUEUE_CAP), lookups()]);
+      interface Tally { count: number; suggested: number; unfiled: number; oldest: string; newest: string }
+      const byAccount = new Map<string, Tally>();
+      for (const row of queue.rows) {
+        const day = dayOf(row.date);
+        const tally = byAccount.get(row.accountId) ?? { count: 0, suggested: 0, unfiled: 0, oldest: day, newest: day };
+        tally.count += 1;
+        if (row.category && row.categoryConfirmed === false) tally.suggested += 1;
+        if (isUnfiled(row)) tally.unfiled += 1;
+        if (day < tally.oldest) tally.oldest = day;
+        if (day > tally.newest) tally.newest = day;
+        byAccount.set(row.accountId, tally);
+      }
+      const accounts = Array.from(byAccount.entries())
+        .map(([accountId, tally]) => ({ account_id: accountId, account: look.accounts.get(accountId)?.name ?? accountId, ...tally }))
+        .sort((a, b) => b.count - a.count || byCodePoint(a.account, b.account));
+      const body = {
+        total: queue.rows.length,
+        accounts,
+        ...(queue.capped ? { partial: `Only the first ${REVIEW_QUEUE_CAP} rows were counted.` } : {}),
+      };
+      if (response_format === ResponseFormat.JSON) {
+        return { content: [{ type: 'text', text: JSON.stringify(body, null, 2) }], structuredContent: body };
+      }
+      if (accounts.length === 0) {
+        return { content: [{ type: 'text', text: 'Nothing is waiting for review.' }] };
+      }
+      const lines = [`# To review: ${body.total} rows`, ''];
+      lines.push(...accounts.map(a =>
+        `- ${a.account}: ${a.count} rows (${a.suggested} with a suggested category, ${a.unfiled} with none), ${a.oldest} to ${a.newest} · account id ${a.account_id}`
+      ));
+      if (body.partial) lines.push('', body.partial);
+      return { content: [{ type: 'text', text: lines.join('\n') }] };
+    }
+  );
+
   // Write tools arrive in the next slice; a token without the write scope will
   // never see them, because they are registered here only when it has it.
 
@@ -475,4 +745,8 @@ export const READ_TOOL_NAMES = [
   'reckley_get_transaction',
   'reckley_list_categories',
   'reckley_spending_by_category',
+  'reckley_income_vs_expenses',
+  'reckley_spending_by_payee',
+  'reckley_net_worth',
+  'reckley_review_queue',
 ] as const;

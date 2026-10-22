@@ -82,12 +82,13 @@ function matches(t: Transaction, filter: TransactionFilter): boolean {
   return true;
 }
 
-export function fakePort(over: Partial<{ transactions: Transaction[]; splits: TransactionSplit[]; budgets: Budget[] }> = {}): ReckleyPort {
+export function fakePort(over: Partial<{ accounts: PortAccount[]; transactions: Transaction[]; splits: TransactionSplit[]; budgets: Budget[] }> = {}): ReckleyPort {
   const rows = over.transactions ?? transactions;
   const lines = over.splits ?? splits;
   const plans = over.budgets ?? budgets;
+  const ledgers = over.accounts ?? accounts;
   return {
-    async listAccounts() { return accounts; },
+    async listAccounts() { return ledgers; },
     async searchTransactions(filter, page) {
       const all = rows
         .filter(t => matches(t, filter))
@@ -107,6 +108,10 @@ export function fakePort(over: Partial<{ transactions: Transaction[]; splits: Tr
       const kept = capped ? inRange.slice(0, cap) : inRange;
       const ids = new Set(kept.filter(t => t.isSplit).map(t => t.id));
       return { rows: kept, splits: lines.filter(line => ids.has(line.transactionId)), capped };
+    },
+    async reviewQueue(cap) {
+      const waiting = rows.filter(t => isAwaitingReview(t)).sort((a, b) => byCodePoint(dayOf(a.date), dayOf(b.date)));
+      return { rows: waiting.slice(0, cap), capped: waiting.length > cap };
     },
   };
 }

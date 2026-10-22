@@ -93,6 +93,8 @@ export interface ReckleyPort {
   listBudgets(): Promise<Budget[]>;
   /** Every non-archived row dated in [from, to], with the splits of any split parents, up to `cap` rows. */
   transactionsBetween(from: string, to: string, cap: number): Promise<RowsInRange>;
+  /** Every non-archived row awaiting review (the app's own predicate), oldest first, up to `cap`. */
+  reviewQueue(cap: number): Promise<{ rows: Transaction[]; capped: boolean }>;
 }
 
 // ── The Supabase half ───────────────────────────────────────────────────────
@@ -176,6 +178,14 @@ interface BudgetRow {
   created_at: string;
   updated_at: string | null;
 }
+
+/**
+ * The register's "awaiting review" predicate as a PostgREST filter: flagged,
+ * OR unfiled and neither a transfer nor a split (utils/transactionReview).
+ * Written once, used by the search and by the review queue.
+ */
+const AWAITING_REVIEW_FILTER =
+  "needs_review.eq.true,and(category.is.null,type.neq.transfer,is_split.neq.true),and(category.eq.'',type.neq.transfer,is_split.neq.true)";
 
 /** PostgREST hands numerics back as strings; the app's rows carry numbers. */
 const num = (value: number | string | null | undefined): number =>
@@ -367,7 +377,7 @@ export function createSupabasePort(supabase: SupabaseClient, userId: string): Re
       // "Awaiting review" is the app's own predicate: flagged, OR unfiled and
       // neither a transfer nor a split (utils/transactionReview).
       if (filter.review === 'awaiting') {
-        query = query.or("needs_review.eq.true,and(category.is.null,type.neq.transfer,is_split.neq.true),and(category.eq.'',type.neq.transfer,is_split.neq.true)");
+        query = query.or(AWAITING_REVIEW_FILTER);
       } else if (filter.review === 'done') {
         query = query
           .or('needs_review.is.null,needs_review.eq.false')
@@ -458,6 +468,23 @@ export function createSupabasePort(supabase: SupabaseClient, userId: string): Re
         splits = ((lines.data ?? []) as SplitRow[]).map(toSplit);
       }
       return { rows, splits, capped };
+    },
+
+    async reviewQueue(cap) {
+      const paged = await readAllPages<TransactionRow>(async (pageFrom, pageTo) => {
+        const { data, error } = await supabase
+          .from('transactions')
+          .select<string, TransactionRow>(TRANSACTION_COLUMNS)
+          .eq('user_id', userId)
+          .or('archived.is.null,archived.eq.false')
+          .or(AWAITING_REVIEW_FILTER)
+          .order('date', { ascending: true })
+          .order('id', { ascending: true })
+          .range(pageFrom, pageTo);
+        if (error) return fail('the review queue', error);
+        return data ?? [];
+      }, cap);
+      return { rows: paged.rows.map(toTransaction), capped: paged.capped };
     },
   };
 }
