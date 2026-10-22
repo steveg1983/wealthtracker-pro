@@ -249,8 +249,26 @@ Two scripts make this possible without OAuth, and are never deployed:
   and prints what the model would read (or, with `--json` and
   `response_format: 'json'`, the structured content).
 
-Running the harness: `pip install anthropic mcp`, an `ANTHROPIC_API_KEY`, then
-`python3 <mcp-builder skill>/scripts/evaluation.py -t http -u http://127.0.0.1:8788/mcp -o mcp-eval-report.md docs/mcp-evaluation.xml`.
-The report's per-question feedback is what to read when a tool description
-needs tightening; the accuracy figure is what the directory review will see.
+Running the harness: `pip install anthropic 'mcp<2'` (the harness is written
+against the 1.x Python SDK; 2.x renamed its HTTP client), an
+`ANTHROPIC_API_KEY`, then
+`python3 <mcp-builder skill>/scripts/evaluation.py -t http -u http://127.0.0.1:8788/mcp -m claude-sonnet-5-5 -o docs/mcp-evaluation-report.md docs/mcp-evaluation.xml`.
+Two patches to a COPY of the harness were needed on 22 Oct 2026 and will be
+again until the skill is updated: its agent loop answers only the first
+`tool_use` block in a turn (current models issue several, and the API refuses
+a turn with an unanswered one), and its `call_tool` returns the SDK's content
+objects, which its serialiser cannot encode (return the blocks' `.text`).
+Without the second, every call "fails" before the model sees any data and the
+score is a meaningless 0/10.
+
+**Runs of 22 Oct 2026, Sonnet 5.5: 10/10 both before and after the changes
+below, 2.5 tool calls per question on average, 9.9 s then 8.2 s each** —
+`docs/mcp-evaluation-report.md` is the second. What the model asked for after
+the first run, and what was done the same day: a transfer row now always names the
+other account (it had read "Transfer with X" beside a null id); search takes
+`sort: 'oldest'`; the search description says text matches the description
+only, that every bound is inclusive, and that a page may be shorter than
+`limit`; spending by payee takes `category_id`. Asked for and deferred: an
+account balance as of a date, a one-call total of one account's transfers over
+a period, and a payee's price history.
 

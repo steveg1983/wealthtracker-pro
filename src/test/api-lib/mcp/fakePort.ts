@@ -115,6 +115,7 @@ export function fakePort(over: Partial<{ accounts: PortAccount[]; transactions: 
       const all = rows
         .filter(t => matches(t, filter))
         .sort((a, b) => byCodePoint(dayOf(b.date), dayOf(a.date)) || byCodePoint(b.id, a.id));
+      if (page.oldestFirst) all.reverse();
       return { rows: all.slice(page.offset, page.offset + page.limit), total: all.length };
     },
     async getTransaction(id) {

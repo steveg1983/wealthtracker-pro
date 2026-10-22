@@ -66,6 +66,8 @@ export interface TransactionFilter {
 export interface PageRequest {
   limit: number;
   offset: number;
+  /** Oldest first instead of the default newest first — for "the first time" questions. */
+  oldestFirst?: boolean;
 }
 
 export interface PageOf<T> {
@@ -522,9 +524,10 @@ export function createSupabasePort(
           .or("category.not.is.null,type.eq.transfer,is_split.eq.true")
           .neq('category', '');
       }
+      const ascending = page.oldestFirst === true;
       const { data, error, count } = await query
-        .order('date', { ascending: false })
-        .order('id', { ascending: false })
+        .order('date', { ascending })
+        .order('id', { ascending })
         .range(page.offset, page.offset + page.limit - 1);
       if (error) return fail('transactions', error);
       return { rows: (data ?? []).map(toTransaction), total: count ?? 0 };
