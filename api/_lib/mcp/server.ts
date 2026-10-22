@@ -199,7 +199,11 @@ function describeRow(row: Transaction, lookups: Lookups) {
     awaiting_review: isAwaitingReview(row),
     cleared: row.cleared === true,
     notes: row.notes ?? null,
-    ...(category?.isTransferCategory ? { transfer_account_id: category.accountId ?? null } : {}),
+    // The other account of a transfer, from the row itself or from the To/From
+    // category it is filed under; null for anything that is not a transfer.
+    // (The evaluation's model read "Transfer with X" beside a null id and
+    // called it inconsistent — it was.)
+    transfer_account_id: row.transferAccountId ?? category?.accountId ?? null,
   };
 }
 
@@ -289,11 +293,11 @@ Use this first to learn account ids for reckley_search_transactions.`,
     'reckley_search_transactions',
     {
       title: 'Search transactions',
-      description: `Search the person's transactions, newest first, one page at a time.
+      description: `Search the person's transactions, newest first (or oldest first with sort='oldest'), one page at a time.
 
-Filter by words in the description, account, category, a date range, an amount range (signed: spending is negative, so min_amount=-50 and max_amount=-10 finds spending between 10 and 50), whether the row is awaiting review, and whether it is cleared. Every filter is optional; with none, this lists recent transactions.
+Filter by words in the description (text matches the description only, not the category, account or notes), account, category, a date range, an amount range (signed: spending is negative, so min_amount=-50 and max_amount=-10 finds spending between 10 and 50), whether the row is awaiting review, and whether it is cleared. Every bound is inclusive. Every filter is optional; with none, this lists recent transactions.
 
-Each row carries its id, date, account, description, signed amount with currency, category (or "no category"), whether the category is only the app's suggestion, whether it is awaiting review, cleared, split, and any note. When more rows match than fit, the result says so and gives next_offset; call again with that offset.
+Each row carries its id, date, account, description, signed amount with currency, category (or "no category"), whether the category is only the app's suggestion, whether it is awaiting review, cleared, split, any note, and for a transfer the other account's id. A page may hold fewer rows than limit when the rows are long; has_more and next_offset always say whether and where to continue, and total is the number of matches in all.
 
 Use reckley_get_transaction for one row's full detail, and reckley_spending_by_category for totals rather than rows.`,
       inputSchema: z.strictObject({
@@ -308,6 +312,7 @@ Use reckley_get_transaction for one row's full detail, and reckley_spending_by_c
           .describe("'awaiting' for rows still to be reviewed (flagged, or with no category), 'done' for the rest"),
         cleared: z.boolean().optional().describe('Only cleared rows (true) or only uncleared rows (false)'),
         include_archived: z.boolean().default(false).describe('Also search rows the person has archived'),
+        sort: z.enum(['newest', 'oldest']).default('newest').describe("'oldest' to start from the earliest match — for 'the first time' questions"),
         limit: z.number().int().min(1).max(100).default(25).describe('Rows per page'),
         offset: z.number().int().min(0).default(0).describe('Rows to skip, for the next page'),
         response_format: responseFormat,
@@ -332,7 +337,7 @@ Use reckley_get_transaction for one row's full detail, and reckley_spending_by_c
             cleared: args.cleared,
             includeArchived: args.include_archived,
           },
-          { limit: args.limit, offset: args.offset }
+          { limit: args.limit, offset: args.offset, oldestFirst: args.sort === 'oldest' }
         ),
         lookups(),
       ]);
@@ -604,19 +609,20 @@ Give from and to as YYYY-MM-DD, inclusive. For the categories behind a month use
       title: 'Spending by payee',
       description: `Who the person paid over a date range, biggest first: each payee's net spend, how many rows, the first and last dates, and the category most of its rows carry.
 
-A payee is the description as the bank wrote it, so "NORTHGATE MARKET" and "NORTHGATE MARKET REFUND" are two payees — the refund appears as a negative spend of its own, exactly as the app's Spending by Payee report shows it. Transfers and rows with no category are not spending and are left out.
+A payee is the description as the bank wrote it, so "NORTHGATE MARKET" and "NORTHGATE MARKET REFUND" are two payees — the refund appears as a negative spend of its own, exactly as the app's Spending by Payee report shows it. Transfers and rows with no category are not spending and are left out. With category_id, only rows filed there are counted, so "who took the holiday money" is one call.
 
 Give from and to as YYYY-MM-DD, inclusive.`,
       inputSchema: z.strictObject({
         from: isoDay,
         to: isoDay,
         account_id: z.string().optional().describe('Only this account'),
+        category_id: z.string().optional().describe('Only rows filed under this category id (from reckley_list_categories)'),
         limit: z.number().int().min(1).max(200).default(30).describe('Payees to list'),
         response_format: responseFormat,
       }),
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
-    async ({ from, to, account_id, limit, response_format }) => {
+    async ({ from, to, account_id, category_id, limit, response_format }) => {
       if (from > to) {
         return { content: [{ type: 'text', text: `from (${from}) is after to (${to}); swap them.` }], isError: true };
       }
@@ -627,12 +633,15 @@ Give from and to as YYYY-MM-DD, inclusive.`,
       ]);
       const rows = account_id ? range.rows.filter(row => row.accountId === account_id) : range.rows;
       const flows = computeIncomeExpense(rows, range.splits, categories);
+      // Within one category the total is the sum of what is counted, so a
+      // split line filed elsewhere does not swell it.
+      const counted = category_id ? flows.expenseRows.filter(row => row.category === category_id) : flows.expenseRows;
       const currency = account_id
         ? (look.accounts.get(account_id)?.currency ?? 'GBP')
         : (look.accounts.values().next().value?.currency ?? 'GBP');
       interface PayeeGroup { name: string; spent: ReturnType<typeof toDecimal>; count: number; earliest: string; latest: string; categories: Map<string, number> }
       const groups = new Map<string, PayeeGroup>();
-      for (const row of flows.expenseRows) {
+      for (const row of counted) {
         const key = payeeKey(row.description) ?? '(no payee)';
         const day = dayOf(row.date);
         const group = groups.get(key) ?? {
@@ -646,7 +655,9 @@ Give from and to as YYYY-MM-DD, inclusive.`,
         if (row.category) group.categories.set(row.category, (group.categories.get(row.category) ?? 0) + 1);
         groups.set(key, group);
       }
-      const total = flows.expenses;
+      const total = category_id
+        ? Array.from(groups.values()).reduce((sum, group) => sum.plus(group.spent), toDecimal(0))
+        : flows.expenses;
       const listed = Array.from(groups.values())
         .sort((a, b) => b.spent.comparedTo(a.spent) || byCodePoint(a.name, b.name))
         .slice(0, limit)
@@ -666,6 +677,7 @@ Give from and to as YYYY-MM-DD, inclusive.`,
         from,
         to,
         currency,
+        ...(category_id ? { category: categoryPath(category_id, look.categories) ?? category_id } : {}),
         expenses: money(total.toNumber(), currency),
         payees: listed,
         ...(range.capped ? { partial: `Only the first ${AGGREGATE_ROW_CAP} rows in the range were read; narrow the dates for exact totals.` } : {}),

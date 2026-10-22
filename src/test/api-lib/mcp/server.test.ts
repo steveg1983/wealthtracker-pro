@@ -378,6 +378,36 @@ describe('reckley_budget_status', () => {
   });
 });
 
+describe('what the evaluation asked for (22 Oct 2026)', () => {
+  it('search can run oldest first, for "the first time" questions', async () => {
+    const result = await call('reckley_search_transactions', { sort: 'oldest', limit: 2, response_format: 'json' });
+    const page = result.structuredContent as { transactions: { id: string; date: string }[]; total: number };
+    expect(page.transactions.map(row => row.date)).toEqual(['2026-09-28', '2026-10-01']);
+    expect(page.total).toBe(8);
+  });
+
+  it('a transfer row names the other account whatever category it carries', async () => {
+    await client.close();
+    await handler.close();
+    const filedUnderTransferRoot: Transaction = { ...transactions[3], id: 't4-root', category: 'type-transfer' };
+    await connect(fakePort({ transactions: [...transactions, filedUnderTransferRoot] }));
+    const byCategory = (await call('reckley_get_transaction', { id: 't4' })).structuredContent as { transfer_account_id: string | null };
+    const byRow = (await call('reckley_get_transaction', { id: 't4-root' })).structuredContent as { transfer_account_id: string | null };
+    const plain = (await call('reckley_get_transaction', { id: 't1' })).structuredContent as { transfer_account_id: string | null };
+    expect(byCategory.transfer_account_id).toBe('acc-savings');
+    expect(byRow.transfer_account_id).toBe('acc-savings');
+    expect(plain.transfer_account_id).toBeNull();
+  });
+
+  it('spending by payee can be held to one category, with the total to match', async () => {
+    const result = await call('reckley_spending_by_payee', { from: '2026-10-01', to: '2026-10-31', category_id: 'det-phone', response_format: 'json' });
+    const body = result.structuredContent as { category: string; expenses: string; payees: { payee: string; spent: string }[] };
+    expect(body.category).toBe('Bills (Household) > Telephone');
+    expect(body.payees).toEqual([{ payee: 'Direct Debit - SKYLINE TELECOM', spent: '30.00 GBP', rows: 1, first: '2026-10-03', last: '2026-10-03', share: 100, usual_category: 'Bills (Household) > Telephone' }]);
+    expect(body.expenses).toBe('30.00 GBP');
+  });
+});
+
 describe('reckley_net_worth_series', () => {
   it('defaults to the twelve whole months to today, month-end points, one line per currency, from the register', async () => {
     const result = await call('reckley_net_worth_series', { response_format: 'json' });
