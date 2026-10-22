@@ -17,7 +17,7 @@ import { createMcpRoute } from './_lib/mcp/route.js';
 const route = createMcpRoute<VercelRequest, VercelResponse>({
   listing: 'full',
   verify: verifyClerkOAuth,
-  portFor: caller => createSupabasePort(getServiceRoleSupabase(), caller.userId),
+  portFor: caller => createSupabasePort(getServiceRoleSupabase(), caller.userId, { clientId: caller.authInfo.clientId }),
   // A conversation makes a handful of calls a minute; a runaway loop makes
   // hundreds. Per caller IP, like every other route.
   rateLimit: (req, res) => applyRateLimit(req, res, { name: 'mcp', limit: 120, windowMs: 60_000 }),

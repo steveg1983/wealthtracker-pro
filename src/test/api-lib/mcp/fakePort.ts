@@ -1,14 +1,22 @@
 /**
  * A ledger in memory, behind the connector's port — what the server specs
  * drive the real MCP client against. Every figure invented (public repo).
+ *
+ * The write side mirrors the verbs' own refusals and review rules in a few
+ * lines each — the sentences the migrations raise, the provenance rule of
+ * update_transaction_atomic, the "marking a filed row ends review" rule of
+ * set_transactions_cleared — so the tools' wording and sequencing are proved
+ * here; the rules themselves are proved against the database by the app's
+ * own suites. Every port instance works on its own copy of the rows.
  */
 
 import type { Budget, Category, Transaction, TransactionSplit } from '../../../types';
-import { isAwaitingReview } from '../../../utils/transactionReview';
-import type {
-  PortAccount,
-  ReckleyPort,
-  TransactionFilter,
+import { isAwaitingReview, isUnfiled } from '../../../utils/transactionReview';
+import {
+  PortRefusal,
+  type PortAccount,
+  type ReckleyPort,
+  type TransactionFilter,
 } from '../../../../api/_lib/mcp/port';
 
 export const accounts: PortAccount[] = [
@@ -83,10 +91,21 @@ function matches(t: Transaction, filter: TransactionFilter): boolean {
 }
 
 export function fakePort(over: Partial<{ accounts: PortAccount[]; transactions: Transaction[]; splits: TransactionSplit[]; budgets: Budget[] }> = {}): ReckleyPort {
-  const rows = over.transactions ?? transactions;
+  const rows = (over.transactions ?? transactions).map(t => ({ ...t }));
   const lines = over.splits ?? splits;
   const plans = over.budgets ?? budgets;
   const ledgers = over.accounts ?? accounts;
+  let created = 0;
+
+  const rowOrRefuse = (id: string): Transaction => {
+    const found = rows.find(t => t.id === id);
+    if (!found) throw new PortRefusal('That transaction is not in this ledger. Nothing was changed.');
+    return found;
+  };
+  /** The other account's To/From category, as transfer_category_for finds it. */
+  const transferCategoryFor = (otherAccountId: string): string =>
+    categories.find(c => c.isTransferCategory && c.accountId === otherAccountId)?.id ?? '';
+
   return {
     async listAccounts() { return ledgers; },
     async searchTransactions(filter, page) {
@@ -112,6 +131,109 @@ export function fakePort(over: Partial<{ accounts: PortAccount[]; transactions: 
     async reviewQueue(cap) {
       const waiting = rows.filter(t => isAwaitingReview(t)).sort((a, b) => byCodePoint(dayOf(a.date), dayOf(b.date)));
       return { rows: waiting.slice(0, cap), capped: waiting.length > cap };
+    },
+
+    async transactionsById(ids) {
+      const wanted = new Set(ids);
+      return rows.filter(t => wanted.has(t.id)).map(t => ({ ...t }));
+    },
+
+    async updateTransaction(id, patch) {
+      const t = rowOrRefuse(id);
+      if (patch.description !== undefined) t.description = patch.description;
+      if (patch.notes !== undefined) t.notes = patch.notes === '' ? undefined : patch.notes;
+      if (patch.category !== undefined) {
+        // update_transaction_atomic's provenance rule: a changed category is
+        // a confirmed one unless the caller says otherwise.
+        if (patch.categoryConfirmed === undefined && patch.category !== t.category) t.categoryConfirmed = true;
+        t.category = patch.category;
+      }
+      if (patch.categoryConfirmed !== undefined) t.categoryConfirmed = patch.categoryConfirmed;
+      if (patch.needsReview !== undefined) t.needsReview = patch.needsReview;
+      return { ...t };
+    },
+
+    async confirmCategories(ids) {
+      let count = 0;
+      for (const id of ids) {
+        const t = rows.find(r => r.id === id);
+        if (!t || t.categoryConfirmed !== false || !t.category || t.category.trim() === '') continue;
+        t.categoryConfirmed = true;
+        t.needsReview = false;
+        count += 1;
+      }
+      return count;
+    },
+
+    async setCleared(ids, cleared) {
+      let count = 0;
+      for (const id of ids) {
+        const t = rows.find(r => r.id === id);
+        if (!t || (t.cleared === true) === cleared) continue;
+        t.cleared = cleared;
+        if (cleared && !isUnfiled(t)) t.needsReview = false;
+        count += 1;
+      }
+      return count;
+    },
+
+    async linkTransfer(idA, idB) {
+      if (idA === idB) throw new PortRefusal('a transaction cannot be linked to itself. Nothing was changed.');
+      const a = rowOrRefuse(idA);
+      const b = rowOrRefuse(idB);
+      if (a.accountId === b.accountId) throw new PortRefusal('a transfer needs two different accounts. Nothing was changed.');
+      if (a.amount === 0 || a.amount !== -b.amount) {
+        throw new PortRefusal(`transfer sides must have exactly opposite non-zero amounts (${a.amount} vs ${b.amount}). Nothing was changed.`);
+      }
+      if (a.isSplit || b.isSplit) throw new PortRefusal('a split transaction cannot become a transfer — remove the split first. Nothing was changed.');
+      if (a.linkedTransferId || b.linkedTransferId) throw new PortRefusal('transaction is already part of a linked transfer. Nothing was changed.');
+      Object.assign(a, { type: 'transfer', category: transferCategoryFor(b.accountId), transferAccountId: b.accountId, linkedTransferId: b.id });
+      Object.assign(b, { type: 'transfer', category: transferCategoryFor(a.accountId), transferAccountId: a.accountId, linkedTransferId: a.id });
+      return { a: { ...a }, b: { ...b } };
+    },
+
+    async createTransferCounterpart(id, targetAccountId) {
+      const src = rowOrRefuse(id);
+      if (src.amount === 0) throw new PortRefusal('a zero-amount transaction cannot become a transfer. Nothing was changed.');
+      if (src.isSplit) throw new PortRefusal('a split transaction cannot become a transfer — remove the split first. Nothing was changed.');
+      if (src.linkedTransferId) throw new PortRefusal('transaction is already part of a linked transfer. Nothing was changed.');
+      if (src.accountId === targetAccountId) throw new PortRefusal('a transfer needs two different accounts. Nothing was changed.');
+      if (!ledgers.some(l => l.id === targetAccountId)) throw new PortRefusal('That account is not in this ledger. Nothing was changed.');
+      const counterpart: Transaction = {
+        ...src,
+        id: `${src.id}-other-side`,
+        accountId: targetAccountId,
+        amount: -src.amount,
+        type: 'transfer',
+        category: transferCategoryFor(src.accountId),
+        transferAccountId: src.accountId,
+        linkedTransferId: src.id,
+        cleared: false,
+        needsReview: false,
+        categoryConfirmed: true,
+      };
+      rows.push(counterpart);
+      Object.assign(src, { type: 'transfer', category: transferCategoryFor(targetAccountId), transferAccountId: targetAccountId, linkedTransferId: counterpart.id });
+      return { source: { ...src }, counterpart: { ...counterpart } };
+    },
+
+    async createTransaction(input) {
+      if (!ledgers.some(l => l.id === input.accountId)) throw new PortRefusal('That account is not in this ledger. Nothing was changed.');
+      created += 1;
+      const t = row({
+        id: `new-${created}`,
+        date: input.date,
+        amount: input.amount,
+        description: input.description,
+        accountId: input.accountId,
+        type: input.type,
+        category: input.category ?? '',
+        notes: input.notes,
+        categoryConfirmed: input.categoryConfirmed,
+        needsReview: input.needsReview,
+      });
+      rows.push(t);
+      return { ...t };
     },
   };
 }

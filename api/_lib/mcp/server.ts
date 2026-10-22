@@ -10,7 +10,8 @@
  * ── WHAT A TOOL PROMISES ────────────────────────────────────────────────────
  * Every tool has a `title`, a description that says when to use it and when
  * to use a sibling instead, and the annotation Anthropic's review reads for
- * its auto-permission: `readOnlyHint` here. Money is a string with its
+ * its auto-permission: `readOnlyHint` on every read, `destructiveHint` on
+ * every write, so Claude asks before any of the writes. Money is a string with its
  * currency, dates are YYYY-MM-DD, lists are paginated with `limit`/`offset`
  * and capped by CHARACTER_LIMIT — fewer rows, never a cut row — with
  * `next_offset` pointing at the first row left out. Descriptions and notes
@@ -21,6 +22,15 @@
  * the reports call — so a figure Claude quotes is the figure the screen
  * shows, and budgets through `evaluateBudgets` — the Budget page's and the
  * Dashboard card's one evaluation. See docs/mcp-connector.md.
+ *
+ * ── A FILING BY CLAUDE IS A SUGGESTION ──────────────────────────────────────
+ * The owner's ruling (22 Oct 2026): a category Claude writes "stays a
+ * suggestion and in 'to review'". So `reckley_set_category` without
+ * `confirm` writes exactly what the app's own suggestion verb writes —
+ * category_confirmed = false, needs_review = true — and the filing tools
+ * take `confirm` for the one case the rule cannot see from here: the person
+ * said, in the conversation, that this is right. Every write validates the
+ * whole request before touching a row, so a refusal means nothing changed.
  *
  * ── NOTHING HERE IS A TYPESCRIPT ENUM OR A PARAMETER PROPERTY ──────────────
  * The API project compiles with `erasableSyntaxOnly`: the runtime is Node
@@ -36,8 +46,9 @@ import { bucketByCategoryDirection } from '../../../src/utils/categoryNetting.js
 import { expandSplitTransactions } from '../../../src/utils/transactionSplits.js';
 import { FALLBACK_BANK_DESCRIPTION, normalizePayee } from '../../../src/utils/payeeAutoCategorize.js';
 import { isAwaitingReview, isUnfiled } from '../../../src/utils/transactionReview.js';
+import { signTransactionAmount } from '../../../src/utils/transactionAmount.js';
 import { toDecimal } from '../../../src/utils/decimal.js';
-import type { PortAccount, ReckleyPort, ReviewFilter } from './port.js';
+import { PortRefusal, type PortAccount, type ReckleyPort, type ReviewFilter, type TransactionPatch } from './port.js';
 
 export const READ_SCOPE = 'reckley:read';
 export const WRITE_SCOPE = 'reckley:write';
@@ -62,6 +73,9 @@ const AGGREGATE_ROW_CAP = 20_000;
 
 /** Rows the review queue will read before it says the count is partial. */
 const REVIEW_QUEUE_CAP = 5_000;
+
+/** Rows one write may name: enough for a sweep Claude has shown the person, small enough to read back. */
+export const MAX_WRITE_IDS = 50;
 
 /** The register's own payee identity: the description upper-cased and trimmed; the feed's placeholder is no payee at all. */
 const payeeKey = (description: string): string | null => {
@@ -94,6 +108,17 @@ const isoDay = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
   .describe('A calendar day, YYYY-MM-DD');
+
+const idList = z
+  .array(z.string().min(1))
+  .min(1)
+  .max(MAX_WRITE_IDS)
+  .describe(`Transaction ids from reckley_search_transactions, up to ${MAX_WRITE_IDS}`);
+
+const confirmFlag = z
+  .boolean()
+  .default(false)
+  .describe('True only when the person has explicitly agreed to this in the conversation; otherwise the row is left for them to review in the app');
 
 const dayOf = (date: Date | string): string =>
   (typeof date === 'string' ? new Date(date) : date).toISOString().slice(0, 10);
@@ -799,10 +824,316 @@ Use reckley_search_transactions with review='awaiting' and an account_id for the
     }
   );
 
-  // Write tools arrive in the next slice; a token without the write scope will
-  // never see them, because they are registered here only when it has it.
+
+  // ── Write tools: only a token carrying the write scope is shown them ─────
+  if (options.scopes.includes(WRITE_SCOPE)) {
+    registerWriteTools(server, port, lookups);
+  }
 
   return server;
+}
+
+/** A write refused on the ledger's rules: a tool error, in the ledger's words, and nothing changed. */
+const refusal = (text: string) => ({ content: [{ type: 'text' as const, text }], isError: true as const });
+
+/** Run a write; a PortRefusal is an answer, anything else is a failure. */
+async function attempt<R>(run: () => Promise<R>): Promise<R | ReturnType<typeof refusal>> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof PortRefusal) return refusal(error.message);
+    throw error;
+  }
+}
+
+const rowIds = (rows: Transaction[]): string => rows.map(row => row.id).join(', ');
+
+/**
+ * The write tools. Each is one register verb; each validates the whole
+ * request against the rows as they are NOW before touching any of them, so a
+ * refusal means nothing was changed — the same stance as the row editor and
+ * the sweep, which refuse a stale list rather than act on it.
+ */
+function registerWriteTools(server: McpServer, port: ReckleyPort, lookups: () => Promise<Lookups>): void {
+  /** The named rows, every one of them; an unknown id refuses the call. */
+  const rowsFor = async (ids: string[]): Promise<Transaction[]> => {
+    const unique = [...new Set(ids)];
+    const rows = await port.transactionsById(unique);
+    const found = new Set(rows.map(row => row.id));
+    const missing = unique.filter(id => !found.has(id));
+    if (missing.length > 0) {
+      throw new PortRefusal(`No transaction has id ${missing.join(', ')}. Nothing was changed; find ids with reckley_search_transactions.`);
+    }
+    // In the order they were asked for.
+    const byId = new Map(rows.map(row => [row.id, row]));
+    return unique.map(id => byId.get(id)!);
+  };
+
+  /** A transfer is filed by being one and a split files through its lines: neither takes a category. */
+  const mustTakeCategory = (rows: Transaction[]): void => {
+    const blocked = rows.filter(row => row.type === 'transfer' || row.isSplit === true);
+    if (blocked.length > 0) {
+      throw new PortRefusal(
+        `${blocked.length === 1 ? 'One of these rows' : `${blocked.length} of these rows`} cannot take a category: a transfer is filed by being one and a split files through its lines (${rowIds(blocked)}). Nothing was changed.`
+      );
+    }
+  };
+
+  /** A category a row may be filed under, as the editor's own list offers them. */
+  const categoryToFile = (id: string, look: Lookups): Category => {
+    const category = look.categories.get(id);
+    if (!category) throw new PortRefusal(`No category has id ${id}. Nothing was changed; find ids with reckley_list_categories.`);
+    if (category.isTransferCategory) {
+      throw new PortRefusal(`${category.name} is an account's To/From category: filing there makes a row a transfer, which is reckley_link_transfer or reckley_create_transfer_counterpart. Nothing was changed.`);
+    }
+    if (category.level === 'type') throw new PortRefusal(`${category.name} is a top-level group; file under one of the categories beneath it. Nothing was changed.`);
+    if (category.isActive === false) throw new PortRefusal(`${category.name} has been retired; pick a category still in use. Nothing was changed.`);
+    return category;
+  };
+
+  /** One update per row, in order; a refusal part-way says how far it got rather than "nothing". */
+  const eachRow = async (rows: Transaction[], patch: TransactionPatch): Promise<Transaction[]> => {
+    const after: Transaction[] = [];
+    for (const row of rows) {
+      try {
+        after.push(await port.updateTransaction(row.id, patch));
+      } catch (error) {
+        if (error instanceof PortRefusal && after.length > 0) {
+          throw new PortRefusal(`${after.length} of ${rows.length} were written (${rowIds(after)}) before the ledger refused: ${error.message}`);
+        }
+        throw error;
+      }
+    }
+    return after;
+  };
+
+  const written = (headline: string, rows: Transaction[], look: Lookups) => {
+    const described = rows.map(row => describeRow(row, look));
+    const body = { changed: described.length, transactions: described };
+    return {
+      content: [{ type: 'text' as const, text: [headline, '', ...described.map(rowLine)].join('\n') }],
+      structuredContent: body,
+    };
+  };
+
+  server.registerTool(
+    'reckley_set_category',
+    {
+      title: 'File transactions under a category',
+      description: `File one or more transactions (up to ${MAX_WRITE_IDS}) under a category, by id.
+
+By default the filing is a SUGGESTION: the category is written, marked as not yet confirmed, and the rows are put in To Review for the person to agree or change in the app — exactly what the app's own categoriser does. Pass confirm=true only when the person has explicitly agreed to this exact filing in the conversation; the category is then recorded as their choice and the rows leave review.
+
+Refuses, changing nothing, if any id is unknown, any row is a transfer or a split (those take no category), or the category is a To/From transfer category, a top-level group, or retired. Writes a category only; moves no money.`,
+      inputSchema: z.strictObject({
+        transaction_ids: idList,
+        category_id: z.string().min(1).describe('The category id, from reckley_list_categories'),
+        confirm: confirmFlag,
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ transaction_ids, category_id, confirm }) => attempt(async () => {
+      const [rows, look] = await Promise.all([rowsFor(transaction_ids), lookups()]);
+      mustTakeCategory(rows);
+      const category = categoryToFile(category_id, look);
+      const patch: TransactionPatch = confirm
+        ? { category: category.id, categoryConfirmed: true, needsReview: false }
+        : { category: category.id, categoryConfirmed: false, needsReview: true };
+      const after = await eachRow(rows, patch);
+      const path = categoryPath(category.id, look.categories) ?? category.name;
+      return written(
+        confirm
+          ? `Filed ${after.length} under ${path} as the person's own choice; review ended.`
+          : `Suggested ${path} for ${after.length}; left in To Review for the person to confirm in the app.`,
+        after,
+        look
+      );
+    })
+  );
+
+  server.registerTool(
+    'reckley_confirm_categories',
+    {
+      title: 'Confirm suggested categories',
+      description: `Record that the person agrees with the suggested category already on these transactions (up to ${MAX_WRITE_IDS}), by id. Use only when they have said so.
+
+Flips each category from suggested to confirmed and ends the row's review. Writes no category and no amount: rows whose category is already confirmed, or blank, are left as they are and not counted. To change a category, use reckley_set_category.`,
+      inputSchema: z.strictObject({ transaction_ids: idList }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ transaction_ids }) => attempt(async () => {
+      const rows = await rowsFor(transaction_ids);
+      const count = await port.confirmCategories(rows.map(row => row.id));
+      const [after, look] = await Promise.all([rowsFor(rows.map(row => row.id)), lookups()]);
+      return written(`Confirmed ${count} of ${rows.length}; the rest were already confirmed or had no category.`, after, look);
+    })
+  );
+
+  server.registerTool(
+    'reckley_update_transaction_text',
+    {
+      title: 'Edit a description or note',
+      description: `Change the description and/or the note on one transaction, by id. Touches nothing else: not the amount, date, account, category, review state or cleared mark. An empty note clears it. The previous wording stays in the ledger's audit log.`,
+      inputSchema: z.strictObject({
+        transaction_id: z.string().min(1).describe('The transaction id'),
+        description: z.string().trim().min(1).max(500).optional().describe('The new description'),
+        notes: z.string().max(2000).optional().describe('The new note; an empty string clears it'),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ transaction_id, description, notes }) => attempt(async () => {
+      if (description === undefined && notes === undefined) {
+        return refusal('Give a description, a note, or both. Nothing was changed.');
+      }
+      await rowsFor([transaction_id]);
+      const patch: TransactionPatch = {};
+      if (description !== undefined) patch.description = description;
+      if (notes !== undefined) patch.notes = notes;
+      const [after, look] = await Promise.all([port.updateTransaction(transaction_id, patch), lookups()]);
+      return written('Updated.', [after], look);
+    })
+  );
+
+  server.registerTool(
+    'reckley_mark_reviewed',
+    {
+      title: 'Mark transactions reviewed',
+      description: `End the review flag on transactions (up to ${MAX_WRITE_IDS}) the person has looked at and is happy with, by id. Use only when they have said so. Leaves category, confirmation and cleared state alone.
+
+Refuses, changing nothing, if any row has no category: an unfiled row stays in To Review whatever its flag, so file it with reckley_set_category or make it a transfer first.`,
+      inputSchema: z.strictObject({ transaction_ids: idList }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ transaction_ids }) => attempt(async () => {
+      const [rows, look] = await Promise.all([rowsFor(transaction_ids), lookups()]);
+      const unfiled = rows.filter(isUnfiled);
+      if (unfiled.length > 0) {
+        throw new PortRefusal(`${unfiled.length === 1 ? 'One of these rows has' : `${unfiled.length} of these rows have`} no category and would stay in To Review (${rowIds(unfiled)}). File them first. Nothing was changed.`);
+      }
+      const after = await eachRow(rows, { needsReview: false });
+      return written(`Marked ${after.length} reviewed.`, after, look);
+    })
+  );
+
+  server.registerTool(
+    'reckley_mark_cleared',
+    {
+      title: 'Mark transactions cleared',
+      description: `Tick transactions (up to ${MAX_WRITE_IDS}) off against a bank statement, or take the tick back, by id.
+
+The mark is a working flag: it settles nothing by itself and never changes a balance. Marking a row that is filed (it has a category, or is a transfer) also ends its review, as the app does; unmarking says nothing about review. Rows already in the asked-for state are not rewritten and not counted.`,
+      inputSchema: z.strictObject({
+        transaction_ids: idList,
+        cleared: z.boolean().describe('True to mark cleared, false to unmark'),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ transaction_ids, cleared }) => attempt(async () => {
+      const rows = await rowsFor(transaction_ids);
+      const count = await port.setCleared(rows.map(row => row.id), cleared);
+      const [after, look] = await Promise.all([rowsFor(rows.map(row => row.id)), lookups()]);
+      return written(`${cleared ? 'Marked' : 'Unmarked'} ${count} of ${rows.length}; the rest were already ${cleared ? 'cleared' : 'uncleared'}.`, after, look);
+    })
+  );
+
+  server.registerTool(
+    'reckley_link_transfer',
+    {
+      title: 'Link two rows as a transfer',
+      description: `Join two existing transactions in two different accounts as the two halves of one transfer between the person's own accounts. Bookkeeping only: no money moves anywhere. Both rows become transfers, each filed under the other account's To/From category, with their amounts untouched.
+
+The ledger refuses, changing nothing, unless the amounts are exactly opposite (or, across currencies, opposite in sign), neither row is split or already linked, and the accounts differ. By default the rows keep their review flags for the person to confirm in the app; pass confirm=true only when they have agreed to this specific pairing, and review ends on both.`,
+      inputSchema: z.strictObject({
+        transaction_id: z.string().min(1).describe('One side'),
+        counterpart_id: z.string().min(1).describe('The other side, in a different account'),
+        confirm: confirmFlag,
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ transaction_id, counterpart_id, confirm }) => attempt(async () => {
+      const pair = await port.linkTransfer(transaction_id, counterpart_id);
+      let rows = [pair.a, pair.b];
+      if (confirm) rows = await eachRow(rows, { needsReview: false });
+      const look = await lookups();
+      return written(confirm ? 'Linked as a transfer; review ended on both sides.' : 'Linked as a transfer; both sides left for the person to review.', rows, look);
+    })
+  );
+
+  server.registerTool(
+    'reckley_create_transfer_counterpart',
+    {
+      title: 'Create the other side of a transfer',
+      description: `Turn one existing transaction into a transfer by writing its other side into another of the person's accounts: a new row for the opposite amount on the same date, both rows linked and filed under each other's To/From category. Bookkeeping only: no money moves anywhere.
+
+Use when the other account has no row for this movement. When it already has one, use reckley_link_transfer instead, or a duplicate will be created. The ledger refuses, changing nothing, for a zero amount, a split, a row already linked, the same account, or accounts in different currencies. By default the source row keeps its review flag; pass confirm=true only when the person has agreed to this, and its review ends.`,
+      inputSchema: z.strictObject({
+        transaction_id: z.string().min(1).describe('The existing row'),
+        target_account_id: z.string().min(1).describe('The account the other side belongs in, from reckley_list_accounts'),
+        confirm: confirmFlag,
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ transaction_id, target_account_id, confirm }) => attempt(async () => {
+      const made = await port.createTransferCounterpart(transaction_id, target_account_id);
+      let source = made.source;
+      if (confirm) [source] = await eachRow([source], { needsReview: false });
+      const look = await lookups();
+      return written(
+        confirm ? 'Created the other side and linked the two; review ended.' : 'Created the other side and linked the two; the original left for the person to review.',
+        [source, made.counterpart],
+        look
+      );
+    })
+  );
+
+  server.registerTool(
+    'reckley_add_transaction',
+    {
+      title: 'Add a transaction',
+      description: `Record one manual transaction the person has described: money in or out of one of their accounts on a date, with a description and optionally a category and a note. Writes a row in the ledger; moves no money anywhere. NOT idempotent: calling twice records it twice.
+
+Give the amount as a positive number; kind decides the sign ('expense' for money out, 'income' for money in). A transfer between the person's own accounts is not added here: record one side and use reckley_create_transfer_counterpart.
+
+A category given without confirm=true is a suggestion and the row waits in To Review; with no category the row is unfiled and also waits. Pass confirm=true only when the person chose the category themselves. Refuses, changing nothing, for an unknown or closed account or an unusable category.`,
+      inputSchema: z.strictObject({
+        account_id: z.string().min(1).describe('The account, from reckley_list_accounts'),
+        date: isoDay,
+        description: z.string().trim().min(1).max(500).describe('Who was paid or who paid, as the person would write it'),
+        amount: z.number().positive().describe('The amount as a positive number; kind gives the sign'),
+        kind: z.enum(['income', 'expense']).describe("'expense' for money out, 'income' for money in"),
+        category_id: z.string().min(1).optional().describe('A category id from reckley_list_categories; omit to leave the row unfiled'),
+        notes: z.string().max(2000).optional().describe('A note on the row'),
+        confirm: confirmFlag,
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ account_id, date, description, amount, kind, category_id, notes, confirm }) => attempt(async () => {
+      const look = await lookups();
+      const account = look.accounts.get(account_id);
+      if (!account) throw new PortRefusal(`No account has id ${account_id}. Nothing was changed; find ids with reckley_list_accounts.`);
+      if (!account.isActive) throw new PortRefusal(`${account.name} is closed; reopen it in the app or pick another account. Nothing was changed.`);
+      const category = category_id === undefined ? undefined : categoryToFile(category_id, look);
+      const created = await port.createTransaction({
+        accountId: account.id,
+        date,
+        description,
+        amount: signTransactionAmount(amount, kind),
+        type: kind,
+        category: category?.id,
+        notes,
+        categoryConfirmed: category === undefined ? true : confirm,
+        // An unfiled row is held in To Review by being unfiled; a suggested
+        // one is flagged, as the app's own suggestion verb flags it.
+        needsReview: category !== undefined && !confirm,
+      });
+      const headline = category === undefined
+        ? 'Added, with no category; it waits in To Review.'
+        : confirm
+          ? `Added and filed under ${categoryPath(category.id, look.categories) ?? category.name}.`
+          : `Added with ${categoryPath(category.id, look.categories) ?? category.name} suggested; it waits in To Review.`;
+      return written(headline, [created], look);
+    })
+  );
 }
 
 /** The names the read listing registers, for the specs and the listing page. */
@@ -817,4 +1148,16 @@ export const READ_TOOL_NAMES = [
   'reckley_net_worth',
   'reckley_review_queue',
   'reckley_budget_status',
+] as const;
+
+/** The names only the Complete Access listing registers, and only for a token with the write scope. */
+export const WRITE_TOOL_NAMES = [
+  'reckley_set_category',
+  'reckley_confirm_categories',
+  'reckley_update_transaction_text',
+  'reckley_mark_reviewed',
+  'reckley_mark_cleared',
+  'reckley_link_transfer',
+  'reckley_create_transfer_counterpart',
+  'reckley_add_transaction',
 ] as const;

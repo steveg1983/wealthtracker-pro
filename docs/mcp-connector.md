@@ -125,18 +125,22 @@ tool that does both.
 | `reckley_review_queue` | what is in To Review, grouped by account |
 
 **Write (Complete Access only)** — each calls one existing verb, each
-prompts in Claude:
+prompts in Claude (`destructiveHint`), each names up to 50 rows, and each
+validates the whole request against the rows as they are now before touching
+any of them, so a refusal means nothing was changed — the editor's and the
+sweep's stance that a stale list is refused rather than acted on. Built
+22 Oct 2026:
 
-| Tool | Verb |
-| --- | --- |
-| `reckley_set_category` | one or many rows → a category; a suggestion unless told to confirm (see §5) |
-| `reckley_confirm_categories` | `confirm_transaction_categories` |
-| `reckley_update_transaction_text` | description and notes only, via `update_transaction_atomic` |
-| `reckley_mark_reviewed` | ends review on the named rows |
-| `reckley_mark_cleared` | `set_transactions_cleared` |
-| `reckley_link_transfer` | `link_transfer_pair` with an existing counterpart |
-| `reckley_create_transfer_counterpart` | `create_transfer_counterpart` |
-| `reckley_add_transaction` | `create_transaction_atomic`, manual rows only |
+| Tool | Verb | Review |
+| --- | --- | --- |
+| `reckley_set_category` | `update_transaction_atomic` per row | a suggestion unless `confirm` (§5); refuses transfers, splits, To/From categories, groups, retired categories |
+| `reckley_confirm_categories` | `confirm_transaction_categories` | ends it; counts only rows that were suggestions |
+| `reckley_update_transaction_text` | `update_transaction_atomic`, description and notes only | untouched |
+| `reckley_mark_reviewed` | `update_transaction_atomic`, `needs_review = false` | refuses an unfiled row — it would stay in To Review whatever its flag |
+| `reckley_mark_cleared` | `set_transactions_cleared` | the verb's own rule: a filed row that is marked is reviewed |
+| `reckley_link_transfer` | `link_transfer_pair` | both sides stay in review unless `confirm` |
+| `reckley_create_transfer_counterpart` | `create_transfer_counterpart` | the source stays in review unless `confirm` |
+| `reckley_add_transaction` | `create_transaction_atomic`, manual rows only; not idempotent | a category is a suggestion unless `confirm`; no category is unfiled |
 
 Not in the first release: deletes, splits, bank connections, billing,
 budgets and categories themselves. A delete is a verb with a confirmation
@@ -155,10 +159,15 @@ descriptions say so in those words.
   that an automatic filing is a suggestion that stays in review until a
   person agrees. Claude acting on a
   conversation is closer to the categoriser than to a person at the
-  register, so `reckley_set_category` writes `category_confirmed = false`
-  and leaves `needs_review` alone by default. A `confirm: true` argument,
-  which Claude passes only when the user has said so, uses the deliberate
-  verb instead. Either way the To Review list keeps the trail.
+  register, so `reckley_set_category` writes what the app's own suggestion
+  verb writes (`suggest_category_to_uncategorized`, 11 Sep 2026: "a machine
+  guess stays a guess") — `category_confirmed = false` AND
+  `needs_review = true` — so the row is visibly provisional and in To
+  Review. A `confirm: true` argument, which Claude passes only when the user
+  has said so in the conversation, writes the editor's own save instead:
+  confirmed, review ended. The same flag is on the two transfer tools and on
+  adding a row, for the same reason. Either way the To Review list keeps the
+  trail.
 - **Bank text is untrusted.** Descriptions and notes come from banks and
   files. Tool results return them as data, never as anything
   instruction-shaped, and tool descriptions describe the tool, never tell
@@ -167,8 +176,16 @@ descriptions say so in those words.
   capped at 25,000 characters by returning fewer rows, never by cutting
   text. Money is a string with its currency.
 - **Provenance.** Every write goes through the same verbs as the register,
-  so the audit log records it; a `source` of `mcp` is carried where the verb
-  accepts metadata so a row can later say Claude filed it.
+  so the audit log records it. The log's actor column is derived from the
+  caller's session token, which the service role does not carry, so the port
+  stamps `metadata.mcp` (the OAuth client id and the instant) on every row
+  it writes through `update_transaction_atomic` or
+  `create_transaction_atomic`, merged over what the row's metadata already
+  held; the audit entry's after_data then carries the stamp. The three
+  count-returning verbs (confirm, clear, link) take no metadata, so their
+  entries say what changed but not that Claude did it — a limit worth a
+  `p_actor` argument on those verbs one day, not a reason to write them any
+  other way.
 
 ## 6. Hosting and URLs
 
