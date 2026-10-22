@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The Reckley connector's evaluation set, per Anthropic's MCP guide: ten
+  questions a model with NO other context must answer through the connector's
+  read tools alone, each with one verifiable answer.
+
+  LEDGER. The showcase ledger (scripts/seedShowcaseUser.mts): ten invented
+  years to a fixed 29 August 2026, deterministic by construction, seeded into
+  the review account. Every question is pinned to a closed window so its
+  answer does not move as that account is used; every figure is invented.
+  Re-verify after any reseed that changes the seeder — the answers are tied to
+  the ledger as seeded on 29 August 2026.
+
+  HOW TO RUN. Serve that ledger on localhost with no OAuth in front
+  (scripts/mcp-local.mts, named by the review account's email), then point
+  the mcp-builder skill's harness at it over HTTP with an Anthropic API key.
+  The exact commands are in docs/mcp-connector.md, section 9; one tool at a
+  time by hand is scripts/mcp-call.mts.
+
+  WHAT EACH ONE EXERCISES. 1 payee ranking inside one category; 2 a month
+  superlative; 3 two points of the net-worth series; 4 a two-hop (find the
+  row, then the month's totals); 5 a balance at a past date, which no tool
+  gives directly (today's balance walked back through the account's rows, or
+  the series' "owe" on a month-end when the cards were clear); 6 a tax-year
+  window on one account; 7 a threshold crossing in a monthly series of rows;
+  8 a step in a termly payment; 9 the earliest of a kind, with results that
+  arrive newest first; 10 a tax-year sum of transfers.
+-->
+<evaluation>
+  <qa_pair>
+    <question>Across calendar year 2024, which single payee accounted for the most money spent on family holidays? Give the payee name exactly as it appears in the ledger.</question>
+    <answer>MARRIOTT RESORTS</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>In calendar year 2024, which month had the largest surplus of income over spending? Answer as YYYY-MM and nothing else.</question>
+    <answer>2024-08</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>By how much did net worth rise between the end of January 2024 and the end of December 2024, in GBP? Answer as a plain number with two decimal places, no currency symbol and no thousands separator.</question>
+    <answer>95916.47</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>In 2024 the family hired a car abroad while on holiday. In the calendar month that hire was charged, how much was spent on family holidays in total, in GBP? Answer as a plain number with two decimal places, no currency symbol and no thousands separator.</question>
+    <answer>8509.96</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What was the outstanding balance on the home mortgage at the end of June 2024, in GBP? Give the amount owed as a positive plain number with two decimal places, no currency symbol and no thousands separator.</question>
+    <answer>85216.76</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>How much interest did the instant-access savings account earn during the UK tax year that ran from 6 April 2023 to 5 April 2024, in GBP? Answer as a plain number with two decimal places, no currency symbol and no thousands separator.</question>
+    <answer>3320.45</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>The monthly net salary paid into the current account rises each year. In which month did a single salary payment first exceed 18,000 GBP? Answer as YYYY-MM and nothing else.</question>
+    <answer>2024-04</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>School fees are paid once a term. When the termly fee went up during 2024, by how much did it rise, in GBP? Answer as a plain number with two decimal places, no currency symbol and no thousands separator.</question>
+    <answer>750.00</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>On what date was the first ever payment made from the current account to settle the rewards credit card? Answer as YYYY-MM-DD and nothing else.</question>
+    <answer>2016-09-26</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>How much in total was paid into the stocks and shares ISA during the UK tax year that ran from 6 April 2016 to 5 April 2017, in GBP? Answer as a plain number with two decimal places, no currency symbol and no thousands separator.</question>
+    <answer>10556.67</answer>
+  </qa_pair>
+</evaluation>
