@@ -15,6 +15,8 @@ import {
   CHARACTER_LIMIT,
   READ_SCOPE,
   READ_TOOL_NAMES,
+  WRITE_SCOPE,
+  WRITE_TOOL_NAMES,
   createReckleyServer,
 } from '../../../../api/_lib/mcp/server';
 import type { ReckleyPort } from '../../../../api/_lib/mcp/port';
@@ -41,6 +43,32 @@ const call = async (name: string, args: Record<string, unknown> = {}): Promise<T
   (await client.callTool({ name, arguments: args })) as ToolResult;
 
 const textOf = (result: ToolResult): string => result.content.map(block => block.text ?? '').join('\n');
+
+type Described = {
+  id: string;
+  account: string;
+  description: string;
+  amount: string;
+  type: string;
+  category: string | null;
+  category_id: string | null;
+  category_is_suggested: boolean;
+  awaiting_review: boolean;
+  cleared: boolean;
+  notes: string | null;
+};
+type Written = { changed: number; transactions: Described[] };
+
+/** Reconnect with a token that carries the write scope, over a fresh copy of the ledger. */
+async function connectForWriting(port: ReckleyPort = fakePort()): Promise<void> {
+  await client.close();
+  await handler.close();
+  await connect(port, [READ_SCOPE, WRITE_SCOPE]);
+}
+
+/** One row as the connector reads it back. */
+const rowNow = async (id: string): Promise<Described> =>
+  (await call('reckley_get_transaction', { id })).structuredContent as Described;
 
 beforeEach(async () => {
   await connect();
@@ -347,6 +375,246 @@ describe('reckley_budget_status', () => {
     await handler.close();
     await connect(fakePort({ budgets: [] }));
     expect(textOf(await call('reckley_budget_status'))).toBe('No active budgets.');
+  });
+});
+
+// ── The write side ──────────────────────────────────────────────────────────
+
+describe('the tool list with the write scope', () => {
+  it('adds the write tools, each titled and marked destructive, and nothing a read token sees changes', async () => {
+    await connectForWriting();
+    const { tools } = await client.listTools();
+    expect(tools.map(tool => tool.name).sort()).toEqual([...READ_TOOL_NAMES, ...WRITE_TOOL_NAMES].sort());
+    for (const tool of tools.filter(tool => (WRITE_TOOL_NAMES as readonly string[]).includes(tool.name))) {
+      expect(tool.title, tool.name).toBeTruthy();
+      expect(tool.annotations?.readOnlyHint, tool.name).toBe(false);
+      expect(tool.annotations?.destructiveHint, tool.name).toBe(true);
+      expect(tool.name.length).toBeLessThanOrEqual(64);
+    }
+  });
+
+  it('is withheld from a read-only token even on the server that could register it', async () => {
+    const { tools } = await client.listTools();
+    expect(tools.map(tool => tool.name).sort()).toEqual([...READ_TOOL_NAMES].sort());
+    await expect(client.callTool({ name: 'reckley_set_category', arguments: { transaction_ids: ['t6'], category_id: 'det-phone' } }))
+      .rejects.toThrow(/not found/);
+  });
+});
+
+describe('reckley_set_category', () => {
+  beforeEach(() => connectForWriting());
+
+  it('files as a suggestion by default — unconfirmed and flagged for review, as the app’s own categoriser does', async () => {
+    const result = await call('reckley_set_category', { transaction_ids: ['t6'], category_id: 'det-phone' });
+    expect(result.isError).toBeUndefined();
+    expect(textOf(result)).toMatch(/^Suggested Bills \(Household\) > Telephone for 1; left in To Review/);
+    const body = result.structuredContent as Written;
+    expect(body.changed).toBe(1);
+    expect(body.transactions[0]).toMatchObject({ id: 't6', category_id: 'det-phone', category_is_suggested: true, awaiting_review: true });
+    expect(await rowNow('t6')).toMatchObject({ category_is_suggested: true, awaiting_review: true });
+  });
+
+  it('records the person’s own choice when told to confirm, and the rows leave review', async () => {
+    const result = await call('reckley_set_category', { transaction_ids: ['t2', 't6'], category_id: 'det-groceries', confirm: true });
+    expect(textOf(result)).toMatch(/^Filed 2 under Food > Groceries as the person's own choice; review ended\./);
+    for (const id of ['t2', 't6']) {
+      expect(await rowNow(id)).toMatchObject({ category_id: 'det-groceries', category_is_suggested: false, awaiting_review: false });
+    }
+  });
+
+  it('refuses the whole request, changing nothing, for an unknown id, a transfer, a split, a To/From category, a group or a retired category', async () => {
+    const cases: [Record<string, unknown>, RegExp][] = [
+      [{ transaction_ids: ['t6', 'nope'], category_id: 'det-phone' }, /No transaction has id nope/],
+      [{ transaction_ids: ['t4'], category_id: 'det-phone' }, /a transfer is filed by being one/],
+      [{ transaction_ids: ['t8'], category_id: 'det-phone' }, /a split files through its lines/],
+      [{ transaction_ids: ['t6'], category_id: 'tofrom-savings' }, /To\/From category/],
+      [{ transaction_ids: ['t6'], category_id: 'type-expense' }, /top-level group/],
+      [{ transaction_ids: ['t6'], category_id: 'det-retired' }, /retired/],
+      [{ transaction_ids: ['t6'], category_id: 'missing' }, /No category has id missing/],
+    ];
+    for (const [args, expected] of cases) {
+      const result = await call('reckley_set_category', args);
+      expect(result.isError, JSON.stringify(args)).toBe(true);
+      expect(textOf(result)).toMatch(expected);
+      expect(textOf(result)).toMatch(/Nothing was changed/);
+    }
+    expect(await rowNow('t6')).toMatchObject({ category_id: null, awaiting_review: true });
+  });
+
+  it('will not take more ids than the cap', async () => {
+    const result = await call('reckley_set_category', { transaction_ids: Array.from({ length: 51 }, (_, i) => `t${i}`), category_id: 'det-phone' });
+    expect(result.isError).toBe(true);
+  });
+});
+
+describe('reckley_confirm_categories', () => {
+  beforeEach(() => connectForWriting());
+
+  it('confirms only rows whose category is a suggestion, ends their review, and counts those alone', async () => {
+    const result = await call('reckley_confirm_categories', { transaction_ids: ['t2', 't1', 't6'] });
+    expect(textOf(result)).toMatch(/^Confirmed 1 of 3/);
+    expect(await rowNow('t2')).toMatchObject({ category_id: 'det-phone', category_is_suggested: false, awaiting_review: false });
+    expect(await rowNow('t6')).toMatchObject({ category_id: null, awaiting_review: true });
+  });
+
+  it('refuses an unknown id', async () => {
+    const result = await call('reckley_confirm_categories', { transaction_ids: ['t2', 'nope'] });
+    expect(result.isError).toBe(true);
+    expect(await rowNow('t2')).toMatchObject({ category_is_suggested: true });
+  });
+});
+
+describe('reckley_update_transaction_text', () => {
+  beforeEach(() => connectForWriting());
+
+  it('changes the description and the note and nothing else', async () => {
+    const before = await rowNow('t2');
+    const result = await call('reckley_update_transaction_text', { transaction_id: 't2', description: 'Skyline Telecom', notes: 'Monthly broadband' });
+    expect(textOf(result)).toMatch(/^Updated\./);
+    const after = await rowNow('t2');
+    expect(after).toMatchObject({ description: 'Skyline Telecom', notes: 'Monthly broadband' });
+    expect(after).toMatchObject({ amount: before.amount, category_id: before.category_id, category_is_suggested: true, awaiting_review: true, cleared: before.cleared });
+  });
+
+  it('clears a note with an empty string, and refuses a call that changes nothing', async () => {
+    await call('reckley_update_transaction_text', { transaction_id: 't8', notes: '' });
+    expect((await rowNow('t8')).notes).toBeNull();
+    const nothing = await call('reckley_update_transaction_text', { transaction_id: 't8' });
+    expect(nothing.isError).toBe(true);
+    expect(textOf(nothing)).toMatch(/Give a description, a note, or both/);
+  });
+});
+
+describe('reckley_mark_reviewed', () => {
+  beforeEach(() => connectForWriting());
+
+  it('ends review on filed rows and leaves their category and confirmation alone', async () => {
+    const result = await call('reckley_mark_reviewed', { transaction_ids: ['t2'] });
+    expect(textOf(result)).toMatch(/^Marked 1 reviewed\./);
+    expect(await rowNow('t2')).toMatchObject({ awaiting_review: false, category_id: 'det-phone', category_is_suggested: true });
+  });
+
+  it('refuses an unfiled row, which would stay in To Review whatever its flag', async () => {
+    const result = await call('reckley_mark_reviewed', { transaction_ids: ['t2', 't6'] });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toMatch(/no category and would stay in To Review \(t6\)/);
+    expect(await rowNow('t2')).toMatchObject({ awaiting_review: true });
+  });
+});
+
+describe('reckley_mark_cleared', () => {
+  beforeEach(() => connectForWriting());
+
+  it('marks, counts only rows that changed, and ends review on a filed row as the app does', async () => {
+    const result = await call('reckley_mark_cleared', { transaction_ids: ['t1', 't2', 't6'], cleared: true });
+    expect(textOf(result)).toMatch(/^Marked 2 of 3; the rest were already cleared\./);
+    expect(await rowNow('t2')).toMatchObject({ cleared: true, awaiting_review: false });
+    // Unfiled: ticked, but still waiting to be filed.
+    expect(await rowNow('t6')).toMatchObject({ cleared: true, awaiting_review: true });
+  });
+
+  it('unmarks without saying anything about review', async () => {
+    await call('reckley_mark_cleared', { transaction_ids: ['t2'], cleared: true });
+    const result = await call('reckley_mark_cleared', { transaction_ids: ['t2'], cleared: false });
+    expect(textOf(result)).toMatch(/^Unmarked 1 of 1/);
+    expect(await rowNow('t2')).toMatchObject({ cleared: false, awaiting_review: false });
+  });
+});
+
+const savingsSide: Transaction = {
+  ...transactions[0],
+  id: 's-in',
+  accountId: 'acc-savings',
+  amount: 45,
+  type: 'income',
+  category: '',
+  description: 'FROM CURRENT',
+  needsReview: true,
+};
+
+describe('reckley_link_transfer', () => {
+  it('joins two rows as one transfer, each filed under the other account’s To/From, and leaves both in review by default', async () => {
+    await connectForWriting(fakePort({ transactions: [...transactions, savingsSide] }));
+    const result = await call('reckley_link_transfer', { transaction_id: 't1', counterpart_id: 's-in' });
+    expect(textOf(result)).toMatch(/^Linked as a transfer; both sides left for the person to review\./);
+    const body = result.structuredContent as Written;
+    expect(body.transactions.map(row => [row.id, row.type, row.amount, row.category])).toEqual([
+      ['t1', 'transfer', '-45.00 GBP', 'Transfer with Savings'],
+      ['s-in', 'transfer', '45.00 GBP', 'Transfer with Current Account'],
+    ]);
+    expect((await rowNow('s-in')).awaiting_review).toBe(true);
+  });
+
+  it('ends review on both sides when told to confirm', async () => {
+    await connectForWriting(fakePort({ transactions: [...transactions, { ...savingsSide }] }));
+    const result = await call('reckley_link_transfer', { transaction_id: 't1', counterpart_id: 's-in', confirm: true });
+    expect(textOf(result)).toMatch(/review ended on both sides/);
+    expect((await rowNow('s-in')).awaiting_review).toBe(false);
+  });
+
+  it('passes the ledger’s refusal on in its own words, having changed nothing', async () => {
+    await connectForWriting();
+    const result = await call('reckley_link_transfer', { transaction_id: 't1', counterpart_id: 't7' });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toMatch(/a transfer needs two different accounts\. Nothing was changed\./);
+    expect((await rowNow('t1')).type).toBe('expense');
+  });
+});
+
+describe('reckley_create_transfer_counterpart', () => {
+  beforeEach(() => connectForWriting());
+
+  it('writes the other side into the named account and links the two', async () => {
+    const result = await call('reckley_create_transfer_counterpart', { transaction_id: 't1', target_account_id: 'acc-savings' });
+    expect(textOf(result)).toMatch(/^Created the other side and linked the two; the original left for the person to review\./);
+    const body = result.structuredContent as Written;
+    expect(body.transactions.map(row => [row.account, row.type, row.amount])).toEqual([
+      ['Current Account', 'transfer', '-45.00 GBP'],
+      ['Savings', 'transfer', '45.00 GBP'],
+    ]);
+  });
+
+  it('refuses the same account, in the ledger’s words', async () => {
+    const result = await call('reckley_create_transfer_counterpart', { transaction_id: 't1', target_account_id: 'acc-current' });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toMatch(/a transfer needs two different accounts/);
+  });
+});
+
+describe('reckley_add_transaction', () => {
+  beforeEach(() => connectForWriting());
+
+  it('records spending as a negative amount with the category suggested and the row in To Review', async () => {
+    const result = await call('reckley_add_transaction', {
+      account_id: 'acc-current', date: '2026-10-12', description: 'Window cleaner', amount: 12.5, kind: 'expense', category_id: 'det-phone',
+    });
+    expect(textOf(result)).toMatch(/^Added with Bills \(Household\) > Telephone suggested; it waits in To Review\./);
+    const body = result.structuredContent as Written;
+    expect(body.transactions[0]).toMatchObject({ account: 'Current Account', amount: '-12.50 GBP', type: 'expense', category_is_suggested: true, awaiting_review: true });
+  });
+
+  it('records income as positive, as the person’s own filing when confirmed, and unfiled when no category is given', async () => {
+    const filed = await call('reckley_add_transaction', {
+      account_id: 'acc-savings', date: '2026-10-12', description: 'Interest', amount: 3, kind: 'income', category_id: 'det-salary', confirm: true,
+    });
+    expect((filed.structuredContent as Written).transactions[0]).toMatchObject({ amount: '3.00 GBP', category_is_suggested: false, awaiting_review: false });
+    const blank = await call('reckley_add_transaction', {
+      account_id: 'acc-savings', date: '2026-10-12', description: 'Unknown credit', amount: 3, kind: 'income',
+    });
+    expect(textOf(blank)).toMatch(/^Added, with no category; it waits in To Review\./);
+    expect((blank.structuredContent as Written).transactions[0]).toMatchObject({ category_id: null, awaiting_review: true });
+  });
+
+  it('refuses a closed account, an unknown account and a To/From category, writing nothing', async () => {
+    const closed = await call('reckley_add_transaction', { account_id: 'acc-old', date: '2026-10-12', description: 'x', amount: 1, kind: 'expense' });
+    expect(textOf(closed)).toMatch(/Old Card is closed/);
+    const unknown = await call('reckley_add_transaction', { account_id: 'acc-none', date: '2026-10-12', description: 'x', amount: 1, kind: 'expense' });
+    expect(textOf(unknown)).toMatch(/No account has id acc-none/);
+    const transfer = await call('reckley_add_transaction', { account_id: 'acc-current', date: '2026-10-12', description: 'x', amount: 1, kind: 'expense', category_id: 'tofrom-savings' });
+    expect(textOf(transfer)).toMatch(/To\/From category/);
+    for (const result of [closed, unknown, transfer]) expect(result.isError).toBe(true);
+    const search = await call('reckley_search_transactions', { text: 'x', response_format: 'json' });
+    expect((search.structuredContent as { total: number }).total).toBe(0);
   });
 });
 

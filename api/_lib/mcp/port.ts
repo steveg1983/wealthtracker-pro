@@ -17,6 +17,24 @@
  * through `computeIncomeExpense`, budgets through `evaluateBudgets`. One
  * semantics for the register and for Claude, or the two would disagree about
  * the same month.
+ *
+ * ── THE WRITE SIDE CALLS THE REGISTER'S VERBS AND NOTHING ELSE ──────────────
+ * Every write is one of the atomic RPCs the app itself uses —
+ * `update_transaction_atomic`, `confirm_transaction_categories`,
+ * `set_transactions_cleared`, `link_transfer_pair`,
+ * `create_transfer_counterpart`, `create_transaction_atomic` — each carrying
+ * the audit log, the owner guard (`p_user_id`, never NULL: NULL there means
+ * "no owner named", not "me") and the review semantics the migrations argue
+ * out. A precondition the database refuses comes back as a `PortRefusal`
+ * whose message is the database's own sentence, written for a person; a
+ * failure of the transport is a `PortError`, as on the read side.
+ *
+ * The audit log's actor column is derived from the caller's session token,
+ * which the service role does not carry, so a row written here would read as
+ * written by nobody. Each write therefore stamps `metadata.mcp` — the OAuth
+ * client id and the instant — merged over whatever the row's metadata already
+ * held (the feed keeps adoption notes there), so a row can later say Claude
+ * filed it, and the audit entry's after_data shows the stamp.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -85,6 +103,47 @@ export interface RowsInRange {
   capped: boolean;
 }
 
+/** What a write tool may change on one row; a field is written only when present. */
+export interface TransactionPatch {
+  description?: string;
+  /** An empty string clears the note, as the editor's own save does. */
+  notes?: string;
+  /** A category id; the register's `category` column holds the id as text. */
+  category?: string;
+  categoryConfirmed?: boolean;
+  needsReview?: boolean;
+}
+
+/** A manual row, as the Add form would submit it: the amount already signed. */
+export interface NewTransaction {
+  accountId: string;
+  /** YYYY-MM-DD. */
+  date: string;
+  description: string;
+  /** Signed: spending negative, income positive (utils/transactionAmount). */
+  amount: number;
+  type: 'income' | 'expense';
+  category?: string;
+  notes?: string;
+  /** False when the category is Claude's suggestion rather than the person's choice. */
+  categoryConfirmed: boolean;
+  /** True to leave the row in To Review — what a suggested filing does. */
+  needsReview: boolean;
+}
+
+/** Who is writing, for the provenance stamp. */
+export interface WriteProvenance {
+  /** The OAuth client the token was issued to (Claude's registration). */
+  clientId: string;
+}
+
+/**
+ * A write the ledger refused on its own rules — a missing row, a split that
+ * cannot become a transfer, amounts that are not opposite. The message is for
+ * the person: it names the rule, and nothing was changed.
+ */
+export class PortRefusal extends Error {}
+
 export interface ReckleyPort {
   listAccounts(): Promise<PortAccount[]>;
   searchTransactions(filter: TransactionFilter, page: PageRequest): Promise<PageOf<Transaction>>;
@@ -95,6 +154,23 @@ export interface ReckleyPort {
   transactionsBetween(from: string, to: string, cap: number): Promise<RowsInRange>;
   /** Every non-archived row awaiting review (the app's own predicate), oldest first, up to `cap`. */
   reviewQueue(cap: number): Promise<{ rows: Transaction[]; capped: boolean }>;
+
+  // ── Writes: each one register verb, each refusing on the verb's own rules ──
+
+  /** The rows with these ids that belong to this ledger; an unknown id is simply absent. */
+  transactionsById(ids: string[]): Promise<Transaction[]>;
+  /** `update_transaction_atomic` on one row; the row as written. */
+  updateTransaction(id: string, patch: TransactionPatch): Promise<Transaction>;
+  /** `confirm_transaction_categories`: how many rows were actually confirmed. */
+  confirmCategories(ids: string[]): Promise<number>;
+  /** `set_transactions_cleared`: how many rows actually changed. */
+  setCleared(ids: string[], cleared: boolean): Promise<number>;
+  /** `link_transfer_pair`: both sides as written. */
+  linkTransfer(idA: string, idB: string): Promise<{ a: Transaction; b: Transaction }>;
+  /** `create_transfer_counterpart`: the source as rewritten and the new other side. */
+  createTransferCounterpart(id: string, targetAccountId: string): Promise<{ source: Transaction; counterpart: Transaction }>;
+  /** `create_transaction_atomic`: the new row. */
+  createTransaction(input: NewTransaction): Promise<Transaction>;
 }
 
 // ── The Supabase half ───────────────────────────────────────────────────────
@@ -117,6 +193,7 @@ interface TransactionRow {
   linked_transfer_id: string | null;
   is_reconciled: boolean | null;
   archived: boolean | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 const TRANSACTION_COLUMNS =
@@ -279,12 +356,58 @@ const fail = (what: string, error: { message: string }): never => {
 };
 
 /**
+ * A verb's RAISE EXCEPTION, as PostgREST relays it. The migrations write
+ * their refusals for a person ("a split transaction cannot become a transfer
+ * — remove the split first"), so those sentences are passed on as they are;
+ * the two bare identifiers are given words here. Anything else is the
+ * transport's problem, not the ledger's answer.
+ */
+const refuseOrFail = (what: string, error: { message: string; code?: string }): never => {
+  const code = error.code ?? '';
+  if (code === 'P0002' || /transaction_not_found/.test(error.message)) {
+    throw new PortRefusal('That transaction is not in this ledger. Nothing was changed.');
+  }
+  if (/account_not_found_or_not_owned/.test(error.message)) {
+    throw new PortRefusal('That account is not in this ledger. Nothing was changed.');
+  }
+  if (code === 'P0001' || code === '22023' || code === '28000') {
+    throw new PortRefusal(`${error.message}. Nothing was changed.`);
+  }
+  return fail(what, error);
+};
+
+/** `metadata.mcp` over what the row already held: the feed keeps its own notes there. */
+const stamp = (existing: Record<string, unknown> | null | undefined, who: WriteProvenance, at: Date): Record<string, unknown> => ({
+  ...(existing ?? {}),
+  mcp: { client_id: who.clientId, at: at.toISOString() },
+});
+
+/** The row a verb hands back (`RETURNS public.transactions`, or a jsonb of one), in the app's shape. */
+const rowFromVerb = (what: string, value: unknown): Transaction => {
+  if (!value || typeof value !== 'object' || typeof (value as { id?: unknown }).id !== 'string') {
+    throw new PortError(what, 'the verb returned no row');
+  }
+  return toTransaction(value as TransactionRow);
+};
+
+/** `RETURNS integer`, and never "all of them" when it is not (transactionService's rule). */
+const countFromVerb = (what: string, value: unknown): number => {
+  if (typeof value !== 'number') throw new PortError(what, 'the verb returned no count');
+  return value;
+};
+
+/**
  * The port over the service-role client, scoped to one ledger user.
  *
  * `userId` is the `users.id` the Clerk token resolved to — never a value a
  * tool argument could supply.
  */
-export function createSupabasePort(supabase: SupabaseClient, userId: string): ReckleyPort {
+export function createSupabasePort(
+  supabase: SupabaseClient,
+  userId: string,
+  provenance: WriteProvenance = { clientId: 'unknown' },
+  now: () => Date = () => new Date()
+): ReckleyPort {
   /**
    * Opening balance plus every row the account holds — the figure the
    * register shows — by account id.
@@ -485,6 +608,100 @@ export function createSupabasePort(supabase: SupabaseClient, userId: string): Re
         return data ?? [];
       }, cap);
       return { rows: paged.rows.map(toTransaction), capped: paged.capped };
+    },
+
+    async transactionsById(ids) {
+      if (ids.length === 0) return [];
+      const { data, error } = await supabase
+        .from('transactions')
+        .select<string, TransactionRow>(TRANSACTION_COLUMNS)
+        .eq('user_id', userId)
+        .in('id', ids);
+      if (error) return fail('transactions', error);
+      return (data ?? []).map(toTransaction);
+    },
+
+    async updateTransaction(id, patch) {
+      // The verb replaces `metadata` whole, so the stamp is merged over what
+      // the row holds now rather than written on its own.
+      const current = await supabase
+        .from('transactions')
+        .select<string, Pick<TransactionRow, 'metadata'>>('metadata')
+        .eq('user_id', userId)
+        .eq('id', id)
+        .maybeSingle();
+      if (current.error) return fail('the transaction', current.error);
+      if (!current.data) throw new PortRefusal('That transaction is not in this ledger. Nothing was changed.');
+      const p: Record<string, unknown> = { metadata: stamp(current.data.metadata, provenance, now()) };
+      if (patch.description !== undefined) p.description = patch.description;
+      // A cleared note is NULL in the column, not an empty string: the verb
+      // reads a JSON null as NULL, and the row then reads as having no note.
+      if (patch.notes !== undefined) p.notes = patch.notes === '' ? null : patch.notes;
+      if (patch.category !== undefined) p.category = patch.category;
+      if (patch.categoryConfirmed !== undefined) p.category_confirmed = patch.categoryConfirmed;
+      if (patch.needsReview !== undefined) p.needs_review = patch.needsReview;
+      const { data, error } = await supabase.rpc('update_transaction_atomic', { p_id: id, p, p_user_id: userId });
+      if (error) return refuseOrFail('the update', error);
+      return rowFromVerb('the update', data);
+    },
+
+    async confirmCategories(ids) {
+      const { data, error } = await supabase.rpc('confirm_transaction_categories', { p_ids: ids, p_user_id: userId });
+      if (error) return refuseOrFail('the confirmation', error);
+      return countFromVerb('the confirmation', data);
+    },
+
+    async setCleared(ids, cleared) {
+      const { data, error } = await supabase.rpc('set_transactions_cleared', { p_ids: ids, p_cleared: cleared, p_user_id: userId });
+      if (error) return refuseOrFail('the marking', error);
+      return countFromVerb('the marking', data);
+    },
+
+    async linkTransfer(idA, idB) {
+      const { data, error } = await supabase.rpc('link_transfer_pair', { p_id_a: idA, p_id_b: idB, p_user_id: userId });
+      if (error) return refuseOrFail('the link', error);
+      const pair = (data ?? {}) as { a?: unknown; b?: unknown };
+      return { a: rowFromVerb('the link', pair.a), b: rowFromVerb('the link', pair.b) };
+    },
+
+    async createTransferCounterpart(id, targetAccountId) {
+      const { data, error } = await supabase.rpc('create_transfer_counterpart', {
+        p_id: id,
+        p_target_account_id: targetAccountId,
+        p_user_id: userId,
+      });
+      if (error) return refuseOrFail('the counterpart', error);
+      const pair = (data ?? {}) as { source?: unknown; counterpart?: unknown };
+      return { source: rowFromVerb('the counterpart', pair.source), counterpart: rowFromVerb('the counterpart', pair.counterpart) };
+    },
+
+    async createTransaction(input) {
+      const p: Record<string, unknown> = {
+        user_id: userId,
+        account_id: input.accountId,
+        description: input.description,
+        amount: input.amount,
+        type: input.type,
+        date: input.date,
+        category: input.category ?? null,
+        notes: input.notes ?? null,
+        category_confirmed: input.categoryConfirmed,
+        metadata: stamp(null, provenance, now()),
+      };
+      const { data, error } = await supabase.rpc('create_transaction_atomic', { p });
+      if (error) return refuseOrFail('the new transaction', error);
+      const created = rowFromVerb('the new transaction', data);
+      if (!input.needsReview) return created;
+      // The create verb takes no review flag (a row from the Add form is the
+      // person's own, so it never needed one); a suggested filing is put in
+      // To Review by the same update the editor would make.
+      const { data: flagged, error: flagError } = await supabase.rpc('update_transaction_atomic', {
+        p_id: created.id,
+        p: { needs_review: true },
+        p_user_id: userId,
+      });
+      if (flagError) return refuseOrFail('the new transaction', flagError);
+      return rowFromVerb('the new transaction', flagged);
     },
   };
 }
