@@ -85,6 +85,9 @@ export interface PortAccount {
   institution: string | null;
   /** Opening balance plus every row, as the register computes it. */
   balance: number;
+  openingBalance: number;
+  /** YYYY-MM-DD when the person or an importer recorded one. */
+  openingBalanceDate: string | null;
   /** What the bank last said, when a feed or statement said it. */
   bankBalance: number | null;
   bankBalanceDate: string | null;
@@ -150,8 +153,17 @@ export interface ReckleyPort {
   getTransaction(id: string): Promise<TransactionDetail | null>;
   listCategories(): Promise<Category[]>;
   listBudgets(): Promise<Budget[]>;
-  /** Every non-archived row dated in [from, to], with the splits of any split parents, up to `cap` rows. */
-  transactionsBetween(from: string, to: string, cap: number): Promise<RowsInRange>;
+  /**
+   * Every row dated in [from, to], with the splits of any split parents, up
+   * to `cap` rows. Archived rows are left out unless asked for: the reports
+   * leave them out, the net-worth walk needs them.
+   */
+  transactionsBetween(from: string, to: string, cap: number, options?: { includeArchived?: boolean }): Promise<RowsInRange>;
+  /**
+   * Each account's earliest transaction day, for the opening-date rule; null
+   * when the database cannot answer (the function is not installed yet).
+   */
+  firstActivityDates(): Promise<Map<string, string> | null>;
   /** Every non-archived row awaiting review (the app's own predicate), oldest first, up to `cap`. */
   reviewQueue(cap: number): Promise<{ rows: Transaction[]; capped: boolean }>;
 
@@ -219,6 +231,7 @@ interface AccountRow {
   is_active: boolean | null;
   institution: string | null;
   initial_balance: number | string | null;
+  opening_balance_date: string | null;
   bank_balance: number | string | null;
   bank_balance_date: string | null;
   last_reconciled_date: string | null;
@@ -456,7 +469,7 @@ export function createSupabasePort(
     async listAccounts() {
       const { data, error } = await supabase
         .from('accounts')
-        .select('id, name, type, currency, is_active, institution, initial_balance, bank_balance, bank_balance_date, last_reconciled_date')
+        .select('id, name, type, currency, is_active, institution, initial_balance, opening_balance_date, bank_balance, bank_balance_date, last_reconciled_date')
         .eq('user_id', userId)
         .order('name');
       if (error) return fail('accounts', error);
@@ -472,6 +485,8 @@ export function createSupabasePort(
         // An account the balance function did not list has no rows: its
         // balance is its opening balance.
         balance: balances.get(row.id) ?? num(row.initial_balance),
+        openingBalance: num(row.initial_balance),
+        openingBalanceDate: row.opening_balance_date,
         bankBalance: row.bank_balance === null ? null : num(row.bank_balance),
         bankBalanceDate: row.bank_balance_date,
         lastReconciledDate: row.last_reconciled_date,
@@ -559,15 +574,16 @@ export function createSupabasePort(
       return ((data ?? []) as BudgetRow[]).map(toBudget);
     },
 
-    async transactionsBetween(from, to, cap) {
+    async transactionsBetween(from, to, cap, options = {}) {
       // Paged, because the transport clamps a select at 1,000 rows however
       // wide the range asked for (see paging.ts).
       const paged = await readAllPages<TransactionRow>(async (pageFrom, pageTo) => {
-        const { data, error } = await supabase
+        let query = supabase
           .from('transactions')
           .select<string, TransactionRow>(TRANSACTION_COLUMNS)
-          .eq('user_id', userId)
-          .or('archived.is.null,archived.eq.false')
+          .eq('user_id', userId);
+        if (!options.includeArchived) query = query.or('archived.is.null,archived.eq.false');
+        const { data, error } = await query
           .gte('date', from)
           .lte('date', to)
           .order('date', { ascending: true })
@@ -591,6 +607,18 @@ export function createSupabasePort(
         splits = ((lines.data ?? []) as SplitRow[]).map(toSplit);
       }
       return { rows, splits, capped };
+    },
+
+    async firstActivityDates() {
+      const { data, error } = await supabase.rpc('account_first_activity_for_user', { p_user_id: userId });
+      if (error) {
+        const missing = error.code === '42883' || /does not exist|not find the function/i.test(error.message);
+        if (!missing) return fail('first activity', error);
+        console.warn('[mcp] account_first_activity_for_user is not installed yet; opening balances are undated (apply migration 20261022180000)');
+        return null;
+      }
+      const rows = (data ?? []) as { account_id: string; first_date: string }[];
+      return new Map(rows.map(row => [row.account_id, row.first_date]));
     },
 
     async reviewQueue(cap) {

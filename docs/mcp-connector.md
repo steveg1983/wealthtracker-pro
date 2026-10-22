@@ -120,7 +120,8 @@ tool that does both.
 | `reckley_spending_by_category` | totals per category over a period, refunds netted |
 | `reckley_spending_by_payee` | totals per payee over a period |
 | `reckley_income_vs_expenses` | income, expenses, net, month by month over a period |
-| `reckley_net_worth` | assets, liabilities and net worth today, per currency, from the register; the series over a period waits on a browser-free `netWorthSeries` |
+| `reckley_net_worth` | assets, liabilities and net worth today, per currency, from the register |
+| `reckley_net_worth_series` | the Net Worth report's points over a period, per currency — the app's cadence (`utils/netWorthCadence`) and opening-date rule (`utils/openingDates`), walked BACKWARDS from today's balances over the rows after the window's first day (`api/_lib/mcp/netWorthSeries.ts`), so a year costs a few thousand rows however long the history; each account's first activity comes from `account_first_activity_for_user` (migration 20261022180000, service role only) |
 | `reckley_budget_status` | each budget over its own period, through `utils/budgetEvaluation` — the Budget page's and the Dashboard card's one evaluation |
 | `reckley_review_queue` | what is in To Review, grouped by account |
 

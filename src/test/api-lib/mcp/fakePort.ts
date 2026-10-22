@@ -20,9 +20,12 @@ import {
 } from '../../../../api/_lib/mcp/port';
 
 export const accounts: PortAccount[] = [
-  { id: 'acc-current', name: 'Current Account', type: 'checking', currency: 'GBP', isActive: true, institution: 'Example Bank', balance: 1234.56, bankBalance: 1230.00, bankBalanceDate: '2026-10-14', lastReconciledDate: '2026-09-30' },
-  { id: 'acc-savings', name: 'Savings', type: 'savings', currency: 'GBP', isActive: true, institution: null, balance: 5000, bankBalance: null, bankBalanceDate: null, lastReconciledDate: null },
-  { id: 'acc-old', name: 'Old Card', type: 'credit', currency: 'GBP', isActive: false, institution: null, balance: 0, bankBalance: null, bankBalanceDate: null, lastReconciledDate: null },
+  // Each balance is opening + every row below (the register's identity), so
+  // the net-worth walk can start from it: the current account's rows sum to
+  // 1257.50, hence an opening of −22.94 for a balance of 1234.56.
+  { id: 'acc-current', name: 'Current Account', type: 'checking', currency: 'GBP', isActive: true, institution: 'Example Bank', balance: 1234.56, openingBalance: -22.94, openingBalanceDate: '2026-01-01', bankBalance: 1230.00, bankBalanceDate: '2026-10-14', lastReconciledDate: '2026-09-30' },
+  { id: 'acc-savings', name: 'Savings', type: 'savings', currency: 'GBP', isActive: true, institution: null, balance: 5000, openingBalance: 5000, openingBalanceDate: null, bankBalance: null, bankBalanceDate: null, lastReconciledDate: null },
+  { id: 'acc-old', name: 'Old Card', type: 'credit', currency: 'GBP', isActive: false, institution: null, balance: 0, openingBalance: 0, openingBalanceDate: null, bankBalance: null, bankBalanceDate: null, lastReconciledDate: null },
 ];
 
 export const categories: Category[] = [
@@ -121,6 +124,15 @@ export function fakePort(over: Partial<{ accounts: PortAccount[]; transactions: 
     },
     async listCategories() { return categories; },
     async listBudgets() { return plans; },
+    async firstActivityDates() {
+      const first = new Map<string, string>();
+      for (const t of rows) {
+        const day = dayOf(t.date);
+        const known = first.get(t.accountId);
+        if (known === undefined || day < known) first.set(t.accountId, day);
+      }
+      return first;
+    },
     async transactionsBetween(from, to, cap) {
       const inRange = rows.filter(t => dayOf(t.date) >= from && dayOf(t.date) <= to);
       const capped = inRange.length > cap;

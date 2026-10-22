@@ -49,6 +49,7 @@ import { isAwaitingReview, isUnfiled } from '../../../src/utils/transactionRevie
 import { signTransactionAmount } from '../../../src/utils/transactionAmount.js';
 import { toDecimal } from '../../../src/utils/decimal.js';
 import { PortRefusal, type PortAccount, type ReckleyPort, type ReviewFilter, type TransactionPatch } from './port.js';
+import { netWorthSeriesByCurrency } from './netWorthSeries.js';
 
 export const READ_SCOPE = 'reckley:read';
 export const WRITE_SCOPE = 'reckley:write';
@@ -70,6 +71,12 @@ export const CHARACTER_LIMIT = 25_000;
 
 /** Rows an aggregate will read before it says the answer is partial. */
 const AGGREGATE_ROW_CAP = 20_000;
+
+/** 'YYYY-MM-DD' → local midnight, as the app's own series reads a day. */
+const localDate = (day: string): Date => {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
 
 /** Rows the review queue will read before it says the count is partial. */
 const REVIEW_QUEUE_CAP = 5_000;
@@ -680,7 +687,7 @@ Give from and to as YYYY-MM-DD, inclusive.`,
       title: 'Net worth today',
       description: `What the person owns and owes today, from the register: assets are the accounts with a positive balance, liabilities the size of the negative ones, net worth the difference — the Dashboard's rule — reported per currency, since this tool converts nothing.
 
-Ledger figures only: an investment account counts at the value its register carries, not at today's prices, and closed accounts are left out. For the balances behind these totals use reckley_list_accounts.`,
+Ledger figures only: an investment account counts at the value its register carries, not at today's prices, and closed accounts are left out. For the balances behind these totals use reckley_list_accounts; for how it has changed, reckley_net_worth_series.`,
       inputSchema: z.strictObject({
         response_format: responseFormat,
       }),
@@ -714,6 +721,101 @@ Ledger figures only: an investment account counts at the value its register carr
       lines.push(...currencies.map(c => `- ${c.currency}: own ${c.assets}, owe ${c.liabilities}, net ${c.net_worth} (${c.accounts_counted} accounts)`));
       if (currencies.length === 0) lines.push('No open accounts with a balance.');
       lines.push('', 'Register figures: investments at their ledger value, no currency conversion, closed accounts excluded.');
+      return { content: [{ type: 'text', text: lines.join('\n') }] };
+    }
+  );
+
+  server.registerTool(
+    'reckley_net_worth_series',
+    {
+      title: 'Net worth over time',
+      description: `What the person was worth on each day or month-end across a period, from the register: the same points and the same figures as the app's Net Worth report, one line per currency. Daily points for a window of about three months or less, month-end points beyond that, always ending on the last day asked for.
+
+Every account that has ever held money is counted, closed ones included, so a point in the past carries what was open then. An opening balance counts from the day the account opened, as the report dates it. Ledger figures only: investments at their register value, no currency conversion. Defaults to the twelve whole months ending today.
+
+For today's figure alone use reckley_net_worth; for the balances behind a point use reckley_list_accounts.`,
+      inputSchema: z.strictObject({
+        from: isoDay.optional().describe('First day of the period; defaults to the first day of the month eleven months ago'),
+        to: isoDay.optional().describe('Last day of the period; defaults to today'),
+        response_format: responseFormat,
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (args) => {
+      const today = now();
+      const to = args.to ?? localDay(today);
+      const from = args.from ?? localDay(new Date(today.getFullYear(), today.getMonth() - 11, 1));
+      if (from > to) {
+        return { content: [{ type: 'text', text: `from (${from}) is after to (${to}); swap them.` }], isError: true };
+      }
+      const [accounts, firstActivity, range] = await Promise.all([
+        port.listAccounts(),
+        port.firstActivityDates(),
+        // Everything dated after the first day, however far ahead: the walk
+        // starts from today's balances, which include every row there is.
+        port.transactionsBetween(from, '9999-12-31', AGGREGATE_ROW_CAP, { includeArchived: true }),
+      ]);
+      if (range.capped) {
+        return {
+          content: [{ type: 'text', text: `More than ${AGGREGATE_ROW_CAP.toLocaleString('en-GB')} transactions fall after ${from}; ask for a later start.` }],
+          isError: true,
+        };
+      }
+      const activity = firstActivity === null
+        ? null
+        : new Map(Array.from(firstActivity, ([id, day]) => [id, new Date(`${day}T00:00:00.000Z`).getTime()]));
+      const result = netWorthSeriesByCurrency({
+        accounts: accounts.map(account => ({
+          id: account.id,
+          name: account.name,
+          currency: account.currency,
+          openingBalance: account.openingBalance,
+          openingBalanceDate: account.openingBalanceDate === null ? undefined : new Date(`${account.openingBalanceDate}T00:00:00.000Z`),
+          balance: account.balance,
+        })),
+        firstActivity: activity,
+        rows: range.rows.map(row => ({ accountId: row.accountId, date: row.date, amount: row.amount })),
+        from: localDate(from),
+        to: localDate(to),
+      });
+      const notes = [
+        'Register figures: investments at their ledger value, no currency conversion, closed accounts included for the days they held money.',
+        ...(result.undatedOpenings > 0
+          ? [`${result.undatedOpenings} ${result.undatedOpenings === 1 ? 'account has' : 'accounts have'} an opening balance with no date, counted from the start of the period.`]
+          : []),
+        ...(firstActivity === null ? ['Opening balances could not be dated by first activity on this ledger; explicit opening dates still apply.'] : []),
+      ];
+      const body = {
+        from,
+        to,
+        cadence: result.monthly ? 'month-end' : 'daily',
+        currencies: result.series.map(line => ({
+          currency: line.currency,
+          accounts_counted: line.accounts,
+          points: line.points.map(point => ({
+            date: localDay(point.date),
+            assets: money(point.assets, line.currency),
+            liabilities: money(point.liabilities, line.currency),
+            net_worth: money(point.netWorth, line.currency),
+          })),
+        })),
+        notes,
+      };
+      const json = JSON.stringify(body, null, 2);
+      if (json.length > CHARACTER_LIMIT) {
+        return { content: [{ type: 'text', text: `That period has too many points to return at once; ask for fewer years.` }], isError: true };
+      }
+      if (args.response_format === ResponseFormat.JSON) {
+        return { content: [{ type: 'text', text: json }], structuredContent: body };
+      }
+      const lines = [`# Net worth ${from} to ${to} (${body.cadence} points)`, ''];
+      if (body.currencies.length === 0) lines.push('No accounts.');
+      for (const line of body.currencies) {
+        lines.push(`## ${line.currency} (${line.accounts_counted} accounts)`, '');
+        lines.push(...line.points.map(point => `- ${point.date}: net ${point.net_worth} (own ${point.assets}, owe ${point.liabilities})`));
+        lines.push('');
+      }
+      lines.push(...notes);
       return { content: [{ type: 'text', text: lines.join('\n') }] };
     }
   );
@@ -1146,6 +1248,7 @@ export const READ_TOOL_NAMES = [
   'reckley_income_vs_expenses',
   'reckley_spending_by_payee',
   'reckley_net_worth',
+  'reckley_net_worth_series',
   'reckley_review_queue',
   'reckley_budget_status',
 ] as const;
