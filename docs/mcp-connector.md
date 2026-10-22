@@ -291,7 +291,7 @@ claude.ai/directory/manage, on the owner's paid plan, once per listing.
 | Privacy policy | `https://www.reckley.co.uk/privacy` |
 | Documentation | this file, on the public repository |
 | Support | the support address at the new domain (the Stripe section's) |
-| Test account | **undecided (23 Oct 2026):** the Danielle demo login is empty; either reseed it with the showcase ledger (`seedShowcaseUser.mts --user-id <her users.id> --replace`, deterministic, invented) or hand over the review account, which already holds it and which Apple's reviewer also uses |
+| Test account | **The review account** (owner's decision, 23 Oct 2026): the login Apple's reviewer uses, which holds the showcase ledger — ten invented years, the same data the evaluation ran against. Credentials live in the owner's password manager, never here. The July tester login at a made-up address is empty and is not used; it is NOT the real person of the same first name, whose account is live data and is never a test account |
 
 The listing URL is permanent and the metadata `resource` must equal it
 exactly, so neither form is filled in until the host is final. The OAuth
