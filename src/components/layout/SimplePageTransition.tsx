@@ -30,7 +30,18 @@ export function PageTransition({ children }: PageTransitionProps) {
   );
 }
 
-// Navigation progress bar
+/**
+ * Navigation progress bar: a thin line that fills over 300ms after a route
+ * change and lingers 200ms at full before it goes.
+ *
+ * Every timer it sets is cleared when the route changes again or the bar
+ * unmounts — the inner 200ms one included. That one used to be untracked,
+ * and a layout test that unmounted during the 300ms window left it to fire
+ * into a torn-down DOM: "ReferenceError: window is not defined" from inside
+ * React's scheduler, an unhandled error that failed a docs-only CI run on
+ * 22 Oct 2026. A timer the cleanup cannot reach is a timer that will fire
+ * after the component is gone.
+ */
 export function NavigationProgress() {
   const [isNavigating, setIsNavigating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -39,7 +50,7 @@ export function NavigationProgress() {
   useEffect(() => {
     setIsNavigating(true);
     setProgress(0);
-    
+
     const progressTimer = setInterval(() => {
       setProgress(prev => {
         if (prev >= 90) {
@@ -50,9 +61,10 @@ export function NavigationProgress() {
       });
     }, 100);
 
+    let finishTimer: ReturnType<typeof setTimeout> | undefined;
     const completeTimer = setTimeout(() => {
       setProgress(100);
-      setTimeout(() => {
+      finishTimer = setTimeout(() => {
         setIsNavigating(false);
       }, 200);
     }, 300);
@@ -60,6 +72,7 @@ export function NavigationProgress() {
     return () => {
       clearInterval(progressTimer);
       clearTimeout(completeTimer);
+      if (finishTimer !== undefined) clearTimeout(finishTimer);
     };
   }, [location]);
 
