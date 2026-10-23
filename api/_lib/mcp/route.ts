@@ -3,6 +3,13 @@
  * the SDK's stateless Streamable HTTP handler behind.
  *
  * ── THE ORDER OF QUESTIONS ──────────────────────────────────────────────────
+ *   0. Over the rate limit → 429 from the shared limiter, BEFORE any token is
+ *      looked at. The limiter is an abuse brake, and the costliest thing this
+ *      route does for a stranger is verify a token — a network call to Clerk
+ *      unless CLERK_JWT_KEY is set. Metering only after verification (as the
+ *      first cut did, 21–23 Oct 2026) left an unauthenticated flood unmetered
+ *      and every one of its requests paid for. Keyed by connecting IP, so a
+ *      person's own Claude is never throttled by someone else's noise.
  *   1. No usable token → 401 with the discovery pointer. This is the whole
  *      start of sign-in: Claude reads `WWW-Authenticate`, fetches the
  *      metadata, finds Clerk, and comes back with a token. A 200 here would
@@ -10,8 +17,7 @@
  *   2. A valid token for a person with no ledger → 403, said plainly.
  *   3. A token without the read scope → 403 `insufficient_scope`, with the
  *      scopes this listing wants in the challenge, so Claude can re-consent.
- *   4. Over the rate limit → 429 from the shared limiter.
- *   5. Otherwise the SDK handler, built fresh for THIS caller: the port is
+ *   4. Otherwise the SDK handler, built fresh for THIS caller: the port is
  *      scoped to their ledger and the tools to their scopes.
  *
  * ── WHY THE PORT IS BUILT INSIDE THE FACTORY ────────────────────────────────
@@ -94,6 +100,8 @@ export function createMcpRoute<Req extends IncomingMessage & { body?: unknown },
       return;
     }
 
+    if (deps.rateLimit && (await deps.rateLimit(req, res))) return;
+
     const outcome = await deps.verify(req);
     if (outcome === 'anonymous') {
       sendJson(
@@ -125,8 +133,6 @@ export function createMcpRoute<Req extends IncomingMessage & { body?: unknown },
       );
       return;
     }
-
-    if (deps.rateLimit && (await deps.rateLimit(req, res))) return;
 
     await node(Object.assign(req, { auth: outcome.authInfo }), res, req.body);
   };

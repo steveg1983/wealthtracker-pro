@@ -189,3 +189,47 @@ describe('a verified caller', () => {
     }
   });
 });
+
+describe('the rate limit sits in front of the verifier', () => {
+  it('answers a flood with 429 before any token is looked at, and never throttles a preflight', async () => {
+    let verified = 0;
+    let calls = 0;
+    const route = createMcpRoute<IncomingMessage & { body?: unknown }, ServerResponse>({
+      listing: 'full',
+      verify: async req => {
+        verified += 1;
+        return verify(req);
+      },
+      portFor: () => fakePort(),
+      rateLimit: async (_req, res) => {
+        calls += 1;
+        if (calls <= 2) return false;
+        res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
+        res.end(JSON.stringify({ error: 'rate_limited' }));
+        return true;
+      },
+    });
+    const limited = createServer((req, res) => {
+      void route(req, res);
+    });
+    await new Promise<void>(resolve => limited.listen(0, '127.0.0.1', resolve));
+    const origin = `http://127.0.0.1:${(limited.address() as AddressInfo).port}`;
+    try {
+      const flood = async (): Promise<number> =>
+        (await httpFetch(`${origin}/api/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: initialize })).status;
+      expect(await flood()).toBe(401);
+      expect(await flood()).toBe(401);
+      expect(await flood()).toBe(429);
+      expect(await flood()).toBe(429);
+      // Two were verified and refused; the rest never reached the verifier.
+      expect(verified).toBe(2);
+      // A preflight is answered before the limiter, whatever the count.
+      const preflight = await httpFetch(`${origin}/api/mcp`, { method: 'OPTIONS' });
+      expect(preflight.status).toBe(204);
+      expect(calls).toBe(4);
+    } finally {
+      await new Promise<void>((resolve, reject) => limited.close(error => (error ? reject(error) : resolve())));
+    }
+  });
+});
+
