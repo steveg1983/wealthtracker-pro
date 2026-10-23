@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getOptionalEnv } from './env.js';
 
@@ -64,10 +65,32 @@ const getClientKey = (req: VercelRequest): string => {
 export interface RateLimitOptions {
   /** Identifier for the route so limits are tracked per endpoint. */
   name: string;
-  /** Max requests per window. */
+  /** Max requests per window, per connecting IP. With `perClient`, this is the IP-wide ceiling. */
   limit: number;
   /** Window length in milliseconds. */
   windowMs: number;
+  /**
+   * A second, tighter bucket per CALLER, when the request names one.
+   *
+   * The IP alone is the wrong key for a route that many people reach
+   * through one address: every Claude user arrives at the connector from
+   * Anthropic's handful of egress addresses, so an IP-only limit of 120 a
+   * minute is 120 across all of them. `key` returns something that names
+   * the caller — a hash of the bearer token, never the token itself — or
+   * undefined for a request that names nobody, which then meets the IP
+   * limit alone. Both buckets are counted on every request, so a flood of
+   * invented tokens from one address still runs into the IP ceiling.
+   */
+  perClient?: {
+    key: (req: VercelRequest) => string | undefined;
+    limit: number;
+  };
+}
+
+/** One counter the limiter keeps: a key and the most it may reach in a window. */
+interface LimitCheck {
+  key: string;
+  limit: number;
 }
 
 interface LimitDecision {
@@ -76,12 +99,13 @@ interface LimitDecision {
 }
 
 /**
- * Fixed window in Redis: INCR the (route, client) key and set its TTL on first
- * hit — one pipeline round-trip. Returns null on any store failure (fail open).
+ * Fixed windows in Redis: INCR each key and set its TTL on first hit — one
+ * pipeline round-trip for every key the request is counted under. Returns
+ * null on any store failure (fail over to memory).
  */
 const checkSharedStore = async (
   store: { url: string; token: string },
-  key: string,
+  checks: LimitCheck[],
   options: RateLimitOptions
 ): Promise<LimitDecision | null> => {
   try {
@@ -91,11 +115,11 @@ const checkSharedStore = async (
         Authorization: `Bearer ${store.token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify([
-        ['INCR', key],
-        ['PEXPIRE', key, String(options.windowMs), 'NX'],
-        ['PTTL', key]
-      ]),
+      body: JSON.stringify(checks.flatMap(check => [
+        ['INCR', check.key],
+        ['PEXPIRE', check.key, String(options.windowMs), 'NX'],
+        ['PTTL', check.key]
+      ])),
       signal: AbortSignal.timeout(UPSTASH_TIMEOUT_MS)
     });
     if (!response.ok) {
@@ -115,20 +139,28 @@ const checkSharedStore = async (
       console.error('[rate-limit] pipeline command failed', { error: failedCommand.error });
       return null;
     }
-    const count = Number(results?.[0]?.result);
-    const pttl = Number(results?.[2]?.result);
-    if (!Number.isFinite(count)) {
-      console.error('[rate-limit] unexpected store response shape');
-      return null;
+    // Three results per key, in the order the keys were sent. The decision is
+    // the strictest: over on any key is over, and the retry is the longest.
+    let limited = false;
+    let retryAfterSeconds = 0;
+    for (let i = 0; i < checks.length; i += 1) {
+      const count = Number(results?.[i * 3]?.result);
+      const pttl = Number(results?.[i * 3 + 2]?.result);
+      if (!Number.isFinite(count)) {
+        console.error('[rate-limit] unexpected store response shape');
+        return null;
+      }
+      if (pttl === -1 && count > 1) {
+        console.error('[rate-limit] counter has no TTL — refusing to enforce a window that never resets');
+        return null;
+      }
+      if (count > checks[i].limit) {
+        limited = true;
+        const retry = Number.isFinite(pttl) && pttl > 0 ? Math.ceil(pttl / 1000) : Math.ceil(options.windowMs / 1000);
+        retryAfterSeconds = Math.max(retryAfterSeconds, retry);
+      }
     }
-    if (pttl === -1 && count > 1) {
-      console.error('[rate-limit] counter has no TTL — refusing to enforce a window that never resets');
-      return null;
-    }
-    const retryAfterSeconds = Number.isFinite(pttl) && pttl > 0
-      ? Math.ceil(pttl / 1000)
-      : Math.ceil(options.windowMs / 1000);
-    return { limited: count > options.limit, retryAfterSeconds };
+    return { limited, retryAfterSeconds };
   } catch (error) {
     // Timeout/network/etc: fail open — availability beats strictness for a brake.
     console.error('[rate-limit] store check failed', {
@@ -139,23 +171,23 @@ const checkSharedStore = async (
 };
 
 /** The previous per-instance sliding window, kept as the unconfigured fallback. */
-const checkInMemory = (key: string, options: RateLimitOptions): LimitDecision => {
+const checkOneInMemory = (check: LimitCheck, options: RateLimitOptions): LimitDecision => {
   const now = Date.now();
 
   if (buckets.size > MAX_BUCKETS) {
     buckets.clear();
   }
 
-  let entry = buckets.get(key);
+  let entry = buckets.get(check.key);
   if (!entry) {
     entry = { timestamps: [] };
-    buckets.set(key, entry);
+    buckets.set(check.key, entry);
   }
 
   const windowStart = now - options.windowMs;
   entry.timestamps = entry.timestamps.filter(t => t > windowStart);
 
-  if (entry.timestamps.length >= options.limit) {
+  if (entry.timestamps.length >= check.limit) {
     return {
       limited: true,
       retryAfterSeconds: Math.max(
@@ -169,6 +201,34 @@ const checkInMemory = (key: string, options: RateLimitOptions): LimitDecision =>
   return { limited: false, retryAfterSeconds: 0 };
 };
 
+/** Every key counted; the decision is the strictest, as with the store. */
+const checkInMemory = (checks: LimitCheck[], options: RateLimitOptions): LimitDecision => {
+  let limited = false;
+  let retryAfterSeconds = 0;
+  for (const check of checks) {
+    const decision = checkOneInMemory(check, options);
+    if (decision.limited) {
+      limited = true;
+      retryAfterSeconds = Math.max(retryAfterSeconds, decision.retryAfterSeconds);
+    }
+  }
+  return { limited, retryAfterSeconds };
+};
+
+/**
+ * A caller key from the bearer token, for `perClient`: a SHA-256 of the
+ * token, never the token, so the store holds nothing a leak could replay.
+ * Undefined when there is no bearer, so the request meets the IP limit alone.
+ */
+export const bearerClientKey = (req: VercelRequest): string | undefined => {
+  const header = req.headers.authorization;
+  const value = Array.isArray(header) ? header[0] : header;
+  if (typeof value !== 'string' || !value.startsWith('Bearer ')) return undefined;
+  const token = value.slice('Bearer '.length).trim();
+  if (!token) return undefined;
+  return createHash('sha256').update(token).digest('hex').slice(0, 32);
+};
+
 /**
  * Returns true (and writes a 429 response) when the caller is over the limit.
  * Usage at the top of a handler:
@@ -179,11 +239,15 @@ export const applyRateLimit = async (
   res: VercelResponse,
   options: RateLimitOptions
 ): Promise<boolean> => {
-  const key = `rl:${options.name}:${getClientKey(req)}`;
+  const checks: LimitCheck[] = [{ key: `rl:${options.name}:${getClientKey(req)}`, limit: options.limit }];
+  const client = options.perClient?.key(req);
+  if (options.perClient && client !== undefined) {
+    checks.push({ key: `rl:${options.name}:c:${client}`, limit: options.perClient.limit });
+  }
 
   const store = getStoreConfig();
-  const decision = (store && (await checkSharedStore(store, key, options)))
-    ?? checkInMemory(key, options);
+  const decision = (store && (await checkSharedStore(store, checks, options)))
+    ?? checkInMemory(checks, options);
 
   if (decision.limited) {
     res.setHeader('Retry-After', String(Math.max(1, decision.retryAfterSeconds)));
