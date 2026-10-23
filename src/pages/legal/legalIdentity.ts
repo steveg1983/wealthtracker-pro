@@ -17,8 +17,8 @@
 
 export const OPERATOR = {
   /** The legal name of the operator, e.g. "Example Trading Ltd" or "Steven Green, trading as Reckley". */
-  legalName: '[OPERATOR LEGAL NAME]',
-  /** The company number, or '' for a sole trader. */
+  legalName: 'Steven Green, trading as Reckley',
+  /** The company number, or '' for a sole trader. A sole trader as of 23 Oct 2026. */
   companyNumber: '',
   /** The registered or trading address, one line. */
   address: '[REGISTERED ADDRESS]',
