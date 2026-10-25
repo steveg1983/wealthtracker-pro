@@ -59,7 +59,7 @@
           "value": "wealthtracker-web.vercel.app"
         }
       ],
-      "destination": "https://www.wealthtrackerpro.co.uk/:path*",
+      "destination": "https://www.reckley.co.uk/:path*",
       "permanent": false
     }
   ],
