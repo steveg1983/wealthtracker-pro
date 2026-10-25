@@ -7,7 +7,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { applyRateLimit } from './_lib/rate-limit.js';
+import { applyRateLimit, bearerClientKey } from './_lib/rate-limit.js';
 import { withSentry } from './_lib/sentry.js';
 import { getServiceRoleSupabase } from './_lib/supabase.js';
 import { verifyClerkOAuth } from './_lib/mcp/auth.js';
@@ -18,7 +18,14 @@ const route = createMcpRoute<VercelRequest, VercelResponse>({
   listing: 'read',
   verify: verifyClerkOAuth,
   portFor: caller => createSupabasePort(getServiceRoleSupabase(), caller.userId),
-  rateLimit: (req, res) => applyRateLimit(req, res, { name: 'mcp-read', limit: 120, windowMs: 60_000 }),
+  // The same two buckets as the full listing (see api/mcp.ts): per caller
+  // by token hash, and an IP ceiling that only brakes a flood.
+  rateLimit: (req, res) => applyRateLimit(req, res, {
+    name: 'mcp-read',
+    limit: 1_200,
+    windowMs: 60_000,
+    perClient: { key: bearerClientKey, limit: 120 },
+  }),
 });
 
 export default withSentry(route);
