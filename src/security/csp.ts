@@ -69,12 +69,9 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       // dies exactly the way the currency provider did (#397): clean in
       // every local check, dead only in production, because dev servers send
       // no CSP. Both policies carry it; the browser enforces their
-      // intersection.
-      'https://clerk.wealthtrackerpro.co.uk',
-      // ...and its address after the rename's domain move (phase 6). Both are
-      // listed until Clerk's production domain has moved to reckley.co.uk and
-      // the old one is retired: the publishable key names exactly one of them,
-      // so for the length of the move either may be the one in use.
+      // intersection. The publishable key names exactly this host; the
+      // pre-rename one (clerk.wealthtrackerpro.co.uk) was retired at the
+      // phase-6 cutover, 28 Oct 2026, two days after Clerk's domain moved.
       'https://clerk.reckley.co.uk',
       // Turnstile's own telemetry/result calls from the widget.
       'https://challenges.cloudflare.com',

@@ -27,16 +27,16 @@ const config: CapacitorConfig = {
   appName: 'Reckley',
   webDir: 'www',
   server: {
-    // Stays on the old host until Clerk's production domain has moved to
-    // reckley.co.uk (rename phase 6): the new host cannot sign anyone in
-    // before that, and this URL is baked into each build.
-    url: 'https://www.wealthtrackerpro.co.uk',
-    // ...but every build from now on may already be installed on the day the
-    // old host starts redirecting to the new one, and Capacitor hands a
-    // navigation to any host that is neither `url`'s nor listed here to
-    // Safari. Listing the new host lets an installed build follow that
-    // redirect and stay in the app, so cutover does not wait on TestFlight.
-    allowNavigation: ['www.reckley.co.uk'],
+    // The app's home since the rename's domain move (phase 6, cut over
+    // 28 Oct 2026). It moved the day Clerk's production domain did, and not a
+    // day earlier: Clerk's session cookie lives on the Clerk domain's site,
+    // and a WebView on any OTHER site sees it as third-party and drops it —
+    // measured as "Authenticating…" forever on the phone the morning after
+    // the Clerk move, while the old host still served the app. A build made
+    // before this line changed is carried across by the old host's redirect
+    // (vercel.json) and by `allowNavigation` having named this host since
+    // build 5, so no install is stranded on the old address.
+    url: 'https://www.reckley.co.uk',
   },
   ios: {
     contentInset: 'automatic',
