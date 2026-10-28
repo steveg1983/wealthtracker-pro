@@ -80,14 +80,13 @@ describe('every fetched origin is allowed by both content security policies', ()
  * either policy covers it, and losing it from either kills sign-in in
  * production only (dev servers send no CSP).
  *
- * TWO hosts while the rename's domain move is in flight (phase 6): the
- * publishable key names exactly one, and which one changes on the day Clerk's
- * production domain moves to reckley.co.uk. Retire the old host here and from
- * both policies only after that day, never before it.
+ * ONE host since the rename's domain move (phase 6): the publishable key
+ * names exactly this one. The pre-rename host was listed beside it for the
+ * length of the move and retired at the cutover, 28 Oct 2026.
  */
-const CLERK_FRONTEND_HOSTS = ['https://clerk.wealthtrackerpro.co.uk', 'https://clerk.reckley.co.uk'] as const;
+const CLERK_FRONTEND_HOSTS = ['https://clerk.reckley.co.uk'] as const;
 
-describe('both policies admit the Clerk frontend API, at either address, for the length of the move', () => {
+describe('both policies admit the Clerk frontend API', () => {
   const meta = getCSPDirectives();
   const headerConnectSrc = vercelConnectSrc();
   const headerScriptSrc = vercelDirective('script-src');
