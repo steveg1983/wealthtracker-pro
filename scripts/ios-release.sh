@@ -116,7 +116,9 @@ if ! codesign -d --entitlements :- "$APP" 2>/dev/null | grep -q "webcredentials:
   echo "The archive does not carry the associated-domains entitlement — refusing to upload." >&2
   exit 1
 fi
-echo "==> Entitlement present: $(codesign -d --entitlements :- "$APP" 2>/dev/null | grep -o 'webcredentials:[^<]*')"
+# Every claimed host on the one `==>` line: build 6's log printed the second
+# host on a bare line of its own, and it was read as missing.
+echo "==> Entitlement present: $(codesign -d --entitlements :- "$APP" 2>/dev/null | grep -o 'webcredentials:[^<]*' | paste -sd ' ' -)"
 
 EXPORT_PLIST="${TMPDIR:-/tmp}/wt-export-options.plist"
 cat > "$EXPORT_PLIST" <<PLIST

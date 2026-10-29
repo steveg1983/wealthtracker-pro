@@ -5,17 +5,18 @@ TestFlight since 26 August 2026.
 
 ## It has no copy of the app in it
 
-`capacitor.config.ts` sets `server.url` to `https://www.wealthtrackerpro.co.uk`,
+`capacitor.config.ts` sets `server.url` to `https://www.reckley.co.uk`,
 so the web view loads production. **A deploy IS the mobile release** — a web
 fix reaches the phone with no rebuild and no review.
 
-**The domain move (rename phase 6).** `www.reckley.co.uk` has served the same
-deployment since 14 Oct 2026, but `server.url` stays on the old host until
-Clerk's production domain has moved, because the new host signs nobody in
-before then. `server.allowNavigation` already lists the new host, so a build
-installed today follows the old host's redirect after cutover instead of
-handing it to Safari. The URL itself changes in the first build after Clerk
-moves — the one change here that a deploy cannot deliver.
+**The domain move (rename phase 6).** Up to build 5 the shell loaded
+`www.wealthtrackerpro.co.uk`. Clerk's production domain moved to
+`reckley.co.uk` on 26 Oct 2026, after which the old host could not hold a
+session (WebKit drops the now third‑party cookie), so the old host 308s to
+the new one and `server.allowNavigation` lets an installed build 5 follow
+that redirect inside the app instead of handing it to Safari. **Build 6
+(29 Oct 2026) loads the new host directly** — the URL being the one change
+here that a deploy cannot deliver.
 
 That is the opposite of the desktop edition, which embeds its renderer at
 compile time and is frozen until someone cuts a release. The two are not
@@ -193,7 +194,7 @@ one act that shows Apple's permission prompt), then trigger a push from the
 server side: run the cron by hand —
 
 ```bash
-curl -H "Authorization: Bearer $CRON_SECRET" https://www.wealthtrackerpro.co.uk/api/cron/reminders
+curl -H "Authorization: Bearer $CRON_SECRET" https://www.reckley.co.uk/api/cron/reminders
 ```
 
 — with a balance reminder scheduled for a minute ago and not yet acknowledged.
