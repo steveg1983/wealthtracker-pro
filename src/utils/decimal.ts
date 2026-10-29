@@ -38,9 +38,13 @@ export function toStorageNumber(value: DecimalInstance): number {
 
 /**
  * Add multiple decimal values
+ *
+ * The type argument is load-bearing: Vercel's function builder type-checks
+ * api/ with strict off, where `reduce` picks its (T, T) => T overload and
+ * types the sum as number | string | Decimal (TS2322 in every build log).
  */
 export function sumDecimals(values: (number | string | DecimalInstance)[]): DecimalInstance {
-  return values.reduce((sum: DecimalInstance, value) => sum.plus(toDecimal(value)), new Decimal(0));
+  return values.reduce<DecimalInstance>((sum, value) => sum.plus(toDecimal(value)), new Decimal(0));
 }
 
 /**
