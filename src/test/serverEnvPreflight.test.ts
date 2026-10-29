@@ -44,7 +44,7 @@ const CORE: Env = {
 };
 
 const ORIGINS: Env = {
-  BANKING_ALLOWED_ORIGINS: 'https://www.wealthtrackerpro.co.uk, https://www.reckley.co.uk'
+  BANKING_ALLOWED_ORIGINS: 'https://www.reckley.co.uk, https://staging.reckley.co.uk'
 };
 
 // Recognisable stand-ins, so a test can prove they are never echoed.
@@ -113,7 +113,7 @@ describe('server-env preflight: Stripe is all or nothing in production', () => {
       ...PRODUCTION,
       ...CORE,
       ...STRIPE_LIVE,
-      BANKING_ALLOWED_ORIGINS: `https://www.wealthtrackerpro.co.uk,${entry}`
+      BANKING_ALLOWED_ORIGINS: `https://www.reckley.co.uk,${entry}`
     });
     expect(status).toBe(1);
     expect(out).toContain(JSON.stringify(entry));

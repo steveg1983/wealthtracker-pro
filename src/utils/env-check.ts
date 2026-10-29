@@ -13,7 +13,6 @@ interface EnvValues {
   VITE_CLERK_PUBLISHABLE_KEY?: string;
   VITE_SUPABASE_URL?: string;
   VITE_SUPABASE_ANON_KEY?: string;
-  VITE_STRIPE_PUBLISHABLE_KEY?: string;
   VITE_SENTRY_DSN?: string;
   VITE_ENABLE_ERROR_TRACKING?: string;
   VITE_SENTRY_SEND_IN_DEV?: string;
@@ -73,7 +72,6 @@ export function checkEnvironmentVariables(): EnvCheckResult {
     VITE_CLERK_PUBLISHABLE_KEY: readEnv('VITE_CLERK_PUBLISHABLE_KEY'),
     VITE_SUPABASE_URL: readEnv('VITE_SUPABASE_URL'),
     VITE_SUPABASE_ANON_KEY: readEnv('VITE_SUPABASE_ANON_KEY'),
-    VITE_STRIPE_PUBLISHABLE_KEY: readEnv('VITE_STRIPE_PUBLISHABLE_KEY'),
     VITE_SENTRY_DSN: readEnv('VITE_SENTRY_DSN'),
     VITE_ENABLE_ERROR_TRACKING: readEnv('VITE_ENABLE_ERROR_TRACKING'),
     VITE_SENTRY_SEND_IN_DEV: readEnv('VITE_SENTRY_SEND_IN_DEV'),
@@ -105,14 +103,10 @@ export function checkEnvironmentVariables(): EnvCheckResult {
     });
   }
 
-  if (!values.VITE_STRIPE_PUBLISHABLE_KEY) {
-    addIssue(issues, {
-      key: 'VITE_STRIPE_PUBLISHABLE_KEY',
-      level: 'warn',
-      message: 'Stripe publishable key is missing – subscription checkout will fail.',
-      suggestion: 'Set VITE_STRIPE_PUBLISHABLE_KEY to a valid test key before exercising billing flows.'
-    });
-  }
+  // No Stripe check. Checkout and the billing portal are Stripe-HOSTED pages
+  // the server opens (api/subscriptions, api/billing), so the browser needs no
+  // Stripe key; this warned "checkout will fail" when nothing of the kind was
+  // true (CLAUDE.md, the Stripe section).
 
   const trackingEnabled = values.VITE_ENABLE_ERROR_TRACKING === 'true';
   const dsnPresent = !!values.VITE_SENTRY_DSN;
