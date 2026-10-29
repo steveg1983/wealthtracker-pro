@@ -64,10 +64,12 @@ export class ReauthRequiredError extends Error {
 }
 
 /**
- * A token *refresh* failing means the long-lived refresh token is no longer
- * valid — the user must re-consent. TrueLayer signals this as `invalid_grant`
- * (HTTP 400), not 401, so a literal-401 check (issue #22) misses it. Treat any
- * refresh-call failure, plus a missing refresh token, as needs-reauth.
+ * "Only the user re-linking can fix this." A dead refresh token is the
+ * classic case — TrueLayer signals it as `invalid_grant` (HTTP 400), not 401,
+ * so a literal-401 check (issue #22) misses it — and so is a missing or
+ * unreadable stored token. A refresh that failed for any OTHER reason (an
+ * outage, a rate limit, our own client credentials) is not: see
+ * refreshConnectionAccessToken.
  */
 export const isReauthRequiredError = (error: unknown, connection?: BankConnectionRow): boolean => {
   if (error instanceof ReauthRequiredError) {
@@ -173,11 +175,19 @@ const refreshConnectionAccessToken = async (
   try {
     refreshed = await provider.refreshAccessToken(refreshToken);
   } catch (error) {
-    // A failed refresh (invalid_grant / 400 / 401 / expired refresh token) is
-    // unrecoverable without the user re-linking — surface it as needs-reauth
-    // rather than a transient error.
+    // ONLY A DEAD CONSENT IS THE USER'S TO FIX, and only the provider can say
+    // which failures are one (TrueLayer: `invalid_grant`). Until 29 Oct 2026
+    // EVERY failed refresh became a reauth fact — so a 5xx, a 429, a timeout,
+    // or our own `invalid_client` from a mistyped client secret, marked the
+    // connection reauth_required, the hourly refresh stopped syncing it, and
+    // the person had to re-link a bank that was fine. Anything else is a
+    // failed SYNC: recordSyncFailure files it as one, reports it, and the next
+    // run tries again.
     const detail = error instanceof Error ? error.message : 'token refresh failed';
-    throw new ReauthRequiredError(`${provider.displayName} token refresh failed: ${detail}`);
+    if (provider.isReauthRequiredError(error)) {
+      throw new ReauthRequiredError(`${provider.displayName} token refresh failed: ${detail}`);
+    }
+    throw new Error(`${provider.displayName} token refresh did not complete (the next sync retries it): ${detail}`);
   }
   const encryptedAccess = encryptSecret(refreshed.accessToken);
   const encryptedRefresh = refreshed.refreshToken
