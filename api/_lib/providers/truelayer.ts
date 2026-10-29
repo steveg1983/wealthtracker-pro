@@ -78,10 +78,17 @@ export const trueLayerProvider: BankProvider = {
    * messages all begin "TrueLayer <thing> fetch failed"). A bare 403
    * elsewhere is not swept in, and note fetchCards treats its own 403 as
    * "this provider has no cards" and returns before ever throwing.
+   *
+   * NOT "token refresh failed" on its own. That phrase heads every refresh
+   * error the HTTP helper throws, whatever the status, so matching it made a
+   * 503, a 429 or our own `invalid_client` (a mistyped client secret — the
+   * user cannot fix that by re-linking) mark the connection reauth_required
+   * exactly as a dead refresh token does. The token endpoint names a dead
+   * refresh token `invalid_grant` in its body; that word is the test.
    */
   isReauthRequiredError(error: unknown): boolean {
     if (!(error instanceof Error)) return false;
-    if (/invalid_grant|no refresh token|token refresh failed|reauth/i.test(error.message)) {
+    if (/invalid_grant|no refresh token|reauth/i.test(error.message)) {
       return true;
     }
     return /access_denied/i.test(error.message)

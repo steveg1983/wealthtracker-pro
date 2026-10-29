@@ -58,8 +58,10 @@ export interface BankProvider {
 
   /**
    * Exchange a stored refresh token for a fresh access token. Throws when the
-   * refresh itself fails — the caller turns that into `reauth_required`,
-   * because a dead refresh token can only be fixed by the user re-consenting.
+   * refresh itself fails. The caller asks `isReauthRequiredError` of what was
+   * thrown: a dead refresh token becomes `reauth_required`, because only the
+   * user re-consenting fixes it; anything else (an outage, a rate limit, our
+   * own client credentials) is a failed sync, retried on the next one.
    */
   refreshAccessToken(refreshToken: string): Promise<ProviderTokens>;
 

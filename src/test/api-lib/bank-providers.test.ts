@@ -72,8 +72,26 @@ describe('TrueLayer classifies its own failures', () => {
     // `invalid_grant` on an HTTP 400, so a literal-401 check missed it and
     // left a Sync button that could never succeed.
     expect(trueLayerProvider.isReauthRequiredError(new Error('invalid_grant'))).toBe(true);
-    expect(trueLayerProvider.isReauthRequiredError(new Error('token refresh failed: 400'))).toBe(true);
+    expect(
+      trueLayerProvider.isReauthRequiredError(new Error('TrueLayer token refresh failed: 400 {"error":"invalid_grant"}'))
+    ).toBe(true);
     expect(trueLayerProvider.isReauthRequiredError(new Error('Request failed: 500'))).toBe(false);
+  });
+
+  it('reads a refresh that failed for any OTHER reason as a failed sync, not a dead consent', () => {
+    // "token refresh failed" heads every refresh error the HTTP helper
+    // throws. Until 29 Oct 2026 that phrase alone was a reauth fact, so an
+    // outage, a rate limit or our own mistyped client secret marked the
+    // connection reauth_required and sent the person to re-link a bank that
+    // was fine. Only the endpoint's own `invalid_grant` means the token died.
+    for (const message of [
+      'TrueLayer token refresh failed: 503 upstream unavailable',
+      'TrueLayer token refresh failed: 429 {"error":"rate_limit_exceeded"}',
+      'TrueLayer token refresh failed: 401 {"error":"invalid_client"}',
+      'TrueLayer token refresh failed: 400 {"error":"invalid_client"}',
+    ]) {
+      expect(trueLayerProvider.isReauthRequiredError(new Error(message)), message).toBe(false);
+    }
   });
 
   it('keeps the two questions apart', () => {
