@@ -22,10 +22,10 @@ export const OPERATOR = {
   companyNumber: '',
   /** The registered or trading address, one line. */
   address: '[REGISTERED ADDRESS]',
-  /** Where a privacy question or a data-subject request is sent. */
-  contactEmail: '[CONTACT EMAIL]',
-  /** Where a support question is sent; may be the same address. */
-  supportEmail: '[SUPPORT EMAIL]',
+  /** Where a privacy question or a data-subject request is sent — the one-month clock starts here. */
+  contactEmail: 'contact@reckley.co.uk',
+  /** Where a support question is sent: product, billing, bugs. Not the privacy address. */
+  supportEmail: 'support@reckley.co.uk',
 } as const;
 
 /** The day the wording last changed in substance. Refresh it with the wording. */
