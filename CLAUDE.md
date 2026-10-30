@@ -208,7 +208,7 @@ dashboard). What was measured, not assumed:
   set; and nothing outside the service calls `getStripe()`. Checkout is
   `window.location.href = session.url` to Stripe‑hosted Checkout, and the
   billing portal has the same shape. **The three `VITE_STRIPE_*` variables are
-  dead wherever they exist** (`.env.example` still lists one; a follow‑up).
+  dead wherever they exist** (`.env.example` and the startup env check stopped asking for one on 29 Oct).
 - **The live integration is four server variables**:
   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PREMIUM_MONTHLY`,
   `STRIPE_PRICE_PRO_MONTHLY`. The code is mode‑agnostic. Going live is
