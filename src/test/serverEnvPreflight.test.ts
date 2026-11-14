@@ -156,7 +156,7 @@ describe('server-env preflight: everywhere else reports and builds', () => {
 });
 
 describe('server-env preflight: no Stripe secret under a VITE_ name', () => {
-  it.each(['VITE_STRIPE_SECRET_KEY', 'VITE_STRIPE_WEBHOOK_SECRET', 'VITE_SUPABASE_SERVICE_ROLE_KEY'])(
+  it.each(['VITE_STRIPE_SECRET_KEY', 'VITE_STRIPE_WEBHOOK_SECRET', 'VITE_SUPABASE_SERVICE_ROLE_KEY', 'VITE_ANTHROPIC_API_KEY'])(
     'refuses %s on any Vercel build',
     (name) => {
       const { status, out } = run({ ...PREVIEW, [name]: 'anything' });
@@ -170,6 +170,13 @@ describe('server-env preflight: no Stripe secret under a VITE_ name', () => {
     expect(status).toBe(1);
     expect(out).toContain('VITE_PAYMENTS_KEY');
     expect(out).not.toContain('FAKEsecretVALUE');
+  });
+
+  it('refuses an Anthropic key under any VITE_ name (the in-app assistant, 14 Nov 2026)', () => {
+    const { status, out } = run({ ...PREVIEW, VITE_ASK_KEY: 'sk-ant-FAKEanthropicVALUE' });
+    expect(status).toBe(1);
+    expect(out).toContain('VITE_ASK_KEY');
+    expect(out).not.toContain('FAKEanthropicVALUE');
   });
 
   it('lets a publishable key through — it is public by design', () => {

@@ -24,6 +24,7 @@
 
 import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
 import { UserButton } from '@clerk/clerk-react';
+import AskAssistant from '../../components/assistant/AskAssistant';
 import DemoModeIndicator from '../../components/DemoModeIndicator';
 import EnhancedNotificationBell from '../../components/EnhancedNotificationBell';
 import GlobalSearchComponent from '../../components/GlobalSearch';
@@ -96,6 +97,12 @@ export const MobileBreadcrumb: ChromeOrnament = MobileBreadcrumbComponent;
 
 /** The bell, and the count on it. */
 export const NotificationBell: ChromeOrnament = EnhancedNotificationBell;
+
+/**
+ * The in-app assistant's button and panel (14 Nov 2026). It draws nothing
+ * unless the server says Ask is switched on for this account.
+ */
+export const AskButton: ChromeOrnament = AskAssistant;
 
 /** Whether this tab is hearing about changes made somewhere else. */
 export const RealtimeDot: ChromeOrnament = RealtimeStatusDot;

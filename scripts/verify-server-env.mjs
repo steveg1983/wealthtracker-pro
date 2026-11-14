@@ -77,11 +77,18 @@ const EXPECTED = [
 // Vars that must NOT exist: VITE_-prefixed secrets get inlined into the
 // public bundle at build time. VITE_STRIPE_SECRET_KEY was declared in
 // src/vite-env.d.ts until the June 2026 P0 (SECURITY_P0_ROLLOUT.md).
-const FORBIDDEN = ['VITE_SUPABASE_SERVICE_ROLE_KEY', 'VITE_STRIPE_SECRET_KEY', 'VITE_STRIPE_WEBHOOK_SECRET'];
+const FORBIDDEN = [
+  'VITE_SUPABASE_SERVICE_ROLE_KEY',
+  'VITE_STRIPE_SECRET_KEY',
+  'VITE_STRIPE_WEBHOOK_SECRET',
+  // The in-app assistant's key (14 Nov 2026). Server-only: ANTHROPIC_API_KEY.
+  'VITE_ANTHROPIC_API_KEY'
+];
 
 // What a Stripe SECRET looks like, so a VITE_ var holding one is caught under
 // any name. Publishable keys (pk_) are public by design and not matched.
-const STRIPE_SECRET_VALUE = /^(sk_|rk_|whsec_)/;
+// `sk-ant-` is an Anthropic API key, which has no public form at all.
+const STRIPE_SECRET_VALUE = /^(sk_|rk_|whsec_|sk-ant-)/;
 
 // The Stripe go-live set (CLAUDE.md, "Stripe: a go-live, not a rename"), each
 // with the prefix its value must carry.

@@ -112,6 +112,13 @@ export const RealtimeDot: ChromeOrnament = () => null;
 export const NotificationBell: ChromeOrnament = () => null;
 
 /**
+ * Never here. Ask sends a question, and the figures Claude reads to answer
+ * it, to Anthropic through our server; a program whose promise is that the
+ * money never leaves the machine cannot offer that (owner, 14 Nov 2026).
+ */
+export const AskButton: ChromeOrnament = () => null;
+
+/**
  * No search yet, but a REAL handle.
  *
  * The frame focuses this on Ctrl+K and on the phone's search button, through a
