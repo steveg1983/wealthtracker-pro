@@ -235,9 +235,11 @@ describe('the edition seams', () => {
     // CHROME_HAS_BANK_FEEDS (26 Aug) and CHROME_HAS_PRICE_HISTORY (27 Aug) —
     // not furniture but booleans the callers ask before drawing their own
     // controls, after the first desktop install offered a nav item that
-    // could only apologise.
+    // could only apologise. And (14 Nov 2026) `AskButton`, the in-app
+    // assistant, which the desktop answers with nothing for good.
     const chrome = valueExportsOf('src/editions/cloud/chrome.tsx');
-    expect(chrome.length).toBe(10);
+    expect(chrome.length).toBe(11);
+    expect(chrome).toContain('AskButton');
     expect(chrome).toContain('RealtimeDot');
     expect(chrome).toContain('CHROME_HAS_BANK_FEEDS');
     expect(chrome).toContain('CHROME_HAS_PRICE_HISTORY');

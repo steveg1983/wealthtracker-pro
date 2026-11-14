@@ -112,6 +112,7 @@ import {
   IconFingerprint,
   IconCamera,
   IconSend,
+  IconMessageQuestion,
   IconBold,
   IconItalic,
   IconList,
@@ -308,6 +309,7 @@ export const BellIcon = createIconComponent(IconBell, 'BellIcon');
 export const BellOffIcon = createIconComponent(IconBellOff, 'BellOffIcon');
 export const MailIcon = createIconComponent(IconMail, 'MailIcon');
 export const SendIcon = createIconComponent(IconSend, 'SendIcon');
+export const AskIcon = createIconComponent(IconMessageQuestion, 'AskIcon');
 
 // Professional Icons
 export const BriefcaseIcon = createIconComponent(IconBriefcase, 'BriefcaseIcon');

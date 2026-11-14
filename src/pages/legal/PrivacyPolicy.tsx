@@ -173,6 +173,19 @@ export default function PrivacyPolicy(): React.JSX.Element {
           is stamped so that you can see it was Claude, and a category it files is marked as a
           suggestion for you to confirm. Basis: your consent.
         </p>
+
+        <h3 className={H3}>Ask, the assistant inside the app, only if you use it</h3>
+        <p className={P}>
+          Where Ask is switched on for your account, you can type a question about your money. Our
+          server sends your question, and the figures from your ledger needed to answer it, to
+          Anthropic, whose model Claude writes the answer. Ask can only read; it cannot change a
+          record. Here Anthropic processes the data for us under its commercial terms, which do not
+          allow it to train its models on what we send, and it keeps that data only for a limited
+          period. We do not keep your questions or the answers: we record only that a question was
+          asked and how much it cost to answer, so that a monthly allowance can be counted. Nothing
+          is sent unless you ask a question. Basis: your request, as part of the service you
+          subscribe to.
+        </p>
       </section>
 
       <section>
@@ -192,7 +205,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
           <li className={LI}><strong>Sentry</strong>, error reports with personal data removed, and session diagnostics only with your consent.</li>
           <li className={LI}><strong>Apple</strong>, notification delivery, only if you turn notifications on.</li>
           <li className={LI}><strong>Twelve Data</strong> and <strong>Frankfurter</strong>, prices and exchange rates, receiving no personal data.</li>
-          <li className={LI}><strong>Anthropic</strong>, only if you connect Claude, and only what Claude reads at your request.</li>
+          <li className={LI}><strong>Anthropic</strong>, only if you connect Claude or ask a question with Ask, and only what is read to answer you.</li>
         </ul>
         <p className={P}>
           Some of these providers operate in the United States. Where data leaves the United

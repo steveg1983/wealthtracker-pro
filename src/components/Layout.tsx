@@ -9,6 +9,7 @@ import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 // `docs/edition-gating.md` explains why the choice is the build's rather than a
 // runtime branch's.
 import {
+  AskButton,
   BackgroundWork,
   DemoBanner,
   GlobalSearch,
@@ -489,6 +490,7 @@ export default function Layout(): React.JSX.Element {
                 />
               </div>
             </div>
+            <AskButton />
             <NotificationBell />
             <RealtimeDot />
             <div className="relative">
@@ -602,6 +604,7 @@ export default function Layout(): React.JSX.Element {
           </h1>
           
           <div className="flex items-center gap-2">
+            <AskButton />
             <NotificationBell />
             <button
               onClick={() => {
